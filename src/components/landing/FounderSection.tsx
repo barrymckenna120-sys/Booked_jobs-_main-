@@ -1,4 +1,5 @@
 import { Quote, MapPin } from "lucide-react";
+import barryPhoto from "@/assets/barry-mckenna.png";
 
 export const FounderSection = () => {
   return (
@@ -12,9 +13,16 @@ export const FounderSection = () => {
           "I've worked with plumbers for years. This is built to help good local plumbers show up on Google, get chosen faster, and win more jobs every week."
         </p>
         
-        <div className="border-t border-border pt-4">
-          <p className="font-semibold text-heading">Barry McKenna</p>
-          <p className="text-sm text-subtle">Founder, WebLiveView Ltd</p>
+        <div className="border-t border-border pt-4 flex items-center gap-4">
+          <img 
+            src={barryPhoto} 
+            alt="Barry McKenna" 
+            className="w-16 h-16 rounded-full object-cover"
+          />
+          <div>
+            <p className="font-semibold text-heading">Barry McKenna</p>
+            <p className="text-sm text-subtle">Founder, WebLiveView Ltd</p>
+          </div>
         </div>
       </div>
       
