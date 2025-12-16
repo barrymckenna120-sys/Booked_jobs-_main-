@@ -1,4 +1,5 @@
 import { Calendar, Star, Award } from "lucide-react";
+import googleLogo from "@/assets/google-logo.png";
 
 export const WhyGoogleMattersSection = () => {
   const features = [
@@ -9,6 +10,9 @@ export const WhyGoogleMattersSection = () => {
 
   return (
     <section className="section-container bg-secondary">
+      <div className="flex justify-center mb-4">
+        <img src={googleLogo} alt="Google" className="w-10 h-10" />
+      </div>
       <h2 className="section-heading">Why Your Google Business Profile Matters</h2>
       
       <ul className="bullet-list mb-6">
