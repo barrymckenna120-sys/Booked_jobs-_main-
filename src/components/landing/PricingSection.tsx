@@ -8,7 +8,7 @@ export const PricingSection = () => {
       <h2 className="section-heading text-center">Pricing</h2>
       <p className="text-center text-sm text-subtle mb-6">Introductory Offer</p>
       
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Google Business Profile */}
         <div className="pricing-card">
           <h3 className="font-bold text-lg text-heading mb-2">Google Business Profile Setup</h3>
@@ -17,8 +17,10 @@ export const PricingSection = () => {
             <span className="text-body"> + VAT</span>
           </div>
           <p className="text-sm text-subtle line-through mb-4">€600 normal price</p>
-          <Button size="lg" className="w-full text-base font-semibold py-5">
-            Get More Plumbing Jobs
+          <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
+            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+              Get More Plumbing Jobs
+            </a>
           </Button>
         </div>
         
@@ -30,8 +32,10 @@ export const PricingSection = () => {
             <span className="text-body"> + VAT</span>
           </div>
           <p className="text-sm text-subtle line-through mb-4">€600 normal price</p>
-          <Button size="lg" variant="outline" className="w-full text-base font-semibold py-5 border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-            Add 24/7 Plumbing Booking
+          <Button size="lg" variant="outline" className="w-full text-base font-semibold py-5 border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
+            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+              Add 24/7 Plumbing Booking
+            </a>
           </Button>
         </div>
         
@@ -50,8 +54,10 @@ export const PricingSection = () => {
             <Check className="w-4 h-4" />
             <span>Save €400</span>
           </div>
-          <Button size="lg" className="w-full text-base font-semibold py-5">
-            Claim Offer
+          <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
+            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+              Claim Offer
+            </a>
           </Button>
         </div>
       </div>

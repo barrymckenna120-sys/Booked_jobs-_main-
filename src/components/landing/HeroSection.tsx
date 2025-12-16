@@ -22,12 +22,16 @@ export const HeroSection = () => {
         className="w-full rounded-lg mb-8"
       />
       
-      <div className="flex flex-col gap-3 mb-8">
-        <Button size="lg" className="w-full text-base font-semibold py-6">
-          Get More Plumbing Jobs
+      <div className="flex flex-col sm:flex-row gap-3 mb-8">
+        <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
+          <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+            Get More Plumbing Jobs
+          </a>
         </Button>
-        <Button size="lg" variant="outline" className="w-full text-base font-semibold py-6 border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-          Add 24/7 Plumbing Booking
+        <Button size="lg" variant="outline" className="w-full text-base font-semibold py-6 border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
+          <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+            Add 24/7 Plumbing Booking
+          </a>
         </Button>
       </div>
       
