@@ -25,7 +25,7 @@ export const FooterSection = () => {
           Helping plumbers get found and booked online.
         </p>
         
-        <p className="text-xs opacity-40">
+        <p className="text-xs opacity-40 text-primary-foreground">
           © 2025 WebLiveView Ltd. All rights reserved.
         </p>
       </div>
