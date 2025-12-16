@@ -1,10 +1,8 @@
 import { Phone, Mail, MapPin } from "lucide-react";
-
 export const FooterSection = () => {
-  return (
-    <footer className="section-container bg-[#475f88] text-white py-12">
+  return <footer className="section-container bg-[#475f88] text-white py-12">
       <div className="text-center">
-        <h3 className="font-bold text-xl mb-4">WebLiveView Ltd</h3>
+        <h3 className="font-bold text-xl mb-4 text-primary-foreground">WebLiveView Ltd</h3>
         
         <div className="space-y-3 mb-6">
           <div className="flex items-center justify-center gap-2 text-sm opacity-80">
@@ -23,7 +21,7 @@ export const FooterSection = () => {
           </a>
         </div>
         
-        <p className="text-sm opacity-60 mb-4">
+        <p className="text-sm opacity-60 mb-4 text-primary-foreground">
           Helping plumbers get found and booked online.
         </p>
         
@@ -31,6 +29,5 @@ export const FooterSection = () => {
           © 2025 WebLiveView Ltd. All rights reserved.
         </p>
       </div>
-    </footer>
-  );
+    </footer>;
 };
