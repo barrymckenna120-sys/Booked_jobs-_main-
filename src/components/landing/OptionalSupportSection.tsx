@@ -11,7 +11,7 @@ export const OptionalSupportSection = () => {
     <section className="section-container bg-secondary">
       <h3 className="text-xl font-bold text-heading mb-2">Optional Managed Google Support</h3>
       <div className="mb-4">
-        <span className="text-2xl font-bold text-heading">€100</span>
+        <span className="text-2xl font-bold text-heading">€250</span>
         <span className="text-body"> / month + VAT</span>
       </div>
       

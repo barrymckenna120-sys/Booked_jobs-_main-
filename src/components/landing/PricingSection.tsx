@@ -10,37 +10,41 @@ export const PricingSection = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Google Business Profile */}
-        <div className="pricing-card">
+        <div className="pricing-card flex flex-col h-full">
           <h3 className="font-bold text-lg text-heading mb-2">Google Business Profile Setup</h3>
           <div className="mb-4">
             <span className="text-3xl font-bold text-heading">€450</span>
             <span className="text-body"> + VAT</span>
           </div>
           <p className="text-sm text-subtle line-through mb-4">€600 normal price</p>
-          <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
-            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-              Get More Plumbing Jobs
-            </a>
-          </Button>
+          <div className="mt-auto">
+            <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
+              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+                Get Started
+              </a>
+            </Button>
+          </div>
         </div>
         
         {/* 24/7 Booking */}
-        <div className="pricing-card">
+        <div className="pricing-card flex flex-col h-full">
           <h3 className="font-bold text-lg text-heading mb-2">24/7 Plumbing Booking Form</h3>
           <div className="mb-4">
             <span className="text-3xl font-bold text-heading">€450</span>
             <span className="text-body"> + VAT</span>
           </div>
           <p className="text-sm text-subtle line-through mb-4">€600 normal price</p>
-          <Button size="lg" variant="outline" className="w-full text-base font-semibold py-5 border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
-            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-              Add 24/7 Plumbing Booking
-            </a>
-          </Button>
+          <div className="mt-auto">
+            <Button size="lg" variant="outline" className="w-full text-base font-semibold py-5 border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
+              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+                Get Started
+              </a>
+            </Button>
+          </div>
         </div>
         
         {/* Best Value */}
-        <div className="pricing-card border-2 border-primary relative">
+        <div className="pricing-card border-2 border-primary relative flex flex-col h-full">
           <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
             Best Value
           </Badge>
@@ -54,11 +58,13 @@ export const PricingSection = () => {
             <Check className="w-4 h-4" />
             <span>Save €400</span>
           </div>
-          <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
-            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-              Claim Offer
-            </a>
-          </Button>
+          <div className="mt-auto">
+            <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
+              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+                Claim Offer
+              </a>
+            </Button>
+          </div>
         </div>
       </div>
       
