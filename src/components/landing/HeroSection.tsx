@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import plumberHero from "@/assets/plumber-hero.png";
 
 export const HeroSection = () => {
   return (
@@ -7,9 +8,15 @@ export const HeroSection = () => {
         Get More Plumbing Jobs from Google — Without Missing Calls
       </h1>
       
-      <p className="text-lg text-body mb-8">
+      <p className="text-lg text-body mb-6">
         Google setup + 24/7 booking for local plumbers.
       </p>
+      
+      <img 
+        src={plumberHero} 
+        alt="Professional plumber servicing a boiler in a kitchen" 
+        className="w-full rounded-lg mb-8"
+      />
       
       <div className="flex flex-col gap-3 mb-8">
         <Button size="lg" className="w-full text-base font-semibold py-6">
