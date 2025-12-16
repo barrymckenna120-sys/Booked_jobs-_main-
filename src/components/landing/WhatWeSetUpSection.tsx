@@ -1,4 +1,5 @@
-import { Building2, Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2 } from "lucide-react";
+import googleLogo from "@/assets/google-logo.png";
 
 export const WhatWeSetUpSection = () => {
   const googleFeatures = [
@@ -23,8 +24,8 @@ export const WhatWeSetUpSection = () => {
       
       <div className="space-y-4">
         <div className="pricing-card">
-          <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-6 h-6 text-accent" />
+          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <img src={googleLogo} alt="Google" className="w-8 h-8" />
           </div>
           <h3 className="font-bold text-lg text-heading mb-4">Google Business Profile</h3>
           <ul className="space-y-2 text-left">

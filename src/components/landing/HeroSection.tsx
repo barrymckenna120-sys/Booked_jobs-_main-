@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import plumberHero from "@/assets/plumber-hero.png";
+import googleLogo from "@/assets/google-logo.png";
 
 export const HeroSection = () => {
   return (
@@ -8,9 +9,12 @@ export const HeroSection = () => {
         Get More Plumbing Jobs from Google — Without Missing Calls
       </h1>
       
-      <p className="text-lg text-body mb-6">
-        Google setup + 24/7 booking for local plumbers.
-      </p>
+      <div className="flex items-center justify-center gap-2 mb-6">
+        <img src={googleLogo} alt="Google" className="w-6 h-6" />
+        <p className="text-lg text-body">
+          Google setup + 24/7 booking for local plumbers.
+        </p>
+      </div>
       
       <img 
         src={plumberHero} 
