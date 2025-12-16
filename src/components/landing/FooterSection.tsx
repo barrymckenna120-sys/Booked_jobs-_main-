@@ -2,7 +2,7 @@ import { Phone, Mail, MapPin } from "lucide-react";
 
 export const FooterSection = () => {
   return (
-    <footer className="section-container bg-foreground text-background py-12">
+    <footer className="section-container bg-[#475f88] text-white py-12">
       <div className="text-center">
         <h3 className="font-bold text-xl mb-4">WebLiveView Ltd</h3>
         
