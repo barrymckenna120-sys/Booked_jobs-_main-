@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import plumberHero from "@/assets/plumber-hero.png";
-import googleLogo from "@/assets/google-logo.png";
 
 export const HeroSection = () => {
   return (
@@ -9,12 +8,9 @@ export const HeroSection = () => {
         Get More Local Plumbing Jobs with Proven Marketing
       </h1>
       
-      <div className="flex items-center justify-center gap-2 mb-6">
-        <img src={googleLogo} alt="Google" className="w-6 h-6" />
-        <p className="text-lg text-body">
-          Google setup + 24/7 booking for local plumbers.
-        </p>
-      </div>
+      <p className="text-lg text-body mb-6">
+        Facebook & Google ads, booking websites, and lead gen for local plumbers.
+      </p>
       
       <img 
         src={plumberHero} 
