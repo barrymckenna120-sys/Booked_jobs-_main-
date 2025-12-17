@@ -34,7 +34,7 @@ export const FooterSection = () => {
             <Facebook className="w-6 h-6" />
           </a>
           <a 
-            href="https://www.linkedin.com/company/webliveview" 
+            href="https://www.linkedin.com/company/9435525" 
             target="_blank" 
             rel="noopener noreferrer"
             className="opacity-80 hover:opacity-100 transition-opacity"
