@@ -20,13 +20,11 @@ export const StickyHeader = () => {
       }`}
     >
       <div className="section-container py-2">
-        <div className="h-10 overflow-hidden">
-          <img
-            src={webliveviewLogo}
-            alt="WebLiveView"
-            className="h-14 w-auto object-cover object-top"
-          />
-        </div>
+        <img
+          src={webliveviewLogo}
+          alt="WebLiveView"
+          className="w-[200px] h-[80px] object-contain object-left"
+        />
       </div>
     </header>
   );
