@@ -1,4 +1,5 @@
 import { HeaderSection } from "@/components/landing/HeaderSection";
+import { StickyHeader } from "@/components/landing/StickyHeader";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { WhyThisMattersSection } from "@/components/landing/WhyThisMattersSection";
 import { MissedCallsSection } from "@/components/landing/MissedCallsSection";
@@ -18,6 +19,7 @@ import { FooterSection } from "@/components/landing/FooterSection";
 const Index = () => {
   return (
     <main className="min-h-screen bg-background">
+      <StickyHeader />
       <HeaderSection />
       <HeroSection />
       <WhyThisMattersSection />
