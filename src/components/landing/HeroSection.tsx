@@ -5,12 +5,14 @@ export const HeroSection = () => {
   return (
     <section className="section-container pt-12">
       <h1 className="text-3xl font-bold text-heading leading-tight mb-4">
-        Get More Local Plumbing Jobs with Proven Marketing
+        Google Business & Social Booking Setup
       </h1>
       
-      <p className="text-lg text-body mb-6">
-        Facebook & Google ads, booking websites, and lead gen for local plumbers.
-      </p>
+      <div className="text-lg text-body mb-6 space-y-3">
+        <p className="font-semibold">Get Found on Google. Book Jobs From Social.</p>
+        <p>We set up and optimize your Google Business Profile so you rank in local searches and maps.</p>
+        <p>Plus, we add booking links to your Facebook, Instagram, and WhatsApp — turning clicks into confirmed plumbing jobs.</p>
+      </div>
       
       <img 
         src={plumberHero} 
