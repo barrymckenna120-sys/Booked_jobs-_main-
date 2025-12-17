@@ -9,7 +9,7 @@ export const HeroSection = () => {
       <div className="flex items-center justify-center gap-3 mb-4">
         <img src={googleIcon} alt="Google" className="w-10 h-10" />
         <h1 className="text-3xl font-bold text-heading leading-tight">
-          Google Business & Social Booking Setup
+          Digital Marketing for Plumbers | Get More Local Jobs
         </h1>
       </div>
       <div className="text-lg text-body mb-6 space-y-3">
