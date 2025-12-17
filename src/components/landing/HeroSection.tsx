@@ -1,13 +1,16 @@
 import { Button } from "@/components/ui/button";
 import plumberHero from "@/assets/plumber-hero.png";
+import googleIcon from "@/assets/google-icon.png";
 
 export const HeroSection = () => {
   return (
     <section className="section-container pt-12">
-      <h1 className="text-3xl font-bold text-heading leading-tight mb-4">
-        Google Business & Social Booking Setup
-      </h1>
-      
+      <div className="flex items-center justify-center gap-3 mb-4">
+        <img src={googleIcon} alt="Google" className="w-10 h-10" />
+        <h1 className="text-3xl font-bold text-heading leading-tight">
+          Google Business & Social Booking Setup
+        </h1>
+      </div>
       <div className="text-lg text-body mb-6 space-y-3">
         <p className="font-semibold">Get Found on Google. Book Jobs From Social.</p>
         <p>We set up and optimize your Google Business Profile so you rank in local searches and maps.</p>
