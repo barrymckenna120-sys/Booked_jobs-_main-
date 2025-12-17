@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Facebook, Instagram, MessageCircle } from "lucide-react";
 import plumberHero from "@/assets/plumber-hero.png";
 import googleIcon from "@/assets/google-icon.png";
 
@@ -14,7 +15,23 @@ export const HeroSection = () => {
       <div className="text-lg text-body mb-6 space-y-3">
         <p className="font-semibold">Get Found on Google. Book Jobs From Social.</p>
         <p>We set up and optimize your Google Business Profile so you rank in local searches and maps.</p>
-        <p>Plus, we add booking links to your Facebook, Instagram, and WhatsApp — turning clicks into confirmed plumbing jobs.</p>
+        <p className="flex items-center flex-wrap gap-1">
+          Plus, we add booking links to your 
+          <span className="inline-flex items-center gap-1 mx-1">
+            <Facebook className="w-5 h-5 text-[#1877F2]" />
+            Facebook,
+          </span>
+          <span className="inline-flex items-center gap-1 mx-1">
+            <Instagram className="w-5 h-5 text-[#E4405F]" />
+            Instagram,
+          </span>
+          and
+          <span className="inline-flex items-center gap-1 mx-1">
+            <MessageCircle className="w-5 h-5 text-[#25D366]" />
+            WhatsApp
+          </span>
+          — turning clicks into confirmed plumbing jobs.
+        </p>
       </div>
       
       <img 
