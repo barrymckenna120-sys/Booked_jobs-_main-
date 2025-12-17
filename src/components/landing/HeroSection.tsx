@@ -1,17 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Facebook, Instagram, MessageCircle } from "lucide-react";
 import plumberHero from "@/assets/plumber-hero.png";
-import googleIcon from "@/assets/google-icon.png";
 
 export const HeroSection = () => {
   return (
     <section className="section-container pt-12">
-      <div className="flex items-center justify-center gap-3 mb-4">
-        <img src={googleIcon} alt="Google" className="w-10 h-10" />
-        <h1 className="text-3xl font-bold text-heading leading-tight">
-          Digital Marketing for Plumbers | Get More Local Jobs
-        </h1>
-      </div>
+      <h1 className="text-3xl font-bold text-heading leading-tight mb-4">
+        Digital Marketing for Plumbers | Get More Local Jobs
+      </h1>
       <div className="text-lg text-body mb-6 space-y-3">
         <p className="font-semibold">Get Found on Google. Book Jobs From Social.</p>
         <p>We set up and optimize your Google Business Profile so you rank in local searches and maps.</p>
