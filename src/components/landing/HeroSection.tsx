@@ -6,7 +6,7 @@ export const HeroSection = () => {
   return (
     <section className="section-container pt-12">
       <h1 className="text-3xl font-bold text-heading leading-tight mb-4">
-        Get More Plumbing Jobs from Google — Without Missing Calls
+        Get More Local Plumbing Jobs with Proven Marketing
       </h1>
       
       <div className="flex items-center justify-center gap-2 mb-6">
