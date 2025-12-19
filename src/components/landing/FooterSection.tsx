@@ -9,7 +9,7 @@ export const FooterSection = () => {
         <div className="space-y-3 mb-6">
           <div className="flex items-start justify-center gap-2 text-sm opacity-80">
             <MapPin className="w-4 h-4 text-cta flex-shrink-0 mt-0.5" />
-            <span>13 Upper Baggot Street, Ballsbridge, Dublin 4</span>
+            <span>13 Upper Baggot Street, Ballsbridge, Dublin&nbsp;4</span>
           </div>
           
           <a href="tel:+35314412618" className="flex items-center justify-center gap-2 text-sm opacity-80 hover:opacity-100">
