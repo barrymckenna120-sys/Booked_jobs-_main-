@@ -6,6 +6,7 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { WhyPlumbersLoseSection } from "@/components/landing/WhyPlumbersLoseSection";
 import { GoogleComparisonSection } from "@/components/landing/GoogleComparisonSection";
 import { NeverMissBookingSection } from "@/components/landing/NeverMissBookingSection";
+import { ROISection } from "@/components/landing/ROISection";
 import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
 import { WhatWeSetUpSection } from "@/components/landing/WhatWeSetUpSection";
 import { PricingSection } from "@/components/landing/PricingSection";
@@ -25,6 +26,7 @@ const Index = () => {
       <HeroSection />
       <WhyPlumbersLoseSection />
       <NeverMissBookingSection />
+      <ROISection />
       <GoogleComparisonSection />
       <BeforeAfterSection />
       <WhatWeSetUpSection />
