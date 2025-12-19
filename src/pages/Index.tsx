@@ -5,6 +5,7 @@ import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { WhyPlumbersLoseSection } from "@/components/landing/WhyPlumbersLoseSection";
 import { GoogleComparisonSection } from "@/components/landing/GoogleComparisonSection";
+import { NeverMissBookingSection } from "@/components/landing/NeverMissBookingSection";
 import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
 import { WhatWeSetUpSection } from "@/components/landing/WhatWeSetUpSection";
 import { PricingSection } from "@/components/landing/PricingSection";
@@ -23,6 +24,7 @@ const Index = () => {
       <HeaderSection />
       <HeroSection />
       <WhyPlumbersLoseSection />
+      <NeverMissBookingSection />
       <GoogleComparisonSection />
       <BeforeAfterSection />
       <WhatWeSetUpSection />
