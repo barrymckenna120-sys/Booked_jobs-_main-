@@ -41,7 +41,7 @@ export const TestimonialsSection = () => {
       </div>
       
       <div className="mt-6">
-        <Button size="lg" variant="outline" className="w-full text-base font-semibold py-6 border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
+        <Button size="lg" variant="outline" className="w-full text-base font-semibold py-6 border-cta text-cta hover:bg-cta hover:text-cta-foreground" asChild>
           <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
             See More Testimonials →
           </a>
