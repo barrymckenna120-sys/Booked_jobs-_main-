@@ -9,6 +9,7 @@ import { NeverMissBookingSection } from "@/components/landing/NeverMissBookingSe
 import { ROISection } from "@/components/landing/ROISection";
 import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
 import { WhatWeSetUpSection } from "@/components/landing/WhatWeSetUpSection";
+import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { FAQSection } from "@/components/landing/FAQSection";
@@ -30,6 +31,7 @@ const Index = () => {
       <GoogleComparisonSection />
       <BeforeAfterSection />
       <WhatWeSetUpSection />
+      <HowItWorksSection />
       <PricingSection />
       <TestimonialsSection />
       <FAQSection />
