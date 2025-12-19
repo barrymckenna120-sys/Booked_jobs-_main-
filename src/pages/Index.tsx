@@ -3,6 +3,7 @@ import { StickyHeader } from "@/components/landing/StickyHeader";
 import { StickyCTA } from "@/components/landing/StickyCTA";
 import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { HeroSection } from "@/components/landing/HeroSection";
+import { WhyPlumbersLoseSection } from "@/components/landing/WhyPlumbersLoseSection";
 import { GoogleComparisonSection } from "@/components/landing/GoogleComparisonSection";
 import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
 import { WhatWeSetUpSection } from "@/components/landing/WhatWeSetUpSection";
@@ -21,6 +22,7 @@ const Index = () => {
       <StickyCTA />
       <HeaderSection />
       <HeroSection />
+      <WhyPlumbersLoseSection />
       <GoogleComparisonSection />
       <BeforeAfterSection />
       <WhatWeSetUpSection />
