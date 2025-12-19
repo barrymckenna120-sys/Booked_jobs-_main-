@@ -35,7 +35,7 @@ export const HowItWorksSection = () => {
             key={index}
             className="relative bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow"
           >
-            <span className="absolute -top-4 left-6 text-5xl font-bold text-primary/10">
+            <span className="absolute top-2 right-4 text-5xl font-bold text-primary/10">
               {step.number}
             </span>
             <div className="flex items-center gap-3 mb-4 mt-2">
