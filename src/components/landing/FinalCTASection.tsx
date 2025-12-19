@@ -1,19 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { Check, Calendar, AlertTriangle } from "lucide-react";
+import { Check, Calendar, AlertTriangle, Shield } from "lucide-react";
 
 export const FinalCTASection = () => {
   const benefits = [
-    "Setup done for you",
-    "Customers book you while you work",
+    "24/7 booking system installed",
     "Google profile fully optimised",
-    "All updates handled monthly",
+    "Lead capture that works while you're working",
   ];
 
   return (
     <section className="section-container bg-cta/5">
       <h2 className="section-heading text-center flex items-center justify-center gap-2">
-        <Check className="w-8 h-8 text-cta" />
-        Ready to Stop Missing Jobs?
+        <Shield className="w-8 h-8 text-cta" />
+        Stop Losing Bookings. Protect Your Revenue.
       </h2>
       
       <ul className="space-y-3 mb-6">
@@ -32,13 +31,13 @@ export const FinalCTASection = () => {
         </p>
         <p className="flex items-center gap-2 text-body">
           <AlertTriangle className="w-5 h-5 text-cta" />
-          4 plumber slots left at €200/month
+          Only 4 plumber slots left
         </p>
       </div>
       
       <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
         <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-          Set Up My Booking System →
+          Start My Booking System Setup →
         </a>
       </Button>
     </section>
