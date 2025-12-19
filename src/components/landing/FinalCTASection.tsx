@@ -10,15 +10,16 @@ export const FinalCTASection = () => {
   ];
 
   return (
-    <section className="section-container bg-primary/5">
-      <h2 className="section-heading text-center">
-        ✅ Ready to Stop Missing Jobs?
+    <section className="section-container bg-cta/5">
+      <h2 className="section-heading text-center flex items-center justify-center gap-2">
+        <Check className="w-8 h-8 text-cta" />
+        Ready to Stop Missing Jobs?
       </h2>
       
       <ul className="space-y-3 mb-6">
         {benefits.map((benefit, index) => (
           <li key={index} className="flex items-center gap-2 text-body">
-            <Check className="w-5 h-5 text-success flex-shrink-0" />
+            <Check className="w-5 h-5 text-cta flex-shrink-0" />
             {benefit}
           </li>
         ))}
@@ -26,11 +27,11 @@ export const FinalCTASection = () => {
       
       <div className="bg-secondary rounded-lg p-4 mb-6 space-y-2">
         <p className="flex items-center gap-2 text-body">
-          <Calendar className="w-5 h-5 text-primary" />
+          <Calendar className="w-5 h-5 text-cta" />
           Offer ends 31 Jan
         </p>
         <p className="flex items-center gap-2 text-body">
-          <AlertTriangle className="w-5 h-5 text-warning" />
+          <AlertTriangle className="w-5 h-5 text-cta" />
           4 plumber slots left at €200/month
         </p>
       </div>

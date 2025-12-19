@@ -8,17 +8,17 @@ export const FooterSection = () => {
         
         <div className="space-y-3 mb-6">
           <div className="flex items-center justify-center gap-2 text-sm opacity-80">
-            <MapPin className="w-4 h-4" />
+            <MapPin className="w-4 h-4 text-cta" />
             <span>13 Upper Baggot Street, Ballsbridge, Dublin 4</span>
           </div>
           
           <a href="tel:+35314412618" className="flex items-center justify-center gap-2 text-sm opacity-80 hover:opacity-100">
-            <Phone className="w-4 h-4" />
+            <Phone className="w-4 h-4 text-cta" />
             <span>00353 1 441 2618</span>
           </a>
           
           <a href="mailto:sales@webliveview.com" className="flex items-center justify-center gap-2 text-sm opacity-80 hover:opacity-100">
-            <Mail className="w-4 h-4" />
+            <Mail className="w-4 h-4 text-cta" />
             <span>sales@webliveview.com</span>
           </a>
         </div>
@@ -28,7 +28,7 @@ export const FooterSection = () => {
             href="https://www.facebook.com/webliveview" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="opacity-80 hover:opacity-100 transition-opacity"
+            className="text-cta hover:opacity-80 transition-opacity"
             aria-label="Follow us on Facebook"
           >
             <Facebook className="w-6 h-6" />
@@ -37,7 +37,7 @@ export const FooterSection = () => {
             href="https://www.linkedin.com/company/9435525" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="opacity-80 hover:opacity-100 transition-opacity"
+            className="text-cta hover:opacity-80 transition-opacity"
             aria-label="Follow us on LinkedIn"
           >
             <Linkedin className="w-6 h-6" />

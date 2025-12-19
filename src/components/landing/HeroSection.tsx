@@ -15,11 +15,11 @@ export const HeroSection = () => {
       
       <div className="space-y-2 mb-6">
         <p className="flex items-center gap-2 text-body">
-          <Check className="w-5 h-5 text-success flex-shrink-0" />
+          <Check className="w-5 h-5 text-cta flex-shrink-0" />
           Show up in local Google searches
         </p>
         <p className="flex items-center gap-2 text-body">
-          <Check className="w-5 h-5 text-success flex-shrink-0" />
+          <Check className="w-5 h-5 text-cta flex-shrink-0" />
           Customers book via WhatsApp, Facebook & Google — even after hours
         </p>
       </div>
