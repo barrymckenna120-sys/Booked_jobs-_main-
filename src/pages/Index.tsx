@@ -2,6 +2,7 @@ import { HeaderSection } from "@/components/landing/HeaderSection";
 import { StickyHeader } from "@/components/landing/StickyHeader";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { GoogleComparisonSection } from "@/components/landing/GoogleComparisonSection";
+import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
 import { WhatWeSetUpSection } from "@/components/landing/WhatWeSetUpSection";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
@@ -17,6 +18,7 @@ const Index = () => {
       <HeaderSection />
       <HeroSection />
       <GoogleComparisonSection />
+      <BeforeAfterSection />
       <WhatWeSetUpSection />
       <PricingSection />
       <TestimonialsSection />
