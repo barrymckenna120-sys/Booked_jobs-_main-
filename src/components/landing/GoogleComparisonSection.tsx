@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, X, Search, DollarSign, Clock, Target, Users, TrendingUp, Megaphone, MapPin } from "lucide-react";
+import { Check, X, Search, Euro, Clock, Target, Users, TrendingUp, Megaphone, MapPin } from "lucide-react";
 
 export const GoogleComparisonSection = () => {
   return (
@@ -16,7 +16,7 @@ export const GoogleComparisonSection = () => {
               <th className="text-left py-3 px-2 font-semibold text-heading"></th>
               <th className="text-center py-3 px-2">
                 <div className="flex flex-col items-center gap-1">
-                  <DollarSign className="w-4 h-4 text-cta" />
+                  <Euro className="w-4 h-4 text-cta" />
                   <span className="font-semibold text-heading">Cost</span>
                 </div>
               </th>
