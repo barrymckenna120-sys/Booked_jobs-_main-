@@ -7,8 +7,8 @@ export const FooterSection = () => {
         <h3 className="font-bold text-xl mb-4 text-primary-foreground">WebLiveView Ltd</h3>
         
         <div className="space-y-3 mb-6">
-          <div className="flex items-center justify-center gap-2 text-sm opacity-80">
-            <MapPin className="w-4 h-4 text-cta" />
+          <div className="flex items-start justify-center gap-2 text-sm opacity-80">
+            <MapPin className="w-4 h-4 text-cta flex-shrink-0 mt-0.5" />
             <span>13 Upper Baggot Street, Ballsbridge, Dublin 4</span>
           </div>
           
