@@ -6,7 +6,7 @@ export const HeroSection = () => {
   return (
     <section className="section-container pt-12">
       <h1 className="text-3xl font-bold text-heading leading-tight mb-4">
-        Digital Marketing for Plumbers | Get More Local Jobs
+        Booking System for Plumbers | Stop Losing the Customers You Already Have
       </h1>
       
       <h2 className="text-xl font-semibold text-heading mb-4">
@@ -16,16 +16,16 @@ export const HeroSection = () => {
       <div className="space-y-2 mb-6">
         <p className="flex items-center gap-2 text-body">
           <Check className="w-5 h-5 text-cta flex-shrink-0" />
-          Show up in local Google searches
+          Never miss a booking again
         </p>
         <p className="flex items-center gap-2 text-body">
           <Check className="w-5 h-5 text-cta flex-shrink-0" />
-          Customers book via WhatsApp, Facebook & Google — even after hours
+          Show up when locals search for a plumber
         </p>
       </div>
       
       <p className="text-body mb-6">
-        We set up your Google profile, install a 24/7 booking form, and connect it to your socials — so jobs come in while you're on the tools.
+        We set up your Google Business Profile and install a 24/7 booking system — so your leads are captured automatically while you're on the job.
       </p>
       
       <img 
@@ -37,14 +37,14 @@ export const HeroSection = () => {
       <div className="flex flex-col gap-3 mb-6">
         <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
           <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-            Claim My €250 Setup Offer →
+            Set Up My Booking System →
           </a>
         </Button>
       </div>
       
       <div className="text-center space-y-1">
         <p className="text-sm text-subtle">
-          No payment needed • Offer ends 31 Jan • Only 4 slots left
+          No payment required • Only 4 plumber slots left
         </p>
       </div>
     </section>
