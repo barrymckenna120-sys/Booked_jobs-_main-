@@ -1,6 +1,7 @@
 import { HeaderSection } from "@/components/landing/HeaderSection";
 import { StickyHeader } from "@/components/landing/StickyHeader";
 import { StickyCTA } from "@/components/landing/StickyCTA";
+import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { GoogleComparisonSection } from "@/components/landing/GoogleComparisonSection";
 import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
@@ -15,6 +16,7 @@ import { FooterSection } from "@/components/landing/FooterSection";
 const Index = () => {
   return (
     <main className="min-h-screen bg-background">
+      <ScrollProgress />
       <StickyHeader />
       <StickyCTA />
       <HeaderSection />
