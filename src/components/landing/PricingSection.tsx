@@ -1,76 +1,70 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check } from "lucide-react";
 
 export const PricingSection = () => {
   return (
     <section className="section-container">
-      <h2 className="section-heading text-center">Pricing</h2>
-      <p className="text-center text-sm text-subtle mb-6">Introductory Offer</p>
+      <h2 className="section-heading text-center">💰 Pricing That Makes Sense</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Google Business Profile */}
-        <div className="pricing-card flex flex-col h-full">
-          <h3 className="font-bold text-lg text-heading mb-2">Google Business Profile Setup</h3>
-          <div className="mb-4">
-            <span className="text-3xl font-bold text-heading">€450</span>
-            <span className="text-body"> + VAT</span>
-          </div>
-          <p className="text-sm text-subtle line-through mb-4">€600 normal price</p>
-          <div className="mt-auto">
-            <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
-              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                Get Started
-              </a>
-            </Button>
-          </div>
-        </div>
-        
-        {/* 24/7 Booking */}
-        <div className="pricing-card flex flex-col h-full">
-          <h3 className="font-bold text-lg text-heading mb-2">24/7 Plumbing Booking Form</h3>
-          <div className="mb-4">
-            <span className="text-3xl font-bold text-heading">€450</span>
-            <span className="text-body"> + VAT</span>
-          </div>
-          <p className="text-sm text-subtle line-through mb-4">€600 normal price</p>
-          <div className="mt-auto">
-            <Button size="lg" variant="outline" className="w-full text-base font-semibold py-5 border-primary text-primary hover:bg-primary hover:text-primary-foreground" asChild>
-              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                Get Started
-              </a>
-            </Button>
-          </div>
-        </div>
-        
-        {/* Best Value */}
-        <div className="pricing-card border-2 border-primary relative flex flex-col h-full">
-          <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
-            Best Value
-          </Badge>
-          <h3 className="font-bold text-lg text-heading mb-2 mt-2">Complete Package</h3>
-          <div className="mb-2">
-            <span className="text-3xl font-bold text-primary">€800</span>
-            <span className="text-body"> + VAT</span>
-          </div>
-          <p className="text-sm text-subtle line-through mb-2">€1,200 normal price</p>
-          <div className="flex items-center justify-center gap-2 mb-4 text-sm text-success font-medium">
-            <Check className="w-4 h-4" />
-            <span>Save €400</span>
-          </div>
-          <div className="mt-auto">
-            <Button size="lg" className="w-full text-base font-semibold py-5" asChild>
-              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                Claim Offer
-              </a>
-            </Button>
-          </div>
-        </div>
+      <div className="relative mb-6">
+        <Badge className="bg-warning text-warning-foreground mb-4">
+          ⚡ Introductory Offer – Only 4 Spots Left
+        </Badge>
       </div>
       
-      <p className="text-sm text-subtle text-center mt-6">
-        If it doesn't make sense for your area, we'll tell you before setup.
-      </p>
+      <div className="overflow-x-auto mb-6">
+        <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-secondary">
+              <th className="text-left py-3 px-4 font-semibold text-heading">Package</th>
+              <th className="text-left py-3 px-4 font-semibold text-heading">What's Included</th>
+              <th className="text-right py-3 px-4 font-semibold text-heading">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-border">
+              <td className="py-3 px-4 font-medium text-heading">One-Time Setup</td>
+              <td className="py-3 px-4 text-body">Google Profile + Booking Form</td>
+              <td className="py-3 px-4 text-right font-semibold text-heading">€250 + VAT</td>
+            </tr>
+            <tr className="border-t border-border">
+              <td className="py-3 px-4 font-medium text-heading">Monthly (First 3 Months)</td>
+              <td className="py-3 px-4 text-body">Full management & updates</td>
+              <td className="py-3 px-4 text-right font-semibold text-heading">€200/month + VAT</td>
+            </tr>
+            <tr className="border-t border-border">
+              <td className="py-3 px-4 font-medium text-heading">Ongoing (After Month 3)</td>
+              <td className="py-3 px-4 text-body">Stay or cancel anytime</td>
+              <td className="py-3 px-4 text-right font-semibold text-heading">€250/month + VAT</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="bg-primary/10 rounded-lg p-4 mb-6">
+        <p className="text-center">
+          <span className="text-body">💡 Total First 3 Months:</span>
+          <br />
+          <span className="text-2xl font-bold text-primary">€1,046 incl. VAT</span>
+        </p>
+      </div>
+      
+      <ul className="space-y-2 mb-6 text-sm text-body">
+        <li className="flex items-center gap-2">
+          <span>•</span>
+          No payment required until we confirm your area
+        </li>
+        <li className="flex items-center gap-2">
+          <span>•</span>
+          Cancel anytime after 3 months
+        </li>
+      </ul>
+      
+      <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
+        <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+          Claim Offer – No Payment Needed →
+        </a>
+      </Button>
     </section>
   );
 };
