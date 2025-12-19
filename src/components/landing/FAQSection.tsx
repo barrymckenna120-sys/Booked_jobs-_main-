@@ -33,7 +33,7 @@ export const FAQSection = () => {
   return (
     <section className="section-container">
       <div className="flex items-center gap-2 mb-6">
-        <HelpCircle className="w-6 h-6 text-primary" />
+        <HelpCircle className="w-6 h-6 text-cta" />
         <h2 className="section-heading mb-0">Frequently Asked Questions</h2>
       </div>
       

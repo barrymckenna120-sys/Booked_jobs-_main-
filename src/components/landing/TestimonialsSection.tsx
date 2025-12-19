@@ -23,14 +23,14 @@ export const TestimonialsSection = () => {
   return (
     <section className="section-container">
       <div className="flex items-center gap-2 mb-6">
-        <MessageCircle className="w-6 h-6 text-primary" />
+        <MessageCircle className="w-6 h-6 text-cta" />
         <h2 className="section-heading mb-0">What Other Plumbers Say</h2>
       </div>
       
       <div className="space-y-4">
         {testimonials.map((testimonial, index) => (
           <div key={index} className="bg-secondary rounded-xl p-5">
-            <Quote className="w-6 h-6 text-primary/30 mb-3" />
+            <Quote className="w-6 h-6 text-cta/30 mb-3" />
             <p className="text-body mb-4 italic">"{testimonial.quote}"</p>
             <div className="border-t border-border pt-3">
               <p className="font-semibold text-heading">{testimonial.name}</p>

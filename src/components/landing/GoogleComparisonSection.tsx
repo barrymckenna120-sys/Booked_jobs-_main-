@@ -5,7 +5,7 @@ export const GoogleComparisonSection = () => {
   return (
     <section className="section-container">
       <div className="flex items-center gap-2 mb-6">
-        <Search className="w-6 h-6 text-primary" />
+        <Search className="w-6 h-6 text-cta" />
         <h2 className="section-heading mb-0">Google Business Profile vs Google Ads</h2>
       </div>
       
@@ -16,31 +16,31 @@ export const GoogleComparisonSection = () => {
               <th className="text-left py-3 px-2 font-semibold text-heading"></th>
               <th className="text-center py-3 px-2">
                 <div className="flex flex-col items-center gap-1">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" />
+                  <DollarSign className="w-4 h-4 text-cta" />
                   <span className="font-semibold text-heading">Cost</span>
                 </div>
               </th>
               <th className="text-center py-3 px-2">
                 <div className="flex flex-col items-center gap-1">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <Clock className="w-4 h-4 text-cta" />
                   <span className="font-semibold text-heading">Always On</span>
                 </div>
               </th>
               <th className="text-center py-3 px-2">
                 <div className="flex flex-col items-center gap-1">
-                  <Target className="w-4 h-4 text-muted-foreground" />
+                  <Target className="w-4 h-4 text-cta" />
                   <span className="font-semibold text-heading">Targeting</span>
                 </div>
               </th>
               <th className="text-center py-3 px-2">
                 <div className="flex flex-col items-center gap-1">
-                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <Users className="w-4 h-4 text-cta" />
                   <span className="font-semibold text-heading">Trust</span>
                 </div>
               </th>
               <th className="text-center py-3 px-2">
                 <div className="flex flex-col items-center gap-1">
-                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                  <TrendingUp className="w-4 h-4 text-cta" />
                   <span className="font-semibold text-heading">ROI</span>
                 </div>
               </th>
@@ -63,16 +63,16 @@ export const GoogleComparisonSection = () => {
               <td className="py-4 px-2 text-center text-body">Low (no social proof)</td>
               <td className="py-4 px-2 text-center text-body">Short-term boost</td>
             </tr>
-            <tr className="bg-success/5 rounded-lg">
+            <tr className="bg-cta/5 rounded-lg">
               <td className="py-4 px-2">
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-primary" />
+                  <MapPin className="w-5 h-5 text-cta" />
                   <span className="font-semibold text-heading">Google Business Profile</span>
                 </div>
               </td>
-              <td className="py-4 px-2 text-center text-success font-medium">€200–€250/month</td>
+              <td className="py-4 px-2 text-center text-cta font-medium">€200–€250/month</td>
               <td className="py-4 px-2 text-center">
-                <Check className="w-5 h-5 text-success mx-auto" />
+                <Check className="w-5 h-5 text-cta mx-auto" />
                 <span className="text-xs text-subtle block">Works 24/7 — even on a job</span>
               </td>
               <td className="py-4 px-2 text-center text-body">Local homeowners ready to book</td>
