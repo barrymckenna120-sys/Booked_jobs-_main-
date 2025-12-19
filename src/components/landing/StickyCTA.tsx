@@ -26,7 +26,7 @@ export const StickyCTA = () => {
         asChild
       >
         <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-          Claim My Setup Offer →
+          Set Up My Booking System →
         </a>
       </Button>
     </div>

@@ -38,7 +38,7 @@ export const FinalCTASection = () => {
       
       <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
         <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-          Start My Booking Setup →
+          Set Up My Booking System →
         </a>
       </Button>
     </section>
