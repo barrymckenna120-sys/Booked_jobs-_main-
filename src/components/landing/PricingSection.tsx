@@ -16,10 +16,10 @@ export const PricingSection = () => {
       
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         {/* One-Time Setup Card */}
-        <div className="bg-background rounded-xl p-6 shadow-sm border border-border">
+        <div className="bg-background rounded-xl p-6 shadow-sm border border-border transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 group">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Wrench className="w-6 h-6 text-primary" />
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+              <Wrench className="w-6 h-6 text-primary transition-transform duration-300 group-hover:rotate-12" />
             </div>
             <h3 className="text-lg font-semibold text-heading">One-Time Setup</h3>
           </div>
@@ -43,16 +43,16 @@ export const PricingSection = () => {
           </div>
           
           <div className="text-center pt-4 border-t border-border">
-            <p className="text-3xl font-bold text-heading">€250</p>
+            <p className="text-3xl font-bold text-heading transition-colors duration-300 group-hover:text-primary">€250</p>
             <p className="text-sm text-muted-foreground">+ VAT</p>
           </div>
         </div>
         
         {/* Monthly Management Card */}
-        <div className="bg-background rounded-xl p-6 shadow-sm border border-border">
+        <div className="bg-background rounded-xl p-6 shadow-sm border border-border transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 group">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-primary" />
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+              <Calendar className="w-6 h-6 text-primary transition-transform duration-300 group-hover:rotate-6" />
             </div>
             <h3 className="text-lg font-semibold text-heading">Monthly Management</h3>
           </div>
@@ -76,7 +76,7 @@ export const PricingSection = () => {
           </div>
           
           <div className="text-center pt-4 border-t border-border">
-            <p className="text-3xl font-bold text-heading">€200<span className="text-lg font-normal">/month</span></p>
+            <p className="text-3xl font-bold text-heading transition-colors duration-300 group-hover:text-primary">€200<span className="text-lg font-normal">/month</span></p>
             <p className="text-sm text-muted-foreground">+ VAT • Then €250/month after month 3</p>
           </div>
         </div>
