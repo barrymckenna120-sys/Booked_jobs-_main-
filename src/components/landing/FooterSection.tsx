@@ -17,9 +17,9 @@ export const FooterSection = () => {
             <span>00353 1 441 2618</span>
           </a>
           
-          <a href="mailto:sales@webliveview.com" className="flex items-center justify-center gap-2 text-sm text-white opacity-80 hover:opacity-100">
+          <a href="mailto:sales@bookedjobs.ie" className="flex items-center justify-center gap-2 text-sm text-white opacity-80 hover:opacity-100">
             <Mail className="w-4 h-4 text-white" />
-            <span>sales@webliveview.com</span>
+            <span>sales@bookedjobs.ie</span>
           </a>
         </div>
 
