@@ -21,7 +21,7 @@ export const FounderSection = () => {
           />
           <div>
             <p className="font-semibold text-heading">Barry McKenna</p>
-            <p className="text-sm text-subtle">Founder, WebLiveView Ltd</p>
+            <p className="text-sm text-subtle">Founder, BookedJobs</p>
           </div>
         </div>
       </div>
