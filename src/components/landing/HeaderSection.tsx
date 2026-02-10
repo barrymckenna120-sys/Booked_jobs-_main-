@@ -1,12 +1,13 @@
-import { CheckCircle2 } from "lucide-react";
+import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
 
 export const HeaderSection = () => {
   return (
     <header className="section-container pt-4 pb-2">
-      <div className="flex items-center gap-2">
-        <CheckCircle2 className="w-8 h-8 text-cta" />
-        <span className="text-2xl font-bold text-heading">BookedJobs</span>
-      </div>
+      <img 
+        src={bookedjobsLogo} 
+        alt="BookedJobs" 
+        className="h-10 object-contain object-left"
+      />
     </header>
   );
 };

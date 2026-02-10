@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2 } from "lucide-react";
+import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
 
 export const StickyHeader = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -20,10 +20,11 @@ export const StickyHeader = () => {
       }`}
     >
       <div className="section-container py-2">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-7 h-7 text-cta" />
-          <span className="text-xl font-bold text-heading">BookedJobs</span>
-        </div>
+        <img 
+          src={bookedjobsLogo} 
+          alt="BookedJobs" 
+          className="h-8 object-contain object-left"
+        />
       </div>
     </header>
   );
