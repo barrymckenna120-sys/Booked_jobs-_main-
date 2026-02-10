@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, AlertTriangle, Shield } from "lucide-react";
-import { CountdownTimer } from "./CountdownTimer";
+import { Check, Shield } from "lucide-react";
 
 export const FinalCTASection = () => {
   const benefits = [
@@ -24,15 +23,6 @@ export const FinalCTASection = () => {
           </li>
         ))}
       </ul>
-      
-      <div className="bg-secondary rounded-lg p-4 mb-6 space-y-3">
-        <p className="text-center text-sm font-medium text-foreground mb-3">Offer ends 31 Jan</p>
-        <CountdownTimer />
-        <p className="flex items-center justify-center gap-2 text-body mt-3">
-          <AlertTriangle className="w-5 h-5 text-cta" />
-          Only 4 plumber slots left
-        </p>
-      </div>
       
       <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
         <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">

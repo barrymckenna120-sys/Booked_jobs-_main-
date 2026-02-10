@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     question: "Can I cancel?",
-    answer: "Yes — after 3 months. Just give 30 days' notice.",
+    answer: "Yes — cancel anytime. No lock-in contracts.",
   },
   {
     question: "Will I show up in my area?",

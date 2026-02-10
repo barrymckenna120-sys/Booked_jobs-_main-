@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import webliveviewLogo from "@/assets/webliveview-logo.jpg";
+import { CheckCircle2 } from "lucide-react";
 
 export const StickyHeader = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -20,11 +20,10 @@ export const StickyHeader = () => {
       }`}
     >
       <div className="section-container py-2">
-        <img
-          src={webliveviewLogo}
-          alt="WebLiveView"
-          className="w-[200px] h-[80px] object-contain object-left"
-        />
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-7 h-7 text-cta" />
+          <span className="text-xl font-bold text-heading">BookedJobs</span>
+        </div>
       </div>
     </header>
   );

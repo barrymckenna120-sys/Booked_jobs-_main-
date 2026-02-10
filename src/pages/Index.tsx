@@ -7,6 +7,7 @@ import { WhyPlumbersLoseSection } from "@/components/landing/WhyPlumbersLoseSect
 import { GoogleComparisonSection } from "@/components/landing/GoogleComparisonSection";
 import { NeverMissBookingSection } from "@/components/landing/NeverMissBookingSection";
 import { ROISection } from "@/components/landing/ROISection";
+// CountdownTimer no longer used
 import { BeforeAfterSection } from "@/components/landing/BeforeAfterSection";
 import { WhatWeSetUpSection } from "@/components/landing/WhatWeSetUpSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
