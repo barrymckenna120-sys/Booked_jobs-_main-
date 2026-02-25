@@ -1,6 +1,6 @@
 import { Clock, CreditCard, Bell, Moon, Check, MessageCircle } from "lucide-react";
 import missedCallImg from "@/assets/missed-call-cost.png";
-import whatsappMockupImg from "@/assets/whatsapp-quote-mockup.png";
+import whatsappMockupImg from "@/assets/whatsapp-reminder-mockup.png";
 
 export const NeverMissBookingSection = () => {
   const features = [
@@ -72,10 +72,10 @@ export const NeverMissBookingSection = () => {
             {/* WhatsApp mockup */}
             <div className="flex justify-center">
               <div className="relative max-w-[280px] md:max-w-[320px]">
-                <div className="absolute -inset-4 bg-[#25D366]/10 rounded-[2rem] blur-xl" />
+                <div className="absolute -inset-4 bg-[#25D366]/8 rounded-[2rem] blur-2xl" />
                 <img
                   src={whatsappMockupImg}
-                  alt="WhatsApp quote message showing automated quote delivery to a customer"
+                  alt="WhatsApp reminder message showing automatic booking reminder sent to a customer"
                   className="relative w-full h-auto drop-shadow-2xl"
                   loading="lazy"
                 />
