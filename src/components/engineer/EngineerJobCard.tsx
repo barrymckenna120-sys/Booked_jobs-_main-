@@ -28,9 +28,10 @@ interface EngineerJobCardProps {
   job: any;
   customer: any;
   onUpdate: (jobId: string, patch: Record<string, any>) => void;
+  isNextJob?: boolean;
 }
 
-const EngineerJobCard = ({ job, customer, onUpdate }: EngineerJobCardProps) => {
+const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: EngineerJobCardProps) => {
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -53,9 +54,18 @@ const EngineerJobCard = ({ job, customer, onUpdate }: EngineerJobCardProps) => {
   return (
     <>
       <div
-        className={`bg-card rounded-2xl border border-border border-l-4 p-4 mb-3 transition-opacity ${isDone ? "opacity-70" : ""}`}
+        className={`bg-card rounded-2xl border border-l-4 p-4 mb-3 transition-all ${isDone ? "opacity-70" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border"}`}
         style={{ borderLeftColor: `hsl(var(--${job.job_type === "Emergency" ? "destructive" : job.status === "In Progress" ? "warning" : job.status === "Completed" ? "success" : job.status === "Cancelled" ? "destructive" : "primary"}))` }}
       >
+        {/* Next Job Badge */}
+        {isNextJob && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse">
+              ▶ Next Job
+            </span>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-start mb-1">
           <div className="flex-1">
