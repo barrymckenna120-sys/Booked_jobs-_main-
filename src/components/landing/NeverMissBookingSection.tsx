@@ -23,7 +23,7 @@ export const NeverMissBookingSection = () => {
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background" />
 
-      <div className="section-container relative z-10 py-16 space-y-14">
+      <div className="section-container relative z-10 py-16 space-y-16">
         {/* ── Missed Call Cost Block ── */}
         <div className="space-y-6">
           <div className="text-center space-y-3">
