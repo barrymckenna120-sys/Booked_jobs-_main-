@@ -10,7 +10,7 @@ export const HeroSection = () => {
   ];
 
   return (
-    <section className="section-container pt-6 pb-20 lg:pt-10 lg:pb-28">
+    <section className="section-container pt-6 pb-10 lg:pt-10 lg:pb-14">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         {/* Left — Text block */}
         <div className="max-w-xl">
