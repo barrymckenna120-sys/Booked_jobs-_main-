@@ -134,7 +134,7 @@ const Jobs = () => {
                     <TableRow key={j.id} className="cursor-pointer hover:bg-primary-light" onClick={() => navigate(`/jobs/${j.id}`)}>
                       <TableCell className="font-semibold">{j.customer_name}</TableCell>
                       <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
-                      <TableCell>{j.scheduled_date || "—"}</TableCell>
+                      <TableCell>{j.scheduled_date ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-GB") : "—"}</TableCell>
                       <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
                       <TableCell>{statusBadge(j.status)}</TableCell>
                       <TableCell className="hidden md:table-cell">{j.has_quote ? "📋" : "—"}</TableCell>

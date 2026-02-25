@@ -1,52 +1,40 @@
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
-import plumberHero from "@/assets/plumber-hero.png";
 
 export const HeroSection = () => {
   return (
     <section className="section-container pt-12">
       <h1 className="text-3xl font-bold text-heading leading-tight mb-4">
-        Booking System for Plumbers | Stop Losing the Customers You Already Have
+        As your boiler service customer base grows, so does the admin.
       </h1>
-      
-      <h2 className="text-xl font-semibold text-heading mb-4">
-        Customers Book You While You're Working
-      </h2>
-      
-      <div className="space-y-2 mb-6">
-        <p className="flex items-center gap-2 text-body">
-          <Check className="w-5 h-5 text-cta flex-shrink-0" />
-          Never miss a booking again
-        </p>
-        <p className="flex items-center gap-2 text-body">
-          <Check className="w-5 h-5 text-cta flex-shrink-0" />
-          Show up when locals search for a plumber
-        </p>
-      </div>
-      
-      <p className="text-body mb-6">
-        We set up your Google Business Profile and install a 24/7 booking system — so your leads are captured automatically while you're on the job.
+
+      <p className="text-body mb-4 text-lg leading-relaxed">
+        More renewals. More messages. More quotes. More payments to track.
       </p>
-      
-      <img 
-        src={plumberHero} 
-        alt="Professional plumber servicing a boiler in a kitchen" 
-        className="w-full rounded-lg mb-8"
-      />
-      
-      <div className="flex flex-col gap-3 mb-6">
+
+      <p className="text-body mb-4 leading-relaxed">
+        When you're dealing with hundreds — even thousands — of customers, it's easy for things to slip through the cracks.
+      </p>
+
+      <p className="text-body mb-8 leading-relaxed font-medium">
+        BookedJobs gives boiler service companies a simple system to stay organised and protect recurring income.
+      </p>
+
+      <div className="flex flex-col gap-3 mb-4">
         <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
           <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-            Set Up My Booking System →
+            Start 30-Day Trial →
+          </a>
+        </Button>
+        <Button size="lg" variant="outline" className="w-full text-base font-semibold py-6" asChild>
+          <a href="#demo">
+            Watch 2-Min Demo
           </a>
         </Button>
       </div>
-      
-      <div className="text-center space-y-1">
-        <p className="text-sm text-subtle">
-          No payment required • Only 4 plumber slots left
-        </p>
-      </div>
+
+      <p className="text-center text-sm text-subtle">
+        One extra boiler service per month pays for the system.
+      </p>
     </section>
   );
 };
