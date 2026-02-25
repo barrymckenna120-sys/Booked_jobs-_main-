@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import engineerVanImg from "@/assets/engineer-van-tablet.png";
 
 export const HeroSection = () => {
   const benefits = [
@@ -53,7 +54,7 @@ export const HeroSection = () => {
         {/* Right — Hero image */}
         <div className="relative">
           <img
-            src="/images/hero-engineer-van.png"
+            src={engineerVanImg}
             alt="Professional gas boiler service engineer in van holding a tablet with the BookedJobs booking and renewal dashboard"
             className="w-full rounded-2xl shadow-lg"
             loading="eager"
