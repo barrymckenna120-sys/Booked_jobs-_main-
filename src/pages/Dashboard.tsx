@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Inbox, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
+import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
+import { format } from "date-fns";
 
 const PAGE_SIZE = 10;
 
@@ -40,6 +42,9 @@ const Dashboard = () => {
   const [page, setPage] = useState(0);
   const [incomingCount, setIncomingCount] = useState(0);
   const [areaFilter, setAreaFilter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+
+  const dateRange = useMemo(() => getDateRange(viewMode), [viewMode]);
 
   useEffect(() => {
     if (user) {
@@ -48,12 +53,16 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  const fetchIncomingCount = async () => {
-    const { count } = await supabase
+  const fetchIncomingCount = async (start?: Date, end?: Date) => {
+    let query = supabase
       .from("service_calls")
       .select("*", { count: "exact", head: true })
       .eq("source", "Tally Form")
       .eq("incoming_status", "Pending");
+    if (start && end) {
+      query = query.gte("created_at", start.toISOString()).lte("created_at", end.toISOString());
+    }
+    const { count } = await query;
     setIncomingCount(count || 0);
   };
 
@@ -128,8 +137,17 @@ const Dashboard = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  return (
+   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      {/* Header with Date Toggle */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground font-medium">{dateRange.label}</p>
+        </div>
+        <DateRangeToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
       {/* KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card className="shadow-sm">

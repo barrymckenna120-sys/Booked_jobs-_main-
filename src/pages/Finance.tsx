@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
+import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,9 +28,10 @@ function RenewalStatusPill({ status }: { status: string }) {
 }
 
 // ── This Month Snapshot ──
-function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob, completedJobs }: {
+function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob, completedJobs, periodLabel }: {
   revenue: number; outstanding: number; jobsCompleted: number; avgJob: number;
   completedJobs: { name: string; value: number; type: string; date: string }[];
+  periodLabel: string;
 }) {
   const collectionRate = revenue + outstanding > 0
     ? Math.round((revenue / (revenue + outstanding)) * 100) : 100;
@@ -46,7 +49,7 @@ function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob, completedJobs 
   return (
     <div className="space-y-3">
       <p className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
-        This Month · {getMonthYear()}
+        {periodLabel}
       </p>
 
       {/* Health badge */}
@@ -85,9 +88,9 @@ function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob, completedJobs 
       {/* Completed jobs list */}
       {showJobs && (
         <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-          <p className="text-xs font-bold text-muted-foreground uppercase px-1">Completed Jobs This Month</p>
+          <p className="text-xs font-bold text-muted-foreground uppercase px-1">Completed Jobs – {periodLabel}</p>
           {completedJobs.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No completed jobs this month.</p>
+            <p className="text-sm text-muted-foreground text-center py-4">No completed jobs in this period.</p>
           ) : (
             completedJobs.map((job, i) => (
               <Card key={i} className="shadow-sm border-l-4 border-l-success">
@@ -323,6 +326,9 @@ const Finance = () => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+
+  const dateRange = useMemo(() => getDateRange(viewMode), [viewMode]);
 
   useEffect(() => {
     if (!user) return;
@@ -342,33 +348,32 @@ const Finance = () => {
   }, [user]);
 
   const now = new Date();
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-  // This month stats
-  const thisMonthJobs = useMemo(() =>
+  // Date-filtered stats
+  const periodJobs = useMemo(() =>
     jobs.filter(j => {
       if (!j.scheduled_date) return false;
       const d = new Date(j.scheduled_date + "T00:00:00");
-      return d >= thisMonthStart && d < nextMonthStart && j.status === "Completed";
-    }), [jobs]);
+      return d >= dateRange.start && d <= dateRange.end && j.status === "Completed";
+    }), [jobs, dateRange]);
 
-  const revenue = useMemo(() => thisMonthJobs.reduce((s, j) => s + (j.revenue || 0), 0), [thisMonthJobs]);
+  const revenue = useMemo(() => periodJobs.reduce((s, j) => s + (j.revenue || 0), 0), [periodJobs]);
   const outstanding = useMemo(() => {
     return quotes
       .filter(q => q.status !== "Paid" && q.status !== "Rejected" && q.status !== "Draft")
       .reduce((s, q) => s + (q.total_amount || 0), 0);
   }, [quotes]);
-  const avgJob = thisMonthJobs.length > 0 ? Math.round(revenue / thisMonthJobs.length) : 0;
+  const avgJob = periodJobs.length > 0 ? Math.round(revenue / periodJobs.length) : 0;
   const completedJobsList = useMemo(() =>
-    thisMonthJobs.map(j => ({
+    periodJobs.map(j => ({
       name: j.customers?.name || "Unknown",
       value: j.revenue || 0,
       type: j.job_type || "Service",
       date: j.scheduled_date || "",
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-  [thisMonthJobs]);
+  [periodJobs]);
 
   // Next month forecast
   const nextMonthJobs = useMemo(() =>
@@ -436,15 +441,22 @@ const Finance = () => {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[hsl(var(--success))] to-[hsl(142,72%,22%)] px-6 pt-14 pb-7 text-white relative overflow-hidden">
+      <div className="bg-gradient-to-br from-[hsl(var(--success))] to-[hsl(142,72%,22%)] px-6 pt-10 pb-7 text-white relative overflow-hidden">
         <div className="absolute -top-10 -right-5 w-40 h-40 rounded-full bg-white/[.07] pointer-events-none" />
         <div className="absolute -bottom-12 left-5 w-30 h-30 rounded-full bg-white/[.05] pointer-events-none" />
 
-        <p className="text-sm font-bold opacity-85 mb-1">{getDayName()} · {getMonthYear()}</p>
-        <h1 className="text-3xl font-black tracking-tight text-white mb-4">Finance</h1>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-sm font-bold opacity-85 mb-1">{dateRange.label}</p>
+            <h1 className="text-3xl font-black tracking-tight text-white">Finance</h1>
+          </div>
+          <div className="[&_span]:text-white/70 [&_button]:text-white/60 [&_button[class*=bg-primary]]:!bg-white/20 [&_button[class*=bg-primary]]:!text-white [&_div]:border-white/20">
+            <DateRangeToggle value={viewMode} onChange={setViewMode} />
+          </div>
+        </div>
 
         <div className="bg-white/15 rounded-2xl px-5 py-4 inline-flex flex-col gap-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-65">{monthName} Revenue</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-65">{dateRange.label} Revenue</p>
           <p className="text-4xl font-black tracking-tighter leading-none text-white">{eur(revenue)}</p>
           <p className="text-xs opacity-65">{eur(outstanding)} outstanding</p>
         </div>
@@ -452,7 +464,7 @@ const Finance = () => {
 
       {/* Content */}
       <div className="px-4 py-6 space-y-8 pb-24">
-        <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={thisMonthJobs.length} avgJob={avgJob} completedJobs={completedJobsList} />
+        <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={periodJobs.length} avgJob={avgJob} completedJobs={completedJobsList} periodLabel={dateRange.label} />
         <NextMonth
           scheduledJobs={nextMonthJobs.length}
           forecastRevenue={forecastRevenue}
