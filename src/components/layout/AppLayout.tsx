@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LayoutDashboard, ClipboardList, Users, RefreshCw, Settings, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Users, RefreshCw, MessageCircle, Settings, LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
+  { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 

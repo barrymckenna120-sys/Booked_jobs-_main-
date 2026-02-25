@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Trash2, Loader2 } from "lucide-react";
+import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
+import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,9 +34,16 @@ const CustomerDetail = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    if (user && id) fetchCustomer();
+    if (user && id) {
+      fetchCustomer();
+      supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+        if (data) setSettings(data);
+      });
+    }
   }, [user, id]);
 
   const fetchCustomer = async () => {
@@ -241,7 +250,26 @@ const CustomerDetail = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* WhatsApp History */}
+        {id && (
+          <WhatsAppHistory
+            customerId={id}
+            onSendMessage={() => setShowSendModal(true)}
+          />
+        )}
       </div>
+
+      {/* Send Reminder Modal */}
+      {showSendModal && form.name && (
+        <SendReminderModal
+          customer={{ id: id!, name: form.name, phone: form.phone, next_service_due: form.next_service_due }}
+          settings={settings}
+          open={showSendModal}
+          onClose={() => setShowSendModal(false)}
+          onSent={() => {}}
+        />
+      )}
     </div>
   );
 };

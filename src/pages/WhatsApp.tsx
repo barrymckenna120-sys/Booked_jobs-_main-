@@ -1,0 +1,436 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import SendReminderModal from "@/components/whatsapp/SendReminderModal";
+import LogReplyModal from "@/components/whatsapp/LogReplyModal";
+import ViewMessageModal from "@/components/whatsapp/ViewMessageModal";
+
+type Customer = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  next_service_due: string | null;
+  reminder_30_days_sent: boolean | null;
+  reminder_7_days_sent: boolean | null;
+  last_message_sent_at: string | null;
+};
+
+type Settings = {
+  reminder_message_template: string | null;
+  whatsapp_number: string | null;
+  business_name: string;
+};
+
+type WaMessage = {
+  id: string;
+  customer_id: string;
+  message_type: string;
+  message_body: string;
+  sent_at: string;
+  sent_by: string | null;
+  status: string;
+  customer_reply: string | null;
+  reply_received_at: string | null;
+  linked_quote_id: string | null;
+};
+
+const typeBadgeClass = (type: string) => {
+  const map: Record<string, string> = {
+    "30 Day Reminder": "bg-primary/10 text-primary",
+    "7 Day Reminder": "bg-warning-light text-warning",
+    "Quote Sent": "bg-[hsl(263,70%,94%)] text-[hsl(263,70%,46%)]",
+    "Booking Confirmation": "bg-success-light text-success",
+    "Payment Request": "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    "Custom": "bg-muted text-muted-foreground",
+  };
+  return map[type] || map["Custom"];
+};
+
+const statusBadgeClass = (status: string) => {
+  const map: Record<string, string> = {
+    "Sent": "bg-primary/10 text-primary",
+    "Confirmed": "bg-success-light text-success",
+    "No Response": "bg-muted text-muted-foreground",
+    "Opted Out": "bg-destructive/10 text-destructive",
+    "Failed": "bg-destructive/10 text-destructive",
+  };
+  return map[status] || map["Sent"];
+};
+
+const daysUntilClass = (days: number) => {
+  if (days <= 7) return "bg-destructive-light text-destructive font-bold";
+  if (days <= 14) return "bg-warning-light text-warning font-bold";
+  return "bg-primary/10 text-primary font-semibold";
+};
+
+const WhatsApp = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [messages, setMessages] = useState<WaMessage[]>([]);
+  const [customerMap, setCustomerMap] = useState<Record<string, Customer>>({});
+
+  // KPI
+  const [kpiSent, setKpiSent] = useState(0);
+  const [kpiConfirmed, setKpiConfirmed] = useState(0);
+  const [kpiNoResponse, setKpiNoResponse] = useState(0);
+  const [kpiDueToSend, setKpiDueToSend] = useState(0);
+
+  // Filters
+  const [reminderFilter, setReminderFilter] = useState<number>(30);
+  const [logTypeFilter, setLogTypeFilter] = useState("All");
+  const [logStatusFilter, setLogStatusFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [logPage, setLogPage] = useState(0);
+
+  // Modals
+  const [sendModalCustomer, setSendModalCustomer] = useState<Customer | null>(null);
+  const [logReplyMessage, setLogReplyMessage] = useState<(WaMessage & { customer_name?: string }) | null>(null);
+  const [viewMessage, setViewMessage] = useState<(WaMessage & { customer_name?: string; customer_phone?: string }) | null>(null);
+
+  const fetchAll = useCallback(async () => {
+    if (!user) return;
+
+    const [settingsRes, customersRes, messagesRes] = await Promise.all([
+      supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("customers").select("*").eq("user_id", user.id),
+      supabase.from("whatsapp_messages").select("*").eq("user_id", user.id).order("sent_at", { ascending: false }).limit(200),
+    ]);
+
+    if (settingsRes.data) setSettings(settingsRes.data as any);
+    const custs = (customersRes.data || []) as Customer[];
+    setCustomers(custs);
+    const map: Record<string, Customer> = {};
+    custs.forEach((c) => (map[c.id] = c));
+    setCustomerMap(map);
+
+    const msgs = (messagesRes.data || []) as WaMessage[];
+    setMessages(msgs);
+
+    // KPIs
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthMsgs = msgs.filter((m) => new Date(m.sent_at) >= monthStart);
+    setKpiSent(thisMonthMsgs.length);
+    setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "Confirmed").length);
+    setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "No Response").length);
+
+    const dueCount = custs.filter((c) => {
+      if (!c.next_service_due || c.reminder_30_days_sent) return false;
+      const diff = Math.ceil((new Date(c.next_service_due).getTime() - now.getTime()) / 86400000);
+      return diff >= 0 && diff <= 30;
+    }).length;
+    setKpiDueToSend(dueCount);
+  }, [user]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel("whatsapp-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_messages" }, () => fetchAll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchAll]);
+
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+  // Upcoming reminders
+  const now = new Date();
+  const upcomingCustomers = customers
+    .filter((c) => {
+      if (!c.next_service_due || c.reminder_30_days_sent) return false;
+      const diff = Math.ceil((new Date(c.next_service_due).getTime() - now.getTime()) / 86400000);
+      return diff >= 0 && diff <= reminderFilter;
+    })
+    .sort((a, b) => new Date(a.next_service_due!).getTime() - new Date(b.next_service_due!).getTime());
+
+  // Filtered message log
+  const filteredMessages = messages.filter((m) => {
+    if (logTypeFilter !== "All" && m.message_type !== logTypeFilter) return false;
+    if (logStatusFilter !== "All" && m.status !== logStatusFilter) return false;
+    if (searchQuery) {
+      const c = customerMap[m.customer_id];
+      const q = searchQuery.toLowerCase();
+      if (!c || (!c.name.toLowerCase().includes(q) && !c.phone.includes(q))) return false;
+    }
+    return true;
+  });
+  const pageSize = 20;
+  const pagedMessages = filteredMessages.slice(logPage * pageSize, (logPage + 1) * pageSize);
+  const totalPages = Math.ceil(filteredMessages.length / pageSize);
+
+  // Automation counts
+  const pending30 = customers.filter((c) => {
+    if (!c.next_service_due || c.reminder_30_days_sent) return false;
+    const diff = Math.ceil((new Date(c.next_service_due).getTime() - now.getTime()) / 86400000);
+    return diff >= 0 && diff <= 30;
+  }).length;
+  const pending7 = customers.filter((c) => {
+    if (!c.next_service_due || c.reminder_7_days_sent) return false;
+    const diff = Math.ceil((new Date(c.next_service_due).getTime() - now.getTime()) / 86400000);
+    return diff >= 0 && diff <= 7;
+  }).length;
+
+  const messageTypes = ["All", "30 Day Reminder", "7 Day Reminder", "Quote Sent", "Booking Confirmation", "Payment Request", "Custom"];
+  const statusTypes = ["All", "Sent", "Confirmed", "No Response", "Opted Out"];
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <h1 className="text-xl font-bold">WhatsApp Messages</h1>
+          <p className="text-sm text-muted-foreground">Renewal reminders and customer communications</p>
+        </div>
+      </header>
+
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* KPI Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: "Sent This Month", value: kpiSent, icon: "📤" },
+            { label: "Confirmed", value: kpiConfirmed, icon: "✅" },
+            { label: "No Response", value: kpiNoResponse, icon: "⏳" },
+            { label: "Due to Send", value: kpiDueToSend, icon: "📅" },
+          ].map((k) => (
+            <Card key={k.label}>
+              <CardContent className="p-4 text-center">
+                <p className="text-2xl mb-1">{k.icon}</p>
+                <p className="text-2xl font-extrabold">{k.value}</p>
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Automation Status */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-bold text-sm flex items-center gap-2">🤖 Reminder Automation Status</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div className="flex justify-between"><span>30-day reminders</span><span className="text-muted-foreground">● Manual (tap to send)</span></div>
+              <div className="flex justify-between"><span>7-day reminders</span><span className="text-muted-foreground">● Manual (tap to send)</span></div>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {pending30 > 0 && <p>{pending30} customer{pending30 > 1 ? "s" : ""} need 30-day reminder</p>}
+              {pending7 > 0 && <p>{pending7} customer{pending7 > 1 ? "s" : ""} need 7-day reminder</p>}
+              {pending30 === 0 && pending7 === 0 && <p>All reminders up to date ✓</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Reminders */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-base">Upcoming Renewal Reminders</h2>
+          </div>
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {[7, 14, 30, 999].map((d) => (
+              <button
+                key={d}
+                onClick={() => setReminderFilter(d)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                  reminderFilter === d ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                {d === 999 ? "All Upcoming" : `Next ${d} Days`}
+              </button>
+            ))}
+          </div>
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Customer</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Phone</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Due Date</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Days</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Last Msg</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcomingCustomers.length === 0 && (
+                    <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No reminders pending</td></tr>
+                  )}
+                  {upcomingCustomers.map((c) => {
+                    const days = Math.ceil((new Date(c.next_service_due!).getTime() - now.getTime()) / 86400000);
+                    return (
+                      <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                        <td className="px-4 py-2.5 font-medium">{c.name}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{c.phone}</td>
+                        <td className="px-4 py-2.5">{new Date(c.next_service_due!).toLocaleDateString("en-IE")}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${daysUntilClass(days)}`}>
+                            {days <= 7 ? `⚠ ${days}d` : `${days}d`}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs">
+                          {c.last_message_sent_at ? new Date(c.last_message_sent_at).toLocaleDateString("en-IE") : "—"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Button size="sm" onClick={() => setSendModalCustomer(c)}>📲 Send Reminder</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+
+        {/* Message Log */}
+        <div>
+          <h2 className="font-bold text-base mb-3">Message History</h2>
+          <div className="space-y-3 mb-3">
+            <Input
+              placeholder="Search by customer name or phone..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setLogPage(0); }}
+              className="max-w-sm"
+            />
+            <div className="flex gap-2 flex-wrap">
+              {messageTypes.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setLogTypeFilter(t); setLogPage(0); }}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                    logTypeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {t === "All" ? "All Types" : t}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {statusTypes.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => { setLogStatusFilter(s); setLogPage(0); }}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                    logStatusFilter === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {s === "All" ? "All Status" : s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Date</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Customer</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Type</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Sent By</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Status</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Reply</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedMessages.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No messages found</td></tr>
+                  )}
+                  {pagedMessages.map((m) => {
+                    const c = customerMap[m.customer_id];
+                    return (
+                      <tr key={m.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                        <td className="px-4 py-2.5 text-xs whitespace-nowrap">
+                          {new Date(m.sent_at).toLocaleString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium">{c?.name || "—"}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${typeBadgeClass(m.message_type)}`}>
+                            {m.message_type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs">{m.sent_by || "—"}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(m.status)}`}>
+                            {m.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[120px] truncate">
+                          {m.customer_reply ? m.customer_reply.substring(0, 40) : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs px-2 h-7"
+                            onClick={() => setLogReplyMessage({ ...m, customer_name: c?.name })}
+                          >
+                            📝 Log Reply
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs px-2 h-7"
+                            onClick={() => setViewMessage({ ...m, customer_name: c?.name, customer_phone: c?.phone })}
+                          >
+                            👁 View
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 p-3 border-t border-border">
+                <Button size="sm" variant="outline" disabled={logPage === 0} onClick={() => setLogPage((p) => p - 1)}>Previous</Button>
+                <span className="text-xs text-muted-foreground">Page {logPage + 1} of {totalPages}</span>
+                <Button size="sm" variant="outline" disabled={logPage >= totalPages - 1} onClick={() => setLogPage((p) => p + 1)}>Next</Button>
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {sendModalCustomer && (
+        <SendReminderModal
+          customer={sendModalCustomer}
+          settings={settings}
+          open={!!sendModalCustomer}
+          onClose={() => setSendModalCustomer(null)}
+          onSent={fetchAll}
+        />
+      )}
+      {logReplyMessage && (
+        <LogReplyModal
+          message={logReplyMessage}
+          open={!!logReplyMessage}
+          onClose={() => setLogReplyMessage(null)}
+          onSaved={fetchAll}
+        />
+      )}
+      {viewMessage && (
+        <ViewMessageModal
+          message={viewMessage}
+          open={!!viewMessage}
+          onClose={() => setViewMessage(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default WhatsApp;

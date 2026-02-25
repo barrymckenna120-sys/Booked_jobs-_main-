@@ -31,6 +31,8 @@ export type Database = {
           email: string | null
           engineer_notes: string | null
           id: string
+          last_message_sent_at: string | null
+          last_message_type: string | null
           last_reminder_response: string | null
           last_service_date: string | null
           last_service_engineer: string | null
@@ -44,6 +46,7 @@ export type Database = {
           reminder_7_days_sent: boolean | null
           scheduled_service_date: string | null
           service_status: string | null
+          total_messages_sent: number | null
           under_warranty: boolean | null
           updated_at: string
           user_id: string
@@ -64,6 +67,8 @@ export type Database = {
           email?: string | null
           engineer_notes?: string | null
           id?: string
+          last_message_sent_at?: string | null
+          last_message_type?: string | null
           last_reminder_response?: string | null
           last_service_date?: string | null
           last_service_engineer?: string | null
@@ -77,6 +82,7 @@ export type Database = {
           reminder_7_days_sent?: boolean | null
           scheduled_service_date?: string | null
           service_status?: string | null
+          total_messages_sent?: number | null
           under_warranty?: boolean | null
           updated_at?: string
           user_id: string
@@ -97,6 +103,8 @@ export type Database = {
           email?: string | null
           engineer_notes?: string | null
           id?: string
+          last_message_sent_at?: string | null
+          last_message_type?: string | null
           last_reminder_response?: string | null
           last_service_date?: string | null
           last_service_engineer?: string | null
@@ -110,6 +118,7 @@ export type Database = {
           reminder_7_days_sent?: boolean | null
           scheduled_service_date?: string | null
           service_status?: string | null
+          total_messages_sent?: number | null
           under_warranty?: boolean | null
           updated_at?: string
           user_id?: string
@@ -354,6 +363,66 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          customer_reply: string | null
+          id: string
+          linked_quote_id: string | null
+          message_body: string
+          message_type: string
+          reply_received_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: string | null
+          customer_reply?: string | null
+          id?: string
+          linked_quote_id?: string | null
+          message_body: string
+          message_type: string
+          reply_received_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string | null
+          customer_reply?: string | null
+          id?: string
+          linked_quote_id?: string | null
+          message_body?: string
+          message_type?: string
+          reply_received_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_linked_quote_id_fkey"
+            columns: ["linked_quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
