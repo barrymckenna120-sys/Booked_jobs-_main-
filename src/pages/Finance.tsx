@@ -450,7 +450,7 @@ const Finance = () => {
             <p className="text-sm font-bold opacity-85 mb-1">{dateRange.label}</p>
             <h1 className="text-3xl font-black tracking-tight text-white">Finance</h1>
           </div>
-          <div className="[&_span]:text-white [&_button]:text-white/90 [&_button[class*=bg-primary]]:!bg-white/25 [&_button[class*=bg-primary]]:!text-white [&_div]:border-white/30">
+          <div className="[&_span]:text-white [&_button]:text-white [&_button[class*=bg-primary]]:!bg-white/30 [&_button[class*=bg-primary]]:!text-white [&_button[class*=bg-primary]]:!font-extrabold [&_div]:border-white/30 [&_div]:bg-white/10">
             <DateRangeToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>
