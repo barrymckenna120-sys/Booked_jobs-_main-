@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Phone, MapPin, StickyNote, Camera, Eye, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CompleteSheet from "./CompleteSheet";
@@ -32,6 +33,7 @@ interface EngineerJobCardProps {
 }
 
 const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: EngineerJobCardProps) => {
+  const navigate = useNavigate();
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -120,8 +122,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
           <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9 text-primary" onClick={openNav}>
             <MapPin className="w-3.5 h-3.5" /> Nav
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowDetail(true)}>
-            <Eye className="w-3.5 h-3.5" /> Info
+          <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => navigate(`/engineer/job/${job.id}`)}>
+            <Eye className="w-3.5 h-3.5" /> Details
           </Button>
         </div>
 

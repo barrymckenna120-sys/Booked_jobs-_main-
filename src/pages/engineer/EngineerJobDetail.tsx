@@ -1,0 +1,439 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar } from "lucide-react";
+import CompleteSheet from "@/components/engineer/CompleteSheet";
+import CancelSheet from "@/components/engineer/CancelSheet";
+import NoteSheet from "@/components/engineer/NoteSheet";
+import PhotoSheet from "@/components/engineer/PhotoSheet";
+import ExtraWorkSheet from "@/components/engineer/ExtraWorkSheet";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
+  Booked:        { color: "text-primary",     bg: "bg-primary/10",     label: "Booked" },
+  "In Progress": { color: "text-warning",     bg: "bg-warning/10",     label: "In Progress" },
+  Completed:     { color: "text-success",     bg: "bg-success/10",     label: "Completed" },
+  Cancelled:     { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
+};
+
+const TIME_LABELS: Record<string, string> = {
+  "9–11": "9–11am",
+  "11–2": "11am–1pm",
+  "2–5":  "2–5pm",
+};
+
+const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
+
+const InfoTile = ({ label, value, icon, full }: { label: string; value: string | null; icon?: string; full?: boolean }) => (
+  <div className={`bg-secondary rounded-xl border border-border p-3 ${full ? "col-span-2" : ""}`}>
+    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+      {icon && <span className="mr-1">{icon}</span>}{label}
+    </div>
+    <div className="text-[13px] font-bold text-foreground leading-snug">{value || "—"}</div>
+  </div>
+);
+
+const EngineerJobDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [job, setJob] = useState<any>(null);
+  const [customer, setCustomer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [showComplete, setShowComplete] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [showExtraWork, setShowExtraWork] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    if (user && id) fetchJob();
+  }, [user, id]);
+
+  const fetchJob = async () => {
+    setLoading(true);
+    const { data: jobData } = await supabase
+      .from("service_calls")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!jobData) {
+      toast({ title: "Job not found", variant: "destructive" });
+      navigate("/engineer/today");
+      return;
+    }
+
+    setJob(jobData);
+
+    const { data: custData } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("id", jobData.customer_id)
+      .maybeSingle();
+
+    if (custData) setCustomer(custData);
+    setLoading(false);
+  };
+
+  const updateJob = async (patch: Record<string, any>) => {
+    if (!job) return;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, ...rest } = patch;
+
+    let notesUpdate = rest.notes;
+    if (workDone) {
+      notesUpdate = `Work done: ${workDone}${parts ? `\nParts: ${parts}` : ""}${officeNote ? `\nOffice note: ${officeNote}` : ""}${followUp ? `\nFollow-up: ${followUpNote}` : ""}`;
+    }
+    if (cancelReason) {
+      notesUpdate = `Cancelled: ${cancelReason}${cancelNote ? `\nNote: ${cancelNote}` : ""}`;
+    }
+
+    const dbPatch: Record<string, any> = { ...rest };
+    if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    if (cancelReason) {
+      dbPatch.cancellation_reason = cancelReason;
+      dbPatch.cancellation_note = cancelNote || null;
+      dbPatch.cancelled_at = new Date().toISOString();
+      dbPatch.cancelled_by = user?.id || null;
+    }
+
+    const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: patch.status === "Completed" ? "Job completed ✔" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+      fetchJob();
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!job || !rescheduleDate) return;
+    setActionLoading(true);
+    const { error } = await supabase
+      .from("service_calls")
+      .update({ scheduled_date: rescheduleDate, time_block: rescheduleTime || null } as any)
+      .eq("id", job.id);
+    setActionLoading(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Job rescheduled" });
+      setShowReschedule(false);
+      fetchJob();
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="max-w-[430px] mx-auto min-h-screen bg-secondary flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!job || !customer) return null;
+
+  const s = STATUS_CONFIG[job.status] || STATUS_CONFIG.Scheduled;
+  const isDone = job.status === "Completed" || job.status === "Cancelled";
+  const timeLabel = TIME_LABELS[job.time_block] || job.time_block || "—";
+
+  const openPhone = () => window.open(`tel:${customer.phone}`);
+  const openWhatsApp = () => window.open(`https://wa.me/${customer.phone?.replace(/[^0-9]/g, "")}`, "_blank");
+  const openNav = () =>
+    window.open(`https://maps.google.com/?daddr=${encodeURIComponent(customer.address + " " + customer.eircode + " Ireland")}`, "_blank");
+
+  // Limit reschedule to 14 days
+  const maxDate = new Date();
+  maxDate.setDate(maxDate.getDate() + 14);
+  const maxDateStr = maxDate.toISOString().split("T")[0];
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  return (
+    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-8">
+      {/* Compact header */}
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
+        <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-[11px] font-bold text-white/60 tracking-wider">{getJobRef(job.id)}</div>
+            <div className="text-2xl font-extrabold text-white leading-tight">{customer.name}</div>
+            <div className="text-[13px] text-white/70 mt-1">📍 {customer.address}</div>
+          </div>
+          <span className={`${s.bg} ${s.color} rounded-full px-3 py-1 text-xs font-bold shrink-0 ml-2 backdrop-blur-sm`}>
+            {s.label}
+          </span>
+        </div>
+      </div>
+
+      <div className="px-4 pt-4 space-y-4">
+        {/* Quick contact actions — large tap targets */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <button
+            onClick={openPhone}
+            className="flex flex-col items-center gap-1.5 bg-card border border-border rounded-2xl py-4 active:scale-95 transition-transform"
+          >
+            <Phone className="w-6 h-6 text-primary" />
+            <span className="text-xs font-bold text-foreground">Call</span>
+          </button>
+          <button
+            onClick={openWhatsApp}
+            className="flex flex-col items-center gap-1.5 bg-card border border-border rounded-2xl py-4 active:scale-95 transition-transform"
+          >
+            <MessageCircle className="w-6 h-6 text-success" />
+            <span className="text-xs font-bold text-foreground">WhatsApp</span>
+          </button>
+          <button
+            onClick={openNav}
+            className="flex flex-col items-center gap-1.5 bg-card border border-border rounded-2xl py-4 active:scale-95 transition-transform"
+          >
+            <MapPin className="w-6 h-6 text-primary" />
+            <span className="text-xs font-bold text-foreground">Navigate</span>
+          </button>
+        </div>
+
+        {/* Job details grid */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <InfoTile label="Job Type" value={job.job_type} icon="🔧" />
+          <InfoTile label="Time Slot" value={timeLabel} icon="⏰" />
+          <InfoTile label="Boiler" value={customer.boiler_make_model || job.boiler_brand} icon="♨️" full />
+          <InfoTile
+            label="Payment"
+            value={job.deposit_paid ? `💳 Paid — €${job.deposit_amount || 0}` : `⏳ €${job.deposit_amount || 0} pending`}
+            full
+          />
+          <InfoTile label="Last Service" value={customer.last_service_date} icon="📅" />
+          <InfoTile label="Last Engineer" value={customer.last_service_engineer} icon="👷" />
+        </div>
+
+        {/* Boiler issue */}
+        {job.boiler_issue && (
+          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3">
+            <div className="text-[11px] font-bold text-warning uppercase tracking-wider mb-0.5">⚠ Issue Reported</div>
+            <div className="text-[13px] text-foreground leading-snug">{job.boiler_issue}</div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {job.notes && (
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">📝 Notes</div>
+            <div className="text-[13px] text-foreground whitespace-pre-wrap">{job.notes}</div>
+          </div>
+        )}
+
+        {/* Access notes */}
+        {customer.access_notes && (
+          <div className="bg-primary/5 rounded-xl border border-primary/10 p-3">
+            <div className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">🔑 Access Note</div>
+            <div className="text-[13px] text-foreground">{customer.access_notes}</div>
+          </div>
+        )}
+
+        {/* Cancellation details */}
+        {job.status === "Cancelled" && job.cancellation_reason && (
+          <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3">
+            <div className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-1">✕ Cancelled</div>
+            <div className="text-[13px] text-foreground font-semibold">{job.cancellation_reason}</div>
+            {job.cancellation_note && (
+              <div className="text-[13px] text-muted-foreground mt-0.5">{job.cancellation_note}</div>
+            )}
+            {job.cancelled_at && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {new Date(job.cancelled_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Secondary actions */}
+        {!isDone && (
+          <div className="grid grid-cols-3 gap-2.5">
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowNote(true)}>
+              <StickyNote className="w-5 h-5" /> Add Note
+            </Button>
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowPhotos(true)}>
+              <Camera className="w-5 h-5" /> Photo
+            </Button>
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowExtraWork(true)}>
+              <span className="text-lg leading-none">＋</span> Extra Work
+            </Button>
+          </div>
+        )}
+
+        {/* Primary actions */}
+        {(job.status === "Scheduled" || job.status === "Booked") && (
+          <div className="space-y-2.5">
+            <Button
+              className="w-full h-14 text-lg font-extrabold gap-2"
+              onClick={() => updateJob({ status: "In Progress" })}
+            >
+              ▶ Start Job
+            </Button>
+            <div className="flex gap-2.5">
+              <Button
+                variant="outline"
+                className="flex-1 h-12 font-bold gap-1.5"
+                onClick={() => {
+                  setRescheduleDate(job.scheduled_date || "");
+                  setRescheduleTime(job.time_block || "");
+                  setShowReschedule(true);
+                }}
+              >
+                <Calendar className="w-4 h-4" /> Reschedule
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 font-bold text-destructive border-destructive/30 gap-1.5"
+                onClick={() => setShowCancel(true)}
+              >
+                ✕ Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {job.status === "In Progress" && (
+          <div className="space-y-2.5">
+            <Button
+              className="w-full h-14 text-lg font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
+              onClick={() => setShowComplete(true)}
+            >
+              ✔ Complete Job
+            </Button>
+            <div className="flex gap-2.5">
+              <Button
+                variant="outline"
+                className="flex-1 h-12 font-bold gap-1.5"
+                onClick={() => {
+                  setRescheduleDate(job.scheduled_date || "");
+                  setRescheduleTime(job.time_block || "");
+                  setShowReschedule(true);
+                }}
+              >
+                <Calendar className="w-4 h-4" /> Reschedule
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 font-bold text-destructive border-destructive/30 gap-1.5"
+                onClick={() => setShowCancel(true)}
+              >
+                ✕ Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {job.status === "Completed" && (
+          <div className="bg-success/10 rounded-2xl p-4 flex items-center gap-3">
+            <span className="text-2xl">✔</span>
+            <div>
+              <div className="text-sm font-extrabold text-success">Job Completed</div>
+              {job.updated_at && (
+                <div className="text-xs text-muted-foreground">
+                  {new Date(job.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sheets */}
+      {showComplete && (
+        <CompleteSheet
+          job={job}
+          customer={customer}
+          onClose={() => setShowComplete(false)}
+          onDone={(data: any) => { updateJob({ status: "Completed", ...data }); setShowComplete(false); }}
+        />
+      )}
+      {showCancel && (
+        <CancelSheet
+          job={job}
+          customer={customer}
+          onClose={() => setShowCancel(false)}
+          onDone={(reason: string, note: string) => { updateJob({ status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }}
+        />
+      )}
+      {showNote && (
+        <NoteSheet
+          job={job}
+          customer={customer}
+          onClose={() => setShowNote(false)}
+          onSave={(note: string) => { updateJob({ notes: note }); setShowNote(false); }}
+        />
+      )}
+      {showPhotos && (
+        <PhotoSheet
+          job={job}
+          customer={customer}
+          onClose={() => setShowPhotos(false)}
+          onSave={() => setShowPhotos(false)}
+        />
+      )}
+      {showExtraWork && (
+        <ExtraWorkSheet
+          job={job}
+          customer={customer}
+          onClose={() => setShowExtraWork(false)}
+        />
+      )}
+
+      {/* Reschedule Dialog */}
+      <Dialog open={showReschedule} onOpenChange={setShowReschedule}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Reschedule Job</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Date</Label>
+              <Input type="date" value={rescheduleDate} min={todayStr} max={maxDateStr} onChange={(e) => setRescheduleDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
+              <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="9–11">9–11am</SelectItem>
+                  <SelectItem value="11–2">11am–1pm</SelectItem>
+                  <SelectItem value="2–5">2–5pm</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-xs text-muted-foreground">Engineers can reschedule up to 14 days ahead.</div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowReschedule(false)}>Cancel</Button>
+              <Button onClick={handleReschedule} disabled={actionLoading || !rescheduleDate}>
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+                Reschedule
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default EngineerJobDetail;
