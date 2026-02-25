@@ -3,7 +3,7 @@ import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
 
 export const HeaderSection = () => {
   return (
-    <header className="section-container pt-4 pb-2 flex items-center justify-between">
+    <header className="section-container pt-6 pb-4 flex items-center justify-between">
       <img src={bookedjobsLogo} alt="BookedJobs" className="h-10 object-contain object-left" />
       <div className="flex items-center gap-3">
         <a href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
