@@ -105,7 +105,7 @@ const IncomingJobCard = ({ job, mediaCount, onClick }: Props) => {
       {/* Footer */}
       <div className="flex justify-between items-center">
         <span className="text-xs text-muted-foreground">
-          📅 {job.scheduled_date || "No date"} · {job.assigned_engineer || "Unassigned"}
+          📅 {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB") : "No date"} · {job.assigned_engineer || "Unassigned"}
         </span>
         <span className="text-xs font-bold text-primary">Review →</span>
       </div>
