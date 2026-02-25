@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { generateImportTemplate } from "@/lib/generateTemplate";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -338,9 +339,12 @@ const ImportCustomers = () => {
           <Info className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium">Need the template?</p>
-            <p className="text-sm text-muted-foreground">
-              Download the Karl's Gas import template — it has all the right columns and includes example data.
+            <p className="text-sm text-muted-foreground mb-2">
+              Download the Karl's Gas import template — it has all the right columns and includes 4 example customers.
             </p>
+            <Button variant="outline" size="sm" onClick={generateImportTemplate}>
+              ⬇ Download Template (.xlsx)
+            </Button>
           </div>
         </div>
 
