@@ -21,6 +21,7 @@ import IncomingJobs from "./pages/IncomingJobs";
 import EngineerAvailability from "./pages/EngineerAvailability";
 import EngineerApp from "./pages/EngineerApp";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Auth />} />
+          <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
