@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
 import MediaGallery from "@/components/media/MediaGallery";
+import CancelJobModal from "@/components/jobs/CancelJobModal";
 
 type ServiceCall = {
   id: string;
@@ -80,6 +81,7 @@ const JobDetail = () => {
   const [loading, setLoading] = useState(true);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
@@ -149,17 +151,23 @@ const JobDetail = () => {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancel = async (reason: string, note: string) => {
     if (!job) return;
-    if (!confirm("Are you sure you want to cancel this job?")) return;
     const { error } = await supabase
       .from("service_calls")
-      .update({ status: "Cancelled" } as any)
+      .update({
+        status: "Cancelled",
+        cancellation_reason: reason,
+        cancellation_note: note || null,
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: user?.id || null,
+      } as any)
       .eq("id", job.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Job cancelled" });
+      setCancelOpen(false);
       fetchJob();
     }
   };
@@ -269,7 +277,7 @@ const JobDetail = () => {
             }}>
               <RefreshCw className="w-4 h-4 mr-1" /> Reschedule
             </Button>
-            <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={handleCancel}>
+            <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCancelOpen(true)}>
               <XCircle className="w-4 h-4 mr-1" /> Cancel Job
             </Button>
           </CardContent>
@@ -335,6 +343,14 @@ const JobDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Cancel Job Modal */}
+      <CancelJobModal
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        jobRef={`BJ-${job.id.slice(0, 6).toUpperCase()}`}
+        depositPaid={job.deposit_paid}
+        onConfirm={handleCancel}
+      />
     </div>
   );
 };
