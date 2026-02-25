@@ -43,8 +43,9 @@ const Dashboard = () => {
   const [incomingCount, setIncomingCount] = useState(0);
   const [areaFilter, setAreaFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [anchor, setAnchor] = useState(new Date());
 
-  const dateRange = useMemo(() => getDateRange(viewMode), [viewMode]);
+  const dateRange = useMemo(() => getDateRange(viewMode, anchor), [viewMode, anchor]);
 
   useEffect(() => {
     if (user) {
@@ -145,7 +146,7 @@ const Dashboard = () => {
           <h1 className="text-2xl font-extrabold">Dashboard</h1>
           <p className="text-sm text-muted-foreground font-medium">{dateRange.label}</p>
         </div>
-        <DateRangeToggle value={viewMode} onChange={setViewMode} />
+        <DateRangeToggle value={viewMode} onChange={setViewMode} anchor={anchor} onAnchorChange={setAnchor} />
       </div>
 
       {/* KPI Stats */}
