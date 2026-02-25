@@ -1,12 +1,13 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LayoutDashboard, ClipboardList, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
