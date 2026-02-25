@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Camera } from "lucide-react";
+import IncomingJobCard from "@/components/incoming/IncomingJobCard";
 import JobReviewPanel from "@/components/incoming/JobReviewPanel";
 
 type IncomingJob = {
@@ -36,30 +34,22 @@ type IncomingJob = {
 
 const FILTERS = ["All", "Pending", "Assigned", "Rejected"] as const;
 
-const statusBadge = (status: string | null) => {
-  const styles: Record<string, string> = {
-    Pending: "bg-warning/10 text-warning",
-    Reviewed: "bg-primary/10 text-primary",
-    Assigned: "bg-success/10 text-success",
-    Rejected: "bg-destructive/10 text-destructive",
-  };
-  const s = status || "Pending";
-  return (
-    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[s] || "bg-muted text-muted-foreground"}`}>
-      {s}
-    </span>
-  );
+const filterStyles: Record<string, { active: string; inactive: string }> = {
+  All:      { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
+  Pending:  { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
+  Assigned: { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
+  Rejected: { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
 };
 
 const IncomingJobs = () => {
   const { user, loading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<IncomingJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("Pending");
+  const [filter, setFilter] = useState<string>("All");
   const [mediaCounts, setMediaCounts] = useState<Record<string, number>>({});
   const [reviewJob, setReviewJob] = useState<IncomingJob | null>(null);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     let query = supabase
@@ -77,7 +67,6 @@ const IncomingJobs = () => {
     const jobsData = (data || []) as unknown as IncomingJob[];
     setJobs(jobsData);
 
-    // Fetch media counts
     if (jobsData.length > 0) {
       const jobIds = jobsData.map((j) => j.id);
       const { data: mediaData } = await supabase
@@ -91,100 +80,86 @@ const IncomingJobs = () => {
       setMediaCounts(counts);
     }
     setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchJobs();
   }, [user, filter]);
 
-  const relativeTime = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
+  useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
+  const pendingCount = jobs.filter((j) => j.incoming_status === "Pending").length;
+  const assignedCount = jobs.filter((j) => j.incoming_status === "Assigned").length;
+  const withPhotoCount = jobs.filter((j) => mediaCounts[j.id] > 0).length;
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      {/* Header */}
       <div>
-        <h1 className="text-xl font-bold">📥 Incoming Jobs</h1>
-        <p className="text-sm text-muted-foreground">Submitted via online booking form</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-extrabold">📥 Incoming Jobs</h1>
+          {pendingCount > 0 && (
+            <span className="bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-extrabold">
+              {pendingCount}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">From online booking form</p>
       </div>
 
       {/* Filter pills */}
-      <div className="flex gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-              filter === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
-            }`}
-          >
-            {f === "Pending" ? "Pending Review" : f}
-          </button>
+      <div className="flex gap-2 overflow-x-auto">
+        {FILTERS.map((f) => {
+          const active = filter === f;
+          const styles = filterStyles[f];
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`shrink-0 text-xs font-semibold px-3.5 py-1.5 rounded-full border-[1.5px] transition-colors ${
+                active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
+              }`}
+            >
+              {f}{f === "Pending" && pendingCount > 0 ? ` (${pendingCount})` : ""}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-4 gap-2.5">
+        {[
+          { icon: "📥", value: pendingCount, label: "Pending", color: "border-t-warning", alert: true },
+          { icon: "👁", value: jobs.filter((j) => j.incoming_status === "Reviewed").length, label: "Reviewed", color: "border-t-primary" },
+          { icon: "✅", value: assignedCount, label: "Assigned", color: "border-t-success" },
+          { icon: "📷", value: withPhotoCount, label: "With Photo", color: "border-t-[hsl(263,70%,46%)]" },
+        ].map((k) => (
+          <Card key={k.label} className={`border-t-[3px] ${k.color}`}>
+            <CardContent className="p-3 text-center">
+              <div className="text-lg mb-0.5">{k.icon}</div>
+              <div className={`text-xl font-extrabold leading-none ${k.alert ? "text-destructive" : ""}`}>{k.value}</div>
+              <div className="text-[10px] text-muted-foreground font-medium mt-1">{k.label}</div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Jobs table */}
-      <Card className="shadow-sm">
-        <CardContent className="p-0">
-          {loading ? (
-            <p className="p-8 text-center text-muted-foreground">Loading...</p>
-          ) : jobs.length === 0 ? (
-            <p className="p-8 text-center text-muted-foreground">No incoming jobs {filter !== "All" ? `with status "${filter}"` : ""}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-secondary">
-                    <TableHead className="text-xs uppercase font-semibold">Submitted</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold">Customer</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold hidden md:table-cell">Area</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold hidden md:table-cell">Boiler</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold">Working?</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold hidden md:table-cell">Time Pref</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold">Media</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold">Status</TableHead>
-                    <TableHead className="text-xs uppercase font-semibold">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobs.map((j) => (
-                    <TableRow key={j.id}>
-                      <TableCell className="text-xs text-muted-foreground">{relativeTime(j.created_at)}</TableCell>
-                      <TableCell className="font-semibold text-sm">{j.customers.name}</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">{j.customers.area_code || "—"}</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">{j.boiler_brand || "—"}</TableCell>
-                      <TableCell>
-                        {j.boiler_working === false
-                          ? <span className="text-destructive font-bold text-sm">✗ No</span>
-                          : <span className="text-success font-bold text-sm">✓ Yes</span>}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">{j.time_block || "—"}</TableCell>
-                      <TableCell>
-                        {mediaCounts[j.id] ? (
-                          <span className="flex items-center gap-1 text-xs text-primary font-semibold">
-                            <Camera className="w-3.5 h-3.5" /> {mediaCounts[j.id]}
-                          </span>
-                        ) : "—"}
-                      </TableCell>
-                      <TableCell>{statusBadge(j.incoming_status)}</TableCell>
-                      <TableCell>
-                        <Button size="sm" onClick={() => setReviewJob(j)}>Review</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Cards */}
+      {loading ? (
+        <p className="text-center text-muted-foreground py-12">Loading...</p>
+      ) : jobs.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <div className="text-3xl mb-2">📥</div>
+          <div className="font-bold">No {filter !== "All" ? filter : ""} incoming jobs</div>
+        </div>
+      ) : (
+        jobs.map((j) => (
+          <IncomingJobCard
+            key={j.id}
+            job={j}
+            mediaCount={mediaCounts[j.id] || 0}
+            onClick={() => setReviewJob(j)}
+          />
+        ))
+      )}
 
       {/* Review Panel */}
       <JobReviewPanel
