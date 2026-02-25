@@ -327,8 +327,9 @@ const Finance = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [anchor, setAnchor] = useState(new Date());
 
-  const dateRange = useMemo(() => getDateRange(viewMode), [viewMode]);
+  const dateRange = useMemo(() => getDateRange(viewMode, anchor), [viewMode, anchor]);
 
   useEffect(() => {
     if (!user) return;
@@ -450,8 +451,8 @@ const Finance = () => {
             <p className="text-sm font-bold opacity-85 mb-1">{dateRange.label}</p>
             <h1 className="text-3xl font-black tracking-tight text-white">Finance</h1>
           </div>
-          <div className="[&_span]:text-white [&_button]:text-white [&_button[class*=bg-primary]]:!bg-white/30 [&_button[class*=bg-primary]]:!text-white [&_button[class*=bg-primary]]:!font-extrabold [&_div]:border-white/30 [&_div]:bg-white/10">
-            <DateRangeToggle value={viewMode} onChange={setViewMode} />
+          <div className="[&_span]:text-white [&_button]:text-white [&_button[class*=bg-primary]]:!bg-white/30 [&_button[class*=bg-primary]]:!text-white [&_button[class*=bg-primary]]:!font-extrabold [&_div]:border-white/30 [&_div]:bg-white/10 [&_button:hover]:bg-white/20">
+            <DateRangeToggle value={viewMode} onChange={setViewMode} anchor={anchor} onAnchorChange={setAnchor} />
           </div>
         </div>
 
