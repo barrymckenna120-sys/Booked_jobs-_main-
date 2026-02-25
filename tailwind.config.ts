@@ -63,6 +63,10 @@ export default {
           foreground: "hsl(var(--warning-foreground))",
           light: "hsl(var(--warning-light))",
         },
+        cta: {
+          DEFAULT: "hsl(var(--cta))",
+          foreground: "hsl(var(--cta-foreground))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
