@@ -8,6 +8,34 @@ import { format, addDays } from "date-fns";
 
 const TIME_ORDER: Record<string, number> = { "9–11": 1, "11–2": 2, "2–5": 3 };
 
+const TIME_RANGES: Record<string, [number, number]> = {
+  "9–11": [9, 11],
+  "11–2": [11, 14],
+  "2–5":  [14, 17],
+};
+
+const getNextJobId = (jobs: any[]): string | null => {
+  if (jobs.length === 0) return null;
+  const now = new Date();
+  const hour = now.getHours();
+
+  // Find the current or next time block
+  const blockOrder = ["9–11", "11–2", "2–5"];
+  
+  for (const block of blockOrder) {
+    const [start, end] = TIME_RANGES[block];
+    // Current block or future block
+    if (hour < end) {
+      const match = jobs.find(j => j.time_block === block && j.status !== "Completed" && j.status !== "Cancelled");
+      if (match) return match.id;
+    }
+  }
+
+  // Fallback: first non-completed job
+  const fallback = jobs.find(j => j.status !== "Completed" && j.status !== "Cancelled");
+  return fallback?.id || null;
+};
+
 type Tab = "today" | "upcoming" | "completed";
 
 const greeting = () => {
@@ -185,9 +213,16 @@ const EngineerApp = () => {
 };
 
 /* ─── Today Tab ─── */
-const TodayView = ({ active, completed, cancelled, inProgress, customers, loading, onUpdate, onViewTomorrow }: any) => (
-  <>
-    {/* Stat blocks */}
+const TodayView = ({ active, completed, cancelled, inProgress, customers, loading, onUpdate, onViewTomorrow }: any) => {
+  const nextJobId = getNextJobId(active);
+  
+  // Sort: next job first, then by time order
+  const sortedActive = nextJobId
+    ? [active.find((j: any) => j.id === nextJobId), ...active.filter((j: any) => j.id !== nextJobId)]
+    : active;
+
+  return (
+    <>
     <div className="flex gap-3">
       {[
         { count: active.length, label: "Scheduled", icon: "📋", borderColor: "border-t-primary" },
@@ -244,8 +279,8 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
           </div>
         )}
 
-        {active.map((job: any) => (
-          <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} />
+        {sortedActive.map((job: any) => (
+          <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} isNextJob={job.id === nextJobId} />
         ))}
 
         {completed.length > 0 && (
@@ -267,8 +302,9 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
         )}
       </>
     )}
-  </>
-);
+    </>
+  );
+};
 
 /* ─── Upcoming Tab ─── */
 const UpcomingView = ({ jobs, customers, loading, onUpdate }: any) => {
