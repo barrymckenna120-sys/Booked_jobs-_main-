@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -19,7 +19,10 @@ import WhatsApp from "./pages/WhatsApp";
 import WhatsAppTemplates from "./pages/WhatsAppTemplates";
 import IncomingJobs from "./pages/IncomingJobs";
 import EngineerAvailability from "./pages/EngineerAvailability";
-import EngineerApp from "./pages/EngineerApp";
+import EngineerLayout from "./components/engineer/EngineerLayout";
+import EngineerToday from "./pages/engineer/EngineerToday";
+import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
+import EngineerCompleted from "./pages/engineer/EngineerCompleted";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
@@ -53,7 +56,15 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/import" element={<ImportCustomers />} />
           </Route>
-          <Route path="/engineer-app" element={<EngineerApp />} />
+          {/* Engineer Mode */}
+          <Route path="/engineer" element={<EngineerLayout />}>
+            <Route index element={<Navigate to="/engineer/today" replace />} />
+            <Route path="today" element={<EngineerToday />} />
+            <Route path="upcoming" element={<EngineerUpcoming />} />
+            <Route path="completed" element={<EngineerCompleted />} />
+          </Route>
+          {/* Legacy route redirect */}
+          <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
           <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
