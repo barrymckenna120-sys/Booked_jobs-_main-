@@ -65,7 +65,7 @@ const Schedule = () => {
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
         .select("*, customers!inner(name, address, boiler_make_model)")
-        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),and(status.in.(New,Contacted),scheduled_date.is.null)`)
+        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null`)
         .not("status", "in", "(Completed,Cancelled)");
 
       return (scheduledJobs || []).map((j: any) => ({
@@ -88,7 +88,7 @@ const Schedule = () => {
   });
 
   const unallocatedJobs = jobs.filter(
-    (j) => (j.status === "New" || j.status === "Contacted") && (!j.scheduled_date || !j.time_block || !j.assigned_engineer)
+    (j) => j.status !== "Completed" && j.status !== "Cancelled" && j.status !== "Booked" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer)
   );
 
   const getJobForSlot = (date: Date, timeBlock: string, engineerName?: string) => {
