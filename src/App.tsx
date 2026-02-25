@@ -4,8 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Auth from "./pages/Auth";
+import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import Jobs from "./pages/Jobs";
+import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
+import Renewals from "./pages/Renewals";
 import Settings from "./pages/Settings";
 import ImportCustomers from "./pages/ImportCustomers";
 import NotFound from "./pages/NotFound";
@@ -21,10 +25,15 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Auth />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/customers/:id" element={<CustomerDetail />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/import" element={<ImportCustomers />} />
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/customers/:id" element={<CustomerDetail />} />
+            <Route path="/renewals" element={<Renewals />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/import" element={<ImportCustomers />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

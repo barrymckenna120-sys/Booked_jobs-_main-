@@ -5,76 +5,62 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 220 20% 15%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 15%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 15%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%;
+    --primary: 217 78% 60%;
     --primary-foreground: 0 0% 100%;
+    --primary-dark: 217 78% 54%;
+    --primary-light: 217 78% 96%;
 
-    --secondary: 210 60% 98%;
+    --secondary: 220 14% 96%;
     --secondary-foreground: 220 15% 30%;
 
     --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 217 78% 96%;
+    --accent-foreground: 217 78% 54%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-light: 0 86% 97%;
+
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 138 76% 97%;
+
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 48 96% 95%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+    --ring: 217 78% 60%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
+    --radius-lg: 0.75rem;
 
-    /* Custom tokens */
-    --text-heading: 220 15% 30%;
-    --text-body: 220 10% 40%;
-    --text-subtle: 220 10% 50%;
-    --surface-highlight: 45 100% 96%;
-    --success: 145 63% 42%;
-    --success-foreground: 0 0% 100%;
-    --footer: 218 32% 25%;
-    --footer-foreground: 0 0% 100%;
-    --cta: 217 91% 60%;
-    --cta-foreground: 0 0% 100%;
-  }
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
 
-  .dark {
-    --background: 220 20% 10%;
-    --foreground: 210 40% 98%;
+    --text-heading: 222 47% 11%;
+    --text-body: 220 9% 46%;
+    --text-subtle: 220 9% 60%;
 
-    --card: 220 20% 13%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 220 20% 13%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 210 100% 52%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 217 91% 60%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 217 78% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 78% 96%;
+    --sidebar-accent-foreground: 217 78% 54%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 78% 60%;
   }
 }
 
@@ -89,44 +75,33 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply text-heading font-semibold tracking-tight;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    @apply text-foreground;
   }
 }
 
 @layer components {
-  .section-container {
-    @apply w-full max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-5 md:px-8 lg:px-12 py-10 md:py-14 lg:py-16;
+  /* Status badges */
+  .badge-overdue {
+    @apply bg-destructive/10 text-destructive font-bold text-xs px-2.5 py-0.5 rounded-full;
   }
-
-  .section-heading {
-    @apply text-2xl md:text-3xl lg:text-4xl font-bold text-heading mb-4 md:mb-6;
+  .badge-due-soon {
+    background: hsl(var(--warning-light));
+    color: hsl(var(--warning));
+    @apply font-bold text-xs px-2.5 py-0.5 rounded-full;
   }
-
-  .section-subheading {
-    @apply text-lg md:text-xl text-body mb-6 md:mb-8;
+  .badge-up-to-date {
+    background: hsl(var(--success-light));
+    color: hsl(var(--success));
+    @apply font-bold text-xs px-2.5 py-0.5 rounded-full;
   }
-
-  .bullet-list {
-    @apply space-y-3 md:space-y-4 text-body;
-  }
-
-  .bullet-item {
-    @apply flex items-start gap-3;
-  }
-
-  .pricing-card {
-    @apply bg-card border border-border rounded-xl p-6 md:p-8 text-center;
-  }
-
-  .trust-badge {
-    @apply inline-flex items-center gap-2 text-sm text-subtle bg-muted px-3 py-1.5 rounded-full;
-  }
-
-  /* Brand icon utility - ensures all icons use #FB235F consistently */
-  .brand-icon {
-    @apply text-cta;
+  .badge-scheduled {
+    @apply bg-primary/10 text-primary font-bold text-xs px-2.5 py-0.5 rounded-full;
   }
 }
