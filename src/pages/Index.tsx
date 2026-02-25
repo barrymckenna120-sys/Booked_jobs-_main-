@@ -4,7 +4,7 @@ import { StickyCTA } from "@/components/landing/StickyCTA";
 import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { ProblemSection } from "@/components/landing/ProblemSection";
-import { ImageBlock } from "@/components/landing/ImageBlock";
+import { NeverMissBookingSection } from "@/components/landing/NeverMissBookingSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { PricingSection } from "@/components/landing/PricingSection";
@@ -20,20 +20,9 @@ const Index = () => {
       <HeaderSection />
       <HeroSection />
       <ProblemSection />
-      <ImageBlock
-        label="Image Placeholder – Missed Call Cost Visual"
-        caption="Just one missed call per day can cost thousands per month."
-      />
+      <NeverMissBookingSection />
       <HowItWorksSection />
-      <ImageBlock
-        label="Image Placeholder – Booking → Dashboard → WhatsApp Flow"
-        caption="Customer books. Job captured. Office notified instantly."
-      />
       <FeaturesSection />
-      <ImageBlock
-        label="Image Placeholder – Quote & Review Flow"
-        caption="Send quotes. Get approval. Request reviews — automatically."
-      />
       <PricingSection />
       <FinalCTASection />
       <FooterSection />
