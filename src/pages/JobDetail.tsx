@@ -1,0 +1,312 @@
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import QuotePanel from "@/components/jobs/QuotePanel";
+
+type ServiceCall = {
+  id: string;
+  customer_id: string;
+  job_type: string;
+  status: string;
+  scheduled_date: string | null;
+  time_block: string | null;
+  assigned_engineer: string | null;
+  notes: string | null;
+  has_quote: boolean;
+  revenue: number | null;
+  deposit_required: boolean;
+  deposit_paid: boolean;
+  deposit_amount: number | null;
+};
+
+type Customer = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  address: string;
+  eircode: string;
+  access_notes: string | null;
+};
+
+const jobTypeBadge = (type: string) => {
+  const styles: Record<string, string> = {
+    "Boiler Service": "bg-primary/10 text-primary",
+    "Repair": "bg-warning/10 text-warning",
+    "Emergency": "bg-destructive/10 text-destructive",
+  };
+  return (
+    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[type] || "bg-muted text-muted-foreground"}`}>
+      {type}
+    </span>
+  );
+};
+
+const statusBadge = (status: string) => {
+  const styles: Record<string, string> = {
+    Scheduled: "bg-primary/10 text-primary",
+    Completed: "bg-success/10 text-success",
+    Cancelled: "bg-destructive/10 text-destructive",
+    "Awaiting Deposit": "bg-warning/10 text-warning",
+  };
+  return (
+    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
+      {status}
+    </span>
+  );
+};
+
+const JobDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [job, setJob] = useState<ServiceCall | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [engineerNotes, setEngineerNotes] = useState("");
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    if (user && id) fetchJob();
+  }, [user, id]);
+
+  const fetchJob = async () => {
+    setLoading(true);
+    const { data: jobData, error } = await supabase
+      .from("service_calls")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error || !jobData) {
+      toast({ title: "Job not found", variant: "destructive" });
+      navigate("/dashboard");
+      return;
+    }
+
+    setJob(jobData as ServiceCall);
+
+    const { data: custData } = await supabase
+      .from("customers")
+      .select("id, name, phone, email, address, eircode, access_notes")
+      .eq("id", jobData.customer_id)
+      .maybeSingle();
+
+    if (custData) setCustomer(custData as Customer);
+    setLoading(false);
+  };
+
+  const handleMarkComplete = async () => {
+    if (!job) return;
+    setActionLoading(true);
+    const { error } = await supabase
+      .from("service_calls")
+      .update({ status: "Completed", notes: engineerNotes || job.notes } as any)
+      .eq("id", job.id);
+    setActionLoading(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Job marked complete ✅" });
+      setCompleteOpen(false);
+      fetchJob();
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!job || !rescheduleDate) return;
+    setActionLoading(true);
+    const { error } = await supabase
+      .from("service_calls")
+      .update({ scheduled_date: rescheduleDate, time_block: rescheduleTime || null } as any)
+      .eq("id", job.id);
+    setActionLoading(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Job rescheduled" });
+      setRescheduleOpen(false);
+      fetchJob();
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!job) return;
+    if (!confirm("Are you sure you want to cancel this job?")) return;
+    const { error } = await supabase
+      .from("service_calls")
+      .update({ status: "Cancelled" } as any)
+      .eq("id", job.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Job cancelled" });
+      fetchJob();
+    }
+  };
+
+  if (authLoading || loading) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  if (!job || !customer) return null;
+
+  const showQuotePanel = job.job_type === "Repair" || job.job_type === "Emergency";
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex-1">
+          <button
+            onClick={() => navigate(`/customers/${customer.id}`)}
+            className="text-xl font-bold hover:text-primary transition-colors text-left"
+          >
+            {customer.name}
+          </button>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {jobTypeBadge(job.job_type)}
+            {statusBadge(job.status)}
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {job.scheduled_date || "No date"} · {job.time_block || "No time"} · {job.assigned_engineer || "Unassigned"}
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
+          <User className="w-4 h-4 mr-1" /> Profile
+        </Button>
+      </div>
+
+      {/* Job Info */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Job Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div><span className="text-muted-foreground">Customer:</span> <span className="font-semibold">{customer.name}</span></div>
+            <div><span className="text-muted-foreground">Phone:</span> <span className="font-semibold">{customer.phone}</span></div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Address:</span> <span className="font-semibold">{customer.address}</span></div>
+            <div><span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode}</span></div>
+            <div><span className="text-muted-foreground">Engineer:</span> <span className="font-semibold">{job.assigned_engineer || "—"}</span></div>
+            <div><span className="text-muted-foreground">Time Block:</span> <span className="font-semibold">{job.time_block || "—"}</span></div>
+            {customer.access_notes && (
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{customer.access_notes}</span></div>
+            )}
+            {job.notes && (
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quote Panel */}
+      {showQuotePanel && (
+        <QuotePanel jobId={job.id} customerId={customer.id} customer={customer} onQuoteChange={fetchJob} />
+      )}
+
+      {/* Job Actions */}
+      {job.status !== "Completed" && job.status !== "Cancelled" && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Job Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button onClick={() => setCompleteOpen(true)}>
+              <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Complete
+            </Button>
+            <Button variant="outline" onClick={() => {
+              setRescheduleDate(job.scheduled_date || "");
+              setRescheduleTime(job.time_block || "");
+              setRescheduleOpen(true);
+            }}>
+              <RefreshCw className="w-4 h-4 mr-1" /> Reschedule
+            </Button>
+            <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={handleCancel}>
+              <XCircle className="w-4 h-4 mr-1" /> Cancel Job
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mark Complete Dialog */}
+      <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Job Complete</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Engineer Notes (optional)</Label>
+              <textarea
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={engineerNotes}
+                onChange={(e) => setEngineerNotes(e.target.value)}
+                placeholder="Any notes from the job..."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCompleteOpen(false)}>Cancel</Button>
+              <Button onClick={handleMarkComplete} disabled={actionLoading}>
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+                Complete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Dialog */}
+      <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reschedule Job</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">New Date</Label>
+              <Input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Time Block</Label>
+              <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="Morning">Morning</SelectItem>
+                  <SelectItem value="Midday">Midday</SelectItem>
+                  <SelectItem value="Afternoon">Afternoon</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRescheduleOpen(false)}>Cancel</Button>
+              <Button onClick={handleReschedule} disabled={actionLoading || !rescheduleDate}>
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+                Reschedule
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default JobDetail;
