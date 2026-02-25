@@ -4,17 +4,36 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Settings, Plus, LogOut, Users, Phone, MapPin } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Search, Settings, Plus, LogOut, Users, Phone, MapPin, Loader2 } from "lucide-react";
+
+const EMPTY_FORM = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+  eircode: "",
+  area_code: "",
+  boiler_type: "",
+  service_status: "Up to Date",
+};
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (user) fetchCustomers();
@@ -47,6 +66,38 @@ const Dashboard = () => {
       default: return "default";
     }
   };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!form.name.trim() || !form.phone.trim() || !form.address.trim() || !form.eircode.trim()) {
+      toast({ title: "Missing fields", description: "Name, phone, address and eircode are required.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("customers").insert([{
+      user_id: user.id,
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim() || null,
+      address: form.address.trim(),
+      eircode: form.eircode.trim(),
+      area_code: form.area_code.trim() || null,
+      boiler_type: form.boiler_type || null,
+      service_status: form.service_status,
+    }] as any);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Customer added" });
+      setForm(EMPTY_FORM);
+      setDialogOpen(false);
+      fetchCustomers();
+    }
+  };
+
+  const updateField = (field: string, value: string) => setForm((p) => ({ ...p, [field]: value }));
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -104,7 +155,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Search + Actions */}
+        {/* Search + Add */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -115,6 +166,74 @@ const Dashboard = () => {
               className="pl-9"
             />
           </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-1" /> Add Customer
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Customer</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAdd} className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Customer Name *</Label>
+                    <Input value={form.name} onChange={(e) => updateField("name", e.target.value)} required maxLength={100} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Phone Number *</Label>
+                    <Input value={form.phone} onChange={(e) => updateField("phone", e.target.value)} required maxLength={20} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs">Email</Label>
+                    <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} maxLength={255} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs">Address *</Label>
+                    <Input value={form.address} onChange={(e) => updateField("address", e.target.value)} required maxLength={200} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Eircode *</Label>
+                    <Input value={form.eircode} onChange={(e) => updateField("eircode", e.target.value)} required maxLength={10} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Area Code</Label>
+                    <Input value={form.area_code} onChange={(e) => updateField("area_code", e.target.value)} maxLength={10} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Boiler Type</Label>
+                    <Select value={form.boiler_type} onValueChange={(v) => updateField("boiler_type", v)}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Gas">Gas</SelectItem>
+                        <SelectItem value="Oil">Oil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Service Status</Label>
+                    <Select value={form.service_status} onValueChange={(v) => updateField("service_status", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Up to Date">Up to Date</SelectItem>
+                        <SelectItem value="Due Soon">Due Soon</SelectItem>
+                        <SelectItem value="Overdue">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    Add Customer
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Table */}
@@ -125,7 +244,7 @@ const Dashboard = () => {
             ) : filtered.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 {customers.length === 0
-                  ? "No customers yet. Import some from Settings → Data Import."
+                  ? "No customers yet. Click \"Add Customer\" or import from Settings."
                   : "No customers match your search."}
               </div>
             ) : (
