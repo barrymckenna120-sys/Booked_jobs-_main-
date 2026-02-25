@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
+import { SendAllRemindersBanner, SendAllRemindersSheet, type ReminderCustomer } from "@/components/renewals/SendAllReminders";
 
 type Customer = {
   id: string;
@@ -52,6 +53,7 @@ const Renewals = () => {
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
+  const [sendAllOpen, setSendAllOpen] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -120,6 +122,39 @@ const Renewals = () => {
   const selectedStatus = selectedCustomer ? getStatus(getDaysUntil(selectedCustomer.next_service_due)) : "Up to Date";
   const selectedDays = selectedCustomer ? getDaysUntil(selectedCustomer.next_service_due) : 0;
 
+  // Customers needing reminders (overdue + due soon, not yet reminded)
+  const reminderQueue: ReminderCustomer[] = withStatus
+    .filter((c) => !c.reminder_30_days_sent && c.renewalStatus !== "Up to Date")
+    .filter((c) => !reminderSent[c.id])
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      nextDue: c.next_service_due!,
+      daysUntil: c.daysUntil,
+      status: c.renewalStatus,
+    }));
+
+  const handleBatchReminderSent = async (customerId: string) => {
+    setReminderSent((p) => ({ ...p, [customerId]: true }));
+    const c = customers.find((x) => x.id === customerId);
+    if (!user || !c) return;
+    const cleanPhone = c.phone.replace(/\s+/g, "").replace(/^0/, "353");
+    const nextDue = c.next_service_due
+      ? new Date(c.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+      : "soon";
+    const msg = `Hi ${c.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas 🔥`;
+    supabase.from("whatsapp_messages").insert({
+      user_id: user.id,
+      customer_id: customerId,
+      message_type: "30 Day Reminder",
+      message_body: msg,
+      sent_by: user.email,
+      status: "Sent",
+    } as any);
+    supabase.from("customers").update({ reminder_30_days_sent: true }).eq("id", customerId);
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       {/* Header */}
@@ -185,6 +220,12 @@ const Renewals = () => {
         ))}
       </div>
 
+      {/* Send All Reminders Banner */}
+      <SendAllRemindersBanner
+        customers={reminderQueue}
+        onSendAll={() => setSendAllOpen(true)}
+      />
+
       {/* List */}
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Loading...</p>
@@ -226,6 +267,14 @@ const Renewals = () => {
         open={!!bookCustomer}
         onClose={() => setBookCustomer(null)}
         onBooked={fetchCustomers}
+      />
+
+      {/* Send All Reminders Sheet */}
+      <SendAllRemindersSheet
+        open={sendAllOpen}
+        onOpenChange={setSendAllOpen}
+        customers={reminderQueue}
+        onReminderSent={handleBatchReminderSent}
       />
     </div>
   );
