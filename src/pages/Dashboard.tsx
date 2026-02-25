@@ -142,7 +142,7 @@ const Dashboard = () => {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((c) => (
-                      <TableRow key={c.id}>
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/customers/${c.id}`)}>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.phone}</TableCell>
                         <TableCell className="hidden md:table-cell">{c.address}</TableCell>
