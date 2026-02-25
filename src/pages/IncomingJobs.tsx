@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
+import { Inbox, Eye, CheckCircle2, Camera } from "lucide-react";
 import IncomingJobCard from "@/components/incoming/IncomingJobCard";
 import JobReviewPanel from "@/components/incoming/JobReviewPanel";
 
@@ -114,7 +115,10 @@ const IncomingJobs = () => {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-extrabold">📥 Incoming Jobs</h1>
+          <h1 className="text-xl font-extrabold flex items-center gap-2">
+            <Inbox className="w-5 h-5 text-primary" />
+            Incoming Jobs
+          </h1>
           {pendingCount > 0 && (
             <span className="bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-extrabold">
               {pendingCount}
@@ -146,14 +150,14 @@ const IncomingJobs = () => {
       {/* KPI row */}
       <div className="grid grid-cols-4 gap-2.5">
         {[
-          { icon: "📥", value: pendingCount, label: "Pending", color: "border-t-warning", alert: true },
-          { icon: "👁", value: jobs.filter((j) => j.incoming_status === "Reviewed").length, label: "Reviewed", color: "border-t-primary" },
-          { icon: "✅", value: assignedCount, label: "Assigned", color: "border-t-success" },
-          { icon: "📷", value: withPhotoCount, label: "With Photo", color: "border-t-[hsl(263,70%,46%)]" },
+          { icon: <Inbox className="w-5 h-5 text-warning" />, value: pendingCount, label: "Pending", color: "border-t-warning", alert: true },
+          { icon: <Eye className="w-5 h-5 text-primary" />, value: jobs.filter((j) => j.incoming_status === "Reviewed").length, label: "Reviewed", color: "border-t-primary" },
+          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: assignedCount, label: "Assigned", color: "border-t-success" },
+          { icon: <Camera className="w-5 h-5 text-accent-foreground" />, value: withPhotoCount, label: "With Photo", color: "border-t-accent-foreground" },
         ].map((k) => (
           <Card key={k.label} className={`border-t-[3px] ${k.color}`}>
             <CardContent className="p-3 text-center">
-              <div className="text-lg mb-0.5">{k.icon}</div>
+              <div className="flex justify-center mb-1">{k.icon}</div>
               <div className={`text-xl font-extrabold leading-none ${k.alert ? "text-destructive" : ""}`}>{k.value}</div>
               <div className="text-[10px] text-muted-foreground font-medium mt-1">{k.label}</div>
             </CardContent>
@@ -166,7 +170,7 @@ const IncomingJobs = () => {
         <p className="text-center text-muted-foreground py-12">Loading...</p>
       ) : jobs.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <div className="text-3xl mb-2">📥</div>
+          <Inbox className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
           <div className="font-bold">No {filter !== "All" ? filter : ""} incoming jobs</div>
         </div>
       ) : (

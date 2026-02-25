@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 
 const PAGE_SIZE = 15;
 
@@ -137,7 +137,7 @@ const Jobs = () => {
                       <TableCell>{j.scheduled_date ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-GB") : "—"}</TableCell>
                       <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
                       <TableCell>{statusBadge(j.status)}</TableCell>
-                      <TableCell className="hidden md:table-cell">{j.has_quote ? "📋" : "—"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

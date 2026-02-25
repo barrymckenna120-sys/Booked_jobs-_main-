@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone } from "lucide-react";
 import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
@@ -98,7 +99,7 @@ const Renewals = () => {
     const nextDue = customer.next_service_due
       ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
       : "soon";
-    const msg = `Hi ${customer.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas 🔥`;
+    const msg = `Hi ${customer.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
 
     setReminderSent((p) => ({ ...p, [customer.id]: true }));
@@ -143,7 +144,7 @@ const Renewals = () => {
     const nextDue = c.next_service_due
       ? new Date(c.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
       : "soon";
-    const msg = `Hi ${c.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas 🔥`;
+    const msg = `Hi ${c.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas`;
     supabase.from("whatsapp_messages").insert({
       user_id: user.id,
       customer_id: customerId,
@@ -160,21 +161,25 @@ const Renewals = () => {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-xl font-extrabold">🔄 Renewals</h1>
+          <h1 className="text-xl font-extrabold flex items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-primary" />
+            Renewals
+          </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {counts.overdue} overdue · {counts.dueSoon} due soon
           </p>
         </div>
         {counts.needReminder > 0 && (
-          <div className="bg-warning/10 text-warning rounded-lg px-3 py-1.5 text-xs font-bold">
-            ⚠ {counts.needReminder} need reminder
+          <div className="bg-warning/10 text-warning rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {counts.needReminder} need reminder
           </div>
         )}
       </div>
 
       {/* Search */}
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">🔍</span>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
         <Input
           placeholder="Search customer or address..."
           value={search}
@@ -205,14 +210,14 @@ const Renewals = () => {
       {/* KPI row */}
       <div className="grid grid-cols-4 gap-2.5">
         {[
-          { icon: "⚠️", value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true },
-          { icon: "⏰", value: counts.dueSoon, label: "Due Soon", color: "border-t-warning" },
-          { icon: "✅", value: counts.upToDate, label: "Up to Date", color: "border-t-success" },
-          { icon: "📲", value: counts.needReminder, label: "Need SMS", color: "border-t-primary" },
+          { icon: <AlertTriangle className="w-5 h-5 text-destructive" />, value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true },
+          { icon: <Clock className="w-5 h-5 text-warning" />, value: counts.dueSoon, label: "Due Soon", color: "border-t-warning" },
+          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: counts.upToDate, label: "Up to Date", color: "border-t-success" },
+          { icon: <Smartphone className="w-5 h-5 text-primary" />, value: counts.needReminder, label: "Need SMS", color: "border-t-primary" },
         ].map((k) => (
           <Card key={k.label} className={`border-t-[3px] ${k.color}`}>
             <CardContent className="p-3 text-center">
-              <div className="text-lg mb-0.5">{k.icon}</div>
+              <div className="flex justify-center mb-1">{k.icon}</div>
               <div className={`text-xl font-extrabold leading-none ${k.alert ? "text-destructive" : ""}`}>{k.value}</div>
               <div className="text-[10px] text-muted-foreground font-medium mt-1">{k.label}</div>
             </CardContent>
@@ -231,7 +236,7 @@ const Renewals = () => {
         <p className="text-center text-muted-foreground py-12">Loading...</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <div className="text-3xl mb-2">🔄</div>
+          <RefreshCw className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
           <div className="font-bold">No {filter !== "All" ? filter : ""} renewals</div>
         </div>
       ) : (

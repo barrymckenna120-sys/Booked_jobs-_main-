@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Send, SkipForward, MessageCircle } from "lucide-react";
+import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper } from "lucide-react";
 
 export type ReminderCustomer = {
   id: string;
@@ -21,7 +21,7 @@ const buildMsg = (c: ReminderCustomer) => {
     month: "short",
     year: "numeric",
   });
-  return `Hi ${firstName},\n\nYour annual boiler service is due on ${dueDate}.\n\nTo book your service, reply YES or call us.\n\nKarl's Gas 🔥`;
+  return `Hi ${firstName},\n\nYour annual boiler service is due on ${dueDate}.\n\nTo book your service, reply YES or call us.\n\nKarl's Gas`;
 };
 
 const waUrl = (phone: string, msg: string) =>
@@ -113,8 +113,8 @@ export function SendAllRemindersSheet({
           {isFinished ? (
             <Card className="bg-success/10 border-success/20">
               <CardContent className="py-8 text-center space-y-3">
-                <p className="text-5xl">🎉</p>
-                <p className="text-xl font-extrabold text-success">
+                <PartyPopper className="w-12 h-12 mx-auto text-success" />
+                <p className="text-xl font-extrabold text-success mt-2">
                   All Reminders Sent!
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -136,8 +136,8 @@ export function SendAllRemindersSheet({
                   }`}
                 >
                   <CardContent className="py-4 px-5 space-y-3">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      {started ? "📲 Now Sending" : "📋 Up First"}
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      {started ? <><Smartphone className="w-3 h-3" /> Now Sending</> : <><ClipboardList className="w-3 h-3" /> Up First</>}
                     </p>
                     <div>
                       <p className="text-lg font-extrabold">{current.name}</p>
@@ -221,7 +221,7 @@ export function SendAllRemindersSheet({
                         : "bg-border"
                     }`}
                   >
-                    {isSent ? "✓" : isNext ? "💬" : isSkip ? "—" : i + 1}
+                    {isSent ? <Check className="w-4 h-4" /> : isNext ? <MessageCircle className="w-4 h-4" /> : isSkip ? "—" : i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
@@ -249,7 +249,7 @@ export function SendAllRemindersSheet({
                         isSent ? "bg-success/10 text-success" : statusPill(c.status)
                       }`}
                     >
-                      {isSent ? "✓ Sent" : c.status}
+                      {isSent ? <><Check className="w-3 h-3 inline mr-0.5" /> Sent</> : c.status}
                     </span>
                   </div>
                 </div>
