@@ -22,6 +22,7 @@ import EngineerAvailability from "./pages/EngineerAvailability";
 import EngineerApp from "./pages/EngineerApp";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import Finance from "./pages/Finance";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
             <Route path="/incoming" element={<IncomingJobs />} />
             <Route path="/engineers" element={<EngineerAvailability />} />
+            <Route path="/finance" element={<Finance />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/import" element={<ImportCustomers />} />
           </Route>
