@@ -19,6 +19,7 @@ import WhatsApp from "./pages/WhatsApp";
 import WhatsAppTemplates from "./pages/WhatsAppTemplates";
 import IncomingJobs from "./pages/IncomingJobs";
 import EngineerAvailability from "./pages/EngineerAvailability";
+import EngineerApp from "./pages/EngineerApp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/import" element={<ImportCustomers />} />
           </Route>
+          <Route path="/engineer-app" element={<EngineerApp />} />
           <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
