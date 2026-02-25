@@ -10,42 +10,44 @@ export const HeroSection = () => {
   ];
 
   return (
-    <section className="section-container pt-8 pb-16 lg:pt-12 lg:pb-20">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+    <section className="section-container pt-6 pb-20 lg:pt-10 lg:pb-28">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         {/* Left — Text block */}
-        <div>
-          <span className="inline-block text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-3 py-1.5 rounded-full mb-5">
+        <div className="max-w-xl">
+          <span className="inline-block text-[11px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/8 px-3.5 py-1.5 rounded-full mb-6 border border-primary/15">
             Built for Boiler Service Companies
           </span>
 
-          <h1 className="text-3xl lg:text-4xl font-extrabold text-foreground leading-tight mb-5">
+          <h1 className="text-[2.25rem] lg:text-[2.75rem] xl:text-5xl font-extrabold text-foreground leading-[1.15] tracking-[-0.025em] mb-5">
             Stop Losing Boiler Service Work You've Already Earned
           </h1>
 
-          <p className="text-muted-foreground text-base lg:text-lg leading-relaxed mb-4">
+          <p className="text-muted-foreground text-[15px] lg:text-base leading-[1.7] mb-3.5">
             As your customer base grows, keeping up with annual renewals, quotes and payments gets harder.
           </p>
 
-          <p className="text-muted-foreground text-base leading-relaxed mb-8">
+          <p className="text-muted-foreground text-[15px] lg:text-base leading-[1.7] mb-9">
             BookedJobs gives you a simple operations system to manage jobs, reminders and revenue — all from your phone.
           </p>
 
-          <div className="space-y-3 mb-8">
+          <div className="space-y-3.5 mb-10">
             {benefits.map((benefit, i) => (
-              <div key={i} className="flex items-center gap-2.5">
-                <Check className="w-5 h-5 text-primary flex-shrink-0" strokeWidth={2.5} />
-                <span className="text-foreground text-sm font-medium">{benefit}</span>
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+                </div>
+                <span className="text-foreground text-sm font-semibold tracking-[-0.01em]">{benefit}</span>
               </div>
             ))}
           </div>
 
-          <div className="max-w-sm">
-            <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
+          <div className="max-w-[320px]">
+            <Button size="lg" className="w-full text-[15px] font-bold py-6 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow" asChild>
               <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
                 Start 30-Day Free Trial
               </a>
             </Button>
-            <p className="text-center text-sm text-muted-foreground mt-3">
+            <p className="text-center text-[13px] text-muted-foreground mt-3.5 tracking-[-0.01em]">
               One extra boiler service per month pays for the system.
             </p>
           </div>
@@ -53,10 +55,11 @@ export const HeroSection = () => {
 
         {/* Right — Hero image */}
         <div className="relative">
+          <div className="absolute -inset-3 bg-gradient-to-br from-primary/8 via-transparent to-primary/5 rounded-[2rem] blur-2xl pointer-events-none" />
           <img
             src={engineerVanImg}
             alt="Professional gas boiler service engineer in van holding a tablet with the BookedJobs booking and renewal dashboard"
-            className="w-full rounded-2xl shadow-lg"
+            className="relative w-full rounded-2xl shadow-xl shadow-foreground/8"
             loading="eager"
           />
         </div>
