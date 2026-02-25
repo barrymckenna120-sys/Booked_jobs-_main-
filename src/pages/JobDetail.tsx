@@ -32,6 +32,10 @@ type ServiceCall = {
   boiler_working: boolean | null;
   boiler_issue: string | null;
   source: string | null;
+  cancellation_reason: string | null;
+  cancellation_note: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
 };
 
 type Customer = {
@@ -242,7 +246,32 @@ const JobDetail = () => {
         </div>
       )}
 
-      {/* Customer Submitted Media */}
+      {/* Cancellation Details */}
+      {job.status === "Cancelled" && job.cancellation_reason && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+              <XCircle className="w-4 h-4" /> Cancellation Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div><span className="text-muted-foreground">Reason:</span> <span className="font-semibold">{job.cancellation_reason}</span></div>
+            {job.cancellation_note && (
+              <div><span className="text-muted-foreground">Note:</span> <span className="font-semibold">{job.cancellation_note}</span></div>
+            )}
+            {job.cancelled_at && (
+              <div><span className="text-muted-foreground">Cancelled:</span> <span className="font-semibold">{new Date(job.cancelled_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span></div>
+            )}
+            {job.deposit_paid && (
+              <div className="flex items-center gap-1.5 mt-1 text-warning font-semibold">
+                <AlertTriangle className="w-3.5 h-3.5" /> Payment was recorded — refund may be required
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
