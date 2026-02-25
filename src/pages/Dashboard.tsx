@@ -11,7 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Settings, Plus, LogOut, Users, Phone, MapPin, Loader2 } from "lucide-react";
+import { Search, Settings, Plus, LogOut, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 10;
 
 const EMPTY_FORM = {
   name: "",
@@ -35,6 +37,7 @@ const Dashboard = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     if (user) fetchCustomers();
@@ -61,6 +64,12 @@ const Dashboard = () => {
       statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [search, statusFilter]);
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -274,7 +283,7 @@ const Dashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((c) => (
+                    {paginated.map((c) => (
                       <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/customers/${c.id}`)}>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.phone}</TableCell>
@@ -289,6 +298,22 @@ const Dashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">Page {page + 1} of {totalPages}</span>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
