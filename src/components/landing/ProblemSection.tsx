@@ -10,7 +10,7 @@ const problems = [
 
 export const ProblemSection = () => {
   return (
-    <section className="section-container py-16">
+    <section className="section-container py-10">
       <div className="bg-gradient-to-br from-primary/5 via-primary/10 to-accent/20 rounded-3xl p-8 lg:p-12 border border-primary/10">
         <h2 className="section-heading text-center mb-2">Sound familiar?</h2>
         <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto text-sm">
