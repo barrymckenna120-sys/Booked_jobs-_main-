@@ -49,6 +49,9 @@
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
     --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
 
+    --cta: 217 78% 60%;
+    --cta-foreground: 0 0% 100%;
+
     --text-heading: 222 47% 11%;
     --text-body: 220 9% 46%;
     --text-subtle: 220 9% 60%;
