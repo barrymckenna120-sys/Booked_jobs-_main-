@@ -15,6 +15,7 @@ import {
   FileText, Plus, Clock, CheckCircle2, CreditCard, Send, Edit2, User,
   Loader2, X, MessageCircle
 } from "lucide-react";
+import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/components/jobs/SendAllQuotes";
 
 type Quote = {
   id: string;
@@ -93,6 +94,9 @@ const Quotes = () => {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [whatsappMsg, setWhatsappMsg] = useState("");
 
+  // Send All Quotes
+  const [sendAllOpen, setSendAllOpen] = useState(false);
+
   // Payment link
   const [payOpen, setPayOpen] = useState(false);
   const [payLink, setPayLink] = useState("");
@@ -125,6 +129,24 @@ const Quotes = () => {
   };
 
   const sentCount = quotes.filter((q) => q.status === "Sent").length;
+
+  // Unsent quotes for Send All feature
+  const unsentQuotes: UnsentQuote[] = quotes
+    .filter(q => q.status === "Draft")
+    .map(q => ({
+      id: q.id,
+      customer: q.customers?.name || "Unknown",
+      phone: q.customers?.phone || "",
+      jobType: q.service_calls?.job_type || "Job",
+      total: Number(q.total_amount) || 0,
+      description: q.description,
+      quoteUrl: `${window.location.origin}/quote/${q.id}`,
+    }));
+
+  const handleQuoteSent = async (quoteId: string) => {
+    await supabase.from("quotes").update({ status: "Sent", sent_at: new Date().toISOString() } as any).eq("id", quoteId);
+    fetchQuotes();
+  };
 
   // ── Status update ──
   const updateStatus = async (quoteId: string, newStatus: string, extra: Record<string, any> = {}) => {
@@ -307,6 +329,9 @@ const Quotes = () => {
           );
         })}
       </div>
+
+      {/* Send All Banner */}
+      {!loading && <SendAllBanner unsentQuotes={unsentQuotes} onSendAll={() => setSendAllOpen(true)} />}
 
       {/* Quote cards */}
       {loading ? (
@@ -745,6 +770,14 @@ const Quotes = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send All Quotes Sheet */}
+      <SendAllQuotesSheet
+        open={sendAllOpen}
+        onOpenChange={setSendAllOpen}
+        quotes={unsentQuotes}
+        onQuoteSent={handleQuoteSent}
+      />
     </div>
   );
 };
