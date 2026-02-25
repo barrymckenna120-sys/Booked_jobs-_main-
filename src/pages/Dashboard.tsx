@@ -30,6 +30,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -51,12 +52,14 @@ const Dashboard = () => {
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       c.name?.toLowerCase().includes(q) ||
       c.phone?.toLowerCase().includes(q) ||
       c.address?.toLowerCase().includes(q) ||
-      c.eircode?.toLowerCase().includes(q)
-    );
+      c.eircode?.toLowerCase().includes(q);
+    const matchesStatus =
+      statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   const statusColor = (status: string) => {
@@ -166,6 +169,17 @@ const Dashboard = () => {
               className="pl-9"
             />
           </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Up to Date">Up to Date</SelectItem>
+              <SelectItem value="Due Soon">Due Soon</SelectItem>
+              <SelectItem value="Overdue">Overdue</SelectItem>
+            </SelectContent>
+          </Select>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>
