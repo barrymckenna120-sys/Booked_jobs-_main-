@@ -100,6 +100,8 @@ const WhatsApp = () => {
   const [logReplyMessage, setLogReplyMessage] = useState<(WaMessage & { customer_name?: string }) | null>(null);
   const [viewMessage, setViewMessage] = useState<(WaMessage & { customer_name?: string; customer_phone?: string }) | null>(null);
 
+  const isMobile = useIsMobile();
+
   const fetchAll = useCallback(async () => {
     if (!user) return;
 
@@ -190,7 +192,6 @@ const WhatsApp = () => {
   const messageTypes = ["All", "30 Day Reminder", "7 Day Reminder", "Quote Sent", "Booking Confirmation", "Payment Request", "Custom"];
   const statusTypes = ["All", "Sent", "Confirmed", "No Response", "Opted Out"];
 
-  const isMobile = useIsMobile();
 
   const messagesContent = (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
