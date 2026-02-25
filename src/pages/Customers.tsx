@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,11 @@ const PAGE_SIZE = 15;
 const Customers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const initialStatus = searchParams.get("status") || "all";
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
 
@@ -54,7 +56,15 @@ const Customers = () => {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold">Customers</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-extrabold">Customers</h1>
+          {statusFilter !== "all" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-semibold">
+              Filtered: {statusFilter}
+              <button onClick={() => { setStatusFilter("all"); setSearchParams({}); }} className="ml-1 hover:text-destructive">✕</button>
+            </span>
+          )}
+        </div>
         <Button onClick={() => navigate("/dashboard")} size="sm">
           <Plus className="w-4 h-4 mr-1" /> Add Customer
         </Button>

@@ -49,7 +49,9 @@ const Renewals = () => {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("All");
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialFilter = urlParams.get("status") || "All";
+  const [filter, setFilter] = useState<string>(initialFilter);
   const [search, setSearch] = useState("");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);

@@ -142,7 +142,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:border-destructive transition-colors" onClick={() => navigate("/customers?status=Overdue")}>
           <CardContent className="pt-5 pb-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
               <Phone className="w-5 h-5 text-destructive" />
@@ -153,7 +153,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:border-warning transition-colors" onClick={() => navigate("/renewals?status=Due Soon")}>
           <CardContent className="pt-5 pb-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
               <MapPin className="w-5 h-5 text-warning" />
@@ -164,7 +164,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className={`shadow-sm cursor-pointer transition-colors ${incomingCount > 0 ? "border-warning" : ""}`} onClick={() => navigate("/incoming")}>
+        <Card className={`shadow-sm cursor-pointer transition-colors hover:border-warning ${incomingCount > 0 ? "border-warning" : ""}`} onClick={() => navigate("/incoming?status=New")}>
           <CardContent className="pt-5 pb-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${incomingCount > 0 ? "bg-warning/10" : "bg-success/10"}`}>
               <Inbox className={`w-5 h-5 ${incomingCount > 0 ? "text-warning" : "text-success"}`} />
@@ -175,7 +175,7 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card className="shadow-sm cursor-pointer hover:border-success transition-colors" onClick={() => navigate("/customers?status=Up to Date")}>
           <CardContent className="pt-5 pb-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
               <Users className="w-5 h-5 text-success" />
