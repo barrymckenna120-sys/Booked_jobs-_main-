@@ -84,6 +84,25 @@ const IncomingJobs = () => {
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
+  // Realtime subscription for new/updated incoming jobs
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('incoming-jobs-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'service_calls',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => { fetchJobs(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchJobs]);
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   const pendingCount = jobs.filter((j) => j.incoming_status === "Pending").length;
