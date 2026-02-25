@@ -2,7 +2,8 @@ import { Phone, Mail, MapPin, Facebook } from "lucide-react";
 
 export const FooterSection = () => {
   return (
-    <footer className="section-container bg-[#2b3a52] text-white py-12">
+    <footer className="bg-[#2b3a52] text-white py-12">
+      <div className="section-container">
       <div className="text-center">
         <h3 className="font-bold text-xl mb-4 text-white">BookedJobs</h3>
         
@@ -42,6 +43,7 @@ export const FooterSection = () => {
         <p className="text-xs opacity-40 text-white">
           © 2025 BookedJobs. All rights reserved.
         </p>
+      </div>
       </div>
     </footer>
   );

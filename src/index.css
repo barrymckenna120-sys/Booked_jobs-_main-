@@ -90,6 +90,24 @@
 }
 
 @layer components {
+  /* Landing page container */
+  .section-container {
+    @apply max-w-6xl mx-auto px-5 sm:px-6 lg:px-8;
+  }
+
+  /* Section headings */
+  .section-heading {
+    @apply text-2xl lg:text-3xl font-extrabold text-foreground leading-tight;
+  }
+
+  /* Body text helpers */
+  .text-body {
+    color: hsl(var(--text-body));
+  }
+  .text-subtle {
+    color: hsl(var(--text-subtle));
+  }
+
   /* Status badges */
   .badge-overdue {
     @apply bg-destructive/10 text-destructive font-bold text-xs px-2.5 py-0.5 rounded-full;
