@@ -26,19 +26,21 @@ function RenewalStatusPill({ status }: { status: string }) {
 }
 
 // ── This Month Snapshot ──
-function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob }: {
+function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob, completedJobs }: {
   revenue: number; outstanding: number; jobsCompleted: number; avgJob: number;
+  completedJobs: { name: string; value: number; type: string; date: string }[];
 }) {
   const collectionRate = revenue + outstanding > 0
     ? Math.round((revenue / (revenue + outstanding)) * 100) : 100;
   const healthColor = collectionRate >= 85 ? "success" : collectionRate >= 70 ? "warning" : "destructive";
   const healthLabel = collectionRate >= 85 ? "Healthy" : collectionRate >= 70 ? "Watch" : "Action Needed";
+  const [showJobs, setShowJobs] = useState(false);
 
   const cards = [
-    { value: eur(revenue), label: "Revenue This Month", icon: TrendingUp, accent: "success" },
-    { value: eur(outstanding), label: "Outstanding", icon: Clock, accent: outstanding > 1000 ? "warning" : "success" },
-    { value: jobsCompleted.toString(), label: "Jobs Completed", icon: CheckCircle2, accent: "primary" },
-    { value: eur(avgJob), label: "Average Job Value", icon: BarChart3, accent: "primary" },
+    { value: eur(revenue), label: "Revenue This Month", icon: TrendingUp, accent: "success", clickable: false },
+    { value: eur(outstanding), label: "Outstanding", icon: Clock, accent: outstanding > 1000 ? "warning" : "success", clickable: false },
+    { value: jobsCompleted.toString(), label: "Jobs Completed", icon: CheckCircle2, accent: "primary", clickable: true },
+    { value: eur(avgJob), label: "Average Job Value", icon: BarChart3, accent: "primary", clickable: false },
   ];
 
   return (
@@ -59,19 +61,52 @@ function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob }: {
       {/* Stat cards */}
       <div className="space-y-3">
         {cards.map((card, i) => (
-          <Card key={i} className={`shadow-sm border-l-4 border-l-${card.accent}`}>
+          <Card
+            key={i}
+            className={`shadow-sm border-l-4 border-l-${card.accent} ${card.clickable ? "cursor-pointer hover:bg-accent/50 transition-colors" : ""}`}
+            onClick={card.clickable ? () => setShowJobs(v => !v) : undefined}
+          >
             <CardContent className="py-4 px-5 flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl bg-${card.accent}/10 flex items-center justify-center flex-shrink-0`}>
                 <card.icon className={`w-6 h-6 text-${card.accent}`} />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-black tracking-tight leading-none mb-1">{card.value}</p>
                 <p className="text-sm font-semibold text-muted-foreground">{card.label}</p>
               </div>
+              {card.clickable && (
+                <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${showJobs ? "rotate-180" : ""}`} />
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Completed jobs list */}
+      {showJobs && (
+        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <p className="text-xs font-bold text-muted-foreground uppercase px-1">Completed Jobs This Month</p>
+          {completedJobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No completed jobs this month.</p>
+          ) : (
+            completedJobs.map((job, i) => (
+              <Card key={i} className="shadow-sm border-l-4 border-l-success">
+                <CardContent className="py-3 px-4 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-sm mb-1">{job.name}</p>
+                    <p className="text-xs text-muted-foreground">{job.type} · {new Date(job.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</p>
+                  </div>
+                  <p className="text-base font-extrabold flex-shrink-0 ml-3">{eur(job.value)}</p>
+                </CardContent>
+              </Card>
+            ))
+          )}
+          <div className="flex justify-between items-center px-1 pt-1">
+            <span className="text-xs font-semibold text-muted-foreground">{completedJobs.length} jobs</span>
+            <span className="text-sm font-extrabold">{eur(completedJobs.reduce((s, j) => s + j.value, 0))} total</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -326,6 +361,14 @@ const Finance = () => {
       .reduce((s, q) => s + (q.total_amount || 0), 0);
   }, [quotes]);
   const avgJob = thisMonthJobs.length > 0 ? Math.round(revenue / thisMonthJobs.length) : 0;
+  const completedJobsList = useMemo(() =>
+    thisMonthJobs.map(j => ({
+      name: j.customers?.name || "Unknown",
+      value: j.revenue || 0,
+      type: j.job_type || "Service",
+      date: j.scheduled_date || "",
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+  [thisMonthJobs]);
 
   // Next month forecast
   const nextMonthJobs = useMemo(() =>
@@ -409,7 +452,7 @@ const Finance = () => {
 
       {/* Content */}
       <div className="px-4 py-6 space-y-8 pb-24">
-        <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={thisMonthJobs.length} avgJob={avgJob} />
+        <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={thisMonthJobs.length} avgJob={avgJob} completedJobs={completedJobsList} />
         <NextMonth
           scheduledJobs={nextMonthJobs.length}
           forecastRevenue={forecastRevenue}
