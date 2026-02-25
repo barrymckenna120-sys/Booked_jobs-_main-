@@ -88,7 +88,7 @@ const Schedule = () => {
   });
 
   const unallocatedJobs = jobs.filter(
-    (j) => !j.scheduled_date || !j.time_block || j.status === "New" || j.status === "Contacted"
+    (j) => (j.status === "New" || j.status === "Contacted") && (!j.scheduled_date || !j.time_block || !j.assigned_engineer)
   );
 
   const getJobForSlot = (date: Date, timeBlock: string, engineerName?: string) => {
@@ -129,6 +129,7 @@ const Schedule = () => {
         time_block: timeBlock,
         assigned_engineer: engineerName,
         status: "Booked",
+        needs_scheduling: false,
       })
       .eq("id", jobId);
 

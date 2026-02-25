@@ -1,0 +1,1 @@
+ALTER TABLE service_calls ADD COLUMN IF NOT EXISTS needs_scheduling boolean NOT NULL DEFAULT false;
