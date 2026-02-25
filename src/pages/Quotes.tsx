@@ -226,7 +226,7 @@ const Quotes = () => {
       ? `\n\nPay ${q.deposit_amount ? `deposit of €${q.deposit_amount}` : "now"}: ${q.payment_link}`
       : "";
     setWhatsappMsg(
-      `Hi ${q.customers.name.split(" ")[0]},\n\nHere is your quote for: ${q.description}\n\nTotal: €${Number(q.total_amount).toLocaleString()}\n\nView & approve here:\n${quoteLink}${payLine}\n\nKarl's Gas 🔥`
+      `Hi ${q.customers.name.split(" ")[0]},\n\nHere is your quote for: ${q.description}\n\nTotal: €${Number(q.total_amount).toLocaleString()}\n\nView & approve here:\n${quoteLink}${payLine}\n\nKarl's Gas`
     );
     setWhatsappOpen(true);
   };
@@ -279,7 +279,7 @@ const Quotes = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">🧾 Quotes</h1>
+          <h1 className="text-xl font-bold flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> Quotes</h1>
           <p className="text-sm text-muted-foreground">
             {sentCount > 0 ? `${sentCount} awaiting approval` : "All quotes"}
           </p>
@@ -376,7 +376,7 @@ const Quotes = () => {
                   {/* Footer */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      👤 {q.service_calls?.assigned_engineer || "—"} · {relTime(q.created_at)}
+                      <User className="w-3.5 h-3.5 inline mr-0.5" /> {q.service_calls?.assigned_engineer || "—"} · {relTime(q.created_at)}
                     </span>
                     <span className="text-lg font-extrabold">€{Number(q.total_amount).toLocaleString()}</span>
                   </div>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Send as SendIcon, CheckCircle2, Clock, CalendarDays, Bot, AlertTriangle, Smartphone, PenLine, Eye, FileText, MessageSquare } from "lucide-react";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import LogReplyModal from "@/components/whatsapp/LogReplyModal";
 import ViewMessageModal from "@/components/whatsapp/ViewMessageModal";
@@ -198,14 +199,14 @@ const WhatsApp = () => {
         {/* KPI Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Sent This Month", value: kpiSent, icon: "📤" },
-            { label: "Confirmed", value: kpiConfirmed, icon: "✅" },
-            { label: "No Response", value: kpiNoResponse, icon: "⏳" },
-            { label: "Due to Send", value: kpiDueToSend, icon: "📅" },
+            { label: "Sent This Month", value: kpiSent, icon: <SendIcon className="w-6 h-6 text-primary" /> },
+            { label: "Confirmed", value: kpiConfirmed, icon: <CheckCircle2 className="w-6 h-6 text-success" /> },
+            { label: "No Response", value: kpiNoResponse, icon: <Clock className="w-6 h-6 text-muted-foreground" /> },
+            { label: "Due to Send", value: kpiDueToSend, icon: <CalendarDays className="w-6 h-6 text-destructive" /> },
           ].map((k) => (
             <Card key={k.label}>
               <CardContent className="p-4 text-center">
-                <p className="text-2xl mb-1">{k.icon}</p>
+                <div className="flex justify-center mb-1">{k.icon}</div>
                 <p className="text-2xl font-extrabold">{k.value}</p>
                 <p className="text-xs text-muted-foreground">{k.label}</p>
               </CardContent>
@@ -216,7 +217,7 @@ const WhatsApp = () => {
         {/* Automation Status */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <h3 className="font-bold text-sm flex items-center gap-2">🤖 Reminder Automation Status</h3>
+            <h3 className="font-bold text-sm flex items-center gap-2"><Bot className="w-4 h-4 text-primary" /> Reminder Automation Status</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between"><span>30-day reminders</span><span className="text-muted-foreground">● Manual (tap to send)</span></div>
               <div className="flex justify-between"><span>7-day reminders</span><span className="text-muted-foreground">● Manual (tap to send)</span></div>
@@ -224,7 +225,7 @@ const WhatsApp = () => {
             <div className="text-sm text-muted-foreground">
               {pending30 > 0 && <p>{pending30} customer{pending30 > 1 ? "s" : ""} need 30-day reminder</p>}
               {pending7 > 0 && <p>{pending7} customer{pending7 > 1 ? "s" : ""} need 7-day reminder</p>}
-              {pending30 === 0 && pending7 === 0 && <p>All reminders up to date ✓</p>}
+              {pending30 === 0 && pending7 === 0 && <p className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> All reminders up to date</p>}
             </div>
           </CardContent>
         </Card>
@@ -273,14 +274,14 @@ const WhatsApp = () => {
                         <td className="px-4 py-2.5">{new Date(c.next_service_due!).toLocaleDateString("en-IE")}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${daysUntilClass(days)}`}>
-                            {days <= 7 ? `⚠ ${days}d` : `${days}d`}
+                            {days <= 7 ? <span className="flex items-center gap-0.5"><AlertTriangle className="w-3 h-3" /> {days}d</span> : `${days}d`}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground text-xs">
                           {c.last_message_sent_at ? new Date(c.last_message_sent_at).toLocaleDateString("en-IE") : "—"}
                         </td>
                         <td className="px-4 py-2.5">
-                          <Button size="sm" onClick={() => setSendModalCustomer(c)}>📲 Send Reminder</Button>
+                          <Button size="sm" onClick={() => setSendModalCustomer(c)} className="gap-1.5"><Smartphone className="w-3.5 h-3.5" /> Send Reminder</Button>
                         </td>
                       </tr>
                     );
@@ -376,7 +377,7 @@ const WhatsApp = () => {
                             className="text-xs px-2 h-7"
                             onClick={() => setLogReplyMessage({ ...m, customer_name: c?.name })}
                           >
-                            📝 Log Reply
+                            <PenLine className="w-3 h-3 mr-0.5" /> Log Reply
                           </Button>
                           <Button
                             size="sm"
@@ -384,7 +385,7 @@ const WhatsApp = () => {
                             className="text-xs px-2 h-7"
                             onClick={() => setViewMessage({ ...m, customer_name: c?.name, customer_phone: c?.phone })}
                           >
-                            👁 View
+                            <Eye className="w-3 h-3 mr-0.5" /> View
                           </Button>
                         </td>
                       </tr>
@@ -416,8 +417,8 @@ const WhatsApp = () => {
             <p className="text-sm text-muted-foreground">Renewal reminders and customer communications</p>
           </div>
           {!isMobile && (
-            <Button variant="outline" size="sm" onClick={() => navigate("/whatsapp/templates")}>
-              📝 Templates
+            <Button variant="outline" size="sm" onClick={() => navigate("/whatsapp/templates")} className="gap-1.5">
+              <FileText className="w-4 h-4" /> Templates
             </Button>
           )}
         </div>
@@ -427,8 +428,8 @@ const WhatsApp = () => {
         <Tabs defaultValue="messages" className="w-full">
           <div className="border-b border-border bg-card px-4">
             <TabsList className="w-full">
-              <TabsTrigger value="messages" className="flex-1">📤 Messages</TabsTrigger>
-              <TabsTrigger value="templates" className="flex-1">📝 Templates</TabsTrigger>
+              <TabsTrigger value="messages" className="flex-1 gap-1.5"><MessageSquare className="w-4 h-4" /> Messages</TabsTrigger>
+              <TabsTrigger value="templates" className="flex-1 gap-1.5"><FileText className="w-4 h-4" /> Templates</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="messages">{messagesContent}</TabsContent>

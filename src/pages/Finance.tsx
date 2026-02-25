@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, Clock, CheckCircle2, BarChart3, Calendar, RefreshCw, AlertTriangle, ChevronDown, Send } from "lucide-react";
+import { Loader2, TrendingUp, Clock, CheckCircle2, BarChart3, Calendar, RefreshCw, AlertTriangle, ChevronDown, Send, ClipboardList, Coins, TrendingDown } from "lucide-react";
 
 const eur = (n: number) => `€${n.toLocaleString()}`;
 
@@ -85,10 +85,10 @@ function NextMonth({ scheduledJobs, forecastRevenue, renewalsDue, renewalValue }
   const estimatedValue = estimatedBookings * 120;
 
   const forecastCards = [
-    { icon: "📋", value: scheduledJobs.toString(), label: "Scheduled Jobs", accent: "primary" },
-    { icon: "💰", value: eur(forecastRevenue), label: "From Jobs", accent: "success" },
-    { icon: "🔄", value: renewalsDue.toString(), label: "Renewals Due", accent: "warning" },
-    { icon: "📈", value: eur(renewalValue), label: "Renewal Value", accent: "primary" },
+    { icon: <ClipboardList className="w-5 h-5 text-primary" />, value: scheduledJobs.toString(), label: "Scheduled Jobs", accent: "primary" },
+    { icon: <Coins className="w-5 h-5 text-success" />, value: eur(forecastRevenue), label: "From Jobs", accent: "success" },
+    { icon: <RefreshCw className="w-5 h-5 text-warning" />, value: renewalsDue.toString(), label: "Renewals Due", accent: "warning" },
+    { icon: <TrendingUp className="w-5 h-5 text-primary" />, value: eur(renewalValue), label: "Renewal Value", accent: "primary" },
   ];
 
   return (
@@ -110,7 +110,7 @@ function NextMonth({ scheduledJobs, forecastRevenue, renewalsDue, renewalValue }
         {forecastCards.map((card, i) => (
           <Card key={i} className={`shadow-sm border-t-[3px] border-t-${card.accent}`}>
             <CardContent className="py-4 px-4">
-              <p className="text-xl mb-2">{card.icon}</p>
+              <div className="flex justify-center mb-2">{card.icon}</div>
               <p className="text-xl font-black tracking-tight leading-none mb-1">{card.value}</p>
               <p className="text-xs font-semibold text-muted-foreground">{card.label}</p>
             </CardContent>
@@ -205,7 +205,7 @@ function RenewalsList({ renewals }: { renewals: { name: string; due: string; val
                     <div>
                       <p className="font-bold text-sm mb-1">{r.name}</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">📅 {new Date(r.due).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(r.due).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
                         <RenewalStatusPill status={r.status} />
                       </div>
                     </div>

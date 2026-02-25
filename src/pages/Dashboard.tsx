@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Inbox } from "lucide-react";
+import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Inbox, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 
 const PAGE_SIZE = 10;
 
@@ -84,9 +84,9 @@ const Dashboard = () => {
 
   const statusBadge = (status: string) => {
     switch (status) {
-      case "Overdue": return <span className="badge-overdue">⚠ Overdue</span>;
-      case "Due Soon": return <span className="badge-due-soon">⚠ Due Soon</span>;
-      default: return <span className="badge-up-to-date">✓ Up to Date</span>;
+      case "Overdue": return <span className="badge-overdue flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Overdue</span>;
+      case "Due Soon": return <span className="badge-due-soon flex items-center gap-1"><Clock className="w-3 h-3" /> Due Soon</span>;
+      default: return <span className="badge-up-to-date flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Up to Date</span>;
     }
   };
 
