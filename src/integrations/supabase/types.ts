@@ -161,6 +161,66 @@ export type Database = {
         }
         Relationships: []
       }
+      job_media: {
+        Row: {
+          customer_id: string | null
+          file_name: string
+          file_type: string | null
+          id: string
+          job_id: string | null
+          notes: string | null
+          public_url: string | null
+          storage_bucket: string | null
+          storage_path: string
+          uploaded_at: string | null
+          uploaded_by: string | null
+          user_id: string | null
+        }
+        Insert: {
+          customer_id?: string | null
+          file_name: string
+          file_type?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          public_url?: string | null
+          storage_bucket?: string | null
+          storage_path: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          customer_id?: string | null
+          file_name?: string
+          file_type?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          public_url?: string | null
+          storage_bucket?: string | null
+          storage_path?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_media_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_media_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -263,6 +323,9 @@ export type Database = {
       service_calls: {
         Row: {
           assigned_engineer: string | null
+          boiler_brand: string | null
+          boiler_issue: string | null
+          boiler_working: boolean | null
           created_at: string
           customer_id: string
           deposit_amount: number | null
@@ -270,17 +333,25 @@ export type Database = {
           deposit_required: boolean
           has_quote: boolean
           id: string
+          incoming_status: string | null
           job_type: string
           notes: string | null
           revenue: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           scheduled_date: string | null
+          source: string | null
           status: string
+          tally_submission_id: string | null
           time_block: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           assigned_engineer?: string | null
+          boiler_brand?: string | null
+          boiler_issue?: string | null
+          boiler_working?: boolean | null
           created_at?: string
           customer_id: string
           deposit_amount?: number | null
@@ -288,17 +359,25 @@ export type Database = {
           deposit_required?: boolean
           has_quote?: boolean
           id?: string
+          incoming_status?: string | null
           job_type?: string
           notes?: string | null
           revenue?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           scheduled_date?: string | null
+          source?: string | null
           status?: string
+          tally_submission_id?: string | null
           time_block?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           assigned_engineer?: string | null
+          boiler_brand?: string | null
+          boiler_issue?: string | null
+          boiler_working?: boolean | null
           created_at?: string
           customer_id?: string
           deposit_amount?: number | null
@@ -306,11 +385,16 @@ export type Database = {
           deposit_required?: boolean
           has_quote?: boolean
           id?: string
+          incoming_status?: string | null
           job_type?: string
           notes?: string | null
           revenue?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           scheduled_date?: string | null
+          source?: string | null
           status?: string
+          tally_submission_id?: string | null
           time_block?: string | null
           updated_at?: string
           user_id?: string
