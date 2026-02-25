@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LayoutDashboard, ClipboardList, Users, RefreshCw, MessageCircle, Settings, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Users, RefreshCw, MessageCircle, FileText, Settings, LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
+  { label: "Templates", icon: FileText, path: "/whatsapp/templates" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
