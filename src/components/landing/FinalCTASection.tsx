@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 
 export const FinalCTASection = () => {
   return (
-    <section className="section-container bg-cta/5 py-12">
+    <section className="bg-muted py-16">
+      <div className="section-container">
       <h2 className="section-heading text-center">
         Stop letting jobs fall through the cracks.
       </h2>
@@ -20,6 +21,7 @@ export const FinalCTASection = () => {
         <p className="text-center text-sm text-subtle">
           One extra boiler service per month pays for the system.
         </p>
+      </div>
       </div>
     </section>
   );
