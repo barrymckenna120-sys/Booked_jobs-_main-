@@ -38,6 +38,7 @@ const Dashboard = () => {
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(0);
   const [incomingCount, setIncomingCount] = useState(0);
+  const [areaFilter, setAreaFilter] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -74,13 +75,13 @@ const Dashboard = () => {
       c.eircode?.toLowerCase().includes(q);
     const matchesStatus =
       statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
+    return matchesSearch && matchesStatus && matchesArea;
   });
-
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter]);
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -198,12 +199,21 @@ const Dashboard = () => {
         return sorted.length > 0 ? (
           <Card className="shadow-sm">
             <CardContent className="pt-5 pb-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Customers by Area Code</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Customers by Area Code</p>
+                {areaFilter && (
+                  <button onClick={() => setAreaFilter(null)} className="text-xs text-primary hover:underline">Clear filter</button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {sorted.map(([code, count]) => (
-                  <span key={code} className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                    <MapPin className="w-3 h-3" /> {code} <span className="text-foreground font-extrabold">{count}</span>
-                  </span>
+                  <button
+                    key={code}
+                    onClick={() => setAreaFilter(areaFilter === code ? null : code)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${areaFilter === code ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
+                  >
+                    <MapPin className="w-3 h-3" /> {code} <span className={`font-extrabold ${areaFilter === code ? "text-primary-foreground" : "text-foreground"}`}>{count}</span>
+                  </button>
                 ))}
               </div>
             </CardContent>
