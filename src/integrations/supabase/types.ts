@@ -405,6 +405,10 @@ export type Database = {
           boiler_brand: string | null
           boiler_issue: string | null
           boiler_working: boolean | null
+          cancellation_note: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           customer_id: string
           deposit_amount: number | null
@@ -432,6 +436,10 @@ export type Database = {
           boiler_brand?: string | null
           boiler_issue?: string | null
           boiler_working?: boolean | null
+          cancellation_note?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           customer_id: string
           deposit_amount?: number | null
@@ -459,6 +467,10 @@ export type Database = {
           boiler_brand?: string | null
           boiler_issue?: string | null
           boiler_working?: boolean | null
+          cancellation_note?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           customer_id?: string
           deposit_amount?: number | null

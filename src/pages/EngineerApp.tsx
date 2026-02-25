@@ -84,6 +84,12 @@ const EngineerApp = () => {
 
     const dbPatch: Record<string, any> = { ...rest };
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    if (cancelReason) {
+      dbPatch.cancellation_reason = cancelReason;
+      dbPatch.cancellation_note = cancelNote || null;
+      dbPatch.cancelled_at = new Date().toISOString();
+      dbPatch.cancelled_by = user?.id || null;
+    }
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", jobId);
 

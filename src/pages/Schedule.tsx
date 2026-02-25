@@ -12,6 +12,7 @@ import WeeklyGrid from "@/components/schedule/WeeklyGrid";
 import UnallocatedJobs from "@/components/schedule/UnallocatedJobs";
 import AssignJobModal from "@/components/schedule/AssignJobModal";
 import JobSlotDrawer from "@/components/schedule/JobSlotDrawer";
+import CancelJobModal from "@/components/jobs/CancelJobModal";
 
 const TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"] as const;
 
@@ -40,6 +41,7 @@ const Schedule = () => {
   const [assignModal, setAssignModal] = useState<{ open: boolean; job?: ScheduleJob; date?: Date; timeBlock?: string }>({ open: false });
   const [detailDrawer, setDetailDrawer] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
   const [unallocatedOpen, setUnallocatedOpen] = useState(true);
+  const [cancelModal, setCancelModal] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
 
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(weekDays[0], "d")}–${format(weekDays[4], "d MMM yyyy")}`;
@@ -151,13 +153,27 @@ const Schedule = () => {
     }
   };
 
-  const handleCancel = async (jobId: string) => {
-    const { error } = await supabase.from("service_calls").update({ status: "Cancelled" }).eq("id", jobId);
+  const handleCancel = async (reason: string, note: string) => {
+    const jobId = cancelModal.job?.id;
+    if (!jobId) return;
+    const { error } = await supabase.from("service_calls").update({
+      status: "Cancelled",
+      cancellation_reason: reason,
+      cancellation_note: note || null,
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user?.id || null,
+    } as any).eq("id", jobId);
     if (!error) {
       toast({ title: "Job cancelled" });
+      setCancelModal({ open: false });
       setDetailDrawer({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
     }
+  };
+
+  const openCancelModal = (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    setCancelModal({ open: true, job });
   };
 
   const handleMoveSlot = (job: ScheduleJob) => {
@@ -269,7 +285,16 @@ const Schedule = () => {
         job={detailDrawer.job}
         onMarkComplete={handleMarkComplete}
         onMoveSlot={handleMoveSlot}
-        onCancel={handleCancel}
+        onCancel={openCancelModal}
+      />
+
+      {/* Cancel Job Modal */}
+      <CancelJobModal
+        open={cancelModal.open}
+        onOpenChange={(open) => setCancelModal({ ...cancelModal, open })}
+        jobRef={cancelModal.job ? `BJ-${cancelModal.job.id.slice(0, 6).toUpperCase()}` : ""}
+        depositPaid={cancelModal.job?.deposit_paid}
+        onConfirm={handleCancel}
       />
     </div>
   );
