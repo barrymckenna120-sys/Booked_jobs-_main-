@@ -23,6 +23,7 @@ import EngineerLayout from "./components/engineer/EngineerLayout";
 import EngineerToday from "./pages/engineer/EngineerToday";
 import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
 import EngineerCompleted from "./pages/engineer/EngineerCompleted";
+import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
@@ -59,10 +60,12 @@ const App = () => (
           {/* Engineer Mode */}
           <Route path="/engineer" element={<EngineerLayout />}>
             <Route index element={<Navigate to="/engineer/today" replace />} />
-            <Route path="today" element={<EngineerToday />} />
+          <Route path="today" element={<EngineerToday />} />
             <Route path="upcoming" element={<EngineerUpcoming />} />
             <Route path="completed" element={<EngineerCompleted />} />
           </Route>
+          {/* Engineer job detail — outside layout (no bottom nav) */}
+          <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
           {/* Legacy route redirect */}
           <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
           <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
