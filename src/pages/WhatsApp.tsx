@@ -6,9 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import LogReplyModal from "@/components/whatsapp/LogReplyModal";
 import ViewMessageModal from "@/components/whatsapp/ViewMessageModal";
+import WhatsAppTemplates from "@/pages/WhatsAppTemplates";
 
 type Customer = {
   id: string;
@@ -187,21 +190,10 @@ const WhatsApp = () => {
   const messageTypes = ["All", "30 Day Reminder", "7 Day Reminder", "Quote Sent", "Booking Confirmation", "Payment Request", "Custom"];
   const statusTypes = ["All", "Sent", "Confirmed", "No Response", "Opted Out"];
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">WhatsApp Messages</h1>
-            <p className="text-sm text-muted-foreground">Renewal reminders and customer communications</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => navigate("/whatsapp/templates")}>
-            📝 Templates
-          </Button>
-        </div>
-      </header>
+  const isMobile = useIsMobile();
 
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+  const messagesContent = (
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* KPI Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
@@ -408,8 +400,42 @@ const WhatsApp = () => {
               </div>
             )}
           </Card>
-        </div>
       </div>
+    </div>
+  );
+
+
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">WhatsApp Messages</h1>
+            <p className="text-sm text-muted-foreground">Renewal reminders and customer communications</p>
+          </div>
+          {!isMobile && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/whatsapp/templates")}>
+              📝 Templates
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {isMobile ? (
+        <Tabs defaultValue="messages" className="w-full">
+          <div className="border-b border-border bg-card px-4">
+            <TabsList className="w-full">
+              <TabsTrigger value="messages" className="flex-1">📤 Messages</TabsTrigger>
+              <TabsTrigger value="templates" className="flex-1">📝 Templates</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="messages">{messagesContent}</TabsContent>
+          <TabsContent value="templates"><WhatsAppTemplates embedded /></TabsContent>
+        </Tabs>
+      ) : (
+        messagesContent
+      )}
 
       {/* Modals */}
       {sendModalCustomer && (

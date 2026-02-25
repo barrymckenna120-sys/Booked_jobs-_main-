@@ -46,7 +46,7 @@ const VARIABLES = [
   { tag: "{quote_amount}", desc: "Quote total (if applicable)" },
 ];
 
-const WhatsAppTemplates = () => {
+const WhatsAppTemplates = ({ embedded = false }: { embedded?: boolean }) => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -167,15 +167,17 @@ const WhatsAppTemplates = () => {
   const isEditing = creating || editId;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold">WhatsApp Templates</h1>
-          <p className="text-sm text-muted-foreground">
-            Create and manage message templates for reminders, quotes, and bookings
-          </p>
-        </div>
-      </header>
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && (
+        <header className="border-b border-border bg-card">
+          <div className="max-w-3xl mx-auto px-4 py-4">
+            <h1 className="text-xl font-bold">WhatsApp Templates</h1>
+            <p className="text-sm text-muted-foreground">
+              Create and manage message templates for reminders, quotes, and bookings
+            </p>
+          </div>
+        </header>
+      )}
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Variable reference */}
