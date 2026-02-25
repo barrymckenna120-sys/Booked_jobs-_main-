@@ -40,7 +40,7 @@ export const FooterSection = () => {
           Helping plumbers get found and booked online.
         </p>
         
-        <p className="text-xs opacity-40 text-white">
+        <p className="text-xs opacity-40 text-white pb-16 md:pb-0">
           © 2025 BookedJobs. All rights reserved.
         </p>
       </div>
