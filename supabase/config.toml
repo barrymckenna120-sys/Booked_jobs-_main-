@@ -1,1 +1,4 @@
 project_id = "ktkfuquqxbrmuqrmbmdj"
+
+[functions.tally-webhook]
+verify_jwt = false

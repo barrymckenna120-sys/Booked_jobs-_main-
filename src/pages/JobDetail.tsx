@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
+import MediaGallery from "@/components/media/MediaGallery";
 
 type ServiceCall = {
   id: string;
@@ -26,6 +27,10 @@ type ServiceCall = {
   deposit_required: boolean;
   deposit_paid: boolean;
   deposit_amount: number | null;
+  boiler_brand: string | null;
+  boiler_working: boolean | null;
+  boiler_issue: string | null;
+  source: string | null;
 };
 
 type Customer = {
@@ -214,6 +219,31 @@ const JobDetail = () => {
               <div className="sm:col-span-2"><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Boiler Issue Warning */}
+      {job.boiler_working === false && job.boiler_issue && (
+        <div className="flex items-start gap-2 rounded-lg p-3 bg-warning/10 border-l-4 border-warning">
+          <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold">Boiler not working</p>
+            <p className="text-sm">{job.boiler_issue}</p>
+            {job.boiler_brand && <p className="text-xs text-muted-foreground mt-1">Brand: {job.boiler_brand}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Customer Submitted Media */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            📷 Customer Photos & Videos
+            {job.source === "Tally Form" && <span className="text-xs font-normal text-muted-foreground">· Submitted with booking</span>}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MediaGallery jobId={job.id} showUpload onUpload={() => {}} />
         </CardContent>
       </Card>
 

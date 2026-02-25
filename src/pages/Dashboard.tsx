@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard } from "lucide-react";
+import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Inbox } from "lucide-react";
 
 const PAGE_SIZE = 10;
 
@@ -37,10 +37,23 @@ const Dashboard = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(0);
+  const [incomingCount, setIncomingCount] = useState(0);
 
   useEffect(() => {
-    if (user) fetchCustomers();
+    if (user) {
+      fetchCustomers();
+      fetchIncomingCount();
+    }
   }, [user]);
+
+  const fetchIncomingCount = async () => {
+    const { count } = await supabase
+      .from("service_calls")
+      .select("*", { count: "exact", head: true })
+      .eq("source", "Tally Form")
+      .eq("incoming_status", "Pending");
+    setIncomingCount(count || 0);
+  };
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -116,7 +129,7 @@ const Dashboard = () => {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
       {/* KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card className="shadow-sm">
           <CardContent className="pt-5 pb-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -147,6 +160,17 @@ const Dashboard = () => {
             <div>
               <p className="text-2xl font-extrabold">{customers.filter(c => c.service_status === "Due Soon").length}</p>
               <p className="text-xs text-muted-foreground">Due Soon</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={`shadow-sm cursor-pointer transition-colors ${incomingCount > 0 ? "border-warning" : ""}`} onClick={() => navigate("/incoming")}>
+          <CardContent className="pt-5 pb-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${incomingCount > 0 ? "bg-warning/10" : "bg-success/10"}`}>
+              <Inbox className={`w-5 h-5 ${incomingCount > 0 ? "text-warning" : "text-success"}`} />
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold">{incomingCount}</p>
+              <p className="text-xs text-muted-foreground">Incoming Pending</p>
             </div>
           </CardContent>
         </Card>
