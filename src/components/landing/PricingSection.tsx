@@ -12,7 +12,7 @@ const included = [
 
 export const PricingSection = () => {
   return (
-    <section className="section-container py-16">
+    <section className="section-container py-10">
       <div className="bg-gradient-to-br from-primary/8 via-primary/5 to-accent/15 rounded-3xl p-8 lg:p-12 border border-primary/10">
         <div className="text-center mb-8">
           <span className="inline-block text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-3 py-1.5 rounded-full mb-4">

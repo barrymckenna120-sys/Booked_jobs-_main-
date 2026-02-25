@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 
 export const FinalCTASection = () => {
   return (
-    <section className="bg-muted py-16">
+    <section className="bg-muted py-10">
       <div className="section-container">
       <h2 className="section-heading text-center">
         Stop letting jobs fall through the cracks.

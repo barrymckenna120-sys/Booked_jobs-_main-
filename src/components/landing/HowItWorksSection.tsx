@@ -26,7 +26,7 @@ const steps = [
 
 export const HowItWorksSection = () => {
   return (
-    <section className="bg-gradient-to-b from-background to-muted/40 py-16">
+    <section className="bg-gradient-to-b from-background to-muted/40 py-10">
       <div className="section-container">
       <div className="text-center mb-12">
         <span className="inline-block text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-3 py-1.5 rounded-full mb-4">
