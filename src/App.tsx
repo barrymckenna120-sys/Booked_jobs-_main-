@@ -7,6 +7,7 @@ import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
+import Quotes from "./pages/Quotes";
 import JobDetail from "./pages/JobDetail";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/quotes" element={<Quotes />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />
             <Route path="/renewals" element={<Renewals />} />
