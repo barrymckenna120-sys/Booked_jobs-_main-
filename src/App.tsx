@@ -23,6 +23,7 @@ import EngineerApp from "./pages/EngineerApp";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
+import Schedule from "./pages/Schedule";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/incoming" element={<IncomingJobs />} />
             <Route path="/engineers" element={<EngineerAvailability />} />
             <Route path="/finance" element={<Finance />} />
+            <Route path="/schedule" element={<Schedule />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/import" element={<ImportCustomers />} />
           </Route>

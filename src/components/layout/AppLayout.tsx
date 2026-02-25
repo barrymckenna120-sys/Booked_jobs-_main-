@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,11 +11,13 @@ import {
 
 const MAIN_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  { label: "Incoming", icon: Inbox, path: "/incoming" },
+  { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
+  { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
-  { label: "Finance", icon: TrendingUp, path: "/finance" },
 ];
 
 const WHATSAPP_CHILDREN = [
@@ -25,21 +27,21 @@ const WHATSAPP_CHILDREN = [
 
 const BOTTOM_NAV = [
   { label: "Engineers", icon: Wrench, path: "/engineers" },
-  { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 // Mobile: flatten but group WhatsApp as single item
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  { label: "Incoming", icon: Inbox, path: "/incoming" },
+  { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
+  { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
-  { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
   { label: "Engineers", icon: Wrench, path: "/engineers" },
-  { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
