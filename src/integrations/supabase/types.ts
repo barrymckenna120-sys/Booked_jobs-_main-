@@ -414,6 +414,7 @@ export type Database = {
           id: string
           incoming_status: string | null
           job_type: string
+          needs_scheduling: boolean
           notes: string | null
           revenue: number | null
           reviewed_at: string | null
@@ -440,6 +441,7 @@ export type Database = {
           id?: string
           incoming_status?: string | null
           job_type?: string
+          needs_scheduling?: boolean
           notes?: string | null
           revenue?: number | null
           reviewed_at?: string | null
@@ -466,6 +468,7 @@ export type Database = {
           id?: string
           incoming_status?: string | null
           job_type?: string
+          needs_scheduling?: boolean
           notes?: string | null
           revenue?: number | null
           reviewed_at?: string | null
