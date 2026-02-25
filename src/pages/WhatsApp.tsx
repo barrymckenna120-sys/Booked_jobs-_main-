@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -71,6 +72,7 @@ const daysUntilClass = (days: number) => {
 const WhatsApp = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -188,9 +190,14 @@ const WhatsApp = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold">WhatsApp Messages</h1>
-          <p className="text-sm text-muted-foreground">Renewal reminders and customer communications</p>
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">WhatsApp Messages</h1>
+            <p className="text-sm text-muted-foreground">Renewal reminders and customer communications</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => navigate("/whatsapp/templates")}>
+            📝 Templates
+          </Button>
         </div>
       </header>
 
