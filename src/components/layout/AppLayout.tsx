@@ -79,12 +79,12 @@ const AppLayout = () => {
       </main>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border h-16 flex items-center justify-around px-1">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border h-16 flex items-center overflow-x-auto px-1 scrollbar-hide">
         {NAV_ITEMS.map((item) => (
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[60px] py-1 ${
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] shrink-0 py-1 ${
               isActive(item.path) ? "text-primary font-bold" : "text-muted-foreground"
             }`}
           >
