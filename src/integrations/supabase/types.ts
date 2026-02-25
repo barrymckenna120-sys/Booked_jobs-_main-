@@ -20,21 +20,29 @@ export type Database = {
           address: string
           area_code: string | null
           assigned_engineer: string | null
+          boiler_age: number | null
           boiler_installation_date: string | null
           boiler_make_model: string | null
           boiler_type: string | null
           created_at: string
           customer_since: string | null
+          days_until_service: number | null
           eircode: string
           email: string | null
           engineer_notes: string | null
           id: string
+          last_reminder_response: string | null
           last_service_date: string | null
           last_service_engineer: string | null
           name: string
           next_service_due: string | null
           notes: string | null
+          opted_out: boolean | null
+          opted_out_date: string | null
           phone: string
+          reminder_30_days_sent: boolean | null
+          reminder_7_days_sent: boolean | null
+          scheduled_service_date: string | null
           service_status: string | null
           under_warranty: boolean | null
           updated_at: string
@@ -45,21 +53,29 @@ export type Database = {
           address: string
           area_code?: string | null
           assigned_engineer?: string | null
+          boiler_age?: number | null
           boiler_installation_date?: string | null
           boiler_make_model?: string | null
           boiler_type?: string | null
           created_at?: string
           customer_since?: string | null
+          days_until_service?: number | null
           eircode: string
           email?: string | null
           engineer_notes?: string | null
           id?: string
+          last_reminder_response?: string | null
           last_service_date?: string | null
           last_service_engineer?: string | null
           name: string
           next_service_due?: string | null
           notes?: string | null
+          opted_out?: boolean | null
+          opted_out_date?: string | null
           phone: string
+          reminder_30_days_sent?: boolean | null
+          reminder_7_days_sent?: boolean | null
+          scheduled_service_date?: string | null
           service_status?: string | null
           under_warranty?: boolean | null
           updated_at?: string
@@ -70,23 +86,67 @@ export type Database = {
           address?: string
           area_code?: string | null
           assigned_engineer?: string | null
+          boiler_age?: number | null
           boiler_installation_date?: string | null
           boiler_make_model?: string | null
           boiler_type?: string | null
           created_at?: string
           customer_since?: string | null
+          days_until_service?: number | null
           eircode?: string
           email?: string | null
           engineer_notes?: string | null
           id?: string
+          last_reminder_response?: string | null
           last_service_date?: string | null
           last_service_engineer?: string | null
           name?: string
           next_service_due?: string | null
           notes?: string | null
+          opted_out?: boolean | null
+          opted_out_date?: string | null
           phone?: string
+          reminder_30_days_sent?: boolean | null
+          reminder_7_days_sent?: boolean | null
+          scheduled_service_date?: string | null
           service_status?: string | null
           under_warranty?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      engineers: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_available: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_available?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_available?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -113,6 +173,185 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          accepted_at: string | null
+          callout_cost: number | null
+          created_at: string
+          customer_id: string
+          deposit_amount: number | null
+          description: string
+          id: string
+          job_id: string
+          labour_cost: number | null
+          paid_at: string | null
+          parts_cost: number | null
+          payment_link: string | null
+          sent_at: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          callout_cost?: number | null
+          created_at?: string
+          customer_id: string
+          deposit_amount?: number | null
+          description: string
+          id?: string
+          job_id: string
+          labour_cost?: number | null
+          paid_at?: string | null
+          parts_cost?: number | null
+          payment_link?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          callout_cost?: number | null
+          created_at?: string
+          customer_id?: string
+          deposit_amount?: number | null
+          description?: string
+          id?: string
+          job_id?: string
+          labour_cost?: number | null
+          paid_at?: string | null
+          parts_cost?: number | null
+          payment_link?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_calls: {
+        Row: {
+          assigned_engineer: string | null
+          created_at: string
+          customer_id: string
+          deposit_amount: number | null
+          deposit_paid: boolean
+          deposit_required: boolean
+          has_quote: boolean
+          id: string
+          job_type: string
+          notes: string | null
+          revenue: number | null
+          scheduled_date: string | null
+          status: string
+          time_block: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_engineer?: string | null
+          created_at?: string
+          customer_id: string
+          deposit_amount?: number | null
+          deposit_paid?: boolean
+          deposit_required?: boolean
+          has_quote?: boolean
+          id?: string
+          job_type?: string
+          notes?: string | null
+          revenue?: number | null
+          scheduled_date?: string | null
+          status?: string
+          time_block?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_engineer?: string | null
+          created_at?: string
+          customer_id?: string
+          deposit_amount?: number | null
+          deposit_paid?: boolean
+          deposit_required?: boolean
+          has_quote?: boolean
+          id?: string
+          job_type?: string
+          notes?: string | null
+          revenue?: number | null
+          scheduled_date?: string | null
+          status?: string
+          time_block?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_calls_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          business_name: string
+          default_callout_charge: number | null
+          default_service_price: number | null
+          id: string
+          logo_url: string | null
+          reminder_message_template: string | null
+          stripe_connected: boolean
+          updated_at: string
+          user_id: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          business_name?: string
+          default_callout_charge?: number | null
+          default_service_price?: number | null
+          id?: string
+          logo_url?: string | null
+          reminder_message_template?: string | null
+          stripe_connected?: boolean
+          updated_at?: string
+          user_id: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          business_name?: string
+          default_callout_charge?: number | null
+          default_service_price?: number | null
+          id?: string
+          logo_url?: string | null
+          reminder_message_template?: string | null
+          stripe_connected?: boolean
+          updated_at?: string
+          user_id?: string
+          whatsapp_number?: string | null
         }
         Relationships: []
       }
