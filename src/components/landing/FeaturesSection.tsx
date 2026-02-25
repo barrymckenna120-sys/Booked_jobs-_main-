@@ -12,7 +12,7 @@ const features = [
 
 export const FeaturesSection = () => {
   return (
-    <section className="section-container py-16">
+    <section className="section-container py-10">
       <div className="bg-gradient-to-br from-primary/5 via-background to-accent/10 rounded-3xl p-8 lg:p-12 border border-primary/10">
         <div className="text-center mb-10">
           <span className="inline-block text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-3 py-1.5 rounded-full mb-4">
