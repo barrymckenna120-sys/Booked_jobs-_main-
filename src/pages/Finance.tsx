@@ -40,7 +40,7 @@ function ThisMonth({ revenue, outstanding, jobsCompleted, avgJob, completedJobs,
   const [showJobs, setShowJobs] = useState(false);
 
   const cards = [
-    { value: eur(revenue), label: "Revenue This Month", icon: TrendingUp, accent: "success", clickable: false },
+    { value: eur(revenue), label: `Revenue ${periodLabel.split(" – ")[0] || periodLabel}`, icon: TrendingUp, accent: "success", clickable: false },
     { value: eur(outstanding), label: "Outstanding", icon: Clock, accent: outstanding > 1000 ? "warning" : "success", clickable: false },
     { value: jobsCompleted.toString(), label: "Jobs Completed", icon: CheckCircle2, accent: "primary", clickable: true },
     { value: eur(avgJob), label: "Average Job Value", icon: BarChart3, accent: "primary", clickable: false },
