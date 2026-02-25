@@ -163,6 +163,30 @@ const Dashboard = () => {
         </Card>
       </div>
 
+      {/* Area Code Breakdown */}
+      {(() => {
+        const areaCounts = customers.reduce<Record<string, number>>((acc, c) => {
+          const code = c.area_code || "No Area";
+          acc[code] = (acc[code] || 0) + 1;
+          return acc;
+        }, {});
+        const sorted = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
+        return sorted.length > 0 ? (
+          <Card className="shadow-sm">
+            <CardContent className="pt-5 pb-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">Customers by Area Code</p>
+              <div className="flex flex-wrap gap-2">
+                {sorted.map(([code, count]) => (
+                  <span key={code} className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    <MapPin className="w-3 h-3" /> {code} <span className="text-foreground font-extrabold">{count}</span>
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null;
+      })()}
+
       {/* Search + Filter + Add */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
