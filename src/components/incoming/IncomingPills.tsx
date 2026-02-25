@@ -5,6 +5,9 @@ const TIME_LABELS: Record<string, string> = {
   morning: "9–11am",
   midday: "11am–2pm",
   afternoon: "2–5pm",
+  "9am–11am": "9–11am",
+  "11am–1pm": "11am–1pm",
+  "2pm–5pm": "2–5pm",
 };
 
 export const IncomingStatusPill = ({ status }: { status: string | null }) => {
