@@ -104,4 +104,25 @@
   .badge-scheduled {
     @apply bg-primary/10 text-primary font-bold text-xs px-2.5 py-0.5 rounded-full;
   }
+  .badge-quote-draft {
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+    @apply font-bold text-xs px-2.5 py-0.5 rounded-full;
+  }
+  .badge-quote-sent {
+    @apply bg-primary/10 text-primary font-bold text-xs px-2.5 py-0.5 rounded-full;
+  }
+  .badge-quote-accepted {
+    background: hsl(142 76% 92%);
+    color: hsl(142 72% 29%);
+    @apply font-bold text-xs px-2.5 py-0.5 rounded-full;
+  }
+  .badge-quote-rejected {
+    @apply bg-destructive/10 text-destructive font-bold text-xs px-2.5 py-0.5 rounded-full;
+  }
+  .badge-quote-paid {
+    background: hsl(160 84% 90%);
+    color: hsl(160 84% 18%);
+    @apply font-extrabold text-xs px-2.5 py-0.5 rounded-full;
+  }
 }
