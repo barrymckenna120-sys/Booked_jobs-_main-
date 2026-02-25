@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,7 @@ const WHATSAPP_CHILDREN = [
 ];
 
 const BOTTOM_NAV = [
+  { label: "Engineers", icon: Wrench, path: "/engineers" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
@@ -35,6 +36,7 @@ const MOBILE_NAV = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
+  { label: "Engineers", icon: Wrench, path: "/engineers" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];

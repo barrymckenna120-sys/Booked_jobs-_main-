@@ -125,6 +125,85 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_blocks: {
+        Row: {
+          block_date: string
+          block_type: string
+          created_at: string
+          end_date: string | null
+          engineer_id: string
+          id: string
+          reason: string | null
+          time_block: string | null
+          user_id: string
+        }
+        Insert: {
+          block_date: string
+          block_type?: string
+          created_at?: string
+          end_date?: string | null
+          engineer_id: string
+          id?: string
+          reason?: string | null
+          time_block?: string | null
+          user_id: string
+        }
+        Update: {
+          block_date?: string
+          block_type?: string
+          created_at?: string
+          end_date?: string | null
+          engineer_id?: string
+          id?: string
+          reason?: string | null
+          time_block?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineer_blocks_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engineer_working_days: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          engineer_id: string
+          id: string
+          is_working: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          engineer_id: string
+          id?: string
+          is_working?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          engineer_id?: string
+          id?: string
+          is_working?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineer_working_days_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engineers: {
         Row: {
           created_at: string
