@@ -1,32 +1,32 @@
-import { MessageSquare, Settings, TrendingUp } from "lucide-react";
+import { Calendar, LayoutDashboard, ShieldCheck } from "lucide-react";
+
+const steps = [
+  {
+    number: "01",
+    icon: Calendar,
+    title: "Customers book anytime.",
+    description: "24/7 online booking form — customers request services even when you're on the tools.",
+  },
+  {
+    number: "02",
+    icon: LayoutDashboard,
+    title: "You manage everything in one dashboard.",
+    description: "Jobs, quotes, payments, renewals and customer history — all in one place.",
+  },
+  {
+    number: "03",
+    icon: ShieldCheck,
+    title: "The system protects your recurring income.",
+    description: "Automatic service tracking ensures no renewal is forgotten. Ever.",
+  },
+];
 
 export const HowItWorksSection = () => {
-  const steps = [
-    {
-      number: "01",
-      icon: MessageSquare,
-      title: "Book a Quick Call",
-      description: "15-minute chat to understand your business and goals.",
-    },
-    {
-      number: "02",
-      icon: Settings,
-      title: "We Set Everything Up",
-      description: "Google profile optimised + booking system installed within 48 hours.",
-    },
-    {
-      number: "03",
-      icon: TrendingUp,
-      title: "Start Capturing Leads",
-      description: "Customers book you 24/7 while you focus on the job.",
-    },
-  ];
-
   return (
     <section className="section-container bg-muted/30">
-      <h2 className="section-heading text-center">How It Works</h2>
+      <h2 className="section-heading text-center">How BookedJobs works.</h2>
       <p className="text-body text-center mb-10 max-w-xl mx-auto">
-        Simple setup. No tech skills needed. We handle everything.
+        Three simple steps to take control of your boiler service business.
       </p>
 
       <div className="grid md:grid-cols-3 gap-6">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
 
 export const StickyHeader = () => {
@@ -8,7 +9,6 @@ export const StickyHeader = () => {
     const handleScroll = () => {
       setIsVisible(window.scrollY > 100);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -19,12 +19,18 @@ export const StickyHeader = () => {
         isVisible ? "translate-y-0" : "-translate-y-full"
       }`}
     >
-      <div className="section-container py-2">
-        <img 
-          src={bookedjobsLogo} 
-          alt="BookedJobs" 
-          className="h-8 object-contain object-left"
-        />
+      <div className="section-container py-2 flex items-center justify-between">
+        <img src={bookedjobsLogo} alt="BookedJobs" className="h-8 object-contain object-left" />
+        <div className="flex items-center gap-3">
+          <a href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
+            Login
+          </a>
+          <Button size="sm" asChild>
+            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+              Start 30-Day Trial
+            </a>
+          </Button>
+        </div>
       </div>
     </header>
   );

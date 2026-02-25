@@ -6,10 +6,8 @@ export const StickyCTA = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Show after scrolling past ~500px (roughly hero section height)
       setIsVisible(window.scrollY > 500);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -20,13 +18,9 @@ export const StickyCTA = () => {
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
       }`}
     >
-      <Button
-        size="lg"
-        className="shadow-lg text-base font-semibold px-8 py-6"
-        asChild
-      >
+      <Button size="lg" className="shadow-lg text-base font-semibold px-8 py-6" asChild>
         <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-          Set Up My Booking System →
+          Start 30-Day Trial →
         </a>
       </Button>
     </div>
