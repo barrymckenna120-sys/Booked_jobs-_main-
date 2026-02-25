@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Inbox, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
 
 const PAGE_SIZE = 10;
 
@@ -187,6 +188,9 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* This Week Schedule Snapshot */}
+      <WeekSnapshot />
 
       {/* Area Code Breakdown */}
       {(() => {
