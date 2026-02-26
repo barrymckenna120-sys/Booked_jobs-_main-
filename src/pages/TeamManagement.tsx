@@ -84,6 +84,7 @@ interface TeamMember {
   blocked_reason: string | null;
   is_available: boolean;
   created_at: string;
+  auth_user_id: string | null;
 }
 
 const TeamManagement = () => {
@@ -111,7 +112,7 @@ const TeamManagement = () => {
     setLoading(true);
     const { data } = await supabase
       .from("engineers")
-      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at")
+      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id")
       .order("name");
     if (data) setMembers(data as TeamMember[]);
     setLoading(false);
@@ -333,6 +334,16 @@ const TeamManagement = () => {
                     </div>
                     {member.email && (
                       <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                    )}
+                    {!isBlocked && !member.auth_user_id && (
+                      <div className="text-xs text-amber-600 font-medium mt-0.5">
+                        ⚠ No login linked
+                      </div>
+                    )}
+                    {!isBlocked && member.auth_user_id && (
+                      <div className="text-xs text-green-600 font-medium mt-0.5">
+                        ✓ Login linked
+                      </div>
                     )}
                     {isBlocked && member.blocked_reason && (
                       <div className="text-xs text-destructive font-medium mt-0.5">

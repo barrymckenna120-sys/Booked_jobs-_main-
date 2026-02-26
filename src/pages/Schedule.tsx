@@ -124,15 +124,19 @@ const Schedule = () => {
       return;
     }
 
+    // Resolve engineer ID for the assigned_engineer_id column
+    const matchedEngineer = engineers.find((e) => e.name === engineerName);
+
     const { error } = await supabase
       .from("service_calls")
       .update({
         scheduled_date: format(date, "yyyy-MM-dd"),
         time_block: timeBlock,
         assigned_engineer: engineerName,
+        assigned_engineer_id: matchedEngineer?.id || null,
         status: "Booked",
         needs_scheduling: false,
-      })
+      } as any)
       .eq("id", jobId);
 
     if (error) {

@@ -206,6 +206,7 @@ export type Database = {
       }
       engineers: {
         Row: {
+          auth_user_id: string | null
           blocked_reason: string | null
           created_at: string
           email: string | null
@@ -221,6 +222,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auth_user_id?: string | null
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
@@ -236,6 +238,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auth_user_id?: string | null
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
@@ -414,6 +417,7 @@ export type Database = {
       service_calls: {
         Row: {
           assigned_engineer: string | null
+          assigned_engineer_id: string | null
           boiler_brand: string | null
           boiler_issue: string | null
           boiler_working: boolean | null
@@ -445,6 +449,7 @@ export type Database = {
         }
         Insert: {
           assigned_engineer?: string | null
+          assigned_engineer_id?: string | null
           boiler_brand?: string | null
           boiler_issue?: string | null
           boiler_working?: boolean | null
@@ -476,6 +481,7 @@ export type Database = {
         }
         Update: {
           assigned_engineer?: string | null
+          assigned_engineer_id?: string | null
           boiler_brand?: string | null
           boiler_issue?: string | null
           boiler_working?: boolean | null
@@ -506,6 +512,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "service_calls_assigned_engineer_id_fkey"
+            columns: ["assigned_engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "service_calls_customer_id_fkey"
             columns: ["customer_id"]
@@ -652,7 +665,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_engineer_id: { Args: { _user_id: string }; Returns: string }
+      get_user_role: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never

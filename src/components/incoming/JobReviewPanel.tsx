@@ -81,8 +81,11 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       return;
     }
     setAssigning(true);
+    // Find engineer ID for RBAC
+    const matchedEng = engineers.find((e: any) => e.name === assignEngineer);
     await supabase.from("service_calls").update({
       assigned_engineer: assignEngineer,
+      assigned_engineer_id: matchedEng?.id || null,
       scheduled_date: assignDate,
       time_block: assignTime || null,
       incoming_status: "Assigned",

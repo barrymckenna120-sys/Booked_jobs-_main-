@@ -1,6 +1,7 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,12 +50,18 @@ const MOBILE_NAV = [
 ];
 
 const AppLayout = () => {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const { isEngineer, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
   const [whatsappOpen, setWhatsappOpen] = useState(
     location.pathname.startsWith("/whatsapp")
   );
+
+  // Engineers should not access admin pages — redirect to engineer app
+  if (!roleLoading && isEngineer) {
+    return <Navigate to="/engineer/today" replace />;
+  }
 
   const isActive = (path: string) => location.pathname === path || (path !== "/whatsapp" && location.pathname.startsWith(path));
   const isWhatsAppActive = location.pathname.startsWith("/whatsapp");
