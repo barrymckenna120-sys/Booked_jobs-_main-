@@ -1,0 +1,566 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Loader2,
+  Plus,
+  MoreHorizontal,
+  Search,
+  ShieldCheck,
+  Building2,
+  Wrench,
+  Ban,
+  Trash2,
+  UserCheck,
+  Mail,
+} from "lucide-react";
+
+// ── Role config ────────────────────────────────────────────────────
+const ROLES: Record<string, { label: string; icon: React.ReactNode; description: string; perms: string[] }> = {
+  admin: {
+    label: "Admin",
+    icon: <ShieldCheck className="w-4 h-4" />,
+    description: "Full access — invite users, manage settings, see all data",
+    perms: ["All engineer permissions", "Invite & block users", "Access settings", "View finance & reports", "Manage all jobs"],
+  },
+  office: {
+    label: "Office",
+    icon: <Building2 className="w-4 h-4" />,
+    description: "Office control — schedule, customers, quotes, payments",
+    perms: ["View & manage all jobs", "Customer management", "Quotes & payments", "WhatsApp messaging", "View reports"],
+  },
+  engineer: {
+    label: "Engineer",
+    icon: <Wrench className="w-4 h-4" />,
+    description: "Field only — sees assigned jobs, can start and complete",
+    perms: ["View own assigned jobs only", "Start & complete jobs", "Call & navigate", "Log completion notes", "Upload photos"],
+  },
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-purple-100 text-purple-700 border-purple-200",
+  office: "bg-blue-100 text-blue-700 border-blue-200",
+  engineer: "bg-green-100 text-green-700 border-green-200",
+};
+
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  status: string;
+  blocked_reason: string | null;
+  is_available: boolean;
+  created_at: string;
+}
+
+const TeamManagement = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+
+  // Invite dialog
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", phone: "", role: "engineer" });
+  const [saving, setSaving] = useState(false);
+
+  // Block dialog
+  const [blockTarget, setBlockTarget] = useState<TeamMember | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+
+  // Delete dialog
+  const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
+
+  const fetchMembers = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("engineers")
+      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at")
+      .order("name");
+    if (data) setMembers(data as TeamMember[]);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (user) fetchMembers();
+  }, [user, fetchMembers]);
+
+  // ── Actions ──────────────────────────────────────────────────────
+  const handleInvite = async () => {
+    if (!user || !inviteForm.name.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from("engineers").insert({
+      name: inviteForm.name.trim(),
+      email: inviteForm.email.trim() || null,
+      phone: inviteForm.phone.trim() || null,
+      role: inviteForm.role,
+      status: "active",
+      user_id: user.id,
+    } as any);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Error adding member", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `${inviteForm.name} added as ${ROLES[inviteForm.role]?.label}` });
+      setInviteForm({ name: "", email: "", phone: "", role: "engineer" });
+      setInviteOpen(false);
+      fetchMembers();
+    }
+  };
+
+  const handleChangeRole = async (id: string, newRole: string) => {
+    await supabase.from("engineers").update({ role: newRole } as any).eq("id", id);
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
+    const m = members.find((m) => m.id === id);
+    toast({ title: `${m?.name} is now ${ROLES[newRole]?.label}` });
+  };
+
+  const handleBlock = async () => {
+    if (!blockTarget || !blockReason) return;
+    await supabase
+      .from("engineers")
+      .update({ status: "blocked", blocked_reason: blockReason, is_available: false } as any)
+      .eq("id", blockTarget.id);
+    setMembers((prev) =>
+      prev.map((m) => (m.id === blockTarget.id ? { ...m, status: "blocked", blocked_reason: blockReason, is_available: false } : m))
+    );
+    toast({ title: `${blockTarget.name} has been blocked` });
+    setBlockTarget(null);
+    setBlockReason("");
+  };
+
+  const handleUnblock = async (id: string) => {
+    await supabase
+      .from("engineers")
+      .update({ status: "active", blocked_reason: null, is_available: true } as any)
+      .eq("id", id);
+    setMembers((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
+    );
+    const m = members.find((m) => m.id === id);
+    toast({ title: `${m?.name} has been unblocked` });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await supabase.from("engineers").delete().eq("id", deleteTarget.id);
+    setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+    toast({ title: `${deleteTarget.name} has been removed` });
+    setDeleteTarget(null);
+  };
+
+  // ── Filter / search ─────────────────────────────────────────────
+  const filtered = members.filter((m) => {
+    const matchFilter =
+      filter === "all" ||
+      (filter === "blocked" ? m.status === "blocked" : m.role === filter && m.status !== "blocked");
+    const matchSearch =
+      !search ||
+      m.name.toLowerCase().includes(search.toLowerCase()) ||
+      (m.email || "").toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+
+  const counts = {
+    all: members.length,
+    admin: members.filter((m) => m.role === "admin" && m.status !== "blocked").length,
+    office: members.filter((m) => m.role === "office" && m.status !== "blocked").length,
+    engineer: members.filter((m) => m.role === "engineer" && m.status !== "blocked").length,
+    blocked: members.filter((m) => m.status === "blocked").length,
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const BLOCK_REASONS = ["Resigned", "No longer employed", "Security concern", "Account misuse", "Other"];
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-foreground">Team & Users</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage who has access · {members.filter((m) => m.status === "active").length} active
+          </p>
+        </div>
+        <Button onClick={() => setInviteOpen(true)} className="gap-2">
+          <Plus className="w-4 h-4" /> Add Member
+        </Button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {([
+          { key: "admin", label: "Admins", color: "text-purple-600" },
+          { key: "office", label: "Office", color: "text-blue-600" },
+          { key: "engineer", label: "Engineers", color: "text-green-600" },
+          { key: "blocked", label: "Blocked", color: "text-destructive" },
+        ] as const).map((c) => (
+          <Card
+            key={c.key}
+            className={`cursor-pointer transition-all ${filter === c.key ? "ring-2 ring-primary" : ""}`}
+            onClick={() => setFilter(filter === c.key ? "all" : c.key)}
+          >
+            <CardContent className="py-4 px-5">
+              <div className={`text-2xl font-black ${c.color}`}>{counts[c.key]}</div>
+              <div className="text-xs font-medium text-muted-foreground mt-1">{c.label}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Search + filter pills */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { id: "all", label: "All" },
+            { id: "admin", label: "Admins" },
+            { id: "office", label: "Office" },
+            { id: "engineer", label: "Engineers" },
+            { id: "blocked", label: "Blocked" },
+          ].map((f) => (
+            <Button
+              key={f.id}
+              variant={filter === f.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter(f.id)}
+              className="gap-1.5"
+            >
+              {f.label}
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                {counts[f.id as keyof typeof counts]}
+              </Badge>
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Members list */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">No members found.</CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0 divide-y divide-border">
+            {filtered.map((member) => {
+              const role = ROLES[member.role] || ROLES.engineer;
+              const isBlocked = member.status === "blocked";
+
+              return (
+                <div
+                  key={member.id}
+                  className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 ${
+                    isBlocked ? "bg-destructive/5" : ""
+                  }`}
+                >
+                  {/* Avatar */}
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarFallback
+                      className={`text-sm font-bold ${
+                        isBlocked ? "bg-destructive/10 text-destructive" : ROLE_COLORS[member.role]?.split(" ")[0] + " " + ROLE_COLORS[member.role]?.split(" ")[1]
+                      }`}
+                    >
+                      {member.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-sm font-semibold truncate ${
+                          isBlocked ? "text-muted-foreground line-through" : "text-foreground"
+                        }`}
+                      >
+                        {member.name}
+                      </span>
+                    </div>
+                    {member.email && (
+                      <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                    )}
+                    {isBlocked && member.blocked_reason && (
+                      <div className="text-xs text-destructive font-medium mt-0.5">
+                        🚫 Blocked: {member.blocked_reason}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Role badge */}
+                  <Badge
+                    variant="outline"
+                    className={`shrink-0 gap-1 ${isBlocked ? "bg-destructive/10 text-destructive border-destructive/20" : ROLE_COLORS[member.role] || ""}`}
+                  >
+                    {isBlocked ? <Ban className="w-3 h-3" /> : role.icon}
+                    {isBlocked ? "Blocked" : role.label}
+                  </Badge>
+
+                  {/* Actions menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      {!isBlocked && (
+                        <>
+                          <DropdownMenuLabel>Change Role</DropdownMenuLabel>
+                          {Object.entries(ROLES)
+                            .filter(([key]) => key !== member.role)
+                            .map(([key, r]) => (
+                              <DropdownMenuItem key={key} onClick={() => handleChangeRole(member.id, key)}>
+                                {r.icon}
+                                <span className="ml-2">Set as {r.label}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      {isBlocked ? (
+                        <DropdownMenuItem onClick={() => handleUnblock(member.id)}>
+                          <UserCheck className="w-4 h-4 mr-2 text-green-600" />
+                          Unblock
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setBlockTarget(member)}
+                        >
+                          <Ban className="w-4 h-4 mr-2" />
+                          Block User
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget(member)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Footer count */}
+      <div className="text-xs text-muted-foreground text-center">
+        {filtered.length} of {members.length} members shown
+      </div>
+
+      {/* ── Invite Dialog ────────────────────────────────────────── */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Team Member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Role selector */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase text-muted-foreground">Role</Label>
+              <div className="space-y-2">
+                {Object.entries(ROLES).map(([key, r]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setInviteForm((f) => ({ ...f, role: key }))}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                      inviteForm.role === key
+                        ? `${ROLE_COLORS[key]} border-current`
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <div className="shrink-0">{r.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold">{r.label}</div>
+                      <div className="text-xs text-muted-foreground">{r.description}</div>
+                    </div>
+                    {inviteForm.role === key && (
+                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Permissions preview */}
+            <div className={`rounded-lg p-3 ${ROLE_COLORS[inviteForm.role]} border`}>
+              <div className="text-xs font-bold uppercase mb-2">
+                {ROLES[inviteForm.role]?.label} Permissions
+              </div>
+              <div className="space-y-1">
+                {ROLES[inviteForm.role]?.perms.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span>✓</span>
+                    <span>{p}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Full Name *</Label>
+              <Input
+                value={inviteForm.name}
+                onChange={(e) => setInviteForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Brian Smith"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Email</Label>
+              <Input
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="brian@example.ie"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Phone</Label>
+              <Input
+                value={inviteForm.phone}
+                onChange={(e) => setInviteForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+353 87 123 4567"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+              <Button onClick={handleInvite} disabled={!inviteForm.name.trim() || saving} className="gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                Add as {ROLES[inviteForm.role]?.label}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Block Dialog ─────────────────────────────────────────── */}
+      <Dialog open={!!blockTarget} onOpenChange={(o) => !o && setBlockTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Block {blockTarget?.name}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            They will be marked as blocked and set unavailable. Select a reason:
+          </p>
+          <div className="space-y-2 py-2">
+            {BLOCK_REASONS.map((r) => (
+              <button
+                key={r}
+                onClick={() => setBlockReason(r)}
+                className={`w-full text-left p-2.5 rounded-lg border text-sm transition-all ${
+                  blockReason === r
+                    ? "border-destructive bg-destructive/10 text-destructive font-semibold"
+                    : "border-border hover:bg-muted"
+                }`}
+              >
+                {r} {blockReason === r && "✓"}
+              </button>
+            ))}
+          </div>
+          {!blockReason && (
+            <p className="text-xs text-destructive font-medium">Select a reason to continue</p>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setBlockTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={!blockReason}
+              onClick={handleBlock}
+            >
+              Block User
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Dialog ────────────────────────────────────────── */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes them from the team. Their job history will be kept but they will lose all access. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Yes, Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+export default TeamManagement;

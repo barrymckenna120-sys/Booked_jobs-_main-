@@ -206,35 +206,47 @@ export type Database = {
       }
       engineers: {
         Row: {
+          blocked_reason: string | null
           created_at: string
           email: string | null
           id: string
           is_available: boolean
+          last_login: string | null
           name: string
           notes: string | null
           phone: string | null
+          role: string
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          blocked_reason?: string | null
           created_at?: string
           email?: string | null
           id?: string
           is_available?: boolean
+          last_login?: string | null
           name: string
           notes?: string | null
           phone?: string | null
+          role?: string
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          blocked_reason?: string | null
           created_at?: string
           email?: string | null
           id?: string
           is_available?: boolean
+          last_login?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
+          role?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }
