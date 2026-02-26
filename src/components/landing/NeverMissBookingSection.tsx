@@ -74,8 +74,8 @@ export const NeverMissBookingSection = () => {
                     loading="lazy"
                   />
                 </div>
-                <div className="mt-4 inline-flex items-center justify-center gap-2 bg-[#25D366] rounded-full px-5 py-2.5 shadow-lg">
-                  <img src={whatsappGlyph} alt="WhatsApp" className="w-8 h-8" />
+                <div className="mt-4 inline-flex items-center gap-2 bg-[#25D366] rounded-full pl-2 pr-5 py-2 shadow-lg">
+                  <img src={whatsappGlyph} alt="WhatsApp" className="w-8 h-8 flex-shrink-0" />
                   <span className="text-white font-bold text-sm">Use WhatsApp</span>
                 </div>
               </div>
