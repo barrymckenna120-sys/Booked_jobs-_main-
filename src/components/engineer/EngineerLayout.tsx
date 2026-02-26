@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Flame, Hand, PartyPopper } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
+import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -43,11 +44,9 @@ const EngineerLayout = () => {
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
         <div className="absolute -bottom-14 right-12 w-36 h-36 rounded-full bg-white/[0.05] pointer-events-none" />
 
-        <div className="flex items-center gap-2 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-            <Flame className="w-4.5 h-4.5 text-white" />
-          </div>
-          <span className="text-white/80 text-sm font-semibold">Karl's Gas</span>
+        <div className="flex items-center gap-2.5 mb-5">
+          <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover" />
+          <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
         </div>
 
         <div className="text-[13px] text-white/70 font-medium mb-1">{formatDateHeading(new Date())}</div>
