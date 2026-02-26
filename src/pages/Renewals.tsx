@@ -5,7 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone, Send } from "lucide-react";
+import {
+  RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone, Send,
+  PhoneOff, MessageCircle, CalendarCheck, Wallet,
+} from "lucide-react";
 import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
@@ -25,10 +28,40 @@ type Customer = {
   reminder_30_days_sent: boolean | null;
   service_status: string | null;
   last_reminder_sent: string | null;
+  renewal_stage: string | null;
 };
 
-const FILTERS = ["All", "Overdue", "Due Soon", "Up to Date", "Contacted"] as const;
-type FilterType = typeof FILTERS[number];
+const STATUS_FILTERS = ["All", "Overdue", "Due Soon", "Up to Date", "Contacted"] as const;
+type StatusFilterType = typeof STATUS_FILTERS[number];
+
+const STAGE_FILTERS = ["All Stages", "Not Contacted", "Reminded", "Confirmed", "Booked", "Paid"] as const;
+type StageFilterType = typeof STAGE_FILTERS[number];
+
+const STAGE_TO_KEY: Record<string, string> = {
+  "Not Contacted": "not_contacted",
+  "Reminded": "reminded",
+  "Confirmed": "confirmed",
+  "Booked": "booked",
+  "Paid": "paid",
+};
+
+const STAGE_ICONS: Record<string, React.ReactNode> = {
+  "All Stages": <RefreshCw className="w-3 h-3" />,
+  "Not Contacted": <PhoneOff className="w-3 h-3" />,
+  "Reminded": <MessageCircle className="w-3 h-3" />,
+  "Confirmed": <CheckCircle2 className="w-3 h-3" />,
+  "Booked": <CalendarCheck className="w-3 h-3" />,
+  "Paid": <Wallet className="w-3 h-3" />,
+};
+
+const stageFilterStyles: Record<string, { active: string; inactive: string }> = {
+  "All Stages":    { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
+  "Not Contacted": { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
+  "Reminded":      { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
+  "Confirmed":     { active: "border-[#0891B2] bg-[#CFFAFE] text-[#0891B2]", inactive: "border-border text-muted-foreground" },
+  "Booked":        { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
+  "Paid":          { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
+};
 
 const filterStyles: Record<string, { active: string; inactive: string }> = {
   All:          { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
@@ -62,7 +95,8 @@ const Renewals = () => {
   const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string } | null>(null);
   const urlParams = new URLSearchParams(window.location.search);
   const initialFilter = urlParams.get("status") || "Overdue";
-  const [filter, setFilter] = useState<FilterType>(initialFilter as FilterType);
+  const [filter, setFilter] = useState<StatusFilterType>(initialFilter as StatusFilterType);
+  const [stageFilter, setStageFilter] = useState<StageFilterType>("All Stages");
   const [search, setSearch] = useState("");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -100,7 +134,8 @@ const Renewals = () => {
 
   const withStatus = customers.map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
-    return { ...c, daysUntil, renewalStatus: getStatus(daysUntil), contactedRecently: isContactedRecently(c.last_reminder_sent) };
+    const stage = c.renewal_stage || "not_contacted";
+    return { ...c, daysUntil, renewalStatus: getStatus(daysUntil), contactedRecently: isContactedRecently(c.last_reminder_sent), stage };
   });
 
   const filtered = withStatus
@@ -108,6 +143,10 @@ const Renewals = () => {
       if (filter === "All") return true;
       if (filter === "Contacted") return c.contactedRecently || reminderSent[c.id];
       return c.renewalStatus === filter;
+    })
+    .filter((c) => {
+      if (stageFilter === "All Stages") return true;
+      return c.stage === STAGE_TO_KEY[stageFilter];
     })
     .filter((c) => {
       if (!search) return true;
@@ -123,6 +162,22 @@ const Renewals = () => {
     contacted: withStatus.filter((c) => c.contactedRecently || reminderSent[c.id]).length,
     needReminder: withStatus.filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date").length,
   };
+
+  const stageCounts: Record<string, number> = {
+    "All Stages": withStatus.length,
+    "Not Contacted": withStatus.filter(c => c.stage === "not_contacted").length,
+    "Reminded": withStatus.filter(c => c.stage === "reminded").length,
+    "Confirmed": withStatus.filter(c => c.stage === "confirmed").length,
+    "Booked": withStatus.filter(c => c.stage === "booked").length,
+    "Paid": withStatus.filter(c => c.stage === "paid").length,
+  };
+
+  // Pipeline progress
+  const total = withStatus.length;
+  const paidCount = stageCounts["Paid"];
+  const bookedCount = stageCounts["Booked"];
+  const confirmedCount = stageCounts["Confirmed"];
+  const remindedCount = stageCounts["Reminded"];
 
   const buildReminderMessage = (customer: Customer) => {
     const firstName = customer.name.split(" ")[0];
@@ -144,13 +199,14 @@ const Renewals = () => {
     const now = new Date().toISOString();
     setReminderSent((p) => ({ ...p, [customerId]: true }));
 
-    // Update customer
-    await supabase.from("customers").update({ last_reminder_sent: now, reminder_30_days_sent: true } as any).eq("id", customerId);
+    await supabase.from("customers").update({
+      last_reminder_sent: now,
+      reminder_30_days_sent: true,
+      renewal_stage: "reminded",
+    } as any).eq("id", customerId);
 
-    // Update local state
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, last_reminder_sent: now } : c));
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, last_reminder_sent: now, renewal_stage: "reminded" } : c));
 
-    // Audit log
     if (user) {
       await supabase.from("audit_log").insert({
         user_id: user.id,
@@ -203,7 +259,7 @@ const Renewals = () => {
   const handleBatchReminderSent = async (customerId: string) => {
     const c = customers.find((x) => x.id === customerId);
     if (!user || !c) return;
-    
+
     const msg = buildReminderMessage(c);
     markAsContacted(customerId, c.name);
 
@@ -217,7 +273,7 @@ const Renewals = () => {
     } as any);
   };
 
-  const filterCounts: Record<FilterType, number> = {
+  const filterCounts: Record<StatusFilterType, number> = {
     All: withStatus.length,
     Overdue: counts.overdue,
     "Due Soon": counts.dueSoon,
@@ -255,6 +311,50 @@ const Renewals = () => {
         )}
       </div>
 
+      {/* Pipeline progress bar */}
+      {total > 0 && (
+        <Card className="border-border/60">
+          <CardContent className="p-4">
+            <div className="flex justify-between mb-1.5">
+              <span className="text-[11px] font-bold text-muted-foreground">Pipeline Progress</span>
+              <span className="text-[11px] font-bold text-success">
+                {paidCount} paid · {bookedCount} booked · {confirmedCount} confirmed
+              </span>
+            </div>
+            <div className="h-3 rounded-full bg-border overflow-hidden flex">
+              {[
+                { count: paidCount,      className: "bg-success" },
+                { count: bookedCount,    className: "bg-primary" },
+                { count: confirmedCount, className: "bg-[#0891B2]" },
+                { count: remindedCount,  className: "bg-warning" },
+              ].map((s, i) =>
+                s.count > 0 ? (
+                  <div
+                    key={i}
+                    className={`${s.className} transition-all duration-300`}
+                    style={{ width: `${(s.count / total) * 100}%` }}
+                  />
+                ) : null
+              )}
+            </div>
+            <div className="flex gap-3 mt-2 flex-wrap">
+              {[
+                { label: `${paidCount} Paid`,                dotClass: "bg-success",     textClass: "text-success" },
+                { label: `${bookedCount} Booked`,            dotClass: "bg-primary",     textClass: "text-primary" },
+                { label: `${confirmedCount} Confirmed`,      dotClass: "bg-[#0891B2]",   textClass: "text-[#0891B2]" },
+                { label: `${remindedCount} Reminded`,        dotClass: "bg-warning",     textClass: "text-warning" },
+                { label: `${stageCounts["Not Contacted"]} Not Contacted`, dotClass: "bg-destructive", textClass: "text-destructive" },
+              ].map(l => (
+                <div key={l.label} className="flex items-center gap-1">
+                  <div className={`w-2 h-2 rounded-full ${l.dotClass}`} />
+                  <span className={`text-[11px] font-bold ${l.textClass}`}>{l.label}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -266,32 +366,58 @@ const Renewals = () => {
         />
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 overflow-x-auto">
-        {FILTERS.map((f) => {
-          const active = filter === f;
-          const styles = filterStyles[f];
-          return (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`shrink-0 text-xs font-semibold px-3.5 py-1.5 rounded-full border-[1.5px] transition-colors ${
-                active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
-              }`}
-            >
-              {f} {filterCounts[f]}
-            </button>
-          );
-        })}
+      {/* Stage filter tabs */}
+      <div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Pipeline Stage</div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {STAGE_FILTERS.map((f) => {
+            const active = stageFilter === f;
+            const styles = stageFilterStyles[f];
+            return (
+              <button
+                key={f}
+                onClick={() => setStageFilter(f)}
+                className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border-[1.5px] transition-colors flex items-center gap-1.5 ${
+                  active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
+                }`}
+              >
+                {STAGE_ICONS[f]}
+                {f} {stageCounts[f]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Status filter tabs */}
+      <div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Due Status</div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {STATUS_FILTERS.map((f) => {
+            const active = filter === f;
+            const styles = filterStyles[f];
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`shrink-0 text-xs font-semibold px-3.5 py-1.5 rounded-full border-[1.5px] transition-colors ${
+                  active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
+                }`}
+              >
+                {f} {filterCounts[f]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-4 gap-2.5">
         {[
-          { icon: <AlertTriangle className="w-5 h-5 text-destructive" />, value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true, filterTo: "Overdue" as FilterType },
-          { icon: <Clock className="w-5 h-5 text-warning" />, value: counts.dueSoon, label: "Due Soon", color: "border-t-warning", filterTo: "Due Soon" as FilterType },
-          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: counts.upToDate, label: "Up to Date", color: "border-t-success", filterTo: "Up to Date" as FilterType },
-          { icon: <Smartphone className="w-5 h-5 text-primary" />, value: counts.contacted, label: "Contacted", color: "border-t-primary", filterTo: "Contacted" as FilterType },
+          { icon: <AlertTriangle className="w-5 h-5 text-destructive" />, value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true, filterTo: "Overdue" as StatusFilterType },
+          { icon: <Clock className="w-5 h-5 text-warning" />, value: counts.dueSoon, label: "Due Soon", color: "border-t-warning", filterTo: "Due Soon" as StatusFilterType },
+          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: counts.upToDate, label: "Up to Date", color: "border-t-success", filterTo: "Up to Date" as StatusFilterType },
+          { icon: <Smartphone className="w-5 h-5 text-primary" />, value: counts.contacted, label: "Contacted", color: "border-t-primary", filterTo: "Contacted" as StatusFilterType },
         ].map((k) => (
           <Card
             key={k.label}
@@ -321,6 +447,7 @@ const Renewals = () => {
             key={c.id}
             customer={c}
             status={c.renewalStatus}
+            stage={c.stage}
             daysUntil={c.daysUntil}
             reminderSent={reminderSent[c.id] || c.contactedRecently}
             lastContacted={c.last_reminder_sent}
