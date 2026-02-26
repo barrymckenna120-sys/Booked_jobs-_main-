@@ -1,16 +1,22 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
+import { supabase } from "@/integrations/supabase/client";
 
 export const StickyHeader = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsVisible(window.scrollY > 100);
-    };
+    const handleScroll = () => setIsVisible(window.scrollY > 100);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setLoggedIn(!!session?.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setLoggedIn(!!session?.user));
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
@@ -22,14 +28,22 @@ export const StickyHeader = () => {
       <div className="section-container py-2 flex items-center justify-between">
         <img src={bookedjobsLogo} alt="BookedJobs" className="h-8 object-contain object-left" />
         <div className="flex items-center gap-3">
-          <a href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
-            Login
-          </a>
-          <Button size="sm" asChild>
-            <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-              Start 30-Day Trial
-            </a>
-          </Button>
+          {loggedIn ? (
+            <Button size="sm" asChild>
+              <a href="/dashboard">Go to Dashboard</a>
+            </Button>
+          ) : (
+            <>
+              <a href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
+                Login
+              </a>
+              <Button size="sm" asChild>
+                <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
+                  Start 30-Day Trial
+                </a>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
