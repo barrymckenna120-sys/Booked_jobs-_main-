@@ -511,6 +511,12 @@ const TeamManagement = () => {
                           Link Login
                         </DropdownMenuItem>
                       )}
+                      {!isBlocked && member.auth_user_id && member.email && (
+                        <DropdownMenuItem onClick={() => handleSendInvite(member)}>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Resend Invite
+                        </DropdownMenuItem>
+                      )}
                       {isBlocked ? (
                         <DropdownMenuItem onClick={() => handleUnblock(member.id)}>
                           <UserCheck className="w-4 h-4 mr-2 text-green-600" />
