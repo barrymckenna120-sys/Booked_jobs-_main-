@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,9 @@ const EngineerJobDetail = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      if (patch.status === "Completed") logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
+      else if (patch.status === "Cancelled") logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
+      else if (patch.status === "In Progress") logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started by engineer" });
       toast({ title: patch.status === "Completed" ? "Job completed ✔" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
       fetchJob();
     }
@@ -131,6 +135,7 @@ const EngineerJobDetail = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      logAudit({ action_type: "job_rescheduled", entity_type: "service_call", entity_id: job.id, detail: `Rescheduled by engineer to ${rescheduleDate} ${rescheduleTime || ""}`.trim() });
       toast({ title: "Job rescheduled" });
       setShowReschedule(false);
       fetchJob();

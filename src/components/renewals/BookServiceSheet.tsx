@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -84,6 +85,7 @@ const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
         scheduled_service_date: date,
         service_status: "Up to Date",
       }).eq("id", customer.id);
+      logAudit({ action_type: "job_created", entity_type: "service_call", entity_id: customer.id, detail: `Boiler service booked for ${customer.name} on ${date}` });
       toast({ title: `Service booked for ${customer.name}` });
       onBooked();
       onClose();

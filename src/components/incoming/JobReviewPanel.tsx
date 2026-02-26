@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       notes: notes || null,
     } as any).eq("id", job.id);
     setAssigning(false);
+    logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: job.id, detail: `Incoming job assigned to ${assignEngineer} on ${assignDate}` });
     toast({ title: `Job assigned to ${assignEngineer}` });
     onUpdated();
     onClose();
@@ -106,6 +108,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       reviewed_by: user?.email,
       reviewed_at: new Date().toISOString(),
     } as any).eq("id", job.id);
+    logAudit({ action_type: "job_rejected", entity_type: "service_call", entity_id: job.id, detail: "Incoming job rejected" });
     toast({ title: "Job rejected" });
     onUpdated();
     onClose();
