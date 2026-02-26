@@ -64,7 +64,6 @@ export const HeroSection = () => {
               alt="Professional gas boiler service engineer in van holding a tablet with the BookedJobs booking and renewal dashboard"
               className="relative w-full"
               loading="eager"
-              style={{ mixBlendMode: 'multiply' }}
             />
           </div>
         </ScrollFadeIn>
