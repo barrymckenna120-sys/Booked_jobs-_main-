@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDistanceToNow, isToday } from "date-fns";
 import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin } from "lucide-react";
 
@@ -23,6 +24,7 @@ type Props = {
   onOpen: () => void;
   onSendReminder: () => void;
   onBook: () => void;
+  onStageChange?: (newStage: string) => void;
 };
 
 const STAGE_DISPLAY: Record<string, { label: string; Icon: React.ComponentType<any>; textClass: string; bgClass: string }> = {
@@ -63,12 +65,19 @@ const formatLastContacted = (d: string | null) => {
   };
 };
 
-const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook }: Props) => {
+const STAGE_OPTIONS = [
+  { value: "not_contacted", label: "Not Contacted", Icon: PhoneOff },
+  { value: "reminded",      label: "Reminded",      Icon: MessageCircle },
+  { value: "confirmed",     label: "Confirmed",     Icon: CheckCircle2 },
+  { value: "booked",        label: "Booked In",     Icon: CalendarCheck },
+  { value: "paid",          label: "Paid",          Icon: Wallet },
+];
+
+const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange }: Props) => {
   const leftBorder = borderColorMap[status] || "border-l-success";
   const dueDate = formatDueDate(customer.next_service_due, status);
   const contacted = formatLastContacted(lastContacted);
   const stageConfig = stage ? STAGE_DISPLAY[stage] : null;
-  const StageIcon = stageConfig?.Icon;
 
   return (
     <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3 ${reminderSent ? "opacity-75" : ""}`}>
@@ -83,11 +92,23 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
         <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
           <RenewalStatusPill status={status} />
           <DaysPill days={daysUntil} />
-          {stageConfig && StageIcon && (
-            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${stageConfig.bgClass} ${stageConfig.textClass}`}>
-              <StageIcon className="w-3 h-3" />
-              {stageConfig.label}
-            </span>
+          {stageConfig && (
+            <Select value={stage} onValueChange={(v) => onStageChange?.(v)}>
+              <SelectTrigger className={`h-auto py-0.5 px-2 text-[10px] font-bold rounded-full border-0 gap-1 w-auto ${stageConfig.bgClass} ${stageConfig.textClass}`}>
+                <stageConfig.Icon className="w-3 h-3" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STAGE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <opt.Icon className="w-3 h-3" />
+                      {opt.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       </div>

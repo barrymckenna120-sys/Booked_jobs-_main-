@@ -242,6 +242,12 @@ const Renewals = () => {
     toast({ title: `Reminder sent to ${customer.name}` });
   };
 
+  const handleStageChange = async (customerId: string, newStage: string) => {
+    await supabase.from("customers").update({ renewal_stage: newStage } as any).eq("id", customerId);
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, renewal_stage: newStage } : c));
+    toast({ title: `Stage updated to ${newStage.replace("_", " ")}` });
+  };
+
   const selectedStatus = selectedCustomer ? getStatus(getDaysUntil(selectedCustomer.next_service_due)) : "Up to Date";
   const selectedDays = selectedCustomer ? getDaysUntil(selectedCustomer.next_service_due) : 0;
 
@@ -454,6 +460,7 @@ const Renewals = () => {
             onOpen={() => setSelectedCustomer(c)}
             onSendReminder={() => handleSendReminder(c)}
             onBook={() => setBookCustomer(c)}
+            onStageChange={(newStage) => handleStageChange(c.id, newStage)}
           />
         ))
       )}
