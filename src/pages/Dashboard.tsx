@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, Users, CreditCard, CalendarDays, Plus, Loader2 } from "lucide-react";
+import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { format } from "date-fns";
 
 import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
@@ -27,6 +28,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [showNewJob, setShowNewJob] = useState(false);
 
   // Realtime refresh for all dashboard queries
   useEffect(() => {
@@ -149,7 +151,7 @@ const Dashboard = () => {
           <Button variant="outline" onClick={() => navigate("/schedule")}>
             <CalendarDays className="w-4 h-4 mr-1.5" /> Schedule
           </Button>
-          <Button onClick={() => navigate("/jobs?new=true")}>
+          <Button onClick={() => setShowNewJob(true)}>
             <Plus className="w-4 h-4 mr-1.5" /> New Job
           </Button>
         </div>
@@ -195,6 +197,7 @@ const Dashboard = () => {
           <LiveActivityFeed />
         </div>
       </div>
+      {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
     </div>
   );
 };
