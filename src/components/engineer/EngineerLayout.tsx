@@ -19,7 +19,7 @@ const formatDateHeading = (d: Date) => {
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { authLoading, todayActive, todayCompleted, upcomingJobs } = useEngineerJobs();
+  const { authLoading, todayActive, todayCompleted, upcomingJobs, engineerName } = useEngineerJobs();
 
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
@@ -51,7 +51,7 @@ const EngineerLayout = () => {
 
         <div className="text-[13px] text-white/70 font-medium mb-1">{formatDateHeading(new Date())}</div>
         <div className="text-[28px] font-extrabold text-white tracking-tight leading-tight mb-1.5 flex items-end gap-2">
-          {greeting()},<br />Karl <Hand className="w-7 h-7 text-white/80 mb-0.5" />
+          {greeting()},<br />{engineerName?.split(" ")[0] || "Engineer"} <Hand className="w-7 h-7 text-white/80 mb-0.5" />
         </div>
         <div className="text-[13px] text-white/75 font-medium flex items-center gap-1.5">
           {todayActive.length > 0

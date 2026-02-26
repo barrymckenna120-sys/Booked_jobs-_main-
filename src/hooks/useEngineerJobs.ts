@@ -41,6 +41,7 @@ export const useEngineerJobs = () => {
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
+  const [engineerName, setEngineerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
@@ -60,11 +61,14 @@ export const useEngineerJobs = () => {
     if (!user) return;
     setLoading(true);
 
-    const [todayRes, upcomingRes, completedRes] = await Promise.all([
+    const [todayRes, upcomingRes, completedRes, engineerRes] = await Promise.all([
       supabase.from("service_calls").select("*").eq("scheduled_date", todayISO()).order("created_at"),
       supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked"]).order("scheduled_date").limit(20),
       supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30),
+      supabase.from("engineers").select("name").eq("auth_user_id", user.id).maybeSingle(),
     ]);
+
+    if (engineerRes.data?.name) setEngineerName(engineerRes.data.name);
 
     const allJobs = [...(todayRes.data || []), ...(upcomingRes.data || []), ...(completedRes.data || [])];
     setTodayJobs(todayRes.data || []);
@@ -130,7 +134,7 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   return {
-    user, authLoading, loading,
+    user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers,
     updateJob, fetchAll,
