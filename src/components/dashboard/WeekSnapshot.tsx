@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, startOfWeek, isToday, isTomorrow } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import DayJobsPanel from "./DayJobsPanel";
+import { useBackButton } from "@/hooks/useBackButton";
 
 const jobTypeBadge = (type: string) => {
   switch (type) {
@@ -32,6 +33,8 @@ const WeekSnapshot = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const closeDay = useCallback(() => setSelectedDay(null), []);
+  useBackButton(!!selectedDay, closeDay);
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 
   // Realtime: invalidate queries when service_calls change
