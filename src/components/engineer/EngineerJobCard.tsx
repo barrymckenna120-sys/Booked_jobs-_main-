@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, MapPin, StickyNote, Camera, Eye, MessageCircle } from "lucide-react";
+import { Phone, MapPin, StickyNote, Camera, Eye, MessageCircle, Clock, Wrench, Flame, CreditCard, Hourglass, AlertTriangle, Car, CheckCircle2, XCircle, Play, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
@@ -65,8 +65,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         {/* Next Job Badge */}
         {isNextJob && (
           <div className="flex items-center gap-1.5 mb-2">
-            <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse">
-              ▶ Next Job
+            <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+              <Play className="w-3 h-3" /> Next Job
             </span>
           </div>
         )}
@@ -83,34 +83,36 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         </div>
 
         {/* Address */}
-        <div className="text-[13px] text-muted-foreground mb-2">📍 {customer.address}</div>
+        <div className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1">
+          <MapPin className="w-3.5 h-3.5 shrink-0" /> {customer.address}
+        </div>
 
         {/* Pills */}
         <div className="flex flex-wrap gap-1.5 mb-2.5">
-          <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground">
-            ⏰ {timeLabel}
+          <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
+            <Clock className="w-3 h-3 text-muted-foreground" /> {timeLabel}
           </span>
-          <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground">
-            🔧 {job.job_type}
+          <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
+            <Wrench className="w-3 h-3 text-muted-foreground" /> {job.job_type}
           </span>
           {job.boiler_brand && (
-            <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground">
-              ♨️ {job.boiler_brand}
+            <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
+              <Flame className="w-3 h-3 text-muted-foreground" /> {job.boiler_brand}
             </span>
           )}
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border border-border ${
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border border-border flex items-center gap-1 ${
               job.deposit_paid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
             }`}
           >
-            {job.deposit_paid ? "💳 Paid" : "⏳ Pending"}
+            {job.deposit_paid ? <><CreditCard className="w-3 h-3" /> Paid</> : <><Hourglass className="w-3 h-3" /> Pending</>}
           </span>
         </div>
 
         {/* Issue */}
         {job.boiler_issue && (
-          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-lg p-2.5 mb-3 text-[13px] text-foreground leading-snug">
-            ⚠ {job.boiler_issue}
+          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-lg p-2.5 mb-3 text-[13px] text-foreground leading-snug flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" /> {job.boiler_issue}
           </div>
         )}
 
@@ -141,7 +143,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
             </Button>
             {isActive && (
               <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowExtraWork(true)}>
-                ＋ Extra Work
+                <Plus className="w-3.5 h-3.5" /> Extra Work
               </Button>
             )}
           </div>
@@ -150,19 +152,19 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         {/* Primary actions */}
         {(job.status === "Scheduled" || job.status === "Booked") && (
           <Button className="w-full h-12 text-base font-extrabold gap-2" onClick={() => onUpdate(job.id, { status: "En Route" })}>
-            🚗 En Route
+            <Car className="w-5 h-5" /> En Route
           </Button>
         )}
 
         {job.status === "En Route" && (
           <Button className="w-full h-12 text-base font-extrabold gap-2 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "On Site" })}>
-            📍 Arrived On Site
+            <MapPin className="w-5 h-5" /> Arrived On Site
           </Button>
         )}
 
         {job.status === "On Site" && (
           <Button className="w-full h-12 text-base font-extrabold gap-2 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "In Progress" })}>
-            ▶ Start Work
+            <Play className="w-5 h-5" /> Start Work
           </Button>
         )}
 
@@ -172,21 +174,21 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
               className="flex-[2] h-12 text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
               onClick={() => setShowComplete(true)}
             >
-              ✔ Complete
+              <CheckCircle2 className="w-5 h-5" /> Complete
             </Button>
             <Button
               variant="outline"
               className="flex-1 h-12 text-destructive border-destructive/30 font-bold"
               onClick={() => setShowCancel(true)}
             >
-              ✕
+              <XCircle className="w-5 h-5" />
             </Button>
           </div>
         )}
 
         {job.status === "Completed" && (
           <div className="bg-success/10 rounded-xl p-3 flex items-center gap-2">
-            <span className="text-lg">✔</span>
+            <CheckCircle2 className="w-5 h-5 text-success" />
             <div className="text-[13px] font-bold text-success">Completed</div>
           </div>
         )}

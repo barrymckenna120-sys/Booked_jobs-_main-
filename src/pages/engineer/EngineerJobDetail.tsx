@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { LucideIcon } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -32,16 +33,18 @@ const TIME_LABELS: Record<string, string> = {
 
 const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
 
-const InfoTile = ({ label, value, icon, full }: { label: string; value: string | null; icon?: string; full?: boolean }) => (
+const InfoTile = ({ label, value, Icon, full }: { label: string; value: string | null; Icon?: LucideIcon; full?: boolean }) => (
   <div className={`bg-secondary rounded-xl border border-border p-3 ${full ? "col-span-2" : ""}`}>
-    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-      {icon && <span className="mr-1">{icon}</span>}{label}
+    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+      {Icon && <Icon className="w-3 h-3" />}{label}
     </div>
     <div className="text-[13px] font-bold text-foreground leading-snug">{value || "—"}</div>
   </div>
 );
 
-const EngineerJobDetail = () => {
+interface EngineerJobDetailProps {}
+
+const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -119,7 +122,7 @@ const EngineerJobDetail = () => {
       if (patch.status === "Completed") logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
       else if (patch.status === "Cancelled") logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
       else if (patch.status === "In Progress") logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started by engineer" });
-      toast({ title: patch.status === "Completed" ? "Job completed ✔" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+      toast({ title: patch.status === "Completed" ? "Job completed" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
       fetchJob();
     }
   };
@@ -182,7 +185,9 @@ const EngineerJobDetail = () => {
           <div>
             <div className="text-[11px] font-bold text-white/60 tracking-wider">{getJobRef(job.id)}</div>
             <div className="text-2xl font-extrabold text-white leading-tight">{customer.name}</div>
-            <div className="text-[13px] text-white/70 mt-1">📍 {customer.address}</div>
+            <div className="text-[13px] text-white/70 mt-1 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5" /> {customer.address}
+            </div>
           </div>
           <span className={`${s.bg} ${s.color} rounded-full px-3 py-1 text-xs font-bold shrink-0 ml-2 backdrop-blur-sm`}>
             {s.label}
@@ -218,22 +223,25 @@ const EngineerJobDetail = () => {
 
         {/* Job details grid */}
         <div className="grid grid-cols-2 gap-2.5">
-          <InfoTile label="Job Type" value={job.job_type} icon="🔧" />
-          <InfoTile label="Time Slot" value={timeLabel} icon="⏰" />
-          <InfoTile label="Boiler" value={customer.boiler_make_model || job.boiler_brand} icon="♨️" full />
+          <InfoTile label="Job Type" value={job.job_type} Icon={Wrench} />
+          <InfoTile label="Time Slot" value={timeLabel} Icon={Clock} />
+          <InfoTile label="Boiler" value={customer.boiler_make_model || job.boiler_brand} Icon={Flame} full />
           <InfoTile
             label="Payment"
-            value={job.deposit_paid ? `💳 Paid — €${job.deposit_amount || 0}` : `⏳ €${job.deposit_amount || 0} pending`}
+            value={job.deposit_paid ? `Paid — €${job.deposit_amount || 0}` : `€${job.deposit_amount || 0} pending`}
+            Icon={job.deposit_paid ? CreditCard : Hourglass}
             full
           />
-          <InfoTile label="Last Service" value={customer.last_service_date} icon="📅" />
-          <InfoTile label="Last Engineer" value={customer.last_service_engineer} icon="👷" />
+          <InfoTile label="Last Service" value={customer.last_service_date} Icon={Calendar} />
+          <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
         </div>
 
         {/* Boiler issue */}
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3">
-            <div className="text-[11px] font-bold text-warning uppercase tracking-wider mb-0.5">⚠ Issue Reported</div>
+            <div className="text-[11px] font-bold text-warning uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> Issue Reported
+            </div>
             <div className="text-[13px] text-foreground leading-snug">{job.boiler_issue}</div>
           </div>
         )}
@@ -241,7 +249,9 @@ const EngineerJobDetail = () => {
         {/* Notes */}
         {job.notes && (
           <div className="bg-secondary rounded-xl border border-border p-3">
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">📝 Notes</div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <FileText className="w-3 h-3" /> Notes
+            </div>
             <div className="text-[13px] text-foreground whitespace-pre-wrap">{job.notes}</div>
           </div>
         )}
@@ -249,7 +259,9 @@ const EngineerJobDetail = () => {
         {/* Access notes */}
         {customer.access_notes && (
           <div className="bg-primary/5 rounded-xl border border-primary/10 p-3">
-            <div className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">🔑 Access Note</div>
+            <div className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Key className="w-3 h-3" /> Access Note
+            </div>
             <div className="text-[13px] text-foreground">{customer.access_notes}</div>
           </div>
         )}
@@ -257,7 +269,9 @@ const EngineerJobDetail = () => {
         {/* Cancellation details */}
         {job.status === "Cancelled" && job.cancellation_reason && (
           <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3">
-            <div className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-1">✕ Cancelled</div>
+            <div className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-1 flex items-center gap-1">
+              <XCircle className="w-3 h-3" /> Cancelled
+            </div>
             <div className="text-[13px] text-foreground font-semibold">{job.cancellation_reason}</div>
             {job.cancellation_note && (
               <div className="text-[13px] text-muted-foreground mt-0.5">{job.cancellation_note}</div>
@@ -280,7 +294,7 @@ const EngineerJobDetail = () => {
               <Camera className="w-5 h-5" /> Photo
             </Button>
             <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowExtraWork(true)}>
-              <span className="text-lg leading-none">＋</span> Extra Work
+              <Plus className="w-5 h-5" /> Extra Work
             </Button>
           </div>
         )}
@@ -292,7 +306,7 @@ const EngineerJobDetail = () => {
               className="w-full h-14 text-lg font-extrabold gap-2"
               onClick={() => updateJob({ status: "In Progress" })}
             >
-              ▶ Start Job
+              <Play className="w-5 h-5" /> Start Job
             </Button>
             <div className="flex gap-2.5">
               <Button
@@ -311,7 +325,7 @@ const EngineerJobDetail = () => {
                 className="flex-1 h-12 font-bold text-destructive border-destructive/30 gap-1.5"
                 onClick={() => setShowCancel(true)}
               >
-                ✕ Cancel
+                <XCircle className="w-4 h-4" /> Cancel
               </Button>
             </div>
           </div>
@@ -323,7 +337,7 @@ const EngineerJobDetail = () => {
               className="w-full h-14 text-lg font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
               onClick={() => setShowComplete(true)}
             >
-              ✔ Complete Job
+              <CheckCircle2 className="w-5 h-5" /> Complete Job
             </Button>
             <div className="flex gap-2.5">
               <Button
@@ -342,7 +356,7 @@ const EngineerJobDetail = () => {
                 className="flex-1 h-12 font-bold text-destructive border-destructive/30 gap-1.5"
                 onClick={() => setShowCancel(true)}
               >
-                ✕ Cancel
+                <XCircle className="w-4 h-4" /> Cancel
               </Button>
             </div>
           </div>
@@ -350,7 +364,7 @@ const EngineerJobDetail = () => {
 
         {job.status === "Completed" && (
           <div className="bg-success/10 rounded-2xl p-4 flex items-center gap-3">
-            <span className="text-2xl">✔</span>
+            <CheckCircle2 className="w-6 h-6 text-success" />
             <div>
               <div className="text-sm font-extrabold text-success">Job Completed</div>
               {job.updated_at && (
@@ -411,29 +425,25 @@ const EngineerJobDetail = () => {
             <DialogTitle>Reschedule Job</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
-            <div className="space-y-1.5">
+            <div>
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Date</Label>
-              <Input type="date" value={rescheduleDate} min={todayStr} max={maxDateStr} onChange={(e) => setRescheduleDate(e.target.value)} />
+              <Input type="date" value={rescheduleDate} min={todayStr} max={maxDateStr} onChange={(e) => setRescheduleDate(e.target.value)} className="mt-1" />
             </div>
-            <div className="space-y-1.5">
+            <div>
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
               <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent className="bg-popover z-50">
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select time" /></SelectTrigger>
+                <SelectContent className="bg-popover z-[600]">
                   <SelectItem value="9–11">9–11am</SelectItem>
-                  <SelectItem value="11–2">11am–1pm</SelectItem>
+                  <SelectItem value="11–2">11am–2pm</SelectItem>
                   <SelectItem value="2–5">2–5pm</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="text-xs text-muted-foreground">Engineers can reschedule up to 14 days ahead.</div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowReschedule(false)}>Cancel</Button>
-              <Button onClick={handleReschedule} disabled={actionLoading || !rescheduleDate}>
-                {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-                Reschedule
-              </Button>
-            </div>
+            <Button className="w-full h-12 font-extrabold" disabled={!rescheduleDate || actionLoading} onClick={handleReschedule}>
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Confirm Reschedule
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2 } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Flame, Hand, PartyPopper } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 
 const greeting = () => {
@@ -44,18 +44,20 @@ const EngineerLayout = () => {
         <div className="absolute -bottom-14 right-12 w-36 h-36 rounded-full bg-white/[0.05] pointer-events-none" />
 
         <div className="flex items-center gap-2 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-lg">🔥</div>
+          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <Flame className="w-4.5 h-4.5 text-white" />
+          </div>
           <span className="text-white/80 text-sm font-semibold">Karl's Gas</span>
         </div>
 
         <div className="text-[13px] text-white/70 font-medium mb-1">{formatDateHeading(new Date())}</div>
-        <div className="text-[28px] font-extrabold text-white tracking-tight leading-tight mb-1.5">
-          {greeting()},<br />Karl 👋
+        <div className="text-[28px] font-extrabold text-white tracking-tight leading-tight mb-1.5 flex items-end gap-2">
+          {greeting()},<br />Karl <Hand className="w-7 h-7 text-white/80 mb-0.5" />
         </div>
-        <div className="text-[13px] text-white/75 font-medium">
+        <div className="text-[13px] text-white/75 font-medium flex items-center gap-1.5">
           {todayActive.length > 0
             ? `${todayActive.length} job${todayActive.length > 1 ? "s" : ""} remaining today`
-            : "🎉 All jobs done for today!"}
+            : <><PartyPopper className="w-4 h-4" /> All jobs done for today!</>}
         </div>
       </div>
 
