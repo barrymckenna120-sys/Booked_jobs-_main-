@@ -2,9 +2,10 @@ import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import NewJobPanel from "@/components/jobs/NewJobPanel";
 import {
   Collapsible,
   CollapsibleContent,
@@ -59,7 +60,7 @@ const AppLayout = () => {
   const [whatsappOpen, setWhatsappOpen] = useState(
     location.pathname.startsWith("/whatsapp")
   );
-
+  const [showNewJob, setShowNewJob] = useState(false);
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
@@ -74,6 +75,11 @@ const AppLayout = () => {
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
+        </div>
+        <div className="px-3 pt-3">
+          <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
+            <Plus className="w-4 h-4" /> New Job
+          </Button>
         </div>
         <nav className="flex-1 py-3 px-3 space-y-0.5">
           {MAIN_NAV.map((item) => (
@@ -154,9 +160,14 @@ const AppLayout = () => {
         <div className="flex items-center gap-2">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
-        <Button variant="ghost" size="icon" onClick={signOut}>
-          <LogOut className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
+            <Plus className="w-3.5 h-3.5" /> New Job
+          </Button>
+          <Button variant="ghost" size="icon" onClick={signOut}>
+            <LogOut className="w-5 h-5" />
+          </Button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -181,6 +192,7 @@ const AppLayout = () => {
           </button>
         ))}
       </nav>
+      {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
     </div>
   );
 };
