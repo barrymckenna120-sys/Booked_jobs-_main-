@@ -5,7 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import {
+  ChevronDown, ChevronUp, Loader2, RefreshCw, MessageCircle,
+  CheckCircle2, CalendarCheck, Wallet, PhoneOff, AlertTriangle,
+  Clock, Send, ArrowRight,
+} from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { logAudit } from "@/lib/auditLog";
@@ -13,11 +17,11 @@ import { SendAllRemindersSheet, type ReminderCustomer } from "@/components/renew
 
 /* ── Stage config ─────────────────────────────────────── */
 const STAGE_CONFIG = {
-  not_contacted: { label: "Not Contacted", icon: "📵", textClass: "text-destructive",  bgClass: "bg-destructive/10", dotClass: "bg-destructive" },
-  reminded:      { label: "Reminded",      icon: "💬", textClass: "text-warning",      bgClass: "bg-warning/10",     dotClass: "bg-warning" },
-  confirmed:     { label: "Confirmed ✓",   icon: "✅", textClass: "text-[#0891B2]",    bgClass: "bg-[#CFFAFE]",      dotClass: "bg-[#0891B2]" },
-  booked:        { label: "Booked In",     icon: "📅", textClass: "text-primary",      bgClass: "bg-primary/10",     dotClass: "bg-primary" },
-  paid:          { label: "Paid",          icon: "💰", textClass: "text-success",      bgClass: "bg-success/10",     dotClass: "bg-success" },
+  not_contacted: { label: "Not Contacted", Icon: PhoneOff,      textClass: "text-destructive",   bgClass: "bg-destructive/10", dotClass: "bg-destructive" },
+  reminded:      { label: "Reminded",      Icon: MessageCircle, textClass: "text-warning",       bgClass: "bg-warning/10",     dotClass: "bg-warning" },
+  confirmed:     { label: "Confirmed",     Icon: CheckCircle2,  textClass: "text-[#0891B2]",     bgClass: "bg-[#CFFAFE]",      dotClass: "bg-[#0891B2]" },
+  booked:        { label: "Booked In",     Icon: CalendarCheck, textClass: "text-primary",       bgClass: "bg-primary/10",     dotClass: "bg-primary" },
+  paid:          { label: "Paid",          Icon: Wallet,        textClass: "text-success",       bgClass: "bg-success/10",     dotClass: "bg-success" },
 } as const;
 
 type StageName = keyof typeof STAGE_CONFIG;
@@ -65,13 +69,12 @@ function PipelineRow({
 }) {
   const sc = STAGE_CONFIG[stage];
   const dayInfo = fmtDays(days);
+  const StageIcon = sc.Icon;
 
   return (
     <div className="flex items-center gap-2 py-2.5 px-3 border-b border-border/60 hover:bg-muted/40 transition-colors group">
-      {/* Stage dot */}
       <span className={`w-2 h-2 rounded-full shrink-0 ${sc.dotClass}`} />
 
-      {/* Name + meta */}
       <div className="flex-1 min-w-0">
         <button
           onClick={() => onNavigate(customer.id)}
@@ -82,30 +85,29 @@ function PipelineRow({
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="text-[10px] text-muted-foreground/60">{customer.eircode?.split(" ")[0]}</span>
           {customer.scheduled_service_date && (
-            <span className="text-[9px] font-bold bg-success/10 text-success rounded-full px-1.5 py-px">
-              📅 {format(new Date(customer.scheduled_service_date), "d MMM")}
+            <span className="text-[9px] font-bold bg-success/10 text-success rounded-full px-1.5 py-px flex items-center gap-0.5">
+              <CalendarCheck className="w-2.5 h-2.5" />
+              {format(new Date(customer.scheduled_service_date), "d MMM")}
             </span>
           )}
         </div>
       </div>
 
-      {/* Due info */}
       <div className="text-right shrink-0">
         <div className={`text-[11px] font-bold ${dayInfo.className}`}>{dayInfo.text}</div>
         <div className="text-[10px] text-muted-foreground/60">{format(new Date(customer.next_service_due), "d MMM")}</div>
       </div>
 
-      {/* Stage badge / action */}
       {stage === "not_contacted" ? (
         <button
           onClick={(e) => { e.stopPropagation(); onRemind(customer); }}
-          className="shrink-0 px-2.5 py-1 rounded-lg border-[1.5px] border-[#25D366] bg-success/5 text-success text-[11px] font-bold hover:bg-success/10 transition-colors whitespace-nowrap"
+          className="shrink-0 px-2.5 py-1 rounded-lg border-[1.5px] border-[#25D366] bg-success/5 text-success text-[11px] font-bold hover:bg-success/10 transition-colors whitespace-nowrap flex items-center gap-1"
         >
-          💬 Remind
+          <MessageCircle className="w-3 h-3" /> Remind
         </button>
       ) : (
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap ${sc.bgClass} ${sc.textClass}`}>
-          {sc.icon} {sc.label}
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap flex items-center gap-1 ${sc.bgClass} ${sc.textClass}`}>
+          <StageIcon className="w-3 h-3" /> {sc.label}
         </span>
       )}
     </div>
@@ -156,7 +158,6 @@ const RenewalsCard = () => {
 
   const servicePrice = settings?.default_service_price || 120;
 
-  // Activity log query
   const { data: activityData = [] } = useQuery({
     queryKey: ["renewals-activity"],
     queryFn: async () => {
@@ -179,7 +180,6 @@ const RenewalsCard = () => {
     return STAGE_ORDER[s] !== undefined ? s : "not_contacted";
   };
 
-  // Counts
   const total = customers.length;
   const notContacted = customers.filter(c => getStage(c) === "not_contacted").length;
   const reminded = customers.filter(c => getStage(c) === "reminded").length;
@@ -190,7 +190,6 @@ const RenewalsCard = () => {
   const securedValue = (confirmed + booked + paid) * servicePrice;
   const leftToBook = customers.filter(c => ["not_contacted", "reminded"].includes(getStage(c)));
 
-  // Sorted pipeline
   const sorted = [...customers].sort((a, b) =>
     STAGE_ORDER[getStage(a)] - STAGE_ORDER[getStage(b)] || getDays(a.next_service_due) - getDays(b.next_service_due)
   );
@@ -209,7 +208,7 @@ const RenewalsCard = () => {
         ?.replace(/\{\{date\}\}/g, dueDate)
         ?.replace(/\{\{due_date\}\}/g, dueDate)
         ?.replace(/\{\{phone\}\}/g, bizPhone) ||
-      `Hi ${firstName}, it's ${bizName} 🔥\n\nYour annual boiler service is due on ${dueDate}.\n\nReply YES to book or call us on ${bizPhone}.\n\n${bizName}`;
+      `Hi ${firstName}, it's ${bizName}\n\nYour annual boiler service is due on ${dueDate}.\n\nReply YES to book or call us on ${bizPhone}.\n\n${bizName}`;
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
 
@@ -248,9 +247,9 @@ const RenewalsCard = () => {
   }));
 
   const activityIcon = (action: string) => {
-    if (action === "reminder_sent") return "💬";
-    if (action === "service_booked") return "📅";
-    return "✅";
+    if (action === "reminder_sent") return <MessageCircle className="w-3.5 h-3.5 text-warning" />;
+    if (action === "service_booked") return <CalendarCheck className="w-3.5 h-3.5 text-primary" />;
+    return <CheckCircle2 className="w-3.5 h-3.5 text-success" />;
   };
 
   return (
@@ -262,7 +261,7 @@ const RenewalsCard = () => {
           </div>
         ) : total === 0 ? (
           <div className="text-center py-12 px-6">
-            <span className="text-3xl">✅</span>
+            <CheckCircle2 className="w-8 h-8 text-success mx-auto" />
             <p className="font-bold text-foreground mt-2">All clear!</p>
             <p className="text-xs text-muted-foreground mt-1">No renewals due in the next 30 days.</p>
             <button onClick={() => navigate("/renewals")} className="text-xs text-primary hover:underline mt-3 inline-block">
@@ -277,7 +276,7 @@ const RenewalsCard = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      🔄 Renewals
+                      <RefreshCw className="w-4 h-4 text-primary" /> Renewals
                     </span>
                     <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-2 py-0.5">
                       Next 30 days
@@ -289,9 +288,9 @@ const RenewalsCard = () => {
                 </div>
                 <button
                   onClick={() => navigate("/renewals")}
-                  className="text-[11px] font-bold text-primary hover:underline"
+                  className="text-[11px] font-bold text-primary hover:underline flex items-center gap-0.5"
                 >
-                  View All →
+                  View All <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
 
@@ -317,7 +316,7 @@ const RenewalsCard = () => {
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider opacity-65">Value at Risk</div>
                   <div className="text-[28px] md:text-[30px] font-black leading-none mt-1 tracking-tight">€{totalValue.toLocaleString()}</div>
-                  <div className="text-[11px] opacity-65 mt-1 font-semibold">€{securedValue} secured so far</div>
+                  <div className="text-[11px] opacity-65 mt-1 font-semibold">€{securedValue} secured</div>
                 </div>
               </div>
 
@@ -345,13 +344,12 @@ const RenewalsCard = () => {
                     ) : null
                   )}
                 </div>
-                {/* Legend */}
                 <div className="flex gap-2.5 mt-1.5 flex-wrap">
                   {[
-                    { label: `${paid} Paid`,       dotClass: "bg-success",    textClass: "text-success" },
-                    { label: `${booked} Booked`,   dotClass: "bg-primary",    textClass: "text-primary" },
-                    { label: `${confirmed} Conf`,  dotClass: "bg-[#0891B2]",  textClass: "text-[#0891B2]" },
-                    { label: `${reminded} Sent`,   dotClass: "bg-warning",    textClass: "text-warning" },
+                    { label: `${paid} Paid`,       dotClass: "bg-success",     textClass: "text-success" },
+                    { label: `${booked} Booked`,   dotClass: "bg-primary",     textClass: "text-primary" },
+                    { label: `${confirmed} Conf`,  dotClass: "bg-[#0891B2]",   textClass: "text-[#0891B2]" },
+                    { label: `${reminded} Sent`,   dotClass: "bg-warning",     textClass: "text-warning" },
                     { label: `${notContacted} Left`, dotClass: "bg-destructive", textClass: "text-destructive" },
                   ].map(l => (
                     <div key={l.label} className="flex items-center gap-1">
@@ -413,19 +411,21 @@ const RenewalsCard = () => {
               <div>
                 {leftToBook.length === 0 ? (
                   <div className="py-8 text-center">
-                    <div className="text-[28px] mb-2">🎉</div>
+                    <CheckCircle2 className="w-7 h-7 text-success mx-auto mb-2" />
                     <div className="text-sm font-bold text-foreground">All contacted!</div>
                     <div className="text-xs text-muted-foreground mt-1">Everyone has been reached this month</div>
                   </div>
                 ) : (
                   <>
                     <div className="px-3 py-2 text-[11px] font-bold text-destructive bg-destructive/5 border-b border-border/60 flex justify-between items-center">
-                      <span>🚨 {leftToBook.length} customers still need contacting</span>
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> {leftToBook.length} customers still need contacting
+                      </span>
                       <button
                         onClick={() => setSendAllOpen(true)}
-                        className="bg-[#25D366] text-white rounded-lg px-2.5 py-1 text-[10px] font-bold hover:bg-[#20bd5a] transition-colors"
+                        className="bg-[#25D366] text-white rounded-lg px-2.5 py-1 text-[10px] font-bold hover:bg-[#20bd5a] transition-colors flex items-center gap-1"
                       >
-                        Send All
+                        <Send className="w-2.5 h-2.5" /> Send All
                       </button>
                     </div>
                     {leftToBook.map(c => (
@@ -446,11 +446,14 @@ const RenewalsCard = () => {
             {tab === "activity" && (
               <div>
                 {activityData.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground text-xs">No renewal activity yet</div>
+                  <div className="py-8 text-center">
+                    <Clock className="w-5 h-5 text-muted-foreground mx-auto mb-2" />
+                    <div className="text-xs text-muted-foreground">No renewal activity yet</div>
+                  </div>
                 ) : (
                   activityData.map((a: any) => (
                     <div key={a.id} className="flex items-start gap-2.5 py-2.5 px-3 border-b border-border/60">
-                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
                         {activityIcon(a.action_type)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -477,7 +480,7 @@ const RenewalsCard = () => {
                 }}
                 onClick={() => setSendAllOpen(true)}
               >
-                💬 Send All Reminders
+                <Send className="w-3.5 h-3.5 mr-1" /> Send All Reminders
               </Button>
               <Button
                 size="sm"
@@ -485,7 +488,7 @@ const RenewalsCard = () => {
                 className="text-xs font-bold"
                 onClick={() => navigate("/renewals")}
               >
-                Renewals →
+                Renewals <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             </div>
           </>
