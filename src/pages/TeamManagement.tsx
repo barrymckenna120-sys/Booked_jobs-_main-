@@ -126,23 +126,46 @@ const TeamManagement = () => {
   const handleInvite = async () => {
     if (!user || !inviteForm.name.trim()) return;
     setSaving(true);
-    const { error } = await supabase.from("engineers").insert({
+
+    // 1. Create the engineer record
+    const { data: newEng, error } = await supabase.from("engineers").insert({
       name: inviteForm.name.trim(),
       email: inviteForm.email.trim() || null,
       phone: inviteForm.phone.trim() || null,
       role: inviteForm.role,
       status: "active",
       user_id: user.id,
-    } as any);
-    setSaving(false);
+    } as any).select("id").single();
+
     if (error) {
+      setSaving(false);
       toast({ title: "Error adding member", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    // 2. If email provided, send invite via edge function
+    const email = inviteForm.email.trim();
+    if (email && newEng) {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("invite-team-member", {
+        body: { engineer_id: newEng.id, email, name: inviteForm.name.trim(), role: inviteForm.role },
+      });
+      if (fnError || fnData?.error) {
+        toast({
+          title: `${inviteForm.name} added but invite email failed`,
+          description: fnData?.error || fnError?.message || "Could not send invite",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `${inviteForm.name} added — invite email sent to ${email}` });
+      }
     } else {
       toast({ title: `${inviteForm.name} added as ${ROLES[inviteForm.role]?.label}` });
-      setInviteForm({ name: "", email: "", phone: "", role: "engineer" });
-      setInviteOpen(false);
-      fetchMembers();
     }
+
+    setSaving(false);
+    setInviteForm({ name: "", email: "", phone: "", role: "engineer" });
+    setInviteOpen(false);
+    fetchMembers();
   };
 
   const handleChangeRole = async (id: string, newRole: string) => {
@@ -184,6 +207,23 @@ const TeamManagement = () => {
     setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
     toast({ title: `${deleteTarget.name} has been removed` });
     setDeleteTarget(null);
+  };
+
+  const handleSendInvite = async (member: TeamMember) => {
+    if (!member.email) {
+      toast({ title: "No email address", description: "Add an email before sending an invite.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Sending invite…" });
+    const { data, error } = await supabase.functions.invoke("invite-team-member", {
+      body: { engineer_id: member.id, email: member.email, name: member.name, role: member.role },
+    });
+    if (error || data?.error) {
+      toast({ title: "Invite failed", description: data?.error || error?.message, variant: "destructive" });
+    } else {
+      toast({ title: `Invite sent to ${member.email}` });
+      fetchMembers();
+    }
   };
 
   // ── Filter / search ─────────────────────────────────────────────
@@ -382,6 +422,12 @@ const TeamManagement = () => {
                             ))}
                           <DropdownMenuSeparator />
                         </>
+                      )}
+                      {!isBlocked && !member.auth_user_id && member.email && (
+                        <DropdownMenuItem onClick={() => handleSendInvite(member)}>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Send Login Invite
+                        </DropdownMenuItem>
                       )}
                       {isBlocked ? (
                         <DropdownMenuItem onClick={() => handleUnblock(member.id)}>
