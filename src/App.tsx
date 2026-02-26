@@ -29,6 +29,7 @@ import Index from "./pages/Index";
 import Finance from "./pages/Finance";
 import Schedule from "./pages/Schedule";
 import TeamManagement from "./pages/TeamManagement";
+import AuditLog from "./pages/AuditLog";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/import" element={<ImportCustomers />} />
             <Route path="/team" element={<TeamManagement />} />
+            <Route path="/audit-log" element={<AuditLog />} />
           </Route>
           {/* Engineer Mode */}
           <Route path="/engineer" element={<EngineerLayout />}>
