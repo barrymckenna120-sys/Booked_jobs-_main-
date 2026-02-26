@@ -58,13 +58,13 @@ const LiveActivityFeed = () => {
   if (activities.length === 0) return null;
 
   return (
-    <Card className="shadow-sm">
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-center gap-2 mb-3">
+    <Card className="shadow-sm border-border/60">
+      <CardContent className="p-6">
+        <div className="flex items-center gap-2 mb-4">
           <Activity className="w-4 h-4 text-primary" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase">Live Activity</p>
+          <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide">Live Activity</p>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {activities.map((a: any) => {
             const meta = STATUS_META[a.status] || FALLBACK;
             const StatusIcon = meta.Icon;
@@ -73,13 +73,13 @@ const LiveActivityFeed = () => {
               catch { return ""; }
             })();
             return (
-              <div key={a.id} className="flex items-center gap-2.5 text-sm">
+              <div key={a.id} className="flex items-center gap-3 py-1">
                 <StatusIcon className={`w-4 h-4 shrink-0 ${meta.color}`} />
-                <span className="truncate">
+                <span className="truncate text-sm">
                   <span className="font-semibold">{a.customerName}</span>
-                  <span className="text-muted-foreground"> → {meta.verb}</span>
+                  <span className="text-muted-foreground/70"> → {meta.verb}</span>
                 </span>
-                <span className="text-xs text-muted-foreground ml-auto shrink-0">{time}</span>
+                <span className="text-[11px] text-muted-foreground/60 ml-auto shrink-0">{time}</span>
               </div>
             );
           })}

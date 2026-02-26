@@ -81,13 +81,13 @@ const WeekSnapshot = () => {
 
   return (
     <>
-    <Card className="shadow-sm">
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-center justify-between mb-3">
+    <Card className="shadow-sm border-border/60">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-primary" />
-            <p className="text-xs font-semibold text-muted-foreground uppercase">This Week</p>
-            <span className="text-xs text-muted-foreground">
+            <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide">This Week</p>
+            <span className="text-xs text-muted-foreground/60">
               {totalJobs} job{totalJobs !== 1 ? "s" : ""} • €{totalRevenue.toLocaleString()}
             </span>
           </div>
@@ -97,7 +97,7 @@ const WeekSnapshot = () => {
         </div>
 
         {/* Day columns */}
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-2">
           {days.map((day) => {
             const dateStr = format(day, "yyyy-MM-dd");
             const dayJobs = byDay[dateStr] || [];
@@ -107,9 +107,9 @@ const WeekSnapshot = () => {
               <div
                 key={dateStr}
                 onClick={() => setSelectedDay(dateStr)}
-                className={`rounded-lg border p-2 min-h-[72px] transition-colors cursor-pointer hover:shadow-sm ${
-                  today ? "border-primary/40 bg-primary/5 hover:bg-primary/10" : "border-border hover:bg-muted/50 hover:border-primary/30"
-                } ${selectedDay === dateStr ? "ring-2 ring-primary/40 ring-offset-1" : ""}`}
+                className={`rounded-xl border p-2.5 min-h-[80px] transition-colors cursor-pointer hover:shadow-sm ${
+                  today ? "border-primary/30 bg-primary/5 hover:bg-primary/10" : "border-border/60 hover:bg-muted/40 hover:border-primary/20"
+                } ${selectedDay === dateStr ? "ring-2 ring-primary/30 ring-offset-1" : ""}`}
               >
                 <div className={`text-[10px] font-semibold mb-1 ${today ? "text-primary" : "text-muted-foreground"}`}>
                   {dayLabel(day)}

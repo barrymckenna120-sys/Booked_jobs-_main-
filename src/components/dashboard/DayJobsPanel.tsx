@@ -119,7 +119,7 @@ const DayJobsPanel = ({ date, onClose }: DayJobsPanelProps) => {
         </div>
 
         {/* Job list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {isLoading && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -147,10 +147,10 @@ const DayJobsPanel = ({ date, onClose }: DayJobsPanelProps) => {
               return (
                 <div
                   key={job.id}
-                  className={`bg-card rounded-2xl border border-l-4 ${borderClass} overflow-hidden hover:shadow-md transition-shadow`}
+                  className={`bg-card rounded-2xl border border-l-4 border-border/60 ${borderClass} overflow-hidden hover:shadow-md transition-shadow`}
                 >
                   {/* Top row */}
-                  <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                  <div className="flex items-center justify-between px-5 pt-4 pb-1.5">
                     <span className="text-xs font-bold bg-secondary rounded-full px-2.5 py-1">
                       ⏰ {timeLabel}
                     </span>
@@ -165,9 +165,9 @@ const DayJobsPanel = ({ date, onClose }: DayJobsPanelProps) => {
                   </div>
 
                   {/* Customer info */}
-                  <div className="px-4 py-2">
-                    <div className="text-base font-extrabold mb-1">{customer?.name || "Unknown"}</div>
-                    <div className="text-sm text-muted-foreground mb-0.5">
+                  <div className="px-5 py-2.5">
+                    <div className="text-[17px] font-extrabold mb-1.5">{customer?.name || "Unknown"}</div>
+                    <div className="text-sm text-muted-foreground/70 mb-1">
                       📍 {customer?.address}
                       {customer?.eircode && (
                         <span className="ml-1 text-xs font-mono text-muted-foreground/70">{customer.eircode}</span>
@@ -180,7 +180,7 @@ const DayJobsPanel = ({ date, onClose }: DayJobsPanelProps) => {
                   </div>
 
                   {/* Engineer + price */}
-                  <div className="flex items-center justify-between px-4 pb-3">
+                  <div className="flex items-center justify-between px-5 pb-3.5">
                     <div className="flex items-center gap-1.5">
                       <div className="w-6 h-6 rounded-lg bg-secondary flex items-center justify-center text-[10px] font-bold">
                         {job.assigned_engineer?.[0] || "?"}
@@ -195,7 +195,7 @@ const DayJobsPanel = ({ date, onClose }: DayJobsPanelProps) => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 px-4 pb-4">
+                  <div className="flex gap-2.5 px-5 pb-5">
                     <a
                       href={`tel:${customer?.phone}`}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border text-sm font-bold hover:bg-muted/50 transition-colors no-underline text-foreground"
