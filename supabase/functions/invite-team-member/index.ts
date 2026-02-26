@@ -58,19 +58,23 @@ Deno.serve(async (req) => {
     if (existingUser) {
       authUserId = existingUser.id;
     } else {
-      // Create user via invite (sends magic link email)
-      const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: { display_name: name, role },
+      // Create user with a default password so they can sign in immediately
+      const defaultPassword = "Welcome123!";
+      const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: defaultPassword,
+        email_confirm: true,
+        user_metadata: { display_name: name, role },
       });
 
-      if (inviteError) {
-        return new Response(JSON.stringify({ error: inviteError.message }), {
+      if (createError) {
+        return new Response(JSON.stringify({ error: createError.message }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      authUserId = invited.user.id;
+      authUserId = created.user.id;
     }
 
     // Link the auth user to the engineer record
