@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useBackButton } from "@/hooks/useBackButton";
 import { format, addDays, subDays, isToday } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +56,8 @@ const DayJobsPanel = ({ date, onClose }: DayJobsPanelProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(date);
+  const stableClose = useCallback(() => onClose(), [onClose]);
+  useBackButton(true, stableClose);
 
   const { data: jobs = [], isLoading } = useQuery({
     queryKey: ["day-jobs-panel", user?.id, currentDate],

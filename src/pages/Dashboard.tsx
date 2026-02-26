@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Loader2 } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
+import { useBackButton } from "@/hooks/useBackButton";
 import { format } from "date-fns";
 
 import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
@@ -32,6 +33,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showNewJob, setShowNewJob] = useState(false);
+  const closeNewJob = useCallback(() => setShowNewJob(false), []);
+  useBackButton(showNewJob, closeNewJob);
 
   // Profile name
   const { data: profile } = useQuery({

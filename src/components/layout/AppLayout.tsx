@@ -3,9 +3,10 @@ import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
+import { useBackButton } from "@/hooks/useBackButton";
 import {
   Collapsible,
   CollapsibleContent,
@@ -61,6 +62,8 @@ const AppLayout = () => {
     location.pathname.startsWith("/whatsapp")
   );
   const [showNewJob, setShowNewJob] = useState(false);
+  const closeNewJob = useCallback(() => setShowNewJob(false), []);
+  useBackButton(showNewJob, closeNewJob);
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
