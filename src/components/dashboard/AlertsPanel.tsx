@@ -22,7 +22,7 @@ const AlertsPanel = () => {
   const { data } = useQuery({
     queryKey: ["dashboard-alerts", user?.id],
     queryFn: async () => {
-      const [incomingRes, overdueRes, dueSoonRes] = await Promise.all([
+      const [incomingRes, customersRes] = await Promise.all([
         supabase
           .from("service_calls")
           .select("*", { count: "exact", head: true })
@@ -30,18 +30,25 @@ const AlertsPanel = () => {
           .eq("incoming_status", "Pending"),
         supabase
           .from("customers")
-          .select("*", { count: "exact", head: true })
-          .eq("service_status", "Overdue"),
-        supabase
-          .from("customers")
-          .select("*", { count: "exact", head: true })
-          .eq("service_status", "Due Soon"),
+          .select("next_service_due")
+          .not("next_service_due", "is", null),
       ]);
+
+      // Compute overdue / due soon client-side to match Renewals page logic
+      let overdue = 0;
+      let dueSoon = 0;
+      (customersRes.data || []).forEach((c: any) => {
+        const daysUntil = Math.ceil(
+          (new Date(c.next_service_due).getTime() - Date.now()) / 86400000
+        );
+        if (daysUntil < 0) overdue++;
+        else if (daysUntil <= 30) dueSoon++;
+      });
 
       return {
         incoming: incomingRes.count || 0,
-        overdue: overdueRes.count || 0,
-        dueSoon: dueSoonRes.count || 0,
+        overdue,
+        dueSoon,
       };
     },
     enabled: !!user,
@@ -62,7 +69,7 @@ const AlertsPanel = () => {
       count: data?.overdue || 0,
       color: "text-destructive",
       bgColor: "bg-destructive/10",
-      path: "/customers?status=Overdue",
+      path: "/renewals?status=Overdue",
     },
     {
       Icon: Clock,
