@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
@@ -89,6 +89,17 @@ const Schedule = () => {
     },
     enabled: !!user,
   });
+
+  // Realtime: auto-refresh when any service_call changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("schedule-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const unallocatedJobs = jobs.filter(
     (j) => j.status !== "Completed" && j.status !== "Cancelled" && j.status !== "Booked" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer)

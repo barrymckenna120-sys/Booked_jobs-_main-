@@ -25,12 +25,12 @@ export const getNextJobId = (jobs: any[]): string | null => {
   for (const block of blockOrder) {
     const [, end] = TIME_RANGES[block];
     if (hour < end) {
-      const match = jobs.find(j => j.time_block === block && j.status !== "Completed" && j.status !== "Cancelled");
+      const match = jobs.find(j => j.time_block === block && !["Completed", "Cancelled"].includes(j.status));
       if (match) return match.id;
     }
   }
 
-  const fallback = jobs.find(j => j.status !== "Completed" && j.status !== "Cancelled");
+  const fallback = jobs.find(j => !["Completed", "Cancelled"].includes(j.status));
   return fallback?.id || null;
 };
 
@@ -115,7 +115,19 @@ export const useEngineerJobs = () => {
   const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled"));
   const todayCompleted = sortByTime(todayJobs.filter((j) => j.status === "Completed"));
   const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled"));
-  const todayInProgress = todayJobs.filter((j) => j.status === "In Progress");
+  const todayInProgress = todayJobs.filter((j) => ["En Route", "On Site", "In Progress"].includes(j.status));
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("engineer-jobs-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
+        fetchAll();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchAll]);
 
   return {
     user, authLoading, loading,

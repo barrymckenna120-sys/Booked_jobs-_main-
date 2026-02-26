@@ -40,9 +40,11 @@ const EngineerToday = () => {
       {/* In progress banner */}
       {todayInProgress.length > 0 && (
         <div className="bg-warning/10 border border-warning rounded-2xl p-3.5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-warning flex items-center justify-center text-xl shrink-0">⚙️</div>
+          <div className="w-10 h-10 rounded-xl bg-warning flex items-center justify-center text-xl shrink-0">
+            {todayInProgress[0].status === "En Route" ? "🚗" : todayInProgress[0].status === "On Site" ? "📍" : "⚙️"}
+          </div>
           <div>
-            <div className="text-[13px] font-extrabold text-warning">Job In Progress</div>
+            <div className="text-[13px] font-extrabold text-warning">{todayInProgress[0].status}</div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {customers[todayInProgress[0].customer_id]?.name} · {todayInProgress[0].time_block}
             </div>
