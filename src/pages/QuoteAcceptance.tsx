@@ -64,8 +64,7 @@ const QuoteAcceptance = () => {
   const handleAccept = async () => {
     if (!quote) return;
     setActionLoading(true);
-    await supabase.from("quotes").update({ status: "Accepted", accepted_at: new Date().toISOString() } as any).eq("id", quote.id);
-    await supabase.from("service_calls").update({ status: "Awaiting Deposit" } as any).eq("id", quote.job_id);
+    await supabase.rpc("respond_to_quote", { p_quote_id: quote.id, p_accepted: true });
     setData(prev => prev ? { ...prev, quote: { ...prev.quote, status: "Accepted" } } : prev);
     setResponded("accepted");
     setActionLoading(false);
@@ -74,7 +73,7 @@ const QuoteAcceptance = () => {
   const handleDecline = async () => {
     if (!quote) return;
     setActionLoading(true);
-    await supabase.from("quotes").update({ status: "Rejected" } as any).eq("id", quote.id);
+    await supabase.rpc("respond_to_quote", { p_quote_id: quote.id, p_accepted: false });
     setData(prev => prev ? { ...prev, quote: { ...prev.quote, status: "Rejected" } } : prev);
     setResponded("declined");
     setActionLoading(false);
