@@ -59,12 +59,12 @@ export const HeroSection = () => {
         {/* Right — Hero image */}
         <ScrollFadeIn direction="right" delay={0.15}>
           <div className="relative">
-            <div className="absolute -inset-3 bg-gradient-to-br from-primary/8 via-transparent to-primary/5 rounded-[2rem] blur-2xl pointer-events-none" />
             <img
               src={engineerVanImg}
               alt="Professional gas boiler service engineer in van holding a tablet with the BookedJobs booking and renewal dashboard"
-              className="relative w-full rounded-2xl shadow-xl shadow-foreground/8"
+              className="relative w-full"
               loading="eager"
+              style={{ mixBlendMode: 'multiply' }}
             />
           </div>
         </ScrollFadeIn>
