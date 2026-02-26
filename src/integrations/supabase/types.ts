@@ -791,6 +791,10 @@ export type Database = {
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_user_role: { Args: { _user_id: string }; Returns: string }
+      respond_to_quote: {
+        Args: { p_accepted: boolean; p_quote_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
