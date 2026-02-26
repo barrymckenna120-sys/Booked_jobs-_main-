@@ -182,18 +182,13 @@ const Dashboard = () => {
       {/* Alerts (hidden if none) */}
       <AlertsPanel />
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Today + Week */}
-        <div className="lg:col-span-2 space-y-6">
-          <TodayTimeline />
-          <WeekSnapshot />
-        </div>
-
-        {/* Right: Revenue + Activity */}
-        <div className="space-y-6">
-          <RevenueSnapshot />
+      {/* Main Content */}
+      <div className="space-y-6">
+        <TodayTimeline />
+        <WeekSnapshot />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <LiveActivityFeed />
+          <RevenueSnapshot />
         </div>
       </div>
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
