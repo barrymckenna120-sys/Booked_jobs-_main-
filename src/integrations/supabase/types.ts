@@ -569,39 +569,123 @@ export type Database = {
       }
       settings: {
         Row: {
+          business_address: string | null
+          business_email: string | null
           business_name: string
+          business_phone: string | null
           default_callout_charge: number | null
+          default_emergency_price: number | null
+          default_repair_price: number | null
           default_service_price: number | null
+          google_review_url: string | null
           id: string
+          invoice_prefix: string | null
+          job_time_blocks: Json | null
           logo_url: string | null
+          next_invoice_number: number | null
+          opening_hours: Json | null
+          owner_name: string | null
+          payment_reminder_days_1: number | null
+          payment_reminder_days_2: number | null
+          payment_reminders_enabled: boolean | null
+          payment_terms: string | null
           reminder_message_template: string | null
+          renewal_reminder_days_1: number | null
+          renewal_reminder_days_2: number | null
+          renewal_reminders_enabled: boolean | null
+          review_request_hours: number | null
+          review_requests_enabled: boolean | null
+          service_areas: Json | null
           stripe_connected: boolean
+          template_booking_confirmation: string | null
+          template_payment_link: string | null
+          template_quote_sent: string | null
+          template_renewal_reminder: string | null
+          template_review_request: string | null
           updated_at: string
           user_id: string
+          vat_number: string | null
+          website: string | null
           whatsapp_number: string | null
         }
         Insert: {
+          business_address?: string | null
+          business_email?: string | null
           business_name?: string
+          business_phone?: string | null
           default_callout_charge?: number | null
+          default_emergency_price?: number | null
+          default_repair_price?: number | null
           default_service_price?: number | null
+          google_review_url?: string | null
           id?: string
+          invoice_prefix?: string | null
+          job_time_blocks?: Json | null
           logo_url?: string | null
+          next_invoice_number?: number | null
+          opening_hours?: Json | null
+          owner_name?: string | null
+          payment_reminder_days_1?: number | null
+          payment_reminder_days_2?: number | null
+          payment_reminders_enabled?: boolean | null
+          payment_terms?: string | null
           reminder_message_template?: string | null
+          renewal_reminder_days_1?: number | null
+          renewal_reminder_days_2?: number | null
+          renewal_reminders_enabled?: boolean | null
+          review_request_hours?: number | null
+          review_requests_enabled?: boolean | null
+          service_areas?: Json | null
           stripe_connected?: boolean
+          template_booking_confirmation?: string | null
+          template_payment_link?: string | null
+          template_quote_sent?: string | null
+          template_renewal_reminder?: string | null
+          template_review_request?: string | null
           updated_at?: string
           user_id: string
+          vat_number?: string | null
+          website?: string | null
           whatsapp_number?: string | null
         }
         Update: {
+          business_address?: string | null
+          business_email?: string | null
           business_name?: string
+          business_phone?: string | null
           default_callout_charge?: number | null
+          default_emergency_price?: number | null
+          default_repair_price?: number | null
           default_service_price?: number | null
+          google_review_url?: string | null
           id?: string
+          invoice_prefix?: string | null
+          job_time_blocks?: Json | null
           logo_url?: string | null
+          next_invoice_number?: number | null
+          opening_hours?: Json | null
+          owner_name?: string | null
+          payment_reminder_days_1?: number | null
+          payment_reminder_days_2?: number | null
+          payment_reminders_enabled?: boolean | null
+          payment_terms?: string | null
           reminder_message_template?: string | null
+          renewal_reminder_days_1?: number | null
+          renewal_reminder_days_2?: number | null
+          renewal_reminders_enabled?: boolean | null
+          review_request_hours?: number | null
+          review_requests_enabled?: boolean | null
+          service_areas?: Json | null
           stripe_connected?: boolean
+          template_booking_confirmation?: string | null
+          template_payment_link?: string | null
+          template_quote_sent?: string | null
+          template_renewal_reminder?: string | null
+          template_review_request?: string | null
           updated_at?: string
           user_id?: string
+          vat_number?: string | null
+          website?: string | null
           whatsapp_number?: string | null
         }
         Relationships: []

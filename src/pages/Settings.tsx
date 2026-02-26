@@ -1,120 +1,109 @@
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Upload, Download } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2 } from "lucide-react";
+import GeneralTab from "@/components/settings/GeneralTab";
+import WhatsAppTab from "@/components/settings/WhatsAppTab";
+import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
+import RemindersTab from "@/components/settings/RemindersTab";
+import SecurityTab from "@/components/settings/SecurityTab";
+import DataTab from "@/components/settings/DataTab";
+
+const TABS = [
+  { key: "general", label: "General", icon: SettingsIcon },
+  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { key: "business", label: "Business", icon: Building2 },
+  { key: "reminders", label: "Reminders", icon: Bell },
+  { key: "data", label: "Data", icon: Database },
+  { key: "security", label: "Security", icon: Shield },
+];
 
 const Settings = () => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("general");
+  const [saving, setSaving] = useState(false);
 
-  const handleExport = async () => {
-    toast({ title: "Exporting...", description: "Fetching customer data." });
-    const { data, error } = await supabase
-      .from("customers")
-      .select("*")
-      .order("name");
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["settings", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
 
-    if (error) {
-      toast({ title: "Export failed", description: error.message, variant: "destructive" });
-      return;
+  const handleSave = async (fields: Record<string, any>) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (settings?.id) {
+        const { error } = await supabase
+          .from("settings")
+          .update({ ...fields, updated_at: new Date().toISOString() })
+          .eq("id", settings.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("settings")
+          .insert({ ...fields, user_id: user.id });
+        if (error) throw error;
+      }
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast({ title: "Settings saved" });
+    } catch (err: any) {
+      toast({ title: "Error saving", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-
-    const rows = (data || []).map((c) => ({
-      "Customer Name": c.name,
-      "Phone Number": c.phone,
-      Email: c.email,
-      Address: c.address,
-      Eircode: c.eircode,
-      "Area Code": c.area_code,
-      "Access Notes": c.access_notes,
-      "Boiler Make / Model": c.boiler_make_model,
-      "Boiler Type": c.boiler_type,
-      "Installation Date": c.boiler_installation_date,
-      "Under Warranty": c.under_warranty ? "Yes" : "No",
-      "Last Service Date": c.last_service_date,
-      "Last Service Engineer": c.last_service_engineer,
-      "Engineer Notes": c.engineer_notes,
-      "Next Service Due": c.next_service_due,
-      "Service Status": c.service_status,
-      "Assigned Engineer": c.assigned_engineer,
-      "Customer Notes": c.notes,
-      "Customer Since": c.customer_since,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Customers");
-    const date = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(wb, `karls_gas_customers_export_${date}.xlsx`);
-    toast({ title: "Export complete", description: `${rows.length} customers exported.` });
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (authLoading || isLoading) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <h1 className="text-xl font-bold">Settings</h1>
-        </div>
-      </header>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <h1 className="text-2xl font-extrabold text-foreground mb-6">Settings</h1>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Data Import / Export</h2>
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Upload className="w-4 h-4" /> Import Customers
-                </CardTitle>
-                <CardDescription>
-                  Bulk-import or update customer records from Excel.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" onClick={() => navigate("/settings/import")}>
-                  Go to Import Page →
-                </Button>
-              </CardContent>
-            </Card>
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Sidebar tabs (desktop) / Horizontal tabs (mobile) */}
+        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-48 shrink-0 border-b md:border-b-0 md:border-r border-border pb-2 md:pb-0 md:pr-4">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  active
+                    ? "bg-primary/10 text-primary font-bold"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Download className="w-4 h-4" /> Export Customers
-                </CardTitle>
-                <CardDescription>
-                  Download all customers as an Excel file.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" onClick={handleExport}>
-                  Export to Excel →
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Account</h2>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground mb-1">Signed in as</p>
-              <p className="font-medium">{user?.email}</p>
-            </CardContent>
-          </Card>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {activeTab === "general" && <GeneralTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "whatsapp" && <WhatsAppTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "business" && <BusinessProfileTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "data" && <DataTab />}
+          {activeTab === "security" && <SecurityTab />}
         </div>
       </div>
     </div>
