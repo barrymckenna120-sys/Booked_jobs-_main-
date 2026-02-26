@@ -1,6 +1,7 @@
 import { Clock, CreditCard, Bell, Moon, Check, MessageCircle } from "lucide-react";
 import missedCallImg from "@/assets/missed-call-cost.png";
 import whatsappMockupImg from "@/assets/whatsapp-reminder-mockup.png";
+import whatsappLogo from "@/assets/whatsapp-logo.png";
 import { ScrollFadeIn, StaggerContainer, StaggerItem } from "./ScrollFadeIn";
 
 export const NeverMissBookingSection = () => {
@@ -51,7 +52,7 @@ export const NeverMissBookingSection = () => {
           <ScrollFadeIn>
             <div className="text-center space-y-3">
               <span className="inline-flex items-center gap-2 bg-[#25D366]/10 text-[#25D366] text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
-                <MessageCircle className="w-3.5 h-3.5" />
+                <img src={whatsappLogo} alt="WhatsApp" className="w-4 h-4" />
                 Automatic WhatsApp Reminders
               </span>
               <h2 className="section-heading">Never Miss a Booking Again</h2>
