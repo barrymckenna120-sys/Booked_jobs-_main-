@@ -7,13 +7,13 @@ const EngineerCompleted = () => {
 
   return (
     <>
-      <div className="text-[17px] font-extrabold text-foreground">Completed Jobs</div>
+      <div className="text-lg font-extrabold text-foreground">Completed Jobs</div>
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : completedJobs.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-2xl border border-border">
-          <CheckCircle2 className="w-12 h-12 mx-auto mb-2.5 text-muted-foreground" />
-          <div className="text-lg font-extrabold text-foreground mb-1">No completed jobs yet</div>
+        <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
+          <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+          <div className="text-lg font-extrabold text-foreground mb-1.5">No completed jobs yet</div>
         </div>
       ) : (
         completedJobs.map((job: any) => (

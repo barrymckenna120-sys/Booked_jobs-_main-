@@ -16,19 +16,19 @@ const EngineerUpcoming = () => {
 
   return (
     <>
-      <div className="text-[17px] font-extrabold text-foreground">Upcoming Jobs</div>
+      <div className="text-lg font-extrabold text-foreground">Upcoming Jobs</div>
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : upcomingJobs.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-2xl border border-border">
-          <CalendarDays className="w-12 h-12 mx-auto mb-2.5 text-muted-foreground" />
-          <div className="text-lg font-extrabold text-foreground mb-1">No upcoming jobs</div>
-          <div className="text-sm text-muted-foreground">Your schedule is clear.</div>
+        <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
+          <CalendarDays className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+          <div className="text-lg font-extrabold text-foreground mb-1.5">No upcoming jobs</div>
+          <div className="text-sm text-muted-foreground/70">Your schedule is clear.</div>
         </div>
       ) : (
         Object.entries(grouped).map(([date, dateJobs]) => (
           <div key={date}>
-            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 mt-2 flex items-center gap-1.5">
+            <div className="text-xs font-bold text-muted-foreground/70 uppercase tracking-wider mb-3 mt-3 flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5" /> {date !== "Unscheduled" ? format(new Date(date + "T00:00:00"), "EEEE d MMM") : "Unscheduled"}
             </div>
             {dateJobs.map((job: any) => (

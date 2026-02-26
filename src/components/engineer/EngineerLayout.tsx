@@ -62,18 +62,18 @@ const EngineerLayout = () => {
       </div>
 
       {/* Page content */}
-      <div className="px-4 py-5 space-y-5">
+      <div className="px-4 py-6 space-y-6">
         <Outlet />
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border flex z-50">
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50">
         {navItems.map((item) => (
           <button
             key={item.key}
             onClick={() => navigate(item.path)}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-xs font-semibold transition-colors ${
-              currentTab === item.key ? "text-primary" : "text-muted-foreground"
+            className={`flex-1 flex flex-col items-center gap-1 py-3.5 text-xs font-semibold transition-colors min-h-[56px] ${
+              currentTab === item.key ? "text-primary" : "text-muted-foreground/70"
             }`}
           >
             <div className="relative">

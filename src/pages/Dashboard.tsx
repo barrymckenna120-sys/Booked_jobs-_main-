@@ -140,70 +140,70 @@ const Dashboard = () => {
   }
 
    return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Header with Date Toggle */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground font-medium">{dateRange.label}</p>
+          <p className="text-sm text-muted-foreground/70 font-medium mt-1">{dateRange.label}</p>
         </div>
         <DateRangeToggle value={viewMode} onChange={setViewMode} anchor={anchor} onAnchorChange={setAnchor} />
       </div>
 
       {/* KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <Card className="shadow-sm">
-          <CardContent className="pt-5 pb-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <Card className="shadow-sm border-border/60">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <ClipboardList className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold">{customers.length}</p>
-              <p className="text-xs text-muted-foreground">Total Customers</p>
+              <p className="text-3xl font-extrabold leading-none">{customers.length}</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Total Customers</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm cursor-pointer hover:border-destructive transition-colors" onClick={() => navigate("/customers?status=Overdue")}>
-          <CardContent className="pt-5 pb-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+        <Card className="shadow-sm border-border/60 cursor-pointer hover:border-destructive/40 transition-colors" onClick={() => navigate("/customers?status=Overdue")}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
               <Phone className="w-5 h-5 text-destructive" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold">{customers.filter(c => c.service_status === "Overdue").length}</p>
-              <p className="text-xs text-muted-foreground">Overdue</p>
+              <p className="text-3xl font-extrabold leading-none">{customers.filter(c => c.service_status === "Overdue").length}</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Overdue</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm cursor-pointer hover:border-warning transition-colors" onClick={() => navigate("/renewals?status=Due Soon")}>
-          <CardContent className="pt-5 pb-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+        <Card className="shadow-sm border-border/60 cursor-pointer hover:border-warning/40 transition-colors" onClick={() => navigate("/renewals?status=Due Soon")}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
               <MapPin className="w-5 h-5 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold">{customers.filter(c => c.service_status === "Due Soon").length}</p>
-              <p className="text-xs text-muted-foreground">Due Soon</p>
+              <p className="text-3xl font-extrabold leading-none">{customers.filter(c => c.service_status === "Due Soon").length}</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Due Soon</p>
             </div>
           </CardContent>
         </Card>
-        <Card className={`shadow-sm cursor-pointer transition-colors hover:border-warning ${incomingCount > 0 ? "border-warning" : ""}`} onClick={() => navigate("/incoming?status=New")}>
-          <CardContent className="pt-5 pb-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${incomingCount > 0 ? "bg-warning/10" : "bg-success/10"}`}>
+        <Card className={`shadow-sm cursor-pointer transition-colors hover:border-warning/40 ${incomingCount > 0 ? "border-warning/60" : "border-border/60"}`} onClick={() => navigate("/incoming?status=New")}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${incomingCount > 0 ? "bg-warning/10" : "bg-success/10"}`}>
               <Inbox className={`w-5 h-5 ${incomingCount > 0 ? "text-warning" : "text-success"}`} />
             </div>
             <div>
-              <p className="text-2xl font-extrabold">{incomingCount}</p>
-              <p className="text-xs text-muted-foreground">Incoming Pending</p>
+              <p className="text-3xl font-extrabold leading-none">{incomingCount}</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Incoming Pending</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm cursor-pointer hover:border-success transition-colors" onClick={() => navigate("/customers?status=Up to Date")}>
-          <CardContent className="pt-5 pb-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+        <Card className="shadow-sm border-border/60 cursor-pointer hover:border-success/40 transition-colors" onClick={() => navigate("/customers?status=Up to Date")}>
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold">{customers.filter(c => (c.service_status || "Up to Date") === "Up to Date").length}</p>
-              <p className="text-xs text-muted-foreground">Up to Date</p>
+              <p className="text-3xl font-extrabold leading-none">{customers.filter(c => (c.service_status || "Up to Date") === "Up to Date").length}</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Up to Date</p>
             </div>
           </CardContent>
         </Card>
@@ -224,10 +224,10 @@ const Dashboard = () => {
         }, {});
         const sorted = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
         return sorted.length > 0 ? (
-          <Card className="shadow-sm">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase">Customers by Area Code</p>
+          <Card className="shadow-sm border-border/60">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide">Customers by Area Code</p>
                 {areaFilter && (
                   <button onClick={() => setAreaFilter(null)} className="text-xs text-primary hover:underline">Clear filter</button>
                 )}
@@ -249,7 +249,7 @@ const Dashboard = () => {
       })()}
 
       {/* Search + Filter + Add */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -341,7 +341,7 @@ const Dashboard = () => {
       </div>
 
       {/* Customer Table */}
-      <Card className="shadow-sm">
+      <Card className="shadow-sm border-border/60">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">Loading customers...</div>

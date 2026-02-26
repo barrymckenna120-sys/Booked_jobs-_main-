@@ -59,7 +59,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
   return (
     <>
       <div
-        className={`bg-card rounded-2xl border border-l-4 p-4 mb-3 transition-all ${isDone ? "opacity-70" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border"}`}
+        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-60" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border/60"}`}
         style={{ borderLeftColor: `hsl(var(--${job.job_type === "Emergency" ? "destructive" : ["En Route", "On Site", "In Progress"].includes(job.status) ? "warning" : job.status === "Completed" ? "success" : job.status === "Cancelled" ? "destructive" : "primary"}))` }}
       >
         {/* Next Job Badge */}
@@ -72,10 +72,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-start mb-1">
+        <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
-            <div className="text-[11px] font-bold text-muted-foreground tracking-wider mb-0.5">{getJobRef(job.id)}</div>
-            <div className="text-base font-extrabold text-foreground leading-tight">{customer.name}</div>
+            <div className="text-[11px] font-bold text-muted-foreground/60 tracking-wider mb-1">{getJobRef(job.id)}</div>
+            <div className="text-[17px] font-extrabold text-foreground leading-tight">{customer.name}</div>
           </div>
           <span className={`${s.bg} ${s.color} rounded-full px-3 py-0.5 text-[11px] font-bold shrink-0 ml-2`}>
             {s.label}
@@ -83,12 +83,12 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         </div>
 
         {/* Address */}
-        <div className="text-[13px] text-muted-foreground mb-2 flex items-center gap-1">
+        <div className="text-[13px] text-muted-foreground/70 mb-3 flex items-center gap-1.5">
           <MapPin className="w-3.5 h-3.5 shrink-0" /> {customer.address}
         </div>
 
         {/* Pills */}
-        <div className="flex flex-wrap gap-1.5 mb-2.5">
+        <div className="flex flex-wrap gap-2 mb-3">
           <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
             <Clock className="w-3 h-3 text-muted-foreground" /> {timeLabel}
           </span>
@@ -111,38 +111,38 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
 
         {/* Issue */}
         {job.boiler_issue && (
-          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-lg p-2.5 mb-3 text-[13px] text-foreground leading-snug flex items-start gap-1.5">
+          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-lg p-3 mb-4 text-[13px] text-foreground leading-snug flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" /> {job.boiler_issue}
           </div>
         )}
 
         {/* Quick actions */}
-        <div className="flex gap-2 mb-2.5">
-          <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={openPhone}>
+        <div className="flex gap-2.5 mb-3">
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={openPhone}>
             <Phone className="w-3.5 h-3.5" /> Call
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9 text-success" onClick={openWhatsApp}>
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11 text-success" onClick={openWhatsApp}>
             <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9 text-primary" onClick={openNav}>
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11 text-primary" onClick={openNav}>
             <MapPin className="w-3.5 h-3.5" /> Nav
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => navigate(`/engineer/job/${job.id}`)}>
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => navigate(`/engineer/job/${job.id}`)}>
             <Eye className="w-3.5 h-3.5" /> Details
           </Button>
         </div>
 
         {/* Secondary actions */}
         {!isDone && (
-          <div className="flex gap-2 mb-2.5">
-            <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowNote(true)}>
+          <div className="flex gap-2.5 mb-3">
+            <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => setShowNote(true)}>
               <StickyNote className="w-3.5 h-3.5" /> Note
             </Button>
-            <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowPhotos(true)}>
+            <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => setShowPhotos(true)}>
               <Camera className="w-3.5 h-3.5" /> Photo
             </Button>
             {isActive && (
-              <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowExtraWork(true)}>
+              <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => setShowExtraWork(true)}>
                 <Plus className="w-3.5 h-3.5" /> Extra Work
               </Button>
             )}
@@ -151,34 +151,34 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
 
         {/* Primary actions */}
         {(job.status === "Scheduled" || job.status === "Booked") && (
-          <Button className="w-full h-12 text-base font-extrabold gap-2" onClick={() => onUpdate(job.id, { status: "En Route" })}>
+          <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1" onClick={() => onUpdate(job.id, { status: "En Route" })}>
             <Car className="w-5 h-5" /> En Route
           </Button>
         )}
 
         {job.status === "En Route" && (
-          <Button className="w-full h-12 text-base font-extrabold gap-2 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "On Site" })}>
+          <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "On Site" })}>
             <MapPin className="w-5 h-5" /> Arrived On Site
           </Button>
         )}
 
         {job.status === "On Site" && (
-          <Button className="w-full h-12 text-base font-extrabold gap-2 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "In Progress" })}>
+          <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "In Progress" })}>
             <Play className="w-5 h-5" /> Start Work
           </Button>
         )}
 
         {job.status === "In Progress" && (
-          <div className="flex gap-2.5">
+          <div className="flex gap-3 mt-1">
             <Button
-              className="flex-[2] h-12 text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
+              className="flex-[2] h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
               onClick={() => setShowComplete(true)}
             >
               <CheckCircle2 className="w-5 h-5" /> Complete
             </Button>
             <Button
               variant="outline"
-              className="flex-1 h-12 text-destructive border-destructive/30 font-bold"
+              className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
               onClick={() => setShowCancel(true)}
             >
               <XCircle className="w-5 h-5" />
@@ -187,7 +187,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         )}
 
         {job.status === "Completed" && (
-          <div className="bg-success/10 rounded-xl p-3 flex items-center gap-2">
+          <div className="bg-success/10 rounded-xl p-3.5 flex items-center gap-2.5 mt-1">
             <CheckCircle2 className="w-5 h-5 text-success" />
             <div className="text-[13px] font-bold text-success">Completed</div>
           </div>
