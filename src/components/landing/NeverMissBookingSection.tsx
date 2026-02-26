@@ -67,17 +67,16 @@ export const NeverMissBookingSection = () => {
             <ScrollFadeIn direction="left">
               <div className="flex justify-center">
                 <div className="relative max-w-[280px] md:max-w-[320px]">
-                  {/* WhatsApp badge — left side, vertically centered */}
-                  <div className="absolute -left-16 top-1/2 -translate-y-1/2 inline-flex items-center gap-2 bg-[#25D366] rounded-full px-4 py-2 shadow-lg z-10">
-                    <img src={whatsappGlyph} alt="WhatsApp" className="w-8 h-8" />
-                    <span className="text-white font-bold text-sm whitespace-nowrap">Use WhatsApp</span>
-                  </div>
                   <img
                     src={whatsappMockupImg}
                     alt="WhatsApp reminder message showing automatic booking reminder sent to a customer"
                     className="relative w-full h-auto"
                     loading="lazy"
                   />
+                </div>
+                <div className="mt-4 inline-flex items-center justify-center gap-2 bg-[#25D366] rounded-full px-5 py-2.5 shadow-lg">
+                  <img src={whatsappGlyph} alt="WhatsApp" className="w-8 h-8" />
+                  <span className="text-white font-bold text-sm">Use WhatsApp</span>
                 </div>
               </div>
             </ScrollFadeIn>
