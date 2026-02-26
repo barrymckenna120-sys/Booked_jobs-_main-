@@ -65,7 +65,7 @@ export const NeverMissBookingSection = () => {
 
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <ScrollFadeIn direction="left">
-              <div className="flex justify-center">
+              <div className="flex flex-col items-center">
                 <div className="relative max-w-[280px] md:max-w-[320px]">
                   <img
                     src={whatsappMockupImg}
