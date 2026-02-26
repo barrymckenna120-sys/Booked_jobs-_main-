@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, startOfWeek, isToday, isTomorrow } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, ChevronRight } from "lucide-react";
+import DayJobsPanel from "./DayJobsPanel";
 
 const jobTypeBadge = (type: string) => {
   switch (type) {
@@ -29,6 +30,7 @@ const dayLabel = (date: Date) => {
 const WeekSnapshot = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const startStr = format(days[0], "yyyy-MM-dd");
@@ -65,6 +67,7 @@ const WeekSnapshot = () => {
   const totalRevenue = jobs.reduce((sum, j: any) => sum + (j.revenue || 0), 0);
 
   return (
+    <>
     <Card className="shadow-sm">
       <CardContent className="pt-5 pb-4">
         <div className="flex items-center justify-between mb-3">
@@ -90,9 +93,10 @@ const WeekSnapshot = () => {
             return (
               <div
                 key={dateStr}
-                className={`rounded-lg border p-2 min-h-[72px] transition-colors ${
-                  today ? "border-primary/40 bg-primary/5" : "border-border"
-                }`}
+                onClick={() => setSelectedDay(dateStr)}
+                className={`rounded-lg border p-2 min-h-[72px] transition-colors cursor-pointer hover:shadow-sm ${
+                  today ? "border-primary/40 bg-primary/5 hover:bg-primary/10" : "border-border hover:bg-muted/50 hover:border-primary/30"
+                } ${selectedDay === dateStr ? "ring-2 ring-primary/40 ring-offset-1" : ""}`}
               >
                 <div className={`text-[10px] font-semibold mb-1 ${today ? "text-primary" : "text-muted-foreground"}`}>
                   {dayLabel(day)}
@@ -122,6 +126,11 @@ const WeekSnapshot = () => {
         </div>
       </CardContent>
     </Card>
+
+    {selectedDay && (
+      <DayJobsPanel date={selectedDay} onClose={() => setSelectedDay(null)} />
+    )}
+    </>
   );
 };
 
