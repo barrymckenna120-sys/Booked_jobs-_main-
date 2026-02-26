@@ -12,6 +12,8 @@ import ExtraWorkSheet from "./ExtraWorkSheet";
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
   Booked:        { color: "text-primary",     bg: "bg-primary/10",     label: "Booked" },
+  "En Route":    { color: "text-warning",     bg: "bg-warning/10",     label: "En Route" },
+  "On Site":     { color: "text-warning",     bg: "bg-warning/10",     label: "On Site" },
   "In Progress": { color: "text-warning",     bg: "bg-warning/10",     label: "In Progress" },
   Completed:     { color: "text-success",      bg: "bg-success/10",     label: "Completed" },
   Cancelled:     { color: "text-destructive",  bg: "bg-destructive/10", label: "Cancelled" },
@@ -43,6 +45,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
 
   const s = STATUS_CONFIG[job.status] || STATUS_CONFIG.Scheduled;
   const isDone = job.status === "Completed" || job.status === "Cancelled";
+  const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
   const timeLabel = TIME_LABELS[job.time_block] || job.time_block || "—";
 
   const openPhone = () => window.open(`tel:${customer.phone}`);
@@ -57,7 +60,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
     <>
       <div
         className={`bg-card rounded-2xl border border-l-4 p-4 mb-3 transition-all ${isDone ? "opacity-70" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border"}`}
-        style={{ borderLeftColor: `hsl(var(--${job.job_type === "Emergency" ? "destructive" : job.status === "In Progress" ? "warning" : job.status === "Completed" ? "success" : job.status === "Cancelled" ? "destructive" : "primary"}))` }}
+        style={{ borderLeftColor: `hsl(var(--${job.job_type === "Emergency" ? "destructive" : ["En Route", "On Site", "In Progress"].includes(job.status) ? "warning" : job.status === "Completed" ? "success" : job.status === "Cancelled" ? "destructive" : "primary"}))` }}
       >
         {/* Next Job Badge */}
         {isNextJob && (
@@ -136,16 +139,30 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
             <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowPhotos(true)}>
               <Camera className="w-3.5 h-3.5" /> Photo
             </Button>
-            <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowExtraWork(true)}>
-              ＋ Extra Work
-            </Button>
+            {isActive && (
+              <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs h-9" onClick={() => setShowExtraWork(true)}>
+                ＋ Extra Work
+              </Button>
+            )}
           </div>
         )}
 
         {/* Primary actions */}
         {(job.status === "Scheduled" || job.status === "Booked") && (
-          <Button className="w-full h-12 text-base font-extrabold gap-2" onClick={() => onUpdate(job.id, { status: "In Progress" })}>
-            ▶ Start Job
+          <Button className="w-full h-12 text-base font-extrabold gap-2" onClick={() => onUpdate(job.id, { status: "En Route" })}>
+            🚗 En Route
+          </Button>
+        )}
+
+        {job.status === "En Route" && (
+          <Button className="w-full h-12 text-base font-extrabold gap-2 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "On Site" })}>
+            📍 Arrived On Site
+          </Button>
+        )}
+
+        {job.status === "On Site" && (
+          <Button className="w-full h-12 text-base font-extrabold gap-2 bg-warning hover:bg-warning/90 text-warning-foreground" onClick={() => onUpdate(job.id, { status: "In Progress" })}>
+            ▶ Start Work
           </Button>
         )}
 
