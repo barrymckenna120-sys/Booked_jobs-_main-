@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
+import { supabase } from "@/integrations/supabase/client";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 
 const greeting = () => {
@@ -44,9 +46,17 @@ const EngineerLayout = () => {
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
         <div className="absolute -bottom-14 right-12 w-36 h-36 rounded-full bg-white/[0.05] pointer-events-none" />
 
-        <div className="flex items-center gap-2.5 mb-5">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover" />
+            <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
+          </div>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); navigate("/auth"); }}
+            className="flex items-center gap-1.5 text-white/60 hover:text-white/90 transition-colors text-xs font-semibold"
+          >
+            <LogOut className="w-4 h-4" /> Log Out
+          </button>
         </div>
 
         <div className="text-[13px] text-white/70 font-medium mb-1">{formatDateHeading(new Date())}</div>
