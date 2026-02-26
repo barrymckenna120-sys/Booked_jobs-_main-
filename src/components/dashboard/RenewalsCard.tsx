@@ -5,11 +5,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { logAudit } from "@/lib/auditLog";
 import { SendAllRemindersSheet, type ReminderCustomer } from "@/components/renewals/SendAllReminders";
+
+/* ── Stage config ─────────────────────────────────────── */
+const STAGE_CONFIG = {
+  not_contacted: { label: "Not Contacted", icon: "📵", textClass: "text-destructive",  bgClass: "bg-destructive/10", dotClass: "bg-destructive" },
+  reminded:      { label: "Reminded",      icon: "💬", textClass: "text-warning",      bgClass: "bg-warning/10",     dotClass: "bg-warning" },
+  confirmed:     { label: "Confirmed ✓",   icon: "✅", textClass: "text-[#0891B2]",    bgClass: "bg-[#CFFAFE]",      dotClass: "bg-[#0891B2]" },
+  booked:        { label: "Booked In",     icon: "📅", textClass: "text-primary",      bgClass: "bg-primary/10",     dotClass: "bg-primary" },
+  paid:          { label: "Paid",          icon: "💰", textClass: "text-success",      bgClass: "bg-success/10",     dotClass: "bg-success" },
+} as const;
+
+type StageName = keyof typeof STAGE_CONFIG;
+const STAGE_ORDER: Record<StageName, number> = { not_contacted: 0, reminded: 1, confirmed: 2, booked: 3, paid: 4 };
 
 type RenewalCustomer = {
   id: string;
@@ -18,15 +30,96 @@ type RenewalCustomer = {
   eircode: string;
   next_service_due: string;
   last_reminder_sent: string | null;
+  renewal_stage: string;
+  scheduled_service_date: string | null;
 };
 
+const TABS = [
+  { id: "pipeline", label: "Pipeline" },
+  { id: "left",     label: "Left to Book" },
+  { id: "activity", label: "Activity" },
+] as const;
+
+const fmtDays = (d: number) => {
+  if (d < 0)  return { text: "Overdue",   className: "text-destructive font-bold" };
+  if (d === 0) return { text: "Today",     className: "text-destructive font-bold" };
+  if (d === 1) return { text: "Tomorrow",  className: "text-warning font-semibold" };
+  if (d <= 7)  return { text: `${d}d`,     className: "text-destructive font-semibold" };
+  if (d <= 14) return { text: `${d}d`,     className: "text-warning font-semibold" };
+  return { text: `${d}d`, className: "text-muted-foreground" };
+};
+
+/* ── Pipeline Row ─────────────────────────────────────── */
+function PipelineRow({
+  customer,
+  days,
+  stage,
+  onRemind,
+  onNavigate,
+}: {
+  customer: RenewalCustomer;
+  days: number;
+  stage: StageName;
+  onRemind: (c: RenewalCustomer) => void;
+  onNavigate: (id: string) => void;
+}) {
+  const sc = STAGE_CONFIG[stage];
+  const dayInfo = fmtDays(days);
+
+  return (
+    <div className="flex items-center gap-2 py-2.5 px-3 border-b border-border/60 hover:bg-muted/40 transition-colors group">
+      {/* Stage dot */}
+      <span className={`w-2 h-2 rounded-full shrink-0 ${sc.dotClass}`} />
+
+      {/* Name + meta */}
+      <div className="flex-1 min-w-0">
+        <button
+          onClick={() => onNavigate(customer.id)}
+          className="text-[13px] font-bold text-foreground truncate hover:underline text-left block w-full"
+        >
+          {customer.name}
+        </button>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[10px] text-muted-foreground/60">{customer.eircode?.split(" ")[0]}</span>
+          {customer.scheduled_service_date && (
+            <span className="text-[9px] font-bold bg-success/10 text-success rounded-full px-1.5 py-px">
+              📅 {format(new Date(customer.scheduled_service_date), "d MMM")}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Due info */}
+      <div className="text-right shrink-0">
+        <div className={`text-[11px] font-bold ${dayInfo.className}`}>{dayInfo.text}</div>
+        <div className="text-[10px] text-muted-foreground/60">{format(new Date(customer.next_service_due), "d MMM")}</div>
+      </div>
+
+      {/* Stage badge / action */}
+      {stage === "not_contacted" ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemind(customer); }}
+          className="shrink-0 px-2.5 py-1 rounded-lg border-[1.5px] border-[#25D366] bg-success/5 text-success text-[11px] font-bold hover:bg-success/10 transition-colors whitespace-nowrap"
+        >
+          💬 Remind
+        </button>
+      ) : (
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap ${sc.bgClass} ${sc.textClass}`}>
+          {sc.icon} {sc.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ── Main Card ─────────────────────────────────────── */
 const RenewalsCard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [tab, setTab] = useState<typeof TABS[number]["id"]>("pipeline");
   const [expanded, setExpanded] = useState(false);
-  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [sendAllOpen, setSendAllOpen] = useState(false);
 
   const { data: customers = [], isLoading } = useQuery({
@@ -37,7 +130,7 @@ const RenewalsCard = () => {
 
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, eircode, next_service_due, last_reminder_sent")
+        .select("id, name, phone, eircode, next_service_due, last_reminder_sent, renewal_stage, scheduled_service_date")
         .lte("next_service_due", thirtyDaysFromNow.toISOString().split("T")[0])
         .not("next_service_due", "is", null)
         .order("next_service_due", { ascending: true });
@@ -63,16 +156,45 @@ const RenewalsCard = () => {
 
   const servicePrice = settings?.default_service_price || 120;
 
+  // Activity log query
+  const { data: activityData = [] } = useQuery({
+    queryKey: ["renewals-activity"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("audit_log")
+        .select("*")
+        .eq("entity_type", "customer")
+        .in("action_type", ["reminder_sent", "service_booked", "renewal_stage_change"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!user && tab === "activity",
+  });
+
   const now = new Date();
   const getDays = (d: string) => differenceInDays(new Date(d), now);
-  const isContacted = (c: RenewalCustomer) =>
-    sentIds.has(c.id) || (c.last_reminder_sent && differenceInDays(now, new Date(c.last_reminder_sent)) <= 30);
+  const getStage = (c: RenewalCustomer): StageName => {
+    const s = c.renewal_stage as StageName;
+    return STAGE_ORDER[s] !== undefined ? s : "not_contacted";
+  };
 
-  const urgent = customers.filter((c) => getDays(c.next_service_due) <= 7);
-  const upcoming = customers.filter((c) => getDays(c.next_service_due) > 7);
-  const notContacted = customers.filter((c) => !isContacted(c)).length;
-  const reminded = customers.filter((c) => isContacted(c)).length;
-  const valueAtRisk = customers.length * servicePrice;
+  // Counts
+  const total = customers.length;
+  const notContacted = customers.filter(c => getStage(c) === "not_contacted").length;
+  const reminded = customers.filter(c => getStage(c) === "reminded").length;
+  const confirmed = customers.filter(c => getStage(c) === "confirmed").length;
+  const booked = customers.filter(c => getStage(c) === "booked").length;
+  const paid = customers.filter(c => getStage(c) === "paid").length;
+  const totalValue = total * servicePrice;
+  const securedValue = (confirmed + booked + paid) * servicePrice;
+  const leftToBook = customers.filter(c => ["not_contacted", "reminded"].includes(getStage(c)));
+
+  // Sorted pipeline
+  const sorted = [...customers].sort((a, b) =>
+    STAGE_ORDER[getStage(a)] - STAGE_ORDER[getStage(b)] || getDays(a.next_service_due) - getDays(b.next_service_due)
+  );
+  const visible = expanded ? sorted : sorted.slice(0, 6);
 
   const sendReminder = async (customer: RenewalCustomer) => {
     const firstName = customer.name.split(" ")[0];
@@ -91,11 +213,9 @@ const RenewalsCard = () => {
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
 
-    setSentIds((prev) => new Set(prev).add(customer.id));
-
     await supabase
       .from("customers")
-      .update({ last_reminder_sent: new Date().toISOString() } as any)
+      .update({ last_reminder_sent: new Date().toISOString(), renewal_stage: "reminded" } as any)
       .eq("id", customer.id);
 
     logAudit({
@@ -110,116 +230,38 @@ const RenewalsCard = () => {
     toast({ title: `Reminder sent to ${customer.name}` });
   };
 
-  const allRows = [...urgent, ...upcoming];
-  const visibleRows = expanded ? allRows : allRows.slice(0, 5);
-  const hiddenCount = allRows.length - 5;
-
-  const reminderQueue: ReminderCustomer[] = customers
-    .filter((c) => !isContacted(c))
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      nextDue: c.next_service_due,
-      daysUntil: getDays(c.next_service_due),
-      status: getDays(c.next_service_due) <= 0 ? "Overdue" : getDays(c.next_service_due) <= 30 ? "Due Soon" : "Up to Date",
-    }));
-
   const handleBatchSent = async (customerId: string) => {
-    const c = customers.find((x) => x.id === customerId);
-    if (!c) return;
-    setSentIds((prev) => new Set(prev).add(customerId));
     await supabase
       .from("customers")
-      .update({ last_reminder_sent: new Date().toISOString() } as any)
+      .update({ last_reminder_sent: new Date().toISOString(), renewal_stage: "reminded" } as any)
       .eq("id", customerId);
     queryClient.invalidateQueries({ queryKey: ["renewals-card"] });
   };
 
-  const dotColor = (days: number) =>
-    days <= 0 ? "bg-destructive" : days <= 7 ? "bg-destructive" : days <= 14 ? "bg-warning" : "bg-success";
-  const dateColor = (days: number) =>
-    days <= 0 ? "text-destructive font-bold" : days <= 7 ? "text-destructive font-bold" : days <= 14 ? "text-warning font-semibold" : "text-muted-foreground";
-  const formatDaysLabel = (days: number) => {
-    if (days < 0) return { text: "Overdue", className: "text-destructive font-bold" };
-    if (days === 0) return { text: "Today", className: "text-destructive font-bold" };
-    if (days === 1) return { text: "Tomorrow", className: "text-warning font-semibold" };
-    return { text: `${days}d`, className: "text-muted-foreground/50" };
-  };
+  const reminderQueue: ReminderCustomer[] = leftToBook.map(c => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    nextDue: c.next_service_due,
+    daysUntil: getDays(c.next_service_due),
+    status: getDays(c.next_service_due) <= 0 ? "Overdue" : getDays(c.next_service_due) <= 30 ? "Due Soon" : "Up to Date",
+  }));
 
-  const renderRow = (c: RenewalCustomer) => {
-    const days = getDays(c.next_service_due);
-    const contacted = isContacted(c);
-    const wasPreviouslyContacted = c.last_reminder_sent && !sentIds.has(c.id);
-
-    return (
-      <div
-        key={c.id}
-        className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-primary/5 transition-colors group"
-      >
-        <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor(days)}`} />
-        <button
-          onClick={() => navigate(`/customers/${c.id}`)}
-          className="text-[13px] font-semibold text-foreground truncate hover:underline text-left min-w-0 flex-1"
-        >
-          {c.name}
-        </button>
-        <span className="text-[11px] text-muted-foreground/60 shrink-0">{c.eircode?.split(" ")[0]}</span>
-        <span className={`text-xs shrink-0 ${dateColor(days)}`}>
-          {format(new Date(c.next_service_due), "d MMM")}
-        </span>
-        <span className={`text-[10px] shrink-0 text-right ${formatDaysLabel(days).className}`}>{formatDaysLabel(days).text}</span>
-
-        {contacted ? (
-          <span className="text-[11px] text-muted-foreground border border-border rounded-md px-2 py-0.5 shrink-0">
-            ✓ Sent
-          </span>
-        ) : wasPreviouslyContacted ? (
-          <button
-            onClick={() => sendReminder(c)}
-            className="text-[11px] text-muted-foreground border border-border rounded-md px-2 py-0.5 shrink-0 hover:bg-muted transition-colors"
-          >
-            ↩ Resend
-          </button>
-        ) : (
-          <button
-            onClick={() => sendReminder(c)}
-            className="text-[11px] font-semibold text-success border border-success/40 bg-success/5 rounded-md px-2 py-0.5 shrink-0 hover:bg-success/10 transition-colors"
-          >
-            💬 Remind
-          </button>
-        )}
-      </div>
-    );
+  const activityIcon = (action: string) => {
+    if (action === "reminder_sent") return "💬";
+    if (action === "service_booked") return "📅";
+    return "✅";
   };
 
   return (
-    <Card className="shadow-sm border-border/60 rounded-[20px]" style={{ boxShadow: "0 2px 16px rgba(0,0,0,.06)" }}>
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-bold text-foreground">Renewals Due</h3>
-            <span className="text-[10px] text-muted-foreground/60 font-medium">Next 30 days</span>
-          </div>
-          <button
-            onClick={() => navigate("/renewals")}
-            className="text-xs font-bold text-primary flex items-center gap-0.5 hover:underline"
-          >
-            View All <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground/60 mb-4">
-          {customers.length} customer{customers.length !== 1 ? "s" : ""} · tap 💬 to send reminder
-        </p>
-
+    <Card className="shadow-sm border-border/60 rounded-[22px] overflow-hidden" style={{ boxShadow: "0 6px 32px rgba(0,0,0,.08)" }}>
+      <CardContent className="p-0">
         {isLoading ? (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-12">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
-        ) : customers.length === 0 ? (
-          <div className="text-center py-10">
+        ) : total === 0 ? (
+          <div className="text-center py-12 px-6">
             <span className="text-3xl">✅</span>
             <p className="font-bold text-foreground mt-2">All clear!</p>
             <p className="text-xs text-muted-foreground mt-1">No renewals due in the next 30 days.</p>
@@ -229,94 +271,209 @@ const RenewalsCard = () => {
           </div>
         ) : (
           <>
-            {/* KPI blocks */}
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div
-                className="rounded-2xl p-4 text-white"
-                style={{
-                  background: "linear-gradient(135deg, hsl(217 70% 60%), hsl(224 72% 50%))",
-                  boxShadow: "0 6px 20px hsla(217,70%,60%,.3)",
-                }}
-              >
-                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">Renewals Due</div>
-                <div className="text-[36px] md:text-[48px] font-black leading-none mt-1">{customers.length}</div>
-                <div className="text-[11px] opacity-70 mt-1">next 30 days</div>
-              </div>
-              <div
-                className="rounded-2xl p-4 text-white"
-                style={{
-                  background: "linear-gradient(135deg, hsl(21 90% 48%), hsl(16 84% 40%))",
-                  boxShadow: "0 6px 20px hsla(21,90%,48%,.3)",
-                }}
-              >
-                <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">Value at Risk</div>
-                <div className="text-[28px] md:text-[38px] font-black leading-none mt-1">€{valueAtRisk.toLocaleString()}</div>
-                <div className="text-[11px] opacity-70 mt-1">if none book · avg €{servicePrice}</div>
-              </div>
-            </div>
-
-            {/* Stat chips */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="rounded-xl p-3 flex items-center gap-2.5" style={{ background: "hsl(0 93% 94%)" }}>
-                <span className="text-lg">📵</span>
+            {/* ── Header ── */}
+            <div className="p-4 pb-3 bg-gradient-to-br from-[hsl(var(--background))]/80 to-background border-b border-border/60">
+              <div className="flex justify-between items-center mb-3">
                 <div>
-                  <div className="text-lg font-black text-foreground leading-none">{notContacted}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-destructive/80 mt-0.5">Not Contacted</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
+                      🔄 Renewals
+                    </span>
+                    <span className="text-[10px] font-bold bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                      Next 30 days
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground/60 mt-1">
+                    {total} customers · €{totalValue.toLocaleString()} total value
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate("/renewals")}
+                  className="text-[11px] font-bold text-primary hover:underline"
+                >
+                  View All →
+                </button>
+              </div>
+
+              {/* KPI blocks */}
+              <div className="grid grid-cols-2 gap-2.5 mb-3">
+                <div
+                  className="rounded-2xl p-3.5 text-white"
+                  style={{
+                    background: "linear-gradient(135deg, hsl(217 70% 60%), hsl(224 72% 50%))",
+                    boxShadow: "0 4px 16px hsla(217,70%,60%,.3)",
+                  }}
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-wider opacity-65">Renewals Due</div>
+                  <div className="text-[36px] md:text-[38px] font-black leading-none mt-1 tracking-tight">{total}</div>
+                  <div className="text-[11px] opacity-65 mt-1 font-semibold">next 30 days</div>
+                </div>
+                <div
+                  className="rounded-2xl p-3.5 text-white"
+                  style={{
+                    background: "linear-gradient(135deg, hsl(21 90% 48%), hsl(16 84% 40%))",
+                    boxShadow: "0 4px 16px hsla(21,90%,48%,.3)",
+                  }}
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-wider opacity-65">Value at Risk</div>
+                  <div className="text-[28px] md:text-[30px] font-black leading-none mt-1 tracking-tight">€{totalValue.toLocaleString()}</div>
+                  <div className="text-[11px] opacity-65 mt-1 font-semibold">€{securedValue} secured so far</div>
                 </div>
               </div>
-              <div className="rounded-xl p-3 flex items-center gap-2.5" style={{ background: "hsl(141 79% 93%)" }}>
-                <span className="text-lg">✅</span>
-                <div>
-                  <div className="text-lg font-black text-foreground leading-none">{reminded}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-success/80 mt-0.5">Reminded</div>
+
+              {/* Pipeline progress bar */}
+              <div className="mb-1">
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground">Pipeline Progress</span>
+                  <span className="text-[11px] font-bold text-success">
+                    {paid} paid · {booked} booked · {confirmed} confirmed
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-border overflow-hidden flex">
+                  {[
+                    { count: paid,      className: "bg-success" },
+                    { count: booked,    className: "bg-primary" },
+                    { count: confirmed, className: "bg-[#0891B2]" },
+                    { count: reminded,  className: "bg-warning" },
+                  ].map((s, i) =>
+                    s.count > 0 ? (
+                      <div
+                        key={i}
+                        className={`${s.className} transition-all duration-300`}
+                        style={{ width: `${(s.count / total) * 100}%` }}
+                      />
+                    ) : null
+                  )}
+                </div>
+                {/* Legend */}
+                <div className="flex gap-2.5 mt-1.5 flex-wrap">
+                  {[
+                    { label: `${paid} Paid`,       dotClass: "bg-success",    textClass: "text-success" },
+                    { label: `${booked} Booked`,   dotClass: "bg-primary",    textClass: "text-primary" },
+                    { label: `${confirmed} Conf`,  dotClass: "bg-[#0891B2]",  textClass: "text-[#0891B2]" },
+                    { label: `${reminded} Sent`,   dotClass: "bg-warning",    textClass: "text-warning" },
+                    { label: `${notContacted} Left`, dotClass: "bg-destructive", textClass: "text-destructive" },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1">
+                      <div className={`w-[7px] h-[7px] rounded-full ${l.dotClass}`} />
+                      <span className={`text-[10px] font-bold ${l.textClass}`}>{l.label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Customer list */}
-            <div className="space-y-0">
-              {urgent.length > 0 && (
-                <>
-                  <div
-                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-md mb-1"
-                    style={{ background: "hsl(0 100% 97%)", color: "hsl(0 72% 51%)" }}
-                  >
-                    🚨 Urgent — Due this week
-                  </div>
-                  {urgent.filter((c) => visibleRows.includes(c)).map(renderRow)}
-                </>
-              )}
-              {upcoming.length > 0 && visibleRows.some((c) => upcoming.includes(c)) && (
-                <>
-                  <div
-                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-md mb-1 mt-2"
-                    style={{ background: "hsl(40 100% 97%)", color: "hsl(32 95% 44%)" }}
-                  >
-                    📅 Coming up — Next 30 days
-                  </div>
-                  {upcoming.filter((c) => visibleRows.includes(c)).map(renderRow)}
-                </>
-              )}
+            {/* ── Tabs ── */}
+            <div className="flex border-b border-border/60 bg-muted/30">
+              {TABS.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-1 py-2.5 px-2 text-[12px] font-semibold transition-all border-b-[2.5px] ${
+                    tab === t.id
+                      ? "font-extrabold text-primary border-primary"
+                      : "text-muted-foreground border-transparent hover:text-foreground"
+                  }`}
+                >
+                  {t.label}
+                  {t.id === "left" && leftToBook.length > 0 && (
+                    <span className="ml-1.5 text-[10px] font-extrabold bg-destructive text-white rounded-full px-1.5 py-px">
+                      {leftToBook.length}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
-            {/* Show more */}
-            {hiddenCount > 0 && !expanded && (
-              <button
-                onClick={() => setExpanded(true)}
-                className="w-full text-center text-xs text-primary font-semibold py-2 mt-1 hover:underline flex items-center justify-center gap-1"
-              >
-                <ChevronDown className="w-3.5 h-3.5" /> Show {hiddenCount} more
-              </button>
+            {/* ── Tab content ── */}
+            {tab === "pipeline" && (
+              <div>
+                {visible.map(c => (
+                  <PipelineRow
+                    key={c.id}
+                    customer={c}
+                    days={getDays(c.next_service_due)}
+                    stage={getStage(c)}
+                    onRemind={sendReminder}
+                    onNavigate={(id) => navigate(`/customers/${id}`)}
+                  />
+                ))}
+                {sorted.length > 6 && (
+                  <button
+                    onClick={() => setExpanded(v => !v)}
+                    className="w-full py-2.5 text-[12px] font-bold text-muted-foreground hover:text-foreground bg-muted/30 border-t border-border/60 flex items-center justify-center gap-1 transition-colors"
+                  >
+                    {expanded ? <><ChevronUp className="w-3.5 h-3.5" /> Show less</> : <><ChevronDown className="w-3.5 h-3.5" /> Show {sorted.length - 6} more</>}
+                  </button>
+                )}
+              </div>
             )}
 
-            {/* Footer buttons */}
-            <div className="flex gap-2 mt-4 pt-3 border-t border-border/60">
+            {tab === "left" && (
+              <div>
+                {leftToBook.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <div className="text-[28px] mb-2">🎉</div>
+                    <div className="text-sm font-bold text-foreground">All contacted!</div>
+                    <div className="text-xs text-muted-foreground mt-1">Everyone has been reached this month</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="px-3 py-2 text-[11px] font-bold text-destructive bg-destructive/5 border-b border-border/60 flex justify-between items-center">
+                      <span>🚨 {leftToBook.length} customers still need contacting</span>
+                      <button
+                        onClick={() => setSendAllOpen(true)}
+                        className="bg-[#25D366] text-white rounded-lg px-2.5 py-1 text-[10px] font-bold hover:bg-[#20bd5a] transition-colors"
+                      >
+                        Send All
+                      </button>
+                    </div>
+                    {leftToBook.map(c => (
+                      <PipelineRow
+                        key={c.id}
+                        customer={c}
+                        days={getDays(c.next_service_due)}
+                        stage={getStage(c)}
+                        onRemind={sendReminder}
+                        onNavigate={(id) => navigate(`/customers/${id}`)}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
+            {tab === "activity" && (
+              <div>
+                {activityData.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-xs">No renewal activity yet</div>
+                ) : (
+                  activityData.map((a: any) => (
+                    <div key={a.id} className="flex items-start gap-2.5 py-2.5 px-3 border-b border-border/60">
+                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">
+                        {activityIcon(a.action_type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold text-foreground leading-snug">{a.detail}</div>
+                        <div className="text-[10px] text-muted-foreground/60 mt-0.5">
+                          {format(new Date(a.created_at), "d MMM, h:mma")}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ── Footer ── */}
+            <div className="p-3 border-t border-border/60 bg-muted/30 flex gap-2">
               <Button
                 size="sm"
-                className="flex-1 text-xs font-bold"
+                className="flex-1 text-xs font-extrabold"
                 style={{
                   background: "linear-gradient(135deg, hsl(142 71% 45%), hsl(142 76% 36%))",
                   color: "white",
+                  boxShadow: "0 4px 12px hsla(142,71%,45%,.3)",
                 }}
                 onClick={() => setSendAllOpen(true)}
               >
@@ -324,8 +481,8 @@ const RenewalsCard = () => {
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
-                className="flex-1 text-xs font-semibold"
+                variant="outline"
+                className="text-xs font-bold"
                 onClick={() => navigate("/renewals")}
               >
                 Renewals →

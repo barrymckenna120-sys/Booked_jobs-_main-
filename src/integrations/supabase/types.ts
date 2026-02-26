@@ -84,6 +84,7 @@ export type Database = {
           phone: string
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
+          renewal_stage: string
           scheduled_service_date: string | null
           service_status: string | null
           total_messages_sent: number | null
@@ -121,6 +122,7 @@ export type Database = {
           phone: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
+          renewal_stage?: string
           scheduled_service_date?: string | null
           service_status?: string | null
           total_messages_sent?: number | null
@@ -158,6 +160,7 @@ export type Database = {
           phone?: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
+          renewal_stage?: string
           scheduled_service_date?: string | null
           service_status?: string | null
           total_messages_sent?: number | null
