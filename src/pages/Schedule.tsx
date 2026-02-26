@@ -297,11 +297,11 @@ const Schedule = () => {
         onAssign={handleAssign}
       />
 
-      {/* Job Detail Drawer */}
+      {/* Job Detail Drawer — always use fresh data from jobs array */}
       <JobSlotDrawer
         open={detailDrawer.open}
         onOpenChange={(open) => setDetailDrawer({ ...detailDrawer, open })}
-        job={detailDrawer.job}
+        job={detailDrawer.job ? jobs.find(j => j.id === detailDrawer.job!.id) || detailDrawer.job : undefined}
         onMarkComplete={handleMarkComplete}
         onMoveSlot={handleMoveSlot}
         onCancel={openCancelModal}
