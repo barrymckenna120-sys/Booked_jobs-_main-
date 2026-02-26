@@ -62,6 +62,7 @@ const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
       return;
     }
     setSaving(true);
+    const matchedEng = engineers.find((e: any) => e.name === engineer);
     const { error } = await supabase.from("service_calls").insert({
       user_id: user.id,
       customer_id: customer.id,
@@ -70,6 +71,7 @@ const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
       scheduled_date: date,
       time_block: timeBlock,
       assigned_engineer: engineer || null,
+      assigned_engineer_id: matchedEng?.id || null,
       notes: notes || null,
       source: "Renewal",
     } as any);

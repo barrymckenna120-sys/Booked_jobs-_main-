@@ -9,6 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
+const resolveRedirect = async (userId: string): Promise<string> => {
+  const { data } = await supabase
+    .from("engineers")
+    .select("role")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+  return data?.role === "engineer" ? "/engineer/today" : "/dashboard";
+};
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -19,13 +28,18 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redirect already-authenticated users to dashboard
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) navigate("/dashboard", { replace: true });
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const dest = await resolveRedirect(session.user.id);
+        navigate(dest, { replace: true });
+      }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) navigate("/dashboard", { replace: true });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const dest = await resolveRedirect(session.user.id);
+        navigate(dest, { replace: true });
+      }
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
