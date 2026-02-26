@@ -2,6 +2,7 @@ import { Clock, CreditCard, Bell, Moon, Check, MessageCircle } from "lucide-reac
 import missedCallImg from "@/assets/missed-call-cost.png";
 import whatsappMockupImg from "@/assets/whatsapp-reminder-mockup.png";
 import whatsappLogo from "@/assets/whatsapp-logo.png";
+import whatsappGlyph from "@/assets/whatsapp-glyph.png";
 import { ScrollFadeIn, StaggerContainer, StaggerItem } from "./ScrollFadeIn";
 
 export const NeverMissBookingSection = () => {
@@ -72,6 +73,11 @@ export const NeverMissBookingSection = () => {
                     className="relative w-full h-auto"
                     loading="lazy"
                   />
+                  {/* WhatsApp badge */}
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 bg-[#25D366] rounded-full px-4 py-2 shadow-lg">
+                    <img src={whatsappGlyph} alt="WhatsApp" className="w-8 h-8" />
+                    <span className="text-white font-bold text-sm whitespace-nowrap">Use WhatsApp</span>
+                  </div>
                 </div>
               </div>
             </ScrollFadeIn>
