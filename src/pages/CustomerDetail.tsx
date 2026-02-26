@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet } from "lucide-react";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import {
@@ -210,6 +210,29 @@ const CustomerDetail = () => {
                   <SelectItem value="Up to Date">Up to Date</SelectItem>
                   <SelectItem value="Due Soon">Due Soon</SelectItem>
                   <SelectItem value="Overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Renewal Stage</Label>
+              <Select value={form.renewal_stage || "not_contacted"} onValueChange={(v) => handleChange("renewal_stage", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="not_contacted">
+                    <span className="flex items-center gap-1.5"><PhoneOff className="w-3.5 h-3.5 text-destructive" /> Not Contacted</span>
+                  </SelectItem>
+                  <SelectItem value="reminded">
+                    <span className="flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5 text-warning" /> Reminded</span>
+                  </SelectItem>
+                  <SelectItem value="confirmed">
+                    <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-[#0891B2]" /> Confirmed</span>
+                  </SelectItem>
+                  <SelectItem value="booked">
+                    <span className="flex items-center gap-1.5"><CalendarCheck className="w-3.5 h-3.5 text-primary" /> Booked In</span>
+                  </SelectItem>
+                  <SelectItem value="paid">
+                    <span className="flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-success" /> Paid</span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
