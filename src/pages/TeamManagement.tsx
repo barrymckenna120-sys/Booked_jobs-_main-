@@ -45,6 +45,7 @@ import {
   Trash2,
   UserCheck,
   Mail,
+  Link,
 } from "lucide-react";
 
 // ── Role config ────────────────────────────────────────────────────
@@ -107,6 +108,11 @@ const TeamManagement = () => {
 
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
+
+  // Link login dialog
+  const [linkTarget, setLinkTarget] = useState<TeamMember | null>(null);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linking, setLinking] = useState(false);
 
   const fetchMembers = useCallback(async () => {
     if (!user) return;
@@ -259,6 +265,39 @@ const TeamManagement = () => {
       toast({ title: "Invite failed", description: data?.error || error?.message, variant: "destructive" });
     } else {
       toast({ title: `Invite sent to ${member.email}` });
+      fetchMembers();
+    }
+  };
+
+  const handleLinkLogin = async () => {
+    if (!linkTarget || !linkEmail.trim()) return;
+    const emailVal = linkEmail.trim().toLowerCase();
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
+    setLinking(true);
+    const { data, error } = await supabase.functions.invoke("invite-team-member", {
+      body: { engineer_id: linkTarget.id, email: emailVal, name: linkTarget.name, role: linkTarget.role },
+    });
+    setLinking(false);
+    if (error || data?.error) {
+      toast({ title: "Link failed", description: data?.error || error?.message, variant: "destructive" });
+    } else {
+      const msg = data?.existing
+        ? `${linkTarget.name} linked to existing account (${emailVal})`
+        : `${linkTarget.name} linked — invite sent to ${emailVal}`;
+      toast({ title: msg });
+      logAudit({
+        action_type: "user_invited",
+        entity_type: "user",
+        entity_id: linkTarget.id,
+        detail: `Login linked: ${linkTarget.name} → ${emailVal}`,
+        metadata: { email: emailVal, existing_account: !!data?.existing },
+      });
+      setLinkTarget(null);
+      setLinkEmail("");
       fetchMembers();
     }
   };
@@ -466,6 +505,12 @@ const TeamManagement = () => {
                           Send Login Invite
                         </DropdownMenuItem>
                       )}
+                      {!isBlocked && !member.auth_user_id && (
+                        <DropdownMenuItem onClick={() => { setLinkTarget(member); setLinkEmail(member.email || ""); }}>
+                          <Link className="w-4 h-4 mr-2" />
+                          Link Login
+                        </DropdownMenuItem>
+                      )}
                       {isBlocked ? (
                         <DropdownMenuItem onClick={() => handleUnblock(member.id)}>
                           <UserCheck className="w-4 h-4 mr-2 text-green-600" />
@@ -653,6 +698,42 @@ const TeamManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Link Login Dialog ────────────────────────────────────── */}
+      <Dialog open={!!linkTarget} onOpenChange={(o) => { if (!o) { setLinkTarget(null); setLinkEmail(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Link Login for {linkTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Enter the email address for this team member. They'll receive an invite email to create their login.
+          </p>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Email Address *</Label>
+              <Input
+                type="email"
+                value={linkEmail}
+                onChange={(e) => setLinkEmail(e.target.value)}
+                placeholder="engineer@example.ie"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setLinkTarget(null); setLinkEmail(""); }}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 gap-2"
+                disabled={!linkEmail.trim() || linking}
+                onClick={handleLinkLogin}
+              >
+                {linking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />}
+                Link & Invite
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
