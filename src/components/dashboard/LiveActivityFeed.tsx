@@ -1,10 +1,11 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
-import { Activity, Car, MapPin, Wrench, CheckCircle2, XCircle, CalendarDays, ClipboardList, RefreshCw } from "lucide-react";
+import { Activity, Car, MapPin, Wrench, CheckCircle2, XCircle, CalendarDays, ClipboardList, RefreshCw, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const STATUS_META: Record<string, { Icon: LucideIcon; verb: string; color: string }> = {
@@ -21,6 +22,7 @@ const FALLBACK = { Icon: RefreshCw, verb: "Updated", color: "text-muted-foregrou
 
 const LiveActivityFeed = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: activities = [] } = useQuery({
@@ -72,14 +74,24 @@ const LiveActivityFeed = () => {
               try { return format(new Date(a.updatedAt), "h:mma").toLowerCase(); }
               catch { return ""; }
             })();
+            const isClickable = !!a.id;
             return (
-              <div key={a.id} className="flex items-center gap-3 py-1">
+              <div
+                key={a.id}
+                className={`flex items-center gap-3 py-1 rounded-md px-1 group transition-colors ${
+                  isClickable ? "cursor-pointer hover:bg-primary/5" : ""
+                }`}
+                onClick={isClickable ? () => navigate(`/jobs/${a.id}`) : undefined}
+              >
                 <StatusIcon className={`w-4 h-4 shrink-0 ${meta.color}`} />
-                <span className="truncate text-sm">
+                <span className={`truncate text-sm ${isClickable ? "group-hover:text-foreground" : ""}`}>
                   <span className="font-semibold">{a.customerName}</span>
                   <span className="text-muted-foreground/70"> → {meta.verb}</span>
                 </span>
                 <span className="text-[11px] text-muted-foreground/60 ml-auto shrink-0">{time}</span>
+                {isClickable && (
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
               </div>
             );
           })}
