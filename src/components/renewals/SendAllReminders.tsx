@@ -21,7 +21,7 @@ const buildMsg = (c: ReminderCustomer) => {
     month: "short",
     year: "numeric",
   });
-  return `Hi ${firstName},\n\nYour annual boiler service is due on ${dueDate}.\n\nTo book your service, reply YES or call us.\n\nKarl's Gas`;
+  return `Hi ${firstName},\n\nYour annual boiler service is due on ${dueDate}.\n\nRegular servicing keeps your boiler efficient, safe and your warranty valid.\n\nReply YES to book or call us.\n\nBookedJobs`;
 };
 
 const waUrl = (phone: string, msg: string) =>

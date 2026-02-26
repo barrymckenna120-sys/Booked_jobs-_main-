@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
+import { formatDistanceToNow, isToday } from "date-fns";
 
 type RenewalCustomer = {
   id: string;
@@ -16,6 +17,7 @@ type Props = {
   status: string;
   daysUntil: number;
   reminderSent: boolean;
+  lastContacted: string | null;
   onOpen: () => void;
   onSendReminder: () => void;
   onBook: () => void;
@@ -32,11 +34,32 @@ const formatDate = (d: string | null) => {
   return new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
 };
 
-const RenewalCard = ({ customer, status, daysUntil, reminderSent, onOpen, onSendReminder, onBook }: Props) => {
+const formatDueDate = (d: string | null, status: string) => {
+  if (!d) return { text: "—", className: "" };
+  const text = new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
+  if (status === "Overdue") return { text, className: "text-destructive font-bold" };
+  if (status === "Due Soon") return { text, className: "text-warning font-semibold" };
+  return { text, className: "text-success font-semibold" };
+};
+
+const formatLastContacted = (d: string | null) => {
+  if (!d) return { text: "Never", className: "text-destructive/70" };
+  const date = new Date(d);
+  if (isToday(date)) return { text: "Today ✓", className: "text-success font-semibold" };
+  return {
+    text: formatDistanceToNow(date, { addSuffix: true }),
+    className: "text-muted-foreground",
+    title: formatDate(d),
+  };
+};
+
+const RenewalCard = ({ customer, status, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook }: Props) => {
   const leftBorder = borderColorMap[status] || "border-l-success";
+  const dueDate = formatDueDate(customer.next_service_due, status);
+  const contacted = formatLastContacted(lastContacted);
 
   return (
-    <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3`}>
+    <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3 ${reminderSent ? "opacity-75" : ""}`}>
       {/* Top row */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
@@ -52,20 +75,18 @@ const RenewalCard = ({ customer, status, daysUntil, reminderSent, onOpen, onSend
       {/* Dates row */}
       <div className="flex gap-4 bg-muted/50 rounded-lg p-2.5 mb-3 border border-border text-xs">
         <div>
+          <div className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">Due Date</div>
+          <div className={dueDate.className}>{dueDate.text}</div>
+        </div>
+        <div className="w-px bg-border" />
+        <div>
           <div className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">Last Service</div>
           <div className="font-semibold">{formatDate(customer.last_service_date)}</div>
         </div>
         <div className="w-px bg-border" />
         <div>
-          <div className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">Next Due</div>
-          <div className={`font-semibold ${status === "Overdue" ? "text-destructive" : ""}`}>
-            {formatDate(customer.next_service_due)}
-          </div>
-        </div>
-        <div className="w-px bg-border" />
-        <div>
-          <div className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">Engineer</div>
-          <div className="font-semibold">👷 {customer.assigned_engineer?.split(" ").pop() || "—"}</div>
+          <div className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide">Last Contacted</div>
+          <div className={contacted.className} title={contacted.title}>{contacted.text}</div>
         </div>
       </div>
 
@@ -75,10 +96,9 @@ const RenewalCard = ({ customer, status, daysUntil, reminderSent, onOpen, onSend
           size="sm"
           variant={reminderSent ? "outline" : "default"}
           className="flex-1 text-xs"
-          disabled={reminderSent}
           onClick={onSendReminder}
         >
-          {reminderSent ? "✓ Reminder Sent" : "📲 Send Reminder"}
+          {reminderSent ? "🔄 Resend" : "📲 Send Reminder"}
         </Button>
         <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={onBook}>
           📅 Book

@@ -73,6 +73,7 @@ export type Database = {
           last_message_sent_at: string | null
           last_message_type: string | null
           last_reminder_response: string | null
+          last_reminder_sent: string | null
           last_service_date: string | null
           last_service_engineer: string | null
           name: string
@@ -109,6 +110,7 @@ export type Database = {
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
+          last_reminder_sent?: string | null
           last_service_date?: string | null
           last_service_engineer?: string | null
           name: string
@@ -145,6 +147,7 @@ export type Database = {
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
+          last_reminder_sent?: string | null
           last_service_date?: string | null
           last_service_engineer?: string | null
           name?: string
