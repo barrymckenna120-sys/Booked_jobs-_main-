@@ -39,11 +39,6 @@ const RevenueSnapshot = () => {
     enabled: !!user,
   });
 
-  const stats = [
-    { label: "Today", value: data?.today || 0, accent: false },
-    { label: "This Week", value: data?.week || 0, accent: false },
-    { label: "This Month", value: data?.month || 0, accent: true },
-  ];
 
   return (
     <Card className="shadow-sm border-border/60">
@@ -67,15 +62,26 @@ const RevenueSnapshot = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              {stats.map((s) => (
-                <div key={s.label} className="text-center">
-                  <div className={`text-xl font-extrabold leading-none ${s.accent ? "text-primary" : "text-foreground"}`}>
-                    €{s.value.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground/60 font-semibold mt-1.5">{s.label}</div>
+            <div className="mb-5">
+              <div className="text-center mb-4">
+                <div className={`text-[40px] font-black leading-none text-foreground`}>
+                  €{(data?.today || 0).toLocaleString()}
                 </div>
-              ))}
+                <div className="text-[10px] text-muted-foreground/60 font-semibold mt-1.5">Today</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: "This Week", value: data?.week || 0 },
+                  { label: "This Month", value: data?.month || 0, accent: true },
+                ].map((s) => (
+                  <div key={s.label} className="text-center">
+                    <div className={`text-[28px] font-extrabold leading-none ${s.accent ? "text-primary" : "text-foreground"}`}>
+                      €{s.value.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/60 font-semibold mt-1.5">{s.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {(data?.unpaidCount || 0) > 0 && (
