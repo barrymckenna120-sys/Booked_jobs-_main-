@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Users, Phone, MapPin, Loader2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Inbox, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
+import LiveActivityFeed from "@/components/dashboard/LiveActivityFeed";
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
 import { format } from "date-fns";
 
@@ -210,6 +211,9 @@ const Dashboard = () => {
 
       {/* This Week Schedule Snapshot */}
       <WeekSnapshot />
+
+      {/* Live Activity Feed */}
+      <LiveActivityFeed />
 
       {/* Area Code Breakdown */}
       {(() => {
