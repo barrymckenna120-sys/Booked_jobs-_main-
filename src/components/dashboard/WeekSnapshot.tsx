@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, startOfWeek, isToday, isTomorrow } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,8 +30,22 @@ const dayLabel = (date: Date) => {
 const WeekSnapshot = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+
+  // Realtime: invalidate queries when service_calls change
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["dashboard-week-snapshot"] });
+        queryClient.invalidateQueries({ queryKey: ["day-jobs-panel"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const startStr = format(days[0], "yyyy-MM-dd");
   const endStr = format(days[6], "yyyy-MM-dd");
@@ -43,8 +57,7 @@ const WeekSnapshot = () => {
         .from("service_calls")
         .select("id, job_type, status, scheduled_date, time_block, assigned_engineer, revenue, customers!inner(name)")
         .gte("scheduled_date", startStr)
-        .lte("scheduled_date", endStr)
-        .not("status", "in", "(Completed,Cancelled)");
+        .lte("scheduled_date", endStr);
       return data || [];
     },
     enabled: !!user,
@@ -110,9 +123,15 @@ const WeekSnapshot = () => {
                     {dayJobs.slice(0, 3).map((j: any) => (
                       <div key={j.id} className="flex items-center gap-1">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          j.job_type === "Emergency" ? "bg-destructive" : j.job_type === "Repair" ? "bg-warning" : "bg-primary"
+                          j.status === "Completed" ? "bg-success" :
+                          j.status === "Cancelled" ? "bg-destructive" :
+                          ["En Route", "On Site", "In Progress"].includes(j.status) ? "bg-warning" :
+                          j.job_type === "Emergency" ? "bg-destructive" :
+                          j.job_type === "Repair" ? "bg-warning" : "bg-primary"
                         }`} />
-                        <span className="text-[10px] truncate">{(j as any).customers?.name}</span>
+                        <span className={`text-[10px] truncate ${j.status === "Completed" ? "line-through text-muted-foreground" : ""}`}>
+                          {(j as any).customers?.name}
+                        </span>
                       </div>
                     ))}
                     {dayJobs.length > 3 && (
