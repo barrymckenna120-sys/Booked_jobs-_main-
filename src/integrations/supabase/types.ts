@@ -789,6 +789,7 @@ export type Database = {
     }
     Functions: {
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
+      get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_user_role: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
