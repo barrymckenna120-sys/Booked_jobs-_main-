@@ -92,7 +92,7 @@
 @layer components {
   /* Landing page container */
   .section-container {
-    @apply max-w-6xl mx-auto px-5 sm:px-6 lg:px-8;
+    @apply max-w-6xl mx-auto px-6 sm:px-8 lg:px-12;
   }
 
   /* Section headings */
