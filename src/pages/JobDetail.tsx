@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,6 +133,7 @@ const JobDetail = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Job marked complete from admin detail" });
       toast({ title: "Job marked complete ✅" });
       setCompleteOpen(false);
       fetchJob();
@@ -149,6 +151,7 @@ const JobDetail = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      logAudit({ action_type: "job_rescheduled", entity_type: "service_call", entity_id: job.id, detail: `Rescheduled to ${rescheduleDate} ${rescheduleTime || ""}`.trim() });
       toast({ title: "Job rescheduled" });
       setRescheduleOpen(false);
       fetchJob();
@@ -170,6 +173,7 @@ const JobDetail = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
       toast({ title: "Job cancelled" });
       setCancelOpen(false);
       fetchJob();

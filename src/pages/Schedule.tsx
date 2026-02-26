@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -142,6 +143,7 @@ const Schedule = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
       toast({ title: "Job assigned" });
       setAssignModal({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
@@ -151,6 +153,7 @@ const Schedule = () => {
   const handleMarkComplete = async (jobId: string) => {
     const { error } = await supabase.from("service_calls").update({ status: "Completed" }).eq("id", jobId);
     if (!error) {
+      logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: jobId, detail: "Job marked complete from schedule" });
       toast({ title: "Job completed" });
       setDetailDrawer({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
@@ -168,6 +171,7 @@ const Schedule = () => {
       cancelled_by: user?.id || null,
     } as any).eq("id", jobId);
     if (!error) {
+      logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: jobId, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
       toast({ title: "Job cancelled" });
       setCancelModal({ open: false });
       setDetailDrawer({ open: false });
