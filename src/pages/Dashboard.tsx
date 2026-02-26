@@ -14,6 +14,7 @@ import LiveActivityFeed from "@/components/dashboard/LiveActivityFeed";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import RevenueSnapshot from "@/components/dashboard/RevenueSnapshot";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
+import RenewalsCard from "@/components/dashboard/RenewalsCard";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -107,8 +108,11 @@ const Dashboard = () => {
       {/* Section 2: Weekly strip */}
       <WeekSnapshot />
 
-      {/* Section 3: Live Activity */}
-      <LiveActivityFeed />
+      {/* Section 3: Live Activity + Renewals Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <LiveActivityFeed />
+        <RenewalsCard />
+      </div>
 
       {/* Section 4: Needs Attention */}
       <AlertsPanel />
