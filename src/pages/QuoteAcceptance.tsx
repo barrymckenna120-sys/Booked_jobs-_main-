@@ -20,63 +20,53 @@ type QuoteData = {
   job_id: string;
 };
 
-type CustomerData = {
-  name: string;
-  address: string;
+type PublicQuoteData = {
+  quote: QuoteData;
+  customer_name: string | null;
+  customer_address: string | null;
+  business_name: string;
+  business_phone: string | null;
+  whatsapp_number: string | null;
+  logo_url: string | null;
 };
 
 const QuoteAcceptance = () => {
   const { quoteId } = useParams<{ quoteId: string }>();
-  const [quote, setQuote] = useState<QuoteData | null>(null);
-  const [customer, setCustomer] = useState<CustomerData | null>(null);
+  const [data, setData] = useState<PublicQuoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [responded, setResponded] = useState<"accepted" | "declined" | null>(null);
-  const [settings, setSettings] = useState<{ whatsapp_number?: string } | null>(null);
 
   useEffect(() => {
     if (quoteId) fetchQuote();
   }, [quoteId]);
 
   const fetchQuote = async () => {
-    const { data: quoteData, error } = await supabase
-      .from("quotes")
-      .select("*")
-      .eq("id", quoteId)
-      .maybeSingle();
+    const { data: result, error } = await supabase.rpc("get_quote_public", {
+      p_quote_id: quoteId,
+    });
 
-    if (error || !quoteData) {
+    if (error || !result || !(result as any).quote) {
       setLoading(false);
       return;
     }
 
-    setQuote(quoteData as QuoteData);
-
-    // Fetch customer name
-    const { data: custData } = await supabase
-      .from("customers")
-      .select("name, address")
-      .eq("id", quoteData.customer_id)
-      .maybeSingle();
-    if (custData) setCustomer(custData as CustomerData);
-
-    // Fetch settings for phone number
-    const { data: settingsData } = await supabase
-      .from("settings")
-      .select("whatsapp_number")
-      .limit(1)
-      .maybeSingle();
-    if (settingsData) setSettings(settingsData);
-
+    setData(result as unknown as PublicQuoteData);
     setLoading(false);
   };
+
+  const quote = data?.quote ?? null;
+  const businessName = data?.business_name ?? "BookedJobs";
+  const customerName = data?.customer_name ?? "Customer";
+  const customerAddress = data?.customer_address ?? "";
+  const contactNumber = data?.whatsapp_number ?? data?.business_phone ?? null;
 
   const handleAccept = async () => {
     if (!quote) return;
     setActionLoading(true);
     await supabase.from("quotes").update({ status: "Accepted", accepted_at: new Date().toISOString() } as any).eq("id", quote.id);
     await supabase.from("service_calls").update({ status: "Awaiting Deposit" } as any).eq("id", quote.job_id);
-    setQuote({ ...quote, status: "Accepted" });
+    setData(prev => prev ? { ...prev, quote: { ...prev.quote, status: "Accepted" } } : prev);
     setResponded("accepted");
     setActionLoading(false);
   };
@@ -85,7 +75,7 @@ const QuoteAcceptance = () => {
     if (!quote) return;
     setActionLoading(true);
     await supabase.from("quotes").update({ status: "Rejected" } as any).eq("id", quote.id);
-    setQuote({ ...quote, status: "Rejected" });
+    setData(prev => prev ? { ...prev, quote: { ...prev.quote, status: "Rejected" } } : prev);
     setResponded("declined");
     setActionLoading(false);
   };
@@ -111,7 +101,6 @@ const QuoteAcceptance = () => {
     );
   }
 
-  // Already responded states
   if (quote.status === "Paid") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -119,7 +108,7 @@ const QuoteAcceptance = () => {
           <CardContent className="p-8 text-center space-y-3">
             <p className="text-4xl">✅</p>
             <p className="text-lg font-bold">Quote Paid — Thank You!</p>
-            <p className="text-sm text-muted-foreground">Karl's Gas 🔥</p>
+            <p className="text-sm text-muted-foreground">{businessName}</p>
           </CardContent>
         </Card>
       </div>
@@ -133,7 +122,7 @@ const QuoteAcceptance = () => {
           <CardContent className="p-8 text-center space-y-3">
             <p className="text-4xl">✅</p>
             <p className="text-lg font-bold">Quote Accepted!</p>
-            <p className="text-sm text-muted-foreground">Thank you{customer ? `, ${customer.name}` : ""}. We'll be in touch to confirm your appointment.</p>
+            <p className="text-sm text-muted-foreground">Thank you{customerName !== "Customer" ? `, ${customerName}` : ""}. We'll be in touch to confirm your appointment.</p>
             {quote.payment_link && (
               <Button className="w-full mt-4" asChild>
                 <a href={quote.payment_link} target="_blank" rel="noopener noreferrer">
@@ -141,7 +130,7 @@ const QuoteAcceptance = () => {
                 </a>
               </Button>
             )}
-            <p className="text-sm text-muted-foreground pt-2">Karl's Gas 🔥</p>
+            <p className="text-sm text-muted-foreground pt-2">{businessName}</p>
           </CardContent>
         </Card>
       </div>
@@ -154,28 +143,31 @@ const QuoteAcceptance = () => {
         <Card className="w-full max-w-[420px] shadow-md">
           <CardContent className="p-8 text-center space-y-3">
             <p className="text-sm text-muted-foreground">We've noted your response.</p>
-            {settings?.whatsapp_number && (
-              <p className="text-sm text-muted-foreground">If you'd like to discuss the quote, call us on {settings.whatsapp_number}.</p>
+            {contactNumber && (
+              <p className="text-sm text-muted-foreground">If you'd like to discuss the quote, call us on {contactNumber}.</p>
             )}
-            <p className="text-sm text-muted-foreground pt-2">Karl's Gas 🔥</p>
+            <p className="text-sm text-muted-foreground pt-2">{businessName}</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Active quote — show details + accept/decline
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-[420px] space-y-4">
-        <p className="text-center text-2xl">🔥</p>
-        <h1 className="text-center font-bold text-lg">Karl's Gas</h1>
+        {data?.logo_url ? (
+          <img src={data.logo_url} alt={businessName} className="mx-auto h-12 object-contain" />
+        ) : (
+          <p className="text-center text-2xl">🔧</p>
+        )}
+        <h1 className="text-center font-bold text-lg">{businessName}</h1>
 
         <Card className="shadow-md">
           <CardContent className="p-6 space-y-4">
             <div>
-              <p className="font-bold text-base">Quote for {customer?.name || "Customer"}</p>
-              <p className="text-sm text-muted-foreground">{customer?.address || ""}</p>
+              <p className="font-bold text-base">Quote for {customerName}</p>
+              <p className="text-sm text-muted-foreground">{customerAddress}</p>
             </div>
 
             <p className="text-sm">{quote.description}</p>
@@ -196,7 +188,7 @@ const QuoteAcceptance = () => {
             </div>
 
             <div className="text-xs text-muted-foreground">
-              <p>Prepared by Karl's Gas</p>
+              <p>Prepared by {businessName}</p>
               <p>Date: {new Date(quote.created_at).toLocaleDateString("en-IE")}</p>
             </div>
           </CardContent>
