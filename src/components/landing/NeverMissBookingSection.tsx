@@ -65,11 +65,10 @@ export const NeverMissBookingSection = () => {
             <ScrollFadeIn direction="left">
               <div className="flex justify-center">
                 <div className="relative max-w-[280px] md:max-w-[320px]">
-                  <div className="absolute -inset-4 bg-[#25D366]/8 rounded-[2rem] blur-2xl" />
                   <img
                     src={whatsappMockupImg}
                     alt="WhatsApp reminder message showing automatic booking reminder sent to a customer"
-                    className="relative w-full h-auto drop-shadow-2xl"
+                    className="relative w-full h-auto"
                     loading="lazy"
                   />
                 </div>
