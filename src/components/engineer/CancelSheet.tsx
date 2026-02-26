@@ -3,6 +3,7 @@ import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { XCircle, Check } from "lucide-react";
 
 const REASONS = [
   "No access – customer not home",
@@ -27,7 +28,9 @@ const CancelSheet = ({ job, customer, onClose, onDone }: Props) => {
   return (
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
-        <div className="text-xl font-extrabold text-foreground">✕ No Access / Cancel</div>
+        <div className="text-xl font-extrabold text-foreground flex items-center gap-2">
+          <XCircle className="w-5 h-5 text-destructive" /> No Access / Cancel
+        </div>
         <div className="text-[13px] text-muted-foreground mt-0.5">{customer.name}</div>
       </div>
       <div className="px-5 pt-4 space-y-2.5">
@@ -43,7 +46,7 @@ const CancelSheet = ({ job, customer, onClose, onDone }: Props) => {
             } text-sm font-medium flex items-center justify-between`}
           >
             {r}
-            {reason === r && <span>✓</span>}
+            {reason === r && <Check className="w-4 h-4" />}
           </button>
         ))}
 
@@ -53,11 +56,11 @@ const CancelSheet = ({ job, customer, onClose, onDone }: Props) => {
         </div>
 
         <Button
-          className="w-full h-12 text-base font-extrabold bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+          className="w-full h-12 text-base font-extrabold bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
           disabled={!reason}
           onClick={() => onDone(reason, note)}
         >
-          ✕ Report Cancellation
+          <XCircle className="w-5 h-5" /> Report Cancellation
         </Button>
         <button onClick={onClose} className="w-full text-center text-muted-foreground text-sm font-semibold py-1">
           Back

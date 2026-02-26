@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { CheckCircle2 } from "lucide-react";
 
 interface Props {
   job: any;
@@ -25,7 +26,9 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   return (
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
-        <div className="text-xl font-extrabold text-foreground">✔ Complete Job</div>
+        <div className="text-xl font-extrabold text-foreground flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-success" /> Complete Job
+        </div>
         <div className="text-[13px] text-muted-foreground mt-0.5">{customer.name} · {customer.address}</div>
       </div>
       <div className="px-5 pt-4 space-y-4">
@@ -76,11 +79,11 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
         </div>
 
         <Button
-          className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground"
+          className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
           disabled={!workDone.trim()}
           onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote })}
         >
-          ✔ Mark as Complete
+          <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>
         <button onClick={onClose} className="w-full text-center text-muted-foreground text-sm font-semibold py-1">
           Cancel

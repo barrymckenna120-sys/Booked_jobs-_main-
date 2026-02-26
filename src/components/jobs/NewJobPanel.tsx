@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin } from "lucide-react";
+import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -26,22 +26,22 @@ interface NewJobPanelProps {
 }
 
 const JOB_TYPES = [
-  { id: "Boiler Service", label: "Boiler Service", icon: "🔥", price: 120 },
-  { id: "Repair", label: "Repair", icon: "🔧", price: 0 },
-  { id: "Emergency", label: "Emergency", icon: "🚨", price: 150 },
-  { id: "Installation", label: "Installation", icon: "⚙️", price: 0 },
+  { id: "Boiler Service", label: "Boiler Service", Icon: Flame, price: 120 },
+  { id: "Repair", label: "Repair", Icon: Wrench, price: 0 },
+  { id: "Emergency", label: "Emergency", Icon: AlertTriangle, price: 150 },
+  { id: "Installation", label: "Installation", Icon: Settings, price: 0 },
 ];
 
 const TIME_BLOCKS = [
-  { id: "9–11", label: "9–11am", icon: "🌅", dbValue: "9–11" },
-  { id: "11–2", label: "11am–2pm", icon: "☀️", dbValue: "11–2" },
-  { id: "2–5", label: "2–5pm", icon: "🌤", dbValue: "2–5" },
+  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9–11" },
+  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11–2" },
+  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2–5" },
 ];
 
 const PAYMENT_OPTIONS = [
-  { id: "unpaid", label: "Invoice After", icon: "📄" },
-  { id: "deposit", label: "Deposit Taken", icon: "💳" },
-  { id: "paid", label: "Paid in Full", icon: "✅" },
+  { id: "unpaid", label: "Invoice After", Icon: FileText },
+  { id: "deposit", label: "Deposit Taken", Icon: CreditCard },
+  { id: "paid", label: "Paid in Full", Icon: CheckCircle2 },
 ];
 
 /* ── Step Bar ──────────────────────────────────────────── */
@@ -58,7 +58,7 @@ const StepBar = ({ step }: { step: number }) => {
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold transition-all ${
                 done ? "bg-success text-success-foreground" : active ? "bg-primary text-primary-foreground ring-4 ring-primary/20" : "bg-muted text-muted-foreground"
               }`}>
-                {done ? "✓" : i + 1}
+              {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
               </div>
               <span className={`text-[10px] whitespace-nowrap ${active ? "font-bold text-primary" : done ? "font-medium text-success" : "text-muted-foreground"}`}>{l}</span>
             </div>
@@ -158,14 +158,14 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
         {/* Selected customer card */}
         {selected && !isNew && (
           <div className="bg-success/10 border border-success/30 rounded-2xl p-4 relative">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-2">✓ Customer Found</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-2 flex items-center gap-1"><Check className="w-3 h-3" /> Customer Found</div>
             <div className="text-[17px] font-extrabold mb-1">{selected.name}</div>
-            <div className="text-[13px] text-muted-foreground">📞 {selected.phone}</div>
-            <div className="text-[13px] text-muted-foreground">📍 {selected.address}</div>
+            <div className="text-[13px] text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> {selected.phone}</div>
+            <div className="text-[13px] text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" /> {selected.address}</div>
             {selected.eircode && <div className="text-xs text-muted-foreground/70 mt-1">Eircode: {selected.eircode}</div>}
-            {(selected.boiler_make_model || selected.boilerType) && <div className="text-xs text-muted-foreground/70 mt-0.5">♨️ {selected.boiler_make_model || selected.boilerType}</div>}
+            {(selected.boiler_make_model || selected.boilerType) && <div className="text-xs text-muted-foreground/70 mt-0.5 flex items-center gap-1"><Flame className="w-3 h-3" /> {selected.boiler_make_model || selected.boilerType}</div>}
             {!prefilledCustomer && (
-              <button onClick={() => { setSelected(null); setSearch(""); }} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground text-lg">✕</button>
+              <button onClick={() => { setSelected(null); setSearch(""); }} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"><XCircle className="w-4 h-4" /></button>
             )}
           </div>
         )}
@@ -243,7 +243,7 @@ const StepJob = ({ prefilledType, onNext, onBack }: { prefilledType?: string; on
                   jobType === j.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
               >
-                <span className="text-2xl">{j.icon}</span>
+                <j.Icon className={`w-6 h-6 ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`} />
                 <span className={`text-[13px] ${jobType === j.id ? "font-extrabold text-primary" : "font-semibold"}`}>{j.label}</span>
                 {j.price > 0 && <span className={`text-[11px] font-semibold ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`}>€{j.price}</span>}
               </button>
@@ -253,7 +253,7 @@ const StepJob = ({ prefilledType, onNext, onBack }: { prefilledType?: string; on
 
         {isUrgent && (
           <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-center gap-3">
-            <span className="text-xl">🚨</span>
+            <AlertTriangle className="w-5 h-5 text-destructive" />
             <div>
               <div className="text-[13px] font-extrabold text-destructive">Emergency Job</div>
               <div className="text-xs text-muted-foreground">Will appear at top of schedule in purple</div>
@@ -343,7 +343,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
                   block === t.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
               >
-                <span className="text-xl">{t.icon}</span>
+                <t.Icon className={`w-5 h-5 ${block === t.id ? "text-primary" : "text-muted-foreground"}`} />
                 <span className={`text-[13px] ${block === t.id ? "font-extrabold text-primary" : "font-semibold"}`}>{t.label}</span>
               </button>
             ))}
@@ -414,14 +414,14 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
       <div className="flex-1 overflow-y-auto px-5 space-y-4">
         {/* Summary */}
         <div className="bg-muted/50 rounded-2xl border border-border p-4">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2.5">📋 Job Summary</div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center gap-1"><ClipboardList className="w-3 h-3" /> Job Summary</div>
           {[
             { l: "Customer", v: jobData.customer.name },
             { l: "Address", v: jobData.customer.address },
-            { l: "Job", v: `${jt.icon} ${jt.label}` },
+            { l: "Job", v: jt.label },
             { l: "Date", v: dateStr },
-            { l: "Time", v: `${tb?.icon} ${tb?.label}` },
-            { l: "Engineer", v: `👷 ${eng?.name || "—"}` },
+            { l: "Time", v: tb?.label || "" },
+            { l: "Engineer", v: eng?.name || "—" },
           ].map((item) => (
             <div key={item.l} className="flex justify-between text-[13px] py-1">
               <span className="text-muted-foreground font-semibold">{item.l}</span>
@@ -457,7 +457,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
                   payment === p.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
               >
-                <span className="text-lg">{p.icon}</span>
+                <p.Icon className={`w-5 h-5 ${payment === p.id ? "text-primary" : "text-muted-foreground"}`} />
                 <span className={`text-[11px] text-center leading-tight ${payment === p.id ? "font-extrabold text-primary" : "font-semibold"}`}>{p.label}</span>
               </button>
             ))}
@@ -467,7 +467,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
         {/* WhatsApp toggle */}
         <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendWA ? "border-success/40" : "border-border"}`}>
           <div>
-            <div className="text-sm font-bold flex items-center gap-1.5">💬 Send booking confirmation?</div>
+            <div className="text-sm font-bold flex items-center gap-1.5"><MessageCircle className="w-4 h-4 text-success" /> Send booking confirmation?</div>
             <div className="text-xs text-muted-foreground mt-1">WhatsApp to {jobData.customer.name?.split(" ")[0]} with date & engineer</div>
           </div>
           <Switch checked={sendWA} onCheckedChange={setSendWA} />
@@ -480,7 +480,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
           onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment }, sendWhatsApp: sendWA })}
         >
-          ✔ Create Job
+          <CheckCircle2 className="w-5 h-5" /> Create Job
         </Button>
       </div>
     </div>
@@ -497,11 +497,11 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
   const jt = JOB_TYPES.find((j) => j.id === jobData.job?.jobType);
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEEE d MMMM"); } catch { return ""; } })();
 
-  const waMsg = `Hi ${jobData.customer?.name?.split(" ")[0]}! Your ${jt?.label?.toLowerCase() || "job"} is booked 🔥\n\n📅 ${dateStr}\n⏰ ${tb?.label}\n👷 Engineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
+  const waMsg = `Hi ${jobData.customer?.name?.split(" ")[0]}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center">
-      <div className="w-[72px] h-[72px] rounded-2xl bg-success/10 flex items-center justify-center text-4xl mb-4 shadow-lg">✅</div>
+      <div className="w-[72px] h-[72px] rounded-2xl bg-success/10 flex items-center justify-center mb-4 shadow-lg"><CheckCircle2 className="w-9 h-9 text-success" /></div>
       <h2 className="text-xl font-extrabold mb-1.5">Job Created!</h2>
       <p className="text-sm text-muted-foreground leading-relaxed mb-5">
         {jobData.customer?.name} · {jt?.label}<br />
@@ -512,13 +512,13 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
       <div className="bg-muted/50 rounded-2xl border border-border p-4 w-full mb-5 text-left">
         <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2.5">What happens now</div>
         {[
-          { icon: "📅", text: "Job appears in the schedule grid immediately" },
-          { icon: "👷", text: `${eng?.name || "Engineer"} sees it on their app` },
-          ...(jobData.sendWhatsApp ? [{ icon: "💬", text: "Booking confirmation ready to send" }] : []),
-          { icon: "🔔", text: "Audit log updated" },
+          { Icon: CalendarDays, text: "Job appears in the schedule grid immediately" },
+          { Icon: HardHat, text: `${eng?.name || "Engineer"} sees it on their app` },
+          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation ready to send" }] : []),
+          { Icon: Bell, text: "Audit log updated" },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-2.5 mb-2 last:mb-0">
-            <span className="text-base">{item.icon}</span>
+            <item.Icon className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-[13px] text-muted-foreground">{item.text}</span>
           </div>
         ))}
@@ -526,13 +526,13 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 
       {jobData.sendWhatsApp && (
         <div className="bg-success/5 border border-success/20 rounded-xl p-3 w-full mb-5 text-left">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1.5">💬 WhatsApp preview</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1.5 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp preview</div>
           <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed font-sans">{waMsg}</pre>
           <Button
             className="w-full mt-3 bg-[#25D366] hover:bg-[#1DA851] text-white font-bold gap-2"
             onClick={() => window.open(`https://wa.me/${jobData.customer?.phone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waMsg)}`, "_blank")}
           >
-            💬 Open WhatsApp to send
+            <MessageCircle className="w-4 h-4" /> Open WhatsApp to send
           </Button>
         </div>
       )}
@@ -648,7 +648,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         <div className="border-b border-border px-5 pt-5 pb-0">
           <SheetHeader className="mb-3">
             <SheetTitle className="text-xl font-extrabold">
-              {done ? "🎉 Job Created" : "New Job"}
+              {done ? <><PartyPopper className="w-5 h-5 inline mr-1" /> Job Created</> : "New Job"}
             </SheetTitle>
             {!done && (
               <p className="text-xs text-muted-foreground mt-0.5">

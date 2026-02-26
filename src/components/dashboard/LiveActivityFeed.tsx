@@ -4,17 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
-import { Activity } from "lucide-react";
+import { Activity, Car, MapPin, Wrench, CheckCircle2, XCircle, CalendarDays, ClipboardList, RefreshCw } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const STATUS_META: Record<string, { icon: string; verb: string }> = {
-  "En Route":    { icon: "🚗", verb: "En Route" },
-  "On Site":     { icon: "📍", verb: "On Site" },
-  "In Progress": { icon: "⚙️", verb: "In Progress" },
-  "Completed":   { icon: "✅", verb: "Completed" },
-  "Cancelled":   { icon: "❌", verb: "Cancelled" },
-  "Booked":      { icon: "📅", verb: "Booked" },
-  "Scheduled":   { icon: "📋", verb: "Scheduled" },
+const STATUS_META: Record<string, { Icon: LucideIcon; verb: string; color: string }> = {
+  "En Route":    { Icon: Car,           verb: "En Route",    color: "text-warning" },
+  "On Site":     { Icon: MapPin,        verb: "On Site",     color: "text-warning" },
+  "In Progress": { Icon: Wrench,        verb: "In Progress", color: "text-warning" },
+  "Completed":   { Icon: CheckCircle2,  verb: "Completed",   color: "text-success" },
+  "Cancelled":   { Icon: XCircle,       verb: "Cancelled",   color: "text-destructive" },
+  "Booked":      { Icon: CalendarDays,  verb: "Booked",      color: "text-primary" },
+  "Scheduled":   { Icon: ClipboardList, verb: "Scheduled",   color: "text-primary" },
 };
+
+const FALLBACK = { Icon: RefreshCw, verb: "Updated", color: "text-muted-foreground" };
 
 const LiveActivityFeed = () => {
   const { user } = useAuth();
@@ -63,14 +66,15 @@ const LiveActivityFeed = () => {
         </div>
         <div className="space-y-2">
           {activities.map((a: any) => {
-            const meta = STATUS_META[a.status] || { icon: "🔄", verb: a.status };
+            const meta = STATUS_META[a.status] || FALLBACK;
+            const StatusIcon = meta.Icon;
             const time = (() => {
               try { return format(new Date(a.updatedAt), "h:mma").toLowerCase(); }
               catch { return ""; }
             })();
             return (
               <div key={a.id} className="flex items-center gap-2.5 text-sm">
-                <span className="text-base shrink-0">{meta.icon}</span>
+                <StatusIcon className={`w-4 h-4 shrink-0 ${meta.color}`} />
                 <span className="truncate">
                   <span className="font-semibold">{a.customerName}</span>
                   <span className="text-muted-foreground"> → {meta.verb}</span>

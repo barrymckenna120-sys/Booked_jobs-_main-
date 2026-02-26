@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 
@@ -12,7 +12,7 @@ const EngineerCompleted = () => {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : completedJobs.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-2xl border border-border">
-          <div className="text-5xl mb-2.5">✅</div>
+          <CheckCircle2 className="w-12 h-12 mx-auto mb-2.5 text-muted-foreground" />
           <div className="text-lg font-extrabold text-foreground mb-1">No completed jobs yet</div>
         </div>
       ) : (
