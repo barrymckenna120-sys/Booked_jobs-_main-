@@ -137,9 +137,15 @@ const RenewalsCard = () => {
   };
 
   const dotColor = (days: number) =>
-    days <= 7 ? "bg-destructive" : days <= 14 ? "bg-warning" : "bg-success";
+    days <= 0 ? "bg-destructive" : days <= 7 ? "bg-destructive" : days <= 14 ? "bg-warning" : "bg-success";
   const dateColor = (days: number) =>
-    days <= 7 ? "text-destructive font-bold" : days <= 14 ? "text-warning font-semibold" : "text-muted-foreground";
+    days <= 0 ? "text-destructive font-bold" : days <= 7 ? "text-destructive font-bold" : days <= 14 ? "text-warning font-semibold" : "text-muted-foreground";
+  const formatDaysLabel = (days: number) => {
+    if (days < 0) return { text: "Overdue", className: "text-destructive font-bold" };
+    if (days === 0) return { text: "Today", className: "text-destructive font-bold" };
+    if (days === 1) return { text: "Tomorrow", className: "text-warning font-semibold" };
+    return { text: `${days}d`, className: "text-muted-foreground/50" };
+  };
 
   const renderRow = (c: RenewalCustomer) => {
     const days = getDays(c.next_service_due);
@@ -162,7 +168,7 @@ const RenewalsCard = () => {
         <span className={`text-xs shrink-0 ${dateColor(days)}`}>
           {format(new Date(c.next_service_due), "d MMM")}
         </span>
-        <span className="text-[10px] text-muted-foreground/50 shrink-0 w-6 text-right">{days}d</span>
+        <span className={`text-[10px] shrink-0 text-right ${formatDaysLabel(days).className}`}>{formatDaysLabel(days).text}</span>
 
         {contacted ? (
           <span className="text-[11px] text-muted-foreground border border-border rounded-md px-2 py-0.5 shrink-0">
@@ -233,7 +239,7 @@ const RenewalsCard = () => {
                 }}
               >
                 <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">Renewals Due</div>
-                <div className="text-[48px] font-black leading-none mt-1">{customers.length}</div>
+                <div className="text-[36px] md:text-[48px] font-black leading-none mt-1">{customers.length}</div>
                 <div className="text-[11px] opacity-70 mt-1">next 30 days</div>
               </div>
               <div
@@ -244,7 +250,7 @@ const RenewalsCard = () => {
                 }}
               >
                 <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">Value at Risk</div>
-                <div className="text-[38px] font-black leading-none mt-1">€{valueAtRisk.toLocaleString()}</div>
+                <div className="text-[28px] md:text-[38px] font-black leading-none mt-1">€{valueAtRisk.toLocaleString()}</div>
                 <div className="text-[11px] opacity-70 mt-1">if none book · avg €{servicePrice}</div>
               </div>
             </div>
