@@ -73,12 +73,21 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                               key={job.id}
                               onClick={() => onJobClick(job)}
                               className={`w-full text-left rounded-md border p-2 text-xs transition-colors hover:shadow-sm cursor-pointer ${
-                                job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-l-[3px] border-l-primary"
+                                job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive"
+                                : ["En Route", "On Site", "In Progress"].includes(job.status) ? "border-l-[3px] border-l-warning"
+                                : "border-l-[3px] border-l-primary"
                               } bg-card`}
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <span className="font-semibold truncate">{job.customer_name}</span>
-                                {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning shrink-0" title="Unpaid" />}
+                                <div className="flex items-center gap-1">
+                                  {["En Route", "On Site", "In Progress"].includes(job.status) && (
+                                    <span className="text-[9px] font-bold text-warning bg-warning/10 rounded-full px-1.5 py-0.5">
+                                      {job.status === "En Route" ? "🚗" : job.status === "On Site" ? "📍" : "⚙️"} {job.status}
+                                    </span>
+                                  )}
+                                  {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning shrink-0" title="Unpaid" />}
+                                </div>
                               </div>
                               <div className="flex items-center gap-1 mt-1">
                                 {jobTypeBadge(job.job_type)}
