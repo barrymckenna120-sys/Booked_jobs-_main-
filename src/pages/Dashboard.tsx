@@ -1,18 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, Users, CreditCard, CalendarDays, Plus, Loader2 } from "lucide-react";
+import { CalendarDays, Plus, Loader2 } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { format } from "date-fns";
 
 import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
 import LiveActivityFeed from "@/components/dashboard/LiveActivityFeed";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
-
 import RevenueSnapshot from "@/components/dashboard/RevenueSnapshot";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 
@@ -23,12 +21,33 @@ const greeting = () => {
   return "Good Evening";
 };
 
+const titleCase = (str: string) =>
+  str
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const todayStr = format(new Date(), "yyyy-MM-dd");
   const [showNewJob, setShowNewJob] = useState(false);
+
+  // Profile name
+  const { data: profile } = useQuery({
+    queryKey: ["dashboard-profile", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const displayName = titleCase(profile?.display_name?.split("@")[0]?.split(" ")[0] || "there");
 
   // Realtime refresh for all dashboard queries
   useEffect(() => {
@@ -46,97 +65,12 @@ const Dashboard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, queryClient]);
 
-  // KPI data
-  const { data: kpi, isLoading: kpiLoading } = useQuery({
-    queryKey: ["dashboard-kpi", user?.id, todayStr],
-    queryFn: async () => {
-      const [todayRes, customersRes] = await Promise.all([
-        supabase
-          .from("service_calls")
-          .select("status, revenue")
-          .eq("scheduled_date", todayStr),
-        supabase
-          .from("customers")
-          .select("id", { count: "exact", head: true }),
-      ]);
-
-      const todayJobs = todayRes.data || [];
-      const todayRevenue = todayJobs
-        .filter((j: any) => j.status === "Completed")
-        .reduce((s: number, j: any) => s + (j.revenue || 0), 0);
-      const todayCompleted = todayJobs.filter((j: any) => j.status === "Completed").length;
-      const todayRemaining = todayJobs.filter((j: any) => !["Completed", "Cancelled"].includes(j.status)).length;
-
-      return {
-        todayTotal: todayJobs.length,
-        todayCompleted,
-        todayRemaining,
-        todayRevenue,
-        totalCustomers: customersRes.count || 0,
-      };
-    },
-    enabled: !!user,
-  });
-
-  // Profile name
-  const { data: profile } = useQuery({
-    queryKey: ["dashboard-profile", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const displayName = profile?.display_name?.split("@")[0]?.split(" ")[0] || "there";
-
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 
-  const kpiCards = [
-    {
-      label: "Today's Jobs",
-      value: kpi?.todayTotal || 0,
-      sub: `${kpi?.todayCompleted || 0} done · ${kpi?.todayRemaining || 0} left`,
-      Icon: CalendarDays,
-      iconBg: "bg-primary/10",
-      iconColor: "text-primary",
-    },
-    {
-      label: "Today's Revenue",
-      value: `€${(kpi?.todayRevenue || 0).toLocaleString()}`,
-      sub: "from completed jobs",
-      Icon: CreditCard,
-      iconBg: "bg-success/10",
-      iconColor: "text-success",
-    },
-    {
-      label: "Total Customers",
-      value: kpi?.totalCustomers || 0,
-      sub: "in your database",
-      Icon: Users,
-      iconBg: "bg-primary/10",
-      iconColor: "text-primary",
-      onClick: () => navigate("/customers"),
-    },
-    {
-      label: "Active Jobs",
-      value: kpi?.todayRemaining || 0,
-      sub: "still in progress",
-      Icon: ClipboardList,
-      iconBg: "bg-warning/10",
-      iconColor: "text-warning",
-      onClick: () => navigate("/jobs"),
-    },
-  ];
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -157,40 +91,25 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiCards.map((card) => (
-          <Card
-            key={card.label}
-            className={`shadow-sm border-border/60 ${card.onClick ? "cursor-pointer hover:border-primary/30" : ""} transition-colors`}
-            onClick={card.onClick}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
-                  <card.Icon className={`w-5 h-5 ${card.iconColor}`} />
-                </div>
-              </div>
-              <div className="text-2xl font-extrabold text-foreground leading-none">{kpiLoading ? "—" : card.value}</div>
-              <div className="text-[11px] text-muted-foreground/60 font-semibold mt-1.5">{card.label}</div>
-              <div className="text-[10px] text-muted-foreground/50 mt-0.5">{kpiLoading ? "" : card.sub}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Alerts (hidden if none) */}
-      <AlertsPanel />
-
-      {/* Main Content */}
-      <div className="space-y-6">
-        <TodayTimeline />
-        <WeekSnapshot />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <LiveActivityFeed />
+      {/* Section 1: Revenue + Today's Jobs (2-col on desktop, stacked on mobile — Today first on mobile) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="order-2 md:order-1">
           <RevenueSnapshot />
         </div>
+        <div className="order-1 md:order-2">
+          <TodayTimeline />
+        </div>
       </div>
+
+      {/* Section 2: Weekly strip */}
+      <WeekSnapshot />
+
+      {/* Section 3: Live Activity */}
+      <LiveActivityFeed />
+
+      {/* Section 4: Needs Attention */}
+      <AlertsPanel />
+
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
     </div>
   );

@@ -32,7 +32,7 @@ const LiveActivityFeed = () => {
         .from("service_calls")
         .select("id, status, updated_at, assigned_engineer, customers!inner(name)")
         .order("updated_at", { ascending: false })
-        .limit(5);
+        .limit(8);
       return (data || []).map((j: any) => ({
         id: j.id,
         status: j.status,
