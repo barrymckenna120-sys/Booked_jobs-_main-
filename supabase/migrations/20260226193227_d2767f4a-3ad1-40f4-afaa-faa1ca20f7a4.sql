@@ -1,0 +1,1 @@
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS last_reminder_sent timestamptz;

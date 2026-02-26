@@ -4,11 +4,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone, Send } from "lucide-react";
 import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
-import { SendAllRemindersBanner, SendAllRemindersSheet, type ReminderCustomer } from "@/components/renewals/SendAllReminders";
+import { SendAllRemindersSheet, type ReminderCustomer } from "@/components/renewals/SendAllReminders";
+import { formatDistanceToNow, isToday, differenceInDays } from "date-fns";
 
 type Customer = {
   id: string;
@@ -22,15 +24,18 @@ type Customer = {
   assigned_engineer: string | null;
   reminder_30_days_sent: boolean | null;
   service_status: string | null;
+  last_reminder_sent: string | null;
 };
 
-const FILTERS = ["All", "Overdue", "Due Soon", "Up to Date"] as const;
+const FILTERS = ["All", "Overdue", "Due Soon", "Up to Date", "Contacted"] as const;
+type FilterType = typeof FILTERS[number];
 
 const filterStyles: Record<string, { active: string; inactive: string }> = {
   All:          { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
   Overdue:      { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
   "Due Soon":   { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
   "Up to Date": { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
+  Contacted:    { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
 };
 
 const getStatus = (daysUntil: number): string => {
@@ -44,14 +49,20 @@ const getDaysUntil = (nextDue: string | null): number => {
   return Math.ceil((new Date(nextDue).getTime() - Date.now()) / 86400000);
 };
 
+const isContactedRecently = (lastSent: string | null): boolean => {
+  if (!lastSent) return false;
+  return differenceInDays(new Date(), new Date(lastSent)) <= 30;
+};
+
 const Renewals = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string } | null>(null);
   const urlParams = new URLSearchParams(window.location.search);
-  const initialFilter = urlParams.get("status") || "All";
-  const [filter, setFilter] = useState<string>(initialFilter);
+  const initialFilter = urlParams.get("status") || "Overdue";
+  const [filter, setFilter] = useState<FilterType>(initialFilter as FilterType);
   const [search, setSearch] = useState("");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -71,17 +82,33 @@ const Renewals = () => {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+  const fetchSettings = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("settings")
+      .select("business_name, whatsapp_number, template_renewal_reminder")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (data) setSettings(data);
+  }, [user]);
+
+  useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
+  const businessName = settings?.business_name || "BookedJobs";
+
   const withStatus = customers.map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
-    return { ...c, daysUntil, renewalStatus: getStatus(daysUntil) };
+    return { ...c, daysUntil, renewalStatus: getStatus(daysUntil), contactedRecently: isContactedRecently(c.last_reminder_sent) };
   });
 
   const filtered = withStatus
-    .filter((c) => filter === "All" || c.renewalStatus === filter)
+    .filter((c) => {
+      if (filter === "All") return true;
+      if (filter === "Contacted") return c.contactedRecently || reminderSent[c.id];
+      return c.renewalStatus === filter;
+    })
     .filter((c) => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -93,18 +120,57 @@ const Renewals = () => {
     overdue: withStatus.filter((c) => c.renewalStatus === "Overdue").length,
     dueSoon: withStatus.filter((c) => c.renewalStatus === "Due Soon").length,
     upToDate: withStatus.filter((c) => c.renewalStatus === "Up to Date").length,
-    needReminder: withStatus.filter((c) => !c.reminder_30_days_sent && c.renewalStatus !== "Up to Date").length,
+    contacted: withStatus.filter((c) => c.contactedRecently || reminderSent[c.id]).length,
+    needReminder: withStatus.filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date").length,
+  };
+
+  const buildReminderMessage = (customer: Customer) => {
+    const firstName = customer.name.split(" ")[0];
+    const nextDue = customer.next_service_due
+      ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+      : "soon";
+
+    if (settings?.template_renewal_reminder) {
+      return settings.template_renewal_reminder
+        .replace(/\{\{name\}\}/g, firstName)
+        .replace(/\{\{date\}\}/g, nextDue)
+        .replace(/\{\{phone\}\}/g, settings.whatsapp_number || "");
+    }
+
+    return `Hi ${firstName},\n\nYour annual boiler service is due on ${nextDue}.\n\nRegular servicing keeps your boiler efficient, safe and your warranty valid.\n\nReply YES to book or call us on ${settings?.whatsapp_number || "our number"}.\n\n${businessName}`;
+  };
+
+  const markAsContacted = async (customerId: string, customerName: string) => {
+    const now = new Date().toISOString();
+    setReminderSent((p) => ({ ...p, [customerId]: true }));
+
+    // Update customer
+    await supabase.from("customers").update({ last_reminder_sent: now, reminder_30_days_sent: true } as any).eq("id", customerId);
+
+    // Update local state
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, last_reminder_sent: now } : c));
+
+    // Audit log
+    if (user) {
+      await supabase.from("audit_log").insert({
+        user_id: user.id,
+        user_name: user.email || "Unknown",
+        user_role: "admin",
+        action_type: "reminder_sent",
+        entity_type: "customer",
+        entity_id: customerId,
+        detail: `Renewal reminder sent to ${customerName} via WhatsApp`,
+        metadata: { method: "manual" },
+      });
+    }
   };
 
   const handleSendReminder = (customer: Customer) => {
     const cleanPhone = customer.phone.replace(/\s+/g, "").replace(/^0/, "353");
-    const nextDue = customer.next_service_due
-      ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
-      : "soon";
-    const msg = `Hi ${customer.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas`;
+    const msg = buildReminderMessage(customer);
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
 
-    setReminderSent((p) => ({ ...p, [customer.id]: true }));
+    markAsContacted(customer.id, customer.name);
 
     if (user) {
       supabase.from("whatsapp_messages").insert({
@@ -115,8 +181,6 @@ const Renewals = () => {
         sent_by: user.email,
         status: "Sent",
       } as any);
-
-      supabase.from("customers").update({ reminder_30_days_sent: true }).eq("id", customer.id);
     }
 
     toast({ title: `Reminder sent to ${customer.name}` });
@@ -125,10 +189,8 @@ const Renewals = () => {
   const selectedStatus = selectedCustomer ? getStatus(getDaysUntil(selectedCustomer.next_service_due)) : "Up to Date";
   const selectedDays = selectedCustomer ? getDaysUntil(selectedCustomer.next_service_due) : 0;
 
-  // Customers needing reminders (overdue + due soon, not yet reminded)
   const reminderQueue: ReminderCustomer[] = withStatus
-    .filter((c) => !c.reminder_30_days_sent && c.renewalStatus !== "Up to Date")
-    .filter((c) => !reminderSent[c.id])
+    .filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date")
     .map((c) => ({
       id: c.id,
       name: c.name,
@@ -139,14 +201,12 @@ const Renewals = () => {
     }));
 
   const handleBatchReminderSent = async (customerId: string) => {
-    setReminderSent((p) => ({ ...p, [customerId]: true }));
     const c = customers.find((x) => x.id === customerId);
     if (!user || !c) return;
-    const cleanPhone = c.phone.replace(/\s+/g, "").replace(/^0/, "353");
-    const nextDue = c.next_service_due
-      ? new Date(c.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
-      : "soon";
-    const msg = `Hi ${c.name.split(" ")[0]},\nYour annual boiler service is due on ${nextDue}.\nReply YES to confirm or call us. Karl's Gas`;
+    
+    const msg = buildReminderMessage(c);
+    markAsContacted(customerId, c.name);
+
     supabase.from("whatsapp_messages").insert({
       user_id: user.id,
       customer_id: customerId,
@@ -155,7 +215,14 @@ const Renewals = () => {
       sent_by: user.email,
       status: "Sent",
     } as any);
-    supabase.from("customers").update({ reminder_30_days_sent: true }).eq("id", customerId);
+  };
+
+  const filterCounts: Record<FilterType, number> = {
+    All: withStatus.length,
+    Overdue: counts.overdue,
+    "Due Soon": counts.dueSoon,
+    "Up to Date": counts.upToDate,
+    Contacted: counts.contacted,
   };
 
   return (
@@ -171,11 +238,20 @@ const Renewals = () => {
             {counts.overdue} overdue · {counts.dueSoon} due soon
           </p>
         </div>
-        {counts.needReminder > 0 && (
-          <div className="bg-warning/10 text-warning rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {counts.needReminder} need reminder
-          </div>
+        {counts.needReminder > 0 ? (
+          <Button
+            onClick={() => setSendAllOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5"
+            size="sm"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Send All Reminders ({counts.needReminder})
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled className="text-xs gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            All reminders sent
+          </Button>
         )}
       </div>
 
@@ -190,7 +266,7 @@ const Renewals = () => {
         />
       </div>
 
-      {/* Filter pills */}
+      {/* Filter tabs */}
       <div className="flex gap-2 overflow-x-auto">
         {FILTERS.map((f) => {
           const active = filter === f;
@@ -203,7 +279,7 @@ const Renewals = () => {
                 active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
               }`}
             >
-              {f}
+              {f} {filterCounts[f]}
             </button>
           );
         })}
@@ -212,12 +288,16 @@ const Renewals = () => {
       {/* KPI row */}
       <div className="grid grid-cols-4 gap-2.5">
         {[
-          { icon: <AlertTriangle className="w-5 h-5 text-destructive" />, value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true },
-          { icon: <Clock className="w-5 h-5 text-warning" />, value: counts.dueSoon, label: "Due Soon", color: "border-t-warning" },
-          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: counts.upToDate, label: "Up to Date", color: "border-t-success" },
-          { icon: <Smartphone className="w-5 h-5 text-primary" />, value: counts.needReminder, label: "Need SMS", color: "border-t-primary" },
+          { icon: <AlertTriangle className="w-5 h-5 text-destructive" />, value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true, filterTo: "Overdue" as FilterType },
+          { icon: <Clock className="w-5 h-5 text-warning" />, value: counts.dueSoon, label: "Due Soon", color: "border-t-warning", filterTo: "Due Soon" as FilterType },
+          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: counts.upToDate, label: "Up to Date", color: "border-t-success", filterTo: "Up to Date" as FilterType },
+          { icon: <Smartphone className="w-5 h-5 text-primary" />, value: counts.contacted, label: "Contacted", color: "border-t-primary", filterTo: "Contacted" as FilterType },
         ].map((k) => (
-          <Card key={k.label} className={`border-t-[3px] ${k.color}`}>
+          <Card
+            key={k.label}
+            className={`border-t-[3px] ${k.color} cursor-pointer hover:bg-muted/50 transition-colors`}
+            onClick={() => setFilter(k.filterTo)}
+          >
             <CardContent className="p-3 text-center">
               <div className="flex justify-center mb-1">{k.icon}</div>
               <div className={`text-xl font-extrabold leading-none ${k.alert ? "text-destructive" : ""}`}>{k.value}</div>
@@ -226,12 +306,6 @@ const Renewals = () => {
           </Card>
         ))}
       </div>
-
-      {/* Send All Reminders Banner */}
-      <SendAllRemindersBanner
-        customers={reminderQueue}
-        onSendAll={() => setSendAllOpen(true)}
-      />
 
       {/* List */}
       {loading ? (
@@ -248,7 +322,8 @@ const Renewals = () => {
             customer={c}
             status={c.renewalStatus}
             daysUntil={c.daysUntil}
-            reminderSent={reminderSent[c.id] || !!c.reminder_30_days_sent}
+            reminderSent={reminderSent[c.id] || c.contactedRecently}
+            lastContacted={c.last_reminder_sent}
             onOpen={() => setSelectedCustomer(c)}
             onSendReminder={() => handleSendReminder(c)}
             onBook={() => setBookCustomer(c)}
@@ -261,7 +336,7 @@ const Renewals = () => {
         customer={selectedCustomer}
         status={selectedStatus}
         daysUntil={selectedDays}
-        reminderSent={selectedCustomer ? (reminderSent[selectedCustomer.id] || !!selectedCustomer.reminder_30_days_sent) : false}
+        reminderSent={selectedCustomer ? (reminderSent[selectedCustomer.id] || isContactedRecently(selectedCustomer.last_reminder_sent)) : false}
         open={!!selectedCustomer}
         onClose={() => setSelectedCustomer(null)}
         onSendReminder={() => selectedCustomer && handleSendReminder(selectedCustomer)}
