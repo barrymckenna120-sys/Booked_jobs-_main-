@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
 import LiveActivityFeed from "@/components/dashboard/LiveActivityFeed";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
-import TeamOverview from "@/components/dashboard/TeamOverview";
+
 import RevenueSnapshot from "@/components/dashboard/RevenueSnapshot";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 
@@ -190,9 +190,8 @@ const Dashboard = () => {
           <WeekSnapshot />
         </div>
 
-        {/* Right: Team + Revenue + Activity */}
+        {/* Right: Revenue + Activity */}
         <div className="space-y-6">
-          <TeamOverview />
           <RevenueSnapshot />
           <LiveActivityFeed />
         </div>
