@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays } from "lucide-react";
 import { useState } from "react";
@@ -61,10 +62,7 @@ const AppLayout = () => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
-          <div className="w-[34px] h-[34px] rounded-lg bg-primary flex items-center justify-center text-primary-foreground text-lg">
-            🔥
-          </div>
-          <span className="font-extrabold text-foreground text-lg tracking-tight">Karl's Gas</span>
+          <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
         <nav className="flex-1 py-3 px-3 space-y-0.5">
           {MAIN_NAV.map((item) => (
@@ -143,10 +141,7 @@ const AppLayout = () => {
       {/* Mobile Top Bar */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <div className="w-[34px] h-[34px] rounded-lg bg-primary flex items-center justify-center text-primary-foreground text-lg">
-            🔥
-          </div>
-          <span className="font-extrabold text-foreground text-lg tracking-tight">Karl's Gas</span>
+          <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
         <Button variant="ghost" size="icon" onClick={signOut}>
           <LogOut className="w-5 h-5" />
