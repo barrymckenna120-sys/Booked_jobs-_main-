@@ -10,12 +10,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
 const resolveRedirect = async (userId: string): Promise<string> => {
-  const { data } = await supabase
-    .from("engineers")
-    .select("role")
-    .eq("auth_user_id", userId)
-    .maybeSingle();
-  return data?.role === "engineer" ? "/engineer/today" : "/dashboard";
+  try {
+    const { data } = await supabase.rpc("get_user_role", { _user_id: userId });
+    return data === "engineer" ? "/engineer/today" : "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
 };
 
 const Auth = () => {
@@ -29,16 +29,14 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const dest = await resolveRedirect(session.user.id);
-        navigate(dest, { replace: true });
+        navigate("/dashboard", { replace: true });
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const dest = await resolveRedirect(session.user.id);
-        navigate(dest, { replace: true });
+        navigate("/dashboard", { replace: true });
       }
     });
     return () => subscription.unsubscribe();
