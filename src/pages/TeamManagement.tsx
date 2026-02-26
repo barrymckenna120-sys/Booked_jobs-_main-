@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { logAudit } from "@/lib/auditLog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,14 +166,30 @@ const TeamManagement = () => {
     setSaving(false);
     setInviteForm({ name: "", email: "", phone: "", role: "engineer" });
     setInviteOpen(false);
+    logAudit({
+      action_type: "user_invited",
+      entity_type: "user",
+      entity_id: newEng?.id || "",
+      detail: `Invited: ${inviteForm.name.trim()} as ${ROLES[inviteForm.role]?.label}`,
+      metadata: { role: inviteForm.role, email: inviteForm.email.trim() },
+    });
+    fetchMembers();
+    setInviteOpen(false);
     fetchMembers();
   };
 
   const handleChangeRole = async (id: string, newRole: string) => {
+    const m = members.find((m) => m.id === id);
     await supabase.from("engineers").update({ role: newRole } as any).eq("id", id);
     setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
-    const m = members.find((m) => m.id === id);
     toast({ title: `${m?.name} is now ${ROLES[newRole]?.label}` });
+    logAudit({
+      action_type: "user_role_changed",
+      entity_type: "user",
+      entity_id: id,
+      detail: `Role changed: ${m?.name} — ${ROLES[m?.role || ""]?.label} → ${ROLES[newRole]?.label}`,
+      metadata: { from: m?.role, to: newRole },
+    });
   };
 
   const handleBlock = async () => {
@@ -185,6 +202,13 @@ const TeamManagement = () => {
       prev.map((m) => (m.id === blockTarget.id ? { ...m, status: "blocked", blocked_reason: blockReason, is_available: false } : m))
     );
     toast({ title: `${blockTarget.name} has been blocked` });
+    logAudit({
+      action_type: "user_blocked",
+      entity_type: "user",
+      entity_id: blockTarget.id,
+      detail: `Blocked: ${blockTarget.name} — ${blockReason}`,
+      metadata: { reason: blockReason },
+    });
     setBlockTarget(null);
     setBlockReason("");
   };
@@ -199,6 +223,12 @@ const TeamManagement = () => {
     );
     const m = members.find((m) => m.id === id);
     toast({ title: `${m?.name} has been unblocked` });
+    logAudit({
+      action_type: "user_unblocked",
+      entity_type: "user",
+      entity_id: id,
+      detail: `Unblocked: ${m?.name}`,
+    });
   };
 
   const handleDelete = async () => {
@@ -206,6 +236,13 @@ const TeamManagement = () => {
     await supabase.from("engineers").delete().eq("id", deleteTarget.id);
     setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
     toast({ title: `${deleteTarget.name} has been removed` });
+    logAudit({
+      action_type: "user_removed",
+      entity_type: "user",
+      entity_id: deleteTarget.id,
+      detail: `Removed: ${deleteTarget.name}`,
+    });
+    setDeleteTarget(null);
     setDeleteTarget(null);
   };
 

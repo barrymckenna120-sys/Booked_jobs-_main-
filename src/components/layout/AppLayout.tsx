@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ const WHATSAPP_CHILDREN = [
 const BOTTOM_NAV = [
   { label: "Engineers", icon: Wrench, path: "/engineers" },
   { label: "Team", icon: UsersRound, path: "/team" },
+  { label: "Audit Log", icon: ScrollText, path: "/audit-log" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
@@ -46,6 +47,7 @@ const MOBILE_NAV = [
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
   { label: "Engineers", icon: Wrench, path: "/engineers" },
   { label: "Team", icon: UsersRound, path: "/team" },
+  { label: "Audit Log", icon: ScrollText, path: "/audit-log" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
