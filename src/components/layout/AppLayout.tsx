@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro } from "lucide-react";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
@@ -42,7 +42,7 @@ const MOBILE_NAV = [
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
-  { label: "Quotes", icon: Receipt, path: "/quotes" },
+  { label: "Quotes", icon: Euro, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Renewals", icon: RefreshCw, path: "/renewals" },
