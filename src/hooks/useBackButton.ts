@@ -3,8 +3,7 @@ import { useEffect, useRef } from "react";
 /**
  * Pushes a dummy history entry when `isOpen` becomes true.
  * When the user presses the browser back button, calls `onClose`
- * instead of navigating away. Safely tracks whether a dummy entry
- * was pushed to avoid corrupting the history stack.
+ * instead of navigating away.
  */
 export const useBackButton = (isOpen: boolean, onClose: () => void) => {
   const pushedRef = useRef(false);
@@ -19,7 +18,7 @@ export const useBackButton = (isOpen: boolean, onClose: () => void) => {
     window.history.pushState({ panel: true }, "");
     pushedRef.current = true;
 
-    const handlePopState = (e: PopStateEvent) => {
+    const handlePopState = () => {
       if (pushedRef.current) {
         pushedRef.current = false;
         onClose();
@@ -30,10 +29,12 @@ export const useBackButton = (isOpen: boolean, onClose: () => void) => {
     return () => {
       window.removeEventListener("popstate", handlePopState);
       // If the panel closes programmatically (not via back button),
-      // clean up the dummy history entry we pushed
+      // remove the dummy entry by replacing current state instead of
+      // calling history.back() which would navigate away from the page
       if (pushedRef.current) {
         pushedRef.current = false;
-        window.history.back();
+        // Replace the dummy state with a clean one — no navigation occurs
+        window.history.replaceState(null, "", window.location.href);
       }
     };
   }, [isOpen, onClose]);
