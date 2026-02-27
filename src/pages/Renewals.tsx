@@ -13,7 +13,10 @@ import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
 import { SendAllRemindersSheet, type ReminderCustomer } from "@/components/renewals/SendAllReminders";
-import { formatDistanceToNow, isToday, differenceInDays } from "date-fns";
+import RenewalsHeroStats from "@/components/renewals/RenewalsHeroStats";
+import UrgentList from "@/components/renewals/UrgentList";
+import MonthlyBreakdown from "@/components/renewals/MonthlyBreakdown";
+import { formatDistanceToNow, isToday, differenceInDays, addDays, startOfWeek, endOfWeek } from "date-fns";
 
 type Customer = {
   id: string;
@@ -92,7 +95,7 @@ const Renewals = () => {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string } | null>(null);
+  const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string; default_service_price?: number } | null>(null);
   const urlParams = new URLSearchParams(window.location.search);
   const initialFilter = urlParams.get("status") || "Overdue";
   const [filter, setFilter] = useState<StatusFilterType>(initialFilter as StatusFilterType);
@@ -120,7 +123,7 @@ const Renewals = () => {
     if (!user) return;
     const { data } = await supabase
       .from("settings")
-      .select("business_name, whatsapp_number, template_renewal_reminder")
+      .select("business_name, whatsapp_number, template_renewal_reminder, default_service_price")
       .eq("user_id", user.id)
       .maybeSingle();
     if (data) setSettings(data);
@@ -131,6 +134,7 @@ const Renewals = () => {
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   const businessName = settings?.business_name || "BookedJobs";
+  const servicePrice = settings?.default_service_price || 120;
 
   const withStatus = customers.map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
@@ -179,6 +183,24 @@ const Renewals = () => {
   const confirmedCount = stageCounts["Confirmed"];
   const remindedCount = stageCounts["Reminded"];
 
+  // Hero stats - due in next 30 days
+  const dueIn30 = withStatus.filter(c => c.daysUntil <= 30).length;
+  const valueAtRisk = dueIn30 * servicePrice;
+  const notContactedCount = withStatus.filter(c => c.daysUntil <= 30 && c.stage === "not_contacted").length;
+  const remindedIn30 = withStatus.filter(c => c.daysUntil <= 30 && c.stage === "reminded").length;
+
+  // Urgent - due this week
+  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const urgentCustomers = withStatus
+    .filter(c => {
+      if (!c.next_service_due) return false;
+      const dueDate = new Date(c.next_service_due);
+      return dueDate <= weekEnd;
+    })
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
+  const urgentNeedReminder = urgentCustomers.filter(c => c.stage === "not_contacted" && !reminderSent[c.id]).length;
+
   const buildReminderMessage = (customer: Customer) => {
     const firstName = customer.name.split(" ")[0];
     const nextDue = customer.next_service_due
@@ -221,9 +243,10 @@ const Renewals = () => {
     }
   };
 
-  const handleSendReminder = (customer: Customer) => {
+  const handleSendReminder = (customer: Customer | { id: string; name: string; phone: string; next_service_due: string }) => {
     const cleanPhone = customer.phone.replace(/\s+/g, "").replace(/^0/, "353");
-    const msg = buildReminderMessage(customer);
+    const fullCustomer = customers.find(c => c.id === customer.id) || customer as Customer;
+    const msg = buildReminderMessage(fullCustomer);
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
 
     markAsContacted(customer.id, customer.name);
@@ -315,6 +338,44 @@ const Renewals = () => {
             All reminders sent
           </Button>
         )}
+      </div>
+
+      {/* SECTION 1: Hero Stats */}
+      <RenewalsHeroStats
+        renewalsDue={dueIn30}
+        valueAtRisk={valueAtRisk}
+        notContacted={notContactedCount}
+        reminded={remindedIn30}
+      />
+
+      {/* SECTION 2: Urgent List */}
+      <UrgentList
+        customers={urgentCustomers.map(c => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          next_service_due: c.next_service_due!,
+          daysUntil: c.daysUntil,
+          renewal_stage: c.renewal_stage,
+        }))}
+        onSendReminder={(c) => handleSendReminder(c)}
+        onSendAll={() => setSendAllOpen(true)}
+        needReminderCount={urgentNeedReminder}
+      />
+
+      {/* SECTION 3: Monthly Breakdown */}
+      <MonthlyBreakdown
+        customers={customers.map(c => ({
+          next_service_due: c.next_service_due,
+          renewal_stage: c.renewal_stage,
+          last_service_date: c.last_service_date,
+        }))}
+        servicePrice={servicePrice}
+      />
+
+      {/* Divider */}
+      <div className="border-t border-border/60 pt-4">
+        <h2 className="text-sm font-bold text-foreground mb-3">All Renewals</h2>
       </div>
 
       {/* Pipeline progress bar */}

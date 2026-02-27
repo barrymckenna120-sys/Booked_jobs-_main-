@@ -1,20 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Loader2 } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { format } from "date-fns";
 
-import WeekSnapshot from "@/components/dashboard/WeekSnapshot";
-import LiveActivityFeed from "@/components/dashboard/LiveActivityFeed";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
-import RevenueSnapshot from "@/components/dashboard/RevenueSnapshot";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
-import RenewalsCard from "@/components/dashboard/RenewalsCard";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -32,12 +28,10 @@ const titleCase = (str: string) =>
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [showNewJob, setShowNewJob] = useState(false);
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
 
-  // Profile name
   const { data: profile } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
     queryFn: async () => {
@@ -52,22 +46,6 @@ const Dashboard = () => {
   });
 
   const displayName = titleCase(profile?.display_name?.split("@")[0]?.split(" ")[0] || "there");
-
-  // Realtime refresh for all dashboard queries
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel("dashboard-main-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["dashboard-kpi"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard-today-timeline"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard-revenue-snapshot"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard-alerts"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard-team-jobs"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, queryClient]);
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
@@ -95,26 +73,10 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Section 1: Revenue + Today's Jobs (2-col on desktop, stacked on mobile — Today first on mobile) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="order-2 md:order-1">
-          <RevenueSnapshot />
-        </div>
-        <div className="order-1 md:order-2">
-          <TodayTimeline />
-        </div>
-      </div>
+      {/* Today's Schedule */}
+      <TodayTimeline />
 
-      {/* Section 2: Weekly strip */}
-      <WeekSnapshot />
-
-      {/* Section 3: Live Activity + Renewals Card */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <LiveActivityFeed />
-        <RenewalsCard />
-      </div>
-
-      {/* Section 4: Needs Attention */}
+      {/* Needs Attention */}
       <AlertsPanel />
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
