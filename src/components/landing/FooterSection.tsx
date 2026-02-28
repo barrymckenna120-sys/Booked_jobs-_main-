@@ -1,4 +1,5 @@
 import { Phone, Mail, MapPin, Facebook } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const FooterSection = () => {
   return (
@@ -39,6 +40,14 @@ export const FooterSection = () => {
         <p className="text-sm opacity-60 mb-4 text-white">
           Helping plumbers get found and booked online.
         </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mb-4">
+          <Link to="/privacy-policy" className="text-xs text-white opacity-60 hover:opacity-100 transition-opacity">Privacy Policy</Link>
+          <span className="text-xs text-white opacity-40">·</span>
+          <Link to="/terms-and-conditions" className="text-xs text-white opacity-60 hover:opacity-100 transition-opacity">Terms & Conditions</Link>
+          <span className="text-xs text-white opacity-40">·</span>
+          <Link to="/data-processing-agreement" className="text-xs text-white opacity-60 hover:opacity-100 transition-opacity">Data Processing Agreement</Link>
+        </div>
         
         <p className="text-xs opacity-40 text-white pb-16 md:pb-0">
           © 2025 BookedJobs. All rights reserved.

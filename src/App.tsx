@@ -31,6 +31,9 @@ import Finance from "./pages/Finance";
 import Schedule from "./pages/Schedule";
 import TeamManagement from "./pages/TeamManagement";
 import AuditLog from "./pages/AuditLog";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +77,9 @@ const App = () => (
           {/* Legacy route redirect */}
           <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
           <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
