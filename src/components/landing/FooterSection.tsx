@@ -50,7 +50,7 @@ export const FooterSection = () => {
         </div>
         
         <p className="text-xs opacity-40 text-white pb-16 md:pb-0">
-          © 2025 BookedJobs. All rights reserved.
+          © 2026 BookedJobs. All rights reserved.
         </p>
       </div>
       </div>
