@@ -15,7 +15,7 @@ export const HeroSection = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         {/* Left — Text block */}
         <ScrollFadeIn direction="up">
-          <div className="max-w-xl">
+          <div className="max-w-xl mx-auto text-center lg:text-left lg:mx-0">
             <span className="inline-block text-[11px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/8 px-3.5 py-1.5 rounded-full mb-6 border border-primary/15">
               Built for Boiler Service Companies
             </span>
@@ -32,7 +32,7 @@ export const HeroSection = () => {
               BookedJobs gives you a simple operations system to manage jobs, reminders and revenue — all from your phone.
             </p>
 
-            <div className="space-y-3.5 mb-10">
+            <div className="space-y-3.5 mb-10 inline-block text-left">
               {benefits.map((benefit, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -43,10 +43,10 @@ export const HeroSection = () => {
               ))}
             </div>
 
-            <div className="max-w-[320px]">
+            <div className="max-w-[320px] mx-auto lg:mx-0">
               <Button size="lg" className="w-full text-[15px] font-bold py-6 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow" asChild>
                 <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                  Start 30-Day Free Trial
+                  Start 14-Day Free Trial
                 </a>
               </Button>
               <p className="text-center text-[13px] text-muted-foreground mt-3.5 tracking-[-0.01em]">
