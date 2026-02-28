@@ -20,7 +20,7 @@ export const StickyCTA = () => {
     >
       <Button size="lg" className="shadow-lg text-base font-semibold px-8 py-6" asChild>
         <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-          Start 30-Day Trial →
+          Start 14-Day Free Trial →
         </a>
       </Button>
     </div>
