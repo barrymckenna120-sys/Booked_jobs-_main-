@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   FileText, Plus, Clock, CheckCircle2, CreditCard, Send, Edit2, User,
-  Loader2, X, MessageCircle
+  Loader2, X, MessageCircle, Bell
 } from "lucide-react";
 import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/components/jobs/SendAllQuotes";
 
@@ -329,6 +329,52 @@ const Quotes = () => {
           );
         })}
       </div>
+
+      {/* Quote Response Notifications */}
+      {!loading && (() => {
+        const recent = quotes.filter(q => {
+          if (q.status !== "Accepted" && q.status !== "Rejected") return false;
+          const respondedAt = q.accepted_at || q.created_at;
+          const hoursSince = (Date.now() - new Date(respondedAt).getTime()) / 3600000;
+          return hoursSince < 24;
+        });
+        if (recent.length === 0) return null;
+        return (
+          <div className="space-y-2">
+            {recent.map(q => {
+              const accepted = q.status === "Accepted";
+              const phone = q.customers.phone.replace(/\D/g, "");
+              const fullPhone = phone.startsWith("353") ? phone : phone.startsWith("0") ? "353" + phone.slice(1) : "353" + phone;
+              const ref = `Q-${q.id.slice(0, 4).toUpperCase()}`;
+              const waMsg = accepted
+                ? `Hi ${q.customers.name.split(" ")[0]}, thanks for accepting quote ${ref} (€${Number(q.total_amount).toFixed(2)}). We'll be in touch to schedule your appointment!`
+                : `Hi ${q.customers.name.split(" ")[0]}, we noticed you declined quote ${ref}. If you have any questions or would like to discuss, just let us know!`;
+              const waLink = `https://wa.me/${fullPhone}?text=${encodeURIComponent(waMsg)}`;
+
+              return (
+                <Card key={q.id} className={`border-l-4 ${accepted ? "border-l-success bg-success/5" : "border-l-destructive bg-destructive/5"}`}>
+                  <CardContent className="p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Bell className={`w-4 h-4 shrink-0 ${accepted ? "text-success" : "text-destructive"}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold truncate">
+                          {q.customers.name} {accepted ? "accepted" : "declined"} {ref}
+                        </p>
+                        <p className="text-xs text-muted-foreground">€{Number(q.total_amount).toFixed(2)} · {relTime(q.accepted_at || q.created_at)}</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" className="shrink-0 gap-1.5" asChild>
+                      <a href={waLink} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="w-3.5 h-3.5" /> Reply
+                      </a>
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Send All Banner */}
       {!loading && <SendAllBanner unsentQuotes={unsentQuotes} onSendAll={() => setSendAllOpen(true)} />}
