@@ -7,7 +7,7 @@ export const FinalCTASection = () => {
       <div className="section-container">
         <ScrollFadeIn>
           <h2 className="section-heading text-center">
-            Don't miss out on founding member pricing.
+            Don't miss out on early customer rates.
           </h2>
 
           <p className="text-body text-center mb-8 max-w-lg mx-auto text-lg">
