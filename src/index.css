@@ -100,6 +100,11 @@
     @apply text-2xl lg:text-3xl font-extrabold text-foreground leading-tight;
   }
 
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
   /* Body text helpers */
   .text-body {
     color: hsl(var(--text-body));

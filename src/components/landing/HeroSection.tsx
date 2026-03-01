@@ -21,7 +21,7 @@ export const HeroSection = () => {
             </span>
 
             <h1 className="text-[2.25rem] lg:text-[2.75rem] xl:text-5xl font-extrabold text-foreground leading-[1.15] tracking-[-0.025em] mb-5">
-              Stop Losing Boiler Service Work You've Already Earned
+              Stop Losing Gas Boiler Service Work You've Already Earned
             </h1>
 
             <p className="text-muted-foreground text-[15px] lg:text-base leading-[1.7] mb-3.5">
@@ -46,11 +46,11 @@ export const HeroSection = () => {
             <div className="max-w-[320px] mx-auto lg:mx-0">
               <Button size="lg" className="w-full text-[15px] font-bold py-6 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow" asChild>
                 <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                  Start 14-Day Free Trial
+                  Register Your Interest
                 </a>
               </Button>
               <p className="text-center text-[13px] text-muted-foreground mt-3.5 tracking-[-0.01em]">
-                One extra boiler service per month pays for the system.
+                Be the first to know when we launch.
               </p>
             </div>
           </div>

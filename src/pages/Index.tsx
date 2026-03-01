@@ -1,3 +1,4 @@
+import { LaunchBanner } from "@/components/landing/LaunchBanner";
 import { HeaderSection } from "@/components/landing/HeaderSection";
 import { StickyHeader } from "@/components/landing/StickyHeader";
 
@@ -15,6 +16,7 @@ const Index = () => {
   return (
     <main className="min-h-screen bg-background">
       <ScrollProgress />
+      <LaunchBanner />
       <StickyHeader />
       
       <HeaderSection />
