@@ -39,7 +39,7 @@ export const StickyHeader = () => {
               </a>
               <Button size="sm" asChild>
                 <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                  Start 14-Day Free Trial
+                  Register Your Interest
                 </a>
               </Button>
             </>
