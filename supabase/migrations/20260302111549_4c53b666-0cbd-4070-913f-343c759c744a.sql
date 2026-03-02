@@ -1,0 +1,1 @@
+DROP POLICY "Public can view quotes by id" ON public.quotes;
