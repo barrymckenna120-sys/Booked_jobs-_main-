@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Inbox, Eye, CheckCircle2, Camera } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import IncomingJobCard from "@/components/incoming/IncomingJobCard";
 import JobReviewPanel from "@/components/incoming/JobReviewPanel";
 
@@ -33,17 +34,19 @@ type IncomingJob = {
   };
 };
 
-const FILTERS = ["All", "Pending", "Assigned", "Rejected"] as const;
+const FILTERS = ["All", "Pending", "Assigned", "Rejected", "Archived"] as const;
 
 const filterStyles: Record<string, { active: string; inactive: string }> = {
   All:      { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
   Pending:  { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
   Assigned: { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
   Rejected: { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
+  Archived: { active: "border-muted-foreground bg-muted text-muted-foreground", inactive: "border-border text-muted-foreground" },
 };
 
 const IncomingJobs = () => {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<IncomingJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("All");
@@ -60,8 +63,13 @@ const IncomingJobs = () => {
       .eq("source", "Tally Form")
       .order("created_at", { ascending: false });
 
-    if (filter !== "All") {
+    if (filter === "Archived") {
+      query = query.eq("incoming_status", "Archived");
+    } else if (filter !== "All") {
       query = query.eq("incoming_status", filter);
+    } else {
+      // "All" excludes archived jobs
+      query = query.neq("incoming_status", "Archived");
     }
 
     const { data } = await query;
@@ -103,6 +111,29 @@ const IncomingJobs = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchJobs]);
+
+  const handleArchive = async (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    const isArchived = job?.incoming_status === "Archived";
+    // Restore to previous status — default to "Pending" if unknown
+    const newStatus = isArchived ? "Pending" : "Archived";
+
+    // Optimistic update
+    setJobs((prev) => prev.filter((j) => j.id !== jobId));
+
+    const { error } = await supabase
+      .from("service_calls")
+      .update({ incoming_status: newStatus })
+      .eq("id", jobId);
+
+    if (error) {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+      fetchJobs();
+    } else {
+      toast({ title: isArchived ? "Job restored" : "Job archived" });
+      fetchJobs();
+    }
+  };
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
@@ -171,7 +202,7 @@ const IncomingJobs = () => {
       ) : jobs.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Inbox className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <div className="font-bold">No {filter !== "All" ? filter : ""} incoming jobs</div>
+          <div className="font-bold">No {filter !== "All" ? filter.toLowerCase() : ""} incoming jobs</div>
         </div>
       ) : (
         jobs.map((j) => (
@@ -180,6 +211,7 @@ const IncomingJobs = () => {
             job={j}
             mediaCount={mediaCounts[j.id] || 0}
             onClick={() => setReviewJob(j)}
+            onArchive={handleArchive}
           />
         ))
       )}

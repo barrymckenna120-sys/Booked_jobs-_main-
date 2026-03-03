@@ -1,4 +1,4 @@
-import { Camera } from "lucide-react";
+import { Camera, Archive } from "lucide-react";
 import { IncomingStatusPill, BoilerWorkingPill, TimeBlockLabel } from "./IncomingPills";
 
 type IncomingJob = {
@@ -32,6 +32,7 @@ type Props = {
   job: IncomingJob;
   mediaCount: number;
   onClick: () => void;
+  onArchive: (id: string) => void;
 };
 
 const relativeTime = (dateStr: string) => {
@@ -48,16 +49,18 @@ const borderColorMap: Record<string, string> = {
   Reviewed: "border-l-primary",
   Assigned: "border-l-success",
   Rejected: "border-l-destructive",
+  Archived: "border-l-muted-foreground",
 };
 
-const IncomingJobCard = ({ job, mediaCount, onClick }: Props) => {
+const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
   const leftBorder = borderColorMap[job.incoming_status || "Pending"] || "border-l-warning";
   const urgentGas = !job.boiler_working && job.boiler_issue?.toLowerCase().includes("gas");
+  const isArchived = job.incoming_status === "Archived";
 
   return (
     <div
       onClick={onClick}
-      className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3 cursor-pointer active:scale-[0.99] transition-transform`}
+      className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3 cursor-pointer active:scale-[0.99] transition-transform ${isArchived ? "opacity-60" : ""}`}
     >
       {/* Urgent alert */}
       {urgentGas && (
@@ -107,7 +110,16 @@ const IncomingJobCard = ({ job, mediaCount, onClick }: Props) => {
         <span className="text-xs text-muted-foreground">
           📅 {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB") : "No date"} · {job.assigned_engineer || "Unassigned"}
         </span>
-        <span className="text-xs font-bold text-primary">Review →</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onArchive(job.id); }}
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          >
+            <Archive className="w-3.5 h-3.5" />
+            {isArchived ? "Restore" : "Archive"}
+          </button>
+          <span className="text-xs font-bold text-primary">Review →</span>
+        </div>
       </div>
     </div>
   );
