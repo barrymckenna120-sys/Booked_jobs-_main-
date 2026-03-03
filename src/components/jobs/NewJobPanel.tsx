@@ -622,10 +622,13 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     setSaving(true);
 
     try {
-      let customerId = finalData.customer.id;
+      let customerId = finalData.customer?.id;
+      const isNewCustomer = finalData.customer?.isNew || customerId === "NEW";
+
+      console.log("[NewJobPanel] Submit start", { customerId, isNewCustomer, customer: finalData.customer?.name });
 
       // Create new customer if needed
-      if (finalData.customer.isNew) {
+      if (isNewCustomer) {
         const { data: newCust, error: custErr } = await supabase.from("customers").insert({
           user_id: user.id,
           name: finalData.customer.name,
@@ -634,14 +637,24 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           eircode: finalData.customer.eircode || "",
           boiler_make_model: finalData.customer.boilerType || null,
         }).select("id").single();
-        if (custErr) throw custErr;
+        if (custErr) {
+          console.error("[NewJobPanel] Customer insert error:", custErr);
+          throw custErr;
+        }
         customerId = newCust.id;
+        console.log("[NewJobPanel] New customer created:", customerId);
+      }
+
+      if (!customerId || customerId === "NEW") {
+        throw new Error("No valid customer ID — cannot create job");
       }
 
       const eng = engineers.find((e: any) => e.id === finalData.schedule.engineerId);
       const depositPaid = finalData.payment.status === "paid" || finalData.payment.status === "deposit";
 
-      const { error: jobErr } = await supabase.from("service_calls").insert({
+      console.log("[NewJobPanel] Inserting service_call", { customerId, jobType: finalData.job.jobType, date: finalData.schedule.date, engineer: eng?.name });
+
+      const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
         user_id: user.id,
         customer_id: customerId,
         job_type: finalData.job.jobType,
@@ -658,8 +671,12 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         deposit_amount: finalData.payment.status === "deposit" ? finalData.payment.amount : null,
         source: "Manual",
         incoming_status: "Accepted",
-      });
-      if (jobErr) throw jobErr;
+      }).select("id").single();
+      if (jobErr) {
+        console.error("[NewJobPanel] Job insert error:", jobErr);
+        throw jobErr;
+      }
+      console.log("[NewJobPanel] Job created successfully:", newJob?.id);
 
       await logAudit({
         action_type: "job_created",
