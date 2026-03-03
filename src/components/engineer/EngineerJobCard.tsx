@@ -8,6 +8,7 @@ import NoteSheet from "./NoteSheet";
 import PhotoSheet from "./PhotoSheet";
 import JobDetailSheet from "./JobDetailSheet";
 import ExtraWorkSheet from "./ExtraWorkSheet";
+import JobPhotoThumbnails from "./JobPhotoThumbnails";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -32,9 +33,10 @@ interface EngineerJobCardProps {
   customer: any;
   onUpdate: (jobId: string, patch: Record<string, any>) => void;
   isNextJob?: boolean;
+  photos?: { url: string; name: string }[];
 }
 
-const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: EngineerJobCardProps) => {
+const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
   const navigate = useNavigate();
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
@@ -187,10 +189,13 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false }: Enginee
         )}
 
         {job.status === "Completed" && (
-          <div className="bg-success/10 rounded-xl p-3.5 flex items-center gap-2.5 mt-1">
-            <CheckCircle2 className="w-5 h-5 text-success" />
-            <div className="text-[13px] font-bold text-success">Completed</div>
-          </div>
+          <>
+            <JobPhotoThumbnails photos={photos} />
+            <div className="bg-success/10 rounded-xl p-3.5 flex items-center gap-2.5 mt-1">
+              <CheckCircle2 className="w-5 h-5 text-success" />
+              <div className="text-[13px] font-bold text-success">Completed</div>
+            </div>
+          </>
         )}
       </div>
 

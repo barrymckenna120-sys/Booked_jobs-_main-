@@ -41,6 +41,7 @@ export const useEngineerJobs = () => {
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
+  const [jobPhotos, setJobPhotos] = useState<Record<string, { url: string; name: string }[]>>({});
   const [engineerName, setEngineerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +55,21 @@ export const useEngineerJobs = () => {
         data.forEach((c: any) => { map[c.id] = c; });
         return map;
       });
+    }
+  }, []);
+
+  const fetchJobPhotos = useCallback(async (jobs: any[]) => {
+    const ids = jobs.map((j) => j.id);
+    if (ids.length === 0) return;
+    const { data } = await supabase.from("job_media").select("job_id, public_url, file_name").in("job_id", ids);
+    if (data) {
+      const map: Record<string, { url: string; name: string }[]> = {};
+      data.forEach((m: any) => {
+        if (!m.public_url) return;
+        if (!map[m.job_id]) map[m.job_id] = [];
+        map[m.job_id].push({ url: m.public_url, name: m.file_name });
+      });
+      setJobPhotos((prev) => ({ ...prev, ...map }));
     }
   }, []);
 
@@ -75,8 +91,9 @@ export const useEngineerJobs = () => {
     setUpcomingJobs(upcomingRes.data || []);
     setCompletedJobs(completedRes.data || []);
     await fetchCustomers(allJobs);
+    await fetchJobPhotos(allJobs);
     setLoading(false);
-  }, [user, fetchCustomers]);
+  }, [user, fetchCustomers, fetchJobPhotos]);
 
   useEffect(() => {
     if (user) fetchAll();
@@ -136,7 +153,7 @@ export const useEngineerJobs = () => {
   return {
     user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
-    upcomingJobs, completedJobs, customers,
+    upcomingJobs, completedJobs, customers, jobPhotos,
     updateJob, fetchAll,
   };
 };
