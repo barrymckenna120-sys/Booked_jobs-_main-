@@ -86,7 +86,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
 
         {/* Address */}
         <div className="text-[13px] text-muted-foreground/70 mb-3 flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5 shrink-0" /> {customer.address}
+          <MapPin className="w-3.5 h-3.5 shrink-0" /> {[customer.address, customer.eircode].filter(Boolean).join(", ")}
         </div>
 
         {/* Pills */}
