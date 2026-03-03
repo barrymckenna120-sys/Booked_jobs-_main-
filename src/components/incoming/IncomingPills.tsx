@@ -16,6 +16,7 @@ export const IncomingStatusPill = ({ status }: { status: string | null }) => {
     Reviewed: "bg-primary/10 text-primary",
     Assigned: "bg-success/10 text-success",
     Rejected: "bg-destructive/10 text-destructive",
+    Archived: "bg-muted text-muted-foreground",
   };
   const s = status || "Pending";
   return (
