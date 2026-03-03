@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const PAGE_SIZE = 15;
@@ -32,6 +32,8 @@ const Jobs = () => {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [page, setPage] = useState(0);
+  const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     if (user) fetchJobs();
@@ -58,12 +60,32 @@ const Jobs = () => {
     setLoading(false);
   };
 
-  const filtered = jobs.filter(j => {
-    const matchStatus = statusFilter === "all" || j.status === statusFilter;
-    const matchType = typeFilter === "all" || j.job_type === typeFilter;
-    const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
-    return matchStatus && matchType && matchSearch;
-  });
+  const toggleSort = (col: typeof sortCol) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir(col === "customer_name" ? "asc" : "desc"); }
+  };
+
+  const SortIcon = ({ col }: { col: typeof sortCol }) => {
+    if (sortCol !== col) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-muted-foreground" />;
+    return sortDir === "asc" ? <ArrowUp className="w-3.5 h-3.5 ml-1" /> : <ArrowDown className="w-3.5 h-3.5 ml-1" />;
+  };
+
+  const filtered = jobs
+    .filter(j => {
+      const matchStatus = statusFilter === "all" || j.status === statusFilter;
+      const matchType = typeFilter === "all" || j.job_type === typeFilter;
+      const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
+      return matchStatus && matchType && matchSearch;
+    })
+    .sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (sortCol === "customer_name") return dir * (a.customer_name || "").localeCompare(b.customer_name || "");
+      if (sortCol === "status") return dir * a.status.localeCompare(b.status);
+      // scheduled_date
+      const da = a.scheduled_date || "";
+      const db = b.scheduled_date || "";
+      return dir * da.localeCompare(db);
+    });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -133,11 +155,17 @@ const Jobs = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("customer_name")}>
+                      <span className="inline-flex items-center">Customer <SortIcon col="customer_name" /></span>
+                    </TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("scheduled_date")}>
+                      <span className="inline-flex items-center">Date <SortIcon col="scheduled_date" /></span>
+                    </TableHead>
                     <TableHead className="hidden md:table-cell">Engineer</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                      <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
+                    </TableHead>
                     <TableHead className="hidden md:table-cell">Quote</TableHead>
                   </TableRow>
                 </TableHeader>
