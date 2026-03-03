@@ -68,7 +68,8 @@ Deno.serve(async (req) => {
       });
 
       if (createError) {
-        return new Response(JSON.stringify({ error: createError.message }), {
+        console.error("User creation failed:", createError);
+        return new Response(JSON.stringify({ error: "Failed to create user account." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -84,7 +85,8 @@ Deno.serve(async (req) => {
       .eq("id", engineer_id);
 
     if (updateError) {
-      return new Response(JSON.stringify({ error: updateError.message }), {
+      console.error("Engineer update failed:", updateError);
+      return new Response(JSON.stringify({ error: "Failed to link user account." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -95,7 +97,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error("invite-team-member error:", err);
+    return new Response(JSON.stringify({ error: "An unexpected error occurred." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
