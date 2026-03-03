@@ -365,17 +365,19 @@ const Renewals = () => {
       </div>
 
       {/* Archived toggle */}
-      <button
+      <Button
         onClick={() => setShowArchived(!showArchived)}
-        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+        variant={showArchived ? "default" : "outline"}
+        size="sm"
+        className={`gap-2 font-bold ${
           showArchived
-            ? "border-muted-foreground bg-muted text-foreground"
-            : "border-border text-muted-foreground hover:bg-muted"
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+            : "border-2 border-primary/40 text-primary hover:bg-primary/10"
         }`}
       >
-        {showArchived ? <ArchiveRestore className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
-        {showArchived ? `Viewing Archived (${archivedCustomers.length})` : `Archived (${archivedCustomers.length})`}
-      </button>
+        {showArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+        {showArchived ? `Viewing Archived (${archivedCustomers.length})` : `View Archived (${archivedCustomers.length})`}
+      </Button>
 
       {/* SECTION 1: Hero Stats */}
       <RenewalsHeroStats
