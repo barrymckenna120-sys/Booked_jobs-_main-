@@ -43,16 +43,6 @@ export const HeroSection = () => {
               ))}
             </div>
 
-            <div className="max-w-[320px] mx-auto lg:mx-0">
-              <Button size="lg" className="w-full text-[15px] font-bold py-6 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-shadow" asChild>
-                <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                  Register Your Interest
-                </a>
-              </Button>
-              <p className="text-center text-[13px] text-muted-foreground mt-3.5 tracking-[-0.01em]">
-                Be the first to know when we launch.
-              </p>
-            </div>
           </div>
         </ScrollFadeIn>
 

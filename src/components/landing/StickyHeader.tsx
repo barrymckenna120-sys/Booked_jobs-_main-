@@ -33,16 +33,9 @@ export const StickyHeader = () => {
               <a href="/dashboard">Go to Dashboard</a>
             </Button>
           ) : (
-            <>
-              <a href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
-                Login
-              </a>
-              <Button size="sm" asChild>
-                <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                  Register Your Interest
-                </a>
-              </Button>
-            </>
+            <a href="/auth" className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
+              Login
+            </a>
           )}
         </div>
       </div>
