@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone, Send,
-  PhoneOff, MessageCircle, CalendarCheck, Wallet,
+  PhoneOff, MessageCircle, CalendarCheck, Wallet, Archive, ArchiveRestore,
 } from "lucide-react";
 import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
@@ -32,6 +32,7 @@ type Customer = {
   service_status: string | null;
   last_reminder_sent: string | null;
   renewal_stage: string | null;
+  is_archived: boolean;
 };
 
 const STATUS_FILTERS = ["All", "Overdue", "Due Soon", "Up to Date", "Contacted"] as const;
@@ -105,6 +106,7 @@ const Renewals = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
   const [sendAllOpen, setSendAllOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -142,7 +144,11 @@ const Renewals = () => {
   const businessName = settings?.business_name || "BookedJobs";
   const servicePrice = settings?.default_service_price || 120;
 
-  const withStatus = customers.map((c) => {
+  // Separate active vs archived customers
+  const activeCustomers = customers.filter(c => !c.is_archived);
+  const archivedCustomers = customers.filter(c => c.is_archived);
+
+  const withStatus = (showArchived ? archivedCustomers : activeCustomers).map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
     const stage = c.renewal_stage || "not_contacted";
     return { ...c, daysUntil, renewalStatus: getStatus(daysUntil), contactedRecently: isContactedRecently(c.last_reminder_sent), stage };
@@ -152,7 +158,7 @@ const Renewals = () => {
   const isResolved = (c: typeof withStatus[0]) => c.stage === "booked" || c.stage === "paid";
 
   const filtered = withStatus
-    .filter((c) => !isResolved(c)) // Hide booked/paid from list
+    .filter((c) => showArchived ? true : !isResolved(c)) // In archived view, show all
     .filter((c) => {
       if (filter === "All") return true;
       if (filter === "Contacted") return c.contactedRecently || reminderSent[c.id];
@@ -283,6 +289,12 @@ const Renewals = () => {
     toast({ title: `Stage updated to ${newStage.replace("_", " ")}` });
   };
 
+  const handleArchive = async (customerId: string, archive: boolean) => {
+    await supabase.from("customers").update({ is_archived: archive } as any).eq("id", customerId);
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, is_archived: archive } : c));
+    toast({ title: archive ? "Customer archived" : "Customer restored" });
+  };
+
   const selectedStatus = selectedCustomer ? getStatus(getDaysUntil(selectedCustomer.next_service_due)) : "Up to Date";
   const selectedDays = selectedCustomer ? getDaysUntil(selectedCustomer.next_service_due) : 0;
 
@@ -351,6 +363,19 @@ const Renewals = () => {
           </Button>
         )}
       </div>
+
+      {/* Archived toggle */}
+      <button
+        onClick={() => setShowArchived(!showArchived)}
+        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+          showArchived
+            ? "border-muted-foreground bg-muted text-foreground"
+            : "border-border text-muted-foreground hover:bg-muted"
+        }`}
+      >
+        {showArchived ? <ArchiveRestore className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
+        {showArchived ? `Viewing Archived (${archivedCustomers.length})` : `Archived (${archivedCustomers.length})`}
+      </button>
 
       {/* SECTION 1: Hero Stats */}
       <RenewalsHeroStats
@@ -534,6 +559,8 @@ const Renewals = () => {
             onSendReminder={() => handleSendReminder(c)}
             onBook={() => setBookCustomer(c)}
             onStageChange={(newStage) => handleStageChange(c.id, newStage)}
+            onArchive={() => handleArchive(c.id, !c.is_archived)}
+            isArchived={c.is_archived}
           />
         ))
       )}

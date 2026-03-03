@@ -70,6 +70,7 @@ export type Database = {
           email: string | null
           engineer_notes: string | null
           id: string
+          is_archived: boolean
           last_message_sent_at: string | null
           last_message_type: string | null
           last_reminder_response: string | null
@@ -108,6 +109,7 @@ export type Database = {
           email?: string | null
           engineer_notes?: string | null
           id?: string
+          is_archived?: boolean
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
@@ -146,6 +148,7 @@ export type Database = {
           email?: string | null
           engineer_notes?: string | null
           id?: string
+          is_archived?: boolean
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
