@@ -73,6 +73,11 @@ const StepBar = ({ step }: { step: number }) => {
 };
 
 /* ── STEP 1: Customer ──────────────────────────────────── */
+const BOILER_BRANDS = [
+  "Vaillant", "Worcester Bosch", "Ideal", "Baxi", "Viessmann", "Potterton",
+  "Glow-worm", "Ferroli", "Ariston", "Grant", "Alpha", "Honeywell", "Heatline",
+];
+
 const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; onNext: (c: any) => void }) => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<any>(prefilledCustomer || null);
@@ -82,6 +87,8 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [address, setAddress] = useState("");
   const [eircode, setEircode] = useState("");
   const [boiler, setBoiler] = useState("");
+  const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
+  const [boilerSearch, setBoilerSearch] = useState("");
 
   const { data: results = [] } = useQuery({
     queryKey: ["customer-search", search],
@@ -204,9 +211,46 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Eircode</Label>
                 <Input value={eircode} onChange={(e) => setEircode(e.target.value.toUpperCase())} placeholder="D15A1B2" className="mt-1" />
               </div>
-              <div>
+              <div className="relative">
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make</Label>
-                <Input value={boiler} onChange={(e) => setBoiler(e.target.value)} placeholder="e.g. Vaillant" className="mt-1" />
+                <div className="relative mt-1">
+                  <Input
+                    value={boilerDropdownOpen ? boilerSearch : boiler}
+                    onChange={(e) => {
+                      setBoilerSearch(e.target.value);
+                      setBoiler(e.target.value);
+                      if (!boilerDropdownOpen) setBoilerDropdownOpen(true);
+                    }}
+                    onFocus={() => { setBoilerDropdownOpen(true); setBoilerSearch(boiler); }}
+                    placeholder="e.g. Vaillant"
+                  />
+                  {boilerDropdownOpen && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {BOILER_BRANDS.filter(b => b.toLowerCase().includes((boilerDropdownOpen ? boilerSearch : boiler).toLowerCase())).map(b => (
+                        <button
+                          key={b}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { setBoiler(b); setBoilerSearch(b); setBoilerDropdownOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-primary/5 transition-colors ${boiler === b ? "font-bold text-primary bg-primary/5" : ""}`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                      {boilerSearch.trim() && !BOILER_BRANDS.some(b => b.toLowerCase() === boilerSearch.toLowerCase()) && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { setBoiler(boilerSearch.trim()); setBoilerDropdownOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:bg-primary/5 border-t border-border"
+                        >
+                          Use "<span className="font-semibold text-foreground">{boilerSearch.trim()}</span>"
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {boilerDropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setBoilerDropdownOpen(false)} />}
               </div>
             </div>
           </div>
