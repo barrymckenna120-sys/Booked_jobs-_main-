@@ -34,6 +34,7 @@ import AuditLog from "./pages/AuditLog";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
             <Route path="/jobs" element={<Jobs />} />

@@ -52,6 +52,8 @@ const ACTION_CONFIG: Record<string, { label: string; icon: string; group: string
   settings_changed:  { label: "Settings Changed",   icon: "⚙️", group: "Settings" },
   template_edited:   { label: "Template Edited",    icon: "✏️", group: "Settings" },
   reminder_sent:     { label: "Reminder Sent",      icon: "🔔", group: "Settings" },
+  password_reset_requested: { label: "Password Reset Requested", icon: "🔑", group: "Security" },
+  password_reset_completed: { label: "Password Reset Completed", icon: "✅", group: "Security" },
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -60,6 +62,7 @@ const ACTION_COLORS: Record<string, string> = {
   Payments: "bg-green-100 text-green-700",
   Users: "bg-purple-100 text-purple-700",
   Settings: "bg-amber-100 text-amber-700",
+  Security: "bg-red-100 text-red-700",
 };
 
 const ROLE_STYLES: Record<string, string> = {
@@ -87,7 +90,7 @@ interface AuditEntry {
   metadata: Record<string, unknown>;
 }
 
-const GROUPS = ["all", "Jobs", "Quotes", "Payments", "Users", "Settings"];
+const GROUPS = ["all", "Jobs", "Quotes", "Payments", "Users", "Settings", "Security"];
 const DATE_RANGES = [
   { value: "all", label: "All Time" },
   { value: "today", label: "Today" },
@@ -167,7 +170,7 @@ const AuditLog = () => {
     (e) => Date.now() - new Date(e.created_at).getTime() < 86400000
   ).length;
   const criticalCount = entries.filter((e) =>
-    ["user_blocked", "user_removed", "user_login_failed", "job_cancelled"].includes(e.action_type)
+    ["user_blocked", "user_removed", "user_login_failed", "job_cancelled", "password_reset_requested", "password_reset_completed"].includes(e.action_type)
   ).length;
   const completions = entries.filter((e) => e.action_type === "job_completed").length;
 

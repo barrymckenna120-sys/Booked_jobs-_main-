@@ -46,6 +46,7 @@ import {
   UserCheck,
   Mail,
   Link,
+  KeyRound,
 } from "lucide-react";
 
 // ── Role config ────────────────────────────────────────────────────
@@ -266,6 +267,29 @@ const TeamManagement = () => {
     } else {
       toast({ title: `Invite sent to ${member.email}` });
       fetchMembers();
+    }
+  };
+
+  const handleResetPassword = async (member: TeamMember) => {
+    if (!member.email) {
+      toast({ title: "No email address", description: "This member has no email to send a reset to.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(member.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({ title: `Password reset email sent to ${member.email}` });
+      logAudit({
+        action_type: "password_reset_requested",
+        entity_type: "user",
+        entity_id: member.id,
+        detail: `Password reset requested for ${member.name} (${member.email})`,
+        metadata: { target_email: member.email, triggered_by: "admin" },
+      });
+    } catch (err: any) {
+      toast({ title: "Failed to send reset email", description: err.message, variant: "destructive" });
     }
   };
 
@@ -515,6 +539,12 @@ const TeamManagement = () => {
                         <DropdownMenuItem onClick={() => handleSendInvite(member)}>
                           <Mail className="w-4 h-4 mr-2" />
                           Resend Invite
+                        </DropdownMenuItem>
+                      )}
+                      {!isBlocked && member.email && (
+                        <DropdownMenuItem onClick={() => handleResetPassword(member)}>
+                          <KeyRound className="w-4 h-4 mr-2" />
+                          Reset Password
                         </DropdownMenuItem>
                       )}
                       {isBlocked ? (
