@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Camera, Video } from "lucide-react";
 
 interface Props {
   job: any;
@@ -13,12 +13,18 @@ interface Props {
   onSave: () => void;
 }
 
+const isVideo = (type: string) => type?.startsWith("video/");
+
 const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [photos, setPhotos] = useState<{ url: string; name: string }[]>([]);
+  const [media, setMedia] = useState<{ url: string; name: string; type: string }[]>([]);
+
+  const photoCount = media.filter((m) => !isVideo(m.type)).length;
+  const videoCount = media.filter((m) => isVideo(m.type)).length;
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,28 +53,34 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
       uploaded_by: "engineer",
     } as any);
 
-    setPhotos((prev) => [...prev, { url: urlData.publicUrl, name: file.name }]);
-    toast({ title: "Photo uploaded" });
+    setMedia((prev) => [...prev, { url: urlData.publicUrl, name: file.name, type: file.type }]);
+    toast({ title: isVideo(file.type) ? "Video uploaded" : "Photo uploaded" });
     setUploading(false);
   };
 
   return (
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
-        <div className="text-xl font-extrabold text-foreground">📷 Photos</div>
+        <div className="text-xl font-extrabold text-foreground">📷 Photos & Videos</div>
         <div className="text-[13px] text-muted-foreground mt-0.5">
-          {customer.name} · {photos.length} photo{photos.length !== 1 ? "s" : ""}
+          {customer.name} · {photoCount} photo{photoCount !== 1 ? "s" : ""} · {videoCount} video{videoCount !== 1 ? "s" : ""}
         </div>
       </div>
       <div className="px-5 pt-4 space-y-4">
         <div className="grid grid-cols-3 gap-2.5">
-          {photos.map((p, i) => (
+          {media.map((m, i) => (
             <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary">
-              <img src={p.url} alt="" className="w-full h-full object-cover" />
+              {isVideo(m.type) ? (
+                <video src={m.url} className="w-full h-full object-cover" muted />
+              ) : (
+                <img src={m.url} alt="" className="w-full h-full object-cover" />
+              )}
             </div>
           ))}
+
+          {/* Photo button */}
           <button
-            onClick={() => fileRef.current?.click()}
+            onClick={() => photoRef.current?.click()}
             className="aspect-square rounded-xl border-2 border-dashed border-primary bg-primary/5 text-primary flex flex-col items-center justify-center gap-1 cursor-pointer"
             disabled={uploading}
           >
@@ -76,16 +88,34 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
               <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <>
-                <span className="text-2xl">📷</span>
+                <Camera className="w-6 h-6" />
                 <span className="text-[11px] font-bold">Take Photo</span>
               </>
             )}
           </button>
+
+          {/* Video button */}
+          <button
+            onClick={() => videoRef.current?.click()}
+            className="aspect-square rounded-xl border-2 border-dashed border-primary bg-primary/5 text-primary flex flex-col items-center justify-center gap-1 cursor-pointer"
+            disabled={uploading}
+          >
+            {uploading ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <>
+                <Video className="w-6 h-6" />
+                <span className="text-[11px] font-bold">Record Video</span>
+              </>
+            )}
+          </button>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+
+        <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+        <input ref={videoRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={handleFile} />
 
         <div className="bg-primary/5 rounded-xl p-3 text-[13px] text-primary font-semibold">
-          💡 Photos are uploaded and visible to the office immediately.
+          💡 Photos and videos are uploaded and visible to the office immediately.
         </div>
 
         <Button className="w-full h-12 text-base font-extrabold" onClick={onSave}>
