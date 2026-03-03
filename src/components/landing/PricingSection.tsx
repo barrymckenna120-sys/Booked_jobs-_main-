@@ -20,13 +20,6 @@ export const PricingSection = () => {
             Early customer rates available exclusively for waitlist members. Join today and lock in your price before launch.
           </p>
 
-          <div className="max-w-xs mx-auto">
-            <Button size="lg" className="w-full text-base font-semibold py-6" asChild>
-              <a href="https://tally.so/r/0Qd2Y0" target="_blank" rel="noopener noreferrer">
-                Join the Waitlist
-              </a>
-            </Button>
-          </div>
         </div>
       </ScrollFadeIn>
     </section>
