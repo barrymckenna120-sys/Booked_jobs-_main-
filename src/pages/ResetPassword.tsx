@@ -14,6 +14,7 @@ const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [hasRecovery, setHasRecovery] = useState(false);
@@ -85,14 +86,16 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
-          <CardTitle className="text-lg">Set New Password</CardTitle>
-          <CardDescription>Enter your new password below</CardDescription>
+    <div className="min-h-screen bg-muted flex items-center justify-center px-4">
+      <Card className="w-full max-w-md shadow-md border-border/60">
+        <CardHeader className="text-center space-y-3 pb-2">
+          <img src={bookedJobsLogo} alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
+          <div>
+            <CardTitle className="text-xl text-foreground">Set New Password</CardTitle>
+            <CardDescription className="mt-1">Choose a secure password for your account</CardDescription>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <form onSubmit={handleReset} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="new-password">New Password</Label>
@@ -118,15 +121,25 @@ const ResetPassword = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
+              <div className="relative">
+                <Input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={loading || !newPassword}>
               {loading ? "Updating…" : "Update Password"}
