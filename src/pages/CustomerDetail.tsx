@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet } from "lucide-react";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
+import ServiceHistory from "@/components/customer/ServiceHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import {
   AlertDialog,
@@ -281,6 +282,9 @@ const CustomerDetail = () => {
             onSendMessage={() => setShowSendModal(true)}
           />
         )}
+
+        {/* Service History */}
+        {id && <ServiceHistory customerId={id} />}
       </div>
 
       {/* Send Reminder Modal */}
