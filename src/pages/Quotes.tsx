@@ -754,7 +754,7 @@ const Quotes = () => {
                   <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
                   <SelectContent>
                     {jobs.map((j) => (
-                      <SelectItem key={j.id} value={j.id}>{j.job_type} — {j.scheduled_date || "Unscheduled"}</SelectItem>
+                      <SelectItem key={j.id} value={j.id}>{j.job_type} — {j.scheduled_date ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "Unscheduled"}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
