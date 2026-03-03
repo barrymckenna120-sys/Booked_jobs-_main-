@@ -15,13 +15,13 @@ import {
 
 const MAIN_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Incoming", icon: Inbox, path: "/incoming" },
+  { label: "Renewals", icon: RefreshCw, path: "/renewals" },
+  { label: "Customers", icon: Users, path: "/customers" },
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
+  { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Customers", icon: Users, path: "/customers" },
-  { label: "Renewals", icon: RefreshCw, path: "/renewals" },
 ];
 
 const WHATSAPP_CHILDREN = [
@@ -30,26 +30,20 @@ const WHATSAPP_CHILDREN = [
 ];
 
 const BOTTOM_NAV = [
-  { label: "Engineers", icon: Wrench, path: "/engineers" },
-  { label: "Team", icon: UsersRound, path: "/team" },
-  { label: "Audit Log", icon: ScrollText, path: "/audit-log" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 // Mobile: flatten but group WhatsApp as single item
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Incoming", icon: Inbox, path: "/incoming" },
+  { label: "Renewals", icon: RefreshCw, path: "/renewals" },
+  { label: "Customers", icon: Users, path: "/customers" },
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
+  { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Quotes", icon: Euro, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Customers", icon: Users, path: "/customers" },
-  { label: "Renewals", icon: RefreshCw, path: "/renewals" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
-  { label: "Engineers", icon: Wrench, path: "/engineers" },
-  { label: "Team", icon: UsersRound, path: "/team" },
-  { label: "Audit Log", icon: ScrollText, path: "/audit-log" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
