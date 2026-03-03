@@ -7,8 +7,6 @@ import { ProblemSection } from "@/components/landing/ProblemSection";
 import { NeverMissBookingSection } from "@/components/landing/NeverMissBookingSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
-import { PricingSection } from "@/components/landing/PricingSection";
-import { FinalCTASection } from "@/components/landing/FinalCTASection";
 import { FooterSection } from "@/components/landing/FooterSection";
 
 const Index = () => {
@@ -23,8 +21,6 @@ const Index = () => {
       <NeverMissBookingSection />
       <HowItWorksSection />
       <FeaturesSection />
-      <PricingSection />
-      <FinalCTASection />
       <FooterSection />
     </main>
   );
