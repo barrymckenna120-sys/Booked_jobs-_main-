@@ -3,7 +3,7 @@ import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 
 const EngineerCompleted = () => {
-  const { completedJobs, customers, loading, updateJob } = useEngineerJobs();
+  const { completedJobs, customers, loading, updateJob, jobPhotos } = useEngineerJobs();
 
   return (
     <>
@@ -17,7 +17,7 @@ const EngineerCompleted = () => {
         </div>
       ) : (
         completedJobs.map((job: any) => (
-          <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} />
+          <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} photos={jobPhotos[job.id] || []} />
         ))
       )}
     </>
