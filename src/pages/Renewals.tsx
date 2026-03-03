@@ -149,6 +149,7 @@ const Renewals = () => {
   });
 
   const filtered = withStatus
+    .filter((c) => !isResolved(c)) // Hide booked/paid from list
     .filter((c) => {
       if (filter === "All") return true;
       if (filter === "Contacted") return c.contactedRecently || reminderSent[c.id];
