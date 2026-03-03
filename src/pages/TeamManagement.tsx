@@ -289,8 +289,8 @@ const TeamManagement = () => {
       return;
     }
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(member.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke("send-reset-email", {
+        body: { email: member.email },
       });
       if (error) throw error;
       toast({ title: `Password reset email sent to ${member.email}` });
