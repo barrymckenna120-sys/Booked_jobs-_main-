@@ -148,6 +148,9 @@ const Renewals = () => {
     return { ...c, daysUntil, renewalStatus: getStatus(daysUntil), contactedRecently: isContactedRecently(c.last_reminder_sent), stage };
   });
 
+  // Customers with stage "booked" or "paid" are resolved — exclude from overdue/due-soon
+  const isResolved = (c: typeof withStatus[0]) => c.stage === "booked" || c.stage === "paid";
+
   const filtered = withStatus
     .filter((c) => !isResolved(c)) // Hide booked/paid from list
     .filter((c) => {
@@ -165,9 +168,6 @@ const Renewals = () => {
       return c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
     })
     .sort((a, b) => a.daysUntil - b.daysUntil);
-
-  // Customers with stage "booked" or "paid" are resolved — exclude from overdue/due-soon
-  const isResolved = (c: typeof withStatus[0]) => c.stage === "booked" || c.stage === "paid";
 
   const counts = {
     overdue: withStatus.filter((c) => c.renewalStatus === "Overdue" && !isResolved(c)).length,
