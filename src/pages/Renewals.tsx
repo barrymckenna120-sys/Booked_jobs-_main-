@@ -204,6 +204,7 @@ const Renewals = () => {
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
   const urgentCustomers = withStatus
     .filter(c => {
+      if (isResolved(c)) return false;
       if (!c.next_service_due) return false;
       const dueDate = new Date(c.next_service_due);
       return dueDate <= weekEnd;
