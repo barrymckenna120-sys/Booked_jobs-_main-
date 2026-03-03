@@ -30,8 +30,10 @@ const AlertsPanel = () => {
           .eq("incoming_status", "Pending"),
         supabase
           .from("customers")
-          .select("next_service_due")
-          .not("next_service_due", "is", null),
+          .select("next_service_due, renewal_stage, is_archived")
+          .not("next_service_due", "is", null)
+          .eq("is_archived", false)
+          .not("renewal_stage", "in", '("booked","paid")'),
       ]);
 
       // Compute overdue / due soon client-side to match Renewals page logic
