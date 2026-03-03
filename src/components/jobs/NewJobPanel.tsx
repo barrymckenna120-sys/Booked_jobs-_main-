@@ -33,9 +33,9 @@ const JOB_TYPES = [
 ];
 
 const TIME_BLOCKS = [
-  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9–11" },
-  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11–2" },
-  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2–5" },
+  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9am–11am" },
+  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11am–1pm" },
+  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2pm–5pm" },
 ];
 
 const PAYMENT_OPTIONS = [
@@ -662,7 +662,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
         scheduled_date: finalData.schedule.date,
-        time_block: finalData.schedule.timeBlock,
+        time_block: TIME_BLOCKS.find(t => t.id === finalData.schedule.timeBlock)?.dbValue || finalData.schedule.timeBlock,
         assigned_engineer_id: finalData.schedule.engineerId,
         assigned_engineer: eng?.name || null,
         status: "Booked",

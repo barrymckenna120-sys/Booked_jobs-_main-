@@ -17,6 +17,14 @@ import CancelJobModal from "@/components/jobs/CancelJobModal";
 
 const TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"] as const;
 
+// Normalize all time_block variants to canonical form
+const BLOCK_MAP: Record<string, string> = {
+  "9–11": "9am–11am", "9-11": "9am–11am", "morning": "9am–11am", "Morning": "9am–11am", "9am–11am": "9am–11am",
+  "11–2": "11am–1pm", "11-2": "11am–1pm", "midday": "11am–1pm", "Midday": "11am–1pm", "11am–1pm": "11am–1pm",
+  "2–5": "2pm–5pm", "2-5": "2pm–5pm", "afternoon": "2pm–5pm", "Afternoon": "2pm–5pm", "2pm–5pm": "2pm–5pm",
+};
+const normalizeBlock = (b: string | null) => (b ? BLOCK_MAP[b] || b : null);
+
 export type ScheduleJob = {
   id: string;
   customer_id: string;
@@ -110,7 +118,7 @@ const Schedule = () => {
     return jobs.find(
       (j) =>
         j.scheduled_date === dateStr &&
-        j.time_block === timeBlock &&
+        normalizeBlock(j.time_block) === timeBlock &&
         j.status !== "New" &&
         j.status !== "Contacted" &&
         (engineerName === "all" || !engineerName || j.assigned_engineer === engineerName)
@@ -122,7 +130,7 @@ const Schedule = () => {
     return jobs.some(
       (j) =>
         j.scheduled_date === dateStr &&
-        j.time_block === timeBlock &&
+        normalizeBlock(j.time_block) === timeBlock &&
         j.assigned_engineer === engineerName &&
         j.status !== "Completed" &&
         j.status !== "Cancelled"
