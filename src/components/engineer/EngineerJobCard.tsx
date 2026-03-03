@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
 import NoteSheet from "./NoteSheet";
-import PhotoSheet from "./PhotoSheet";
+import MediaSheet from "./MediaSheet";
 import JobDetailSheet from "./JobDetailSheet";
 import ExtraWorkSheet from "./ExtraWorkSheet";
 import JobPhotoThumbnails from "./JobPhotoThumbnails";
@@ -141,7 +141,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
               <StickyNote className="w-3.5 h-3.5" /> Note
             </Button>
             <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => setShowPhotos(true)}>
-              <Camera className="w-3.5 h-3.5" /> Photo
+              <Camera className="w-3.5 h-3.5" /> Media
             </Button>
             {isActive && (
               <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => setShowExtraWork(true)}>
@@ -203,7 +203,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any) => { onUpdate(job.id, { status: "Completed", ...data }); setShowComplete(false); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
-      {showPhotos && <PhotoSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
+      {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
       {showExtraWork && <ExtraWorkSheet job={job} customer={customer} onClose={() => setShowExtraWork(false)} />}
     </>
   );
