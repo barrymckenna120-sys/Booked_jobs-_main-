@@ -166,6 +166,19 @@ const TeamManagement = () => {
       } else {
         toast({ title: `${inviteForm.name} added — invite email sent to ${email}` });
       }
+
+      // Send branded welcome email via Resend
+      supabase.functions.invoke("send-email", {
+        body: {
+          type: "welcome",
+          data: {
+            name: inviteForm.name.trim(),
+            email,
+            role: inviteForm.role,
+            loginUrl: `${window.location.origin}/auth`,
+          },
+        },
+      }).catch(() => {}); // fire-and-forget
     } else {
       toast({ title: `${inviteForm.name} added as ${ROLES[inviteForm.role]?.label}` });
     }

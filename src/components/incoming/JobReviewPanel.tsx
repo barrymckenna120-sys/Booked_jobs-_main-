@@ -97,6 +97,48 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     } as any).eq("id", job.id);
     setAssigning(false);
     logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: job.id, detail: `Incoming job assigned to ${assignEngineer} on ${assignDate}` });
+
+    const jobRef = `BJ-${job.id.slice(0, 6).toUpperCase()}`;
+
+    // Send Job Assigned email to engineer
+    const engRecord = engineers.find((e: any) => e.name === assignEngineer);
+    if (engRecord?.email) {
+      supabase.functions.invoke("send-email", {
+        body: {
+          type: "job_assigned",
+          data: {
+            engineerEmail: engRecord.email,
+            engineerName: assignEngineer,
+            jobRef,
+            date: assignDate,
+            time: assignTime || "",
+            customerName: customer.name,
+            address: `${customer.address}, ${customer.eircode}`,
+            phone: customer.phone,
+            jobType: job.job_type,
+          },
+        },
+      }).catch(() => {});
+    }
+
+    // Send Appointment Confirmation email to customer
+    if (customer.email) {
+      supabase.functions.invoke("send-email", {
+        body: {
+          type: "appointment_confirmation",
+          data: {
+            customerEmail: customer.email,
+            customerName: customer.name,
+            date: assignDate,
+            time: assignTime || "",
+            engineerName: assignEngineer,
+            serviceType: job.job_type,
+            jobRef,
+          },
+        },
+      }).catch(() => {});
+    }
+
     toast({ title: `Job assigned to ${assignEngineer}` });
     onUpdated();
     onClose();
