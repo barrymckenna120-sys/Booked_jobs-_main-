@@ -5,6 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// --- Input validation helpers ---
+const MAX_NAME_LEN = 200
+const MAX_ADDRESS_LEN = 500
+const MAX_TEXT_LEN = 1000
+const MAX_SHORT_LEN = 100
+const MAX_FILES = 10
+
+const sanitize = (val: string | null, maxLen: number): string | null => {
+  if (!val || typeof val !== 'string') return null
+  return val.trim().substring(0, maxLen) || null
+}
+
+const isValidEmail = (email: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+const isValidPhone = (phone: string): boolean =>
+  /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ''))
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -29,24 +47,41 @@ Deno.serve(async (req) => {
         f.label?.toLowerCase().includes(label.toLowerCase())
       )?.value ?? null
 
-    // Parse form data
-    const name = get('full name')
-    const phone = get('mobile')
-    const email = get('email')
-    const address = get('address')
-    const eircode = get('eircode')
-    const areaCode = get('area code')
-    const boilerBrand = get('boiler brand')
-    const boilerModel = get('boiler model')
+    // Parse and sanitize form data
+    const name = sanitize(get('full name'), MAX_NAME_LEN)
+    const rawPhone = get('mobile')
+    const phone = sanitize(rawPhone, MAX_SHORT_LEN)
+    const rawEmail = get('email')
+    const email = sanitize(rawEmail, MAX_NAME_LEN)
+    const address = sanitize(get('address'), MAX_ADDRESS_LEN)
+    const eircode = sanitize(get('eircode'), 10)
+    const areaCode = sanitize(get('area code'), 10)
+    const boilerBrand = sanitize(get('boiler brand'), MAX_SHORT_LEN)
+    const boilerModel = sanitize(get('boiler model'), MAX_SHORT_LEN)
     const isWorking = get('boiler working')
-    const issue = get('issue')
-    const notes = get('additional notes')
-    const prefTime = get('preferred time')
-    const prefDate = get('preferred date')
-    const submissionId = body.eventId ?? body.id
+    const issue = sanitize(get('issue'), MAX_TEXT_LEN)
+    const notes = sanitize(get('additional notes'), MAX_TEXT_LEN)
+    const prefTime = sanitize(get('preferred time'), 10)
+    const prefDate = sanitize(get('preferred date'), 20)
+    const submissionId = sanitize(String(body.eventId ?? body.id ?? ''), MAX_SHORT_LEN)
 
+    // Validate required fields
     if (!name || !phone) {
       return new Response(JSON.stringify({ error: 'Name and phone are required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!isValidPhone(phone)) {
+      return new Response(JSON.stringify({ error: 'Invalid phone number format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (email && !isValidEmail(email)) {
+      return new Response(JSON.stringify({ error: 'Invalid email format' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -59,7 +94,7 @@ Deno.serve(async (req) => {
       '13:00': 'Midday',
       '15:00': 'Afternoon',
     }
-    const timeBlock = timeBlockMap[prefTime] ?? 'Morning'
+    const timeBlock = timeBlockMap[prefTime ?? ''] ?? 'Morning'
 
     // We need a user_id for RLS — get the first user (single-tenant app)
     const { data: firstSettings } = await supabase
@@ -70,7 +105,8 @@ Deno.serve(async (req) => {
 
     const userId = firstSettings?.user_id
     if (!userId) {
-      return new Response(JSON.stringify({ error: 'No business user found' }), {
+      console.error('No business user found in settings')
+      return new Response(JSON.stringify({ error: 'Unable to process submission.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -108,7 +144,8 @@ Deno.serve(async (req) => {
         .single()
 
       if (insertErr || !newCustomer) {
-        return new Response(JSON.stringify({ error: 'Failed to create customer', details: insertErr }), {
+        console.error('Customer creation failed:', insertErr)
+        return new Response(JSON.stringify({ error: 'Unable to process submission.' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -138,7 +175,8 @@ Deno.serve(async (req) => {
       .single()
 
     if (jobErr || !job) {
-      return new Response(JSON.stringify({ error: 'Failed to create job', details: jobErr }), {
+      console.error('Job creation failed:', jobErr)
+      return new Response(JSON.stringify({ error: 'Unable to process submission.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -149,12 +187,16 @@ Deno.serve(async (req) => {
       f.type === 'FILE_UPLOAD' && f.value?.length > 0
     )
 
+    let fileCount = 0
     for (const fileField of fileFields) {
       for (const fileUrl of fileField.value) {
+        if (fileCount >= MAX_FILES) break
         try {
           const fileResponse = await fetch(fileUrl.url)
           const fileBuffer = await fileResponse.arrayBuffer()
-          const fileName = fileUrl.name ?? `upload-${Date.now()}`
+          const rawName = sanitize(fileUrl.name, MAX_SHORT_LEN) ?? `upload-${Date.now()}`
+          // Sanitize file name to prevent path traversal
+          const fileName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_')
           const storagePath = `customers/${customerId}/${job.id}/${fileName}`
           const isVideo = /\.(mp4|mov|avi)$/i.test(fileName)
 
@@ -179,13 +221,14 @@ Deno.serve(async (req) => {
             public_url: publicUrl,
             uploaded_by: 'customer',
           })
+          fileCount++
         } catch (fileErr) {
           console.error('File upload error:', fileErr)
         }
       }
     }
 
-    return new Response(JSON.stringify({ success: true, jobId: job.id }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
