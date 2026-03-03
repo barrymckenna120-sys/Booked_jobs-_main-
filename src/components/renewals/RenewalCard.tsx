@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDistanceToNow, isToday } from "date-fns";
-import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin } from "lucide-react";
+import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore } from "lucide-react";
 
 type RenewalCustomer = {
   id: string;
@@ -25,6 +25,8 @@ type Props = {
   onSendReminder: () => void;
   onBook: () => void;
   onStageChange?: (newStage: string) => void;
+  onArchive?: () => void;
+  isArchived?: boolean;
 };
 
 const STAGE_DISPLAY: Record<string, { label: string; Icon: React.ComponentType<any>; textClass: string; bgClass: string }> = {
@@ -73,7 +75,7 @@ const STAGE_OPTIONS = [
   { value: "paid",          label: "Paid",          Icon: Wallet },
 ];
 
-const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange }: Props) => {
+const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange, onArchive, isArchived }: Props) => {
   const leftBorder = borderColorMap[status] || "border-l-success";
   const dueDate = formatDueDate(customer.next_service_due, status);
   const contacted = formatLastContacted(lastContacted);
@@ -133,21 +135,32 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant={reminderSent ? "outline" : "default"}
-          className="flex-1 text-xs gap-1"
-          onClick={onSendReminder}
-        >
-          {reminderSent ? (
-            <><MessageCircle className="w-3 h-3" /> Resend</>
-          ) : (
-            <><Send className="w-3 h-3" /> Send Reminder</>
-          )}
-        </Button>
-        <Button size="sm" variant="outline" className="flex-1 text-xs gap-1" onClick={onBook}>
-          <CalendarCheck className="w-3 h-3" /> Book
-        </Button>
+        {isArchived ? (
+          <Button size="sm" variant="outline" className="flex-1 text-xs gap-1" onClick={onArchive}>
+            <ArchiveRestore className="w-3 h-3" /> Restore
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant={reminderSent ? "outline" : "default"}
+              className="flex-1 text-xs gap-1"
+              onClick={onSendReminder}
+            >
+              {reminderSent ? (
+                <><MessageCircle className="w-3 h-3" /> Resend</>
+              ) : (
+                <><Send className="w-3 h-3" /> Send Reminder</>
+              )}
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 text-xs gap-1" onClick={onBook}>
+              <CalendarCheck className="w-3 h-3" /> Book
+            </Button>
+            <Button size="sm" variant="ghost" className="text-xs gap-1 px-2 text-muted-foreground" onClick={onArchive} title="Archive">
+              <Archive className="w-3 h-3" />
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
