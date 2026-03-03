@@ -2,7 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -38,52 +40,87 @@ import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
+/**
+ * Global guard: if the URL contains a recovery token (hash or query),
+ * redirect to /reset-password before any other route renders.
+ * Also listens for the PASSWORD_RECOVERY auth event as a fallback.
+ */
+const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === "/reset-password") return;
+
+    const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    const isRecovery =
+      hash.includes("type=recovery") ||
+      params.get("type") === "recovery";
+
+    if (isRecovery) {
+      navigate("/reset-password" + window.location.hash, { replace: true });
+      return;
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" && location.pathname !== "/reset-password") {
+        navigate("/reset-password", { replace: true });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate, location.pathname]);
+
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-            <Route path="/jobs" element={<Jobs />} />
-            <Route path="/jobs/:id" element={<JobDetail />} />
-            <Route path="/quotes" element={<Quotes />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/customers/:id" element={<CustomerDetail />} />
-            <Route path="/renewals" element={<Renewals />} />
-            <Route path="/whatsapp" element={<WhatsApp />} />
-            <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
-            <Route path="/incoming" element={<IncomingJobs />} />
-            <Route path="/engineers" element={<EngineerAvailability />} />
-            <Route path="/finance" element={<Finance />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/import" element={<ImportCustomers />} />
-            <Route path="/team" element={<TeamManagement />} />
-            <Route path="/audit-log" element={<AuditLog />} />
-          </Route>
-          {/* Engineer Mode */}
-          <Route path="/engineer" element={<EngineerLayout />}>
-            <Route index element={<Navigate to="/engineer/today" replace />} />
-          <Route path="today" element={<EngineerToday />} />
-            <Route path="upcoming" element={<EngineerUpcoming />} />
-            <Route path="completed" element={<EngineerCompleted />} />
-          </Route>
-          {/* Engineer job detail — outside layout (no bottom nav) */}
-          <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
-          {/* Legacy route redirect */}
-          <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
-          <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-          <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <RecoveryRedirectGuard>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/jobs/:id" element={<JobDetail />} />
+              <Route path="/quotes" element={<Quotes />} />
+              <Route path="/customers" element={<Customers />} />
+              <Route path="/customers/:id" element={<CustomerDetail />} />
+              <Route path="/renewals" element={<Renewals />} />
+              <Route path="/whatsapp" element={<WhatsApp />} />
+              <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
+              <Route path="/incoming" element={<IncomingJobs />} />
+              <Route path="/engineers" element={<EngineerAvailability />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/schedule" element={<Schedule />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/import" element={<ImportCustomers />} />
+              <Route path="/team" element={<TeamManagement />} />
+              <Route path="/audit-log" element={<AuditLog />} />
+            </Route>
+            {/* Engineer Mode */}
+            <Route path="/engineer" element={<EngineerLayout />}>
+              <Route index element={<Navigate to="/engineer/today" replace />} />
+              <Route path="today" element={<EngineerToday />} />
+              <Route path="upcoming" element={<EngineerUpcoming />} />
+              <Route path="completed" element={<EngineerCompleted />} />
+            </Route>
+            <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
+            <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
+            <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+            <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </RecoveryRedirectGuard>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
