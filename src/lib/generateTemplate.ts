@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 export const generateImportTemplate = () => {
   const wb = XLSX.utils.book_new();

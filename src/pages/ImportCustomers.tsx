@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 const COLUMN_MAP = {
   name: 0,
