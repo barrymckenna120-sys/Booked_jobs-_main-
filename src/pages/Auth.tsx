@@ -88,8 +88,8 @@ const Auth = () => {
     if (!email.trim()) return;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke("send-reset-email", {
+        body: { email: email.trim() },
       });
       if (error) throw error;
       setResetSent(true);
