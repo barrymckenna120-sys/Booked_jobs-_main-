@@ -38,7 +38,7 @@ const JobPhotoThumbnails = ({ photos }: JobPhotoThumbnailsProps) => {
             >
               {isVideo(p) ? (
                 <>
-                  <video src={p.url} className="w-full h-full object-cover" muted preload="metadata" />
+                  <video src={p.url} className="w-full h-full object-cover" muted preload="metadata" playsInline />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <Play className="w-5 h-5 text-white fill-white" />
                   </div>
@@ -58,6 +58,7 @@ const JobPhotoThumbnails = ({ photos }: JobPhotoThumbnailsProps) => {
               src={selected.url}
               controls
               autoPlay
+              playsInline
               className="w-full max-h-[80vh] rounded-lg"
             />
           ) : selected ? (
