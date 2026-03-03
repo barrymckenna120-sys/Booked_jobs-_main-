@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
+import { formatDateIE } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,7 +208,7 @@ const JobDetail = () => {
             {statusBadge(job.status)}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {job.scheduled_date || "No date"} · {job.time_block || "No time"} · {job.assigned_engineer || "Unassigned"}
+            {formatDateIE(job.scheduled_date)} · {job.time_block || "No time"} · {job.assigned_engineer || "Unassigned"}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>

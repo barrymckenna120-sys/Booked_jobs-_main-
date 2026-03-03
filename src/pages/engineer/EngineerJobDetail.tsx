@@ -232,7 +232,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             Icon={job.deposit_paid ? CreditCard : Hourglass}
             full
           />
-          <InfoTile label="Last Service" value={customer.last_service_date} Icon={Calendar} />
+          <InfoTile label="Last Service" value={customer.last_service_date ? new Date(customer.last_service_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : null} Icon={Calendar} />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
         </div>
 
