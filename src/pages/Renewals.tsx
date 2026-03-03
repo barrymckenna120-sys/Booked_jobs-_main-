@@ -131,6 +131,12 @@ const Renewals = () => {
 
   useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
 
+  // Auto-refresh every 30s so counters stay current
+  useEffect(() => {
+    const interval = setInterval(fetchCustomers, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCustomers]);
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   const businessName = settings?.business_name || "BookedJobs";
@@ -159,12 +165,15 @@ const Renewals = () => {
     })
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
+  // Customers with stage "booked" or "paid" are resolved — exclude from overdue/due-soon
+  const isResolved = (c: typeof withStatus[0]) => c.stage === "booked" || c.stage === "paid";
+
   const counts = {
-    overdue: withStatus.filter((c) => c.renewalStatus === "Overdue").length,
-    dueSoon: withStatus.filter((c) => c.renewalStatus === "Due Soon").length,
-    upToDate: withStatus.filter((c) => c.renewalStatus === "Up to Date").length,
+    overdue: withStatus.filter((c) => c.renewalStatus === "Overdue" && !isResolved(c)).length,
+    dueSoon: withStatus.filter((c) => c.renewalStatus === "Due Soon" && !isResolved(c)).length,
+    upToDate: withStatus.filter((c) => c.renewalStatus === "Up to Date" || isResolved(c)).length,
     contacted: withStatus.filter((c) => c.contactedRecently || reminderSent[c.id]).length,
-    needReminder: withStatus.filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date").length,
+    needReminder: withStatus.filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date" && !isResolved(c)).length,
   };
 
   const stageCounts: Record<string, number> = {
@@ -183,11 +192,12 @@ const Renewals = () => {
   const confirmedCount = stageCounts["Confirmed"];
   const remindedCount = stageCounts["Reminded"];
 
-  // Hero stats - due in next 30 days
-  const dueIn30 = withStatus.filter(c => c.daysUntil <= 30).length;
+  // Hero stats - due in next 30 days (exclude resolved)
+  const dueIn30Unresolved = withStatus.filter(c => c.daysUntil <= 30 && !isResolved(c));
+  const dueIn30 = dueIn30Unresolved.length;
   const valueAtRisk = dueIn30 * servicePrice;
-  const notContactedCount = withStatus.filter(c => c.daysUntil <= 30 && c.stage === "not_contacted").length;
-  const remindedIn30 = withStatus.filter(c => c.daysUntil <= 30 && c.stage === "reminded").length;
+  const notContactedCount = dueIn30Unresolved.filter(c => c.stage === "not_contacted").length;
+  const remindedIn30 = dueIn30Unresolved.filter(c => c.stage === "reminded").length;
 
   // Urgent - due this week
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
