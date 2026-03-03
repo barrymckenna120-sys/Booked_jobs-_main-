@@ -3,21 +3,27 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2, Wrench, Users, ClipboardList } from "lucide-react";
 import GeneralTab from "@/components/settings/GeneralTab";
 import WhatsAppTab from "@/components/settings/WhatsAppTab";
 import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
 import RemindersTab from "@/components/settings/RemindersTab";
 import SecurityTab from "@/components/settings/SecurityTab";
 import DataTab from "@/components/settings/DataTab";
+import EngineerAvailabilityTab from "@/components/settings/EngineerAvailabilityTab";
+import TeamManagementTab from "@/components/settings/TeamManagementTab";
+import AuditLogTab from "@/components/settings/AuditLogTab";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
+  { key: "engineers", label: "Engineers", icon: Wrench },
+  { key: "team", label: "Team", icon: Users },
   { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   { key: "business", label: "Business", icon: Building2 },
   { key: "reminders", label: "Reminders", icon: Bell },
   { key: "data", label: "Data", icon: Database },
   { key: "security", label: "Security", icon: Shield },
+  { key: "audit", label: "Audit Log", icon: ClipboardList },
 ];
 
 const Settings = () => {
@@ -99,11 +105,14 @@ const Settings = () => {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeTab === "general" && <GeneralTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "engineers" && <EngineerAvailabilityTab />}
+          {activeTab === "team" && <TeamManagementTab />}
           {activeTab === "whatsapp" && <WhatsAppTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "business" && <BusinessProfileTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "data" && <DataTab />}
           {activeTab === "security" && <SecurityTab />}
+          {activeTab === "audit" && <AuditLogTab />}
         </div>
       </div>
     </div>
