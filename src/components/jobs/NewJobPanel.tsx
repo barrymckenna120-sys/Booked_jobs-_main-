@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -549,6 +549,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock, prefilledEngineer, prefilledJobType }: NewJobPanelProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -625,6 +626,9 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
       setJobData(finalData);
       setDone(true);
+      queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast({ title: "Job created ✔", description: `${finalData.customer.name} · ${finalData.job.jobType}` });
     } catch (err: any) {
       toast({ title: "Error creating job", description: err.message, variant: "destructive" });
