@@ -139,9 +139,6 @@ Deno.serve(async (req) => {
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: {
-        redirectTo: `${APP_URL}/reset-password`,
-      },
     });
 
     if (linkError) {
@@ -152,16 +149,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build the confirmation URL from the token
-    const actionLink = linkData?.properties?.action_link;
-    if (!actionLink) {
-      console.error("No action_link returned from generateLink");
+    // Use the OTP token directly — bypass Supabase redirect to avoid 404s
+    const otp = linkData?.properties?.email_otp;
+    if (!otp) {
+      console.error("No email_otp returned from generateLink");
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const html = resetEmailHtml(actionLink);
+    // Build a direct link to the app with token and email as query params
+    const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(otp)}&email=${encodeURIComponent(email)}`;
+
+    const html = resetEmailHtml(resetUrl);
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

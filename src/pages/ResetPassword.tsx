@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { Button } from "@/components/ui/button";
@@ -17,29 +17,59 @@ const ResetPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [hasRecovery, setHasRecovery] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event from the redirect
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setHasRecovery(true);
+    const verifyToken = async () => {
+      // Check for OTP token + email in query params (from custom Resend email)
+      const token = searchParams.get("token");
+      const email = searchParams.get("email");
+
+      if (token && email) {
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type: "recovery",
+        });
+        if (otpError) {
+          console.error("OTP verification failed:", otpError);
+          setError("This reset link has expired or is invalid. Please request a new one.");
+          setChecking(false);
+          return;
+        }
+        setSessionReady(true);
+        setChecking(false);
+        return;
       }
-      setChecking(false);
-    });
 
-    // Also check hash for recovery token
-    const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setHasRecovery(true);
-    }
-    // Give auth state a moment to process
-    setTimeout(() => setChecking(false), 2000);
+      // Fallback: check for hash-based recovery token (from Supabase built-in flow)
+      const hash = window.location.hash;
+      if (hash.includes("type=recovery")) {
+        setSessionReady(true);
+        setChecking(false);
+        return;
+      }
 
-    return () => subscription.unsubscribe();
-  }, []);
+      // Listen for PASSWORD_RECOVERY event
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setSessionReady(true);
+        }
+        setChecking(false);
+      });
+
+      // Give auth state a moment to process
+      setTimeout(() => setChecking(false), 2000);
+
+      return () => subscription.unsubscribe();
+    };
+
+    verifyToken();
+  }, [searchParams]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +86,6 @@ const ResetPassword = () => {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
-      // Log the completion
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         logAudit({
@@ -81,6 +110,27 @@ const ResetPassword = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-muted flex items-center justify-center px-4">
+        <Card className="w-full max-w-md shadow-md border-border/60">
+          <CardHeader className="text-center space-y-3 pb-2">
+            <img src={bookedJobsLogo} alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
+            <div>
+              <CardTitle className="text-xl text-foreground">Link Expired</CardTitle>
+              <CardDescription className="mt-1">{error}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 text-center">
+            <Button onClick={() => navigate("/auth")} className="w-full">
+              Back to Sign In
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
