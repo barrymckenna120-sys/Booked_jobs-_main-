@@ -41,7 +41,7 @@ const filterStyles: Record<string, { active: string; inactive: string }> = {
   Pending:  { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
   Assigned: { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
   Rejected: { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
-  Archived: { active: "border-muted-foreground bg-muted text-muted-foreground", inactive: "border-border text-muted-foreground" },
+  Archived: { active: "border-2 border-primary bg-primary text-primary-foreground font-bold", inactive: "border-2 border-primary/40 text-primary font-bold" },
 };
 
 const IncomingJobs = () => {
