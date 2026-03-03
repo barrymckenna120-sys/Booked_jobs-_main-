@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const PAGE_SIZE = 15;
 
@@ -28,6 +29,7 @@ const Jobs = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [page, setPage] = useState(0);
 
@@ -35,7 +37,7 @@ const Jobs = () => {
     if (user) fetchJobs();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [statusFilter, typeFilter]);
+  useEffect(() => { setPage(0); }, [statusFilter, typeFilter, search]);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -59,7 +61,8 @@ const Jobs = () => {
   const filtered = jobs.filter(j => {
     const matchStatus = statusFilter === "all" || j.status === statusFilter;
     const matchType = typeFilter === "all" || j.job_type === typeFilter;
-    return matchStatus && matchType;
+    const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
+    return matchStatus && matchType && matchSearch;
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -89,6 +92,15 @@ const Jobs = () => {
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
 
       <div className="flex flex-wrap gap-3">
+        <div className="relative w-full sm:w-[240px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customer..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent className="bg-popover z-50">
