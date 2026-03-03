@@ -71,7 +71,7 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
           {media.map((m, i) => (
             <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary">
               {isVideo(m.type) ? (
-                <video src={m.url} className="w-full h-full object-cover" muted />
+                <video src={m.url} className="w-full h-full object-cover" muted playsInline />
               ) : (
                 <img src={m.url} alt="" className="w-full h-full object-cover" />
               )}
