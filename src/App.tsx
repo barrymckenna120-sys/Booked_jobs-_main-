@@ -97,13 +97,11 @@ const App = () => (
               <Route path="/whatsapp" element={<WhatsApp />} />
               <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
               <Route path="/incoming" element={<IncomingJobs />} />
-              <Route path="/engineers" element={<EngineerAvailability />} />
+              
               <Route path="/finance" element={<Finance />} />
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/import" element={<ImportCustomers />} />
-              <Route path="/team" element={<TeamManagement />} />
-              <Route path="/audit-log" element={<AuditLog />} />
             </Route>
             {/* Engineer Mode */}
             <Route path="/engineer" element={<EngineerLayout />}>
