@@ -35,12 +35,25 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Handle recovery redirect: /auth?type=recovery with hash tokens
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+    if (params.get("type") === "recovery" || hash.includes("type=recovery")) {
+      // Let the ResetPassword page handle the session via hash
+      navigate("/reset-password" + hash, { replace: true });
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         navigate("/dashboard", { replace: true });
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        navigate("/reset-password", { replace: true });
+        return;
+      }
       if (session?.user) {
         navigate("/dashboard", { replace: true });
       }
