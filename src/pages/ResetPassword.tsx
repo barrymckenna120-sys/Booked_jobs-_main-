@@ -46,7 +46,7 @@ const ResetPassword = () => {
         return;
       }
 
-      // Fallback: check for hash-based recovery token (from Supabase built-in flow)
+      // Check for hash-based recovery token (from Supabase built-in flow)
       const hash = window.location.hash;
       if (hash.includes("type=recovery")) {
         setSessionReady(true);
@@ -54,7 +54,15 @@ const ResetPassword = () => {
         return;
       }
 
-      // Listen for PASSWORD_RECOVERY event
+      // Check if there's already an active session (redirected after PASSWORD_RECOVERY event)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setSessionReady(true);
+        setChecking(false);
+        return;
+      }
+
+      // Listen for PASSWORD_RECOVERY event as fallback
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
         if (event === "PASSWORD_RECOVERY") {
           setSessionReady(true);
@@ -63,7 +71,9 @@ const ResetPassword = () => {
       });
 
       // Give auth state a moment to process
-      setTimeout(() => setChecking(false), 2000);
+      setTimeout(() => {
+        setChecking(false);
+      }, 3000);
 
       return () => subscription.unsubscribe();
     };
@@ -95,6 +105,15 @@ const ResetPassword = () => {
           detail: `Password reset completed by ${user.email}`,
           metadata: { target_email: user.email, triggered_by: "self" },
         });
+
+        // Redirect to correct dashboard based on role
+        try {
+          const { data: role } = await supabase.rpc("get_user_role", { _user_id: user.id });
+          const dest = role === "engineer" ? "/engineer/today" : "/dashboard";
+          toast({ title: "Password updated successfully" });
+          navigate(dest, { replace: true });
+          return;
+        } catch {}
       }
 
       toast({ title: "Password updated successfully" });
