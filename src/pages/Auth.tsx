@@ -35,29 +35,38 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Handle recovery redirect: /auth?type=recovery with hash tokens
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
-    if (params.get("type") === "recovery" || hash.includes("type=recovery")) {
-      // Let the ResetPassword page handle the session via hash
-      navigate("/reset-password" + hash, { replace: true });
-      return;
-    }
+    const isRecovery = params.get("type") === "recovery" || hash.includes("type=recovery");
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        navigate("/dashboard", { replace: true });
-      }
-    });
+    // Set up auth listener FIRST (before getSession) to catch PASSWORD_RECOVERY
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         navigate("/reset-password", { replace: true });
         return;
       }
+      // Don't redirect to dashboard if this is a recovery flow
+      if (isRecovery) return;
       if (session?.user) {
         navigate("/dashboard", { replace: true });
       }
     });
+
+    // If hash contains recovery tokens (non-PKCE flow), redirect immediately
+    if (hash.includes("type=recovery") && hash.includes("access_token")) {
+      navigate("/reset-password" + hash, { replace: true });
+      return () => subscription.unsubscribe();
+    }
+
+    // For non-recovery flows, check existing session
+    if (!isRecovery) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          navigate("/dashboard", { replace: true });
+        }
+      });
+    }
+
     return () => subscription.unsubscribe();
   }, [navigate]);
 
