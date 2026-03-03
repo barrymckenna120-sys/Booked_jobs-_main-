@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ const paymentVariant = (s: string) => {
 };
 
 const ServiceHistory = ({ customerId }: { customerId: string }) => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +76,7 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
                   {jobs.map((j) => {
                     const ps = paymentStatus(j);
                     return (
-                      <TableRow key={j.id}>
+                      <TableRow key={j.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${j.id}`)}>
                         <TableCell className="whitespace-nowrap">
                           {j.scheduled_date
                             ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
