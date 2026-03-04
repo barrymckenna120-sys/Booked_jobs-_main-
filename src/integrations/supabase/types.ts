@@ -534,6 +534,9 @@ export type Database = {
           job_type: string
           needs_scheduling: boolean
           notes: string | null
+          paid_at: string | null
+          payment_collected_by: string | null
+          payment_method: string | null
           revenue: number | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -566,6 +569,9 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
+          paid_at?: string | null
+          payment_collected_by?: string | null
+          payment_method?: string | null
           revenue?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -598,6 +604,9 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
+          paid_at?: string | null
+          payment_collected_by?: string | null
+          payment_method?: string | null
           revenue?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null

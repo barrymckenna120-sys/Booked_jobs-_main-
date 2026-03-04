@@ -9,6 +9,7 @@ import ExtraWorkSheet from "./ExtraWorkSheet";
 import JobPhotoThumbnails from "./JobPhotoThumbnails";
 import NoShowSheet from "./NoShowSheet";
 import PartsNeededSheet from "./PartsNeededSheet";
+import PaymentSheet from "./PaymentSheet";
 import StatusBadge from "./job-card/StatusBadge";
 import InfoPills from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
@@ -34,6 +35,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showNoShow, setShowNoShow] = useState(false);
   const [showPartsNeeded, setShowPartsNeeded] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [completeData, setCompleteData] = useState<any>(null);
 
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
@@ -117,7 +120,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
-      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any) => { onUpdate(job.id, { status: "Completed", ...data }); setShowComplete(false); }} />}
+      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any) => { setCompleteData(data); setShowComplete(false); setShowPayment(true); }} />}
+      {showPayment && <PaymentSheet job={job} customer={customer} onClose={() => { setShowPayment(false); setCompleteData(null); }} onDone={(method: string) => { onUpdate(job.id, { status: "Completed", ...completeData, paymentMethod: method }); setShowPayment(false); setCompleteData(null); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
