@@ -8,7 +8,8 @@ export type NotificationType =
   | "reassigned"
   | "new_repair"
   | "no_show"
-  | "completed";
+  | "completed"
+  | "parts_needed";
 
 export interface AppNotification {
   id: string;
