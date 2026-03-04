@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,17 +20,20 @@ type Job = {
   time_block: string | null;
   assigned_engineer: string | null;
   has_quote: boolean;
+  payment_method: string | null;
   customer_name?: string;
 };
 
 const Jobs = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState(searchParams.get("payment") || "all");
   const [page, setPage] = useState(0);
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -39,7 +42,7 @@ const Jobs = () => {
     if (user) fetchJobs();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [statusFilter, typeFilter, search]);
+  useEffect(() => { setPage(0); }, [statusFilter, typeFilter, search, paymentFilter]);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -75,7 +78,8 @@ const Jobs = () => {
       const matchStatus = statusFilter === "all" || j.status === statusFilter;
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
-      return matchStatus && matchType && matchSearch;
+      const matchPayment = paymentFilter === "all" || j.payment_method === paymentFilter;
+      return matchStatus && matchType && matchSearch && matchPayment;
     })
     .sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
@@ -140,6 +144,15 @@ const Jobs = () => {
             <SelectItem value="Boiler Service">Boiler Service</SelectItem>
             <SelectItem value="Repair">Repair</SelectItem>
             <SelectItem value="Emergency">Emergency</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            <SelectItem value="all">All Payments</SelectItem>
+            <SelectItem value="cash">Cash</SelectItem>
+            <SelectItem value="card">Card</SelectItem>
+            <SelectItem value="invoice">Invoice</SelectItem>
           </SelectContent>
         </Select>
       </div>

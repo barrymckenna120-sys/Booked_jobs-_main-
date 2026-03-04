@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Banknote, CreditCard, FileText, Loader2 } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
@@ -10,6 +11,7 @@ type Period = "today" | "week";
 
 const PaymentSummaryCard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("today");
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
@@ -133,7 +135,10 @@ const PaymentSummaryCard = () => {
             </div>
 
             {invoiceData.count > 0 && (
-              <div className="bg-warning/8 border border-warning/20 rounded-xl p-3.5 flex items-center gap-3">
+              <button
+                onClick={() => navigate("/jobs?payment=invoice")}
+                className="w-full bg-warning/8 border border-warning/20 rounded-xl p-3.5 flex items-center gap-3 hover:bg-warning/15 transition-colors text-left"
+              >
                 <FileText className="w-4 h-4 text-warning shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-foreground">
@@ -143,7 +148,8 @@ const PaymentSummaryCard = () => {
                     €{invoiceData.total.toLocaleString()} to be invoiced
                   </div>
                 </div>
-              </div>
+                <span className="text-xs font-bold text-primary">View →</span>
+              </button>
             )}
 
             {!stats?.cashCount && !stats?.cardCount && !stats?.invoiceCount && (
