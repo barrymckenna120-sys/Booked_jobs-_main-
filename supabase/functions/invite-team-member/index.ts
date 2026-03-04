@@ -41,6 +41,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Verify the caller has admin or office role (not engineer)
+    const { data: callerRole } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    if (callerRole === 'engineer') {
+      return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Use service role to create auth user via invite
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -58,11 +67,14 @@ Deno.serve(async (req) => {
     if (existingUser) {
       authUserId = existingUser.id;
     } else {
-      // Create user with a default password so they can sign in immediately
-      const defaultPassword = "Welcome123!";
+      // Generate a cryptographically random password
+      const randomBytes = new Uint8Array(24);
+      crypto.getRandomValues(randomBytes);
+      const randomPassword = btoa(String.fromCharCode(...randomBytes)) + "!1Aa";
+
       const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
-        password: defaultPassword,
+        password: randomPassword,
         email_confirm: true,
         user_metadata: { display_name: name, role },
       });
@@ -76,6 +88,15 @@ Deno.serve(async (req) => {
       }
 
       authUserId = created.user.id;
+
+      // Trigger a password reset email so user sets their own password
+      const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "recovery",
+        email,
+      });
+      if (resetError) {
+        console.error("Password reset email failed:", resetError);
+      }
     }
 
     // Link the auth user to the engineer record
