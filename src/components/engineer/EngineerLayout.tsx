@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut, Bell } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import { supabase } from "@/integrations/supabase/client";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
+import { useNotifications } from "@/hooks/useNotifications";
+import NotificationBell from "@/components/notifications/NotificationBell";
+import NotificationDrawer from "@/components/notifications/NotificationDrawer";
+import SoundPrompt from "@/components/notifications/SoundPrompt";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -22,6 +26,11 @@ const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { authLoading, todayActive, todayCompleted, upcomingJobs, engineerName } = useEngineerJobs();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const {
+    notifications, unreadCount, markAsRead, markAllRead, dismiss,
+    soundPromptShown, enableSound,
+  } = useNotifications();
 
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
@@ -51,12 +60,22 @@ const EngineerLayout = () => {
             <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover" />
             <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
           </div>
-          <button
-            onClick={async () => { await supabase.auth.signOut(); navigate("/auth"); }}
-            className="flex items-center gap-1.5 text-white/60 hover:text-white/90 transition-colors text-xs font-semibold"
-          >
-            <LogOut className="w-4 h-4" /> Log Out
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setNotifOpen(true)} className="relative text-white/70 hover:text-white transition-colors">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={async () => { await supabase.auth.signOut(); navigate("/auth"); }}
+              className="flex items-center gap-1.5 text-white/60 hover:text-white/90 transition-colors text-xs font-semibold"
+            >
+              <LogOut className="w-4 h-4" /> Log Out
+            </button>
+          </div>
         </div>
 
         <div className="text-[13px] text-white/70 font-medium mb-1">{formatDateHeading(new Date())}</div>
@@ -97,6 +116,19 @@ const EngineerLayout = () => {
           </button>
         ))}
       </div>
+      <NotificationDrawer
+        open={notifOpen}
+        onOpenChange={setNotifOpen}
+        notifications={notifications}
+        onMarkRead={markAsRead}
+        onMarkAllRead={markAllRead}
+        onDismiss={dismiss}
+      />
+      <SoundPrompt
+        open={soundPromptShown}
+        onEnable={() => enableSound(true)}
+        onDismiss={() => enableSound(false)}
+      />
     </div>
   );
 };

@@ -7,6 +7,10 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
+import { useNotifications } from "@/hooks/useNotifications";
+import NotificationBell from "@/components/notifications/NotificationBell";
+import NotificationDrawer from "@/components/notifications/NotificationDrawer";
+import SoundPrompt from "@/components/notifications/SoundPrompt";
 import {
   Collapsible,
   CollapsibleContent,
@@ -58,6 +62,11 @@ const AppLayout = () => {
   const [showNewJob, setShowNewJob] = useState(false);
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const {
+    notifications, unreadCount, markAsRead, markAllRead, dismiss,
+    soundPromptShown, enableSound,
+  } = useNotifications();
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
@@ -70,8 +79,9 @@ const AppLayout = () => {
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
+          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
         </div>
         <div className="px-3 pt-3">
           <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
@@ -157,10 +167,11 @@ const AppLayout = () => {
         <div className="flex items-center gap-2">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
+          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
           <Button variant="ghost" size="icon" onClick={signOut}>
             <LogOut className="w-5 h-5" />
           </Button>
@@ -190,6 +201,19 @@ const AppLayout = () => {
         ))}
       </nav>
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
+      <NotificationDrawer
+        open={notifOpen}
+        onOpenChange={setNotifOpen}
+        notifications={notifications}
+        onMarkRead={markAsRead}
+        onMarkAllRead={markAllRead}
+        onDismiss={dismiss}
+      />
+      <SoundPrompt
+        open={soundPromptShown}
+        onEnable={() => enableSound(true)}
+        onDismiss={() => enableSound(false)}
+      />
     </div>
   );
 };
