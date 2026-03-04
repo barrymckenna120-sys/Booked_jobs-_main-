@@ -9,7 +9,8 @@ export type NotificationType =
   | "new_repair"
   | "no_show"
   | "completed"
-  | "parts_needed";
+  | "parts_needed"
+  | "payment_collected";
 
 export interface AppNotification {
   id: string;

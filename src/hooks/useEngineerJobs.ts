@@ -100,7 +100,7 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>) => {
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, ...rest } = patch;
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -112,6 +112,11 @@ export const useEngineerJobs = () => {
 
     const dbPatch: Record<string, any> = { ...rest };
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    if (paymentMethod) {
+      dbPatch.payment_method = paymentMethod;
+      dbPatch.paid_at = new Date().toISOString();
+      dbPatch.payment_collected_by = user?.id || null;
+    }
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
       dbPatch.cancellation_note = cancelNote || null;
