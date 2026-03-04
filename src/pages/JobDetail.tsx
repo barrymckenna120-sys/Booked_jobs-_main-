@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog } from "lucide-react";
+import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
@@ -41,6 +41,8 @@ type ServiceCall = {
   cancelled_at: string | null;
   cancelled_by: string | null;
   assigned_engineer_id: string | null;
+  payment_method: string | null;
+  paid_at: string | null;
 };
 
 type Engineer = {
@@ -352,6 +354,31 @@ const JobDetail = () => {
         </Card>
       )}
 
+      {/* Payment Details */}
+      {job.status === "Completed" && (job as any).payment_method && (
+        <Card className="border-success/30 bg-success/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-success">
+              {(job as any).payment_method === "cash" ? <Banknote className="w-4 h-4" /> :
+               (job as any).payment_method === "card" ? <CreditCard className="w-4 h-4" /> :
+               <FileText className="w-4 h-4" />}
+              Payment Collected
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Method:</span>{" "}
+              <span className="font-semibold capitalize">{(job as any).payment_method === "invoice" ? "Invoice Required" : (job as any).payment_method}</span>
+            </div>
+            {(job as any).paid_at && (
+              <div>
+                <span className="text-muted-foreground">Collected:</span>{" "}
+                <span className="font-semibold">{new Date((job as any).paid_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
