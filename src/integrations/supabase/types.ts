@@ -363,11 +363,45 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_read: boolean
+          metadata: Json | null
+          notification_type: string
+          recipient_user_id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type: string
+          recipient_user_id: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type?: string
+          recipient_user_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           display_name: string | null
           id: string
+          sound_alerts_enabled: boolean | null
           updated_at: string
           user_id: string
         }
@@ -375,6 +409,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -382,6 +417,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id?: string
         }
