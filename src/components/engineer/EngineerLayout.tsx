@@ -95,26 +95,29 @@ const EngineerLayout = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => navigate(item.path)}
-            className={`flex-1 flex flex-col items-center gap-1 py-3.5 text-xs font-semibold transition-colors min-h-[56px] ${
-              currentTab === item.key ? "text-primary" : "text-muted-foreground/70"
-            }`}
-          >
-            <div className="relative">
-              <item.icon className="w-5 h-5" />
-              {item.count > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {item.count}
-                </span>
-              )}
-            </div>
-            {item.label}
-          </button>
-        ))}
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50" style={{ minHeight: 64 }}>
+        {navItems.map((item) => {
+          const active = currentTab === item.key;
+          return (
+            <button
+              key={item.key}
+              onClick={() => navigate(item.path)}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] py-2 text-xs font-semibold transition-colors ${
+                active ? "text-primary" : "text-muted-foreground/70"
+              }`}
+            >
+              <div className="relative">
+                <item.icon className="w-7 h-7" />
+                {item.count > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {item.count}
+                  </span>
+                )}
+              </div>
+              {active && <span className="text-[11px] leading-tight">{item.label}</span>}
+            </button>
+          );
+        })}
       </div>
       <NotificationDrawer
         open={notifOpen}
