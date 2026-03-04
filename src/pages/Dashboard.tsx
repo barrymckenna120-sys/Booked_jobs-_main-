@@ -11,6 +11,7 @@ import { format } from "date-fns";
 
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
+import PaymentSummaryCard from "@/components/dashboard/PaymentSummaryCard";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -75,6 +76,9 @@ const Dashboard = () => {
 
       {/* Today's Schedule */}
       <TodayTimeline />
+
+      {/* Payment Summary */}
+      <PaymentSummaryCard />
 
       {/* Needs Attention */}
       <AlertsPanel />
