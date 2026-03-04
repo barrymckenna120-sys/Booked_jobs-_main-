@@ -3,10 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export type NotificationType =
-  | "job_assigned"
-  | "job_cancelled"
-  | "job_reassigned"
-  | "new_repair_job";
+  | "new_job"
+  | "cancelled"
+  | "reassigned"
+  | "new_repair"
+  | "no_show"
+  | "completed";
 
 export interface AppNotification {
   id: string;
@@ -17,6 +19,8 @@ export interface AppNotification {
   metadata: Record<string, unknown>;
   is_read: boolean;
   created_at: string;
+  job_id: string | null;
+  role: string | null;
 }
 
 // Web Audio API sounds
@@ -36,17 +40,18 @@ function playDoubleBeep() {
   } catch {}
 }
 
-function playSingleTone() {
+function playSoftChime() {
   try {
     const ctx = new AudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.value = 520;
-    gain.gain.value = 0.15;
+    osc.frequency.value = 440;
+    gain.gain.value = 0.12;
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
     osc.connect(gain).connect(ctx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 0.25);
+    osc.stop(ctx.currentTime + 0.5);
   } catch {}
 }
 
@@ -63,7 +68,7 @@ export function useNotifications() {
     if (!user) return;
     initialLoadDone.current = false;
 
-    const fetch = async () => {
+    const fetchNotifs = async () => {
       const { data } = await supabase
         .from("notifications")
         .select("*")
@@ -72,10 +77,9 @@ export function useNotifications() {
         .limit(50);
       setNotifications((data as AppNotification[]) || []);
       setLoading(false);
-      // small delay so realtime events arriving during load don't trigger sound
       setTimeout(() => { initialLoadDone.current = true; }, 1000);
     };
-    fetch();
+    fetchNotifs();
   }, [user]);
 
   // Fetch sound preference
@@ -90,7 +94,6 @@ export function useNotifications() {
         if (data) {
           const val = (data as any).sound_alerts_enabled;
           if (val === null) {
-            // Never set — show prompt
             setSoundPromptShown(true);
             setSoundEnabled(false);
           } else {
@@ -118,10 +121,9 @@ export function useNotifications() {
           const n = payload.new as AppNotification;
           setNotifications((prev) => [n, ...prev]);
 
-          // Play sound only for new realtime notifications
           if (initialLoadDone.current && soundEnabled) {
-            if (n.notification_type === "new_repair_job") {
-              playSingleTone();
+            if (n.notification_type === "completed") {
+              playSoftChime();
             } else {
               playDoubleBeep();
             }

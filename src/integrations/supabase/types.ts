@@ -369,9 +369,11 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean
+          job_id: string | null
           metadata: Json | null
           notification_type: string
           recipient_user_id: string
+          role: string | null
           title: string
         }
         Insert: {
@@ -379,9 +381,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          job_id?: string | null
           metadata?: Json | null
           notification_type: string
           recipient_user_id: string
+          role?: string | null
           title: string
         }
         Update: {
@@ -389,12 +393,22 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          job_id?: string | null
           metadata?: Json | null
           notification_type?: string
           recipient_user_id?: string
+          role?: string | null
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

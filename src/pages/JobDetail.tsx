@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
 import MediaGallery from "@/components/media/MediaGallery";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
+import NoShowSheet from "@/components/engineer/NoShowSheet";
+import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 
 type ServiceCall = {
   id: string;
@@ -69,10 +71,14 @@ const statusBadge = (status: string) => {
     Completed: "bg-success/10 text-success",
     Cancelled: "bg-destructive/10 text-destructive",
     "Awaiting Deposit": "bg-warning/10 text-warning",
+    "In Progress": "bg-warning/10 text-warning",
+    no_show: "bg-destructive/10 text-destructive",
+    parts_needed: "bg-amber-500/10 text-amber-500",
   };
+  const labels: Record<string, string> = { no_show: "No Show", parts_needed: "Parts Needed" };
   return (
     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
-      {status}
+      {labels[status] || status}
     </span>
   );
 };
@@ -88,6 +94,8 @@ const JobDetail = () => {
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [partsNeededOpen, setPartsNeededOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
@@ -294,8 +302,29 @@ const JobDetail = () => {
         <QuotePanel jobId={job.id} customerId={customer.id} customer={customer} onQuoteChange={fetchJob} />
       )}
 
-      {/* Job Actions */}
-      {job.status !== "Completed" && job.status !== "Cancelled" && (
+      {/* Job Status Actions */}
+      {job.status === "Scheduled" && (
+        <Card>
+          <CardContent className="pt-6">
+            <Button
+              className="w-full h-[48px] font-bold gap-2"
+              onClick={async () => {
+                setActionLoading(true);
+                await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id);
+                logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
+                toast({ title: "Job started" });
+                setActionLoading(false);
+                fetchJob();
+              }}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Start Job
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {job.status === "In Progress" && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Job Actions</CardTitle>
@@ -304,6 +333,23 @@ const JobDetail = () => {
             <Button onClick={() => setCompleteOpen(true)}>
               <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Complete
             </Button>
+            <Button variant="outline" className="text-destructive border-destructive/30" onClick={() => setNoShowOpen(true)}>
+              <Ban className="w-4 h-4 mr-1" /> No Access
+            </Button>
+            <Button variant="outline" className="text-amber-500 border-amber-500/30" onClick={() => setPartsNeededOpen(true)}>
+              <Wrench className="w-4 h-4 mr-1" /> Parts Needed
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* General Admin Actions */}
+      {!["Completed", "Cancelled", "no_show", "parts_needed"].includes(job.status) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Admin Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => {
               setRescheduleDate(job.scheduled_date || "");
               setRescheduleTime(job.time_block || "");
@@ -384,6 +430,34 @@ const JobDetail = () => {
         jobRef={`BJ-${job.id.slice(0, 6).toUpperCase()}`}
         depositPaid={job.deposit_paid}
         onConfirm={handleCancel}
+      />
+      <NoShowSheet
+        open={noShowOpen}
+        onClose={() => setNoShowOpen(false)}
+        loading={actionLoading}
+        onConfirm={async (reason, notes) => {
+          setActionLoading(true);
+          await supabase.from("service_calls").update({ status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` } as any).eq("id", job.id);
+          logAudit({ action_type: "job_no_show", entity_type: "service_call", entity_id: job.id, detail: `No show: ${reason}`, metadata: { reason, notes } });
+          toast({ title: "Job marked as No Show" });
+          setActionLoading(false);
+          setNoShowOpen(false);
+          fetchJob();
+        }}
+      />
+      <PartsNeededSheet
+        open={partsNeededOpen}
+        onClose={() => setPartsNeededOpen(false)}
+        loading={actionLoading}
+        onConfirm={async (notes) => {
+          setActionLoading(true);
+          await supabase.from("service_calls").update({ status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" } as any).eq("id", job.id);
+          logAudit({ action_type: "job_parts_needed", entity_type: "service_call", entity_id: job.id, detail: "Parts needed", metadata: { notes } });
+          toast({ title: "Job marked as Parts Needed" });
+          setActionLoading(false);
+          setPartsNeededOpen(false);
+          fetchJob();
+        }}
       />
     </div>
   );

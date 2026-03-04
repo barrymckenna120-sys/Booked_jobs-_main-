@@ -7,6 +7,8 @@ import MediaSheet from "./MediaSheet";
 import JobDetailSheet from "./JobDetailSheet";
 import ExtraWorkSheet from "./ExtraWorkSheet";
 import JobPhotoThumbnails from "./JobPhotoThumbnails";
+import NoShowSheet from "./NoShowSheet";
+import PartsNeededSheet from "./PartsNeededSheet";
 import StatusBadge from "./job-card/StatusBadge";
 import InfoPills from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
@@ -30,8 +32,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showNote, setShowNote] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
   const [showExtraWork, setShowExtraWork] = useState(false);
+  const [showNoShow, setShowNoShow] = useState(false);
+  const [showPartsNeeded, setShowPartsNeeded] = useState(false);
 
-  const isDone = job.status === "Completed" || job.status === "Cancelled";
+  const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
 
   const borderLeftColor = `hsl(var(--${
@@ -44,7 +48,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   return (
     <>
       <div
-        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-60" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border/60"}`}
+        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-50 grayscale-[30%]" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border/60"}`}
         style={{ borderLeftColor }}
       >
         {/* Next Job Badge */}
@@ -96,6 +100,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             onStatusChange={(newStatus) => onUpdate(job.id, { status: newStatus })}
             onComplete={() => setShowComplete(true)}
             onCancel={() => setShowCancel(true)}
+            onNoShow={() => setShowNoShow(true)}
+            onPartsNeeded={() => setShowPartsNeeded(true)}
           />
         )}
 
@@ -116,6 +122,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
       {showExtraWork && <ExtraWorkSheet job={job} customer={customer} onClose={() => setShowExtraWork(false)} />}
+      <NoShowSheet open={showNoShow} onClose={() => setShowNoShow(false)} onConfirm={(reason, notes) => { onUpdate(job.id, { status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` }); setShowNoShow(false); }} />
+      <PartsNeededSheet open={showPartsNeeded} onClose={() => setShowPartsNeeded(false)} onConfirm={(notes) => { onUpdate(job.id, { status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" }); setShowPartsNeeded(false); }} />
     </>
   );
 };
