@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, Clock, CheckCircle2, BarChart3, Calendar, RefreshCw, AlertTriangle, ChevronDown, Send, ClipboardList, Coins, TrendingDown } from "lucide-react";
+import { Loader2, TrendingUp, Clock, CheckCircle2, BarChart3, Calendar, RefreshCw, AlertTriangle, ChevronDown, Send, ClipboardList, Coins, TrendingDown, Banknote, CreditCard, FileText } from "lucide-react";
 
 const eur = (n: number) => `€${n.toLocaleString()}`;
 
@@ -319,6 +319,71 @@ function OutstandingPayments({ invoices }: { invoices: { name: string; amount: n
   );
 }
 
+// ── Payment Method Breakdown ──
+function PaymentBreakdown({ jobs, dateRange }: { jobs: any[]; dateRange: { start: Date; end: Date; label: string } }) {
+  const periodJobs = useMemo(() =>
+    jobs.filter(j => {
+      if (!j.scheduled_date || !j.payment_method) return false;
+      const d = new Date(j.scheduled_date + "T00:00:00");
+      return d >= dateRange.start && d <= dateRange.end && j.status === "Completed";
+    }), [jobs, dateRange]);
+
+  const sum = (arr: any[]) => arr.reduce((s, r) => s + (r.revenue || 0), 0);
+  const cash = periodJobs.filter(j => j.payment_method === "cash");
+  const card = periodJobs.filter(j => j.payment_method === "card");
+  const invoice = periodJobs.filter(j => j.payment_method === "invoice");
+
+  const methods = [
+    { label: "Cash", icon: Banknote, count: cash.length, total: sum(cash), color: "text-emerald-600", bg: "bg-emerald-500/10", border: "border-l-emerald-500" },
+    { label: "Card", icon: CreditCard, count: card.length, total: sum(card), color: "text-blue-600", bg: "bg-blue-500/10", border: "border-l-blue-500" },
+    { label: "Invoice", icon: FileText, count: invoice.length, total: sum(invoice), color: "text-amber-600", bg: "bg-amber-500/10", border: "border-l-amber-500" },
+  ];
+
+  const totalCollected = sum(cash) + sum(card);
+  const totalInvoiced = sum(invoice);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
+        Payment Breakdown · {dateRange.label}
+      </p>
+
+      <div className="space-y-2">
+        {methods.map((m) => (
+          <Card key={m.label} className={`shadow-sm border-l-4 ${m.border}`}>
+            <CardContent className="py-3.5 px-5 flex items-center gap-4">
+              <div className={`w-10 h-10 rounded-xl ${m.bg} flex items-center justify-center flex-shrink-0`}>
+                <m.icon className={`w-5 h-5 ${m.color}`} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-foreground">{m.label}</p>
+                <p className="text-xs text-muted-foreground">{m.count} job{m.count !== 1 ? "s" : ""}</p>
+              </div>
+              <p className="text-lg font-extrabold text-foreground">{eur(m.total)}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Summary bar */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-emerald-500/10 rounded-xl p-3.5 text-center">
+          <p className="text-lg font-black text-emerald-700 leading-none">{eur(totalCollected)}</p>
+          <p className="text-[11px] font-semibold text-muted-foreground mt-1">Collected</p>
+        </div>
+        <div className={`rounded-xl p-3.5 text-center ${totalInvoiced > 0 ? "bg-amber-500/10" : "bg-muted/30"}`}>
+          <p className={`text-lg font-black leading-none ${totalInvoiced > 0 ? "text-amber-700" : "text-muted-foreground"}`}>{eur(totalInvoiced)}</p>
+          <p className="text-[11px] font-semibold text-muted-foreground mt-1">To Invoice</p>
+        </div>
+      </div>
+
+      {periodJobs.length === 0 && (
+        <p className="text-xs text-muted-foreground/60 text-center py-2">No payments recorded in this period.</p>
+      )}
+    </div>
+  );
+}
+
 // ── Main Finance Page ──
 const Finance = () => {
   const { user, loading: authLoading } = useAuth();
@@ -466,6 +531,7 @@ const Finance = () => {
       {/* Content */}
       <div className="px-4 py-6 space-y-8 pb-24">
         <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={periodJobs.length} avgJob={avgJob} completedJobs={completedJobsList} periodLabel={dateRange.label} />
+        <PaymentBreakdown jobs={jobs} dateRange={dateRange} />
         <NextMonth
           scheduledJobs={nextMonthJobs.length}
           forecastRevenue={forecastRevenue}
