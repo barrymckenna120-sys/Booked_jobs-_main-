@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Drawer,
   DrawerContent,
@@ -46,7 +47,16 @@ const NotificationDrawer = ({
   onMarkAllRead,
   onDismiss,
 }: Props) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+
+  const handleNotificationClick = (n: AppNotification) => {
+    if (!n.is_read) onMarkRead(n.id);
+    onOpenChange(false);
+    if (n.job_id) {
+      navigate(`/jobs/${n.job_id}`);
+    }
+  };
 
   const filtered = notifications.filter((n) => {
     if (activeTab === "unread") return !n.is_read;
@@ -94,7 +104,8 @@ const NotificationDrawer = ({
             return (
               <div
                 key={n.id}
-                className={`relative flex gap-3 p-3 rounded-lg border transition-colors ${
+                onClick={() => handleNotificationClick(n)}
+                className={`relative flex gap-3 p-3 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
                   n.is_read ? "bg-card border-border/50 opacity-70" : "bg-primary/5 border-primary/20"
                 }`}
               >
@@ -116,14 +127,14 @@ const NotificationDrawer = ({
                 <div className="flex flex-col gap-1 shrink-0">
                   {!n.is_read && (
                     <button
-                      onClick={() => onMarkRead(n.id)}
+                      onClick={(e) => { e.stopPropagation(); onMarkRead(n.id); }}
                       className="text-[10px] text-primary hover:underline"
                     >
                       Read
                     </button>
                   )}
                   <button
-                    onClick={() => onDismiss(n.id)}
+                    onClick={(e) => { e.stopPropagation(); onDismiss(n.id); }}
                     className="text-muted-foreground/50 hover:text-destructive"
                   >
                     <X className="w-3.5 h-3.5" />
