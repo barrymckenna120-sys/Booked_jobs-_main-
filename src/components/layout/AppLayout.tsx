@@ -184,21 +184,22 @@ const AppLayout = () => {
       </main>
 
       {/* Mobile Bottom Tab Bar — WhatsApp & Templates merged into single tab */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border h-16 flex items-center overflow-x-auto px-1 scrollbar-hide">
-        {MOBILE_NAV.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] shrink-0 py-1 ${
-              item.path === "/whatsapp"
-                ? isWhatsAppActive ? "text-primary font-bold" : "text-muted-foreground"
-                : isActive(item.path) ? "text-primary font-bold" : "text-muted-foreground"
-            }`}
-          >
-            <item.icon className="w-6 h-6" />
-            <span className="text-[10px] leading-tight">{item.label}</span>
-          </button>
-        ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto px-1 scrollbar-hide" style={{ minHeight: 64 }}>
+        {MOBILE_NAV.map((item) => {
+          const active = item.path === "/whatsapp" ? isWhatsAppActive : isActive(item.path);
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center justify-center shrink-0 min-w-[48px] min-h-[48px] px-2 py-1.5 ${
+                active ? "text-primary font-bold" : "text-muted-foreground"
+              }`}
+            >
+              <item.icon className="w-7 h-7" />
+              {active && <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>}
+            </button>
+          );
+        })}
       </nav>
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
