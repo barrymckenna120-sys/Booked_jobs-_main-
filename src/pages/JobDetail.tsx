@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench } from "lucide-react";
+import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
@@ -40,8 +40,13 @@ type ServiceCall = {
   cancellation_note: string | null;
   cancelled_at: string | null;
   cancelled_by: string | null;
+  assigned_engineer_id: string | null;
 };
 
+type Engineer = {
+  id: string;
+  name: string;
+};
 type Customer = {
   id: string;
   name: string;
@@ -101,9 +106,20 @@ const JobDetail = () => {
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [engineers, setEngineers] = useState<Engineer[]>([]);
+  const [reassignLoading, setReassignLoading] = useState(false);
+
   useEffect(() => {
     if (user && id) fetchJob();
   }, [user, id]);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from("engineers").select("id, name").eq("status", "active").then(({ data }) => {
+        if (data) setEngineers(data);
+      });
+    }
+  }, [user]);
 
   const fetchJob = async () => {
     setLoading(true);
@@ -189,6 +205,34 @@ const JobDetail = () => {
     }
   };
 
+  const handleReassignEngineer = async (engineerId: string) => {
+    if (!job) return;
+    const engineer = engineers.find(e => e.id === engineerId);
+    if (!engineer) return;
+    setReassignLoading(true);
+    const { error } = await supabase
+      .from("service_calls")
+      .update({
+        assigned_engineer_id: engineerId,
+        assigned_engineer: engineer.name,
+      } as any)
+      .eq("id", job.id);
+    setReassignLoading(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      logAudit({
+        action_type: "job_reassigned",
+        entity_type: "service_call",
+        entity_id: job.id,
+        detail: `Reassigned to ${engineer.name}`,
+        metadata: { new_engineer: engineer.name, old_engineer: job.assigned_engineer },
+      });
+      toast({ title: `Reassigned to ${engineer.name}` });
+      fetchJob();
+    }
+  };
+
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   }
@@ -235,7 +279,31 @@ const JobDetail = () => {
             <div><span className="text-muted-foreground">Phone:</span> <span className="font-semibold">{customer.phone}</span></div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Address:</span> <span className="font-semibold">{customer.address}</span></div>
             <div><span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode}</span></div>
-            <div><span className="text-muted-foreground">Engineer:</span> <span className="font-semibold">{job.assigned_engineer || "—"}</span></div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Engineer:</span>
+              {!["Completed", "Cancelled"].includes(job.status) ? (
+                <Select
+                  value={job.assigned_engineer_id || "unassigned"}
+                  onValueChange={(val) => {
+                    if (val !== "unassigned") handleReassignEngineer(val);
+                  }}
+                  disabled={reassignLoading}
+                >
+                  <SelectTrigger className="h-8 w-[180px] text-sm font-semibold">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="unassigned" disabled>Unassigned</SelectItem>
+                    {engineers.map((eng) => (
+                      <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="font-semibold">{job.assigned_engineer || "—"}</span>
+              )}
+              {reassignLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+            </div>
             <div><span className="text-muted-foreground">Time Block:</span> <span className="font-semibold">{job.time_block || "—"}</span></div>
             {customer.access_notes && (
               <div className="sm:col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{customer.access_notes}</span></div>
