@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const PAGE_SIZE = 15;
@@ -180,6 +180,7 @@ const Jobs = () => {
                       <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
                     </TableHead>
                     <TableHead className="hidden md:table-cell">Quote</TableHead>
+                    <TableHead className="hidden sm:table-cell">Payment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -195,6 +196,17 @@ const Jobs = () => {
                       <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
                       <TableCell>{statusBadge(j.status)}</TableCell>
                       <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {j.payment_method === "cash" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
+                        ) : j.payment_method === "card" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600"><CreditCard className="w-3.5 h-3.5" />Card</span>
+                        ) : j.payment_method === "invoice" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600"><FileText className="w-3.5 h-3.5" />Invoice</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
