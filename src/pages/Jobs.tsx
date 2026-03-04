@@ -180,7 +180,7 @@ const Jobs = () => {
                       <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
                     </TableHead>
                     <TableHead className="hidden md:table-cell">Quote</TableHead>
-                    <TableHead className="hidden sm:table-cell">Payment</TableHead>
+                    <TableHead>Payment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -196,7 +196,7 @@ const Jobs = () => {
                       <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
                       <TableCell>{statusBadge(j.status)}</TableCell>
                       <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell>
                         {j.payment_method === "cash" ? (
                           <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
                         ) : j.payment_method === "card" ? (
