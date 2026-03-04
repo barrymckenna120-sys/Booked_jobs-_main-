@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -5,16 +6,20 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, X, Briefcase, AlertTriangle, ArrowRightLeft, Wrench } from "lucide-react";
+import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2 } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
-const typeConfig: Record<string, { icon: React.ElementType; color: string }> = {
-  job_assigned: { icon: Briefcase, color: "text-primary" },
-  job_cancelled: { icon: AlertTriangle, color: "text-destructive" },
-  job_reassigned: { icon: ArrowRightLeft, color: "text-amber-500" },
-  new_repair_job: { icon: Wrench, color: "text-blue-500" },
+const typeConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  new_job:     { icon: Wrench,         color: "text-success",     label: "New Job" },
+  cancelled:   { icon: XCircle,        color: "text-destructive", label: "Cancelled" },
+  reassigned:  { icon: ArrowRightLeft, color: "text-amber-500",   label: "Reassigned" },
+  new_repair:  { icon: Zap,            color: "text-orange-500",  label: "New Repair" },
+  no_show:     { icon: Ban,            color: "text-destructive", label: "No Show" },
+  completed:   { icon: CheckCircle2,   color: "text-success",     label: "Completed" },
 };
+
+type FilterTab = "all" | "unread" | "engineer" | "office";
 
 interface Props {
   open: boolean;
@@ -25,6 +30,13 @@ interface Props {
   onDismiss: (id: string) => void;
 }
 
+const TABS: { key: FilterTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "engineer", label: "Engineer" },
+  { key: "office", label: "Office" },
+];
+
 const NotificationDrawer = ({
   open,
   onOpenChange,
@@ -33,6 +45,15 @@ const NotificationDrawer = ({
   onMarkAllRead,
   onDismiss,
 }: Props) => {
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+
+  const filtered = notifications.filter((n) => {
+    if (activeTab === "unread") return !n.is_read;
+    if (activeTab === "engineer") return n.role === "engineer";
+    if (activeTab === "office") return n.role === "office" || n.role === "admin";
+    return true;
+  });
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
@@ -45,12 +66,29 @@ const NotificationDrawer = ({
           )}
         </DrawerHeader>
 
-        <div className="overflow-y-auto px-4 pb-6 space-y-2 max-h-[65vh]">
-          {notifications.length === 0 && (
-            <p className="text-muted-foreground text-sm text-center py-10">No notifications yet</p>
+        {/* Filter Tabs */}
+        <div className="flex gap-1 px-4 pb-3">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                activeTab === tab.key
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto px-4 pb-6 space-y-2 max-h-[60vh]">
+          {filtered.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-10">No notifications</p>
           )}
-          {notifications.map((n) => {
-            const cfg = typeConfig[n.notification_type] || typeConfig.job_assigned;
+          {filtered.map((n) => {
+            const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
             const Icon = cfg.icon;
             return (
               <div
@@ -63,6 +101,9 @@ const NotificationDrawer = ({
                   <Icon className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+                  </div>
                   <p className={`text-sm leading-tight ${n.is_read ? "font-medium" : "font-bold"}`}>
                     {n.title}
                   </p>

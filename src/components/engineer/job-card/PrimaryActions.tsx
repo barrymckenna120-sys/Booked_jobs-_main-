@@ -1,4 +1,4 @@
-import { Car, MapPin, Play, CheckCircle2, XCircle } from "lucide-react";
+import { Car, MapPin, Play, CheckCircle2, XCircle, Ban, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PrimaryActionsProps {
@@ -6,9 +6,11 @@ interface PrimaryActionsProps {
   onStatusChange: (newStatus: string) => void;
   onComplete: () => void;
   onCancel: () => void;
+  onNoShow?: () => void;
+  onPartsNeeded?: () => void;
 }
 
-const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel }: PrimaryActionsProps) => {
+const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow, onPartsNeeded }: PrimaryActionsProps) => {
   if (status === "Scheduled" || status === "Booked") {
     return (
       <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1" onClick={() => onStatusChange("En Route")}>
@@ -35,20 +37,42 @@ const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel }: Primar
 
   if (status === "In Progress") {
     return (
-      <div className="flex gap-3 mt-1">
-        <Button
-          className="flex-[2] h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
-          onClick={onComplete}
-        >
-          <CheckCircle2 className="w-5 h-5" /> Complete
-        </Button>
-        <Button
-          variant="outline"
-          className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
-          onClick={onCancel}
-        >
-          <XCircle className="w-5 h-5" />
-        </Button>
+      <div className="space-y-2 mt-1">
+        <div className="flex gap-3">
+          <Button
+            className="flex-[2] h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
+            onClick={onComplete}
+          >
+            <CheckCircle2 className="w-5 h-5" /> Complete
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
+            onClick={onCancel}
+          >
+            <XCircle className="w-5 h-5" />
+          </Button>
+        </div>
+        <div className="flex gap-3">
+          {onNoShow && (
+            <Button
+              variant="outline"
+              className="flex-1 h-[44px] text-destructive border-destructive/30 font-semibold gap-1.5 text-sm"
+              onClick={onNoShow}
+            >
+              <Ban className="w-4 h-4" /> No Access
+            </Button>
+          )}
+          {onPartsNeeded && (
+            <Button
+              variant="outline"
+              className="flex-1 h-[44px] text-amber-500 border-amber-500/30 font-semibold gap-1.5 text-sm"
+              onClick={onPartsNeeded}
+            >
+              <Wrench className="w-4 h-4" /> Parts Needed
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
