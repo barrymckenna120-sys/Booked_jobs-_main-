@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Archive } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Send, ArrowRight, MessageCircle } from "lucide-react";
@@ -17,11 +18,12 @@ type UrgentCustomer = {
 type Props = {
   customers: UrgentCustomer[];
   onSendReminder: (customer: UrgentCustomer) => void;
+  onArchive?: (customer: UrgentCustomer) => void;
   onSendAll: () => void;
   needReminderCount: number;
 };
 
-const UrgentList = ({ customers, onSendReminder, onSendAll, needReminderCount }: Props) => {
+const UrgentList = ({ customers, onSendReminder, onArchive, onSendAll, needReminderCount }: Props) => {
   const navigate = useNavigate();
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? customers : customers.slice(0, 5);
@@ -67,6 +69,15 @@ const UrgentList = ({ customers, onSendReminder, onSendAll, needReminderCount }:
                 </button>
               ) : (
                 <span className="text-[10px] font-bold text-muted-foreground/60">Sent</span>
+              )}
+              {onArchive && (
+                <button
+                  onClick={() => onArchive(c)}
+                  className="shrink-0 px-2 py-1 rounded-lg border border-border text-muted-foreground/60 text-[11px] font-medium hover:bg-muted/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                  title="Archive"
+                >
+                  <Archive className="w-3 h-3" /> Archive
+                </button>
               )}
             </div>
           ))}

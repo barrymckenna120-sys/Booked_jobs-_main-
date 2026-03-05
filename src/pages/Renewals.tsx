@@ -398,6 +398,7 @@ const Renewals = () => {
           renewal_stage: c.renewal_stage,
         }))}
         onSendReminder={(c) => handleSendReminder(c)}
+        onArchive={(c) => handleArchive(c.id, true)}
         onSendAll={() => setSendAllOpen(true)}
         needReminderCount={urgentNeedReminder}
       />
