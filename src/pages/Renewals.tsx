@@ -6,6 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone, Send,
   PhoneOff, MessageCircle, CalendarCheck, Wallet, Archive, ArchiveRestore,
 } from "lucide-react";
@@ -107,6 +111,7 @@ const Renewals = () => {
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -289,10 +294,17 @@ const Renewals = () => {
     toast({ title: `Stage updated to ${newStage.replace("_", " ")}` });
   };
 
-  const handleArchive = async (customerId: string, archive: boolean) => {
-    await supabase.from("customers").update({ is_archived: archive } as any).eq("id", customerId);
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, is_archived: archive } : c));
+  const confirmArchive = (customerId: string, customerName: string, archive: boolean) => {
+    setArchiveConfirm({ id: customerId, name: customerName, archive });
+  };
+
+  const handleArchive = async () => {
+    if (!archiveConfirm) return;
+    const { id, archive } = archiveConfirm;
+    await supabase.from("customers").update({ is_archived: archive } as any).eq("id", id);
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, is_archived: archive } : c));
     toast({ title: archive ? "Customer archived" : "Customer restored" });
+    setArchiveConfirm(null);
   };
 
   const selectedStatus = selectedCustomer ? getStatus(getDaysUntil(selectedCustomer.next_service_due)) : "Up to Date";
@@ -398,7 +410,7 @@ const Renewals = () => {
           renewal_stage: c.renewal_stage,
         }))}
         onSendReminder={(c) => handleSendReminder(c)}
-        onArchive={(c) => handleArchive(c.id, true)}
+        onArchive={(c) => confirmArchive(c.id, c.name, true)}
         onSendAll={() => setSendAllOpen(true)}
         needReminderCount={urgentNeedReminder}
       />
@@ -562,7 +574,7 @@ const Renewals = () => {
             onSendReminder={() => handleSendReminder(c)}
             onBook={() => setBookCustomer(c)}
             onStageChange={(newStage) => handleStageChange(c.id, newStage)}
-            onArchive={() => handleArchive(c.id, !c.is_archived)}
+            onArchive={() => confirmArchive(c.id, c.name, !c.is_archived)}
             isArchived={c.is_archived}
           />
         ))
@@ -595,6 +607,28 @@ const Renewals = () => {
         customers={reminderQueue}
         onReminderSent={handleBatchReminderSent}
       />
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={!!archiveConfirm} onOpenChange={(open) => !open && setArchiveConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {archiveConfirm?.archive ? "Archive Customer?" : "Restore Customer?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveConfirm?.archive
+                ? `Are you sure you want to archive ${archiveConfirm?.name}? They will be removed from the active renewals list.`
+                : `Restore ${archiveConfirm?.name} back to the active renewals list?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>
+              {archiveConfirm?.archive ? "Archive" : "Restore"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
