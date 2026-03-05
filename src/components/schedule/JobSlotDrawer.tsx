@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench } from "lucide-react";
+import { formatDateIE } from "@/lib/utils";
 
 type Props = {
   open: boolean;
@@ -62,7 +63,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Date</span>
-              <p className="font-semibold mt-0.5">{job.scheduled_date || "—"}</p>
+              <p className="font-semibold mt-0.5">{formatDateIE(job.scheduled_date)}</p>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Time Slot</span>
