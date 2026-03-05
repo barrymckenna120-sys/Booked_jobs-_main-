@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
-import { AnimatePresence, motion } from "framer-motion";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   new_job:           { icon: Wrench,         color: "text-emerald-500", bg: "bg-emerald-500/10", label: "New Job" },
@@ -30,7 +29,7 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
   const navigate = useNavigate();
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  // Auto-dismiss each notification after 5s
+  // Auto-dismiss each notification
   useEffect(() => {
     notifications.forEach((n) => {
       if (!timersRef.current.has(n.id)) {
@@ -42,11 +41,6 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
         timersRef.current.set(n.id, timer);
       }
     });
-
-    // Cleanup removed notifications
-    return () => {
-      // keep timers for current items, cleanup happens on unmount
-    };
   }, [notifications, onDismiss]);
 
   // Cleanup all timers on unmount
@@ -65,8 +59,9 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
     }
   };
 
-  const handleClose = (e: React.MouseEvent, id: string) => {
+  const handleClose = (e: React.MouseEvent | React.TouchEvent, id: string) => {
     e.stopPropagation();
+    e.preventDefault();
     const timer = timersRef.current.get(id);
     if (timer) {
       clearTimeout(timer);
@@ -86,63 +81,57 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
 
   return (
     <div className="fixed top-14 left-0 right-0 z-[200] pointer-events-none flex flex-col items-center gap-2.5 px-2 md:px-4 pt-2">
-      <AnimatePresence mode="popLayout">
-        {notifications.map((n) => {
-          const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
-          const Icon = cfg.icon;
-          const jobRef = getJobRef(n);
+      {notifications.map((n) => {
+        const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
+        const Icon = cfg.icon;
+        const jobRef = getJobRef(n);
 
-          return (
-            <motion.div
-              key={n.id}
-              layout
-              initial={{ opacity: 0, y: -40, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -30, scale: 0.95, transition: { duration: 0.2 } }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              className="w-full max-w-full md:max-w-[540px] pointer-events-auto"
+        return (
+          <div
+            key={n.id}
+            className="w-full max-w-full md:max-w-[540px] pointer-events-auto animate-notif-slide-in"
+          >
+            <div
+              onClick={() => handleTap(n)}
+              className="w-full rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-lg cursor-pointer active:bg-muted/50 transition-colors"
             >
-              <div
-                onClick={() => handleTap(n)}
-                className="w-full rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-lg cursor-pointer hover:bg-muted/50 transition-colors"
-              >
-                <div className="px-4 md:px-5 py-3.5 md:py-4 flex items-center gap-3">
-                  {/* Icon */}
-                  <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${cfg.bg}`}>
-                    <Icon className={`w-5 h-5 ${cfg.color}`} />
-                  </div>
-
-                  {/* Type label */}
-                  <span className={`shrink-0 text-[11px] md:text-[10px] font-extrabold uppercase tracking-wider ${cfg.color}`}>
-                    {cfg.label}
-                  </span>
-
-                  {/* Message */}
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[15px] md:text-[14px] font-bold text-foreground truncate block leading-snug">{n.body}</span>
-                  </div>
-
-                  {/* Job ref */}
-                  {jobRef && (
-                    <span className="shrink-0 text-[12px] md:text-[11px] font-bold text-primary bg-primary/10 rounded-md px-2.5 py-1">
-                      {jobRef}
-                    </span>
-                  )}
-
-                  {/* Dismiss */}
-                  <button
-                    onClick={(e) => handleClose(e, n.id)}
-                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
-                    aria-label="Dismiss"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+              <div className="px-4 md:px-5 py-3.5 md:py-4 flex items-center gap-3">
+                {/* Icon */}
+                <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${cfg.bg}`}>
+                  <Icon className={`w-5 h-5 ${cfg.color}`} />
                 </div>
+
+                {/* Type label */}
+                <span className={`shrink-0 text-[11px] md:text-[10px] font-extrabold uppercase tracking-wider ${cfg.color}`}>
+                  {cfg.label}
+                </span>
+
+                {/* Message */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[15px] md:text-[14px] font-bold text-foreground truncate block leading-snug">{n.body}</span>
+                </div>
+
+                {/* Job ref */}
+                {jobRef && (
+                  <span className="shrink-0 text-[12px] md:text-[11px] font-bold text-primary bg-primary/10 rounded-md px-2.5 py-1">
+                    {jobRef}
+                  </span>
+                )}
+
+                {/* Dismiss — min 44px tap target for iOS */}
+                <button
+                  onClick={(e) => handleClose(e, n.id)}
+                  onTouchEnd={(e) => handleClose(e, n.id)}
+                  className="shrink-0 min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-lg text-muted-foreground/60 active:text-foreground active:bg-muted transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };
