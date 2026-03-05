@@ -64,8 +64,10 @@ export function useNotifications() {
   const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
   const initialLoadDone = useRef(false);
-  const [toastNotification, setToastNotification] = useState<AppNotification | null>(null);
-  const dismissToast = useCallback(() => setToastNotification(null), []);
+  const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
+  const dismissBanner = useCallback((id: string) => {
+    setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
 
   // Fetch existing notifications
   useEffect(() => {
@@ -126,8 +128,8 @@ export function useNotifications() {
           setNotifications((prev) => [n, ...prev]);
 
           if (initialLoadDone.current) {
-            // Show toast
-            setToastNotification(n);
+            // Show banner
+            setBannerNotifications((prev) => [n, ...prev]);
 
             // Play sound
             if (soundEnabled) {
@@ -195,7 +197,7 @@ export function useNotifications() {
     soundEnabled,
     soundPromptShown,
     enableSound,
-    toastNotification,
-    dismissToast,
+    bannerNotifications,
+    dismissBanner,
   };
 }
