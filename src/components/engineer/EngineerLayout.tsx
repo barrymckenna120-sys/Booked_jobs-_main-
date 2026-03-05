@@ -7,6 +7,7 @@ import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
+import NotificationToast from "@/components/notifications/NotificationToast";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 
 const greeting = () => {
@@ -29,7 +30,7 @@ const EngineerLayout = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
-    soundPromptShown, enableSound,
+    soundPromptShown, enableSound, toastNotification, dismissToast,
   } = useNotifications();
 
   const currentTab = location.pathname.includes("/upcoming")
@@ -131,6 +132,12 @@ const EngineerLayout = () => {
         open={soundPromptShown}
         onEnable={() => enableSound(true)}
         onDismiss={() => enableSound(false)}
+      />
+      <NotificationToast
+        notification={toastNotification}
+        onDismiss={dismissToast}
+        onMarkRead={markAsRead}
+        jobPathPrefix="/engineer/today"
       />
     </div>
   );
