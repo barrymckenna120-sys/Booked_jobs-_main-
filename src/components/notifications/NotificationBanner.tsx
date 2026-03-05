@@ -15,7 +15,9 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
 };
 
-const AUTO_DISMISS_MS = 10000;
+const AUTO_DISMISS_MS = 15000;
+const HIGH_PRIORITY_DISMISS_MS = 20000;
+const HIGH_PRIORITY_TYPES = new Set(["no_show", "parts_needed"]);
 
 interface Props {
   notifications: AppNotification[];
@@ -32,10 +34,11 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
   useEffect(() => {
     notifications.forEach((n) => {
       if (!timersRef.current.has(n.id)) {
+        const delay = HIGH_PRIORITY_TYPES.has(n.notification_type) ? HIGH_PRIORITY_DISMISS_MS : AUTO_DISMISS_MS;
         const timer = setTimeout(() => {
           onDismiss(n.id);
           timersRef.current.delete(n.id);
-        }, AUTO_DISMISS_MS);
+        }, delay);
         timersRef.current.set(n.id, timer);
       }
     });
