@@ -51,12 +51,16 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
     };
   }, []);
 
-  const handleTap = (n: AppNotification) => {
-    onMarkRead(n.id);
-    onDismiss(n.id);
-    if (n.job_id) {
-      navigate(`${jobPathPrefix}/${n.job_id}`);
-    }
+  const handleTap = (e: React.MouseEvent | React.TouchEvent, n: AppNotification) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      onMarkRead(n.id);
+      onDismiss(n.id);
+      if (n.job_id) {
+        navigate(`${jobPathPrefix}/${n.job_id}`);
+      }
+    } catch {}
   };
 
   const handleClose = (e: React.MouseEvent | React.TouchEvent, id: string) => {
@@ -80,7 +84,11 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
   };
 
   return (
-    <div className="fixed top-14 left-0 right-0 z-[200] pointer-events-none flex flex-col items-center gap-2.5 px-2 md:px-4 pt-2">
+    <div
+      className="fixed top-14 left-0 right-0 z-[9999] pointer-events-none flex flex-col items-center gap-2.5 px-2 md:px-4 pt-2"
+      onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+      onTouchEnd={(e) => { e.stopPropagation(); }}
+    >
       {notifications.map((n) => {
         const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
         const Icon = cfg.icon;
@@ -92,7 +100,8 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
             className="w-full max-w-full md:max-w-[540px] pointer-events-auto animate-notif-slide-in"
           >
             <div
-              onClick={() => handleTap(n)}
+              onClick={(e) => handleTap(e, n)}
+              onTouchEnd={(e) => { e.stopPropagation(); }}
               className="w-full rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-lg cursor-pointer active:bg-muted/50 transition-colors"
             >
               <div className="px-4 md:px-5 py-3.5 md:py-4 flex items-center gap-3">
