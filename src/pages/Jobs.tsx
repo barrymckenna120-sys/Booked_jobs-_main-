@@ -106,11 +106,18 @@ const Jobs = () => {
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
       Scheduled: "badge-scheduled",
+      Booked: "badge-scheduled",
+      "En Route": "badge-due-soon",
+      "On Site": "badge-due-soon",
+      "In Progress": "badge-due-soon",
       Completed: "badge-up-to-date",
       Cancelled: "badge-overdue",
       "Awaiting Deposit": "badge-due-soon",
+      no_show: "badge-overdue",
+      parts_needed: "badge-due-soon",
     };
-    return <span className={styles[status] || "badge-scheduled"}>{status}</span>;
+    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status;
+    return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
   return (
@@ -132,9 +139,15 @@ const Jobs = () => {
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Scheduled">Scheduled</SelectItem>
+            <SelectItem value="Booked">Booked</SelectItem>
+            <SelectItem value="En Route">En Route</SelectItem>
+            <SelectItem value="On Site">On Site</SelectItem>
+            <SelectItem value="In Progress">In Progress</SelectItem>
             <SelectItem value="Completed">Completed</SelectItem>
             <SelectItem value="Cancelled">Cancelled</SelectItem>
             <SelectItem value="Awaiting Deposit">Awaiting Deposit</SelectItem>
+            <SelectItem value="no_show">No Show</SelectItem>
+            <SelectItem value="parts_needed">Parts Needed</SelectItem>
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
