@@ -13,6 +13,8 @@ interface ReceiptData {
   businessName: string;
   businessPhone: string;
   businessTagline: string;
+  businessAddress?: string;
+  engineerName?: string;
 }
 
 export const generateReceiptPdf = (data: ReceiptData): jsPDF => {
@@ -65,6 +67,10 @@ export const generateReceiptPdf = (data: ReceiptData): jsPDF => {
   doc.text(data.businessTagline, margin, y);
   y += 5;
   doc.text(`Phone: ${data.businessPhone}`, margin, y);
+  if (data.businessAddress) {
+    y += 5;
+    doc.text(data.businessAddress, margin, y);
+  }
   y += 10;
 
   // PAYMENT RECEIPT title
@@ -88,6 +94,9 @@ export const generateReceiptPdf = (data: ReceiptData): jsPDF => {
   y = sectionLabel("Service Details", y);
   y = fieldRow("Service Type", data.serviceType, y);
   y = fieldRow("Service Date", data.serviceDate, y);
+  if (data.engineerName) {
+    y = fieldRow("Engineer", data.engineerName, y);
+  }
   y = fieldRow("Amount", data.amountPaid, y);
   y += 4;
   drawDivider(y);
