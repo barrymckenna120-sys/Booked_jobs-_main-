@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +38,7 @@ export const getNextJobId = (jobs: any[]): string | null => {
 export const useEngineerJobs = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [todayJobs, setTodayJobs] = useState<any[]>([]);
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
@@ -124,6 +126,18 @@ export const useEngineerJobs = () => {
       dbPatch.cancelled_by = user?.id || null;
     }
 
+    // Generate receipt number on completion
+    if (patch.status === "Completed") {
+      try {
+        const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+        const ownerId = job?.user_id;
+        if (ownerId) {
+          const { data: receiptNum } = await supabase.rpc("generate_receipt_number", { p_user_id: ownerId });
+          if (receiptNum) dbPatch.receipt_number = receiptNum;
+        }
+      } catch {}
+    }
+
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", jobId);
 
     if (error) {
@@ -133,7 +147,13 @@ export const useEngineerJobs = () => {
       setTodayJobs(updater);
       setUpcomingJobs(updater);
       setCompletedJobs(updater);
-      toast({ title: patch.status === "Completed" ? "Job completed ✔" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+
+      if (patch.status === "Completed") {
+        toast({ title: "Job completed ✔" });
+        navigate(`/receipt/${jobId}`);
+      } else {
+        toast({ title: patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+      }
     }
   };
 
