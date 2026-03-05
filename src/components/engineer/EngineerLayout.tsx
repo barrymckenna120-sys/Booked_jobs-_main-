@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut, Bell } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import { supabase } from "@/integrations/supabase/client";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
@@ -62,14 +62,7 @@ const EngineerLayout = () => {
             <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setNotifOpen(true)} className="relative text-white/70 hover:text-white transition-colors">
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </button>
+            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
               onClick={async () => { await supabase.auth.signOut(); navigate("/auth"); }}
               className="flex items-center gap-1.5 text-white/60 hover:text-white/90 transition-colors text-xs font-semibold"

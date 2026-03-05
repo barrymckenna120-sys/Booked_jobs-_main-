@@ -82,7 +82,7 @@ const AppLayout = () => {
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
-          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
+          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
         </div>
         <div className="px-3 pt-3">
           <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
@@ -172,7 +172,7 @@ const AppLayout = () => {
           <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
-          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
+          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
           <Button variant="ghost" size="icon" onClick={signOut}>
             <LogOut className="w-5 h-5" />
           </Button>
