@@ -15,7 +15,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
 };
 
-const AUTO_DISMISS_MS = 5000;
+const AUTO_DISMISS_MS = 10000;
 
 interface Props {
   notifications: AppNotification[];
@@ -82,7 +82,7 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
   };
 
   return (
-    <div className="fixed top-14 left-0 right-0 z-[200] pointer-events-none flex flex-col items-center gap-2 px-4 pt-2">
+    <div className="fixed top-14 left-0 right-0 z-[200] pointer-events-none flex flex-col items-center gap-2.5 px-2 md:px-4 pt-2">
       <AnimatePresence mode="popLayout">
         {notifications.map((n) => {
           const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
@@ -97,31 +97,31 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -30, scale: 0.95, transition: { duration: 0.2 } }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              className="w-full max-w-[500px] pointer-events-auto"
+              className="w-full max-w-full md:max-w-[540px] pointer-events-auto"
             >
               <div
                 onClick={() => handleTap(n)}
                 className="w-full rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-lg cursor-pointer hover:bg-muted/50 transition-colors"
               >
-                <div className="px-4 py-2.5 flex items-center gap-3">
+                <div className="px-4 md:px-5 py-3.5 md:py-4 flex items-center gap-3">
                   {/* Icon */}
-                  <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${cfg.bg}`}>
-                    <Icon className={`w-4 h-4 ${cfg.color}`} />
+                  <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${cfg.bg}`}>
+                    <Icon className={`w-5 h-5 ${cfg.color}`} />
                   </div>
 
                   {/* Type label */}
-                  <span className={`shrink-0 text-[10px] font-extrabold uppercase tracking-wider ${cfg.color}`}>
+                  <span className={`shrink-0 text-[11px] md:text-[10px] font-extrabold uppercase tracking-wider ${cfg.color}`}>
                     {cfg.label}
                   </span>
 
                   {/* Message */}
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-bold text-foreground truncate block">{n.body}</span>
+                    <span className="text-[15px] md:text-[14px] font-bold text-foreground truncate block leading-snug">{n.body}</span>
                   </div>
 
                   {/* Job ref */}
                   {jobRef && (
-                    <span className="shrink-0 text-[11px] font-bold text-muted-foreground bg-muted rounded-md px-2 py-0.5">
+                    <span className="shrink-0 text-[12px] md:text-[11px] font-bold text-primary bg-primary/10 rounded-md px-2.5 py-1">
                       {jobRef}
                     </span>
                   )}
@@ -129,10 +129,10 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
                   {/* Dismiss */}
                   <button
                     onClick={(e) => handleClose(e, n.id)}
-                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
                     aria-label="Dismiss"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
