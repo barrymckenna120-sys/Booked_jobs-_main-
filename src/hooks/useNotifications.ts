@@ -10,7 +10,10 @@ export type NotificationType =
   | "no_show"
   | "completed"
   | "parts_needed"
-  | "payment_collected";
+  | "payment_collected"
+  | "en_route"
+  | "on_site"
+  | "in_progress";
 
 export interface AppNotification {
   id: string;
