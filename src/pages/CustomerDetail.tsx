@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet } from "lucide-react";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
+import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import {
   AlertDialog,
@@ -282,6 +283,9 @@ const CustomerDetail = () => {
             onSendMessage={() => setShowSendModal(true)}
           />
         )}
+
+        {/* Payment History */}
+        {id && <PaymentHistory customerId={id} />}
 
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
