@@ -7,26 +7,30 @@ import { addDays } from "date-fns";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-const TIME_ORDER: Record<string, number> = { "9–11": 1, "11–2": 2, "2–5": 3 };
+const TIME_ORDER: Record<string, number> = {
+  "9–11": 1, "9am–11am": 1,
+  "11–2": 2, "11am–1pm": 2,
+  "2–5": 3, "2pm–5pm": 3, "Afternoon": 3,
+};
 
 export const sortByTime = (arr: any[]) =>
   [...arr].sort((a, b) => (TIME_ORDER[a.time_block] || 99) - (TIME_ORDER[b.time_block] || 99));
 
 const TIME_RANGES: Record<string, [number, number]> = {
-  "9–11": [9, 11],
-  "11–2": [11, 14],
-  "2–5": [14, 17],
+  "9–11": [9, 11], "9am–11am": [9, 11],
+  "11–2": [11, 14], "11am–1pm": [11, 14],
+  "2–5": [14, 17], "2pm–5pm": [14, 17], "Afternoon": [14, 17],
 };
 
 export const getNextJobId = (jobs: any[]): string | null => {
   if (jobs.length === 0) return null;
   const hour = new Date().getHours();
-  const blockOrder = ["9–11", "11–2", "2–5"];
+  const uniqueBlocks = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
-  for (const block of blockOrder) {
+  for (const block of uniqueBlocks) {
     const [, end] = TIME_RANGES[block];
     if (hour < end) {
-      const match = jobs.find(j => j.time_block === block && !["Completed", "Cancelled"].includes(j.status));
+      const match = jobs.find(j => (j.time_block === block || TIME_ORDER[j.time_block] === TIME_ORDER[block]) && !["Completed", "Cancelled"].includes(j.status));
       if (match) return match.id;
     }
   }
