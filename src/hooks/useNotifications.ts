@@ -27,6 +27,49 @@ export interface AppNotification {
 
 const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show"]);
 
+// ─── iOS-safe AudioContext singleton ───
+// iOS Safari/Chrome require an AudioContext to be created & resumed
+// inside a user-gesture handler. We do this once on the first tap,
+// then reuse the same context for every notification sound.
+let sharedAudioCtx: AudioContext | null = null;
+let audioUnlocked = false;
+
+function getAudioContext(): AudioContext | null {
+  if (sharedAudioCtx && sharedAudioCtx.state !== "closed") return sharedAudioCtx;
+  try {
+    sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function unlockAudioOnFirstTap() {
+  if (audioUnlocked) return;
+
+  const handler = () => {
+    const ctx = getAudioContext();
+    if (ctx) {
+      // Resume returns a promise; on iOS this is required inside a gesture
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+      // Play a silent buffer to fully unlock the context
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    }
+    audioUnlocked = true;
+    document.removeEventListener("touchstart", handler, true);
+    document.removeEventListener("click", handler, true);
+  };
+
+  document.addEventListener("touchstart", handler, { capture: true, passive: true });
+  document.addEventListener("click", handler, { capture: true });
+}
+
 // Vibration for high-priority notifications (double pulse)
 function vibrateHighPriority() {
   try {
@@ -36,10 +79,12 @@ function vibrateHighPriority() {
   } catch {}
 }
 
-// Web Audio API sounds
+// Web Audio API sounds — reuse pre-unlocked context
 function playDoubleBeep() {
   try {
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     [0, 0.15].forEach((delay) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -55,7 +100,9 @@ function playDoubleBeep() {
 
 function playSoftChime() {
   try {
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
@@ -78,6 +125,11 @@ export function useNotifications() {
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
   const dismissBanner = useCallback((id: string) => {
     setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  // Unlock audio on first user gesture (critical for iOS)
+  useEffect(() => {
+    unlockAudioOnFirstTap();
   }, []);
 
   // Fetch existing notifications
@@ -120,7 +172,8 @@ export function useNotifications() {
       });
   }, [user]);
 
-  // Real-time subscription
+  // Real-time subscription — supabase-js uses WebSocket under the hood
+  // but the channel API auto-reconnects which is fine for iOS WebKit
   useEffect(() => {
     if (!user) return;
 
