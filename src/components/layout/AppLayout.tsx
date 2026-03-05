@@ -10,6 +10,7 @@ import { useBackButton } from "@/hooks/useBackButton";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
+import NotificationToast from "@/components/notifications/NotificationToast";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import {
   Collapsible,
@@ -65,7 +66,7 @@ const AppLayout = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
-    soundPromptShown, enableSound,
+    soundPromptShown, enableSound, toastNotification, dismissToast,
   } = useNotifications();
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
@@ -214,6 +215,12 @@ const AppLayout = () => {
         open={soundPromptShown}
         onEnable={() => enableSound(true)}
         onDismiss={() => enableSound(false)}
+      />
+      <NotificationToast
+        notification={toastNotification}
+        onDismiss={dismissToast}
+        onMarkRead={markAsRead}
+        jobPathPrefix="/jobs"
       />
     </div>
   );
