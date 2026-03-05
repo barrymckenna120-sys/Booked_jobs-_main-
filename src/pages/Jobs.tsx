@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import TakePaymentModal from "@/components/payments/TakePaymentModal";
 
 const PAGE_SIZE = 15;
 
@@ -21,14 +23,20 @@ type Job = {
   assigned_engineer: string | null;
   has_quote: boolean;
   payment_method: string | null;
+  receipt_number: string | null;
+  revenue: number | null;
+  user_id: string;
   customer_name?: string;
 };
 
 const Jobs = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [paymentJob, setPaymentJob] = useState<{ job: any; customer: any } | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [customersMap, setCustomersMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [search, setSearch] = useState("");
@@ -55,10 +63,12 @@ const Jobs = () => {
       const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
       const { data: customers } = await supabase
         .from("customers")
-        .select("id, name")
+        .select("id, name, phone, address, eircode")
         .in("id", customerIds);
-      const nameMap = Object.fromEntries((customers || []).map(c => [c.id, c.name]));
-      setJobs(jobsData.map(j => ({ ...j, customer_name: nameMap[j.customer_id] || "Unknown" })) as Job[]);
+      const cMap: Record<string, any> = {};
+      (customers || []).forEach(c => { cMap[c.id] = c; });
+      setCustomersMap(cMap);
+      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown" })) as Job[]);
     }
     setLoading(false);
   };
@@ -194,10 +204,14 @@ const Jobs = () => {
                     </TableHead>
                     <TableHead className="hidden md:table-cell">Quote</TableHead>
                     <TableHead>Payment</TableHead>
+                    <TableHead className="w-[100px]">Receipt</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginated.map((j) => (
+                  {paginated.map((j) => {
+                    const canTakePayment = ["Completed", "In Progress"].includes(j.status);
+                    const hasReceipt = !!j.receipt_number;
+                    return (
                     <TableRow key={j.id} className="cursor-pointer hover:bg-primary-light" onClick={() => navigate(`/jobs/${j.id}`)}>
                       <TableCell className="font-semibold">{j.customer_name}</TableCell>
                       <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
@@ -220,8 +234,34 @@ const Jobs = () => {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {hasReceipt ? (
+                          <button
+                            onClick={() => navigate(`/receipt/${j.id}`)}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                          >
+                            <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
+                          </button>
+                        ) : canTakePayment ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs font-bold gap-1"
+                            onClick={() => {
+                              const cust = customersMap[j.customer_id];
+                              if (!cust) { toast({ title: "Customer data not loaded" }); return; }
+                              setPaymentJob({ job: j, customer: cust });
+                            }}
+                          >
+                            <CreditCard className="w-3.5 h-3.5" /> Take Payment
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -243,6 +283,17 @@ const Jobs = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Take Payment Modal */}
+      {paymentJob && (
+        <TakePaymentModal
+          open={!!paymentJob}
+          onClose={() => setPaymentJob(null)}
+          job={paymentJob.job}
+          customer={paymentJob.customer}
+          onPaymentComplete={() => fetchJobs()}
+        />
+      )}
     </div>
   );
 };

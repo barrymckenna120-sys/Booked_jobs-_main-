@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Receipt } from "lucide-react";
 
 type Job = {
   id: string;
@@ -13,6 +14,7 @@ type Job = {
   revenue: number | null;
   status: string;
   deposit_paid: boolean;
+  receipt_number: string | null;
 };
 
 const paymentStatus = (j: Job) => {
@@ -38,7 +40,7 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
     const fetch = async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, scheduled_date, job_type, assigned_engineer, revenue, status, deposit_paid")
+        .select("id, scheduled_date, job_type, assigned_engineer, revenue, status, deposit_paid, receipt_number")
         .eq("customer_id", customerId)
         .order("scheduled_date", { ascending: false, nullsFirst: false });
       setJobs((data || []) as Job[]);
@@ -70,6 +72,7 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
                     <TableHead>Engineer</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Receipt</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -89,6 +92,16 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
                         </TableCell>
                         <TableCell>
                           <Badge variant={paymentVariant(ps)} className="text-xs">{ps}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {j.receipt_number ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/receipt/${j.id}`); }}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                            >
+                              <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
+                            </button>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     );

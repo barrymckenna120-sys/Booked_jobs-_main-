@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MapPin, AlertTriangle, Play, CheckCircle2 } from "lucide-react";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
 import NoteSheet from "./NoteSheet";
@@ -10,11 +11,13 @@ import JobPhotoThumbnails from "./JobPhotoThumbnails";
 import NoShowSheet from "./NoShowSheet";
 import PartsNeededSheet from "./PartsNeededSheet";
 import PaymentSheet from "./PaymentSheet";
+import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import StatusBadge from "./job-card/StatusBadge";
 import InfoPills from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
 import SecondaryActions from "./job-card/SecondaryActions";
 import PrimaryActions from "./job-card/PrimaryActions";
+import { Button } from "@/components/ui/button";
 
 const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
 
@@ -27,6 +30,7 @@ interface EngineerJobCardProps {
 }
 
 const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
+  const { toast } = useToast();
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -36,6 +40,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showNoShow, setShowNoShow] = useState(false);
   const [showPartsNeeded, setShowPartsNeeded] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
 
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
@@ -117,6 +122,33 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             </div>
           </>
         )}
+
+        {/* Take Payment button for Completed / In Progress */}
+        {["Completed", "In Progress"].includes(job.status) && (
+          <div className="mt-3">
+            {job.receipt_number ? (
+              <button
+                onClick={() => window.location.href = `/receipt/${job.id}`}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 text-primary font-bold text-sm"
+              >
+                <Receipt className="w-4 h-4" /> {job.receipt_number}
+              </button>
+            ) : (
+              <Button
+                className="w-full h-12 text-sm font-extrabold gap-2"
+                onClick={() => {
+                  if (job.receipt_number) {
+                    toast({ title: "Payment already taken" });
+                    return;
+                  }
+                  setShowTakePayment(true);
+                }}
+              >
+                <CreditCard className="w-4 h-4" /> Take Payment
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
@@ -128,6 +160,17 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       {showExtraWork && <ExtraWorkSheet job={job} customer={customer} onClose={() => setShowExtraWork(false)} />}
       <NoShowSheet open={showNoShow} onClose={() => setShowNoShow(false)} onConfirm={(reason, notes) => { onUpdate(job.id, { status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` }); setShowNoShow(false); }} />
       <PartsNeededSheet open={showPartsNeeded} onClose={() => setShowPartsNeeded(false)} onConfirm={(notes) => { onUpdate(job.id, { status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" }); setShowPartsNeeded(false); }} />
+      {showTakePayment && (
+        <TakePaymentModal
+          open={showTakePayment}
+          onClose={() => setShowTakePayment(false)}
+          job={job}
+          customer={customer}
+          onPaymentComplete={() => {
+            onUpdate(job.id, {}); // trigger refresh
+          }}
+        />
+      )}
     </>
   );
 };
