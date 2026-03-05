@@ -37,6 +37,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
+import ServiceReceipt from "./pages/ServiceReceipt";
 
 const queryClient = new QueryClient();
 
@@ -111,6 +112,7 @@ const App = () => (
               <Route path="completed" element={<EngineerCompleted />} />
             </Route>
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
+            <Route path="/receipt/:id" element={<ServiceReceipt />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />

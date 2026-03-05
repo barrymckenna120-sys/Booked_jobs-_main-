@@ -537,6 +537,7 @@ export type Database = {
           paid_at: string | null
           payment_collected_by: string | null
           payment_method: string | null
+          receipt_number: string | null
           revenue: number | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -572,6 +573,7 @@ export type Database = {
           paid_at?: string | null
           payment_collected_by?: string | null
           payment_method?: string | null
+          receipt_number?: string | null
           revenue?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -607,6 +609,7 @@ export type Database = {
           paid_at?: string | null
           payment_collected_by?: string | null
           payment_method?: string | null
+          receipt_number?: string | null
           revenue?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -657,6 +660,7 @@ export type Database = {
           payment_reminder_days_2: number | null
           payment_reminders_enabled: boolean | null
           payment_terms: string | null
+          receipts_counter: number
           reminder_message_template: string | null
           renewal_reminder_days_1: number | null
           renewal_reminder_days_2: number | null
@@ -697,6 +701,7 @@ export type Database = {
           payment_reminder_days_2?: number | null
           payment_reminders_enabled?: boolean | null
           payment_terms?: string | null
+          receipts_counter?: number
           reminder_message_template?: string | null
           renewal_reminder_days_1?: number | null
           renewal_reminder_days_2?: number | null
@@ -737,6 +742,7 @@ export type Database = {
           payment_reminder_days_2?: number | null
           payment_reminders_enabled?: boolean | null
           payment_terms?: string | null
+          receipts_counter?: number
           reminder_message_template?: string | null
           renewal_reminder_days_1?: number | null
           renewal_reminder_days_2?: number | null
@@ -856,6 +862,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_user_role: { Args: { _user_id: string }; Returns: string }

@@ -115,14 +115,31 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.cancelled_by = user?.id || null;
     }
 
+    // Generate receipt number on completion
+    if (patch.status === "Completed" && !job.receipt_number) {
+      try {
+        const { data: receiptNum, error: rpcErr } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
+        if (!rpcErr && receiptNum) {
+          dbPatch.receipt_number = receiptNum;
+        }
+      } catch {}
+    }
+
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      if (patch.status === "Completed") logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
-      else if (patch.status === "Cancelled") logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
-      else if (patch.status === "In Progress") logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started by engineer" });
-      toast({ title: patch.status === "Completed" ? "Job completed" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+      if (patch.status === "Completed") {
+        logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
+        toast({ title: "Job completed" });
+        navigate(`/receipt/${job.id}`);
+        return;
+      } else if (patch.status === "Cancelled") {
+        logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
+      } else if (patch.status === "In Progress") {
+        logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started by engineer" });
+      }
+      toast({ title: patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
       fetchJob();
     }
   };
