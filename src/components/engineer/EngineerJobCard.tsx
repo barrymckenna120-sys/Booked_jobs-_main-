@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
@@ -136,9 +137,16 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             ) : (
               <Button
                 className="w-full h-12 text-sm font-extrabold gap-2"
-                onClick={() => {
-                  if (job.receipt_number) {
-                    toast({ title: "Payment already taken" });
+                onClick={async () => {
+                  // Fresh check against DB to prevent duplicates across views
+                  const { data } = await supabase
+                    .from("service_calls")
+                    .select("receipt_number")
+                    .eq("id", job.id)
+                    .maybeSingle();
+                  if (data?.receipt_number) {
+                    toast({ title: "Payment already taken", description: `Receipt ${data.receipt_number}` });
+                    onUpdate(job.id, {}); // refresh local state
                     return;
                   }
                   setShowTakePayment(true);
