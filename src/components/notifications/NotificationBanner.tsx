@@ -82,7 +82,7 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[200] pointer-events-none flex flex-col items-center">
+    <div className="fixed top-14 left-0 right-0 z-[200] pointer-events-none flex flex-col items-center gap-2 px-4 pt-2">
       <AnimatePresence mode="popLayout">
         {notifications.map((n) => {
           const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
@@ -93,17 +93,17 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
             <motion.div
               key={n.id}
               layout
-              initial={{ opacity: 0, y: -60 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
-              transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="w-full pointer-events-auto"
+              initial={{ opacity: 0, y: -40, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -30, scale: 0.95, transition: { duration: 0.2 } }}
+              transition={{ type: "spring", damping: 28, stiffness: 350 }}
+              className="w-full max-w-[500px] pointer-events-auto"
             >
               <div
                 onClick={() => handleTap(n)}
-                className="mx-auto w-full border-b border-border bg-card/95 backdrop-blur-md shadow-[0_2px_12px_rgba(0,0,0,0.08)] cursor-pointer hover:bg-muted/50 transition-colors"
+                className="w-full rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-lg cursor-pointer hover:bg-muted/50 transition-colors"
               >
-                <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center gap-3">
+                <div className="px-4 py-2.5 flex items-center gap-3">
                   {/* Icon */}
                   <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${cfg.bg}`}>
                     <Icon className={`w-4 h-4 ${cfg.color}`} />
@@ -115,8 +115,8 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
                   </span>
 
                   {/* Message */}
-                  <div className="flex-1 min-w-0 flex items-center gap-2">
-                    <span className="text-sm font-bold text-foreground truncate">{n.body}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-bold text-foreground truncate block">{n.body}</span>
                   </div>
 
                   {/* Job ref */}
