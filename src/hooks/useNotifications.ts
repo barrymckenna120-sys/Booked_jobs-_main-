@@ -25,6 +25,17 @@ export interface AppNotification {
   role: string | null;
 }
 
+const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show"]);
+
+// Vibration for high-priority notifications (double pulse)
+function vibrateHighPriority() {
+  try {
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+  } catch {}
+}
+
 // Web Audio API sounds
 function playDoubleBeep() {
   try {
@@ -131,13 +142,16 @@ export function useNotifications() {
             // Show banner
             setBannerNotifications((prev) => [n, ...prev]);
 
-            // Play sound
+            // Play sound + vibrate for high priority
             if (soundEnabled) {
               if (n.notification_type === "completed") {
                 playSoftChime();
               } else {
                 playDoubleBeep();
               }
+            }
+            if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
+              vibrateHighPriority();
             }
           }
         }
