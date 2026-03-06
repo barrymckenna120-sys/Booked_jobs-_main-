@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { printReceipt } from "@/lib/printReceipt";
-import { CheckCircle2, Download, CalendarPlus, Loader2, Share2 } from "lucide-react";
+import { CheckCircle2, Download, CalendarPlus, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const formatDate = (d: string) =>
@@ -80,6 +80,40 @@ const ServiceReceipt = () => {
   const handleDownloadPdf = () => {
     const data = getReceiptData();
     printReceipt(data);
+  };
+
+  const formatPhoneForWhatsApp = (phone: string): string => {
+    let cleaned = phone.replace(/[\s\-()]/g, "");
+    if (cleaned.startsWith("0")) cleaned = "353" + cleaned.slice(1);
+    if (!cleaned.startsWith("+") && !cleaned.startsWith("353")) cleaned = "353" + cleaned;
+    return cleaned.replace("+", "");
+  };
+
+  const handleSendWhatsApp = async () => {
+    const phone = customer?.phone?.trim();
+    if (!phone) {
+      toast({
+        title: "No phone number on file for this customer — receipt cannot be sent via WhatsApp.",
+        variant: "destructive",
+        className: "bg-amber-500 text-white border-amber-600",
+      });
+      return;
+    }
+
+    const data = getReceiptData();
+    const formattedPhone = formatPhoneForWhatsApp(phone);
+    const message = encodeURIComponent(
+      `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`
+    );
+    window.open(`https://wa.me/${formattedPhone}?text=${message}`, "_blank");
+
+    // Mark receipt as sent
+    await supabase
+      .from("service_calls")
+      .update({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any)
+      .eq("id", id);
+
+    toast({ title: "Receipt sent via WhatsApp" });
   };
 
   if (loading) {
@@ -181,6 +215,13 @@ const ServiceReceipt = () => {
           >
             <Download className="w-4 h-4" />
             Download PDF Receipt
+          </Button>
+          <Button
+            className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={handleSendWhatsApp}
+          >
+            <Send className="w-4 h-4" />
+            Send via WhatsApp
           </Button>
           <Button
             variant="outline"

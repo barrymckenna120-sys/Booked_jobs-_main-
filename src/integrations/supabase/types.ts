@@ -573,6 +573,8 @@ export type Database = {
           payment_collected_by: string | null
           payment_method: string | null
           receipt_number: string | null
+          receipt_sent: boolean
+          receipt_sent_at: string | null
           revenue: number | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -609,6 +611,8 @@ export type Database = {
           payment_collected_by?: string | null
           payment_method?: string | null
           receipt_number?: string | null
+          receipt_sent?: boolean
+          receipt_sent_at?: string | null
           revenue?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -645,6 +649,8 @@ export type Database = {
           payment_collected_by?: string | null
           payment_method?: string | null
           receipt_number?: string | null
+          receipt_sent?: boolean
+          receipt_sent_at?: string | null
           revenue?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
