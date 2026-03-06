@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
@@ -64,6 +64,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [replyNote, setReplyNote] = useState("");
+  const [savingReply, setSavingReply] = useState(false);
 
   useEffect(() => {
     if (user && id) fetchJob();
@@ -93,6 +95,30 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (custRes.data) setCustomer(custRes.data);
     if (notesRes.data) setCallNotes(notesRes.data);
     setLoading(false);
+  };
+
+  const handleSaveReply = async () => {
+    if (!replyNote.trim() || !user || !customer) return;
+    setSavingReply(true);
+    const { error } = await supabase.from("customer_call_notes").insert({
+      customer_id: customer.id,
+      user_id: user.id,
+      note: replyNote.trim(),
+      created_by_name: job?.assigned_engineer || user.email?.split("@")[0] || "Engineer",
+    });
+    setSavingReply(false);
+    if (error) {
+      toast({ title: "Error saving note", description: error.message, variant: "destructive" });
+    } else {
+      setReplyNote("");
+      const { data } = await supabase
+        .from("customer_call_notes")
+        .select("*")
+        .eq("customer_id", customer.id)
+        .order("created_at", { ascending: false });
+      if (data) setCallNotes(data);
+      toast({ title: "Note saved" });
+    }
   };
 
   const updateJob = async (patch: Record<string, any>) => {
@@ -284,25 +310,48 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
-        {/* Call Notes (read-only) */}
-        {callNotes.length > 0 && (
-          <div className="bg-secondary rounded-xl border border-border p-3 space-y-2">
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <PhoneCall className="w-3 h-3" /> Office Call Notes
-            </div>
-            {callNotes.map((cn) => (
-              <div key={cn.id} className="bg-card rounded-lg p-2.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[11px] font-semibold text-foreground">{cn.created_by_name || "Office"}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(cn.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                  </span>
-                </div>
-                <p className="text-[13px] text-foreground leading-snug">{cn.note}</p>
-              </div>
-            ))}
+        {/* Call Notes + Engineer Reply */}
+        <div className="bg-secondary rounded-xl border border-border p-3 space-y-2">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <PhoneCall className="w-3 h-3" /> Call Notes
           </div>
-        )}
+          {callNotes.length > 0 ? callNotes.map((cn) => (
+            <div key={cn.id} className="bg-card rounded-lg p-2.5">
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[11px] font-semibold text-foreground">{cn.created_by_name || "Office"}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(cn.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+              </div>
+              <p className="text-[13px] text-foreground leading-snug">{cn.note}</p>
+            </div>
+          )) : (
+            <p className="text-xs text-muted-foreground">No notes yet</p>
+          )}
+          {/* Engineer reply input */}
+          <div className="flex gap-2 pt-1">
+            <Input
+              value={replyNote}
+              onChange={(e) => setReplyNote(e.target.value)}
+              placeholder="Add a note from site…"
+              className="text-sm h-9"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && replyNote.trim()) {
+                  e.preventDefault();
+                  handleSaveReply();
+                }
+              }}
+            />
+            <Button
+              size="sm"
+              className="shrink-0 h-9"
+              disabled={!replyNote.trim() || savingReply}
+              onClick={handleSaveReply}
+            >
+              {savingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
 
         {/* Cancellation details */}
         {job.status === "Cancelled" && job.cancellation_reason && (
