@@ -247,7 +247,7 @@ const JobDetail = () => {
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
