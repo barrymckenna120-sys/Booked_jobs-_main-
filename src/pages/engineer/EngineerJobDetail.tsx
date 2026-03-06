@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
@@ -52,6 +52,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const [job, setJob] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
+  const [callNotes, setCallNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showComplete, setShowComplete] = useState(false);
@@ -84,13 +85,13 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     setJob(jobData);
 
-    const { data: custData } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("id", jobData.customer_id)
-      .maybeSingle();
+    const [custRes, notesRes] = await Promise.all([
+      supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
+      supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
+    ]);
 
-    if (custData) setCustomer(custData);
+    if (custRes.data) setCustomer(custRes.data);
+    if (notesRes.data) setCallNotes(notesRes.data);
     setLoading(false);
   };
 
@@ -280,6 +281,26 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               <Key className="w-3 h-3" /> Access Note
             </div>
             <div className="text-[13px] text-foreground">{customer.access_notes}</div>
+          </div>
+        )}
+
+        {/* Call Notes (read-only) */}
+        {callNotes.length > 0 && (
+          <div className="bg-secondary rounded-xl border border-border p-3 space-y-2">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <PhoneCall className="w-3 h-3" /> Office Call Notes
+            </div>
+            {callNotes.map((cn) => (
+              <div key={cn.id} className="bg-card rounded-lg p-2.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[11px] font-semibold text-foreground">{cn.created_by_name || "Office"}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(cn.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                </div>
+                <p className="text-[13px] text-foreground leading-snug">{cn.note}</p>
+              </div>
+            ))}
           </div>
         )}
 
