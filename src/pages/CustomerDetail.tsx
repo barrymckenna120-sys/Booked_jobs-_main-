@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History } from "lucide-react";
+import CustomerHistoryPanel from "@/components/customer/CustomerHistoryPanel";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
 import PaymentHistory from "@/components/customer/PaymentHistory";
@@ -37,6 +38,7 @@ const CustomerDetail = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
@@ -152,8 +154,23 @@ const CustomerDetail = () => {
         {/* Contact Info */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Contact Information</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Contact Information</CardTitle>
+              <Button
+                variant={showHistory ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setShowHistory(!showHistory)}
+              >
+                <History className="w-3.5 h-3.5" /> History
+              </Button>
+            </div>
           </CardHeader>
+          {showHistory && (
+            <CardContent className="border-b border-border pb-4 mb-0">
+              <CustomerHistoryPanel customerId={id!} customer={form} />
+            </CardContent>
+          )}
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Customer Name" field="name" />
             <Field label="Phone Number" field="phone" />
