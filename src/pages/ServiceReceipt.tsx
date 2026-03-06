@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
+import { printReceipt } from "@/lib/printReceipt";
 import { CheckCircle2, Download, CalendarPlus, Loader2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -26,7 +26,7 @@ const ServiceReceipt = () => {
   const [customer, setCustomer] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  
 
   useEffect(() => {
     if (user && id) loadData();
@@ -77,47 +77,9 @@ const ServiceReceipt = () => {
     };
   };
 
-  const handleDownloadPdf = async () => {
-    setPdfLoading(true);
-    try {
-      const data = getReceiptData();
-      const doc = generateReceiptPdf(data);
-      const pdfBlob = doc.output("blob");
-      const fileName = `receipt-${data.receiptNumber}-${Date.now()}.pdf`;
-
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from("job-media")
-        .upload(`receipts/${fileName}`, pdfBlob, { contentType: "application/pdf", upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from("job-media").getPublicUrl(`receipts/${fileName}`);
-      const publicUrl = urlData.publicUrl;
-
-      // Also trigger download locally
-      doc.save(fileName);
-
-      // Open WhatsApp with pre-filled message
-      if (customer?.phone) {
-        const phone = customer.phone.replace(/[^0-9]/g, "");
-        const message = encodeURIComponent(
-          `Hi ${customer.name},\n\nThank you for choosing ${data.businessName}. Here is your payment receipt:\n\n` +
-          `📋 Receipt: ${data.receiptNumber}\n` +
-          `🔧 Service: ${data.serviceType}\n` +
-          `💰 Amount: ${data.amountPaid}\n` +
-          `📅 Service Date: ${data.serviceDate}\n\n` +
-          `📄 Download your receipt: ${publicUrl}\n\n` +
-          `Your next boiler service is due: ${data.nextServiceDue}`
-        );
-        window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
-      }
-
-      toast({ title: "Receipt downloaded & uploaded" });
-    } catch (e: any) {
-      toast({ title: "Error generating PDF", description: e.message, variant: "destructive" });
-    }
-    setPdfLoading(false);
+  const handleDownloadPdf = () => {
+    const data = getReceiptData();
+    printReceipt(data);
   };
 
   if (loading) {
@@ -216,9 +178,8 @@ const ServiceReceipt = () => {
           <Button
             className="w-full h-12 text-sm font-extrabold gap-2"
             onClick={handleDownloadPdf}
-            disabled={pdfLoading}
           >
-            {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <Download className="w-4 h-4" />
             Download PDF Receipt
           </Button>
           <Button
