@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
+import { printReceipt } from "@/lib/printReceipt";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -120,20 +120,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         engineerName: job.assigned_engineer || "—",
       };
       setReceiptData(rd);
-
-      // Generate PDF
-      const doc = generateReceiptPdf(rd);
-      const pdfBlob = doc.output("blob");
       setProcStep(1);
-
-      // Upload
-      const fileName = `receipt-${receiptNum}-${Date.now()}.pdf`;
-      await supabase.storage.from("job-media").upload(`receipts/${fileName}`, pdfBlob, {
-        contentType: "application/pdf", upsert: true,
-      });
-      const { data: urlData } = supabase.storage.from("job-media").getPublicUrl(`receipts/${fileName}`);
-      const publicUrl = urlData.publicUrl;
-      setPdfUrl(publicUrl);
       setProcStep(2);
 
       // Save to service_calls
@@ -165,7 +152,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   };
 
   const handleDownload = () => {
-    if (pdfUrl) window.open(pdfUrl, "_blank");
+    if (receiptData) printReceipt(receiptData);
   };
 
   const handleClose = () => {
@@ -286,8 +273,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
             </DialogHeader>
             <div className="space-y-4">
               {[
-                { label: "Generating PDF receipt", done: procStep >= 1 },
-                { label: "Uploading to storage", done: procStep >= 2 },
+                { label: "Generating receipt", done: procStep >= 1 },
+                { label: "Saving payment record", done: procStep >= 2 },
                 { label: "Receipt ready", done: procStep >= 2 },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-3">
