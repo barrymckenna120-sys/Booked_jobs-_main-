@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 
@@ -24,6 +24,7 @@ type Job = {
   has_quote: boolean;
   payment_method: string | null;
   receipt_number: string | null;
+  receipt_sent: boolean;
   revenue: number | null;
   user_id: string;
   customer_name?: string;
@@ -241,6 +242,7 @@ const Jobs = () => {
                             className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
                           >
                             <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
+                            {j.receipt_sent && <CheckCircle2 className="w-3.5 h-3.5 text-success ml-0.5" />}
                           </button>
                         ) : canTakePayment ? (
                           <Button
