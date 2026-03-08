@@ -271,18 +271,35 @@ const StepJob = ({ prefilledType, onNext, onBack }: { prefilledType?: string; on
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState("");
+  const [showJobTypeError, setShowJobTypeError] = useState(false);
+  const [jobTypeErrorMsg, setJobTypeErrorMsg] = useState("");
+  const [highlightJobType, setHighlightJobType] = useState(false);
   const isUrgent = jobType === "Emergency";
+
+  const handleNext = () => {
+    if (!jobType) {
+      setHighlightJobType(true);
+      if (boiler.trim()) {
+        setJobTypeErrorMsg("You've added a boiler model. Please select a job type to match before continuing.");
+      } else {
+        setJobTypeErrorMsg("Please select a job type before continuing.");
+      }
+      setShowJobTypeError(true);
+      return;
+    }
+    onNext({ jobType, isUrgent, notes, boilerModel: boiler });
+  };
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto px-5 space-y-4">
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Job Type</Label>
-          <div className="grid grid-cols-2 gap-2.5 mt-1.5">
+          <div className={`grid grid-cols-2 gap-2.5 mt-1.5 rounded-xl ${highlightJobType ? "ring-2 ring-destructive p-1" : ""}`}>
             {JOB_TYPES.map((j) => (
               <button
                 key={j.id}
-                onClick={() => setJobType(j.id)}
+                onClick={() => { setJobType(j.id); setHighlightJobType(false); }}
                 className={`p-3.5 rounded-xl border-2 flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                   jobType === j.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
@@ -319,10 +336,24 @@ const StepJob = ({ prefilledType, onNext, onBack }: { prefilledType?: string; on
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" onClick={() => onNext({ jobType, isUrgent, notes, boilerModel: boiler })}>
+        <Button className="flex-1 h-12 font-extrabold text-base" onClick={handleNext}>
           Schedule this job →
         </Button>
       </div>
+
+      {/* Job Type Required Modal */}
+      {showJobTypeError && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50" onClick={() => setShowJobTypeError(false)}>
+          <div className="bg-card rounded-2xl shadow-lg max-w-[380px] w-[90%] p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              <h3 className="text-lg font-extrabold text-foreground">Job Type Required</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{jobTypeErrorMsg}</p>
+            <Button className="w-full" onClick={() => setShowJobTypeError(false)}>Go Back</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
