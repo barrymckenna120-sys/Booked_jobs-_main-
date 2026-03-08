@@ -1,4 +1,4 @@
-import { Camera, Archive } from "lucide-react";
+import { Camera, Archive, Clock } from "lucide-react";
 import { IncomingStatusPill, BoilerWorkingPill, TimeBlockLabel } from "./IncomingPills";
 
 type IncomingJob = {
@@ -35,13 +35,23 @@ type Props = {
   onArchive: (id: string) => void;
 };
 
-const relativeTime = (dateStr: string) => {
+const formatTimestamp = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const d = new Date(dateStr);
+
+  if (mins < 60) {
+    return { text: "Just now", color: "text-success" };
+  }
+  if (mins < 1440) {
+    // Under 24 hours
+    const timeStr = d.toLocaleTimeString("en-IE", { hour: "numeric", minute: "2-digit", hour12: true });
+    return { text: `Today at ${timeStr}`, color: "text-warning" };
+  }
+  // Over 24 hours
+  const dateFormatted = d.toLocaleDateString("en-IE", { day: "numeric", month: "short" });
+  const timeStr = d.toLocaleTimeString("en-IE", { hour: "numeric", minute: "2-digit", hour12: true });
+  return { text: `${dateFormatted} · ${timeStr}`, color: "text-destructive" };
 };
 
 const borderColorMap: Record<string, string> = {
@@ -56,6 +66,7 @@ const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
   const leftBorder = borderColorMap[job.incoming_status || "Pending"] || "border-l-warning";
   const urgentGas = !job.boiler_working && job.boiler_issue?.toLowerCase().includes("gas");
   const isArchived = job.incoming_status === "Archived";
+  const ts = formatTimestamp(job.created_at);
 
   return (
     <div
@@ -77,7 +88,10 @@ const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
           <IncomingStatusPill status={job.incoming_status} />
-          <span className="text-[11px] text-muted-foreground">{relativeTime(job.created_at)}</span>
+          <span className={`text-[12px] font-bold flex items-center gap-1 ${ts.color}`}>
+            <Clock className="w-3 h-3" />
+            {ts.text}
+          </span>
         </div>
       </div>
 

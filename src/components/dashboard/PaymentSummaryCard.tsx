@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Banknote, CreditCard, FileText, Loader2 } from "lucide-react";
+import { Banknote, CreditCard, FileText, Loader2, TrendingUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 
 type Period = "today" | "week";
@@ -86,6 +86,8 @@ const PaymentSummaryCard = () => {
     total: stats?.invoiceTotal || 0,
   };
 
+  const grandTotal = (stats?.cashTotal || 0) + (stats?.cardTotal || 0);
+
   return (
     <Card className="shadow-sm border-border/60">
       <CardContent className="p-5">
@@ -125,14 +127,27 @@ const PaymentSummaryCard = () => {
                     <span className="text-xs font-bold text-foreground">{m.label}</span>
                   </div>
                   <div className="text-xl font-extrabold text-foreground leading-none">
-                    {m.count}
+                    €{m.total.toLocaleString()}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-1">
-                    €{m.total.toLocaleString()}
+                    {m.count} job{m.count !== 1 ? "s" : ""}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Total Taken row */}
+            {(stats?.cashCount || 0) + (stats?.cardCount || 0) > 0 && (
+              <div className="bg-foreground/[0.04] rounded-xl p-3.5 flex items-center gap-3 mb-3">
+                <TrendingUp className="w-5 h-5 text-primary shrink-0" />
+                <div className="flex-1">
+                  <div className="text-[11px] text-muted-foreground font-medium">Total Taken</div>
+                  <div className="text-xl font-extrabold text-foreground leading-none mt-0.5">
+                    €{grandTotal.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {invoiceData.count > 0 && (
               <button

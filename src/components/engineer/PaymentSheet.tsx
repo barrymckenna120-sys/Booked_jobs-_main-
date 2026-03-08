@@ -1,7 +1,8 @@
 import { useState } from "react";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
-import { Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Banknote, CreditCard, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface Props {
   job: any;
@@ -18,6 +19,20 @@ const METHODS = [
 
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
+  const [showNoPayment, setShowNoPayment] = useState(false);
+  const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
+
+  const handleConfirm = () => {
+    if (!selected) {
+      setShowNoPayment(true);
+      return;
+    }
+    if (selected === "invoice") {
+      setShowInvoiceConfirm(true);
+      return;
+    }
+    onDone(selected);
+  };
 
   return (
     <EngineerSheet onClose={onClose}>
@@ -61,8 +76,7 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
 
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2 mt-2"
-          disabled={!selected}
-          onClick={() => selected && onDone(selected)}
+          onClick={handleConfirm}
         >
           <CheckCircle2 className="w-5 h-5" /> Confirm & Complete
         </Button>
@@ -70,6 +84,43 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
           Cancel
         </button>
       </div>
+
+      {/* No payment selected modal */}
+      <Dialog open={showNoPayment} onOpenChange={setShowNoPayment}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning" /> Payment Type Required
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Please select Cash or Card before completing this job.</p>
+          <Button className="w-full mt-2" onClick={() => setShowNoPayment(false)}>
+            Go Back
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice confirmation modal */}
+      <Dialog open={showInvoiceConfirm} onOpenChange={setShowInvoiceConfirm}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-warning" /> Invoice Later?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This job will be marked as unpaid and invoiced later. Please make sure the office has been notified.
+          </p>
+          <div className="flex gap-3 mt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowInvoiceConfirm(false)}>
+              Go Back
+            </Button>
+            <Button className="flex-1" onClick={() => { setShowInvoiceConfirm(false); onDone("invoice"); }}>
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </EngineerSheet>
   );
 };

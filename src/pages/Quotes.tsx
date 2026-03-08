@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +12,15 @@ import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   FileText, Plus, Clock, CheckCircle2, CreditCard, Send, Edit2, User,
-  Loader2, X, MessageCircle, Bell
+  Loader2, X, MessageCircle, Bell, ArrowLeft, Calendar as CalendarIcon
 } from "lucide-react";
 import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/components/jobs/SendAllQuotes";
+import { format } from "date-fns";
 
 type Quote = {
   id: string;
@@ -45,6 +50,8 @@ type Quote = {
     id: string;
     job_type: string;
     assigned_engineer: string | null;
+    scheduled_date: string | null;
+    time_block: string | null;
   };
 };
 
@@ -61,6 +68,12 @@ const JOB_TYPE_STYLES: Record<string, string> = {
   Emergency:        "bg-destructive/10 text-destructive",
   "Boiler Service": "bg-primary/10 text-primary",
 };
+
+const TIME_BLOCKS = [
+  { id: "9am–11am", label: "9–11am" },
+  { id: "11am–1pm", label: "11am–1pm" },
+  { id: "2pm–5pm", label: "2–5pm" },
+];
 
 const FILTERS = ["All", "Draft", "Sent", "Accepted", "Paid", "Rejected"];
 
@@ -103,12 +116,29 @@ const Quotes = () => {
   const [payType, setPayType] = useState<"full" | "deposit">("full");
   const [payDeposit, setPayDeposit] = useState("");
 
+  // Schedule Job modal
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [scheduleEngineer, setScheduleEngineer] = useState("");
+  const [scheduleErrors, setScheduleErrors] = useState<{ date?: boolean; time?: boolean; engineer?: boolean }>({});
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+
+  const { data: engineers = [] } = useQuery({
+    queryKey: ["engineers-for-schedule"],
+    queryFn: async () => {
+      const { data } = await supabase.from("engineers").select("id, name, status").eq("status", "active");
+      return data || [];
+    },
+    enabled: scheduleOpen,
+  });
+
   const fetchQuotes = async () => {
     if (!user) return;
     setLoading(true);
     const { data } = await supabase
       .from("quotes")
-      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer)")
+      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setQuotes((data || []) as unknown as Quote[]);
@@ -123,9 +153,13 @@ const Quotes = () => {
 
   const kpi = {
     total: quotes.length,
+    totalValue: quotes.reduce((s, q) => s + Number(q.total_amount || 0), 0),
     open: quotes.filter((q) => ["Draft", "Sent"].includes(q.status)).length,
+    openValue: quotes.filter((q) => ["Draft", "Sent"].includes(q.status)).reduce((s, q) => s + Number(q.total_amount || 0), 0),
     accepted: quotes.filter((q) => q.status === "Accepted").length,
+    acceptedValue: quotes.filter((q) => q.status === "Accepted").reduce((s, q) => s + Number(q.total_amount || 0), 0),
     paid: quotes.filter((q) => q.status === "Paid").length,
+    paidValue: quotes.filter((q) => q.status === "Paid").reduce((s, q) => s + Number(q.total_amount || 0), 0),
   };
 
   const sentCount = quotes.filter((q) => q.status === "Sent").length;
@@ -199,7 +233,7 @@ const Quotes = () => {
       callout_cost: showBreakdown ? parseFloat(formCalloutCost) || 0 : null,
       total_amount: calcTotal,
       status: "Draft",
-    }] as any).select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer)").single();
+    }] as any).select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)").single();
 
     await supabase.from("service_calls").update({ has_quote: true } as any).eq("id", formJobId);
     setSaving(false);
@@ -258,6 +292,39 @@ const Quotes = () => {
     fetchQuotes();
   };
 
+  // ── Schedule Job ──
+  const handleScheduleJob = async () => {
+    if (!selected || !user) return;
+    const errors: typeof scheduleErrors = {};
+    if (!scheduleDate) errors.date = true;
+    if (!scheduleTime) errors.time = true;
+    if (!scheduleEngineer) errors.engineer = true;
+    if (Object.keys(errors).length > 0) {
+      setScheduleErrors(errors);
+      return;
+    }
+    setScheduleSaving(true);
+    const eng = engineers.find((e: any) => e.id === scheduleEngineer);
+    const dateStr = format(scheduleDate!, "yyyy-MM-dd");
+    const { error } = await supabase.from("service_calls").update({
+      scheduled_date: dateStr,
+      time_block: scheduleTime,
+      assigned_engineer: eng?.name || null,
+      assigned_engineer_id: scheduleEngineer,
+      status: "Scheduled",
+    } as any).eq("id", selected.job_id);
+    if (error) {
+      toast({ title: "Error scheduling", description: error.message, variant: "destructive" });
+    } else {
+      await supabase.from("quotes").update({ status: "Converted" } as any).eq("id", selected.id);
+      toast({ title: "Job scheduled and quote converted" });
+      setScheduleOpen(false);
+      fetchQuotes();
+      setSelected(null);
+    }
+    setScheduleSaving(false);
+  };
+
   // ── Relative time ──
   const relTime = (d: string | null) => {
     if (!d) return null;
@@ -271,6 +338,29 @@ const Quotes = () => {
   };
 
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
+
+  // KPI card filter mapping
+  const kpiCards = [
+    { icon: <FileText className="w-4 h-4 text-primary" />, value: kpi.total, euro: kpi.totalValue, label: "Total", accent: "border-t-primary", filterValue: "All" },
+    { icon: <Clock className="w-4 h-4 text-warning" />, value: kpi.open, euro: kpi.openValue, label: "Open", accent: "border-t-warning", filterValue: "Open" },
+    { icon: <CheckCircle2 className="w-4 h-4 text-success" />, value: kpi.accepted, euro: kpi.acceptedValue, label: "Accepted", accent: "border-t-success", filterValue: "Accepted" },
+    { icon: <CreditCard className="w-4 h-4 text-success" />, value: kpi.paid, euro: kpi.paidValue, label: "Paid", accent: "border-t-success", filterValue: "Paid" },
+  ];
+
+  // Handle KPI card click: "Open" maps to showing Draft+Sent, others map directly
+  const handleKpiClick = (filterValue: string) => {
+    if (filterValue === "Open") {
+      // For Open, we show Draft+Sent — use "All" filter but actually custom
+      setFilter(filter === "Open" ? "All" : "Open");
+    } else {
+      setFilter(filter === filterValue ? "All" : filterValue);
+    }
+  };
+
+  // Override filtered for "Open" pseudo-filter
+  const displayedQuotes = filter === "Open"
+    ? quotes.filter((q) => ["Draft", "Sent"].includes(q.status))
+    : filtered;
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
@@ -289,22 +379,25 @@ const Quotes = () => {
         </Button>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — tappable filters */}
       <div className="grid grid-cols-4 gap-3">
-        {[
-          { icon: <FileText className="w-4 h-4 text-primary" />, value: kpi.total, label: "Total", accent: "border-t-primary" },
-          { icon: <Clock className="w-4 h-4 text-warning" />, value: kpi.open, label: "Open", accent: "border-t-warning" },
-          { icon: <CheckCircle2 className="w-4 h-4 text-success" />, value: kpi.accepted, label: "Accepted", accent: "border-t-success" },
-          { icon: <CreditCard className="w-4 h-4 text-success" />, value: kpi.paid, label: "Paid", accent: "border-t-success" },
-        ].map((k) => (
-          <Card key={k.label} className={`shadow-sm border-t-[3px] ${k.accent}`}>
-            <CardContent className="pt-3 pb-3 px-4">
-              <div className="mb-1">{k.icon}</div>
-              <p className="text-xl font-extrabold">{k.value}</p>
-              <p className="text-[11px] text-muted-foreground">{k.label}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {kpiCards.map((k) => {
+          const isActive = filter === k.filterValue;
+          return (
+            <Card
+              key={k.label}
+              className={`shadow-sm border-t-[3px] ${k.accent} cursor-pointer transition-all ${isActive ? "ring-2 ring-primary border-primary" : "hover:shadow-md"}`}
+              onClick={() => handleKpiClick(k.filterValue)}
+            >
+              <CardContent className="pt-3 pb-3 px-4">
+                <div className="mb-1">{k.icon}</div>
+                <p className="text-xl font-extrabold">{k.value}</p>
+                <p className="text-[13px] font-medium text-muted-foreground">€{k.euro.toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground">{k.label}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Filter pills */}
@@ -382,7 +475,7 @@ const Quotes = () => {
       {/* Quote cards */}
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Loading quotes...</p>
-      ) : filtered.length === 0 ? (
+      ) : displayedQuotes.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-12 text-center space-y-3">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground" />
@@ -392,7 +485,7 @@ const Quotes = () => {
         </Card>
       ) : (
         <div className="space-y-2.5">
-          {filtered.map((q) => {
+          {displayedQuotes.map((q) => {
             const ss = STATUS_STYLES[q.status] || STATUS_STYLES.Draft;
             const jt = JOB_TYPE_STYLES[q.service_calls?.job_type] || "bg-muted text-muted-foreground";
             return (
@@ -426,6 +519,23 @@ const Quotes = () => {
                     </span>
                     <span className="text-lg font-extrabold">€{Number(q.total_amount).toLocaleString()}</span>
                   </div>
+
+                  {/* Accepted quote — scheduled date footer */}
+                  {q.status === "Accepted" && (
+                    <div className="mt-2.5 pt-2 border-t border-border">
+                      {q.service_calls?.scheduled_date ? (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CalendarIcon className="w-3.5 h-3.5" />
+                          <span>Scheduled: {format(new Date(q.service_calls.scheduled_date + "T00:00:00"), "EEE d MMM")}{q.service_calls.time_block ? ` · ${q.service_calls.time_block}` : ""}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-xs text-warning font-semibold">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Not yet scheduled</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -450,8 +560,14 @@ const Quotes = () => {
 
             return (
               <>
-                {/* Header */}
+                {/* Back button + Header */}
                 <div className="p-5 pb-4 border-b border-border">
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-3 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Quotes
+                  </button>
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
@@ -619,7 +735,19 @@ const Quotes = () => {
 
                       {q.status === "Accepted" && (
                         <>
-                          <Button className="w-full justify-center bg-success hover:bg-success/90" onClick={() => openPay(q)}>
+                          <Button
+                            className="w-full justify-center bg-success hover:bg-success/90 text-success-foreground font-bold gap-2"
+                            onClick={() => {
+                              setScheduleDate(undefined);
+                              setScheduleTime("");
+                              setScheduleEngineer("");
+                              setScheduleErrors({});
+                              setScheduleOpen(true);
+                            }}
+                          >
+                            <CalendarIcon className="w-4 h-4" /> Schedule Job →
+                          </Button>
+                          <Button className="w-full justify-center" variant="outline" onClick={() => openPay(q)}>
                             <CreditCard className="w-4 h-4 mr-2" /> Add Payment Link
                           </Button>
                           <Button variant="outline" className="w-full justify-center" onClick={() => updateStatus(q.id, "Paid", { paid_at: new Date().toISOString() })}>
@@ -659,6 +787,95 @@ const Quotes = () => {
           })()}
         </SheetContent>
       </Sheet>
+
+      {/* ── Schedule Job Modal ── */}
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule This Job</DialogTitle>
+          </DialogHeader>
+          {selected && (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-xl p-3">
+                <p className="text-sm font-bold">{selected.customers.name}</p>
+                <p className="text-xs text-muted-foreground">{selected.service_calls?.job_type || "Job"} · €{Number(selected.total_amount).toLocaleString()}</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !scheduleDate && "text-muted-foreground",
+                        scheduleErrors.date && "border-destructive"
+                      )}
+                    >
+                      <CalendarIcon className="w-4 h-4 mr-2" />
+                      {scheduleDate ? format(scheduleDate, "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={scheduleDate}
+                      onSelect={(d) => { setScheduleDate(d); setScheduleErrors(e => ({ ...e, date: false })); }}
+                      disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {scheduleErrors.date && <p className="text-xs text-destructive">Please select a date</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Slot *</Label>
+                <Select value={scheduleTime} onValueChange={(v) => { setScheduleTime(v); setScheduleErrors(e => ({ ...e, time: false })); }}>
+                  <SelectTrigger className={scheduleErrors.time ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Select time slot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_BLOCKS.map(tb => (
+                      <SelectItem key={tb.id} value={tb.id}>{tb.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {scheduleErrors.time && <p className="text-xs text-destructive">Please select a time slot</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Engineer *</Label>
+                <Select value={scheduleEngineer} onValueChange={(v) => { setScheduleEngineer(v); setScheduleErrors(e => ({ ...e, engineer: false })); }}>
+                  <SelectTrigger className={scheduleErrors.engineer ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Select engineer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {engineers.map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {scheduleErrors.engineer && <p className="text-xs text-destructive">Please select an engineer</p>}
+              </div>
+
+              <Button
+                className="w-full h-12 font-extrabold bg-success hover:bg-success/90 text-success-foreground"
+                onClick={handleScheduleJob}
+                disabled={scheduleSaving}
+              >
+                {scheduleSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Confirm & Create Job
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => setScheduleOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── WhatsApp Send Dialog ── */}
       <Dialog open={whatsappOpen} onOpenChange={setWhatsappOpen}>

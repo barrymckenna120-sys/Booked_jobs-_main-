@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -33,32 +34,36 @@ const Auth = () => {
   const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // Failed attempt tracking
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [errorTitle, setErrorTitle] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const isRecovery = params.get("type") === "recovery" || hash.includes("type=recovery");
 
-    // Set up auth listener FIRST (before getSession) to catch PASSWORD_RECOVERY
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         navigate("/reset-password", { replace: true });
         return;
       }
-      // Don't redirect to dashboard if this is a recovery flow
       if (isRecovery) return;
       if (session?.user) {
         navigate("/dashboard", { replace: true });
       }
     });
 
-    // If hash contains recovery tokens (non-PKCE flow), redirect immediately
     if (hash.includes("type=recovery") && hash.includes("access_token")) {
       navigate("/reset-password" + hash, { replace: true });
       return () => subscription.unsubscribe();
     }
 
-    // For non-recovery flows, check existing session
     if (!isRecovery) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
@@ -72,12 +77,14 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBlocked) return;
     setLoading(true);
 
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        setFailedAttempts(0);
         navigate("/dashboard");
       } else {
         const { error } = await supabase.auth.signUp({
@@ -95,11 +102,31 @@ const Auth = () => {
         });
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (isLogin && error.message?.toLowerCase().includes("invalid")) {
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+
+        if (newAttempts >= 3) {
+          setErrorTitle("Account Blocked");
+          setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
+          setIsBlocked(true);
+          setErrorModalOpen(true);
+        } else if (newAttempts === 2) {
+          setErrorTitle("Incorrect Password");
+          setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
+          setErrorModalOpen(true);
+        } else {
+          setErrorTitle("Incorrect Password");
+          setErrorMessage("Incorrect password. Please try again.");
+          setErrorModalOpen(true);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -130,6 +157,13 @@ const Auth = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const closeErrorModal = () => {
+    setErrorModalOpen(false);
+    if (!isBlocked) {
+      setTimeout(() => passwordRef.current?.focus(), 100);
     }
   };
 
@@ -237,6 +271,7 @@ const Auth = () => {
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
+                  ref={passwordRef}
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -245,6 +280,7 @@ const Auth = () => {
                   required
                   minLength={6}
                   className="pr-10"
+                  disabled={isBlocked}
                 />
                 <button
                   type="button"
@@ -279,7 +315,7 @@ const Auth = () => {
                 </label>
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading || (!isLogin && !agreedToTerms)}>
+            <Button type="submit" className="w-full" disabled={loading || (!isLogin && !agreedToTerms) || isBlocked}>
               {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
@@ -294,6 +330,19 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Error Modal for failed login attempts */}
+      <Dialog open={errorModalOpen} onOpenChange={(v) => { if (!v) closeErrorModal(); }}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>{errorTitle}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{errorMessage}</p>
+          <Button className="w-full mt-2" onClick={closeErrorModal}>
+            {isBlocked ? "Close" : "Try Again"}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

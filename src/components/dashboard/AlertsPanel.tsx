@@ -36,7 +36,6 @@ const AlertsPanel = () => {
           .not("renewal_stage", "in", '("booked","paid")'),
       ]);
 
-      // Compute overdue / due soon client-side to match Renewals page logic
       let overdue = 0;
       let dueSoon = 0;
       (customersRes.data || []).forEach((c: any) => {
@@ -59,7 +58,7 @@ const AlertsPanel = () => {
   const alerts: AlertItem[] = [
     {
       Icon: Inbox,
-      label: "Incoming pending",
+      label: "New Incoming Jobs",
       count: data?.incoming || 0,
       color: "text-warning",
       bgColor: "bg-warning/10",
@@ -67,7 +66,7 @@ const AlertsPanel = () => {
     },
     {
       Icon: AlertTriangle,
-      label: "Overdue services",
+      label: "Overdue Boiler Services",
       count: data?.overdue || 0,
       color: "text-destructive",
       bgColor: "bg-destructive/10",
@@ -75,7 +74,7 @@ const AlertsPanel = () => {
     },
     {
       Icon: Clock,
-      label: "Due soon",
+      label: "Boiler Services Due Soon",
       count: data?.dueSoon || 0,
       color: "text-warning",
       bgColor: "bg-warning/10",
@@ -104,8 +103,8 @@ const AlertsPanel = () => {
                 <alert.Icon className={`w-4 h-4 ${alert.color}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold text-foreground">{alert.count}</div>
-                <div className="text-[11px] text-muted-foreground/60">{alert.label}</div>
+                <div className="text-[28px] font-extrabold text-foreground leading-none">{alert.count}</div>
+                <div className="text-[15px] font-medium text-muted-foreground mt-1">{alert.label}</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
             </button>
