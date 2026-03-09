@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { format } from "date-fns";
 
 const TodaysRevenueCard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
   const { data, isLoading } = useQuery({
@@ -93,13 +95,26 @@ const TodaysRevenueCard = () => {
 
             {/* Unpaid */}
             {(data?.unpaid || 0) > 0 && (
-              <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => navigate("/jobs?payment=unpaid")}
+                className="flex items-center justify-between w-full mb-3 hover:opacity-80 transition-opacity text-left"
+              >
                 <div className="flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-destructive" />
-                  <span className="text-xs font-bold text-destructive">Unpaid</span>
+                  <span className="text-xs font-bold text-destructive underline">Unpaid</span>
                 </div>
                 <span className="text-sm font-bold text-destructive">
                   €{(data?.unpaid || 0).toLocaleString()}
+                </span>
+              </button>
+            )}
+
+            {/* Net Total */}
+            {(data?.unpaid || 0) > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-base font-extrabold text-foreground">Net Total</span>
+                <span className="text-xl font-extrabold" style={{ color: "#4A86E8" }}>
+                  €{((data?.grandTotal || 0) - (data?.unpaid || 0)).toLocaleString()}
                 </span>
               </div>
             )}
