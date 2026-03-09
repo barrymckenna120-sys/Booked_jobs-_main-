@@ -17,6 +17,7 @@ import MediaGallery from "@/components/media/MediaGallery";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
 import NoShowSheet from "@/components/engineer/NoShowSheet";
 import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
+import TakePaymentModal from "@/components/payments/TakePaymentModal";
 
 type ServiceCall = {
   id: string;
