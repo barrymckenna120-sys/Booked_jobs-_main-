@@ -9,6 +9,7 @@ import { format } from "date-fns";
 
 const TodaysRevenueCard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
   const { data, isLoading } = useQuery({
