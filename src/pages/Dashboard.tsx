@@ -81,8 +81,6 @@ const Dashboard = () => {
       {/* Today's Revenue */}
       <TodaysRevenueCard />
 
-      {/* Payment Summary */}
-      <PaymentSummaryCard />
 
       {/* Needs Attention */}
       <AlertsPanel />

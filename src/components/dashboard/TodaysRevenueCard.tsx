@@ -70,11 +70,11 @@ const TodaysRevenueCard = () => {
             {/* Breakdown by job type */}
             <div className="space-y-2.5 mb-3">
               {entries.map(([type, info]) => (
-                <div key={type} className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
+              <div key={type} className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-foreground">
                     {type} ({info.count})
                   </span>
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-base font-extrabold text-foreground">
                     €{info.total.toLocaleString()}
                   </span>
                 </div>
