@@ -174,6 +174,7 @@ const Jobs = () => {
           <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Payments</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
             <SelectItem value="cash">Cash</SelectItem>
             <SelectItem value="card">Card</SelectItem>
             <SelectItem value="invoice">Invoice</SelectItem>
