@@ -89,7 +89,7 @@ const Jobs = () => {
       const matchStatus = statusFilter === "all" || j.status === statusFilter;
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
-      const matchPayment = paymentFilter === "all" || j.payment_method === paymentFilter;
+      const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
       return matchStatus && matchType && matchSearch && matchPayment;
     })
     .sort((a, b) => {
@@ -174,6 +174,7 @@ const Jobs = () => {
           <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Payments</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
             <SelectItem value="cash">Cash</SelectItem>
             <SelectItem value="card">Card</SelectItem>
             <SelectItem value="invoice">Invoice</SelectItem>
