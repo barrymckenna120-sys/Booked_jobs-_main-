@@ -262,6 +262,11 @@ const JobDetail = () => {
           <div className="flex flex-wrap items-center gap-2 mt-1">
             {jobTypeBadge(job.job_type)}
             {statusBadge(job.status)}
+            {job.status === "Completed" && job.payment_method && (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-success/10 text-success">
+                ✅ Paid
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {formatDateIE(job.scheduled_date)} · {job.time_block || "No time"} · {job.assigned_engineer || "Unassigned"}
