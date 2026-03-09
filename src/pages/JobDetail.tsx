@@ -324,6 +324,16 @@ const JobDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Take Payment — completed but unpaid */}
+      {job.status === "Completed" && !job.payment_method && (
+        <Button
+          className="w-full h-14 text-base font-extrabold gap-2 bg-primary hover:bg-primary/90"
+          onClick={() => setPaymentOpen(true)}
+        >
+          <CreditCard className="w-5 h-5" /> Take Payment
+        </Button>
+      )}
+
       {/* Boiler Issue Warning */}
       {job.boiler_working === false && job.boiler_issue && (
         <div className="flex items-start gap-2 rounded-lg p-3 bg-warning/10 border-l-4 border-warning">
