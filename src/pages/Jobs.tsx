@@ -89,7 +89,7 @@ const Jobs = () => {
       const matchStatus = statusFilter === "all" || j.status === statusFilter;
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
-      const matchPayment = paymentFilter === "all" || j.payment_method === paymentFilter;
+      const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
       return matchStatus && matchType && matchSearch && matchPayment;
     })
     .sort((a, b) => {
