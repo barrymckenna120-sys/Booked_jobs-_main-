@@ -11,7 +11,7 @@ import { format } from "date-fns";
 
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
-import PaymentSummaryCard from "@/components/dashboard/PaymentSummaryCard";
+
 import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
 
 const greeting = () => {
@@ -81,8 +81,6 @@ const Dashboard = () => {
       {/* Today's Revenue */}
       <TodaysRevenueCard />
 
-      {/* Payment Summary */}
-      <PaymentSummaryCard />
 
       {/* Needs Attention */}
       <AlertsPanel />
