@@ -78,6 +78,9 @@ const Dashboard = () => {
       {/* Today's Schedule */}
       <TodayTimeline />
 
+      {/* Today's Revenue */}
+      <TodaysRevenueCard />
+
       {/* Payment Summary */}
       <PaymentSummaryCard />
 
