@@ -104,6 +104,7 @@ const JobDetail = () => {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partsNeededOpen, setPartsNeededOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
