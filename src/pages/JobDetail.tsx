@@ -571,6 +571,16 @@ const JobDetail = () => {
           fetchJob();
         }}
       />
+      {/* Take Payment Modal */}
+      {paymentOpen && customer && (
+        <TakePaymentModal
+          open={paymentOpen}
+          onClose={() => setPaymentOpen(false)}
+          job={job}
+          customer={customer}
+          onPaymentComplete={() => fetchJob()}
+        />
+      )}
     </div>
   );
 };
