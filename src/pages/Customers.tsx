@@ -179,6 +179,7 @@ const Customers = () => {
           )}
         </CardContent>
       </Card>
+      <AddCustomerSheet open={addOpen} onOpenChange={setAddOpen} onSuccess={fetchCustomers} />
     </div>
   );
 };
