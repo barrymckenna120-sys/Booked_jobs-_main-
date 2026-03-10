@@ -79,7 +79,7 @@ const Customers = () => {
             </span>
           )}
         </div>
-        <Button onClick={() => navigate("/dashboard")} size="sm">
+        <Button onClick={() => setAddOpen(true)} size="sm">
           <Plus className="w-4 h-4 mr-1" /> Add Customer
         </Button>
       </div>
