@@ -6,7 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, AlertCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { format } from "date-fns";
+import { format, startOfWeek, startOfMonth } from "date-fns";
+
+type PeriodMode = "today" | "week" | "month";
 
 type UnpaidJob = {
   id: string;
@@ -15,24 +17,55 @@ type UnpaidJob = {
   job_ref: string;
 };
 
+const periodOptions: { value: PeriodMode; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+];
+
+function getDateRange(mode: PeriodMode): { start: string; end: string } {
+  const now = new Date();
+  const end = format(now, "yyyy-MM-dd");
+  switch (mode) {
+    case "today":
+      return { start: end, end };
+    case "week": {
+      const ws = startOfWeek(now, { weekStartsOn: 1 });
+      return { start: format(ws, "yyyy-MM-dd"), end };
+    }
+    case "month": {
+      const ms = startOfMonth(now);
+      return { start: format(ms, "yyyy-MM-dd"), end };
+    }
+  }
+}
+
+const periodLabels: Record<PeriodMode, string> = {
+  today: "Today's Revenue",
+  week: "This Week's Revenue",
+  month: "This Month's Revenue",
+};
+
 const TodaysRevenueCard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [period, setPeriod] = useState<PeriodMode>("today");
   const [unpaidExpanded, setUnpaidExpanded] = useState(false);
 
+  const { start, end } = getDateRange(period);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["todays-revenue", user?.id, todayStr],
+    queryKey: ["revenue-card", user?.id, start, end],
     queryFn: async () => {
       const { data: rows } = await supabase
         .from("service_calls")
         .select("id, job_type, revenue, payment_method, status, customer_id")
-        .eq("scheduled_date", todayStr)
+        .gte("scheduled_date", start)
+        .lte("scheduled_date", end)
         .eq("status", "Completed");
 
       const jobs = rows || [];
 
-      // Collect unpaid customer IDs
       const unpaidJobs = jobs.filter((j) => !j.payment_method);
       const customerIds = [...new Set(jobs.map((j) => j.customer_id))];
 
@@ -86,9 +119,29 @@ const TodaysRevenueCard = () => {
   return (
     <Card className="shadow-sm border-border/60">
       <CardContent className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">Today's Revenue</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-bold text-foreground">{periodLabels[period]}</h3>
+          </div>
+
+          {/* Period toggle */}
+          <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+            {periodOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setPeriod(opt.value); setUnpaidExpanded(false); }}
+                className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all duration-150 ${
+                  period === opt.value
+                    ? "text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                style={period === opt.value ? { backgroundColor: "#4A86E8" } : undefined}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
@@ -96,10 +149,9 @@ const TodaysRevenueCard = () => {
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : entries.length === 0 && !data?.unpaid ? (
-          <p className="text-xs text-muted-foreground/60 text-center py-3">No completed jobs today</p>
+          <p className="text-xs text-muted-foreground/60 text-center py-3">No completed jobs</p>
         ) : (
           <>
-            {/* Breakdown by job type */}
             <div className="space-y-2.5 mb-3">
               {entries.map(([type, info]) => (
                 <div key={type} className="flex items-center justify-between">
@@ -115,7 +167,6 @@ const TodaysRevenueCard = () => {
 
             <Separator className="my-3" />
 
-            {/* Total */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-bold text-foreground">Total</span>
               <span className="text-lg font-extrabold" style={{ color: "#4A86E8" }}>
@@ -123,7 +174,6 @@ const TodaysRevenueCard = () => {
               </span>
             </div>
 
-            {/* Unpaid - expandable */}
             {(data?.unpaidList?.length || 0) > 0 && (
               <div className="mb-3">
                 <button
@@ -170,7 +220,6 @@ const TodaysRevenueCard = () => {
               </div>
             )}
 
-            {/* Net Total */}
             {(data?.unpaid || 0) > 0 && (
               <div className="flex items-center justify-between mb-3">
                 <span className="text-base font-extrabold text-foreground">Net Total</span>
@@ -180,7 +229,6 @@ const TodaysRevenueCard = () => {
               </div>
             )}
 
-            {/* Card / Cash pills */}
             {((data?.cardTotal || 0) > 0 || (data?.cashTotal || 0) > 0) && (
               <div className="flex gap-2 mt-1">
                 {(data?.cardTotal || 0) > 0 && (
