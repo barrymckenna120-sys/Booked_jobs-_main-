@@ -720,111 +720,111 @@ ALTER TABLE public.whatsapp_templates ENABLE ROW LEVEL SECURITY;
 -- ============================================================
 
 -- audit_log
-CREATE POLICY "admin_read_audit" ON public.audit_log FOR SELECT TO authenticated AS RESTRICTIVE USING ((get_user_role(auth.uid()) = 'admin'::text));
-CREATE POLICY "audit_log_no_delete" ON public.audit_log FOR DELETE TO public AS RESTRICTIVE USING (false);
-CREATE POLICY "audit_log_no_update" ON public.audit_log FOR UPDATE TO public AS RESTRICTIVE USING (false);
-CREATE POLICY "auth_insert_audit" ON public.audit_log FOR INSERT TO authenticated AS RESTRICTIVE WITH CHECK ((auth.uid() IS NOT NULL));
+CREATE POLICY "admin_read_audit" ON public.audit_log AS RESTRICTIVE FOR SELECT TO authenticated USING ((get_user_role(auth.uid()) = 'admin'::text));
+CREATE POLICY "audit_log_no_delete" ON public.audit_log AS RESTRICTIVE FOR DELETE TO public USING (false);
+CREATE POLICY "audit_log_no_update" ON public.audit_log AS RESTRICTIVE FOR UPDATE TO public USING (false);
+CREATE POLICY "auth_insert_audit" ON public.audit_log AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((auth.uid() IS NOT NULL));
 
 -- customer_call_notes
-CREATE POLICY "engineer_insert_notes" ON public.customer_call_notes FOR INSERT TO authenticated AS RESTRICTIVE
+CREATE POLICY "engineer_insert_notes" ON public.customer_call_notes AS RESTRICTIVE FOR INSERT TO authenticated
   WITH CHECK (((get_user_role(auth.uid()) = 'engineer'::text) AND (customer_id IN (
     SELECT service_calls.customer_id FROM service_calls WHERE (service_calls.assigned_engineer_id = get_engineer_id(auth.uid()))))));
-CREATE POLICY "engineer_read_notes" ON public.customer_call_notes FOR SELECT TO authenticated AS RESTRICTIVE
+CREATE POLICY "engineer_read_notes" ON public.customer_call_notes AS RESTRICTIVE FOR SELECT TO authenticated
   USING (((get_user_role(auth.uid()) = 'engineer'::text) AND (customer_id IN (
     SELECT service_calls.customer_id FROM service_calls WHERE (service_calls.assigned_engineer_id = get_engineer_id(auth.uid()))))));
-CREATE POLICY "office_full_access" ON public.customer_call_notes FOR ALL TO authenticated AS RESTRICTIVE
+CREATE POLICY "office_full_access" ON public.customer_call_notes AS RESTRICTIVE FOR ALL TO authenticated
   USING ((get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'office'::text])))
   WITH CHECK ((get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'office'::text])));
 
 -- customers
-CREATE POLICY "Users can create customers" ON public.customers FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can delete their own customers" ON public.customers FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own customers" ON public.customers FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "customers_select" ON public.customers FOR SELECT TO public AS RESTRICTIVE
+CREATE POLICY "Users can create customers" ON public.customers AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their own customers" ON public.customers AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own customers" ON public.customers AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "customers_select" ON public.customers AS RESTRICTIVE FOR SELECT TO public
   USING (CASE get_user_role(auth.uid())
     WHEN 'engineer'::text THEN (id IN (SELECT service_calls.customer_id FROM service_calls WHERE (service_calls.assigned_engineer_id = get_engineer_id(auth.uid()))))
     ELSE (auth.uid() = user_id)
   END);
 
 -- engineer_blocks
-CREATE POLICY "Users can delete own engineer blocks" ON public.engineer_blocks FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can insert own engineer blocks" ON public.engineer_blocks FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update own engineer blocks" ON public.engineer_blocks FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view own engineer blocks" ON public.engineer_blocks FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete own engineer blocks" ON public.engineer_blocks AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert own engineer blocks" ON public.engineer_blocks AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update own engineer blocks" ON public.engineer_blocks AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view own engineer blocks" ON public.engineer_blocks AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- engineer_working_days
-CREATE POLICY "Users can delete own engineer working days" ON public.engineer_working_days FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can insert own engineer working days" ON public.engineer_working_days FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update own engineer working days" ON public.engineer_working_days FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view own engineer working days" ON public.engineer_working_days FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete own engineer working days" ON public.engineer_working_days AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert own engineer working days" ON public.engineer_working_days AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update own engineer working days" ON public.engineer_working_days AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view own engineer working days" ON public.engineer_working_days AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- engineers
-CREATE POLICY "Users can delete their own engineers" ON public.engineers FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can insert their own engineers" ON public.engineers FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own engineers" ON public.engineers FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view their own engineers" ON public.engineers FOR SELECT TO public AS RESTRICTIVE USING (((auth.uid() = user_id) OR (auth.uid() = auth_user_id)));
+CREATE POLICY "Users can delete their own engineers" ON public.engineers AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert their own engineers" ON public.engineers AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own engineers" ON public.engineers AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own engineers" ON public.engineers AS RESTRICTIVE FOR SELECT TO public USING (((auth.uid() = user_id) OR (auth.uid() = auth_user_id)));
 
 -- job_media
-CREATE POLICY "job_media_delete_own" ON public.job_media FOR DELETE TO authenticated AS RESTRICTIVE
+CREATE POLICY "job_media_delete_own" ON public.job_media AS RESTRICTIVE FOR DELETE TO authenticated
   USING (((auth.uid() = user_id) OR (auth.uid() IN (SELECT sc.user_id FROM service_calls sc WHERE (sc.id = job_media.job_id)))));
-CREATE POLICY "job_media_insert_own" ON public.job_media FOR INSERT TO authenticated AS RESTRICTIVE
+CREATE POLICY "job_media_insert_own" ON public.job_media AS RESTRICTIVE FOR INSERT TO authenticated
   WITH CHECK (((auth.uid() = user_id) OR (auth.uid() IN (SELECT sc.user_id FROM service_calls sc WHERE (sc.id = job_media.job_id)))
     OR (get_engineer_id(auth.uid()) IN (SELECT sc.assigned_engineer_id FROM service_calls sc WHERE (sc.id = job_media.job_id)))));
-CREATE POLICY "job_media_select_own" ON public.job_media FOR SELECT TO authenticated AS RESTRICTIVE
+CREATE POLICY "job_media_select_own" ON public.job_media AS RESTRICTIVE FOR SELECT TO authenticated
   USING (((auth.uid() = user_id) OR (auth.uid() IN (SELECT sc.user_id FROM service_calls sc WHERE (sc.id = job_media.job_id)))
     OR (get_engineer_id(auth.uid()) IN (SELECT sc.assigned_engineer_id FROM service_calls sc WHERE (sc.id = job_media.job_id)))));
-CREATE POLICY "job_media_update_own" ON public.job_media FOR UPDATE TO authenticated AS RESTRICTIVE
+CREATE POLICY "job_media_update_own" ON public.job_media AS RESTRICTIVE FOR UPDATE TO authenticated
   USING (((auth.uid() = user_id) OR (auth.uid() IN (SELECT sc.user_id FROM service_calls sc WHERE (sc.id = job_media.job_id)))));
 
 -- notifications
-CREATE POLICY "notifications_delete" ON public.notifications FOR DELETE TO authenticated AS RESTRICTIVE USING ((auth.uid() = recipient_user_id));
-CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT TO authenticated AS RESTRICTIVE WITH CHECK ((get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'office'::text])));
-CREATE POLICY "notifications_select" ON public.notifications FOR SELECT TO authenticated AS RESTRICTIVE USING ((auth.uid() = recipient_user_id));
-CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE TO authenticated AS RESTRICTIVE USING ((auth.uid() = recipient_user_id));
+CREATE POLICY "notifications_delete" ON public.notifications AS RESTRICTIVE FOR DELETE TO authenticated USING ((auth.uid() = recipient_user_id));
+CREATE POLICY "notifications_insert" ON public.notifications AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK ((get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'office'::text])));
+CREATE POLICY "notifications_select" ON public.notifications AS RESTRICTIVE FOR SELECT TO authenticated USING ((auth.uid() = recipient_user_id));
+CREATE POLICY "notifications_update" ON public.notifications AS RESTRICTIVE FOR UPDATE TO authenticated USING ((auth.uid() = recipient_user_id));
 
 -- profiles
-CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert their own profile" ON public.profiles AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own profile" ON public.profiles AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own profile" ON public.profiles AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- quotes
-CREATE POLICY "Users can delete their own quotes" ON public.quotes FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can insert their own quotes" ON public.quotes FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own quotes" ON public.quotes FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view their own quotes" ON public.quotes FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their own quotes" ON public.quotes AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert their own quotes" ON public.quotes AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own quotes" ON public.quotes AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own quotes" ON public.quotes AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- service_calls
-CREATE POLICY "service_calls_delete" ON public.service_calls FOR DELETE TO public AS RESTRICTIVE
+CREATE POLICY "service_calls_delete" ON public.service_calls AS RESTRICTIVE FOR DELETE TO public
   USING (((get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'office'::text])) AND (auth.uid() = user_id)));
-CREATE POLICY "service_calls_insert" ON public.service_calls FOR INSERT TO public AS RESTRICTIVE
+CREATE POLICY "service_calls_insert" ON public.service_calls AS RESTRICTIVE FOR INSERT TO public
   WITH CHECK (((get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'office'::text])) AND (auth.uid() = user_id)));
-CREATE POLICY "service_calls_select" ON public.service_calls FOR SELECT TO public AS RESTRICTIVE
+CREATE POLICY "service_calls_select" ON public.service_calls AS RESTRICTIVE FOR SELECT TO public
   USING (CASE get_user_role(auth.uid())
     WHEN 'engineer'::text THEN (assigned_engineer_id = get_engineer_id(auth.uid()))
     ELSE (auth.uid() = user_id)
   END);
-CREATE POLICY "service_calls_update" ON public.service_calls FOR UPDATE TO public AS RESTRICTIVE
+CREATE POLICY "service_calls_update" ON public.service_calls AS RESTRICTIVE FOR UPDATE TO public
   USING (CASE get_user_role(auth.uid())
     WHEN 'engineer'::text THEN (assigned_engineer_id = get_engineer_id(auth.uid()))
     ELSE (auth.uid() = user_id)
   END);
 
 -- settings
-CREATE POLICY "Users can insert their own settings" ON public.settings FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own settings" ON public.settings FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view their own settings" ON public.settings FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert their own settings" ON public.settings AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own settings" ON public.settings AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own settings" ON public.settings AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- whatsapp_messages
-CREATE POLICY "Users can delete their own messages" ON public.whatsapp_messages FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can insert their own messages" ON public.whatsapp_messages FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own messages" ON public.whatsapp_messages FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view their own messages" ON public.whatsapp_messages FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their own messages" ON public.whatsapp_messages AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert their own messages" ON public.whatsapp_messages AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own messages" ON public.whatsapp_messages AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own messages" ON public.whatsapp_messages AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- whatsapp_templates
-CREATE POLICY "Users can delete their own templates" ON public.whatsapp_templates FOR DELETE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can insert their own templates" ON public.whatsapp_templates FOR INSERT TO public AS RESTRICTIVE WITH CHECK ((auth.uid() = user_id));
-CREATE POLICY "Users can update their own templates" ON public.whatsapp_templates FOR UPDATE TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
-CREATE POLICY "Users can view their own templates" ON public.whatsapp_templates FOR SELECT TO public AS RESTRICTIVE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their own templates" ON public.whatsapp_templates AS RESTRICTIVE FOR DELETE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can insert their own templates" ON public.whatsapp_templates AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can update their own templates" ON public.whatsapp_templates AS RESTRICTIVE FOR UPDATE TO public USING ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own templates" ON public.whatsapp_templates AS RESTRICTIVE FOR SELECT TO public USING ((auth.uid() = user_id));
 
 -- ============================================================
 -- STORAGE BUCKETS (for reference)
