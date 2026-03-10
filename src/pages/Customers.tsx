@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, ChevronLeft, ChevronRight, MapPin, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import AddCustomerSheet from "@/components/customer/AddCustomerSheet";
 
 const PAGE_SIZE = 15;
 
@@ -22,6 +23,7 @@ const Customers = () => {
   const [areaFilter, setAreaFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     if (user) fetchCustomers();
