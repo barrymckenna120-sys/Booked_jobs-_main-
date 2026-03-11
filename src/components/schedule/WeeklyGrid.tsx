@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { format, isToday } from "date-fns";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 
 type Props = {
   weekDays: Date[];
@@ -32,6 +35,24 @@ const BLOCK_MAP: Record<string, string> = {
 const normalizeBlock = (b: string | null) => (b ? BLOCK_MAP[b] || b : null);
 
 const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, onCellClick, onJobClick }: Props) => {
+  const [messageModal, setMessageModal] = useState<{ open: boolean; jobId: string; engineerName: string; engineerAuthUserId: string | null } | null>(null);
+  const [engineerAuthMap, setEngineerAuthMap] = useState<Record<string, string | null>>({});
+
+  // Fetch auth_user_id for all engineers once
+  useEffect(() => {
+    if (engineers.length === 0) return;
+    supabase
+      .from("engineers")
+      .select("id, auth_user_id")
+      .in("id", engineers.map((e) => e.id))
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string | null> = {};
+          data.forEach((e) => { map[e.id] = e.auth_user_id; });
+          setEngineerAuthMap(map);
+        }
+      });
+  }, [engineers]);
 
   const getJobsForSlot = (date: Date, timeBlock: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -41,6 +62,30 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
         normalizeBlock(j.time_block) === timeBlock &&
         !["New", "Contacted", "Completed", "Cancelled"].includes(j.status) &&
         (selectedEngineer === "all" || j.assigned_engineer === selectedEngineer)
+    );
+  };
+
+  const handleMessageClick = (e: React.MouseEvent, job: ScheduleJob) => {
+    e.stopPropagation();
+    const engId = job.assigned_engineer_id;
+    const authId = engId ? engineerAuthMap[engId] || null : null;
+    setMessageModal({
+      open: true,
+      jobId: job.id,
+      engineerName: job.assigned_engineer || "Engineer",
+      engineerAuthUserId: authId,
+    });
+  };
+
+  const renderMessageBtn = (job: ScheduleJob) => {
+    if (!job.assigned_engineer) return null;
+    return (
+      <button
+        onClick={(e) => handleMessageClick(e, job)}
+        className="text-[11px] px-2.5 py-[3px] rounded-md border border-[#4A86E8] text-[#4A86E8] bg-white hover:bg-[#4A86E8]/5 transition-colors mt-0.5"
+      >
+        📩 Message
+      </button>
     );
   };
 
@@ -102,7 +147,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
                               {selectedEngineer === "all" && job.assigned_engineer && (
-                                <div className="text-[10px] text-muted-foreground mt-0.5">{job.assigned_engineer}</div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  {job.assigned_engineer}
+                                  <div>{renderMessageBtn(job)}</div>
+                                </div>
                               )}
                             </button>
                           ))}
@@ -153,7 +201,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                           </div>
                         </div>
                         {selectedEngineer === "all" && job.assigned_engineer && (
-                          <div className="text-[10px] text-muted-foreground">{job.assigned_engineer}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {job.assigned_engineer}
+                            <div>{renderMessageBtn(job)}</div>
+                          </div>
                         )}
                       </button>
                     ))
@@ -171,6 +222,17 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
           </div>
         ))}
       </div>
+
+      {/* Message Engineer Modal */}
+      {messageModal && (
+        <MessageEngineerModal
+          open={messageModal.open}
+          onOpenChange={(open) => { if (!open) setMessageModal(null); }}
+          jobId={messageModal.jobId}
+          engineerName={messageModal.engineerName}
+          engineerAuthUserId={messageModal.engineerAuthUserId}
+        />
+      )}
     </>
   );
 };
