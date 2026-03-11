@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -131,6 +132,37 @@ const Quotes = () => {
   const [editSaving, setEditSaving] = useState(false);
   const [resendPromptOpen, setResendPromptOpen] = useState(false);
   const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number } | null>(null);
+  const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+
+  // Navigation guard for unsaved quote edits
+  const { registerGuard } = useNavigationGuard();
+  const editDirtyRef = useRef(false);
+
+  // Track dirty state
+  const isEditDirty = editMode && (
+    editForm.status !== originalEditFormRef.current.status ||
+    editForm.jobType !== originalEditFormRef.current.jobType ||
+    editForm.description !== originalEditFormRef.current.description ||
+    editForm.total !== originalEditFormRef.current.total ||
+    editForm.engineerId !== originalEditFormRef.current.engineerId
+  );
+  editDirtyRef.current = isEditDirty;
+
+  useEffect(() => {
+    const unregister = registerGuard(() => editDirtyRef.current);
+    return unregister;
+  }, [registerGuard]);
+
+  // Pending action for guarded in-page actions (back button, clicking another quote)
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const guardedAction = useCallback((action: () => void) => {
+    if (editDirtyRef.current) {
+      setPendingAction(() => action);
+    } else {
+      action();
+    }
+  }, []);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
@@ -145,14 +177,16 @@ const Quotes = () => {
   const EDIT_STATUSES = ["Draft", "Sent", "Accepted", "Declined", "Paid", "Rejected"];
 
   const startEdit = useCallback((q: Quote) => {
-    setEditForm({
+    const initial = {
       status: q.status,
       jobType: q.service_calls?.job_type || "",
       description: q.description,
       total: String(q.total_amount),
       engineerId: "",
       engineerName: q.service_calls?.assigned_engineer || "",
-    });
+    };
+    setEditForm(initial);
+    originalEditFormRef.current = initial;
     setEditMode(true);
   }, []);
 
@@ -586,7 +620,7 @@ const Quotes = () => {
                 key={q.id}
                 className="cursor-pointer hover:shadow-md transition-all border-l-4"
                 style={{ borderLeftColor: `var(--${q.status === "Paid" ? "success" : q.status === "Sent" ? "primary" : q.status === "Rejected" ? "destructive" : q.status === "Accepted" ? "success" : "border"})` }}
-                onClick={() => { setSelected(q); setTab("details"); }}
+                onClick={() => guardedAction(() => { setSelected(q); setTab("details"); setEditMode(false); })}
               >
                 <CardContent className="p-4">
                   {/* Top row */}
@@ -637,7 +671,7 @@ const Quotes = () => {
       )}
 
       {/* ── Quote Detail Sheet ── */}
-      <Sheet open={!!selected} onOpenChange={(v) => { if (!v) { setSelected(null); setEditMode(false); } }}>
+      <Sheet open={!!selected} onOpenChange={(v) => { if (!v) guardedAction(() => { setSelected(null); setEditMode(false); }); }}>
         <SheetContent className="w-full sm:max-w-[520px] overflow-y-auto p-0">
           {selected && (() => {
             const q = selected;
@@ -656,7 +690,7 @@ const Quotes = () => {
                 {/* Back button + Header */}
                 <div className="p-5 pb-4 border-b border-border">
                   <button
-                    onClick={() => setSelected(null)}
+                    onClick={() => guardedAction(() => { setSelected(null); setEditMode(false); })}
                     className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-3 transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" /> Back to Quotes
@@ -1225,6 +1259,30 @@ const Quotes = () => {
             </Button>
             <Button className="flex-1 gap-1.5" onClick={handleResend}>
               <MessageCircle className="w-4 h-4" /> Resend via WhatsApp
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved Changes Modal for in-page actions (back button, clicking another quote) */}
+      <Dialog open={!!pendingAction} onOpenChange={(v) => { if (!v) setPendingAction(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            You have unsaved changes to this quote. What would you like to do?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setPendingAction(null)}>
+              Go Back & Save
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={() => {
+              const action = pendingAction;
+              setPendingAction(null);
+              action?.();
+            }}>
+              Discard Changes
             </Button>
           </div>
         </DialogContent>
