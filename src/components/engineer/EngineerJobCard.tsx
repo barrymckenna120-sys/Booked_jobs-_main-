@@ -222,6 +222,12 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           }}
         />
       )}
+      <MessageOfficeModal
+        open={showMessageOffice}
+        onOpenChange={setShowMessageOffice}
+        jobId={job.id}
+        officeUserId={job.user_id}
+      />
     </>
   );
 };
