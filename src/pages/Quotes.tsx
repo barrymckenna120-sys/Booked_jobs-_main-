@@ -186,6 +186,7 @@ const Quotes = () => {
       total: String(q.total_amount),
       engineerId: "",
       engineerName: q.service_calls?.assigned_engineer || "",
+      notes: q.notes || "",
     };
     setEditForm(initial);
     originalEditFormRef.current = initial;
