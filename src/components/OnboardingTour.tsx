@@ -293,10 +293,10 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
         </div>
 
         {/* Navigation buttons */}
-        <div className="flex gap-2.5 mt-3.5">
+        <div className="flex gap-2.5 mt-3.5 md:justify-end">
           {stepIndex > 0 && (
             <button
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-[9px] py-3 text-[13px] font-semibold"
+              className="flex-1 md:flex-none md:min-w-[100px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-5 text-[13px] font-semibold"
               style={{ border: "1px solid #e2e8f0", color: "#64748b", backgroundColor: "white" }}
               onClick={handleBack}
             >
@@ -304,7 +304,7 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
             </button>
           )}
           <button
-            className="flex-[2] flex items-center justify-center gap-1.5 rounded-[9px] py-3 text-[13px] font-bold text-white"
+            className="flex-[2] md:flex-none md:min-w-[140px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-6 text-[13px] font-bold text-white"
             style={{ backgroundColor: "#4A86E8", boxShadow: "0 2px 8px rgba(74,134,232,0.25)" }}
             onClick={handleNext}
           >
@@ -317,7 +317,7 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
         </div>
 
         {/* Skip link */}
-        <button onClick={handleSkip} className="text-xs text-center mt-3.5 pb-safe" style={{ color: "#94a3b8" }}>
+        <button onClick={handleSkip} className="text-xs text-center mt-3.5 pb-safe md:text-right md:mt-4" style={{ color: "#94a3b8" }}>
           Skip tour
         </button>
       </div>
