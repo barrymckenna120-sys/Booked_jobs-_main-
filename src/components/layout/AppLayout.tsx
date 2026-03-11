@@ -74,6 +74,7 @@ const AppLayoutInner = () => {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
+  const unreadMessages = useUnreadMessages();
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
