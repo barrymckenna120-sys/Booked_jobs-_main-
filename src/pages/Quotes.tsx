@@ -145,7 +145,8 @@ const Quotes = () => {
     editForm.jobType !== originalEditFormRef.current.jobType ||
     editForm.description !== originalEditFormRef.current.description ||
     editForm.total !== originalEditFormRef.current.total ||
-    editForm.engineerId !== originalEditFormRef.current.engineerId
+    editForm.engineerId !== originalEditFormRef.current.engineerId ||
+    editForm.notes !== originalEditFormRef.current.notes
   );
   editDirtyRef.current = isEditDirty;
 
