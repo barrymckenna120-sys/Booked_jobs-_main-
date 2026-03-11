@@ -129,6 +129,8 @@ const Quotes = () => {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [resendPromptOpen, setResendPromptOpen] = useState(false);
+  const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number } | null>(null);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
@@ -198,6 +200,30 @@ const Quotes = () => {
       .eq("id", selected.id)
       .single();
     if (refreshed) setSelected(refreshed as unknown as Quote);
+
+    // Show resend prompt if status is Sent
+    if (selected.status === "Sent") {
+      const q = (refreshed as unknown as Quote) || selected;
+      const phone = q.customers.phone.replace(/\D/g, "");
+      const fullPhone = phone.startsWith("353") ? phone : phone.startsWith("0") ? "353" + phone.slice(1) : "353" + phone;
+      const ref = `Q-${q.id.slice(0, 4).toUpperCase()}`;
+      setResendQuoteData({
+        phone: fullPhone,
+        firstName: q.customers.name.split(" ")[0],
+        ref,
+        description: editForm.description.trim(),
+        total: total,
+      });
+      setResendPromptOpen(true);
+    }
+  };
+
+  const handleResend = () => {
+    if (!resendQuoteData) return;
+    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}. Reply to confirm. Karl's Gas`;
+    window.open(`https://wa.me/${resendQuoteData.phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    setResendPromptOpen(false);
+    setResendQuoteData(null);
   };
 
   const fetchQuotes = async () => {
@@ -1183,6 +1209,26 @@ const Quotes = () => {
         quotes={unsentQuotes}
         onQuoteSent={handleQuoteSent}
       />
+
+      {/* Resend Prompt after editing a Sent quote */}
+      <Dialog open={resendPromptOpen} onOpenChange={(v) => { if (!v) { setResendPromptOpen(false); setResendQuoteData(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Resend Quote?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This quote has already been sent. Would you like to resend it to the customer via WhatsApp?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => { setResendPromptOpen(false); setResendQuoteData(null); }}>
+              No thanks
+            </Button>
+            <Button className="flex-1 gap-1.5" onClick={handleResend}>
+              <MessageCircle className="w-4 h-4" /> Resend via WhatsApp
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
