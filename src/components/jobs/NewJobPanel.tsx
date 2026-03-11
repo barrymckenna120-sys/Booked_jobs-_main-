@@ -780,6 +780,12 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         </div>
       </SheetContent>
     </Sheet>
+    <FormLeaveGuard
+      open={showLeaveGuard}
+      onKeepEditing={() => setShowLeaveGuard(false)}
+      onLeave={() => { setShowLeaveGuard(false); onClose(); }}
+    />
+    </>
   );
 };
 
