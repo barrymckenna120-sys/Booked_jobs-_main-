@@ -688,58 +688,117 @@ const Quotes = () => {
                   {/* Details Tab */}
                   {tab === "details" && (
                     <div className="space-y-4">
-                      <Card>
-                        <CardContent className="p-4 space-y-3">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Work Description</p>
-                            <p className="text-sm font-semibold">{q.description}</p>
-                          </div>
-                          {/* Price breakdown */}
-                          <div className="border-t border-border pt-3 space-y-1.5">
-                            {q.parts_cost ? (
-                              <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
-                                <span className="text-muted-foreground">Parts</span>
-                                <span>€{Number(q.parts_cost).toFixed(2)}</span>
+                      {editMode ? (
+                        <>
+                          {/* Edit mode form */}
+                          <Card>
+                            <CardContent className="p-4 space-y-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Status</Label>
+                                <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {EDIT_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                            ) : null}
-                            {q.labour_cost ? (
-                              <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
-                                <span className="text-muted-foreground">Labour</span>
-                                <span>€{Number(q.labour_cost).toFixed(2)}</span>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Job Type</Label>
+                                <Select value={editForm.jobType} onValueChange={(v) => setEditForm(f => ({ ...f, jobType: v }))}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {JOB_TYPES.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                            ) : null}
-                            {q.callout_cost ? (
-                              <div className="flex justify-between text-sm border-b border-border pb-1.5">
-                                <span className="text-muted-foreground">Call-Out</span>
-                                <span>€{Number(q.callout_cost).toFixed(2)}</span>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Work Description</Label>
+                                <Textarea
+                                  value={editForm.description}
+                                  onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                  rows={3}
+                                />
                               </div>
-                            ) : null}
-                            <div className="flex justify-between pt-2">
-                              <span className="text-base font-extrabold">TOTAL</span>
-                              <span className="text-xl font-extrabold text-primary">€{Number(q.total_amount).toLocaleString()}</span>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Total (€)</Label>
+                                <Input
+                                  type="number"
+                                  value={editForm.total}
+                                  onChange={(e) => setEditForm(f => ({ ...f, total: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Assigned Engineer</Label>
+                                <Select value={editForm.engineerId} onValueChange={(v) => {
+                                  const eng = engineers.find((e: any) => e.id === v);
+                                  setEditForm(f => ({ ...f, engineerId: v, engineerName: eng?.name || "" }));
+                                }}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder={editForm.engineerName || "Select engineer"} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {engineers.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </>
+                      ) : (
+                        <>
+                          {/* Read-only view */}
+                          <Card>
+                            <CardContent className="p-4 space-y-3">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Work Description</p>
+                                <p className="text-sm font-semibold">{q.description}</p>
+                              </div>
+                              <div className="border-t border-border pt-3 space-y-1.5">
+                                {q.parts_cost ? (
+                                  <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
+                                    <span className="text-muted-foreground">Parts</span>
+                                    <span>€{Number(q.parts_cost).toFixed(2)}</span>
+                                  </div>
+                                ) : null}
+                                {q.labour_cost ? (
+                                  <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
+                                    <span className="text-muted-foreground">Labour</span>
+                                    <span>€{Number(q.labour_cost).toFixed(2)}</span>
+                                  </div>
+                                ) : null}
+                                {q.callout_cost ? (
+                                  <div className="flex justify-between text-sm border-b border-border pb-1.5">
+                                    <span className="text-muted-foreground">Call-Out</span>
+                                    <span>€{Number(q.callout_cost).toFixed(2)}</span>
+                                  </div>
+                                ) : null}
+                                <div className="flex justify-between pt-2">
+                                  <span className="text-base font-extrabold">TOTAL</span>
+                                  <span className="text-xl font-extrabold text-primary">€{Number(q.total_amount).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardContent className="p-4 flex justify-between">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Assigned Engineer</p>
+                                <p className="text-sm font-bold">👷 {q.service_calls?.assigned_engineer || "Unassigned"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Job Type</p>
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${jt}`}>{q.service_calls?.job_type}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {q.payment_link && (
+                            <div className="flex items-center gap-2 text-xs text-success font-semibold p-3 bg-success/10 rounded-lg">
+                              💳 Payment link attached
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Engineer info */}
-                      <Card>
-                        <CardContent className="p-4 flex justify-between">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Assigned Engineer</p>
-                            <p className="text-sm font-bold">👷 {q.service_calls?.assigned_engineer || "Unassigned"}</p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Job Type</p>
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${jt}`}>{q.service_calls?.job_type}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {q.payment_link && (
-                        <div className="flex items-center gap-2 text-xs text-success font-semibold p-3 bg-success/10 rounded-lg">
-                          💳 Payment link attached
-                        </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
