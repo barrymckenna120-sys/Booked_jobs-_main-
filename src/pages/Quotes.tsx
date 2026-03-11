@@ -39,6 +39,7 @@ type Quote = {
   paid_at: string | null;
   payment_link: string | null;
   deposit_amount: number | null;
+  notes: string | null;
   created_at: string;
   customers: {
     id: string;
