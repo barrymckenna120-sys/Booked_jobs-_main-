@@ -1207,14 +1207,15 @@ const Quotes = () => {
             {formCustomerId && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase text-muted-foreground">Job</Label>
-                <Select value={formJobId} onValueChange={setFormJobId}>
-                  <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
+                <Select value={formJobId} onValueChange={(v) => { setFormJobId(v); setCreateFormErrors(e => ({ ...e, job: false })); }}>
+                  <SelectTrigger className={validationBorderClass(!!createFormErrors.job)}><SelectValue placeholder="Select job..." /></SelectTrigger>
                   <SelectContent>
                     {jobs.map((j) => (
                       <SelectItem key={j.id} value={j.id}>{j.job_type} — {j.scheduled_date ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "Unscheduled"}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <ValidationMessage show={!!createFormErrors.job} />
               </div>
             )}
 
