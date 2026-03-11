@@ -340,12 +340,13 @@ const Sheet = ({ children, maxHeight = "44vh" }: { children: React.ReactNode; ma
         maxHeight: `min(${maxHeight}, ${desktopMax})`,
       }}
     >
-    {/* Handle bar */}
-    <div className="flex justify-center mb-4">
-      <div className="w-9 h-1 rounded-full" style={{ backgroundColor: "#e2e8f0" }} />
+      {/* Handle bar */}
+      <div className="flex justify-center mb-4">
+        <div className="w-9 h-1 rounded-full" style={{ backgroundColor: "#e2e8f0" }} />
+      </div>
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 export default OnboardingTour;
