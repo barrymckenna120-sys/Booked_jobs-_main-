@@ -12,11 +12,14 @@ type UnsentQuote = {
   jobType: string;
   total: number;
   description: string;
+  notes: string;
   quoteUrl: string;
 };
 
-const buildMsg = (q: UnsentQuote) =>
-  `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}\n\nView and approve here:\n${q.quoteUrl}\n\nKarl's Gas 🔥`;
+const buildMsg = (q: UnsentQuote) => {
+  const noteLine = q.notes ? `\n\n${q.notes}` : "";
+  return `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}${noteLine}\n\nView and approve here:\n${q.quoteUrl}\n\nKarl's Gas 🔥`;
+};
 
 const waUrl = (phone: string, msg: string) =>
   `https://wa.me/${phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`;
