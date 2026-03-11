@@ -54,11 +54,12 @@ const MOBILE_NAV = [
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
-const AppLayout = () => {
+const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
   const { isEngineer, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
+  const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
   const [whatsappOpen, setWhatsappOpen] = useState(
     location.pathname.startsWith("/whatsapp")
   );
