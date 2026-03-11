@@ -83,14 +83,33 @@ export const useEngineerJobs = () => {
     if (!user) return;
     setLoading(true);
 
-    const [todayRes, upcomingRes, completedRes, engineerRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("scheduled_date", todayISO()).order("created_at"),
-      supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress"]).order("scheduled_date").limit(20),
-      supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30),
-      supabase.from("engineers").select("name").eq("auth_user_id", user.id).maybeSingle(),
-    ]);
+    // First resolve the engineer record for this auth user
+    const { data: engData } = await supabase
+      .from("engineers")
+      .select("id, name")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
 
-    if (engineerRes.data?.name) setEngineerName(engineerRes.data.name);
+    if (engData?.name) setEngineerName(engData.name);
+
+    const engineerId = engData?.id;
+
+    // Build queries — explicitly filter by assigned_engineer_id for reliability
+    let todayQuery = supabase.from("service_calls").select("*").eq("scheduled_date", todayISO()).order("created_at");
+    let upcomingQuery = supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress"]).order("scheduled_date").limit(20);
+    let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
+
+    if (engineerId) {
+      todayQuery = todayQuery.eq("assigned_engineer_id", engineerId);
+      upcomingQuery = upcomingQuery.eq("assigned_engineer_id", engineerId);
+      completedQuery = completedQuery.eq("assigned_engineer_id", engineerId);
+    }
+
+    const [todayRes, upcomingRes, completedRes] = await Promise.all([
+      todayQuery,
+      upcomingQuery,
+      completedQuery,
+    ]);
 
     const allJobs = [...(todayRes.data || []), ...(upcomingRes.data || []), ...(completedRes.data || [])];
     setTodayJobs(todayRes.data || []);
@@ -176,7 +195,37 @@ export const useEngineerJobs = () => {
         fetchAll();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Also listen for notification inserts — ensures we refetch when a new_job
+    // notification arrives even if the service_calls realtime event is filtered by RLS
+    const notifChannel = supabase
+      .channel("engineer-jobs-notif-trigger")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `recipient_user_id=eq.${user.id}`,
+      }, (payload) => {
+        const type = (payload.new as any)?.notification_type;
+        if (["new_job", "reassigned", "cancelled"].includes(type)) {
+          fetchAll();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(notifChannel);
+    };
+  }, [user, fetchAll]);
+
+  // Refetch when tab becomes visible (engineer returning to app)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && user) fetchAll();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [user, fetchAll]);
 
   return {
