@@ -125,14 +125,80 @@ const Quotes = () => {
   const [scheduleErrors, setScheduleErrors] = useState<{ date?: boolean; time?: boolean; engineer?: boolean }>({});
   const [scheduleSaving, setScheduleSaving] = useState(false);
 
+  // Inline edit mode
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+  const [editSaving, setEditSaving] = useState(false);
+
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
     queryFn: async () => {
       const { data } = await supabase.from("engineers").select("id, name, status").eq("status", "active");
       return data || [];
     },
-    enabled: scheduleOpen,
+    enabled: scheduleOpen || editMode,
   });
+
+  const JOB_TYPES = ["Boiler Service", "Repair", "Emergency", "Installation", "Gas Safety Check", "Powerflush", "Other"];
+  const EDIT_STATUSES = ["Draft", "Sent", "Accepted", "Declined", "Paid", "Rejected"];
+
+  const startEdit = useCallback((q: Quote) => {
+    setEditForm({
+      status: q.status,
+      jobType: q.service_calls?.job_type || "",
+      description: q.description,
+      total: String(q.total_amount),
+      engineerId: "",
+      engineerName: q.service_calls?.assigned_engineer || "",
+    });
+    setEditMode(true);
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditMode(false);
+  }, []);
+
+  const saveEdit = async () => {
+    if (!selected || !user) return;
+    const total = parseFloat(editForm.total);
+    if (!editForm.description.trim() || isNaN(total) || total <= 0) {
+      toast({ title: "Description and valid total required", variant: "destructive" });
+      return;
+    }
+    setEditSaving(true);
+
+    // Update quote
+    const { error: quoteErr } = await supabase.from("quotes").update({
+      status: editForm.status,
+      description: editForm.description.trim(),
+      total_amount: total,
+    } as any).eq("id", selected.id);
+
+    // Update service_calls for job_type and engineer
+    const eng = engineers.find((e: any) => e.id === editForm.engineerId);
+    const scUpdate: any = { job_type: editForm.jobType };
+    if (editForm.engineerId) {
+      scUpdate.assigned_engineer = eng?.name || null;
+      scUpdate.assigned_engineer_id = editForm.engineerId;
+    }
+    await supabase.from("service_calls").update(scUpdate).eq("id", selected.job_id);
+
+    setEditSaving(false);
+    if (quoteErr) {
+      toast({ title: "Error saving", description: quoteErr.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Quote updated" });
+    setEditMode(false);
+    fetchQuotes();
+    // Refresh selected
+    const { data: refreshed } = await supabase
+      .from("quotes")
+      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)")
+      .eq("id", selected.id)
+      .single();
+    if (refreshed) setSelected(refreshed as unknown as Quote);
+  };
 
   const fetchQuotes = async () => {
     if (!user) return;
