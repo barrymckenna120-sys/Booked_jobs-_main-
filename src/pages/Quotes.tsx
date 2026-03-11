@@ -39,6 +39,7 @@ type Quote = {
   paid_at: string | null;
   payment_link: string | null;
   deposit_amount: number | null;
+  notes: string | null;
   created_at: string;
   customers: {
     id: string;
@@ -128,11 +129,11 @@ const Quotes = () => {
 
   // Inline edit mode
   const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+  const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [resendPromptOpen, setResendPromptOpen] = useState(false);
-  const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number } | null>(null);
-  const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+  const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number; notes: string } | null>(null);
+  const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
 
   // Navigation guard for unsaved quote edits
   const { registerGuard } = useNavigationGuard();
@@ -144,7 +145,8 @@ const Quotes = () => {
     editForm.jobType !== originalEditFormRef.current.jobType ||
     editForm.description !== originalEditFormRef.current.description ||
     editForm.total !== originalEditFormRef.current.total ||
-    editForm.engineerId !== originalEditFormRef.current.engineerId
+    editForm.engineerId !== originalEditFormRef.current.engineerId ||
+    editForm.notes !== originalEditFormRef.current.notes
   );
   editDirtyRef.current = isEditDirty;
 
@@ -184,6 +186,7 @@ const Quotes = () => {
       total: String(q.total_amount),
       engineerId: "",
       engineerName: q.service_calls?.assigned_engineer || "",
+      notes: q.notes || "",
     };
     setEditForm(initial);
     originalEditFormRef.current = initial;
@@ -208,6 +211,7 @@ const Quotes = () => {
       status: editForm.status,
       description: editForm.description.trim(),
       total_amount: total,
+      notes: editForm.notes.trim() || null,
     } as any).eq("id", selected.id);
 
     // Update service_calls for job_type and engineer
@@ -247,6 +251,7 @@ const Quotes = () => {
         ref,
         description: editForm.description.trim(),
         total: total,
+        notes: editForm.notes.trim(),
       });
       setResendPromptOpen(true);
     }
@@ -254,7 +259,8 @@ const Quotes = () => {
 
   const handleResend = () => {
     if (!resendQuoteData) return;
-    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}. Reply to confirm. Karl's Gas`;
+    const noteLine = resendQuoteData.notes ? ` ${resendQuoteData.notes}` : "";
+    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}.${noteLine} Reply to confirm. Karl's Gas`;
     window.open(`https://wa.me/${resendQuoteData.phone}?text=${encodeURIComponent(msg)}`, "_blank");
     setResendPromptOpen(false);
     setResendQuoteData(null);
@@ -301,6 +307,7 @@ const Quotes = () => {
       jobType: q.service_calls?.job_type || "Job",
       total: Number(q.total_amount) || 0,
       description: q.description,
+      notes: q.notes || "",
       quoteUrl: `${window.location.origin}/quote/${q.id}`,
     }));
 
@@ -801,6 +808,15 @@ const Quotes = () => {
                                   </SelectContent>
                                 </Select>
                               </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Notes</Label>
+                                <Textarea
+                                  value={editForm.notes}
+                                  onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                                  rows={2}
+                                  placeholder="Internal notes for this quote..."
+                                />
+                              </div>
                             </CardContent>
                           </Card>
                         </>
@@ -850,6 +866,18 @@ const Quotes = () => {
                                 <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Job Type</p>
                                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${jt}`}>{q.service_calls?.job_type}</span>
                               </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Notes */}
+                          <Card>
+                            <CardContent className="p-4">
+                              <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Notes</p>
+                              {q.notes ? (
+                                <p className="text-sm">{q.notes}</p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">No notes</p>
+                              )}
                             </CardContent>
                           </Card>
 
