@@ -24,6 +24,7 @@ export const useLastCompletedService = (customerId: string | undefined, excludeJ
         .eq("customer_id", customerId!)
         .eq("status", "Completed")
         .order("scheduled_date", { ascending: false })
+        .order("updated_at", { ascending: false })
         .limit(1);
 
       if (excludeJobId) {
