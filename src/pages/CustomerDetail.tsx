@@ -214,7 +214,7 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Boiler Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Boiler Make / Model" field="boiler_make_model" />
+            <CustomerField label="Boiler Make / Model" field="boiler_make_model" value={form.boiler_make_model} onChange={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
