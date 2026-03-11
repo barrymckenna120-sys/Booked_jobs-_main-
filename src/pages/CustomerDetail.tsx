@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useParams, useBlocker } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -15,18 +15,9 @@ import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
+import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
+import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 const formatDateForInput = (val: string | null) => val || "";
 
@@ -38,10 +29,38 @@ const CustomerDetail = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
+  const [originalForm, setOriginalForm] = useState<Record<string, any>>({});
   const [showSendModal, setShowSendModal] = useState(false);
   const { data: lastService } = useLastCompletedService(id);
   const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+
+  // Dirty check
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
+
+  // Block react-router navigation when dirty
+  const blocker = useBlocker(isDirty);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setPendingNavigation(() => () => blocker.proceed());
+    }
+  }, [blocker.state]);
+
+  // Block browser back button when dirty via popstate
+  useEffect(() => {
+    if (!isDirty) return;
+    const handlePopState = () => {
+      // Push state back to prevent leaving
+      window.history.pushState(null, "", window.location.href);
+      setPendingNavigation(() => () => navigate(-1));
+    };
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isDirty, navigate]);
 
   useEffect(() => {
     if (user && id) {
@@ -64,6 +83,7 @@ const CustomerDetail = () => {
       return;
     }
     setForm(data);
+    setOriginalForm(data);
     setLoading(false);
   };
 
@@ -74,12 +94,16 @@ const CustomerDetail = () => {
   const handleSave = async () => {
     setSaving(true);
     const { id: _id, created_at, updated_at, user_id, ...updates } = form;
+    // Ensure required fields are never null
+    if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
+    if (!updates.address && updates.address !== undefined) updates.address = "";
     const { error } = await supabase.from("customers").update(updates).eq("id", id);
     setSaving(false);
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Customer saved" });
+      setOriginalForm({ ...form });
     }
   };
 
@@ -89,6 +113,28 @@ const CustomerDetail = () => {
       toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Customer deleted" });
+      navigate("/dashboard");
+    }
+  };
+
+  const handleGoBackAndSave = () => {
+    setPendingNavigation(null);
+    if (blocker.state === "blocked") blocker.reset();
+  };
+
+  const handleDiscardChanges = () => {
+    const nav = pendingNavigation;
+    setPendingNavigation(null);
+    setForm({ ...originalForm });
+    if (nav) {
+      setTimeout(nav, 0);
+    }
+  };
+
+  const handleBackButton = () => {
+    if (isDirty) {
+      setPendingNavigation(() => () => navigate("/dashboard"));
+    } else {
       navigate("/dashboard");
     }
   };
@@ -104,7 +150,7 @@ const CustomerDetail = () => {
         id={field}
         type={type}
         value={type === "date" ? formatDateForInput(form[field]) : (form[field] ?? "")}
-        onChange={(e) => handleChange(field, e.target.value || null)}
+        onChange={(e) => handleChange(field, e.target.value || (type === "date" ? null : ""))}
       />
     </div>
   );
@@ -114,7 +160,7 @@ const CustomerDetail = () => {
       <header className="border-b border-border bg-card">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+            <Button variant="ghost" size="sm" onClick={handleBackButton}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
@@ -129,25 +175,9 @@ const CustomerDetail = () => {
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span className="hidden sm:inline ml-1">Save</span>
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" variant="destructive">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete customer?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete {form.name}. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button size="sm" variant="destructive" onClick={() => setShowDeleteModal(true)}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>
@@ -319,6 +349,21 @@ const CustomerDetail = () => {
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
       </div>
+
+      {/* Unsaved Changes Modal */}
+      <UnsavedChangesModal
+        open={!!pendingNavigation}
+        onGoBack={handleGoBackAndSave}
+        onDiscard={handleDiscardChanges}
+      />
+
+      {/* Delete Customer Modal */}
+      <DeleteCustomerModal
+        open={showDeleteModal}
+        customerName={form.name || ""}
+        onConfirm={() => { setShowDeleteModal(false); handleDelete(); }}
+        onCancel={() => setShowDeleteModal(false)}
+      />
 
       {/* Send Reminder Modal */}
       {showSendModal && form.name && (
