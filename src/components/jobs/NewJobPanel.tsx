@@ -348,6 +348,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const [date, setDate] = useState(prefilledDate || todayISO);
   const [block, setBlock] = useState(prefilledBlock || "9–11");
   const [engineer, setEngineer] = useState(prefilledEngineer || "");
+  const [errors, setErrors] = useState<{ date?: boolean; block?: boolean; engineer?: boolean }>({});
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-new-job"],
@@ -374,7 +375,15 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     enabled: !!date && !!block,
   });
 
-  const canProceed = date && block && engineer;
+  const handleNext = () => {
+    const e: typeof errors = {};
+    if (!date) e.date = true;
+    if (!block) e.block = true;
+    if (!engineer) e.engineer = true;
+    setErrors(e);
+    if (Object.keys(e).length > 0) return;
+    onNext({ date, timeBlock: block, engineerId: engineer });
+  };
 
   const loadColor = (n: number) => n >= 2 ? "text-destructive" : n >= 1 ? "text-warning" : "text-success";
   const loadBg = (n: number) => n >= 2 ? "bg-destructive/10 border-destructive/30" : n >= 1 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/30";
@@ -385,16 +394,17 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
       <div className="flex-1 overflow-y-auto px-5 space-y-4">
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
-          <Input type="date" value={date} min={todayISO} onChange={(e) => setDate(e.target.value)} className="mt-1" />
+          <Input type="date" value={date} min={todayISO} onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: false })); }} className={`mt-1 ${validationBorderClass(!!errors.date)}`} />
+          <ValidationMessage show={!!errors.date} />
         </div>
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
-          <div className="flex gap-2.5 mt-1.5">
+          <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {TIME_BLOCKS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setBlock(t.id)}
+                onClick={() => { setBlock(t.id); setErrors((prev) => ({ ...prev, block: false })); }}
                 className={`flex-1 p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all cursor-pointer ${
                   block === t.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
@@ -404,11 +414,12 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               </button>
             ))}
           </div>
+          <ValidationMessage show={!!errors.block} />
         </div>
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Assign Engineer</Label>
-          <div className="space-y-2 mt-1.5">
+          <div className={`space-y-2 mt-1.5 rounded-xl ${errors.engineer ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {engineers.map((eng: any) => {
               const load = (slotCounts as any)[eng.id] || 0;
               const isSelected = engineer === eng.id;
@@ -416,7 +427,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               return (
                 <button
                   key={eng.id}
-                  onClick={() => !isFull && setEngineer(eng.id)}
+                  onClick={() => { if (!isFull) { setEngineer(eng.id); setErrors((prev) => ({ ...prev, engineer: false })); } }}
                   className={`w-full p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all ${
                     isSelected ? "border-primary bg-primary/5" : isFull ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-primary/30 cursor-pointer"
                   }`}
@@ -438,12 +449,13 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               );
             })}
           </div>
+          <ValidationMessage show={!!errors.engineer} />
         </div>
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" disabled={!canProceed} onClick={() => onNext({ date, timeBlock: block, engineerId: engineer })}>
+        <Button className="flex-1 h-12 font-extrabold text-base" onClick={handleNext}>
           Set payment →
         </Button>
       </div>
