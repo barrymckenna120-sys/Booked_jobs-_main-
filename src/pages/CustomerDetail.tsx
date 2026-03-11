@@ -199,12 +199,12 @@ const CustomerDetail = () => {
             </CardContent>
           )}
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Customer Name" field="name" />
-            <Field label="Phone Number" field="phone" />
-            <Field label="Email" field="email" />
-            <Field label="Address" field="address" />
-            <Field label="Eircode" field="eircode" />
-            <Field label="Area Code" field="area_code" />
+            <CustomerField label="Customer Name" field="name" value={form.name} onChange={handleChange} />
+            <CustomerField label="Phone Number" field="phone" value={form.phone} onChange={handleChange} />
+            <CustomerField label="Email" field="email" value={form.email} onChange={handleChange} />
+            <CustomerField label="Address" field="address" value={form.address} onChange={handleChange} />
+            <CustomerField label="Eircode" field="eircode" value={form.eircode} onChange={handleChange} />
+            <CustomerField label="Area Code" field="area_code" value={form.area_code} onChange={handleChange} />
           </CardContent>
         </Card>
 
