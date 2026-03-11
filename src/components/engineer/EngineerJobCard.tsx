@@ -47,6 +47,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
 
+  const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
 
