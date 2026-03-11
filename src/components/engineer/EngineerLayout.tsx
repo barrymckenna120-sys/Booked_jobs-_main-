@@ -35,6 +35,9 @@ const EngineerLayout = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
 
+  // Unlock Web Audio on first user gesture (critical for iOS)
+  useEffect(() => { unlockAudio(); }, []);
+
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
     : location.pathname.includes("/completed")
