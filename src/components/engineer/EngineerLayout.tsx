@@ -11,6 +11,9 @@ import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
+import { useOnboardingTour } from "@/hooks/useOnboardingTour";
+import OnboardingTour from "@/components/OnboardingTour";
+import { useAuth } from "@/hooks/useAuth";
 
 const greeting = () => {
   const h = new Date().getHours();
