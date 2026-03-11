@@ -17,8 +17,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import {
   FileText, Plus, Clock, CheckCircle2, CreditCard, Send, Edit2, User,
-  Loader2, X, MessageCircle, Bell, ArrowLeft, Calendar as CalendarIcon
+  Loader2, X, MessageCircle, Bell, ArrowLeft, Calendar as CalendarIcon, Save
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/components/jobs/SendAllQuotes";
 import { format } from "date-fns";
 
