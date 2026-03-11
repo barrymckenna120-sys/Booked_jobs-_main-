@@ -18,6 +18,8 @@ import CancelJobModal from "@/components/jobs/CancelJobModal";
 import NoShowSheet from "@/components/engineer/NoShowSheet";
 import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
+import JobMessageThread from "@/components/messages/JobMessageThread";
 
 type ServiceCall = {
   id: string;
