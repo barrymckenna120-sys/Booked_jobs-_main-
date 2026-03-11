@@ -16,23 +16,15 @@ import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
-
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
+import CustomerFormField from "@/components/shared/CustomerFormField";
+import {
+  validateRequired, validatePhone, validateEircode, validateAreaCode,
+  formatEircode, RED_BORDER, type CustomerFieldErrors,
+} from "@/lib/customerValidation";
 
 const formatDateForInput = (val: string | null) => val || "";
-
-const CustomerField = ({ label, field, type = "text", value, onChange }: { label: string; field: string; type?: string; value: any; onChange: (field: string, value: any) => void }) => (
-  <div className="space-y-1.5">
-    <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-    <Input
-      id={field}
-      type={type}
-      value={type === "date" ? formatDateForInput(value) : (value ?? "")}
-      onChange={(e) => onChange(field, e.target.value || (type === "date" ? null : ""))}
-    />
-  </div>
-);
 
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +36,7 @@ const CustomerDetail = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
   const [originalForm, setOriginalForm] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<CustomerFieldErrors>({});
   const [showSendModal, setShowSendModal] = useState(false);
   const { data: lastService } = useLastCompletedService(id);
   const [showHistory, setShowHistory] = useState(false);
@@ -88,11 +81,38 @@ const CustomerDetail = () => {
 
   const handleChange = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
+  };
+
+  const blurField = (field: string) => {
+    const val = String(form[field] ?? "");
+    let err: string | null = null;
+    if (field === "name") err = validateRequired(val);
+    else if (field === "phone") err = validatePhone(val);
+    else if (field === "eircode") {
+      err = validateEircode(val);
+      if (!err) handleChange("eircode", formatEircode(val));
+    } else if (field === "area_code") err = validateAreaCode(val);
+    if (err) setErrors((e) => ({ ...e, [field]: err! }));
+  };
+
+  const validateAll = (): boolean => {
+    const e: CustomerFieldErrors = {};
+    const nameErr = validateRequired(String(form.name ?? "")); if (nameErr) e.name = nameErr;
+    const phoneErr = validatePhone(String(form.phone ?? "")); if (phoneErr) e.phone = phoneErr;
+    const eircodeErr = validateEircode(String(form.eircode ?? "")); if (eircodeErr) e.eircode = eircodeErr;
+    const areaErr = validateAreaCode(String(form.area_code ?? "")); if (areaErr) e.area_code = areaErr;
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSave = async () => {
+    if (!validateAll()) return;
     setSaving(true);
     const { id: _id, created_at, updated_at, user_id, ...updates } = form;
+    // Clean phone & eircode
+    if (updates.phone) updates.phone = updates.phone.replace(/\s+/g, "");
+    if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
     // Ensure required fields are never null
     if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
     if (!updates.address && updates.address !== undefined) updates.address = "";
@@ -116,8 +136,6 @@ const CustomerDetail = () => {
     }
   };
 
-
-
   const handleBackButton = () => {
     guardedNavigate("/dashboard");
   };
@@ -126,6 +144,18 @@ const CustomerDetail = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
+  // Generic field for non-validated fields
+  const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => (
+    <div className="space-y-1.5">
+      <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        id={field}
+        type={type}
+        value={type === "date" ? formatDateForInput(value) : (value ?? "")}
+        onChange={(e) => handleChange(field, e.target.value || (type === "date" ? null : ""))}
+      />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -176,12 +206,12 @@ const CustomerDetail = () => {
             </CardContent>
           )}
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <CustomerField label="Customer Name" field="name" value={form.name} onChange={handleChange} />
-            <CustomerField label="Phone Number" field="phone" value={form.phone} onChange={handleChange} />
-            <CustomerField label="Email" field="email" value={form.email} onChange={handleChange} />
-            <CustomerField label="Address" field="address" value={form.address} onChange={handleChange} />
-            <CustomerField label="Eircode" field="eircode" value={form.eircode} onChange={handleChange} />
-            <CustomerField label="Area Code" field="area_code" value={form.area_code} onChange={handleChange} />
+            <CustomerFormField label="Customer Name" id="name" value={form.name ?? ""} onChange={(v) => handleChange("name", v)} onBlur={() => blurField("name")} error={errors.name} required maxLength={100} />
+            <CustomerFormField label="Mobile Number" id="phone" value={form.phone ?? ""} onChange={(v) => handleChange("phone", v)} onBlur={() => blurField("phone")} error={errors.phone} required maxLength={30} placeholder="083 123 4567" />
+            <PlainField label="Email" field="email" value={form.email} />
+            <PlainField label="Address" field="address" value={form.address} />
+            <CustomerFormField label="Eircode" id="eircode" value={form.eircode ?? ""} onChange={(v) => handleChange("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
+            <CustomerFormField label="Area Code" id="area_code" value={form.area_code ?? ""} onChange={(v) => handleChange("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
           </CardContent>
         </Card>
 
@@ -191,7 +221,7 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Boiler Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <CustomerField label="Boiler Make / Model" field="boiler_make_model" value={form.boiler_make_model} onChange={handleChange} />
+            <PlainField label="Boiler Make / Model" field="boiler_make_model" value={form.boiler_make_model} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
@@ -202,7 +232,7 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <CustomerField label="Installation Date" field="boiler_installation_date" type="date" value={form.boiler_installation_date} onChange={handleChange} />
+            <PlainField label="Installation Date" field="boiler_installation_date" type="date" value={form.boiler_installation_date} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Under Warranty</Label>
               <Select value={form.under_warranty === true ? "Yes" : form.under_warranty === false ? "No" : ""} onValueChange={(v) => handleChange("under_warranty", v === "Yes")}>
@@ -234,7 +264,7 @@ const CustomerDetail = () => {
                 {lastService?.engineerName || "—"}
               </div>
             </div>
-            <CustomerField label="Next Service Due" field="next_service_due" type="date" value={form.next_service_due} onChange={handleChange} />
+            <PlainField label="Next Service Due" field="next_service_due" type="date" value={form.next_service_due} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Service Status</Label>
               <Select value={form.service_status || "Up to Date"} onValueChange={(v) => handleChange("service_status", v)}>
@@ -269,8 +299,8 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <CustomerField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} onChange={handleChange} />
-            <CustomerField label="Customer Since" field="customer_since" type="date" value={form.customer_since} onChange={handleChange} />
+            <PlainField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} />
+            <PlainField label="Customer Since" field="customer_since" type="date" value={form.customer_since} />
           </CardContent>
         </Card>
 
@@ -321,7 +351,6 @@ const CustomerDetail = () => {
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
       </div>
-
 
       {/* Delete Customer Modal */}
       <DeleteCustomerModal
