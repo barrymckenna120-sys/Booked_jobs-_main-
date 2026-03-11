@@ -225,8 +225,19 @@ const AppLayoutInner = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
+      <UnsavedChangesModal
+        open={pendingDestination !== null}
+        onGoBack={cancelNavigation}
+        onDiscard={confirmNavigation}
+      />
     </div>
   );
 };
+
+const AppLayout = () => (
+  <NavigationGuardProvider>
+    <AppLayoutInner />
+  </NavigationGuardProvider>
+);
 
 export default AppLayout;
