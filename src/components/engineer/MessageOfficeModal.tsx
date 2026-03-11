@@ -1,0 +1,127 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Send } from "lucide-react";
+
+const PRESETS = [
+  "On my way",
+  "Running late – 30 mins",
+  "Running late – 1 hour",
+  "Arrived on site",
+  "Need parts – call me",
+  "Job complete",
+];
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  jobId: string;
+  officeUserId: string;
+}
+
+const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [message, setMessage] = useState("");
+  const [isPreset, setIsPreset] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [engineerName, setEngineerName] = useState("Engineer");
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.name) setEngineerName(data.name);
+      });
+  }, [user]);
+
+  const handleSend = async () => {
+    if (!message.trim() || !user) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.from("job_messages").insert({
+        job_id: jobId,
+        sender_role: "engineer",
+        sender_id: user.id,
+        message: message.trim(),
+        is_preset: isPreset,
+      } as any);
+      if (error) throw error;
+
+      if (officeUserId) {
+        await supabase.from("notifications").insert({
+          recipient_user_id: officeUserId,
+          notification_type: "message",
+          title: `Message from ${engineerName}`,
+          body: message.trim(),
+          job_id: jobId,
+          role: "office",
+        } as any);
+      }
+
+      toast({ title: "Message sent to office" });
+      setMessage("");
+      setIsPreset(false);
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: "Error sending message", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>📩 Message Office</DialogTitle>
+          <DialogDescription>Send a quick update to the office</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 pt-1">
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map((p) => (
+              <button
+                key={p}
+                onClick={() => { setMessage(p); setIsPreset(true); }}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  message === p
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          <Textarea
+            rows={3}
+            value={message}
+            onChange={(e) => { setMessage(e.target.value); setIsPreset(false); }}
+            placeholder="Or type a message…"
+            className="text-sm"
+          />
+
+          <Button
+            className="w-full h-11 font-bold gap-2"
+            onClick={handleSend}
+            disabled={sending || !message.trim()}
+          >
+            <Send className="w-4 h-4" /> Send Message
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default MessageOfficeModal;

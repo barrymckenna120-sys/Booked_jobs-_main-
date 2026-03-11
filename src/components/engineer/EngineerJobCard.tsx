@@ -21,7 +21,9 @@ import InfoPills from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
 import SecondaryActions from "./job-card/SecondaryActions";
 import PrimaryActions from "./job-card/PrimaryActions";
+import MessageOfficeModal from "./MessageOfficeModal";
 import { Button } from "@/components/ui/button";
+import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
 const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
