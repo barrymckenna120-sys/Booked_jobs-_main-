@@ -89,6 +89,18 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
 
         <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} />
 
+        {/* Last Service Info */}
+        <div className="flex gap-4 mb-3 text-xs">
+          <div>
+            <span className="text-muted-foreground/60 font-semibold">Last Service: </span>
+            <span className="font-bold text-foreground">{lastService?.date || "No previous service"}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground/60 font-semibold">Engineer: </span>
+            <span className="font-bold text-foreground">{lastService?.engineerName || "—"}</span>
+          </div>
+        </div>
+
         {/* Issue */}
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-lg p-3 mb-4 text-[13px] text-foreground leading-snug flex items-start gap-2">
