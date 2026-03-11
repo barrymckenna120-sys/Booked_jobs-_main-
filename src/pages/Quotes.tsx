@@ -259,7 +259,8 @@ const Quotes = () => {
 
   const handleResend = () => {
     if (!resendQuoteData) return;
-    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}. Reply to confirm. Karl's Gas`;
+    const noteLine = resendQuoteData.notes ? ` ${resendQuoteData.notes}` : "";
+    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}.${noteLine} Reply to confirm. Karl's Gas`;
     window.open(`https://wa.me/${resendQuoteData.phone}?text=${encodeURIComponent(msg)}`, "_blank");
     setResendPromptOpen(false);
     setResendQuoteData(null);
