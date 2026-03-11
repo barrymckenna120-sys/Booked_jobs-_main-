@@ -168,8 +168,8 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
           <h2 className="text-base font-extrabold" style={{ color: "#1a1a2e" }}>Thanks for your feedback!</h2>
           <p className="text-xs" style={{ color: "#64748b" }}>It helps Karl improve BookedJobs for the whole team.</p>
           <button
-            className="w-full rounded-[9px] py-3 text-[13px] font-semibold mt-4"
-            style={{ border: "1px solid #e2e8f0", color: "#555" }}
+            className="w-full mt-4 rounded-[9px] px-3 py-3 text-[13px] font-semibold cursor-pointer border border-[#e2e8f0] bg-white"
+            style={{ color: "#555" }}
             onClick={handleFinish}
           >
             Close
