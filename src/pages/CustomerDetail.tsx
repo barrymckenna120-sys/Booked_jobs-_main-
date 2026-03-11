@@ -21,6 +21,18 @@ import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
 const formatDateForInput = (val: string | null) => val || "";
 
+const CustomerField = ({ label, field, type = "text", value, onChange }: { label: string; field: string; type?: string; value: any; onChange: (field: string, value: any) => void }) => (
+  <div className="space-y-1.5">
+    <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+    <Input
+      id={field}
+      type={type}
+      value={type === "date" ? formatDateForInput(value) : (value ?? "")}
+      onChange={(e) => onChange(field, e.target.value || (type === "date" ? null : ""))}
+    />
+  </div>
+);
+
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
