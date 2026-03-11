@@ -1221,7 +1221,8 @@ const Quotes = () => {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-muted-foreground">Job Description *</Label>
-              <Input value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="e.g. Replace faulty burner unit" />
+              <Input value={formDesc} onChange={(e) => { setFormDesc(e.target.value); setCreateFormErrors(er => ({ ...er, description: false })); }} placeholder="e.g. Replace faulty burner unit" className={validationBorderClass(!!createFormErrors.description)} />
+              <ValidationMessage show={!!createFormErrors.description} />
             </div>
 
             <div className="space-y-1.5">
