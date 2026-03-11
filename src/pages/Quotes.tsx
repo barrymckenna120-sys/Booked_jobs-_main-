@@ -1073,7 +1073,7 @@ const Quotes = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Slot *</Label>
                 <Select value={scheduleTime} onValueChange={(v) => { setScheduleTime(v); setScheduleErrors(e => ({ ...e, time: false })); }}>
-                  <SelectTrigger className={scheduleErrors.time ? "border-destructive" : ""}>
+                  <SelectTrigger className={validationBorderClass(!!scheduleErrors.time)}>
                     <SelectValue placeholder="Select time slot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1082,7 +1082,7 @@ const Quotes = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {scheduleErrors.time && <p className="text-xs text-destructive">Please select a time slot</p>}
+                <ValidationMessage show={!!scheduleErrors.time} />
               </div>
 
               <div className="space-y-1.5">
