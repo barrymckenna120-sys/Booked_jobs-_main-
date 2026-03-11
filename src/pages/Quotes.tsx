@@ -107,7 +107,7 @@ const Quotes = () => {
   const [formTotal, setFormTotal] = useState("");
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [saving, setSaving] = useState(false);
-
+  const [createFormErrors, setCreateFormErrors] = useState<Record<string, boolean>>({});
   // WhatsApp send
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [whatsappMsg, setWhatsappMsg] = useState("");
