@@ -354,10 +354,17 @@ const Quotes = () => {
     : parseFloat(formTotal) || 0;
 
   const handleCreate = async (andSend?: boolean) => {
-    if (!user || !formCustomerId || !formJobId || !formDesc.trim() || calcTotal <= 0) {
-      toast({ title: "Fill in customer, job, description, and total", variant: "destructive" });
+    // Inline validation
+    const createErrors: Record<string, boolean> = {};
+    if (!formCustomerId) createErrors.customer = true;
+    if (!formJobId) createErrors.job = true;
+    if (!formDesc.trim()) createErrors.description = true;
+    if (calcTotal <= 0) createErrors.total = true;
+    if (Object.keys(createErrors).length > 0) {
+      setCreateFormErrors(createErrors);
       return;
     }
+    if (!user) return;
     setSaving(true);
     const { data, error } = await supabase.from("quotes").insert([{
       user_id: user.id,
