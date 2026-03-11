@@ -194,7 +194,7 @@ const AppLayoutInner = () => {
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => guardedNavigate(item.path)}
               className={`flex flex-col items-center justify-center shrink-0 min-w-[48px] min-h-[48px] px-2 py-1.5 ${
                 active ? "text-primary font-bold" : "text-muted-foreground"
               }`}
