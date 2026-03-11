@@ -299,7 +299,7 @@ const Quotes = () => {
 
   // Unsent quotes for Send All feature
   const unsentQuotes: UnsentQuote[] = quotes
-    .filter(q => q.status === "Draft")
+    .filter(q => q.status === "Sent")
     .map(q => ({
       id: q.id,
       customer: q.customers?.name || "Unknown",
