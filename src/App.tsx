@@ -38,6 +38,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
 import ServiceReceipt from "./pages/ServiceReceipt";
+import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
 
