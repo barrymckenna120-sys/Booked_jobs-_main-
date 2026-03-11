@@ -108,7 +108,12 @@ const AppLayoutInner = () => {
               }`}
             >
               <item.icon className="w-5 h-5 shrink-0" />
-              <span>{item.label}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.path === "/messages" && unreadMessages > 0 && (
+                <span className="bg-[#4A86E8] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {unreadMessages}
+                </span>
+              )}
             </button>
           ))}
 
