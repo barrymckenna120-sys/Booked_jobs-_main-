@@ -408,6 +408,54 @@ export type Database = {
           },
         ]
       }
+      job_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_preset: boolean | null
+          job_id: string | null
+          message: string
+          read_at: string | null
+          sender_id: string | null
+          sender_role: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_preset?: boolean | null
+          job_id?: string | null
+          message: string
+          read_at?: string | null
+          sender_id?: string | null
+          sender_role: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_preset?: boolean | null
+          job_id?: string | null
+          message?: string
+          read_at?: string | null
+          sender_id?: string | null
+          sender_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_messages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string
