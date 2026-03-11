@@ -113,7 +113,6 @@ const CustomerDetail = () => {
 
   const handleGoBackAndSave = () => {
     setPendingNavigation(null);
-    if (blocker.state === "blocked") blocker.reset();
   };
 
   const handleDiscardChanges = () => {
