@@ -690,7 +690,7 @@ const Quotes = () => {
                 {/* Back button + Header */}
                 <div className="p-5 pb-4 border-b border-border">
                   <button
-                    onClick={() => setSelected(null)}
+                    onClick={() => guardedAction(() => { setSelected(null); setEditMode(false); })}
                     className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-3 transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" /> Back to Quotes
