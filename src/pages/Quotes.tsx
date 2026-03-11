@@ -307,6 +307,7 @@ const Quotes = () => {
       jobType: q.service_calls?.job_type || "Job",
       total: Number(q.total_amount) || 0,
       description: q.description,
+      notes: q.notes || "",
       quoteUrl: `${window.location.origin}/quote/${q.id}`,
     }));
 
