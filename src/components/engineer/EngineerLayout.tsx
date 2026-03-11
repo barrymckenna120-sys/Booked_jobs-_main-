@@ -31,12 +31,14 @@ const formatDateHeading = (d: Date) => {
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth("/auth");
   const { authLoading, todayActive, todayCompleted, upcomingJobs, engineerName } = useEngineerJobs();
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
+  const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
