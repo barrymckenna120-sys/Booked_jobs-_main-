@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
 import { format } from "date-fns";
+import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
+import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
