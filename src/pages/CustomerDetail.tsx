@@ -57,13 +57,14 @@ const CustomerDetail = () => {
   }, [isDirty, navigate]);
 
   useEffect(() => {
-    if (user && id) {
+    if (user?.id && id) {
       fetchCustomer();
       supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle().then(({ data }) => {
         if (data) setSettings(data);
       });
     }
-  }, [user, id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, id]);
 
   const fetchCustomer = async () => {
     const { data, error } = await supabase
