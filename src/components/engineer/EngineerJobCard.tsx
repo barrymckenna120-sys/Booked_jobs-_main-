@@ -87,6 +87,13 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           <MapPin className="w-3.5 h-3.5 shrink-0" /> {[customer.address, customer.eircode].filter(Boolean).join(", ")}
         </div>
 
+        {/* Always-visible phone for completed cards */}
+        {isDone && customer.phone && (
+          <a href={`tel:${customer.phone}`} className="text-[13px] text-primary font-semibold mb-3 flex items-center gap-1.5 active:opacity-70">
+            <Phone className="w-3.5 h-3.5 shrink-0" /> {customer.phone}
+          </a>
+        )}
+
         <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} />
 
         {/* Last Service Info */}
