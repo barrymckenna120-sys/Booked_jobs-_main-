@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt } from "lucide-react";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
