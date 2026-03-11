@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useParams, useBlocker } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -40,14 +40,8 @@ const CustomerDetail = () => {
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
-  // Block react-router navigation when dirty
-  const blocker = useBlocker(isDirty);
-
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setPendingNavigation(() => () => blocker.proceed());
-    }
-  }, [blocker.state]);
+  // Note: useBlocker requires a data router (createBrowserRouter).
+  // We use popstate interception instead for unsaved changes detection.
 
   // Block browser back button when dirty via popstate
   useEffect(() => {
@@ -119,7 +113,6 @@ const CustomerDetail = () => {
 
   const handleGoBackAndSave = () => {
     setPendingNavigation(null);
-    if (blocker.state === "blocked") blocker.reset();
   };
 
   const handleDiscardChanges = () => {
