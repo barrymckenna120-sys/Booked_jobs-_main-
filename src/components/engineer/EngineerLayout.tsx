@@ -9,6 +9,7 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
 import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
+import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -132,6 +133,7 @@ const EngineerLayout = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/engineer/today"
       />
+      <MessageAlertBanner />
     </div>
   );
 };

@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare } from "lucide-react";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
@@ -14,6 +14,8 @@ import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
 import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
+import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import {
   Collapsible,
   CollapsibleContent,
@@ -27,6 +29,7 @@ const MAIN_NAV = [
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Messages", icon: MessageCircle, path: "/messages" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
 ];
@@ -48,6 +51,7 @@ const MOBILE_NAV = [
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Messages", icon: MessageSquare, path: "/messages" },
   { label: "Quotes", icon: Euro, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
@@ -71,6 +75,7 @@ const AppLayoutInner = () => {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
+  const unreadMessages = useUnreadMessages();
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
@@ -104,7 +109,12 @@ const AppLayoutInner = () => {
               }`}
             >
               <item.icon className="w-5 h-5 shrink-0" />
-              <span>{item.label}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.path === "/messages" && unreadMessages > 0 && (
+                <span className="bg-[#4A86E8] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {unreadMessages}
+                </span>
+              )}
             </button>
           ))}
 
@@ -225,6 +235,7 @@ const AppLayoutInner = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
+      <MessageAlertBanner />
       <UnsavedChangesModal
         open={pendingDestination !== null}
         onGoBack={cancelNavigation}

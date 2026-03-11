@@ -15,6 +15,7 @@ import PaymentSheet from "./PaymentSheet";
 import JobServiceHistory from "./JobServiceHistory";
 import JobNotesSection from "./JobNotesSection";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import EngineerJobMessages from "@/components/messages/EngineerJobMessages";
 import StatusBadge from "./job-card/StatusBadge";
 import InfoPills from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
@@ -120,6 +121,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {/* Collapsible Service History & Notes */}
         <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
         <JobNotesSection jobId={job.id} customerId={job.customer_id} jobNotes={job.notes} />
+        <EngineerJobMessages jobId={job.id} officeUserId={job.user_id} />
 
         {!isDone && (
           <SecondaryActions

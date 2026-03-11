@@ -18,6 +18,8 @@ import CancelJobModal from "@/components/jobs/CancelJobModal";
 import NoShowSheet from "@/components/engineer/NoShowSheet";
 import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
+import JobMessageThread from "@/components/messages/JobMessageThread";
 
 type ServiceCall = {
   id: string;
@@ -114,6 +116,17 @@ const JobDetail = () => {
 
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [reassignLoading, setReassignLoading] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [assignedEngineerAuth, setAssignedEngineerAuth] = useState<string | null>(null);
+
+  // Fetch assigned engineer's auth_user_id for messaging
+  useEffect(() => {
+    if (job?.assigned_engineer_id) {
+      supabase.from("engineers").select("auth_user_id").eq("id", job.assigned_engineer_id).maybeSingle().then(({ data }) => {
+        setAssignedEngineerAuth(data?.auth_user_id || null);
+      });
+    }
+  }, [job?.assigned_engineer_id]);
 
   useEffect(() => {
     if (user && id) fetchJob();
@@ -474,9 +487,28 @@ const JobDetail = () => {
             <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCancelOpen(true)}>
               <XCircle className="w-4 h-4 mr-1" /> Cancel Job
             </Button>
+            {job.assigned_engineer_id && (
+              <Button
+                className="text-white font-bold"
+                style={{ backgroundColor: "#4A86E8" }}
+                onClick={() => setMessageOpen(true)}
+              >
+                📩 Message Engineer
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
+
+      {/* Messages Panel */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Messages</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobMessageThread jobId={job.id} perspective="office" />
+        </CardContent>
+      </Card>
 
       {/* Mark Complete Dialog */}
       <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
@@ -583,6 +615,14 @@ const JobDetail = () => {
           onPaymentComplete={() => fetchJob()}
         />
       )}
+      {/* Message Engineer Modal */}
+      <MessageEngineerModal
+        open={messageOpen}
+        onOpenChange={setMessageOpen}
+        jobId={job.id}
+        engineerName={job.assigned_engineer || "Engineer"}
+        engineerAuthUserId={assignedEngineerAuth}
+      />
     </div>
   );
 };

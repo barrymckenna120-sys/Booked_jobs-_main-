@@ -38,6 +38,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
 import ServiceReceipt from "./pages/ServiceReceipt";
+import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,7 @@ const App = () => (
               <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/jobs/:id" element={<JobDetail />} />
+              <Route path="/messages" element={<Messages />} />
               <Route path="/quotes" element={<Quotes />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/customers/:id" element={<CustomerDetail />} />
