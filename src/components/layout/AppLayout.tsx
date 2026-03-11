@@ -143,7 +143,7 @@ const AppLayoutInner = () => {
           {BOTTOM_NAV.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => guardedNavigate(item.path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
                 isActive(item.path)
                   ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
