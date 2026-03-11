@@ -1,0 +1,1 @@
+ALTER TABLE public.customer_call_notes ADD COLUMN service_call_id uuid REFERENCES public.service_calls(id) ON DELETE SET NULL;
