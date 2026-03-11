@@ -116,14 +116,10 @@ const CustomerDetail = () => {
     }
   };
 
+  const { guardedNavigate } = useNavigationGuard();
+
   const handleBackButton = () => {
-    if (isDirty) {
-      // Use the navigation guard — trigger via guardedNavigate
-      const { guardedNavigate } = require("@/hooks/useNavigationGuard");
-      // Actually, just use navigate directly since the back button is within CustomerDetail
-      // For the back arrow, we show a simple confirm via the guard context
-    }
-    navigate("/dashboard");
+    guardedNavigate("/dashboard");
   };
 
   if (authLoading || loading) {
