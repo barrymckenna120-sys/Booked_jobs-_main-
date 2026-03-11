@@ -39,7 +39,7 @@ const CustomerDetail = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { registerGuard } = useNavigationGuard();
+  const { registerGuard, guardedNavigate } = useNavigationGuard();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
