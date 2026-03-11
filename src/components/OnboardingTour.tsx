@@ -326,17 +326,20 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
 };
 
 // ─── Bottom Sheet wrapper ───
-const Sheet = ({ children, maxHeight = "44vh" }: { children: React.ReactNode; maxHeight?: string }) => (
-  <div
-    className="fixed bottom-0 left-0 right-0 z-[100] bg-white overflow-y-auto animate-in slide-in-from-bottom duration-300"
-    style={{
-      borderRadius: "16px 16px 0 0",
-      borderTop: "1px solid #e8edf2",
-      boxShadow: "0 -4px 24px rgba(0,0,0,0.10)",
-      padding: "20px 20px 32px 20px",
-      maxHeight,
-    }}
-  >
+const Sheet = ({ children, maxHeight = "44vh" }: { children: React.ReactNode; maxHeight?: string }) => {
+  // On md+ screens, cap at 320px (or 56vh equivalent for intro/feedback)
+  const desktopMax = maxHeight === "56vh" ? "400px" : "320px";
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-[100] bg-white overflow-y-auto animate-in slide-in-from-bottom duration-300"
+      style={{
+        borderRadius: "16px 16px 0 0",
+        borderTop: "1px solid #e8edf2",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.10)",
+        padding: "20px 20px 32px 20px",
+        maxHeight: `min(${maxHeight}, ${desktopMax})`,
+      }}
+    >
     {/* Handle bar */}
     <div className="flex justify-center mb-4">
       <div className="w-9 h-1 rounded-full" style={{ backgroundColor: "#e2e8f0" }} />
