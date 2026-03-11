@@ -869,6 +869,18 @@ const Quotes = () => {
                             </CardContent>
                           </Card>
 
+                          {/* Notes */}
+                          <Card>
+                            <CardContent className="p-4">
+                              <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Notes</p>
+                              {q.notes ? (
+                                <p className="text-sm">{q.notes}</p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">No notes</p>
+                              )}
+                            </CardContent>
+                          </Card>
+
                           {q.payment_link && (
                             <div className="flex items-center gap-2 text-xs text-success font-semibold p-3 bg-success/10 rounded-lg">
                               💳 Payment link attached
