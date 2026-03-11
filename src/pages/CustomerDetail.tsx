@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +20,18 @@ import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
 const formatDateForInput = (val: string | null) => val || "";
+
+const CustomerField = ({ label, field, type = "text", value, onChange }: { label: string; field: string; type?: string; value: any; onChange: (field: string, value: any) => void }) => (
+  <div className="space-y-1.5">
+    <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+    <Input
+      id={field}
+      type={type}
+      value={type === "date" ? formatDateForInput(value) : (value ?? "")}
+      onChange={(e) => onChange(field, e.target.value || (type === "date" ? null : ""))}
+    />
+  </div>
+);
 
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -137,17 +149,6 @@ const CustomerDetail = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  const Field = ({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-      <Input
-        id={field}
-        type={type}
-        value={type === "date" ? formatDateForInput(form[field]) : (form[field] ?? "")}
-        onChange={(e) => handleChange(field, e.target.value || (type === "date" ? null : ""))}
-      />
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,12 +199,12 @@ const CustomerDetail = () => {
             </CardContent>
           )}
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Customer Name" field="name" />
-            <Field label="Phone Number" field="phone" />
-            <Field label="Email" field="email" />
-            <Field label="Address" field="address" />
-            <Field label="Eircode" field="eircode" />
-            <Field label="Area Code" field="area_code" />
+            <CustomerField label="Customer Name" field="name" value={form.name} onChange={handleChange} />
+            <CustomerField label="Phone Number" field="phone" value={form.phone} onChange={handleChange} />
+            <CustomerField label="Email" field="email" value={form.email} onChange={handleChange} />
+            <CustomerField label="Address" field="address" value={form.address} onChange={handleChange} />
+            <CustomerField label="Eircode" field="eircode" value={form.eircode} onChange={handleChange} />
+            <CustomerField label="Area Code" field="area_code" value={form.area_code} onChange={handleChange} />
           </CardContent>
         </Card>
 
@@ -213,7 +214,7 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Boiler Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Boiler Make / Model" field="boiler_make_model" />
+            <CustomerField label="Boiler Make / Model" field="boiler_make_model" value={form.boiler_make_model} onChange={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
@@ -224,7 +225,7 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Installation Date" field="boiler_installation_date" type="date" />
+            <CustomerField label="Installation Date" field="boiler_installation_date" type="date" value={form.boiler_installation_date} onChange={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Under Warranty</Label>
               <Select value={form.under_warranty === true ? "Yes" : form.under_warranty === false ? "No" : ""} onValueChange={(v) => handleChange("under_warranty", v === "Yes")}>
@@ -256,7 +257,7 @@ const CustomerDetail = () => {
                 {lastService?.engineerName || "—"}
               </div>
             </div>
-            <Field label="Next Service Due" field="next_service_due" type="date" />
+            <CustomerField label="Next Service Due" field="next_service_due" type="date" value={form.next_service_due} onChange={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Service Status</Label>
               <Select value={form.service_status || "Up to Date"} onValueChange={(v) => handleChange("service_status", v)}>
@@ -291,8 +292,8 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Assigned Engineer" field="assigned_engineer" />
-            <Field label="Customer Since" field="customer_since" type="date" />
+            <CustomerField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} onChange={handleChange} />
+            <CustomerField label="Customer Since" field="customer_since" type="date" value={form.customer_since} onChange={handleChange} />
           </CardContent>
         </Card>
 
