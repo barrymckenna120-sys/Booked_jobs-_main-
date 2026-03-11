@@ -487,9 +487,28 @@ const JobDetail = () => {
             <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCancelOpen(true)}>
               <XCircle className="w-4 h-4 mr-1" /> Cancel Job
             </Button>
+            {job.assigned_engineer_id && (
+              <Button
+                className="text-white font-bold"
+                style={{ backgroundColor: "#4A86E8" }}
+                onClick={() => setMessageOpen(true)}
+              >
+                📩 Message Engineer
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
+
+      {/* Messages Panel */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Messages</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobMessageThread jobId={job.id} perspective="office" />
+        </CardContent>
+      </Card>
 
       {/* Mark Complete Dialog */}
       <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
