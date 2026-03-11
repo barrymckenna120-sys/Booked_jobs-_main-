@@ -20,6 +20,7 @@ import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
+import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 
 type ServiceCall = {
   id: string;
