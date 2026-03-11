@@ -168,8 +168,8 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
           <h2 className="text-base font-extrabold" style={{ color: "#1a1a2e" }}>Thanks for your feedback!</h2>
           <p className="text-xs" style={{ color: "#64748b" }}>It helps Karl improve BookedJobs for the whole team.</p>
           <button
-            className="w-full rounded-[9px] py-3 text-[13px] font-semibold mt-4"
-            style={{ border: "1px solid #e2e8f0", color: "#555" }}
+            className="w-full mt-4 rounded-[9px] px-3 py-3 text-[13px] font-semibold cursor-pointer border border-[#e2e8f0] bg-white"
+            style={{ color: "#555" }}
             onClick={handleFinish}
           >
             Close
@@ -293,10 +293,10 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
         </div>
 
         {/* Navigation buttons */}
-        <div className="flex gap-2.5 mt-3.5">
+        <div className="flex gap-2.5 mt-3.5 md:justify-end">
           {stepIndex > 0 && (
             <button
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-[9px] py-3 text-[13px] font-semibold"
+              className="flex-1 md:flex-none md:min-w-[100px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-5 text-[13px] font-semibold"
               style={{ border: "1px solid #e2e8f0", color: "#64748b", backgroundColor: "white" }}
               onClick={handleBack}
             >
@@ -304,7 +304,7 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
             </button>
           )}
           <button
-            className="flex-[2] flex items-center justify-center gap-1.5 rounded-[9px] py-3 text-[13px] font-bold text-white"
+            className="flex-[2] md:flex-none md:min-w-[140px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-6 text-[13px] font-bold text-white"
             style={{ backgroundColor: "#4A86E8", boxShadow: "0 2px 8px rgba(74,134,232,0.25)" }}
             onClick={handleNext}
           >
@@ -317,7 +317,7 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
         </div>
 
         {/* Skip link */}
-        <button onClick={handleSkip} className="text-xs text-center mt-3.5 pb-safe" style={{ color: "#94a3b8" }}>
+        <button onClick={handleSkip} className="text-xs text-center mt-3.5 pb-safe md:text-right md:mt-4" style={{ color: "#94a3b8" }}>
           Skip tour
         </button>
       </div>
@@ -331,13 +331,14 @@ const Sheet = ({ children, maxHeight = "44vh" }: { children: React.ReactNode; ma
   const desktopMax = maxHeight === "56vh" ? "400px" : "320px";
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[100] bg-white overflow-y-auto animate-in slide-in-from-bottom duration-300"
+      className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] bg-white overflow-y-auto animate-in slide-in-from-bottom duration-300"
       style={{
         borderRadius: "16px 16px 0 0",
         borderTop: "1px solid #e8edf2",
         boxShadow: "0 -4px 24px rgba(0,0,0,0.10)",
         padding: "20px 20px 32px 20px",
         maxHeight: `min(${maxHeight}, ${desktopMax})`,
+        width: "100%",
       }}
     >
       {/* Handle bar */}
