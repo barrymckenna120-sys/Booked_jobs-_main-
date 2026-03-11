@@ -620,7 +620,7 @@ const Quotes = () => {
                 key={q.id}
                 className="cursor-pointer hover:shadow-md transition-all border-l-4"
                 style={{ borderLeftColor: `var(--${q.status === "Paid" ? "success" : q.status === "Sent" ? "primary" : q.status === "Rejected" ? "destructive" : q.status === "Accepted" ? "success" : "border"})` }}
-                onClick={() => { setSelected(q); setTab("details"); }}
+                onClick={() => guardedAction(() => { setSelected(q); setTab("details"); setEditMode(false); })}
               >
                 <CardContent className="p-4">
                   {/* Top row */}
