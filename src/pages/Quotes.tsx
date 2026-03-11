@@ -1253,8 +1253,9 @@ const Quotes = () => {
                 <Label className="text-xs font-semibold uppercase text-muted-foreground">Total Price *</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
-                  <Input value={formTotal} onChange={(e) => setFormTotal(e.target.value)} placeholder="0.00" className="pl-8 text-lg font-bold" type="number" />
+                  <Input value={formTotal} onChange={(e) => { setFormTotal(e.target.value); setCreateFormErrors(er => ({ ...er, total: false })); }} placeholder="0.00" className={`pl-8 text-lg font-bold ${validationBorderClass(!!createFormErrors.total)}`} type="number" />
                 </div>
+                <ValidationMessage show={!!createFormErrors.total} />
               </div>
             )}
 
