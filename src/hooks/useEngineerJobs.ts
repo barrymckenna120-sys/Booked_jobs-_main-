@@ -152,7 +152,18 @@ export const useEngineerJobs = () => {
       setUpcomingJobs(updater);
       setCompletedJobs(updater);
 
+      // Update customer's last_service_date on completion
       if (patch.status === "Completed") {
+        try {
+          const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+          if (job?.customer_id) {
+            const today = todayISO();
+            await supabase.from("customers").update({
+              last_service_date: job.scheduled_date || today,
+              last_service_engineer: engineerName || undefined,
+            }).eq("id", job.customer_id);
+          }
+        } catch {}
         toast({ title: "Job completed ✔" });
         navigate(`/receipt/${jobId}`);
       } else {
