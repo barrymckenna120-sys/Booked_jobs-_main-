@@ -21,21 +21,21 @@ const UnsavedChangesModal = ({ open, onGoBack, onDiscard }: UnsavedChangesModalP
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2 text-lg">
           <AlertTriangle className="w-5 h-5 text-warning" />
-          Don't forget to save!
+          Unsaved Changes
         </DialogTitle>
         <DialogDescription className="text-sm pt-1">
-          You have unsaved changes on this customer record. Press Save to keep your changes or discard them.
+          You have unsaved changes. If you leave now, your details will be lost.
         </DialogDescription>
       </DialogHeader>
       <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
         <Button variant="ghost" onClick={onDiscard} className="order-2 sm:order-1">
-          Discard Changes
+          Leave anyway
         </Button>
         <Button
           onClick={onGoBack}
-          className="order-1 sm:order-2 bg-[#4A86E8] hover:bg-[#4A86E8]/90 text-white font-bold"
+          className="order-1 sm:order-2"
         >
-          Go Back &amp; Save
+          Stay
         </Button>
       </DialogFooter>
     </DialogContent>
