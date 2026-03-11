@@ -146,6 +146,17 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           />
         )}
 
+        {/* Message Office button */}
+        {!isDone && (
+          <Button
+            variant="outline"
+            className="w-full h-[52px] text-base font-extrabold gap-2 mt-2 bg-white border-[#4A86E8] text-[#4A86E8] hover:bg-[#4A86E8]/5"
+            onClick={() => setShowMessageOffice(true)}
+          >
+            <Mail className="w-5 h-5" /> 📩 Message Office
+          </Button>
+        )}
+
         {job.status === "Completed" && (
           <>
             <JobPhotoThumbnails photos={photos} />
