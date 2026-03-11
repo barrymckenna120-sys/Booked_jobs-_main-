@@ -211,6 +211,7 @@ const Quotes = () => {
       status: editForm.status,
       description: editForm.description.trim(),
       total_amount: total,
+      notes: editForm.notes.trim() || null,
     } as any).eq("id", selected.id);
 
     // Update service_calls for job_type and engineer
