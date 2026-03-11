@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Mail } from "lucide-react";
+import { playMessageBeep } from "@/utils/audio";
 
 interface MessageAlert {
   id: string;
@@ -12,63 +13,10 @@ interface MessageAlert {
   jobId: string | null;
 }
 
-// ─── Distinct message sound (880Hz sine, not square) ───
-let msgAudioCtx: AudioContext | null = null;
-
-function getMsgAudioContext(): AudioContext | null {
-  if (msgAudioCtx && msgAudioCtx.state !== "closed") return msgAudioCtx;
-  try {
-    msgAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    return msgAudioCtx;
-  } catch {
-    return null;
-  }
-}
-
-function playMessageBeep() {
-  try {
-    const ctx = getMsgAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
-
-    // 880Hz sine, 150ms — 80ms gap — 880Hz sine, 150ms, gain 0.8
-    [0, 0.23].forEach((delay) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 880;
-      gain.gain.value = 0.8;
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.15);
-    });
-  } catch {}
-}
-
-// Unlock on first tap
-function unlockMsgAudio() {
-  const handler = () => {
-    const ctx = getMsgAudioContext();
-    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
-    document.removeEventListener("touchstart", handler, true);
-    document.removeEventListener("click", handler, true);
-  };
-  document.addEventListener("touchstart", handler, { capture: true, passive: true });
-  document.addEventListener("click", handler, { capture: true });
-}
-
 const MessageAlertBanner = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<MessageAlert[]>([]);
-  const unlocked = useRef(false);
-
-  useEffect(() => {
-    if (!unlocked.current) {
-      unlockMsgAudio();
-      unlocked.current = true;
-    }
-  }, []);
 
   useEffect(() => {
     if (!user) return;

@@ -52,10 +52,7 @@ export function useNotifications() {
     setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  // Unlock audio on first user gesture (critical for iOS)
-  useEffect(() => {
-    unlockAudioOnFirstTap();
-  }, []);
+  // Audio unlock is now handled globally in AppLayout via unlockAudio()
 
   // Fetch existing notifications
   useEffect(() => {
