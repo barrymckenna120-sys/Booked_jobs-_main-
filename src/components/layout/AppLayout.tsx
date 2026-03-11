@@ -17,6 +17,8 @@ import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
 import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useOnboardingTour } from "@/hooks/useOnboardingTour";
+import OnboardingTour from "@/components/OnboardingTour";
 import {
   Collapsible,
   CollapsibleContent,
@@ -77,6 +79,7 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
   const unreadMessages = useUnreadMessages();
+  const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS Safari/Chrome)
   useEffect(() => {
@@ -243,6 +246,16 @@ const AppLayoutInner = () => {
         jobPathPrefix="/jobs"
       />
       <MessageAlertBanner />
+      {user && (
+        <OnboardingTour
+          open={showTour}
+          tourType={tourType}
+          userId={user.id}
+          onComplete={completeTour}
+          onSkip={skipTour}
+          onClose={closeTour}
+        />
+      )}
       <UnsavedChangesModal
         open={pendingDestination !== null}
         onGoBack={cancelNavigation}

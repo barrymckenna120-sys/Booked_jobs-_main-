@@ -11,6 +11,9 @@ import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
+import { useOnboardingTour } from "@/hooks/useOnboardingTour";
+import OnboardingTour from "@/components/OnboardingTour";
+import { useAuth } from "@/hooks/useAuth";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -28,12 +31,14 @@ const formatDateHeading = (d: Date) => {
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth("/auth");
   const { authLoading, todayActive, todayCompleted, upcomingJobs, engineerName } = useEngineerJobs();
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
+  const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
@@ -138,6 +143,16 @@ const EngineerLayout = () => {
         jobPathPrefix="/engineer/today"
       />
       <MessageAlertBanner />
+      {user && (
+        <OnboardingTour
+          open={showTour}
+          tourType={tourType}
+          userId={user.id}
+          onComplete={completeTour}
+          onSkip={skipTour}
+          onClose={closeTour}
+        />
+      )}
     </div>
   );
 };
