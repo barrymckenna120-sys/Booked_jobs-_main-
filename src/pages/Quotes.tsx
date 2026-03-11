@@ -1209,6 +1209,26 @@ const Quotes = () => {
         quotes={unsentQuotes}
         onQuoteSent={handleQuoteSent}
       />
+
+      {/* Resend Prompt after editing a Sent quote */}
+      <Dialog open={resendPromptOpen} onOpenChange={(v) => { if (!v) { setResendPromptOpen(false); setResendQuoteData(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Resend Quote?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This quote has already been sent. Would you like to resend it to the customer via WhatsApp?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => { setResendPromptOpen(false); setResendQuoteData(null); }}>
+              No thanks
+            </Button>
+            <Button className="flex-1 gap-1.5" onClick={handleResend}>
+              <MessageCircle className="w-4 h-4" /> Resend via WhatsApp
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
