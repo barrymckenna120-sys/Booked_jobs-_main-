@@ -1306,28 +1306,15 @@ const Quotes = () => {
       </Dialog>
 
       {/* Unsaved Changes Modal for in-page actions (back button, clicking another quote) */}
-      <Dialog open={!!pendingAction} onOpenChange={(v) => { if (!v) setPendingAction(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Unsaved Changes</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            You have unsaved changes to this quote. What would you like to do?
-          </p>
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setPendingAction(null)}>
-              Go Back & Save
-            </Button>
-            <Button variant="destructive" className="flex-1" onClick={() => {
-              const action = pendingAction;
-              setPendingAction(null);
-              action?.();
-            }}>
-              Discard Changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <FormLeaveGuard
+        open={!!pendingAction}
+        onKeepEditing={() => setPendingAction(null)}
+        onLeave={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          action?.();
+        }}
+      />
     </div>
   );
 };
