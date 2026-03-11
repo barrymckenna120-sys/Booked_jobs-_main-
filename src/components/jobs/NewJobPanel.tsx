@@ -621,6 +621,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showLeaveGuard, setShowLeaveGuard] = useState(false);
   const [jobData, setJobData] = useState<any>({
     customer: prefilledCustomer || null,
     job: null,
@@ -628,6 +629,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     payment: null,
     sendWhatsApp: true,
   });
+
+  const isDirty = !!(jobData.customer || jobData.job || jobData.schedule);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-new-job"],
@@ -640,6 +643,14 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const handleCustomer = (c: any) => { setJobData((d: any) => ({ ...d, customer: c })); setStep(1); };
   const handleJob = (j: any) => { setJobData((d: any) => ({ ...d, job: j })); setStep(2); };
   const handleSchedule = (s: any) => { setJobData((d: any) => ({ ...d, schedule: s })); setStep(3); };
+
+  const handleClose = () => {
+    if (isDirty && !done) {
+      setShowLeaveGuard(true);
+    } else {
+      onClose();
+    }
+  };
 
   const handleSubmit = async (finalData: any) => {
     if (!user) return;
@@ -731,7 +742,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const STEP_TITLES = ["Customer", "Job Details", "Schedule", "Payment"];
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <>
+    <Sheet open onOpenChange={(open) => { if (!open) handleClose(); }}>
       <SheetContent className="w-full sm:max-w-[480px] p-0 flex flex-col">
         {/* Header */}
         <div className="border-b border-border px-5 pt-5 pb-0">
