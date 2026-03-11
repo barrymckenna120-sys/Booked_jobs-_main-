@@ -39,6 +39,7 @@ const CustomerDetail = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
   const [showSendModal, setShowSendModal] = useState(false);
+  const { data: lastService } = useLastCompletedService(id);
   const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
 
