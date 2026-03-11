@@ -615,6 +615,14 @@ const JobDetail = () => {
           onPaymentComplete={() => fetchJob()}
         />
       )}
+      {/* Message Engineer Modal */}
+      <MessageEngineerModal
+        open={messageOpen}
+        onOpenChange={setMessageOpen}
+        jobId={job.id}
+        engineerName={job.assigned_engineer || "Engineer"}
+        engineerAuthUserId={assignedEngineerAuth}
+      />
     </div>
   );
 };

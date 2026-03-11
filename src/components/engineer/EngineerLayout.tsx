@@ -133,6 +133,7 @@ const EngineerLayout = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/engineer/today"
       />
+      <MessageAlertBanner />
     </div>
   );
 };

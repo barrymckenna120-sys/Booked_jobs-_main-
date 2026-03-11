@@ -234,6 +234,7 @@ const AppLayoutInner = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
+      <MessageAlertBanner />
       <UnsavedChangesModal
         open={pendingDestination !== null}
         onGoBack={cancelNavigation}
