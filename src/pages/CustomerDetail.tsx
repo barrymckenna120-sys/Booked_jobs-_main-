@@ -149,9 +149,6 @@ const CustomerDetail = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  const Field = useCallback(({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
-    <CustomerField label={label} field={field} type={type} value={form[field]} onChange={handleChange} />
-  ), [form, handleChange]);
 
   return (
     <div className="min-h-screen bg-background">
