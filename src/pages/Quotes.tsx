@@ -808,6 +808,15 @@ const Quotes = () => {
                                   </SelectContent>
                                 </Select>
                               </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Notes</Label>
+                                <Textarea
+                                  value={editForm.notes}
+                                  onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                                  rows={2}
+                                  placeholder="Internal notes for this quote..."
+                                />
+                              </div>
                             </CardContent>
                           </Card>
                         </>
