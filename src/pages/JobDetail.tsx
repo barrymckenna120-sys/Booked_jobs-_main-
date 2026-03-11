@@ -510,15 +510,6 @@ const JobDetail = () => {
         </Card>
       )}
 
-      {/* Messages Panel */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Messages</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <JobMessageThread jobId={job.id} perspective="office" />
-        </CardContent>
-      </Card>
 
 
       {/* Mark Complete Dialog */}
