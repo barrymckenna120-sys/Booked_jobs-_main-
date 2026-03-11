@@ -12,6 +12,8 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
 import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
+import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
+import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
 import {
   Collapsible,
   CollapsibleContent,
