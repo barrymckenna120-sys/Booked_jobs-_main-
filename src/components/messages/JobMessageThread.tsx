@@ -21,7 +21,54 @@ interface Props {
 
 const JobMessageThread = ({ jobId, perspective }: Props) => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [senderNames, setSenderNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Resolve sender names from profiles (office) and engineers (engineer) tables
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const senderIds = [...new Set(messages.map((m) => m.sender_id).filter(Boolean))] as string[];
+    const unknownIds = senderIds.filter((id) => !senderNames[id]);
+    if (unknownIds.length === 0) return;
+
+    const lookupNames = async () => {
+      const newNames: Record<string, string> = {};
+
+      // Look up in profiles (for office users)
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", unknownIds);
+
+      if (profiles) {
+        for (const p of profiles) {
+          if (p.display_name) newNames[p.user_id] = p.display_name;
+        }
+      }
+
+      // Look up remaining in engineers (by auth_user_id)
+      const stillUnknown = unknownIds.filter((id) => !newNames[id]);
+      if (stillUnknown.length > 0) {
+        const { data: engineers } = await supabase
+          .from("engineers")
+          .select("auth_user_id, name")
+          .in("auth_user_id", stillUnknown);
+
+        if (engineers) {
+          for (const e of engineers) {
+            if (e.auth_user_id && e.name) newNames[e.auth_user_id] = e.name;
+          }
+        }
+      }
+
+      if (Object.keys(newNames).length > 0) {
+        setSenderNames((prev) => ({ ...prev, ...newNames }));
+      }
+    };
+
+    lookupNames();
+  }, [messages]);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -58,6 +105,13 @@ const JobMessageThread = ({ jobId, perspective }: Props) => {
     return <p className="text-center text-muted-foreground text-xs py-4">No messages yet</p>;
   }
 
+  const getSenderLabel = (m: Message): string => {
+    if (m.sender_id && senderNames[m.sender_id]) {
+      return senderNames[m.sender_id];
+    }
+    return m.sender_role === "office" ? "Office" : "Engineer";
+  };
+
   return (
     <div className="space-y-2 max-h-[300px] overflow-y-auto px-1">
       {messages.map((m) => {
@@ -67,13 +121,13 @@ const JobMessageThread = ({ jobId, perspective }: Props) => {
             <div
               className={`max-w-[80%] rounded-xl px-3.5 py-2 text-[13px] leading-relaxed ${
                 isMe
-                  ? "bg-[#4A86E8] text-white rounded-br-sm"
-                  : "bg-[#F3F4F6] text-foreground rounded-bl-sm"
+                  ? "bg-primary text-primary-foreground rounded-br-sm"
+                  : "bg-muted text-foreground rounded-bl-sm"
               }`}
             >
               <p className="whitespace-pre-wrap">{m.message}</p>
-              <p className={`text-[10px] mt-1 ${isMe ? "text-white/60" : "text-muted-foreground/60"}`}>
-                {m.sender_role === "office" ? "Office" : "Engineer"} · {format(parseISO(m.created_at), "HH:mm")}
+              <p className={`text-[10px] mt-1 ${isMe ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>
+                {getSenderLabel(m)} · {format(parseISO(m.created_at), "HH:mm")}
               </p>
             </div>
           </div>

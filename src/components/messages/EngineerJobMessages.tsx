@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,19 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
   const [message, setMessage] = useState("");
   const [isPreset, setIsPreset] = useState(false);
   const [sending, setSending] = useState(false);
+  const [engineerName, setEngineerName] = useState("Engineer");
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.name) setEngineerName(data.name);
+      });
+  }, [user]);
 
   const handleSend = async () => {
     if (!message.trim() || !user) return;
@@ -43,7 +56,7 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
         await supabase.from("notifications").insert({
           recipient_user_id: officeUserId,
           notification_type: "message",
-          title: "Message from Engineer",
+          title: `Message from ${engineerName}`,
           body: message.trim(),
           job_id: jobId,
           role: "office",
@@ -76,7 +89,7 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
             }}
             className={`text-[11px] px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 transition-colors ${
               message === p
-                ? "bg-[#4A86E8] text-white border-[#4A86E8]"
+                ? "bg-primary text-primary-foreground border-primary"
                 : "bg-card text-muted-foreground border-border"
             }`}
           >
@@ -101,8 +114,7 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
         <button
           onClick={handleSend}
           disabled={sending || !message.trim()}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white disabled:opacity-40 shrink-0"
-          style={{ backgroundColor: "#4A86E8" }}
+          className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground disabled:opacity-40 shrink-0"
         >
           <Send className="w-4 h-4" />
         </button>
