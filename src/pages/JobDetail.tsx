@@ -347,6 +347,7 @@ const JobDetail = () => {
         </CardHeader>
         <CardContent>
           <JobMessageThread jobId={job.id} perspective="office" />
+          <InlineOfficeReply jobId={job.id} engineerAuthUserId={assignedEngineerAuth} />
         </CardContent>
       </Card>
 
