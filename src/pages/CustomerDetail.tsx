@@ -40,14 +40,8 @@ const CustomerDetail = () => {
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
-  // Block react-router navigation when dirty
-  const blocker = useBlocker(isDirty);
-
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setPendingNavigation(() => () => blocker.proceed());
-    }
-  }, [blocker.state]);
+  // Note: useBlocker requires a data router (createBrowserRouter).
+  // We use popstate interception instead for unsaved changes detection.
 
   // Block browser back button when dirty via popstate
   useEffect(() => {
