@@ -29,6 +29,7 @@ const MAIN_NAV = [
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Messages", icon: MessageCircle, path: "/messages" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
 ];
