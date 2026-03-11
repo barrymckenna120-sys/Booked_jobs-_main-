@@ -25,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
 const CustomerHistoryPanel = ({ customerId, customer }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: lastService } = useLastCompletedService(customerId);
   const [jobs, setJobs] = useState<any[]>([]);
   const [callNotes, setCallNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
