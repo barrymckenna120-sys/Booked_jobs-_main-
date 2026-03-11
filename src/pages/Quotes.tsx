@@ -1049,7 +1049,7 @@ const Quotes = () => {
                       className={cn(
                         "w-full justify-start text-left font-normal",
                         !scheduleDate && "text-muted-foreground",
-                        scheduleErrors.date && "border-destructive"
+                        scheduleErrors.date && validationBorderClass(true)
                       )}
                     >
                       <CalendarIcon className="w-4 h-4 mr-2" />
@@ -1067,7 +1067,7 @@ const Quotes = () => {
                     />
                   </PopoverContent>
                 </Popover>
-                {scheduleErrors.date && <p className="text-xs text-destructive">Please select a date</p>}
+                <ValidationMessage show={!!scheduleErrors.date} />
               </div>
 
               <div className="space-y-1.5">
