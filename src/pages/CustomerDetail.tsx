@@ -225,7 +225,7 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Installation Date" field="boiler_installation_date" type="date" />
+            <CustomerField label="Installation Date" field="boiler_installation_date" type="date" value={form.boiler_installation_date} onChange={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Under Warranty</Label>
               <Select value={form.under_warranty === true ? "Yes" : form.under_warranty === false ? "No" : ""} onValueChange={(v) => handleChange("under_warranty", v === "Yes")}>
