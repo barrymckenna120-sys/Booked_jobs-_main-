@@ -3,7 +3,8 @@ import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { unlockAudio } from "@/utils/audio";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
@@ -76,6 +77,12 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
   const unreadMessages = useUnreadMessages();
+
+  // Unlock Web Audio on first user gesture (critical for iOS Safari/Chrome)
+  useEffect(() => {
+    unlockAudio();
+  }, []);
+
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;

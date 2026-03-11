@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
@@ -10,6 +10,7 @@ import NotificationDrawer from "@/components/notifications/NotificationDrawer";
 import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
+import { unlockAudio } from "@/utils/audio";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -33,6 +34,9 @@ const EngineerLayout = () => {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
+
+  // Unlock Web Audio on first user gesture (critical for iOS)
+  useEffect(() => { unlockAudio(); }, []);
 
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
