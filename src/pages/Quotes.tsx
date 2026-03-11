@@ -251,6 +251,7 @@ const Quotes = () => {
         ref,
         description: editForm.description.trim(),
         total: total,
+        notes: editForm.notes.trim(),
       });
       setResendPromptOpen(true);
     }
