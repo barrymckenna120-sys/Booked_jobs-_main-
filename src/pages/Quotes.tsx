@@ -1193,14 +1193,15 @@ const Quotes = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-muted-foreground">Customer</Label>
-              <Select value={formCustomerId} onValueChange={onCustomerSelect}>
-                <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+              <Select value={formCustomerId} onValueChange={(v) => { onCustomerSelect(v); setCreateFormErrors(e => ({ ...e, customer: false })); }}>
+                <SelectTrigger className={validationBorderClass(!!createFormErrors.customer)}><SelectValue placeholder="Select customer..." /></SelectTrigger>
                 <SelectContent>
                   {customers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name} — {c.phone}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <ValidationMessage show={!!createFormErrors.customer} />
             </div>
 
             {formCustomerId && (
