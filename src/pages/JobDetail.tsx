@@ -116,6 +116,17 @@ const JobDetail = () => {
 
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [reassignLoading, setReassignLoading] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [assignedEngineerAuth, setAssignedEngineerAuth] = useState<string | null>(null);
+
+  // Fetch assigned engineer's auth_user_id for messaging
+  useEffect(() => {
+    if (job?.assigned_engineer_id) {
+      supabase.from("engineers").select("auth_user_id").eq("id", job.assigned_engineer_id).maybeSingle().then(({ data }) => {
+        setAssignedEngineerAuth(data?.auth_user_id || null);
+      });
+    }
+  }, [job?.assigned_engineer_id]);
 
   useEffect(() => {
     if (user && id) fetchJob();
