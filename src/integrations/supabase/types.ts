@@ -496,11 +496,42 @@ export type Database = {
           },
         ]
       }
+      onboarding_feedback: {
+        Row: {
+          clarity: boolean | null
+          comment: string | null
+          created_at: string | null
+          id: string
+          rating: number | null
+          tour_type: string
+          user_id: string
+        }
+        Insert: {
+          clarity?: boolean | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          rating?: number | null
+          tour_type: string
+          user_id: string
+        }
+        Update: {
+          clarity?: boolean | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          rating?: number | null
+          tour_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           display_name: string | null
           id: string
+          onboarding_complete: boolean | null
           sound_alerts_enabled: boolean | null
           updated_at: string
           user_id: string
@@ -509,6 +540,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          onboarding_complete?: boolean | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id: string
@@ -517,6 +549,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          onboarding_complete?: boolean | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id?: string
