@@ -339,6 +339,16 @@ const JobDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Messages Panel */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Messages</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobMessageThread jobId={job.id} perspective="office" />
+        </CardContent>
+      </Card>
+
       {/* Take Payment — completed but unpaid */}
       {job.status === "Completed" && !job.payment_method && (
         <Button
