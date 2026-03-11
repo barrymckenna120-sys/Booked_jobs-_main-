@@ -644,10 +644,26 @@ const Quotes = () => {
                       <p className="text-xl font-extrabold">{q.customers.name}</p>
                       <p className="text-sm text-muted-foreground">{q.customers.address} · {q.customers.eircode}</p>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full ${ss.bg} ${ss.text}`}>
-                      <span className={`w-[7px] h-[7px] rounded-full ${ss.dot}`} />
-                      {q.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {editMode ? (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={editSaving}>Cancel</Button>
+                          <Button size="sm" onClick={saveEdit} disabled={editSaving} className="gap-1.5">
+                            {editSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => startEdit(q)} className="gap-1.5">
+                            <Edit2 className="w-3.5 h-3.5" /> Edit
+                          </Button>
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full ${ss.bg} ${ss.text}`}>
+                            <span className={`w-[7px] h-[7px] rounded-full ${ss.dot}`} />
+                            {q.status}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
