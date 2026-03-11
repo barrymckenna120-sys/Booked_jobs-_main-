@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
 const CustomerHistoryPanel = ({ customerId, customer }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: lastService } = useLastCompletedService(customerId);
   const [jobs, setJobs] = useState<any[]>([]);
   const [callNotes, setCallNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,8 +131,8 @@ const CustomerHistoryPanel = ({ customerId, customer }: Props) => {
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatTile icon={CalendarDays} label="Total Visits" value={String(totalVisits)} />
-        <StatTile icon={Clock} label="Last Visit" value={fmtDate(lastVisit || null)} />
-        <StatTile icon={User} label="Last Engineer" value={customer.last_service_engineer || "—"} />
+        <StatTile icon={Clock} label="Last Visit" value={lastService?.date || "—"} />
+        <StatTile icon={User} label="Last Engineer" value={lastService?.engineerName || "—"} />
         <StatTile icon={Wrench} label="Next Due" value={fmtDate(customer.next_service_due)} />
       </div>
 

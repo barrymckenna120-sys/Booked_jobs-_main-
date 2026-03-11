@@ -21,6 +21,7 @@ import QuickActions from "./job-card/QuickActions";
 import SecondaryActions from "./job-card/SecondaryActions";
 import PrimaryActions from "./job-card/PrimaryActions";
 import { Button } from "@/components/ui/button";
+import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
 const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
 
@@ -46,6 +47,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
 
+  const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
 
@@ -86,6 +88,18 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         </div>
 
         <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} />
+
+        {/* Last Service Info */}
+        <div className="flex gap-4 mb-3 text-xs">
+          <div>
+            <span className="text-muted-foreground/60 font-semibold">Last Service: </span>
+            <span className="font-bold text-foreground">{lastService?.date || "No previous service"}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground/60 font-semibold">Engineer: </span>
+            <span className="font-bold text-foreground">{lastService?.engineerName || "—"}</span>
+          </div>
+        </div>
 
         {/* Issue */}
         {job.boiler_issue && (
