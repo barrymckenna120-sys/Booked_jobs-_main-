@@ -77,6 +77,12 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
   const unreadMessages = useUnreadMessages();
+
+  // Unlock Web Audio on first user gesture (critical for iOS Safari/Chrome)
+  useEffect(() => {
+    unlockAudio();
+  }, []);
+
   // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
