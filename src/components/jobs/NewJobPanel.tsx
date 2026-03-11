@@ -267,10 +267,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
 };
 
 /* ── STEP 2: Job Details ───────────────────────────────── */
-const StepJob = ({ prefilledType, onNext, onBack }: { prefilledType?: string; onNext: (j: any) => void; onBack: () => void }) => {
+const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilledType?: string; prefilledBoiler?: string; onNext: (j: any) => void; onBack: () => void }) => {
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
-  const [boiler, setBoiler] = useState("");
+  const [boiler, setBoiler] = useState(prefilledBoiler || "");
   const [showJobTypeError, setShowJobTypeError] = useState(false);
   const [jobTypeErrorMsg, setJobTypeErrorMsg] = useState("");
   const [highlightJobType, setHighlightJobType] = useState(false);
@@ -766,7 +766,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 0 ? (
             <StepCustomer prefilledCustomer={prefilledCustomer} onNext={handleCustomer} />
           ) : step === 1 ? (
-            <StepJob prefilledType={prefilledJobType} onNext={handleJob} onBack={() => setStep(0)} />
+            <StepJob prefilledType={prefilledJobType} prefilledBoiler={jobData.customer?.boiler_make_model || jobData.customer?.boilerType || ""} onNext={handleJob} onBack={() => setStep(0)} />
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
