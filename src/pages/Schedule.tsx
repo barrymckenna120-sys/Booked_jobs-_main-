@@ -91,10 +91,12 @@ const Schedule = () => {
         scheduled_date: j.scheduled_date,
         time_block: j.time_block,
         assigned_engineer: j.assigned_engineer,
+        assigned_engineer_id: j.assigned_engineer_id,
         revenue: j.revenue,
         deposit_paid: j.deposit_paid,
         notes: j.notes,
         boiler_brand: j.customers?.boiler_make_model || null,
+        user_id: j.user_id,
       })) as ScheduleJob[];
     },
     enabled: !!user,
