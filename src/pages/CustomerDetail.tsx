@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
-import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
+
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
@@ -38,6 +39,7 @@ const CustomerDetail = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { registerGuard, guardedNavigate } = useNavigationGuard();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -47,26 +49,16 @@ const CustomerDetail = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
-  // Note: useBlocker requires a data router (createBrowserRouter).
-  // We use popstate interception instead for unsaved changes detection.
-
-  // Block browser back button when dirty via popstate
+  // Register navigation guard — blocks sidebar/nav clicks when dirty
+  const isDirtyRef = useCallback(() => isDirty, [isDirty]);
   useEffect(() => {
-    if (!isDirty) return;
-    const handlePopState = () => {
-      // Push state back to prevent leaving
-      window.history.pushState(null, "", window.location.href);
-      setPendingNavigation(() => () => navigate(-1));
-    };
-    window.history.pushState(null, "", window.location.href);
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [isDirty, navigate]);
+    const unregister = registerGuard(isDirtyRef);
+    return unregister;
+  }, [registerGuard, isDirtyRef]);
 
   useEffect(() => {
     if (user?.id && id) {
@@ -124,25 +116,10 @@ const CustomerDetail = () => {
     }
   };
 
-  const handleGoBackAndSave = () => {
-    setPendingNavigation(null);
-  };
 
-  const handleDiscardChanges = () => {
-    const nav = pendingNavigation;
-    setPendingNavigation(null);
-    setForm({ ...originalForm });
-    if (nav) {
-      setTimeout(nav, 0);
-    }
-  };
 
   const handleBackButton = () => {
-    if (isDirty) {
-      setPendingNavigation(() => () => navigate("/dashboard"));
-    } else {
-      navigate("/dashboard");
-    }
+    guardedNavigate("/dashboard");
   };
 
   if (authLoading || loading) {
@@ -345,12 +322,6 @@ const CustomerDetail = () => {
         {id && <ServiceHistory customerId={id} />}
       </div>
 
-      {/* Unsaved Changes Modal */}
-      <UnsavedChangesModal
-        open={!!pendingNavigation}
-        onGoBack={handleGoBackAndSave}
-        onDiscard={handleDiscardChanges}
-      />
 
       {/* Delete Customer Modal */}
       <DeleteCustomerModal

@@ -12,6 +12,8 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
 import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
+import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
+import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
 import {
   Collapsible,
   CollapsibleContent,
@@ -52,11 +54,12 @@ const MOBILE_NAV = [
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
-const AppLayout = () => {
+const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
   const { isEngineer, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
+  const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
   const [whatsappOpen, setWhatsappOpen] = useState(
     location.pathname.startsWith("/whatsapp")
   );
@@ -93,7 +96,7 @@ const AppLayout = () => {
           {MAIN_NAV.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => guardedNavigate(item.path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
                 isActive(item.path)
                   ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
@@ -124,7 +127,7 @@ const AppLayout = () => {
               {WHATSAPP_CHILDREN.map((child) => (
                 <button
                   key={child.path}
-                  onClick={() => navigate(child.path)}
+                  onClick={() => guardedNavigate(child.path)}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                     location.pathname === child.path
                       ? "text-primary font-bold"
@@ -140,7 +143,7 @@ const AppLayout = () => {
           {BOTTOM_NAV.map((item) => (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => guardedNavigate(item.path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
                 isActive(item.path)
                   ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
@@ -191,7 +194,7 @@ const AppLayout = () => {
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => guardedNavigate(item.path)}
               className={`flex flex-col items-center justify-center shrink-0 min-w-[48px] min-h-[48px] px-2 py-1.5 ${
                 active ? "text-primary font-bold" : "text-muted-foreground"
               }`}
@@ -222,8 +225,19 @@ const AppLayout = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
+      <UnsavedChangesModal
+        open={pendingDestination !== null}
+        onGoBack={cancelNavigation}
+        onDiscard={confirmNavigation}
+      />
     </div>
   );
 };
+
+const AppLayout = () => (
+  <NavigationGuardProvider>
+    <AppLayoutInner />
+  </NavigationGuardProvider>
+);
 
 export default AppLayout;
