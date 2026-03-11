@@ -39,6 +39,7 @@ const CustomerDetail = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { registerGuard } = useNavigationGuard();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -48,26 +49,16 @@ const CustomerDetail = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
-  // Note: useBlocker requires a data router (createBrowserRouter).
-  // We use popstate interception instead for unsaved changes detection.
-
-  // Block browser back button when dirty via popstate
+  // Register navigation guard — blocks sidebar/nav clicks when dirty
+  const isDirtyRef = useCallback(() => isDirty, [isDirty]);
   useEffect(() => {
-    if (!isDirty) return;
-    const handlePopState = () => {
-      // Push state back to prevent leaving
-      window.history.pushState(null, "", window.location.href);
-      setPendingNavigation(() => () => navigate(-1));
-    };
-    window.history.pushState(null, "", window.location.href);
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [isDirty, navigate]);
+    const unregister = registerGuard(isDirtyRef);
+    return unregister;
+  }, [registerGuard, isDirtyRef]);
 
   useEffect(() => {
     if (user?.id && id) {
