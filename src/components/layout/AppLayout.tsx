@@ -127,7 +127,7 @@ const AppLayoutInner = () => {
               {WHATSAPP_CHILDREN.map((child) => (
                 <button
                   key={child.path}
-                  onClick={() => navigate(child.path)}
+                  onClick={() => guardedNavigate(child.path)}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                     location.pathname === child.path
                       ? "text-primary font-bold"
