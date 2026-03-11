@@ -322,12 +322,6 @@ const CustomerDetail = () => {
         {id && <ServiceHistory customerId={id} />}
       </div>
 
-      {/* Unsaved Changes Modal */}
-      <UnsavedChangesModal
-        open={!!pendingNavigation}
-        onGoBack={handleGoBackAndSave}
-        onDiscard={handleDiscardChanges}
-      />
 
       {/* Delete Customer Modal */}
       <DeleteCustomerModal
