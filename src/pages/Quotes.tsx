@@ -129,11 +129,11 @@ const Quotes = () => {
 
   // Inline edit mode
   const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+  const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [resendPromptOpen, setResendPromptOpen] = useState(false);
-  const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number } | null>(null);
-  const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+  const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number; notes: string } | null>(null);
+  const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
 
   // Navigation guard for unsaved quote edits
   const { registerGuard } = useNavigationGuard();
