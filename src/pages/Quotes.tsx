@@ -200,6 +200,30 @@ const Quotes = () => {
       .eq("id", selected.id)
       .single();
     if (refreshed) setSelected(refreshed as unknown as Quote);
+
+    // Show resend prompt if status is Sent
+    if (selected.status === "Sent") {
+      const q = (refreshed as unknown as Quote) || selected;
+      const phone = q.customers.phone.replace(/\D/g, "");
+      const fullPhone = phone.startsWith("353") ? phone : phone.startsWith("0") ? "353" + phone.slice(1) : "353" + phone;
+      const ref = `Q-${q.id.slice(0, 4).toUpperCase()}`;
+      setResendQuoteData({
+        phone: fullPhone,
+        firstName: q.customers.name.split(" ")[0],
+        ref,
+        description: editForm.description.trim(),
+        total: total,
+      });
+      setResendPromptOpen(true);
+    }
+  };
+
+  const handleResend = () => {
+    if (!resendQuoteData) return;
+    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}. Reply to confirm. Karl's Gas`;
+    window.open(`https://wa.me/${resendQuoteData.phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    setResendPromptOpen(false);
+    setResendQuoteData(null);
   };
 
   const fetchQuotes = async () => {
