@@ -21,7 +21,9 @@ import InfoPills from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
 import SecondaryActions from "./job-card/SecondaryActions";
 import PrimaryActions from "./job-card/PrimaryActions";
+import MessageOfficeModal from "./MessageOfficeModal";
 import { Button } from "@/components/ui/button";
+import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
 const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
@@ -47,6 +49,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showPayment, setShowPayment] = useState(false);
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
+  const [showMessageOffice, setShowMessageOffice] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
@@ -143,6 +146,17 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           />
         )}
 
+        {/* Message Office button */}
+        {!isDone && (
+          <Button
+            variant="outline"
+            className="w-full h-[52px] text-base font-extrabold gap-2 mt-2 bg-white border-[#4A86E8] text-[#4A86E8] hover:bg-[#4A86E8]/5"
+            onClick={() => setShowMessageOffice(true)}
+          >
+            <Mail className="w-5 h-5" /> 📩 Message Office
+          </Button>
+        )}
+
         {job.status === "Completed" && (
           <>
             <JobPhotoThumbnails photos={photos} />
@@ -208,6 +222,12 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           }}
         />
       )}
+      <MessageOfficeModal
+        open={showMessageOffice}
+        onOpenChange={setShowMessageOffice}
+        jobId={job.id}
+        officeUserId={job.user_id}
+      />
     </>
   );
 };
