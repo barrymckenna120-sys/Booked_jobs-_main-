@@ -267,10 +267,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
 };
 
 /* ── STEP 2: Job Details ───────────────────────────────── */
-const StepJob = ({ prefilledType, onNext, onBack }: { prefilledType?: string; onNext: (j: any) => void; onBack: () => void }) => {
+const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilledType?: string; prefilledBoiler?: string; onNext: (j: any) => void; onBack: () => void }) => {
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
-  const [boiler, setBoiler] = useState("");
+  const [boiler, setBoiler] = useState(prefilledBoiler || "");
   const [showJobTypeError, setShowJobTypeError] = useState(false);
   const [jobTypeErrorMsg, setJobTypeErrorMsg] = useState("");
   const [highlightJobType, setHighlightJobType] = useState(false);
