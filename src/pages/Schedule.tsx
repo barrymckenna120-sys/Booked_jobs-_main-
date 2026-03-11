@@ -35,10 +35,12 @@ export type ScheduleJob = {
   scheduled_date: string | null;
   time_block: string | null;
   assigned_engineer: string | null;
+  assigned_engineer_id: string | null;
   revenue: number | null;
   deposit_paid: boolean;
   notes: string | null;
   boiler_brand: string | null;
+  user_id: string;
 };
 
 const Schedule = () => {
