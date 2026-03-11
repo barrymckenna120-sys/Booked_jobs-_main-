@@ -292,8 +292,8 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Assigned Engineer" field="assigned_engineer" />
-            <Field label="Customer Since" field="customer_since" type="date" />
+            <CustomerField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} onChange={handleChange} />
+            <CustomerField label="Customer Since" field="customer_since" type="date" value={form.customer_since} onChange={handleChange} />
           </CardContent>
         </Card>
 
