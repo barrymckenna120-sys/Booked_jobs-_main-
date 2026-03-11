@@ -257,7 +257,7 @@ const CustomerDetail = () => {
                 {lastService?.engineerName || "—"}
               </div>
             </div>
-            <Field label="Next Service Due" field="next_service_due" type="date" />
+            <CustomerField label="Next Service Due" field="next_service_due" type="date" value={form.next_service_due} onChange={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Service Status</Label>
               <Select value={form.service_status || "Up to Date"} onValueChange={(v) => handleChange("service_status", v)}>
