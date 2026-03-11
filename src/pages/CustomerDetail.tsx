@@ -16,7 +16,7 @@ import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
-import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
+
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
