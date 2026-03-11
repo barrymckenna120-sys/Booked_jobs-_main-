@@ -15,6 +15,7 @@ import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
+import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import {
   AlertDialog,
   AlertDialogAction,
