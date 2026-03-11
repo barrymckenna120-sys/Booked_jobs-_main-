@@ -132,6 +132,37 @@ const Quotes = () => {
   const [editSaving, setEditSaving] = useState(false);
   const [resendPromptOpen, setResendPromptOpen] = useState(false);
   const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number } | null>(null);
+  const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+
+  // Navigation guard for unsaved quote edits
+  const { registerGuard } = useNavigationGuard();
+  const editDirtyRef = useRef(false);
+
+  // Track dirty state
+  const isEditDirty = editMode && (
+    editForm.status !== originalEditFormRef.current.status ||
+    editForm.jobType !== originalEditFormRef.current.jobType ||
+    editForm.description !== originalEditFormRef.current.description ||
+    editForm.total !== originalEditFormRef.current.total ||
+    editForm.engineerId !== originalEditFormRef.current.engineerId
+  );
+  editDirtyRef.current = isEditDirty;
+
+  useEffect(() => {
+    const unregister = registerGuard(() => editDirtyRef.current);
+    return unregister;
+  }, [registerGuard]);
+
+  // Pending action for guarded in-page actions (back button, clicking another quote)
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const guardedAction = useCallback((action: () => void) => {
+    if (editDirtyRef.current) {
+      setPendingAction(() => action);
+    } else {
+      action();
+    }
+  }, []);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
@@ -146,14 +177,16 @@ const Quotes = () => {
   const EDIT_STATUSES = ["Draft", "Sent", "Accepted", "Declined", "Paid", "Rejected"];
 
   const startEdit = useCallback((q: Quote) => {
-    setEditForm({
+    const initial = {
       status: q.status,
       jobType: q.service_calls?.job_type || "",
       description: q.description,
       total: String(q.total_amount),
       engineerId: "",
       engineerName: q.service_calls?.assigned_engineer || "",
-    });
+    };
+    setEditForm(initial);
+    originalEditFormRef.current = initial;
     setEditMode(true);
   }, []);
 
