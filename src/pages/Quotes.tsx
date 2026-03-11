@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,8 +17,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import {
   FileText, Plus, Clock, CheckCircle2, CreditCard, Send, Edit2, User,
-  Loader2, X, MessageCircle, Bell, ArrowLeft, Calendar as CalendarIcon
+  Loader2, X, MessageCircle, Bell, ArrowLeft, Calendar as CalendarIcon, Save
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/components/jobs/SendAllQuotes";
 import { format } from "date-fns";
 
@@ -124,14 +125,80 @@ const Quotes = () => {
   const [scheduleErrors, setScheduleErrors] = useState<{ date?: boolean; time?: boolean; engineer?: boolean }>({});
   const [scheduleSaving, setScheduleSaving] = useState(false);
 
+  // Inline edit mode
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "" });
+  const [editSaving, setEditSaving] = useState(false);
+
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
     queryFn: async () => {
       const { data } = await supabase.from("engineers").select("id, name, status").eq("status", "active");
       return data || [];
     },
-    enabled: scheduleOpen,
+    enabled: scheduleOpen || editMode,
   });
+
+  const JOB_TYPES = ["Boiler Service", "Repair", "Emergency", "Installation", "Gas Safety Check", "Powerflush", "Other"];
+  const EDIT_STATUSES = ["Draft", "Sent", "Accepted", "Declined", "Paid", "Rejected"];
+
+  const startEdit = useCallback((q: Quote) => {
+    setEditForm({
+      status: q.status,
+      jobType: q.service_calls?.job_type || "",
+      description: q.description,
+      total: String(q.total_amount),
+      engineerId: "",
+      engineerName: q.service_calls?.assigned_engineer || "",
+    });
+    setEditMode(true);
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditMode(false);
+  }, []);
+
+  const saveEdit = async () => {
+    if (!selected || !user) return;
+    const total = parseFloat(editForm.total);
+    if (!editForm.description.trim() || isNaN(total) || total <= 0) {
+      toast({ title: "Description and valid total required", variant: "destructive" });
+      return;
+    }
+    setEditSaving(true);
+
+    // Update quote
+    const { error: quoteErr } = await supabase.from("quotes").update({
+      status: editForm.status,
+      description: editForm.description.trim(),
+      total_amount: total,
+    } as any).eq("id", selected.id);
+
+    // Update service_calls for job_type and engineer
+    const eng = engineers.find((e: any) => e.id === editForm.engineerId);
+    const scUpdate: any = { job_type: editForm.jobType };
+    if (editForm.engineerId) {
+      scUpdate.assigned_engineer = eng?.name || null;
+      scUpdate.assigned_engineer_id = editForm.engineerId;
+    }
+    await supabase.from("service_calls").update(scUpdate).eq("id", selected.job_id);
+
+    setEditSaving(false);
+    if (quoteErr) {
+      toast({ title: "Error saving", description: quoteErr.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Quote updated" });
+    setEditMode(false);
+    fetchQuotes();
+    // Refresh selected
+    const { data: refreshed } = await supabase
+      .from("quotes")
+      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)")
+      .eq("id", selected.id)
+      .single();
+    if (refreshed) setSelected(refreshed as unknown as Quote);
+  };
 
   const fetchQuotes = async () => {
     if (!user) return;
@@ -544,7 +611,7 @@ const Quotes = () => {
       )}
 
       {/* ── Quote Detail Sheet ── */}
-      <Sheet open={!!selected} onOpenChange={(v) => !v && setSelected(null)}>
+      <Sheet open={!!selected} onOpenChange={(v) => { if (!v) { setSelected(null); setEditMode(false); } }}>
         <SheetContent className="w-full sm:max-w-[520px] overflow-y-auto p-0">
           {selected && (() => {
             const q = selected;
@@ -577,10 +644,26 @@ const Quotes = () => {
                       <p className="text-xl font-extrabold">{q.customers.name}</p>
                       <p className="text-sm text-muted-foreground">{q.customers.address} · {q.customers.eircode}</p>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full ${ss.bg} ${ss.text}`}>
-                      <span className={`w-[7px] h-[7px] rounded-full ${ss.dot}`} />
-                      {q.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {editMode ? (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={editSaving}>Cancel</Button>
+                          <Button size="sm" onClick={saveEdit} disabled={editSaving} className="gap-1.5">
+                            {editSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => startEdit(q)} className="gap-1.5">
+                            <Edit2 className="w-3.5 h-3.5" /> Edit
+                          </Button>
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full ${ss.bg} ${ss.text}`}>
+                            <span className={`w-[7px] h-[7px] rounded-full ${ss.dot}`} />
+                            {q.status}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -605,58 +688,117 @@ const Quotes = () => {
                   {/* Details Tab */}
                   {tab === "details" && (
                     <div className="space-y-4">
-                      <Card>
-                        <CardContent className="p-4 space-y-3">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Work Description</p>
-                            <p className="text-sm font-semibold">{q.description}</p>
-                          </div>
-                          {/* Price breakdown */}
-                          <div className="border-t border-border pt-3 space-y-1.5">
-                            {q.parts_cost ? (
-                              <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
-                                <span className="text-muted-foreground">Parts</span>
-                                <span>€{Number(q.parts_cost).toFixed(2)}</span>
+                      {editMode ? (
+                        <>
+                          {/* Edit mode form */}
+                          <Card>
+                            <CardContent className="p-4 space-y-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Status</Label>
+                                <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {EDIT_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                            ) : null}
-                            {q.labour_cost ? (
-                              <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
-                                <span className="text-muted-foreground">Labour</span>
-                                <span>€{Number(q.labour_cost).toFixed(2)}</span>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Job Type</Label>
+                                <Select value={editForm.jobType} onValueChange={(v) => setEditForm(f => ({ ...f, jobType: v }))}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {JOB_TYPES.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                            ) : null}
-                            {q.callout_cost ? (
-                              <div className="flex justify-between text-sm border-b border-border pb-1.5">
-                                <span className="text-muted-foreground">Call-Out</span>
-                                <span>€{Number(q.callout_cost).toFixed(2)}</span>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Work Description</Label>
+                                <Textarea
+                                  value={editForm.description}
+                                  onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                  rows={3}
+                                />
                               </div>
-                            ) : null}
-                            <div className="flex justify-between pt-2">
-                              <span className="text-base font-extrabold">TOTAL</span>
-                              <span className="text-xl font-extrabold text-primary">€{Number(q.total_amount).toLocaleString()}</span>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Total (€)</Label>
+                                <Input
+                                  type="number"
+                                  value={editForm.total}
+                                  onChange={(e) => setEditForm(f => ({ ...f, total: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Assigned Engineer</Label>
+                                <Select value={editForm.engineerId} onValueChange={(v) => {
+                                  const eng = engineers.find((e: any) => e.id === v);
+                                  setEditForm(f => ({ ...f, engineerId: v, engineerName: eng?.name || "" }));
+                                }}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder={editForm.engineerName || "Select engineer"} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {engineers.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </>
+                      ) : (
+                        <>
+                          {/* Read-only view */}
+                          <Card>
+                            <CardContent className="p-4 space-y-3">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Work Description</p>
+                                <p className="text-sm font-semibold">{q.description}</p>
+                              </div>
+                              <div className="border-t border-border pt-3 space-y-1.5">
+                                {q.parts_cost ? (
+                                  <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
+                                    <span className="text-muted-foreground">Parts</span>
+                                    <span>€{Number(q.parts_cost).toFixed(2)}</span>
+                                  </div>
+                                ) : null}
+                                {q.labour_cost ? (
+                                  <div className="flex justify-between text-sm border-b border-dashed border-border pb-1.5">
+                                    <span className="text-muted-foreground">Labour</span>
+                                    <span>€{Number(q.labour_cost).toFixed(2)}</span>
+                                  </div>
+                                ) : null}
+                                {q.callout_cost ? (
+                                  <div className="flex justify-between text-sm border-b border-border pb-1.5">
+                                    <span className="text-muted-foreground">Call-Out</span>
+                                    <span>€{Number(q.callout_cost).toFixed(2)}</span>
+                                  </div>
+                                ) : null}
+                                <div className="flex justify-between pt-2">
+                                  <span className="text-base font-extrabold">TOTAL</span>
+                                  <span className="text-xl font-extrabold text-primary">€{Number(q.total_amount).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardContent className="p-4 flex justify-between">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Assigned Engineer</p>
+                                <p className="text-sm font-bold">👷 {q.service_calls?.assigned_engineer || "Unassigned"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Job Type</p>
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${jt}`}>{q.service_calls?.job_type}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {q.payment_link && (
+                            <div className="flex items-center gap-2 text-xs text-success font-semibold p-3 bg-success/10 rounded-lg">
+                              💳 Payment link attached
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Engineer info */}
-                      <Card>
-                        <CardContent className="p-4 flex justify-between">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Assigned Engineer</p>
-                            <p className="text-sm font-bold">👷 {q.service_calls?.assigned_engineer || "Unassigned"}</p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-1">Job Type</p>
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${jt}`}>{q.service_calls?.job_type}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {q.payment_link && (
-                        <div className="flex items-center gap-2 text-xs text-success font-semibold p-3 bg-success/10 rounded-lg">
-                          💳 Payment link attached
-                        </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
