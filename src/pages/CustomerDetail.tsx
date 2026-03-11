@@ -116,7 +116,7 @@ const CustomerDetail = () => {
     }
   };
 
-  const { guardedNavigate } = useNavigationGuard();
+
 
   const handleBackButton = () => {
     guardedNavigate("/dashboard");
