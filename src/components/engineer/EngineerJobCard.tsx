@@ -96,6 +96,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
 
         <QuickActions jobId={job.id} customerPhone={customer.phone} customerAddress={customer.address} customerEircode={customer.eircode} />
 
+        {/* Collapsible Service History & Notes */}
+        <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
+        <JobNotesSection jobId={job.id} customerId={job.customer_id} jobNotes={job.notes} />
+
         {!isDone && (
           <SecondaryActions
             isActive={isActive}
