@@ -1,0 +1,1 @@
+UPDATE profiles SET onboarding_complete = false WHERE onboarding_complete = true;
