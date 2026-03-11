@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X } from "lucide-react";
+import { Send } from "lucide-react";
 
 const PRESETS = [
   "Running late – 30 mins",
@@ -29,6 +29,19 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
   const [message, setMessage] = useState("");
   const [isPreset, setIsPreset] = useState(false);
   const [sending, setSending] = useState(false);
+  const [senderName, setSenderName] = useState("Office");
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.display_name) setSenderName(data.display_name);
+      });
+  }, [user]);
 
   const handlePreset = (text: string) => {
     setMessage(text);
@@ -39,7 +52,6 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
     if (!message.trim() || !user) return;
     setSending(true);
     try {
-      // Insert message
       const { error } = await supabase.from("job_messages").insert({
         job_id: jobId,
         sender_role: "office",
@@ -54,7 +66,7 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
         await supabase.from("notifications").insert({
           recipient_user_id: engineerAuthUserId,
           notification_type: "message",
-          title: "Message from Office",
+          title: `Message from ${senderName}`,
           body: message.trim(),
           job_id: jobId,
           role: "engineer",
@@ -77,7 +89,7 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>📩 Message Engineer</DialogTitle>
-          <p className="text-sm text-muted-foreground">{engineerName}</p>
+          <DialogDescription>{engineerName}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 pt-1">
@@ -88,7 +100,7 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
                 onClick={() => handlePreset(p)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   message === p
-                    ? "bg-[#4A86E8] text-white border-[#4A86E8]"
+                    ? "bg-primary text-primary-foreground border-primary"
                     : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
                 }`}
               >
@@ -110,7 +122,6 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
 
           <Button
             className="w-full h-11 font-bold gap-2"
-            style={{ backgroundColor: "#4A86E8" }}
             onClick={handleSend}
             disabled={sending || !message.trim()}
           >
