@@ -671,7 +671,7 @@ const Quotes = () => {
       )}
 
       {/* ── Quote Detail Sheet ── */}
-      <Sheet open={!!selected} onOpenChange={(v) => { if (!v) { setSelected(null); setEditMode(false); } }}>
+      <Sheet open={!!selected} onOpenChange={(v) => { if (!v) guardedAction(() => { setSelected(null); setEditMode(false); }); }}>
         <SheetContent className="w-full sm:max-w-[520px] overflow-y-auto p-0">
           {selected && (() => {
             const q = selected;
