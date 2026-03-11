@@ -23,6 +23,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/components/jobs/SendAllQuotes";
 import { format } from "date-fns";
+import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
+import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 type Quote = {
   id: string;
@@ -105,7 +107,7 @@ const Quotes = () => {
   const [formTotal, setFormTotal] = useState("");
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [saving, setSaving] = useState(false);
-
+  const [createFormErrors, setCreateFormErrors] = useState<Record<string, boolean>>({});
   // WhatsApp send
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [whatsappMsg, setWhatsappMsg] = useState("");
@@ -352,10 +354,17 @@ const Quotes = () => {
     : parseFloat(formTotal) || 0;
 
   const handleCreate = async (andSend?: boolean) => {
-    if (!user || !formCustomerId || !formJobId || !formDesc.trim() || calcTotal <= 0) {
-      toast({ title: "Fill in customer, job, description, and total", variant: "destructive" });
+    // Inline validation
+    const createErrors: Record<string, boolean> = {};
+    if (!formCustomerId) createErrors.customer = true;
+    if (!formJobId) createErrors.job = true;
+    if (!formDesc.trim()) createErrors.description = true;
+    if (calcTotal <= 0) createErrors.total = true;
+    if (Object.keys(createErrors).length > 0) {
+      setCreateFormErrors(createErrors);
       return;
     }
+    if (!user) return;
     setSaving(true);
     const { data, error } = await supabase.from("quotes").insert([{
       user_id: user.id,
@@ -1040,7 +1049,7 @@ const Quotes = () => {
                       className={cn(
                         "w-full justify-start text-left font-normal",
                         !scheduleDate && "text-muted-foreground",
-                        scheduleErrors.date && "border-destructive"
+                        scheduleErrors.date && validationBorderClass(true)
                       )}
                     >
                       <CalendarIcon className="w-4 h-4 mr-2" />
@@ -1058,13 +1067,13 @@ const Quotes = () => {
                     />
                   </PopoverContent>
                 </Popover>
-                {scheduleErrors.date && <p className="text-xs text-destructive">Please select a date</p>}
+                <ValidationMessage show={!!scheduleErrors.date} />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Slot *</Label>
                 <Select value={scheduleTime} onValueChange={(v) => { setScheduleTime(v); setScheduleErrors(e => ({ ...e, time: false })); }}>
-                  <SelectTrigger className={scheduleErrors.time ? "border-destructive" : ""}>
+                  <SelectTrigger className={validationBorderClass(!!scheduleErrors.time)}>
                     <SelectValue placeholder="Select time slot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1073,13 +1082,13 @@ const Quotes = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {scheduleErrors.time && <p className="text-xs text-destructive">Please select a time slot</p>}
+                <ValidationMessage show={!!scheduleErrors.time} />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Engineer *</Label>
                 <Select value={scheduleEngineer} onValueChange={(v) => { setScheduleEngineer(v); setScheduleErrors(e => ({ ...e, engineer: false })); }}>
-                  <SelectTrigger className={scheduleErrors.engineer ? "border-destructive" : ""}>
+                  <SelectTrigger className={validationBorderClass(!!scheduleErrors.engineer)}>
                     <SelectValue placeholder="Select engineer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1088,7 +1097,7 @@ const Quotes = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {scheduleErrors.engineer && <p className="text-xs text-destructive">Please select an engineer</p>}
+                <ValidationMessage show={!!scheduleErrors.engineer} />
               </div>
 
               <Button
@@ -1184,33 +1193,36 @@ const Quotes = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-muted-foreground">Customer</Label>
-              <Select value={formCustomerId} onValueChange={onCustomerSelect}>
-                <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+              <Select value={formCustomerId} onValueChange={(v) => { onCustomerSelect(v); setCreateFormErrors(e => ({ ...e, customer: false })); }}>
+                <SelectTrigger className={validationBorderClass(!!createFormErrors.customer)}><SelectValue placeholder="Select customer..." /></SelectTrigger>
                 <SelectContent>
                   {customers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name} — {c.phone}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <ValidationMessage show={!!createFormErrors.customer} />
             </div>
 
             {formCustomerId && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase text-muted-foreground">Job</Label>
-                <Select value={formJobId} onValueChange={setFormJobId}>
-                  <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
+                <Select value={formJobId} onValueChange={(v) => { setFormJobId(v); setCreateFormErrors(e => ({ ...e, job: false })); }}>
+                  <SelectTrigger className={validationBorderClass(!!createFormErrors.job)}><SelectValue placeholder="Select job..." /></SelectTrigger>
                   <SelectContent>
                     {jobs.map((j) => (
                       <SelectItem key={j.id} value={j.id}>{j.job_type} — {j.scheduled_date ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "Unscheduled"}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <ValidationMessage show={!!createFormErrors.job} />
               </div>
             )}
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-muted-foreground">Job Description *</Label>
-              <Input value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="e.g. Replace faulty burner unit" />
+              <Input value={formDesc} onChange={(e) => { setFormDesc(e.target.value); setCreateFormErrors(er => ({ ...er, description: false })); }} placeholder="e.g. Replace faulty burner unit" className={validationBorderClass(!!createFormErrors.description)} />
+              <ValidationMessage show={!!createFormErrors.description} />
             </div>
 
             <div className="space-y-1.5">
@@ -1241,8 +1253,9 @@ const Quotes = () => {
                 <Label className="text-xs font-semibold uppercase text-muted-foreground">Total Price *</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
-                  <Input value={formTotal} onChange={(e) => setFormTotal(e.target.value)} placeholder="0.00" className="pl-8 text-lg font-bold" type="number" />
+                  <Input value={formTotal} onChange={(e) => { setFormTotal(e.target.value); setCreateFormErrors(er => ({ ...er, total: false })); }} placeholder="0.00" className={`pl-8 text-lg font-bold ${validationBorderClass(!!createFormErrors.total)}`} type="number" />
                 </div>
+                <ValidationMessage show={!!createFormErrors.total} />
               </div>
             )}
 
@@ -1293,28 +1306,15 @@ const Quotes = () => {
       </Dialog>
 
       {/* Unsaved Changes Modal for in-page actions (back button, clicking another quote) */}
-      <Dialog open={!!pendingAction} onOpenChange={(v) => { if (!v) setPendingAction(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Unsaved Changes</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            You have unsaved changes to this quote. What would you like to do?
-          </p>
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setPendingAction(null)}>
-              Go Back & Save
-            </Button>
-            <Button variant="destructive" className="flex-1" onClick={() => {
-              const action = pendingAction;
-              setPendingAction(null);
-              action?.();
-            }}>
-              Discard Changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <FormLeaveGuard
+        open={!!pendingAction}
+        onKeepEditing={() => setPendingAction(null)}
+        onLeave={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          action?.();
+        }}
+      />
     </div>
   );
 };

@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
 import { format } from "date-fns";
+import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
+import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
@@ -271,20 +273,12 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState(prefilledBoiler || "");
-  const [showJobTypeError, setShowJobTypeError] = useState(false);
-  const [jobTypeErrorMsg, setJobTypeErrorMsg] = useState("");
-  const [highlightJobType, setHighlightJobType] = useState(false);
+  const [jobTypeError, setJobTypeError] = useState(false);
   const isUrgent = jobType === "Emergency";
 
   const handleNext = () => {
     if (!jobType) {
-      setHighlightJobType(true);
-      if (boiler.trim()) {
-        setJobTypeErrorMsg("You've added a boiler model. Please select a job type to match before continuing.");
-      } else {
-        setJobTypeErrorMsg("Please select a job type before continuing.");
-      }
-      setShowJobTypeError(true);
+      setJobTypeError(true);
       return;
     }
     onNext({ jobType, isUrgent, notes, boilerModel: boiler });
@@ -295,11 +289,11 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
       <div className="flex-1 overflow-y-auto px-5 space-y-4">
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Job Type</Label>
-          <div className={`grid grid-cols-2 gap-2.5 mt-1.5 rounded-xl ${highlightJobType ? "ring-2 ring-destructive p-1" : ""}`}>
+          <div className={`grid grid-cols-2 gap-2.5 mt-1.5 rounded-xl ${jobTypeError ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {JOB_TYPES.map((j) => (
               <button
                 key={j.id}
-                onClick={() => { setJobType(j.id); setHighlightJobType(false); }}
+                onClick={() => { setJobType(j.id); setJobTypeError(false); }}
                 className={`p-3.5 rounded-xl border-2 flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                   jobType === j.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
@@ -310,6 +304,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
               </button>
             ))}
           </div>
+          <ValidationMessage show={jobTypeError} />
         </div>
 
         {isUrgent && (
@@ -340,20 +335,6 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
           Schedule this job →
         </Button>
       </div>
-
-      {/* Job Type Required Modal */}
-      {showJobTypeError && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50" onClick={() => setShowJobTypeError(false)}>
-          <div className="bg-card rounded-2xl shadow-lg max-w-[380px] w-[90%] p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-5 h-5 text-warning" />
-              <h3 className="text-lg font-extrabold text-foreground">Job Type Required</h3>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">{jobTypeErrorMsg}</p>
-            <Button className="w-full" onClick={() => setShowJobTypeError(false)}>Go Back</Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -367,6 +348,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const [date, setDate] = useState(prefilledDate || todayISO);
   const [block, setBlock] = useState(prefilledBlock || "9–11");
   const [engineer, setEngineer] = useState(prefilledEngineer || "");
+  const [errors, setErrors] = useState<{ date?: boolean; block?: boolean; engineer?: boolean }>({});
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-new-job"],
@@ -393,7 +375,15 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     enabled: !!date && !!block,
   });
 
-  const canProceed = date && block && engineer;
+  const handleNext = () => {
+    const e: typeof errors = {};
+    if (!date) e.date = true;
+    if (!block) e.block = true;
+    if (!engineer) e.engineer = true;
+    setErrors(e);
+    if (Object.keys(e).length > 0) return;
+    onNext({ date, timeBlock: block, engineerId: engineer });
+  };
 
   const loadColor = (n: number) => n >= 2 ? "text-destructive" : n >= 1 ? "text-warning" : "text-success";
   const loadBg = (n: number) => n >= 2 ? "bg-destructive/10 border-destructive/30" : n >= 1 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/30";
@@ -404,16 +394,17 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
       <div className="flex-1 overflow-y-auto px-5 space-y-4">
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
-          <Input type="date" value={date} min={todayISO} onChange={(e) => setDate(e.target.value)} className="mt-1" />
+          <Input type="date" value={date} min={todayISO} onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: false })); }} className={`mt-1 ${validationBorderClass(!!errors.date)}`} />
+          <ValidationMessage show={!!errors.date} />
         </div>
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
-          <div className="flex gap-2.5 mt-1.5">
+          <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {TIME_BLOCKS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setBlock(t.id)}
+                onClick={() => { setBlock(t.id); setErrors((prev) => ({ ...prev, block: false })); }}
                 className={`flex-1 p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all cursor-pointer ${
                   block === t.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
@@ -423,11 +414,12 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               </button>
             ))}
           </div>
+          <ValidationMessage show={!!errors.block} />
         </div>
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Assign Engineer</Label>
-          <div className="space-y-2 mt-1.5">
+          <div className={`space-y-2 mt-1.5 rounded-xl ${errors.engineer ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {engineers.map((eng: any) => {
               const load = (slotCounts as any)[eng.id] || 0;
               const isSelected = engineer === eng.id;
@@ -435,7 +427,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               return (
                 <button
                   key={eng.id}
-                  onClick={() => !isFull && setEngineer(eng.id)}
+                  onClick={() => { if (!isFull) { setEngineer(eng.id); setErrors((prev) => ({ ...prev, engineer: false })); } }}
                   className={`w-full p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all ${
                     isSelected ? "border-primary bg-primary/5" : isFull ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-primary/30 cursor-pointer"
                   }`}
@@ -457,12 +449,13 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               );
             })}
           </div>
+          <ValidationMessage show={!!errors.engineer} />
         </div>
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" disabled={!canProceed} onClick={() => onNext({ date, timeBlock: block, engineerId: engineer })}>
+        <Button className="flex-1 h-12 font-extrabold text-base" onClick={handleNext}>
           Set payment →
         </Button>
       </div>
@@ -628,6 +621,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showLeaveGuard, setShowLeaveGuard] = useState(false);
   const [jobData, setJobData] = useState<any>({
     customer: prefilledCustomer || null,
     job: null,
@@ -635,6 +629,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     payment: null,
     sendWhatsApp: true,
   });
+
+  const isDirty = !!(jobData.customer || jobData.job || jobData.schedule);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-new-job"],
@@ -647,6 +643,14 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const handleCustomer = (c: any) => { setJobData((d: any) => ({ ...d, customer: c })); setStep(1); };
   const handleJob = (j: any) => { setJobData((d: any) => ({ ...d, job: j })); setStep(2); };
   const handleSchedule = (s: any) => { setJobData((d: any) => ({ ...d, schedule: s })); setStep(3); };
+
+  const handleClose = () => {
+    if (isDirty && !done) {
+      setShowLeaveGuard(true);
+    } else {
+      onClose();
+    }
+  };
 
   const handleSubmit = async (finalData: any) => {
     if (!user) return;
@@ -738,7 +742,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const STEP_TITLES = ["Customer", "Job Details", "Schedule", "Payment"];
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <>
+    <Sheet open onOpenChange={(open) => { if (!open) handleClose(); }}>
       <SheetContent className="w-full sm:max-w-[480px] p-0 flex flex-col">
         {/* Header */}
         <div className="border-b border-border px-5 pt-5 pb-0">
@@ -775,6 +780,12 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         </div>
       </SheetContent>
     </Sheet>
+    <FormLeaveGuard
+      open={showLeaveGuard}
+      onKeepEditing={() => setShowLeaveGuard(false)}
+      onLeave={() => { setShowLeaveGuard(false); onClose(); }}
+    />
+    </>
   );
 };
 
