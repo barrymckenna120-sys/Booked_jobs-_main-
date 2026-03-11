@@ -766,7 +766,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 0 ? (
             <StepCustomer prefilledCustomer={prefilledCustomer} onNext={handleCustomer} />
           ) : step === 1 ? (
-            <StepJob prefilledType={prefilledJobType} onNext={handleJob} onBack={() => setStep(0)} />
+            <StepJob prefilledType={prefilledJobType} prefilledBoiler={jobData.customer?.boiler_make_model || jobData.customer?.boilerType || ""} onNext={handleJob} onBack={() => setStep(0)} />
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
