@@ -493,6 +493,7 @@ export type Database = {
           id: string
           job_id: string
           labour_cost: number | null
+          notes: string | null
           paid_at: string | null
           parts_cost: number | null
           payment_link: string | null
@@ -512,6 +513,7 @@ export type Database = {
           id?: string
           job_id: string
           labour_cost?: number | null
+          notes?: string | null
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -531,6 +533,7 @@ export type Database = {
           id?: string
           job_id?: string
           labour_cost?: number | null
+          notes?: string | null
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
