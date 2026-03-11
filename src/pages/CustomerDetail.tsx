@@ -149,17 +149,9 @@ const CustomerDetail = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  const Field = ({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-      <Input
-        id={field}
-        type={type}
-        value={type === "date" ? formatDateForInput(form[field]) : (form[field] ?? "")}
-        onChange={(e) => handleChange(field, e.target.value || (type === "date" ? null : ""))}
-      />
-    </div>
-  );
+  const Field = useCallback(({ label, field, type = "text" }: { label: string; field: string; type?: string }) => (
+    <CustomerField label={label} field={field} type={type} value={form[field]} onChange={handleChange} />
+  ), [form, handleChange]);
 
   return (
     <div className="min-h-screen bg-background">
