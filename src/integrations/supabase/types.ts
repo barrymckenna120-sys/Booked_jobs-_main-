@@ -60,6 +60,7 @@ export type Database = {
           customer_id: string
           id: string
           note: string
+          service_call_id: string | null
           user_id: string
         }
         Insert: {
@@ -68,6 +69,7 @@ export type Database = {
           customer_id: string
           id?: string
           note: string
+          service_call_id?: string | null
           user_id: string
         }
         Update: {
@@ -76,6 +78,7 @@ export type Database = {
           customer_id?: string
           id?: string
           note?: string
+          service_call_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -84,6 +87,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_call_notes_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
         ]
