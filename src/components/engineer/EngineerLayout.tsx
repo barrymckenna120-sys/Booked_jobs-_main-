@@ -143,6 +143,16 @@ const EngineerLayout = () => {
         jobPathPrefix="/engineer/today"
       />
       <MessageAlertBanner />
+      {user && (
+        <OnboardingTour
+          open={showTour}
+          tourType={tourType}
+          userId={user.id}
+          onComplete={completeTour}
+          onSkip={skipTour}
+          onClose={closeTour}
+        />
+      )}
     </div>
   );
 };
