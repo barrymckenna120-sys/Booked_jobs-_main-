@@ -1088,7 +1088,7 @@ const Quotes = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Engineer *</Label>
                 <Select value={scheduleEngineer} onValueChange={(v) => { setScheduleEngineer(v); setScheduleErrors(e => ({ ...e, engineer: false })); }}>
-                  <SelectTrigger className={scheduleErrors.engineer ? "border-destructive" : ""}>
+                  <SelectTrigger className={validationBorderClass(!!scheduleErrors.engineer)}>
                     <SelectValue placeholder="Select engineer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1097,7 +1097,7 @@ const Quotes = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {scheduleErrors.engineer && <p className="text-xs text-destructive">Please select an engineer</p>}
+                <ValidationMessage show={!!scheduleErrors.engineer} />
               </div>
 
               <Button
