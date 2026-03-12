@@ -131,6 +131,12 @@ export const useEngineerJobs = () => {
     if (workDone) {
       notesUpdate = `Work done: ${workDone}${parts ? `\nParts: ${parts}` : ""}${officeNote ? `\nOffice note: ${officeNote}` : ""}${followUp ? `\nFollow-up: ${followUpNote}` : ""}`;
     }
+
+    // Wire follow-up toggle to dedicated columns
+    if (workDone !== undefined) {
+      rest.follow_up_needed = !!followUp;
+      rest.follow_up_detail = followUp ? (followUpNote || null) : null;
+    }
     if (cancelReason) {
       notesUpdate = `Cancelled: ${cancelReason}${cancelNote ? `\nNote: ${cancelNote}` : ""}`;
     }

@@ -764,6 +764,8 @@ export type Database = {
           deposit_amount: number | null
           deposit_paid: boolean
           deposit_required: boolean
+          follow_up_detail: string | null
+          follow_up_needed: boolean
           has_quote: boolean
           id: string
           incoming_status: string | null
@@ -802,6 +804,8 @@ export type Database = {
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
+          follow_up_detail?: string | null
+          follow_up_needed?: boolean
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
@@ -840,6 +844,8 @@ export type Database = {
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
+          follow_up_detail?: string | null
+          follow_up_needed?: boolean
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
