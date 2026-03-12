@@ -98,9 +98,14 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
     : parseFloat(totalAmount) || 0;
 
   const handleSave = async (andSend?: "whatsapp" | "email") => {
-    if (!user || !description.trim() || calculatedTotal <= 0) {
-      toast({ title: "Fill in description and total", variant: "destructive" });
+    const errs: Record<string, boolean> = {};
+    if (!description.trim()) errs.description = true;
+    if (calculatedTotal <= 0) errs.total = true;
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs);
       return;
+    }
+    if (!user) return;
     }
     setSaving(true);
     const payload = {
