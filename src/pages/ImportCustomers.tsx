@@ -352,7 +352,7 @@ const ImportCustomers = () => {
                 )}
               </div>
               <div className="flex gap-3 justify-center pt-4">
-                <Button onClick={() => navigate("/dashboard")}>View Customers</Button>
+                <Button onClick={() => navigate("/customers")}>View Customers</Button>
                 <Button variant="outline" onClick={() => {
                   clearFile();
                   setImportResult(null);
