@@ -501,7 +501,8 @@ const TeamManagement = () => {
           <CardContent className="p-0 divide-y divide-border">
             {filtered.map((member) => {
               const role = ROLES[member.role] || ROLES.engineer;
-              const isBlocked = member.status === "blocked";
+              const authLockedOut = isAuthLocked(member);
+              const isBlocked = member.status === "blocked" || authLockedOut;
 
               return (
                 <div
