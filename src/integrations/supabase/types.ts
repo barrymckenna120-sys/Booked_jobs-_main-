@@ -503,6 +503,7 @@ export type Database = {
           job_id: string | null
           message: string
           read_at: string | null
+          recipient_id: string | null
           sender_id: string | null
           sender_role: string
         }
@@ -513,6 +514,7 @@ export type Database = {
           job_id?: string | null
           message: string
           read_at?: string | null
+          recipient_id?: string | null
           sender_id?: string | null
           sender_role: string
         }
@@ -523,6 +525,7 @@ export type Database = {
           job_id?: string | null
           message?: string
           read_at?: string | null
+          recipient_id?: string | null
           sender_id?: string | null
           sender_role?: string
         }
