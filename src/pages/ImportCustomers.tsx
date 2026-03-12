@@ -218,7 +218,7 @@ const ImportCustomers = () => {
           service_status: serviceStatus || "Up to Date",
           assigned_engineer: field(row, "assigned_engineer"),
           notes: field(row, "notes"),
-          customer_since: parseIrishDate(field(row, "customer_since")),
+          customer_since: parseDate(field(row, "customer_since")),
         },
         errors,
         isValid: errors.length === 0,
