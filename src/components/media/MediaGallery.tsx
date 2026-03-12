@@ -300,9 +300,41 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
               <img src={current?.public_url || ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}
           </div>
-          <p className="text-center text-white/60 text-xs pb-3">{current?.file_name}</p>
+          <div className="flex items-center justify-center gap-3 pb-3">
+            <p className="text-white/60 text-xs">{current?.file_name}</p>
+            {current && (
+              <button
+                onClick={() => { setDeleteTarget(current); setLightboxIndex(null); }}
+                className="text-xs text-destructive hover:text-destructive/80 font-semibold flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this {deleteTarget && isVideoItem(deleteTarget) ? "video" : "photo"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove "{deleteTarget?.file_name}" from this job. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
