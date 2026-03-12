@@ -793,20 +793,26 @@ const Quotes = () => {
                                 </Select>
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Work Description</Label>
+                                <Label className="text-xs font-semibold">Work Description *</Label>
                                 <Textarea
                                   value={editForm.description}
-                                  onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                  onChange={(e) => { setEditForm(f => ({ ...f, description: e.target.value })); setEditErrors(er => ({ ...er, description: false })); }}
+                                  onBlur={() => { if (!editForm.description.trim()) setEditErrors(er => ({ ...er, description: true })); }}
                                   rows={3}
+                                  className={validationBorderClass(!!editErrors.description)}
                                 />
+                                <ValidationMessage show={!!editErrors.description} />
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Total (€)</Label>
+                                <Label className="text-xs font-semibold">Total (€) *</Label>
                                 <Input
                                   type="number"
                                   value={editForm.total}
-                                  onChange={(e) => setEditForm(f => ({ ...f, total: e.target.value }))}
+                                  onChange={(e) => { setEditForm(f => ({ ...f, total: e.target.value })); setEditErrors(er => ({ ...er, total: false })); }}
+                                  onBlur={() => { const t = parseFloat(editForm.total); if (isNaN(t) || t <= 0) setEditErrors(er => ({ ...er, total: true })); }}
+                                  className={validationBorderClass(!!editErrors.total)}
                                 />
+                                <ValidationMessage show={!!editErrors.total} />
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Assigned Engineer</Label>
