@@ -71,6 +71,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const durations = useVideoDurations(media);
 
   useEffect(() => {
     fetchMedia();
