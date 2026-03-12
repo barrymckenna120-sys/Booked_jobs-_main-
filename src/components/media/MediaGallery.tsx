@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Play } from "lucide-react";
+import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
 
 type MediaItem = {
   id: string;
