@@ -228,7 +228,7 @@ const ImportCustomers = () => {
         rowNum: headerIdx + 2 + i, // 1-based Excel row number
         data: {
           name,
-          phone,
+          phone: phoneValidation.normalized || phone,
           email: field(row, "email"),
           address,
           eircode,
