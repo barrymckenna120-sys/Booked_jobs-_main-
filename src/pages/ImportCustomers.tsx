@@ -180,6 +180,12 @@ const ImportCustomers = () => {
       const idx = colMap[key];
       return idx !== undefined ? cellStr(row, idx) : "";
     };
+    // Raw field accessor that preserves Date objects for date columns
+    const rawField = (row: any[], key: string): any => {
+      const idx = colMap[key];
+      if (idx === undefined) return undefined;
+      return row[idx];
+    };
 
     // Data rows start immediately after the header row
     const dataRows = allRows.slice(headerIdx + 1);
