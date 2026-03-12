@@ -186,6 +186,14 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             onClick={() => setLightboxIndex(i)}
             className="relative rounded-lg overflow-hidden border border-border group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer flex flex-col"
           >
+            {/* Delete button */}
+            <div
+              role="button"
+              onClick={(e) => { e.stopPropagation(); setDeleteTarget(m); }}
+              className="absolute top-1.5 left-1.5 z-10 w-7 h-7 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-destructive"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </div>
             <div className="h-[140px] relative">
               {isVideoItem(m) ? (
                 <>
