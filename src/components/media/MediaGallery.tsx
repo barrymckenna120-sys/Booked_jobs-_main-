@@ -125,34 +125,48 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
           <button
             key={m.id}
             onClick={() => setLightboxIndex(i)}
-            className="relative rounded-lg overflow-hidden border border-border h-[160px] group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
+            className="relative rounded-lg overflow-hidden border border-border group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer flex flex-col"
           >
-            {isVideoItem(m) ? (
-              <>
+            <div className="h-[140px] relative">
+              {isVideoItem(m) ? (
+                <>
+                  <img
+                    src={m.public_url ? getCloudinaryThumbnail(m.public_url) : ""}
+                    alt={m.file_name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                    <div className="w-14 h-14 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
+                      <Play className="w-7 h-7 text-foreground fill-foreground ml-0.5" />
+                    </div>
+                  </div>
+                  <span className="absolute bottom-2 left-2 text-[10px] text-background bg-foreground/60 px-1.5 py-0.5 rounded">{m.file_name}</span>
+                </>
+              ) : (
                 <img
-                  src={m.public_url ? getCloudinaryThumbnail(m.public_url) : ""}
+                  src={m.public_url || ""}
                   alt={m.file_name}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                  <div className="w-14 h-14 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                    <Play className="w-7 h-7 text-foreground fill-foreground ml-0.5" />
-                  </div>
-                </div>
-                <span className="absolute bottom-2 left-2 text-[10px] text-background bg-foreground/60 px-1.5 py-0.5 rounded">{m.file_name}</span>
-              </>
-            ) : (
-              <img
-                src={m.public_url || ""}
-                alt={m.file_name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            )}
-            <span className="absolute bottom-1 right-1 text-[9px] px-1.5 py-0.5 rounded bg-background/80 text-foreground">
-              {m.uploaded_by === "engineer" ? "📋 Engineer" : "📷 Customer"}
-            </span>
+              )}
+              <span className="absolute bottom-1 right-1 text-[9px] px-1.5 py-0.5 rounded bg-background/80 text-foreground">
+                {m.uploaded_by === "engineer" ? "📋 Engineer" : "📷 Customer"}
+              </span>
+            </div>
+            <div className="px-2 py-1.5 bg-card border-t border-border">
+              <p className="text-[11px] text-muted-foreground">
+                {m.uploaded_at ? new Date(m.uploaded_at).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                }) + ' ' + new Date(m.uploaded_at).toLocaleTimeString('en-GB', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) : 'Unknown date'}
+              </p>
+            </div>
           </button>
         ))}
       </div>
