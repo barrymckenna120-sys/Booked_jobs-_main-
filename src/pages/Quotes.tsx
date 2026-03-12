@@ -1196,7 +1196,13 @@ const Quotes = () => {
       </Dialog>
 
       {/* ── Create Quote Dialog ── */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(o) => {
+        if (!o && (formCustomerId || formJobId || formDesc.trim() || formTotal.trim())) {
+          setShowCreateLeaveGuard(true);
+        } else {
+          setCreateOpen(o);
+        }
+      }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Quote</DialogTitle>
