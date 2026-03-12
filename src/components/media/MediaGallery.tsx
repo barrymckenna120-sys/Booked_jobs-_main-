@@ -32,10 +32,7 @@ const isVideoItem = (m: MediaItem) =>
 // Generate Cloudinary thumbnail from video URL (first frame)
 const getCloudinaryThumbnail = (url: string): string => {
   if (!url.includes("cloudinary.com")) return url;
-  // Transform: /upload/ -> /upload/so_0/ and replace extension with .jpg
-  return url
-    .replace("/upload/", "/upload/so_0/")
-    .replace(/\.[^.]+$/, ".jpg");
+  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/").replace(/\.[^.]+$/, ".jpg");
 };
 
 const formatDuration = (seconds: number): string | null => {
@@ -205,11 +202,12 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             <div className="aspect-square relative">
               {isVideoItem(m) ? (
                 <>
-                  <img
-                    src={m.public_url ? getCloudinaryThumbnail(m.public_url) : ""}
-                    alt={m.file_name}
+                  <video
+                    src={getCloudinaryVideoUrl(m.public_url || "") + "#t=0.1"}
                     className="w-full h-full object-cover"
-                    loading="lazy"
+                    muted
+                    playsInline
+                    preload="metadata"
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
                     <div className="w-12 h-12 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
