@@ -178,6 +178,7 @@ const ResetPassword = () => {
                   required
                   minLength={6}
                   className="pr-10"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -200,6 +201,7 @@ const ResetPassword = () => {
                   required
                   minLength={6}
                   className="pr-10"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
