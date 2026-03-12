@@ -27,6 +27,7 @@ const Messages = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewMessage, setShowNewMessage] = useState(false);
+  const [activeThread, setActiveThread] = useState<{ recipientAuthId: string; engineerName: string } | null>(null);
 
   const fetchConversations = async () => {
     if (!user) return;
