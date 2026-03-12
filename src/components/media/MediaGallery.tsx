@@ -118,7 +118,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             onClick={() => setLightboxIndex(i)}
             className="relative rounded-lg overflow-hidden border border-border h-[160px] group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
           >
-            {m.file_type === "video" || (m.public_url && m.public_url.includes("cloudinary.com")) ? (
+            {isVideoItem(m) ? (
               <div className="w-full h-full bg-foreground/10 flex items-center justify-center">
                 <Play className="w-10 h-10 text-background/80" />
                 <span className="absolute bottom-2 left-2 text-[10px] text-background bg-foreground/60 px-1.5 py-0.5 rounded">{m.file_name}</span>
