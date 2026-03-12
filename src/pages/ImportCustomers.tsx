@@ -209,7 +209,7 @@ const ImportCustomers = () => {
           access_notes: field(row, "access_notes"),
           boiler_make_model: field(row, "boiler_make_model"),
           boiler_type: boilerType || null,
-          boiler_installation_date: parseIrishDate(field(row, "boiler_installation_date")),
+          boiler_installation_date: parseDate(field(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
           last_service_date: parseIrishDate(field(row, "last_service_date")),
           last_service_engineer: field(row, "last_service_engineer"),
