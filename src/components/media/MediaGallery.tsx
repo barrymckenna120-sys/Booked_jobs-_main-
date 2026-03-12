@@ -189,8 +189,8 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
               </>
             )}
 
-            {current?.file_type === "video" || (current?.public_url && current.public_url.includes("cloudinary.com")) ? (
-              <video src={getCloudinaryVideoUrl(current.public_url || "")} controls className="max-h-[80vh] max-w-full" autoPlay />
+            {current && isVideoItem(current) ? (
+              <video src={getCloudinaryVideoUrl(current.public_url || "")} controls className="max-h-[80vh] max-w-full" autoPlay playsInline />
             ) : (
               <img src={current?.public_url || ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}
