@@ -461,6 +461,14 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
             ))}
           </div>
           <ValidationMessage show={!!errors.block} />
+          {isSlotFull && (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                ⚠️ The {TIME_BLOCKS.find((t) => t.id === block)?.label || block} slot is fully booked for this date. Please select a different time.
+              </span>
+            </div>
+          )}
         </div>
 
         <div>
