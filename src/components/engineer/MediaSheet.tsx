@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Camera, Video } from "lucide-react";
+import { uploadVideoToCloudinary, getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
 
 interface Props {
   job: any;
