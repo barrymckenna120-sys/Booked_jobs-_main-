@@ -74,6 +74,8 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
   const [labourCost, setLabourCost] = useState("");
   const [calloutCost, setCalloutCost] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+  const [showLeaveGuard, setShowLeaveGuard] = useState(false);
 
   useEffect(() => {
     fetchQuote();
