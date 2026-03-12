@@ -67,12 +67,16 @@ const useVideoDurations = (media: MediaItem[]) => {
 
   return durations;
 };
+
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
+  const { toast } = useToast();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const durations = useVideoDurations(media);
 
   useEffect(() => {
