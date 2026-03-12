@@ -256,6 +256,19 @@ const TeamManagement = () => {
   };
 
   const handleUnblock = async (id: string) => {
+    const member = members.find((m) => m.id === id);
+
+    // Clear ban in auth if user has an auth account
+    if (member?.auth_user_id) {
+      const { error } = await supabase.functions.invoke("unblock-user", {
+        body: { userId: member.auth_user_id },
+      });
+      if (error) {
+        console.error("[TeamManagement] unblock-user error:", error);
+        toast({ title: "Failed to clear auth lockout", variant: "destructive" });
+      }
+    }
+
     await supabase
       .from("engineers")
       .update({ status: "active", blocked_reason: null, is_available: true } as any)
@@ -263,14 +276,15 @@ const TeamManagement = () => {
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
-    const m = members.find((m) => m.id === id);
-    toast({ title: `${m?.name} has been unblocked` });
+    toast({ title: `${member?.name} has been unblocked` });
     logAudit({
       action_type: "user_unblocked",
       entity_type: "user",
       entity_id: id,
-      detail: `Unblocked: ${m?.name}`,
+      detail: `Unblocked: ${member?.name}`,
     });
+    // Refresh auth users list
+    fetchAuthUsers();
   };
 
   const handleDelete = async () => {
