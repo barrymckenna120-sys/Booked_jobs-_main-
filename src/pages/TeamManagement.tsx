@@ -77,6 +77,14 @@ const ROLE_COLORS: Record<string, string> = {
   engineer: "bg-green-100 text-green-700 border-green-200",
 };
 
+interface AuthUser {
+  id: string;
+  email: string | null;
+  banned_until: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+}
+
 interface TeamMember {
   id: string;
   name: string;
