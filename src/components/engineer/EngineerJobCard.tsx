@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import EngineerMediaGrid from "./EngineerMediaGrid";
 import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
@@ -125,6 +126,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
         <JobNotesSection jobId={job.id} customerId={job.customer_id} jobNotes={job.notes} />
         <EngineerJobMessages jobId={job.id} officeUserId={job.user_id} />
+        <EngineerMediaGrid jobId={job.id} />
 
         {!isDone && (
           <SecondaryActions
