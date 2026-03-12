@@ -214,7 +214,7 @@ const ImportCustomers = () => {
           last_service_date: parseDate(field(row, "last_service_date")),
           last_service_engineer: field(row, "last_service_engineer"),
           engineer_notes: field(row, "engineer_notes"),
-          next_service_due: parseIrishDate(field(row, "next_service_due")),
+          next_service_due: parseDate(field(row, "next_service_due")),
           service_status: serviceStatus || "Up to Date",
           assigned_engineer: field(row, "assigned_engineer"),
           notes: field(row, "notes"),
