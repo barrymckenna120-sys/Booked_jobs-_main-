@@ -138,9 +138,19 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
         ))}
       </div>
 
+      {uploading && (
+        <div className="mt-2 space-y-1">
+          <div className="flex items-center justify-between text-xs font-semibold text-primary">
+            <span>Uploading…</span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <Progress value={uploadProgress} className="h-1.5" />
+        </div>
+      )}
+
       {showUpload && (
         <label className="mt-2 inline-flex items-center gap-1 text-xs text-primary font-semibold cursor-pointer hover:underline">
-          📷 Add Photos
+          📷 Add Photos / Videos
           <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleFileUpload} />
         </label>
       )}
