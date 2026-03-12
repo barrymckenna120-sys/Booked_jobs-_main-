@@ -15,7 +15,8 @@ export type NotificationType =
   | "en_route"
   | "on_site"
   | "in_progress"
-  | "new_video_uploaded";
+  | "new_video_uploaded"
+  | "message";
 
 export interface AppNotification {
   id: string;
