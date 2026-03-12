@@ -1332,6 +1332,13 @@ const Quotes = () => {
           action?.();
         }}
       />
+
+      {/* Leave guard for Create Quote dialog */}
+      <FormLeaveGuard
+        open={showCreateLeaveGuard}
+        onKeepEditing={() => setShowCreateLeaveGuard(false)}
+        onLeave={() => { setShowCreateLeaveGuard(false); setCreateOpen(false); }}
+      />
     </div>
   );
 };
