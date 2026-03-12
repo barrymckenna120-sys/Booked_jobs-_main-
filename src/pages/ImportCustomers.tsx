@@ -268,6 +268,21 @@ const ImportCustomers = () => {
     setValidated(true);
   };
 
+  /** Strip null/empty optional fields so we don't send null values that may violate constraints */
+  const cleanData = (raw: Record<string, any>): Record<string, any> => {
+    const required = ["name", "phone", "address", "eircode"];
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (required.includes(key)) {
+        cleaned[key] = value;
+      } else if (value !== null && value !== undefined && value !== "") {
+        cleaned[key] = value;
+      }
+      // skip null/empty optional fields entirely
+    }
+    return cleaned;
+  };
+
   const handleImport = async () => {
     if (!user) return;
     const validRows = parsedRows.filter((r) => r.isValid);
@@ -278,38 +293,40 @@ const ImportCustomers = () => {
     let imported = 0;
     let updated = 0;
     let skipped = 0;
+    const failedRows: { name: string; reason: string }[] = [];
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
       try {
+        const cleaned = cleanData(row.data);
+
         // Check if customer with same phone exists
         const { data: existing } = await supabase
           .from("customers")
           .select("id")
-          .eq("phone", row.data.phone)
+          .eq("phone", cleaned.phone)
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (existing) {
           const { error } = await supabase
             .from("customers")
-            .update(row.data)
+            .update(cleaned)
             .eq("id", existing.id);
           if (error) throw error;
           updated++;
         } else {
           const { error } = await supabase
             .from("customers")
-            .insert([{ ...row.data, user_id: user.id } as any]);
+            .insert([{ ...cleaned, user_id: user.id } as any]);
           if (error) throw error;
           imported++;
         }
       } catch (err: any) {
         skipped++;
-        toast({
-          title: `Error on row ${row.rowNum}`,
-          description: err.message,
-          variant: "destructive",
+        failedRows.push({
+          name: row.data.name || `Row ${row.rowNum}`,
+          reason: err.message || "Unknown error",
         });
       }
 
@@ -317,7 +334,7 @@ const ImportCustomers = () => {
     }
 
     setImporting(false);
-    setImportResult({ imported, updated, skipped });
+    setImportResult({ imported, updated, skipped, failedRows });
   };
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
