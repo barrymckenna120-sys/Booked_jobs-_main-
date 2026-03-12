@@ -375,11 +375,22 @@ const TeamManagement = () => {
     }
   };
 
+  // ── Auth lockout helper ──────────────────────────────────────────
+  const isAuthLocked = (member: TeamMember): boolean => {
+    if (!member.auth_user_id) return false;
+    const authUser = authUsers.find((u) => u.id === member.auth_user_id);
+    if (!authUser?.banned_until) return false;
+    return new Date(authUser.banned_until) > new Date();
+  };
+
+  const isEffectivelyBlocked = (m: TeamMember) => m.status === "blocked" || isAuthLocked(m);
+
   // ── Filter / search ─────────────────────────────────────────────
   const filtered = members.filter((m) => {
+    const blocked = isEffectivelyBlocked(m);
     const matchFilter =
       filter === "all" ||
-      (filter === "blocked" ? m.status === "blocked" : m.role === filter && m.status !== "blocked");
+      (filter === "blocked" ? blocked : m.role === filter && !blocked);
     const matchSearch =
       !search ||
       m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -389,10 +400,10 @@ const TeamManagement = () => {
 
   const counts = {
     all: members.length,
-    admin: members.filter((m) => m.role === "admin" && m.status !== "blocked").length,
-    office: members.filter((m) => m.role === "office" && m.status !== "blocked").length,
-    engineer: members.filter((m) => m.role === "engineer" && m.status !== "blocked").length,
-    blocked: members.filter((m) => m.status === "blocked").length,
+    admin: members.filter((m) => m.role === "admin" && !isEffectivelyBlocked(m)).length,
+    office: members.filter((m) => m.role === "office" && !isEffectivelyBlocked(m)).length,
+    engineer: members.filter((m) => m.role === "engineer" && !isEffectivelyBlocked(m)).length,
+    blocked: members.filter((m) => isEffectivelyBlocked(m)).length,
   };
 
   if (authLoading) {
