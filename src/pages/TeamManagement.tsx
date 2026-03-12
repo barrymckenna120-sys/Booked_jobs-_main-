@@ -127,7 +127,13 @@ const TeamManagement = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user) fetchMembers();
+    if (user) {
+      fetchMembers();
+      // Test: attempt to list auth users from client (anon key)
+      supabase.auth.admin.listUsers().then(({ data, error }) => {
+        console.log("[TeamManagement] auth.admin.listUsers result:", { data, error });
+      });
+    }
   }, [user, fetchMembers]);
 
   // ── Actions ──────────────────────────────────────────────────────
