@@ -111,6 +111,10 @@ const Auth = () => {
           setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
           setIsBlocked(true);
           setErrorModalOpen(true);
+          // Persist lockout server-side (fire-and-forget)
+          supabase.functions.invoke("lock-failed-login", {
+            body: { email: email.trim() },
+          }).catch(() => {});
         } else if (newAttempts === 2) {
           setErrorTitle("Incorrect Password");
           setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
