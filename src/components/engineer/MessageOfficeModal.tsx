@@ -30,16 +30,35 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
   const [isPreset, setIsPreset] = useState(false);
   const [sending, setSending] = useState(false);
   const [engineerName, setEngineerName] = useState("Engineer");
+  const [presets, setPresets] = useState<string[]>(FALLBACK_PRESETS);
+  const [loadingPresets, setLoadingPresets] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    // Load engineer name
     supabase
       .from("engineers")
-      .select("name")
+      .select("name, user_id")
       .eq("auth_user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.name) setEngineerName(data.name);
+        // Load quick replies from admin's settings
+        if (data?.user_id) {
+          supabase
+            .from("quick_replies")
+            .select("text, sort_order")
+            .eq("user_id", data.user_id)
+            .order("sort_order", { ascending: true })
+            .then(({ data: qr }) => {
+              if (qr && qr.length > 0) {
+                setPresets((qr as any[]).map((r) => r.text));
+              }
+              setLoadingPresets(false);
+            });
+        } else {
+          setLoadingPresets(false);
+        }
       });
   }, [user]);
 
