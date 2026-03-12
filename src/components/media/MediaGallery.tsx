@@ -149,6 +149,29 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
     onUpload?.();
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      // Delete from storage if not Cloudinary
+      if (!deleteTarget.storage_path.startsWith("cloudinary/")) {
+        await supabase.storage.from("job-media").remove([deleteTarget.storage_path]);
+      }
+      await supabase.from("job_media").delete().eq("id", deleteTarget.id);
+      setMedia((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      // Close lightbox if viewing deleted item
+      if (lightboxIndex !== null && media[lightboxIndex]?.id === deleteTarget.id) {
+        setLightboxIndex(null);
+      }
+      toast({ title: "Media deleted" });
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
+
   if (loading) return <p className="text-xs text-muted-foreground">Loading media...</p>;
   if (media.length === 0 && !showUpload) return <p className="text-xs text-muted-foreground">No photos or videos</p>;
 
