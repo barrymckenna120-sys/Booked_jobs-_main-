@@ -22,7 +22,7 @@ const isVideoItem = (m: MediaItem) =>
 
 const getCloudinaryThumbnail = (url: string): string => {
   if (!url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/so_0/").replace(/\.[^.]+$/, ".jpg");
+  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/");
 };
 
 const formatDate = (dateStr: string | null) => {
