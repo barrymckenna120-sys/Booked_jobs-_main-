@@ -12,27 +12,57 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
-const COLUMN_MAP = {
-  name: 0,
-  phone: 1,
-  email: 2,
-  address: 3,
-  eircode: 4,
-  area_code: 5,
-  access_notes: 6,
-  boiler_make_model: 7,
-  boiler_type: 8,
-  boiler_installation_date: 9,
-  under_warranty: 10,
-  last_service_date: 11,
-  last_service_engineer: 12,
-  engineer_notes: 13,
-  next_service_due: 14,
-  service_status: 15,
-  assigned_engineer: 16,
-  notes: 17,
-  customer_since: 18,
+/** Map recognisable Excel header names (lower-cased, trimmed) → internal field */
+const HEADER_TO_FIELD: Record<string, string> = {
+  "customer name": "name",
+  "mobile number": "phone",
+  "phone number": "phone",
+  "phone": "phone",
+  "email": "email",
+  "address": "address",
+  "eircode": "eircode",
+  "area code": "area_code",
+  "area": "area_code",
+  "access notes": "access_notes",
+  "boiler make / model": "boiler_make_model",
+  "boiler make/model": "boiler_make_model",
+  "boiler type": "boiler_type",
+  "installation date": "boiler_installation_date",
+  "under warranty": "under_warranty",
+  "last service date": "last_service_date",
+  "last service engineer": "last_service_engineer",
+  "engineer notes": "engineer_notes",
+  "next service due": "next_service_due",
+  "service status": "service_status",
+  "assigned engineer": "assigned_engineer",
+  "customer notes": "notes",
+  "notes": "notes",
+  "customer since": "customer_since",
 };
+
+/** Headers we look for to identify the header row */
+const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
+
+/** Scan the first N rows to find the header row index and build a column map */
+function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<string, number> } | null {
+  const scanLimit = Math.min(10, allRows.length);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = allRows[i];
+    if (!row || row.length < 3) continue;
+    const lowered = row.map((c: any) => String(c ?? "").trim().toLowerCase());
+    const matchCount = KNOWN_HEADERS.filter((h) => lowered.includes(h)).length;
+    if (matchCount >= 3) {
+      // Build column map from this row
+      const colMap: Record<string, number> = {};
+      for (let col = 0; col < lowered.length; col++) {
+        const field = HEADER_TO_FIELD[lowered[col]];
+        if (field && !(field in colMap)) colMap[field] = col;
+      }
+      return { headerIdx: i, colMap };
+    }
+  }
+  return null;
+}
 
 function parseIrishDate(val: string): string | null {
   if (!val) return null;
@@ -110,24 +140,38 @@ const ImportCustomers = () => {
     const sheet = wb.Sheets[sheetName];
     const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    // Start from row 6 (index 5), skip header/example rows
-    const dataRows = allRows.slice(5);
+    // Dynamically find the header row
+    const detected = detectHeaderRow(allRows);
+    if (!detected) {
+      toast({ title: "Header row not found", description: "Could not find a row with recognisable column headers (Customer Name, Address, Eircode, etc).", variant: "destructive" });
+      return;
+    }
+    const { headerIdx, colMap } = detected;
+
+    // Helper to get a field value from a row using the dynamic column map
+    const field = (row: any[], key: string): string => {
+      const idx = colMap[key];
+      return idx !== undefined ? cellStr(row, idx) : "";
+    };
+
+    // Data rows start immediately after the header row
+    const dataRows = allRows.slice(headerIdx + 1);
     const results: ParsedRow[] = [];
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      const name = cellStr(row, COLUMN_MAP.name);
-      const phone = cellStr(row, COLUMN_MAP.phone);
-      const address = cellStr(row, COLUMN_MAP.address);
+      const name = field(row, "name");
+      const phone = field(row, "phone");
+      const address = field(row, "address");
 
       // Stop at empty rows
       if (!name && !phone && !address) break;
 
       const errors: string[] = [];
-      const eircode = cellStr(row, COLUMN_MAP.eircode);
-      const boilerType = cellStr(row, COLUMN_MAP.boiler_type);
-      const underWarranty = cellStr(row, COLUMN_MAP.under_warranty);
-      const serviceStatus = cellStr(row, COLUMN_MAP.service_status);
+      const eircode = field(row, "eircode");
+      const boilerType = field(row, "boiler_type");
+      const underWarranty = field(row, "under_warranty");
+      const serviceStatus = field(row, "service_status");
 
       if (!name) errors.push("Customer Name is required");
       if (!phone) errors.push("Phone Number is required");
@@ -139,39 +183,39 @@ const ImportCustomers = () => {
         errors.push("Status must be: Overdue, Due Soon, or Up to Date");
 
       // Date validations
-      const dateFields = [
-        { idx: COLUMN_MAP.boiler_installation_date, label: "Installation Date" },
-        { idx: COLUMN_MAP.last_service_date, label: "Last Service Date" },
-        { idx: COLUMN_MAP.next_service_due, label: "Next Service Due" },
-        { idx: COLUMN_MAP.customer_since, label: "Customer Since" },
+      const dateFieldKeys = [
+        { key: "boiler_installation_date", label: "Installation Date" },
+        { key: "last_service_date", label: "Last Service Date" },
+        { key: "next_service_due", label: "Next Service Due" },
+        { key: "customer_since", label: "Customer Since" },
       ];
-      for (const df of dateFields) {
-        const val = cellStr(row, df.idx);
+      for (const df of dateFieldKeys) {
+        const val = field(row, df.key);
         if (val && !parseIrishDate(val)) errors.push(`${df.label} must be in DD/MM/YYYY format`);
       }
 
       results.push({
-        rowNum: i + 6,
+        rowNum: headerIdx + 2 + i, // 1-based Excel row number
         data: {
           name,
           phone,
-          email: cellStr(row, COLUMN_MAP.email),
+          email: field(row, "email"),
           address,
           eircode,
-          area_code: cellStr(row, COLUMN_MAP.area_code),
-          access_notes: cellStr(row, COLUMN_MAP.access_notes),
-          boiler_make_model: cellStr(row, COLUMN_MAP.boiler_make_model),
+          area_code: field(row, "area_code"),
+          access_notes: field(row, "access_notes"),
+          boiler_make_model: field(row, "boiler_make_model"),
           boiler_type: boilerType || null,
-          boiler_installation_date: parseIrishDate(cellStr(row, COLUMN_MAP.boiler_installation_date)),
+          boiler_installation_date: parseIrishDate(field(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
-          last_service_date: parseIrishDate(cellStr(row, COLUMN_MAP.last_service_date)),
-          last_service_engineer: cellStr(row, COLUMN_MAP.last_service_engineer),
-          engineer_notes: cellStr(row, COLUMN_MAP.engineer_notes),
-          next_service_due: parseIrishDate(cellStr(row, COLUMN_MAP.next_service_due)),
+          last_service_date: parseIrishDate(field(row, "last_service_date")),
+          last_service_engineer: field(row, "last_service_engineer"),
+          engineer_notes: field(row, "engineer_notes"),
+          next_service_due: parseIrishDate(field(row, "next_service_due")),
           service_status: serviceStatus || "Up to Date",
-          assigned_engineer: cellStr(row, COLUMN_MAP.assigned_engineer),
-          notes: cellStr(row, COLUMN_MAP.notes),
-          customer_since: parseIrishDate(cellStr(row, COLUMN_MAP.customer_since)),
+          assigned_engineer: field(row, "assigned_engineer"),
+          notes: field(row, "notes"),
+          customer_since: parseIrishDate(field(row, "customer_since")),
         },
         errors,
         isValid: errors.length === 0,
