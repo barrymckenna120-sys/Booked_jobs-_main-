@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,12 +36,42 @@ const getCloudinaryThumbnail = (url: string): string => {
     .replace(/\.[^.]+$/, ".jpg");
 };
 
+const formatDuration = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
+/** Hook to detect video durations from Cloudinary MP4 URLs */
+const useVideoDurations = (media: MediaItem[]) => {
+  const [durations, setDurations] = useState<Record<string, number>>({});
+  const resolved = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    media.forEach((m) => {
+      if (!isVideoItem(m) || !m.public_url || resolved.current.has(m.id)) return;
+      resolved.current.add(m.id);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.src = getCloudinaryVideoUrl(m.public_url);
+      video.onloadedmetadata = () => {
+        if (isFinite(video.duration)) {
+          setDurations((prev) => ({ ...prev, [m.id]: video.duration }));
+        }
+        video.src = "";
+      };
+    });
+  }, [media]);
+
+  return durations;
+};
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const durations = useVideoDurations(media);
 
   useEffect(() => {
     fetchMedia();
@@ -141,6 +171,11 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
                       <Play className="w-7 h-7 text-foreground fill-foreground ml-0.5" />
                     </div>
                   </div>
+                  {durations[m.id] && (
+                    <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
+                      {formatDuration(durations[m.id])}
+                    </span>
+                  )}
                   <span className="absolute bottom-2 left-2 text-[10px] text-background bg-foreground/60 px-1.5 py-0.5 rounded">{m.file_name}</span>
                 </>
               ) : (
