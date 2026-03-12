@@ -13,6 +13,7 @@ import DataTab from "@/components/settings/DataTab";
 import EngineerAvailabilityTab from "@/components/settings/EngineerAvailabilityTab";
 import TeamManagementTab from "@/components/settings/TeamManagementTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
+import QuickRepliesTab from "@/components/settings/QuickRepliesTab";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
