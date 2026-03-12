@@ -27,6 +27,15 @@ const isVideoItem = (m: MediaItem) =>
   m.file_type?.startsWith("video/") ||
   (m.public_url && m.public_url.includes("cloudinary.com"));
 
+// Generate Cloudinary thumbnail from video URL (first frame)
+const getCloudinaryThumbnail = (url: string): string => {
+  if (!url.includes("cloudinary.com")) return url;
+  // Transform: /upload/ -> /upload/so_0/ and replace extension with .jpg
+  return url
+    .replace("/upload/", "/upload/so_0/")
+    .replace(/\.[^.]+$/, ".jpg");
+};
+
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
