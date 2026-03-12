@@ -138,7 +138,11 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
                       alt={m.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                      <Video className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                       <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
                         <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
