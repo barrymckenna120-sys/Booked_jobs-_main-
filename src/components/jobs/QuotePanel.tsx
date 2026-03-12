@@ -248,7 +248,10 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           )}
 
           <div className="flex flex-wrap gap-2 pt-2">
-            <Button variant="outline" onClick={() => { setCreating(false); setEditing(false); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => {
+              const isDirty = description.trim() || totalAmount.trim() || partsCost.trim() || labourCost.trim() || calloutCost.trim();
+              if (isDirty) { setShowLeaveGuard(true); } else { setCreating(false); setEditing(false); setFormErrors({}); }
+            }}>Cancel</Button>
             <Button variant="outline" onClick={() => handleSave()} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
               <Save className="w-4 h-4 mr-1" /> Save as Draft
