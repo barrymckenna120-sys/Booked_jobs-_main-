@@ -20,11 +20,6 @@ const isVideoItem = (m: MediaItem) =>
   m.file_type?.startsWith("video/") ||
   (m.public_url && m.public_url.includes("cloudinary.com"));
 
-const getCloudinaryThumbnail = (url: string): string => {
-  if (!url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/").replace(/\.[^.]+$/, ".jpg");
-};
-
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "Unknown date";
   const d = new Date(dateStr);
@@ -85,17 +80,14 @@ const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
                 <div className="aspect-square relative bg-muted">
                   {isVideoItem(m) ? (
                     <>
-                      <img
-                        src={m.public_url ? getCloudinaryThumbnail(m.public_url) : ""}
-                        alt={m.file_name}
+                      <video
+                        src={getCloudinaryVideoUrl(m.public_url || "") + "#t=0.1"}
                         className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        muted
+                        playsInline
+                        preload="metadata"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                        <Video className="w-8 h-8 text-muted-foreground/50" />
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
                         <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
                           <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
                         </div>
