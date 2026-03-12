@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
-import { Play, X, Image } from "lucide-react";
+import { Play, X, Image, ChevronDown, Camera } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type MediaItem = {
   id: string;
@@ -35,74 +37,84 @@ const formatDate = (dateStr: string | null) => {
 };
 
 const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<MediaItem | null>(null);
 
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      const { data } = await supabase
+  const { data: media = [], isLoading } = useQuery({
+    queryKey: ["engineer-job-media", jobId],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from("job_media")
         .select("id, file_name, file_type, public_url, uploaded_at, uploaded_by")
         .eq("job_id", jobId)
         .order("uploaded_at");
-      setMedia((data || []) as MediaItem[]);
-      setLoading(false);
-    };
-    fetch();
-  }, [jobId]);
-
-  if (loading) return null;
+      if (error) throw error;
+      return (data || []) as MediaItem[];
+    },
+  });
 
   return (
-    <div className="mb-3">
-      <div className="text-[11px] font-bold text-muted-foreground/60 tracking-wider mb-2">📷 MEDIA</div>
-
-      {media.length === 0 ? (
-        <div className="flex items-center gap-2 py-3 px-3 rounded-lg bg-muted/50">
-          <Image className="w-4 h-4 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">No media uploaded yet</p>
+    <Collapsible open={open} onOpenChange={setOpen} className="mb-3">
+      <CollapsibleTrigger className="flex items-center justify-between w-full py-2 group">
+        <div className="flex items-center gap-1.5">
+          <Camera className="w-3.5 h-3.5 text-muted-foreground/60" />
+          <span className="text-[11px] font-bold text-muted-foreground/60 tracking-wider">📹 PHOTOS & VIDEOS</span>
+          {media.length > 0 && (
+            <span className="text-[10px] bg-muted rounded-full px-1.5 py-0.5 font-bold text-muted-foreground">{media.length}</span>
+          )}
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {media.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setSelected(m)}
-              className="relative rounded-lg overflow-hidden border border-border flex flex-col"
-            >
-              <div className="aspect-square relative bg-muted">
-                {isVideoItem(m) ? (
-                  <>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground/50 transition-transform ${open ? "rotate-180" : ""}`} />
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
+        {isLoading ? (
+          <div className="text-xs text-muted-foreground py-2">Loading…</div>
+        ) : media.length === 0 ? (
+          <div className="flex items-center gap-2 py-3 px-3 rounded-lg bg-muted/50">
+            <Image className="w-4 h-4 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">No media uploaded yet</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            {media.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setSelected(m)}
+                className="relative rounded-lg overflow-hidden border border-border flex flex-col"
+              >
+                <div className="aspect-square relative bg-muted">
+                  {isVideoItem(m) ? (
+                    <>
+                      <img
+                        src={m.public_url ? getCloudinaryThumbnail(m.public_url) : ""}
+                        alt={m.file_name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
+                          <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
                     <img
-                      src={m.public_url ? getCloudinaryThumbnail(m.public_url) : ""}
+                      src={m.public_url || ""}
                       alt={m.file_name}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                        <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <img
-                    src={m.public_url || ""}
-                    alt={m.file_name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                )}
-              </div>
-              <div className="px-2 py-1.5 bg-card border-t border-border text-left">
-                <p className="text-[10px] text-muted-foreground">{formatDate(m.uploaded_at)}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+                  )}
+                </div>
+                <div className="px-2 py-1.5 bg-card border-t border-border text-left">
+                  <p className="text-[10px] text-muted-foreground">{formatDate(m.uploaded_at)}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </CollapsibleContent>
 
       {/* Lightbox */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
@@ -134,7 +146,7 @@ const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </Collapsible>
   );
 };
 
