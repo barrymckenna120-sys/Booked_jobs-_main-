@@ -38,7 +38,8 @@ const getCloudinaryThumbnail = (url: string): string => {
     .replace(/\.[^.]+$/, ".jpg");
 };
 
-const formatDuration = (seconds: number): string => {
+const formatDuration = (seconds: number): string | null => {
+  if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return null;
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -208,7 +209,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
                       <Play className="w-7 h-7 text-foreground fill-foreground ml-0.5" />
                     </div>
                   </div>
-                  {durations[m.id] && (
+                  {durations[m.id] && formatDuration(durations[m.id]) && (
                     <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
                       {formatDuration(durations[m.id])}
                     </span>
