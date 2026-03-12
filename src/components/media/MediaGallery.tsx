@@ -52,6 +52,8 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
+    setUploading(true);
+    setUploadProgress(0);
 
     for (const file of Array.from(files)) {
       const { data: jobData } = await supabase
@@ -62,17 +64,27 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
 
       const customerId = jobData?.customer_id;
       const fileName = `engineer-${Date.now()}-${file.name}`;
-      const storagePath = `customers/${customerId}/${jobId}/${fileName}`;
-      const isVideo = /\.(mp4|mov|avi)$/i.test(file.name);
-
-      await supabase.storage.from("job-media").upload(storagePath, file, {
-        contentType: file.type,
-        upsert: true,
-      });
-
-      const { data: { publicUrl } } = supabase.storage.from("job-media").getPublicUrl(storagePath);
-
+      const isVideo = file.type?.startsWith("video/") || /\.(mp4|mov|avi|hevc|webm)$/i.test(file.name);
       const { data: { user } } = await supabase.auth.getUser();
+
+      let publicUrl: string;
+      let storagePath: string;
+
+      if (isVideo) {
+        // Upload video to Cloudinary for transcoding
+        const result = await uploadVideoToCloudinary(file, (pct) => setUploadProgress(pct));
+        publicUrl = result.secure_url;
+        storagePath = `cloudinary/${result.public_id}`;
+      } else {
+        // Upload photo to Supabase Storage
+        storagePath = `customers/${customerId}/${jobId}/${fileName}`;
+        await supabase.storage.from("job-media").upload(storagePath, file, {
+          contentType: file.type,
+          upsert: true,
+        });
+        const { data: { publicUrl: url } } = supabase.storage.from("job-media").getPublicUrl(storagePath);
+        publicUrl = url;
+      }
 
       await supabase.from("job_media").insert({
         job_id: jobId,
@@ -86,6 +98,8 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
       } as any);
     }
 
+    setUploading(false);
+    setUploadProgress(0);
     fetchMedia();
     onUpload?.();
   };
