@@ -30,7 +30,7 @@ export interface AppNotification {
   role: string | null;
 }
 
-const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show"]);
+const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "new_video_uploaded"]);
 
 // Vibration for high-priority notifications (double pulse)
 function vibrateHighPriority() {
