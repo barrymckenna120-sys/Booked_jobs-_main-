@@ -22,10 +22,17 @@ type Props = {
   onUpload?: () => void;
 };
 
+const isVideoItem = (m: MediaItem) =>
+  m.file_type === "video" ||
+  m.file_type?.startsWith("video/") ||
+  (m.public_url && m.public_url.includes("cloudinary.com"));
+
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
     fetchMedia();
