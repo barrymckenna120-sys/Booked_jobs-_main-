@@ -168,6 +168,17 @@ const Messages = () => {
     return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   }
 
+  // Show thread view for direct messages
+  if (activeThread) {
+    return (
+      <DirectMessageThread
+        recipientAuthId={activeThread.recipientAuthId}
+        engineerName={activeThread.engineerName}
+        onBack={() => { setActiveThread(null); fetchConversations(); }}
+      />
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
@@ -194,10 +205,11 @@ const Messages = () => {
             <button
               key={c.job_id || `direct-${c.recipient_id}-${i}`}
               onClick={() => {
-                if (c.job_id) {
+                if (c.is_direct && c.recipient_id) {
+                  setActiveThread({ recipientAuthId: c.recipient_id, engineerName: c.engineer_name });
+                } else if (c.job_id) {
                   navigate(`/jobs/${c.job_id}`);
                 }
-                // Direct messages stay on this page for now — future: open thread
               }}
               className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors text-left"
             >
@@ -231,7 +243,7 @@ const Messages = () => {
               </div>
 
               {c.unread_count > 0 && (
-                <span className="bg-[#4A86E8] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                <span className="bg-primary text-primary-foreground text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
                   {c.unread_count}
                 </span>
               )}
