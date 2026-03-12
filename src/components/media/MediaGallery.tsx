@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, X, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Play, Trash2 } from "lucide-react";
 import { getCloudinaryVideoUrl, uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
+import { useToast } from "@/hooks/use-toast";
 
 type MediaItem = {
   id: string;
@@ -65,12 +67,16 @@ const useVideoDurations = (media: MediaItem[]) => {
 
   return durations;
 };
+
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
+  const { toast } = useToast();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const durations = useVideoDurations(media);
 
   useEffect(() => {
@@ -143,6 +149,29 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
     onUpload?.();
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      // Delete from storage if not Cloudinary
+      if (!deleteTarget.storage_path.startsWith("cloudinary/")) {
+        await supabase.storage.from("job-media").remove([deleteTarget.storage_path]);
+      }
+      await supabase.from("job_media").delete().eq("id", deleteTarget.id);
+      setMedia((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      // Close lightbox if viewing deleted item
+      if (lightboxIndex !== null && media[lightboxIndex]?.id === deleteTarget.id) {
+        setLightboxIndex(null);
+      }
+      toast({ title: "Media deleted" });
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
+
   if (loading) return <p className="text-xs text-muted-foreground">Loading media...</p>;
   if (media.length === 0 && !showUpload) return <p className="text-xs text-muted-foreground">No photos or videos</p>;
 
@@ -157,6 +186,14 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             onClick={() => setLightboxIndex(i)}
             className="relative rounded-lg overflow-hidden border border-border group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer flex flex-col"
           >
+            {/* Delete button */}
+            <div
+              role="button"
+              onClick={(e) => { e.stopPropagation(); setDeleteTarget(m); }}
+              className="absolute top-1.5 left-1.5 z-10 w-7 h-7 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-destructive"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </div>
             <div className="h-[140px] relative">
               {isVideoItem(m) ? (
                 <>
@@ -263,9 +300,41 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
               <img src={current?.public_url || ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}
           </div>
-          <p className="text-center text-white/60 text-xs pb-3">{current?.file_name}</p>
+          <div className="flex items-center justify-center gap-3 pb-3">
+            <p className="text-white/60 text-xs">{current?.file_name}</p>
+            {current && (
+              <button
+                onClick={() => { setDeleteTarget(current); setLightboxIndex(null); }}
+                className="text-xs text-destructive hover:text-destructive/80 font-semibold flex items-center gap-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this {deleteTarget && isVideoItem(deleteTarget) ? "video" : "photo"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove "{deleteTarget?.file_name}" from this job. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
