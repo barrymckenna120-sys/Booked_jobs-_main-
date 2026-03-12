@@ -230,14 +230,13 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             </div>
             <div className="px-2 py-1.5 bg-card border-t border-border">
               <p className="text-[11px] text-muted-foreground">
-                {m.uploaded_at ? new Date(m.uploaded_at).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                }) + ' ' + new Date(m.uploaded_at).toLocaleTimeString('en-GB', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }) : 'Unknown date'}
+                {(() => {
+                  if (!m.uploaded_at) return 'Unknown date';
+                  const d = new Date(m.uploaded_at);
+                  if (isNaN(d.getTime())) return 'Unknown date';
+                  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                })()}
               </p>
             </div>
           </button>
