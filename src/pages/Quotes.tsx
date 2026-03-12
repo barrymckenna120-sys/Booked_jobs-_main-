@@ -134,6 +134,7 @@ const Quotes = () => {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, boolean>>({});
   const [resendPromptOpen, setResendPromptOpen] = useState(false);
   const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number; notes: string } | null>(null);
   const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
