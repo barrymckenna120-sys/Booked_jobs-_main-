@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2, Wrench, Users, ClipboardList } from "lucide-react";
+import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2, Wrench, Users, ClipboardList, MessageSquare } from "lucide-react";
 import GeneralTab from "@/components/settings/GeneralTab";
 import WhatsAppTab from "@/components/settings/WhatsAppTab";
 import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
@@ -13,6 +13,7 @@ import DataTab from "@/components/settings/DataTab";
 import EngineerAvailabilityTab from "@/components/settings/EngineerAvailabilityTab";
 import TeamManagementTab from "@/components/settings/TeamManagementTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
+import QuickRepliesTab from "@/components/settings/QuickRepliesTab";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
@@ -24,6 +25,7 @@ const TABS = [
   { key: "data", label: "Data", icon: Database },
   { key: "security", label: "Security", icon: Shield },
   { key: "audit", label: "Audit Log", icon: ClipboardList },
+  { key: "quick_replies", label: "Quick Replies", icon: MessageSquare },
 ];
 
 const Settings = () => {
@@ -113,6 +115,7 @@ const Settings = () => {
           {activeTab === "data" && <DataTab />}
           {activeTab === "security" && <SecurityTab />}
           {activeTab === "audit" && <AuditLogTab />}
+          {activeTab === "quick_replies" && <QuickRepliesTab />}
         </div>
       </div>
     </div>

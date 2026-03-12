@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Mail, Navigation, MapPinCheck, Play, Video } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
@@ -12,6 +12,11 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Completed" },
   parts_needed:      { icon: Cog,            color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
+  message:           { icon: Mail,           color: "text-blue-500",    bg: "bg-blue-500/10",    label: "Message" },
+  en_route:          { icon: Navigation,     color: "text-blue-500",    bg: "bg-blue-500/10",    label: "En Route" },
+  on_site:           { icon: MapPinCheck,    color: "text-emerald-500", bg: "bg-emerald-500/10", label: "On Site" },
+  in_progress:       { icon: Play,           color: "text-amber-500",   bg: "bg-amber-500/10",   label: "In Progress" },
+  new_video_uploaded:{ icon: Video,          color: "text-purple-500",  bg: "bg-purple-500/10",  label: "New Video" },
 };
 
 const AUTO_DISMISS_MS = 15000;

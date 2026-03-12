@@ -5,9 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 
-const PRESETS = [
+const FALLBACK_PRESETS = [
   "On my way",
   "Running late – 30 mins",
   "Running late – 1 hour",
@@ -30,16 +30,35 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
   const [isPreset, setIsPreset] = useState(false);
   const [sending, setSending] = useState(false);
   const [engineerName, setEngineerName] = useState("Engineer");
+  const [presets, setPresets] = useState<string[]>(FALLBACK_PRESETS);
+  const [loadingPresets, setLoadingPresets] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    // Load engineer name
     supabase
       .from("engineers")
-      .select("name")
+      .select("name, user_id")
       .eq("auth_user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.name) setEngineerName(data.name);
+        // Load quick replies from admin's settings
+        if (data?.user_id) {
+          supabase
+            .from("quick_replies")
+            .select("text, sort_order")
+            .eq("user_id", data.user_id)
+            .order("sort_order", { ascending: true })
+            .then(({ data: qr }) => {
+              if (qr && qr.length > 0) {
+                setPresets((qr as any[]).map((r) => r.text));
+              }
+              setLoadingPresets(false);
+            });
+        } else {
+          setLoadingPresets(false);
+        }
       });
   }, [user]);
 
@@ -88,19 +107,25 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
 
         <div className="space-y-3 pt-1">
           <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => { setMessage(p); setIsPreset(true); }}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  message === p
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+            {loadingPresets ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading quick replies…
+              </div>
+            ) : (
+              presets.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setMessage(p); setIsPreset(true); }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    message === p
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))
+            )}
           </div>
 
           <Textarea

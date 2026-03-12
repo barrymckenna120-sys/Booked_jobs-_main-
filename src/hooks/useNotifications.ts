@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { playDoubleBeep, playSoftChime } from "@/utils/audio";
+import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
 
 export type NotificationType =
   | "new_job"
@@ -15,7 +15,8 @@ export type NotificationType =
   | "en_route"
   | "on_site"
   | "in_progress"
-  | "new_video_uploaded";
+  | "new_video_uploaded"
+  | "message";
 
 export interface AppNotification {
   id: string;
@@ -120,7 +121,9 @@ export function useNotifications() {
 
             // Play sound + vibrate for high priority
             if (soundEnabled) {
-              if (n.notification_type === "completed") {
+              if (n.notification_type === "message") {
+                playEngineerMessageAlert();
+              } else if (n.notification_type === "completed") {
                 playSoftChime();
               } else {
                 playDoubleBeep();

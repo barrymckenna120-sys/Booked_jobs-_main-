@@ -646,6 +646,30 @@ export type Database = {
         }
         Relationships: []
       }
+      quick_replies: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           accepted_at: string | null

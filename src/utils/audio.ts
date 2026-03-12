@@ -94,3 +94,22 @@ export function playMessageBeep() {
     });
   } catch {}
 }
+
+/** 1200Hz triangle triple-chirp for engineer message alerts — distinct from job notifications */
+export function playEngineerMessageAlert() {
+  try {
+    const c = getCtx();
+    if (!c) return;
+    if (c.state === "suspended") c.resume().catch(() => {});
+    [0, 0.12, 0.24].forEach((delay, i) => {
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = 1200 + i * 100; // ascending: 1200, 1300, 1400
+      gain.gain.value = 0.2;
+      osc.connect(gain).connect(c.destination);
+      osc.start(c.currentTime + delay);
+      osc.stop(c.currentTime + delay + 0.08);
+    });
+  } catch {}
+}
