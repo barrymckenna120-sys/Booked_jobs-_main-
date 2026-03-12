@@ -102,20 +102,25 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
             </div>
           ))}
 
+          {/* Upload progress */}
+          {uploading && (
+            <div className="col-span-full space-y-1.5 py-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-primary">
+                <span>{uploadLabel}</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-2" />
+            </div>
+          )}
+
           {/* Photo button */}
           <button
             onClick={() => photoRef.current?.click()}
             className="aspect-square rounded-xl border-2 border-dashed border-primary bg-primary/5 text-primary flex flex-col items-center justify-center gap-1 cursor-pointer"
             disabled={uploading}
           >
-            {uploading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <>
-                <Camera className="w-6 h-6" />
-                <span className="text-[11px] font-bold">Photo</span>
-              </>
-            )}
+            <Camera className="w-6 h-6" />
+            <span className="text-[11px] font-bold">Photo</span>
           </button>
 
           {/* Video button */}
