@@ -131,10 +131,10 @@ const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) =>
         {stage === "success" && (
           <>
             <div className="flex flex-col items-center gap-3 py-4">
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle2 className="w-9 h-9 text-green-600" />
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <CheckCircle2 className="w-9 h-9 text-primary" />
               </div>
-              <p className="text-base font-extrabold text-green-700">Video uploaded successfully</p>
+              <p className="text-base font-extrabold text-primary">Video uploaded successfully</p>
             </div>
 
             {uploadedUrl && (
