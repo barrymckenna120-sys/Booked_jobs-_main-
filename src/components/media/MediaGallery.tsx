@@ -171,6 +171,11 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
                       <Play className="w-7 h-7 text-foreground fill-foreground ml-0.5" />
                     </div>
                   </div>
+                  {durations[m.id] && (
+                    <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
+                      {formatDuration(durations[m.id])}
+                    </span>
+                  )}
                   <span className="absolute bottom-2 left-2 text-[10px] text-background bg-foreground/60 px-1.5 py-0.5 rounded">{m.file_name}</span>
                 </>
               ) : (
