@@ -64,8 +64,15 @@ function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<
   return null;
 }
 
-function parseDate(val: string): string | null {
+function parseDate(val: any): string | null {
   if (!val) return null;
+  // If SheetJS has already parsed this as a Date object, use it directly
+  if (val instanceof Date) {
+    const yyyy = val.getFullYear();
+    const mm = String(val.getMonth() + 1).padStart(2, "0");
+    const dd = String(val.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
   const str = String(val).trim();
   // DD/MM/YYYY
   const irish = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
