@@ -359,6 +359,26 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     },
   });
 
+  // Fetch all holiday blocks for the selected date across all engineers
+  const { data: engineerBlocksOnDate = [] } = useQuery({
+    queryKey: ["engineer-blocks-on-date", date],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("engineer_blocks")
+        .select("id, engineer_id, block_date, end_date")
+        .lte("block_date", date)
+        .or(`end_date.gte.${date},end_date.is.null`);
+      return (data || []).filter((b: any) =>
+        b.end_date ? b.block_date <= date && b.end_date >= date : b.block_date === date
+      );
+    },
+    enabled: !!date,
+  });
+
+  const engineersOnLeaveSet = new Set(
+    (engineerBlocksOnDate as any[]).map((b: any) => b.engineer_id)
+  );
+
   const dbBlock = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || block;
 
   // Get job counts for selected date + block per engineer
