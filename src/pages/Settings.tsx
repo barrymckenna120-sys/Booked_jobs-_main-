@@ -115,6 +115,7 @@ const Settings = () => {
           {activeTab === "data" && <DataTab />}
           {activeTab === "security" && <SecurityTab />}
           {activeTab === "audit" && <AuditLogTab />}
+          {activeTab === "quick_replies" && <QuickRepliesTab />}
         </div>
       </div>
     </div>

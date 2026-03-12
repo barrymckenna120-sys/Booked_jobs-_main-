@@ -107,19 +107,25 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
 
         <div className="space-y-3 pt-1">
           <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => { setMessage(p); setIsPreset(true); }}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  message === p
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+            {loadingPresets ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading quick replies…
+              </div>
+            ) : (
+              presets.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setMessage(p); setIsPreset(true); }}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    message === p
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))
+            )}
           </div>
 
           <Textarea
