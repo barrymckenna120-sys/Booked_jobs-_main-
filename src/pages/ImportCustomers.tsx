@@ -64,13 +64,16 @@ function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<
   return null;
 }
 
-function parseIrishDate(val: string): string | null {
+function parseDate(val: string): string | null {
   if (!val) return null;
   const str = String(val).trim();
-  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return null;
-  const [_, d, m, y] = match;
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  // DD/MM/YYYY
+  const irish = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (irish) return `${irish[3]}-${irish[2].padStart(2, "0")}-${irish[1].padStart(2, "0")}`;
+  // YYYY-MM-DD (with optional time portion e.g. "2026-10-01 00:00:00")
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  return null;
 }
 
 function cellStr(row: any[], idx: number): string {
@@ -191,7 +194,7 @@ const ImportCustomers = () => {
       ];
       for (const df of dateFieldKeys) {
         const val = field(row, df.key);
-        if (val && !parseIrishDate(val)) errors.push(`${df.label} must be in DD/MM/YYYY format`);
+        if (val && !parseDate(val)) errors.push(`${df.label} must be a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`);
       }
 
       results.push({
@@ -206,16 +209,16 @@ const ImportCustomers = () => {
           access_notes: field(row, "access_notes"),
           boiler_make_model: field(row, "boiler_make_model"),
           boiler_type: boilerType || null,
-          boiler_installation_date: parseIrishDate(field(row, "boiler_installation_date")),
+          boiler_installation_date: parseDate(field(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
-          last_service_date: parseIrishDate(field(row, "last_service_date")),
+          last_service_date: parseDate(field(row, "last_service_date")),
           last_service_engineer: field(row, "last_service_engineer"),
           engineer_notes: field(row, "engineer_notes"),
-          next_service_due: parseIrishDate(field(row, "next_service_due")),
+          next_service_due: parseDate(field(row, "next_service_due")),
           service_status: serviceStatus || "Up to Date",
           assigned_engineer: field(row, "assigned_engineer"),
           notes: field(row, "notes"),
-          customer_since: parseIrishDate(field(row, "customer_since")),
+          customer_since: parseDate(field(row, "customer_since")),
         },
         errors,
         isValid: errors.length === 0,
