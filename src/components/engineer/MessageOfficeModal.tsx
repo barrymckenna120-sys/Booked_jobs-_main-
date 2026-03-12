@@ -5,9 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 
-const PRESETS = [
+const FALLBACK_PRESETS = [
   "On my way",
   "Running late – 30 mins",
   "Running late – 1 hour",
