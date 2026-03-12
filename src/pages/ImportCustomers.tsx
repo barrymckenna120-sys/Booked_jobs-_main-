@@ -83,17 +83,21 @@ function parseDate(val: any): string | null {
   return null;
 }
 
-/** Validate and normalize Irish mobile number: 10 digits starting with 08 */
-function validatePhone(val: any): { valid: boolean; normalized: string | null; error?: string } {
+/** Validate and normalize Irish mobile number to +353 international format */
+function validateImportPhone(val: any): { valid: boolean; normalized: string | null; error?: string } {
   if (!val) return { valid: false, normalized: null, error: "Phone Number is required" };
-  const str = String(val).trim();
-  // Remove all spaces
-  const normalized = str.replace(/\s/g, "");
-  // Must be 10 digits starting with 08
-  if (!/^08\d{8}$/.test(normalized)) {
-    return { valid: false, normalized: null, error: "Phone must be 10 digits starting with 08" };
+  let str = String(val).trim().replace(/\s/g, "");
+  // Strip leading + for uniform processing
+  if (str.startsWith("+")) str = str.slice(1);
+  // Strip leading 353 country code
+  if (str.startsWith("353")) str = str.slice(3);
+  // Strip leading 0
+  if (str.startsWith("0")) str = str.slice(1);
+  // Should now be 8-9 digits (Irish mobile without leading 0)
+  if (!/^\d{7,9}$/.test(str)) {
+    return { valid: false, normalized: null, error: "Invalid phone number format" };
   }
-  return { valid: true, normalized };
+  return { valid: true, normalized: `+353${str}` };
 }
 
 function cellStr(row: any[], idx: number): string {
@@ -197,7 +201,7 @@ const ImportCustomers = () => {
       const serviceStatus = field(row, "service_status");
 
       if (!name) errors.push("Customer Name is required");
-      const phoneValidation = validatePhone(phone);
+      const phoneValidation = validateImportPhone(phone);
       if (!phoneValidation.valid) {
         errors.push(phoneValidation.error || "Phone Number is required");
       }

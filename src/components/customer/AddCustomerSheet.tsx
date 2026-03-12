@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
-  formatEircode, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -69,7 +69,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     if (!validateAll()) return;
 
     setSaving(true);
-    const cleanPhone = form.phone.replace(/\s+/g, "");
+    const cleanPhone = formatPhoneInternational(form.phone);
     const cleanEircode = formatEircode(form.eircode);
     const { error } = await supabase.from("customers").insert({
       user_id: user.id,

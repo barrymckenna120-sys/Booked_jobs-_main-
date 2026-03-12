@@ -2,7 +2,7 @@
 
 export type CustomerFieldErrors = Record<string, string>;
 
-const PHONE_RE = /^08\d{8}$/;
+const PHONE_RE = /^(\+?353|0)8\d{7,8}$/;
 const EIRCODE_RE = /^[A-Z]\d[\dW][A-Z0-9]{4}$/i;
 const AREA_CODE_RE = /^0\d{1,2}$/;
 
@@ -37,6 +37,20 @@ export const formatEircode = (raw: string): string => {
   const stripped = raw.replace(/\s+/g, "").toUpperCase();
   if (stripped.length === 7) return stripped.slice(0, 3) + " " + stripped.slice(3);
   return stripped;
+};
+
+/** Convert an Irish mobile number to +353 international format.
+ *  Strips spaces, removes leading +353/353/0, then prepends +353.
+ *  e.g. "087 123 4567" → "+3531234567" … wait, "0871234567" → "+353871234567" */
+export const formatPhoneInternational = (raw: string): string => {
+  let stripped = raw.replace(/\s+/g, "");
+  // Remove leading + if present
+  if (stripped.startsWith("+")) stripped = stripped.slice(1);
+  // Remove leading 353 country code
+  if (stripped.startsWith("353")) stripped = stripped.slice(3);
+  // Remove leading 0
+  if (stripped.startsWith("0")) stripped = stripped.slice(1);
+  return `+353${stripped}`;
 };
 
 export const RED_BORDER = "ring-2 ring-[#EF4444] border-[#EF4444]";
