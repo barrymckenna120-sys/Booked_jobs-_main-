@@ -473,12 +473,21 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
             })}
           </div>
           <ValidationMessage show={!!errors.engineer} />
+
+          {isOnLeave && (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                ⚠️ {holidayBlock!.engineerName} is on leave on this date and cannot be assigned.
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" onClick={handleNext}>
+        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave} onClick={handleNext}>
           Set payment →
         </Button>
       </div>
