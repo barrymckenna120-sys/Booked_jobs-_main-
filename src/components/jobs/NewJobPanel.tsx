@@ -489,14 +489,15 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               const load = (slotCounts as any)[eng.id] || 0;
               const isSelected = engineer === eng.id;
               const isFull = load >= 3;
+              const onLeave = engineersOnLeaveSet.has(eng.id);
               return (
                 <button
                   key={eng.id}
-                  onClick={() => { if (!isFull) { setEngineer(eng.id); setErrors((prev) => ({ ...prev, engineer: false })); } }}
+                  onClick={() => { if (!isFull && !onLeave) { setEngineer(eng.id); setErrors((prev) => ({ ...prev, engineer: false })); } }}
                   className={`w-full p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all ${
-                    isSelected ? "border-primary bg-primary/5" : isFull ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-primary/30 cursor-pointer"
+                    isSelected ? "border-primary bg-primary/5" : (isFull || onLeave) ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-primary/30 cursor-pointer"
                   }`}
-                  disabled={isFull}
+                  disabled={isFull || onLeave}
                 >
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ${
                     isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
@@ -504,12 +505,23 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
                     {eng.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}
                   </div>
                   <div className="flex-1 text-left">
-                    <div className={`text-sm ${isSelected ? "font-extrabold text-primary" : "font-semibold"}`}>{eng.name}</div>
-                    <div className="text-[11px] text-muted-foreground">{load} job{load !== 1 ? "s" : ""} in this slot</div>
+                    <div className={`text-sm flex items-center gap-1.5 ${isSelected ? "font-extrabold text-primary" : "font-semibold"}`}>
+                      {eng.name}
+                      {onLeave && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-600 bg-amber-100 rounded-full px-2 py-0.5">
+                          🏖️ On Leave
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {onLeave ? "Unavailable on this date" : `${load} job${load !== 1 ? "s" : ""} in this slot`}
+                    </div>
                   </div>
-                  <div className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${loadBg(load)} ${loadColor(load)}`}>
-                    {loadLabel(load)}
-                  </div>
+                  {!onLeave && (
+                    <div className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${loadBg(load)} ${loadColor(load)}`}>
+                      {loadLabel(load)}
+                    </div>
+                  )}
                 </button>
               );
             })}
