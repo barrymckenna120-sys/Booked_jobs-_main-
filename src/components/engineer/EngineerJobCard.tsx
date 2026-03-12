@@ -129,6 +129,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {!isDone && (
           <SecondaryActions
             isActive={isActive}
+            job={job}
+            customer={customer}
             onNote={() => setShowNote(true)}
             onPhotos={() => setShowPhotos(true)}
             onExtraWork={() => setShowExtraWork(true)}
