@@ -357,16 +357,16 @@ const ImportCustomers = () => {
             <h1 className="text-xl font-bold">Import Customers</h1>
           </div>
         </header>
-        <div className="max-w-md mx-auto px-4 py-12">
+        <div className="max-w-lg mx-auto px-4 py-12 space-y-4">
           <Card>
             <CardContent className="pt-8 text-center space-y-4">
-              <div className="text-5xl">✅</div>
+              <div className="text-5xl">{importResult.skipped > 0 ? "⚠️" : "✅"}</div>
               <h2 className="text-xl font-bold">Import Complete!</h2>
               <div className="space-y-1 text-sm">
-                <p><strong>{importResult.imported}</strong> customers imported</p>
+                <p><strong>{importResult.imported}</strong> customers imported successfully</p>
                 <p><strong>{importResult.updated}</strong> customers updated</p>
                 {importResult.skipped > 0 && (
-                  <p><strong>{importResult.skipped}</strong> rows skipped (errors)</p>
+                  <p className="text-destructive font-medium"><strong>{importResult.skipped}</strong> rows failed</p>
                 )}
               </div>
               <div className="flex gap-3 justify-center pt-4">
@@ -380,6 +380,26 @@ const ImportCustomers = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Failed rows detail */}
+          {importResult.failedRows.length > 0 && (
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-destructive" />
+                  Failed Rows ({importResult.failedRows.length})
+                </h3>
+                <div className="divide-y divide-border">
+                  {importResult.failedRows.map((fr, idx) => (
+                    <div key={idx} className="py-2 text-sm">
+                      <p className="font-medium">{fr.name}</p>
+                      <p className="text-muted-foreground text-xs">{fr.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     );
