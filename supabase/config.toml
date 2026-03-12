@@ -15,3 +15,5 @@ verify_jwt = false
 [functions.unblock-user]
 verify_jwt = false
 
+[functions.lock-failed-login]
+verify_jwt = false
