@@ -359,15 +359,17 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     },
   });
 
+  const dbBlock = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || block;
+
   // Get job counts for selected date + block per engineer
   const { data: slotCounts = {} } = useQuery({
-    queryKey: ["slot-counts", date, block],
+    queryKey: ["slot-counts", date, dbBlock],
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
         .select("assigned_engineer_id")
         .eq("scheduled_date", date)
-        .eq("time_block", block)
+        .eq("time_block", dbBlock)
         .not("status", "in", "(Cancelled)");
       const counts: Record<string, number> = {};
       (data || []).forEach((j: any) => { if (j.assigned_engineer_id) counts[j.assigned_engineer_id] = (counts[j.assigned_engineer_id] || 0) + 1; });
@@ -375,6 +377,27 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     },
     enabled: !!date && !!block,
   });
+
+  // Total slot capacity check from settings.job_time_blocks
+  const { data: slotMaxJobs } = useQuery({
+    queryKey: ["slot-max-jobs"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      return (data?.job_time_blocks as any[] | null) || [];
+    },
+  });
+
+  const totalSlotJobs = Object.values(slotCounts as Record<string, number>).reduce((a, b) => a + b, 0);
+  const slotConfig = (slotMaxJobs || []).find((s: any) => {
+    const label = (s.label || "").toLowerCase();
+    const blockLabel = (TIME_BLOCKS.find((t) => t.id === block)?.label || "").toLowerCase();
+    // Match by label or by start/end times
+    if (label === blockLabel) return true;
+    const dbVal = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || "";
+    return dbVal === `${s.start}–${s.end}` || dbVal.replace(/\s/g, "") === `${s.start}–${s.end}`.replace(/\s/g, "");
+  });
+  const maxJobsForSlot = slotConfig?.max_jobs ?? Infinity;
+  const isSlotFull = totalSlotJobs >= maxJobsForSlot && maxJobsForSlot < Infinity;
 
   // Holiday block check for selected engineer
   useEffect(() => {
@@ -404,7 +427,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     if (!block) e.block = true;
     if (!engineer) e.engineer = true;
     setErrors(e);
-    if (Object.keys(e).length > 0 || isOnLeave) return;
+    if (Object.keys(e).length > 0 || isOnLeave || isSlotFull) return;
     onNext({ date, timeBlock: block, engineerId: engineer });
   };
 
@@ -438,6 +461,14 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
             ))}
           </div>
           <ValidationMessage show={!!errors.block} />
+          {isSlotFull && (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                ⚠️ The {TIME_BLOCKS.find((t) => t.id === block)?.label || block} slot is fully booked for this date. Please select a different time.
+              </span>
+            </div>
+          )}
         </div>
 
         <div>
@@ -487,7 +518,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave} onClick={handleNext}>
+        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave || isSlotFull} onClick={handleNext}>
           Set payment →
         </Button>
       </div>
