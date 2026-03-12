@@ -135,15 +135,22 @@ const TeamManagement = () => {
     setLoading(false);
   }, [user]);
 
+  const fetchAuthUsers = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("list-users");
+    if (error) {
+      console.error("[TeamManagement] list-users error:", error);
+    } else if (data?.users) {
+      setAuthUsers(data.users);
+      console.log("[TeamManagement] Auth users fetched:", data.users.length);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       fetchMembers();
-      // Test: attempt to list auth users from client (anon key)
-      supabase.auth.admin.listUsers().then(({ data, error }) => {
-        console.log("[TeamManagement] auth.admin.listUsers result:", { data, error });
-      });
+      fetchAuthUsers();
     }
-  }, [user, fetchMembers]);
+  }, [user, fetchMembers, fetchAuthUsers]);
 
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
