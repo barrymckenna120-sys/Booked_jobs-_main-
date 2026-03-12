@@ -12,27 +12,57 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
-const COLUMN_MAP = {
-  name: 0,
-  phone: 1,
-  email: 2,
-  address: 3,
-  eircode: 4,
-  area_code: 5,
-  access_notes: 6,
-  boiler_make_model: 7,
-  boiler_type: 8,
-  boiler_installation_date: 9,
-  under_warranty: 10,
-  last_service_date: 11,
-  last_service_engineer: 12,
-  engineer_notes: 13,
-  next_service_due: 14,
-  service_status: 15,
-  assigned_engineer: 16,
-  notes: 17,
-  customer_since: 18,
+/** Map recognisable Excel header names (lower-cased, trimmed) → internal field */
+const HEADER_TO_FIELD: Record<string, string> = {
+  "customer name": "name",
+  "mobile number": "phone",
+  "phone number": "phone",
+  "phone": "phone",
+  "email": "email",
+  "address": "address",
+  "eircode": "eircode",
+  "area code": "area_code",
+  "area": "area_code",
+  "access notes": "access_notes",
+  "boiler make / model": "boiler_make_model",
+  "boiler make/model": "boiler_make_model",
+  "boiler type": "boiler_type",
+  "installation date": "boiler_installation_date",
+  "under warranty": "under_warranty",
+  "last service date": "last_service_date",
+  "last service engineer": "last_service_engineer",
+  "engineer notes": "engineer_notes",
+  "next service due": "next_service_due",
+  "service status": "service_status",
+  "assigned engineer": "assigned_engineer",
+  "customer notes": "notes",
+  "notes": "notes",
+  "customer since": "customer_since",
 };
+
+/** Headers we look for to identify the header row */
+const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
+
+/** Scan the first N rows to find the header row index and build a column map */
+function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<string, number> } | null {
+  const scanLimit = Math.min(10, allRows.length);
+  for (let i = 0; i < scanLimit; i++) {
+    const row = allRows[i];
+    if (!row || row.length < 3) continue;
+    const lowered = row.map((c: any) => String(c ?? "").trim().toLowerCase());
+    const matchCount = KNOWN_HEADERS.filter((h) => lowered.includes(h)).length;
+    if (matchCount >= 3) {
+      // Build column map from this row
+      const colMap: Record<string, number> = {};
+      for (let col = 0; col < lowered.length; col++) {
+        const field = HEADER_TO_FIELD[lowered[col]];
+        if (field && !(field in colMap)) colMap[field] = col;
+      }
+      return { headerIdx: i, colMap };
+    }
+  }
+  return null;
+}
 
 function parseIrishDate(val: string): string | null {
   if (!val) return null;
