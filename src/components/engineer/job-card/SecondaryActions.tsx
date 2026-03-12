@@ -13,7 +13,7 @@ interface SecondaryActionsProps {
   onMediaRefresh?: () => void;
 }
 
-const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWork }: SecondaryActionsProps) => {
+const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWork, onMediaRefresh }: SecondaryActionsProps) => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
