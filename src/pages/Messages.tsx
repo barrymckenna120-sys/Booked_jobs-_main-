@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 import { Loader2, MessageCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NewMessageModal from "@/components/messages/NewMessageModal";
+import DirectMessageThread from "@/components/messages/DirectMessageThread";
 
 interface Conversation {
   job_id: string | null;
