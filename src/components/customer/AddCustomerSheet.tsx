@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
-  formatEircode, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
