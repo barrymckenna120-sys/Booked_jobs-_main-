@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Save, Send, Edit2, CreditCard, CheckCircle2, Loader2 } from "lucide-react";
 import SendQuoteModal from "./SendQuoteModal";
 import PaymentLinkForm from "./PaymentLinkForm";
+import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
+import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 type Quote = {
   id: string;
