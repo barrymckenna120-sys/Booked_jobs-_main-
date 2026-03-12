@@ -25,6 +25,7 @@ const TABS = [
   { key: "data", label: "Data", icon: Database },
   { key: "security", label: "Security", icon: Shield },
   { key: "audit", label: "Audit Log", icon: ClipboardList },
+  { key: "quick_replies", label: "Quick Replies", icon: MessageSquare },
 ];
 
 const Settings = () => {
