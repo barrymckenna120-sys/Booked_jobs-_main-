@@ -32,10 +32,7 @@ const isVideoItem = (m: MediaItem) =>
 // Generate Cloudinary thumbnail from video URL (first frame)
 const getCloudinaryThumbnail = (url: string): string => {
   if (!url.includes("cloudinary.com")) return url;
-  // Transform: /upload/ -> /upload/so_0/ and replace extension with .jpg
-  return url
-    .replace("/upload/", "/upload/so_0/")
-    .replace(/\.[^.]+$/, ".jpg");
+  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/");
 };
 
 const formatDuration = (seconds: number): string | null => {
