@@ -64,13 +64,16 @@ function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<
   return null;
 }
 
-function parseIrishDate(val: string): string | null {
+function parseDate(val: string): string | null {
   if (!val) return null;
   const str = String(val).trim();
-  const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return null;
-  const [_, d, m, y] = match;
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  // DD/MM/YYYY
+  const irish = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (irish) return `${irish[3]}-${irish[2].padStart(2, "0")}-${irish[1].padStart(2, "0")}`;
+  // YYYY-MM-DD (with optional time portion e.g. "2026-10-01 00:00:00")
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  return null;
 }
 
 function cellStr(row: any[], idx: number): string {
