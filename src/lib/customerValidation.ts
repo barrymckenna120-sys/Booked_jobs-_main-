@@ -2,7 +2,7 @@
 
 export type CustomerFieldErrors = Record<string, string>;
 
-const PHONE_RE = /^(\+?353|0)8\d{7,8}$/;
+const PHONE_RE = /^(\+?353|0)\d{7,10}$/;
 const EIRCODE_RE = /^[A-Z]\d[\dW][A-Z0-9]{4}$/i;
 const AREA_CODE_RE = /^0\d{1,2}$/;
 
