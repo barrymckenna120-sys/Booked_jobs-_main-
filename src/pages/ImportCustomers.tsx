@@ -83,6 +83,19 @@ function parseDate(val: any): string | null {
   return null;
 }
 
+/** Validate and normalize Irish mobile number: 10 digits starting with 08 */
+function validatePhone(val: any): { valid: boolean; normalized: string | null; error?: string } {
+  if (!val) return { valid: false, normalized: null, error: "Phone Number is required" };
+  const str = String(val).trim();
+  // Remove all spaces
+  const normalized = str.replace(/\s/g, "");
+  // Must be 10 digits starting with 08
+  if (!/^08\d{8}$/.test(normalized)) {
+    return { valid: false, normalized: null, error: "Phone must be 10 digits starting with 08" };
+  }
+  return { valid: true, normalized };
+}
+
 function cellStr(row: any[], idx: number): string {
   const v = row[idx];
   if (v === undefined || v === null) return "";
@@ -184,7 +197,10 @@ const ImportCustomers = () => {
       const serviceStatus = field(row, "service_status");
 
       if (!name) errors.push("Customer Name is required");
-      if (!phone) errors.push("Phone Number is required");
+      const phoneValidation = validatePhone(phone);
+      if (!phoneValidation.valid) {
+        errors.push(phoneValidation.error || "Phone Number is required");
+      }
       if (!address) errors.push("Address is required");
       if (!eircode) errors.push("Eircode is required");
       if (boilerType && !["Gas", "Oil"].includes(boilerType)) errors.push("Boiler Type must be Gas or Oil");
@@ -212,7 +228,7 @@ const ImportCustomers = () => {
         rowNum: headerIdx + 2 + i, // 1-based Excel row number
         data: {
           name,
-          phone,
+          phone: phoneValidation.normalized || phone,
           email: field(row, "email"),
           address,
           eircode,
