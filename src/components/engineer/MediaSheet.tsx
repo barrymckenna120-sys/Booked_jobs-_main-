@@ -1,12 +1,13 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Video } from "lucide-react";
+import { Camera, Video, Play, X } from "lucide-react";
 import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import VideoUploadSheet from "./VideoUploadSheet";
 
 interface Props {
@@ -16,7 +17,22 @@ interface Props {
   onSave: () => void;
 }
 
-const isVideo = (type: string) => type?.startsWith("video/");
+interface MediaFile {
+  url: string;
+  name: string;
+  type: string;
+}
+
+const isVideo = (type: string) =>
+  type?.startsWith("video/") || type === "video";
+
+const isCloudinaryVideo = (url: string) =>
+  url?.includes("cloudinary.com");
+
+const getCloudinaryThumbnail = (url: string): string => {
+  if (!url || !url.includes("cloudinary.com")) return url;
+  return url.replace("/upload/", "/upload/so_0/").replace(/\.[^.]+$/, ".jpg");
+};
 
 const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   const { user } = useAuth();
@@ -25,21 +41,41 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   const videoRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [media, setMedia] = useState<{ url: string; name: string; type: string }[]>([]);
+  const [media, setMedia] = useState<MediaFile[]>([]);
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
+
+  // Load existing media from DB on mount
+  useEffect(() => {
+    const loadMedia = async () => {
+      const { data } = await supabase
+        .from("job_media")
+        .select("file_name, file_type, public_url")
+        .eq("job_id", job.id)
+        .order("uploaded_at");
+      if (data) {
+        setMedia(
+          data.map((m: any) => ({
+            url: m.public_url || "",
+            name: m.file_name,
+            type: m.file_type || "image",
+          }))
+        );
+      }
+    };
+    loadMedia();
+  }, [job.id]);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // If video, open preview/confirm sheet instead of uploading directly
     if (isVideo(file.type) || /\.(mp4|mov|avi|hevc|webm)$/i.test(file.name)) {
       setPendingVideoFile(file);
       if (videoRef.current) videoRef.current.value = "";
       return;
     }
 
-    // Photo: upload directly
     setUploading(true);
     setUploadProgress(0);
 
@@ -75,6 +111,9 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
     }
   };
 
+  const isMediaVideo = (m: MediaFile) =>
+    isVideo(m.type) || isCloudinaryVideo(m.url);
+
   return (
     <>
       <EngineerSheet onClose={onClose}>
@@ -87,16 +126,31 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
         <div className="px-5 pt-4 space-y-4">
           <div className="grid grid-cols-3 gap-2.5">
             {media.map((m, i) => (
-              <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary">
-                {isVideo(m.type) || m.url.includes("cloudinary.com") ? (
-                  <video src={getCloudinaryVideoUrl(m.url)} className="w-full h-full object-cover" muted playsInline />
+              <button
+                key={i}
+                onClick={() => setSelectedMedia(m)}
+                className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary relative"
+              >
+                {isMediaVideo(m) ? (
+                  <>
+                    <img
+                      src={m.url ? getCloudinaryThumbnail(m.url) : ""}
+                      alt={m.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
+                        <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
+                      </div>
+                    </div>
+                  </>
                 ) : (
-                  <img src={m.url} alt="" className="w-full h-full object-cover" />
+                  <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
                 )}
-              </div>
+              </button>
             ))}
 
-            {/* Upload progress for photos */}
             {uploading && (
               <div className="col-span-full space-y-1.5 py-2">
                 <div className="flex items-center justify-between text-xs font-semibold text-primary">
@@ -107,7 +161,6 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
               </div>
             )}
 
-            {/* Photo button */}
             <button
               onClick={() => photoRef.current?.click()}
               className="aspect-square rounded-xl border-2 border-dashed border-primary bg-primary/5 text-primary flex flex-col items-center justify-center gap-1 cursor-pointer"
@@ -117,7 +170,6 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
               <span className="text-[11px] font-bold">Photo</span>
             </button>
 
-            {/* Video button */}
             <button
               onClick={() => videoRef.current?.click()}
               className="aspect-square rounded-xl border-2 border-dashed border-primary bg-primary/5 text-primary flex flex-col items-center justify-center gap-1 cursor-pointer"
@@ -144,6 +196,35 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
         </div>
       </EngineerSheet>
 
+      {/* Fullscreen media viewer */}
+      <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+          <button
+            onClick={() => setSelectedMedia(null)}
+            className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-background/80 flex items-center justify-center"
+          >
+            <X className="w-5 h-5 text-foreground" />
+          </button>
+          <div className="flex items-center justify-center min-h-[50vh] p-2">
+            {selectedMedia && isMediaVideo(selectedMedia) ? (
+              <video
+                src={getCloudinaryVideoUrl(selectedMedia.url || "")}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[75vh] max-w-full rounded-lg"
+              />
+            ) : (
+              <img
+                src={selectedMedia?.url || ""}
+                alt={selectedMedia?.name}
+                className="max-h-[75vh] max-w-full object-contain rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Video preview/confirm sheet */}
       {pendingVideoFile && (
         <VideoUploadSheet
@@ -152,7 +233,23 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
           file={pendingVideoFile}
           onClose={() => setPendingVideoFile(null)}
           onSuccess={() => {
-            setMedia((prev) => [...prev, { url: "", name: pendingVideoFile.name, type: pendingVideoFile.type }]);
+            // Reload from DB to get the correct Cloudinary URL
+            supabase
+              .from("job_media")
+              .select("file_name, file_type, public_url")
+              .eq("job_id", job.id)
+              .order("uploaded_at")
+              .then(({ data }) => {
+                if (data) {
+                  setMedia(
+                    data.map((m: any) => ({
+                      url: m.public_url || "",
+                      name: m.file_name,
+                      type: m.file_type || "image",
+                    }))
+                  );
+                }
+              });
             setPendingVideoFile(null);
           }}
         />
