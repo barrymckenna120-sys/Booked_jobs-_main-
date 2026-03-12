@@ -140,6 +140,7 @@ const TeamManagement = () => {
     if (error) {
       console.error("[TeamManagement] list-users error:", error);
     } else if (data?.users) {
+      console.log("[TeamManagement] list-users raw response:", data);
       setAuthUsers(data.users);
       console.log("[TeamManagement] Auth users fetched:", data.users.length);
     }
