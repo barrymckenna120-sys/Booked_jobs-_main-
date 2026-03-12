@@ -197,7 +197,10 @@ const ImportCustomers = () => {
       const serviceStatus = field(row, "service_status");
 
       if (!name) errors.push("Customer Name is required");
-      if (!phone) errors.push("Phone Number is required");
+      const phoneValidation = validatePhone(phone);
+      if (!phoneValidation.valid) {
+        errors.push(phoneValidation.error || "Phone Number is required");
+      }
       if (!address) errors.push("Address is required");
       if (!eircode) errors.push("Eircode is required");
       if (boilerType && !["Gas", "Oil"].includes(boilerType)) errors.push("Boiler Type must be Gas or Oil");
