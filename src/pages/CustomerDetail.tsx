@@ -21,7 +21,7 @@ import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
-  formatEircode, RED_BORDER, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 
 const formatDateForInput = (val: string | null) => val || "";
