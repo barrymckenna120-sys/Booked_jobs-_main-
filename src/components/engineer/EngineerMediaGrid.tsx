@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
-import { Play, X, Image, ChevronDown, Camera } from "lucide-react";
+import { Play, X, Image, ChevronDown, Video } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
