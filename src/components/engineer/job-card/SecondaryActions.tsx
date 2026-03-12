@@ -10,6 +10,7 @@ interface SecondaryActionsProps {
   onNote: () => void;
   onPhotos: () => void;
   onExtraWork: () => void;
+  onMediaRefresh?: () => void;
 }
 
 const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWork }: SecondaryActionsProps) => {
