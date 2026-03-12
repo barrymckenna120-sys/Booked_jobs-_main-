@@ -194,7 +194,7 @@ const ImportCustomers = () => {
       ];
       for (const df of dateFieldKeys) {
         const val = field(row, df.key);
-        if (val && !parseIrishDate(val)) errors.push(`${df.label} must be in DD/MM/YYYY format`);
+        if (val && !parseDate(val)) errors.push(`${df.label} must be a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`);
       }
 
       results.push({
