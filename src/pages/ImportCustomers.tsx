@@ -162,7 +162,7 @@ const ImportCustomers = () => {
   const validateFile = async () => {
     if (!file) return;
     const data = await file.arrayBuffer();
-    const wb = XLSX.read(new Uint8Array(data), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(data), { type: "array", cellDates: true });
     const sheetName = wb.SheetNames.find((n) => n.toLowerCase().includes("customer")) || wb.SheetNames[0];
     const sheet = wb.Sheets[sheetName];
     const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
