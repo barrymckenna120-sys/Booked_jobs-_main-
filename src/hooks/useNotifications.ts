@@ -120,7 +120,9 @@ export function useNotifications() {
 
             // Play sound + vibrate for high priority
             if (soundEnabled) {
-              if (n.notification_type === "completed") {
+              if (n.notification_type === "message") {
+                playEngineerMessageAlert();
+              } else if (n.notification_type === "completed") {
                 playSoftChime();
               } else {
                 playDoubleBeep();
