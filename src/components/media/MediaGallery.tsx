@@ -174,7 +174,14 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   };
 
   if (loading) return <p className="text-xs text-muted-foreground">Loading media...</p>;
-  if (media.length === 0 && !showUpload) return <p className="text-xs text-muted-foreground">No photos or videos</p>;
+  if (media.length === 0 && !showUpload) return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+        <Play className="w-5 h-5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-muted-foreground">No photos or videos yet</p>
+    </div>
+  );
 
   const current = lightboxIndex !== null ? media[lightboxIndex] : null;
 
