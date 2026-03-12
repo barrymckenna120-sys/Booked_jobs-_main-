@@ -352,6 +352,12 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           }}
         />
       )}
+
+      <FormLeaveGuard
+        open={showLeaveGuard}
+        onKeepEditing={() => setShowLeaveGuard(false)}
+        onLeave={() => { setShowLeaveGuard(false); setCreating(false); setEditing(false); setFormErrors({}); }}
+      />
     </>
   );
 };
