@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Save, Send, Edit2, CreditCard, CheckCircle2, Loader2 } from "lucide-react";
 import SendQuoteModal from "./SendQuoteModal";
 import PaymentLinkForm from "./PaymentLinkForm";
+import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
+import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 type Quote = {
   id: string;
@@ -72,6 +74,8 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
   const [labourCost, setLabourCost] = useState("");
   const [calloutCost, setCalloutCost] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+  const [showLeaveGuard, setShowLeaveGuard] = useState(false);
 
   useEffect(() => {
     fetchQuote();
@@ -94,9 +98,14 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
     : parseFloat(totalAmount) || 0;
 
   const handleSave = async (andSend?: "whatsapp" | "email") => {
-    if (!user || !description.trim() || calculatedTotal <= 0) {
-      toast({ title: "Fill in description and total", variant: "destructive" });
+    const errs: Record<string, boolean> = {};
+    if (!description.trim()) errs.description = true;
+    if (calculatedTotal <= 0) errs.total = true;
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs);
       return;
+    }
+    if (!user) return;
     }
     setSaving(true);
     const payload = {
@@ -188,7 +197,14 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           <h3 className="font-bold text-base">{editing ? "Edit Quote" : "Create Quote"}</h3>
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">Quote Description *</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Replace faulty burner unit and test system" />
+            <Input
+              value={description}
+              onChange={(e) => { setDescription(e.target.value); setFormErrors(er => ({ ...er, description: false })); }}
+              onBlur={() => { if (!description.trim()) setFormErrors(er => ({ ...er, description: true })); }}
+              placeholder="e.g. Replace faulty burner unit and test system"
+              className={validationBorderClass(!!formErrors.description)}
+            />
+            <ValidationMessage show={!!formErrors.description} />
           </div>
 
           <div className="flex items-center gap-2">
@@ -219,12 +235,23 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           ) : (
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Total Price € *</Label>
-              <Input type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="0" />
+              <Input
+                type="number"
+                value={totalAmount}
+                onChange={(e) => { setTotalAmount(e.target.value); setFormErrors(er => ({ ...er, total: false })); }}
+                onBlur={() => { if (!showBreakdown && (parseFloat(totalAmount) || 0) <= 0) setFormErrors(er => ({ ...er, total: true })); }}
+                placeholder="0"
+                className={validationBorderClass(!!formErrors.total)}
+              />
+              <ValidationMessage show={!!formErrors.total} />
             </div>
           )}
 
           <div className="flex flex-wrap gap-2 pt-2">
-            <Button variant="outline" onClick={() => { setCreating(false); setEditing(false); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => {
+              const isDirty = description.trim() || totalAmount.trim() || partsCost.trim() || labourCost.trim() || calloutCost.trim();
+              if (isDirty) { setShowLeaveGuard(true); } else { setCreating(false); setEditing(false); setFormErrors({}); }
+            }}>Cancel</Button>
             <Button variant="outline" onClick={() => handleSave()} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
               <Save className="w-4 h-4 mr-1" /> Save as Draft
@@ -325,6 +352,12 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           }}
         />
       )}
+
+      <FormLeaveGuard
+        open={showLeaveGuard}
+        onKeepEditing={() => setShowLeaveGuard(false)}
+        onLeave={() => { setShowLeaveGuard(false); setCreating(false); setEditing(false); setFormErrors({}); }}
+      />
     </>
   );
 };

@@ -95,6 +95,7 @@ const Quotes = () => {
 
   // Create form
   const [createOpen, setCreateOpen] = useState(false);
+  const [showCreateLeaveGuard, setShowCreateLeaveGuard] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [formCustomerId, setFormCustomerId] = useState("");
@@ -133,6 +134,7 @@ const Quotes = () => {
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, boolean>>({});
   const [resendPromptOpen, setResendPromptOpen] = useState(false);
   const [resendQuoteData, setResendQuoteData] = useState<{ phone: string; firstName: string; ref: string; description: string; total: number; notes: string } | null>(null);
   const originalEditFormRef = useRef({ status: "", jobType: "", description: "", total: "", engineerId: "", engineerName: "", notes: "" });
@@ -202,8 +204,11 @@ const Quotes = () => {
   const saveEdit = async () => {
     if (!selected || !user) return;
     const total = parseFloat(editForm.total);
-    if (!editForm.description.trim() || isNaN(total) || total <= 0) {
-      toast({ title: "Description and valid total required", variant: "destructive" });
+    const errs: Record<string, boolean> = {};
+    if (!editForm.description.trim()) errs.description = true;
+    if (isNaN(total) || total <= 0) errs.total = true;
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs);
       return;
     }
     setEditSaving(true);
@@ -788,20 +793,26 @@ const Quotes = () => {
                                 </Select>
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Work Description</Label>
+                                <Label className="text-xs font-semibold">Work Description *</Label>
                                 <Textarea
                                   value={editForm.description}
-                                  onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                  onChange={(e) => { setEditForm(f => ({ ...f, description: e.target.value })); setEditErrors(er => ({ ...er, description: false })); }}
+                                  onBlur={() => { if (!editForm.description.trim()) setEditErrors(er => ({ ...er, description: true })); }}
                                   rows={3}
+                                  className={validationBorderClass(!!editErrors.description)}
                                 />
+                                <ValidationMessage show={!!editErrors.description} />
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold">Total (€)</Label>
+                                <Label className="text-xs font-semibold">Total (€) *</Label>
                                 <Input
                                   type="number"
                                   value={editForm.total}
-                                  onChange={(e) => setEditForm(f => ({ ...f, total: e.target.value }))}
+                                  onChange={(e) => { setEditForm(f => ({ ...f, total: e.target.value })); setEditErrors(er => ({ ...er, total: false })); }}
+                                  onBlur={() => { const t = parseFloat(editForm.total); if (isNaN(t) || t <= 0) setEditErrors(er => ({ ...er, total: true })); }}
+                                  className={validationBorderClass(!!editErrors.total)}
                                 />
+                                <ValidationMessage show={!!editErrors.total} />
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Assigned Engineer</Label>
@@ -1185,7 +1196,13 @@ const Quotes = () => {
       </Dialog>
 
       {/* ── Create Quote Dialog ── */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(o) => {
+        if (!o && (formCustomerId || formJobId || formDesc.trim() || formTotal.trim())) {
+          setShowCreateLeaveGuard(true);
+        } else {
+          setCreateOpen(o);
+        }
+      }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New Quote</DialogTitle>
@@ -1314,6 +1331,13 @@ const Quotes = () => {
           setPendingAction(null);
           action?.();
         }}
+      />
+
+      {/* Leave guard for Create Quote dialog */}
+      <FormLeaveGuard
+        open={showCreateLeaveGuard}
+        onKeepEditing={() => setShowCreateLeaveGuard(false)}
+        onLeave={() => { setShowCreateLeaveGuard(false); setCreateOpen(false); }}
       />
     </div>
   );
