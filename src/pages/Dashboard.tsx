@@ -13,6 +13,7 @@ import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 
 import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
+import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -81,6 +82,8 @@ const Dashboard = () => {
       {/* Today's Revenue */}
       <TodaysRevenueCard />
 
+      {/* Jobs Update */}
+      <JobsUpdateSection />
 
       {/* Needs Attention */}
       <AlertsPanel />
