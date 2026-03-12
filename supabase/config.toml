@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.send-reset-email]
 verify_jwt = false
+
+[functions.list-users]
+verify_jwt = false
+
+[functions.unblock-user]
+verify_jwt = false

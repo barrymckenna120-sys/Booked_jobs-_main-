@@ -77,6 +77,14 @@ const ROLE_COLORS: Record<string, string> = {
   engineer: "bg-green-100 text-green-700 border-green-200",
 };
 
+interface AuthUser {
+  id: string;
+  email: string | null;
+  banned_until: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+}
+
 interface TeamMember {
   id: string;
   name: string;
@@ -94,6 +102,7 @@ const TeamManagement = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -126,15 +135,22 @@ const TeamManagement = () => {
     setLoading(false);
   }, [user]);
 
+  const fetchAuthUsers = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("list-users");
+    if (error) {
+      console.error("[TeamManagement] list-users error:", error);
+    } else if (data?.users) {
+      setAuthUsers(data.users);
+      console.log("[TeamManagement] Auth users fetched:", data.users.length);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       fetchMembers();
-      // Test: attempt to list auth users from client (anon key)
-      supabase.auth.admin.listUsers().then(({ data, error }) => {
-        console.log("[TeamManagement] auth.admin.listUsers result:", { data, error });
-      });
+      fetchAuthUsers();
     }
-  }, [user, fetchMembers]);
+  }, [user, fetchMembers, fetchAuthUsers]);
 
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
@@ -240,6 +256,19 @@ const TeamManagement = () => {
   };
 
   const handleUnblock = async (id: string) => {
+    const member = members.find((m) => m.id === id);
+
+    // Clear ban in auth if user has an auth account
+    if (member?.auth_user_id) {
+      const { error } = await supabase.functions.invoke("unblock-user", {
+        body: { userId: member.auth_user_id },
+      });
+      if (error) {
+        console.error("[TeamManagement] unblock-user error:", error);
+        toast({ title: "Failed to clear auth lockout", variant: "destructive" });
+      }
+    }
+
     await supabase
       .from("engineers")
       .update({ status: "active", blocked_reason: null, is_available: true } as any)
@@ -247,14 +276,15 @@ const TeamManagement = () => {
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
-    const m = members.find((m) => m.id === id);
-    toast({ title: `${m?.name} has been unblocked` });
+    toast({ title: `${member?.name} has been unblocked` });
     logAudit({
       action_type: "user_unblocked",
       entity_type: "user",
       entity_id: id,
-      detail: `Unblocked: ${m?.name}`,
+      detail: `Unblocked: ${member?.name}`,
     });
+    // Refresh auth users list
+    fetchAuthUsers();
   };
 
   const handleDelete = async () => {
