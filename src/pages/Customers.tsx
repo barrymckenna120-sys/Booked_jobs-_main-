@@ -34,7 +34,15 @@ const Customers = () => {
   const fetchCustomers = async () => {
     setLoading(true);
     const { data } = await supabase.from("customers").select("*").order("name");
-    if (data) setCustomers(data);
+    if (data) {
+      // Sort by surname (last word of name) A-Z
+      data.sort((a: any, b: any) => {
+        const surnameA = (a.name || "").trim().split(/\s+/).pop()?.toLowerCase() || "";
+        const surnameB = (b.name || "").trim().split(/\s+/).pop()?.toLowerCase() || "";
+        return surnameA.localeCompare(surnameB);
+      });
+      setCustomers(data);
+    }
     setLoading(false);
   };
 
