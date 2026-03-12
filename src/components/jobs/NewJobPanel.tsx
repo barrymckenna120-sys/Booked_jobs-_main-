@@ -359,15 +359,17 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     },
   });
 
+  const dbBlock = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || block;
+
   // Get job counts for selected date + block per engineer
   const { data: slotCounts = {} } = useQuery({
-    queryKey: ["slot-counts", date, block],
+    queryKey: ["slot-counts", date, dbBlock],
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
         .select("assigned_engineer_id")
         .eq("scheduled_date", date)
-        .eq("time_block", block)
+        .eq("time_block", dbBlock)
         .not("status", "in", "(Cancelled)");
       const counts: Record<string, number> = {};
       (data || []).forEach((j: any) => { if (j.assigned_engineer_id) counts[j.assigned_engineer_id] = (counts[j.assigned_engineer_id] || 0) + 1; });
@@ -375,6 +377,27 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     },
     enabled: !!date && !!block,
   });
+
+  // Total slot capacity check from settings.job_time_blocks
+  const { data: slotMaxJobs } = useQuery({
+    queryKey: ["slot-max-jobs"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      return (data?.job_time_blocks as any[] | null) || [];
+    },
+  });
+
+  const totalSlotJobs = Object.values(slotCounts as Record<string, number>).reduce((a, b) => a + b, 0);
+  const slotConfig = (slotMaxJobs || []).find((s: any) => {
+    const label = (s.label || "").toLowerCase();
+    const blockLabel = (TIME_BLOCKS.find((t) => t.id === block)?.label || "").toLowerCase();
+    // Match by label or by start/end times
+    if (label === blockLabel) return true;
+    const dbVal = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || "";
+    return dbVal === `${s.start}–${s.end}` || dbVal.replace(/\s/g, "") === `${s.start}–${s.end}`.replace(/\s/g, "");
+  });
+  const maxJobsForSlot = slotConfig?.max_jobs ?? Infinity;
+  const isSlotFull = totalSlotJobs >= maxJobsForSlot && maxJobsForSlot < Infinity;
 
   // Holiday block check for selected engineer
   useEffect(() => {
