@@ -419,25 +419,16 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const maxJobsForSlot = slotConfig?.max_jobs ?? Infinity;
   const isSlotFull = totalSlotJobs >= maxJobsForSlot && maxJobsForSlot < Infinity;
 
-  // Holiday block check for selected engineer
+  // Holiday block check for selected engineer (uses pre-fetched data)
   useEffect(() => {
     if (!engineer || !date) { setHolidayBlock(null); return; }
-    const checkBlock = async () => {
-      const eng = engineers.find((e: any) => e.id === engineer);
-      const { data } = await supabase
-        .from("engineer_blocks")
-        .select("id, block_date, end_date")
-        .eq("engineer_id", engineer)
-        .lte("block_date", date)
-        .or(`end_date.gte.${date},end_date.is.null`);
-      // For rows with null end_date, check if block_date matches exactly
-      const match = (data || []).some((b: any) =>
-        b.end_date ? b.block_date <= date && b.end_date >= date : b.block_date === date
-      );
-      setHolidayBlock(match && eng ? { engineerName: eng.name } : null);
-    };
-    checkBlock();
-  }, [engineer, date, engineers]);
+    const eng = engineers.find((e: any) => e.id === engineer);
+    if (engineersOnLeaveSet.has(engineer) && eng) {
+      setHolidayBlock({ engineerName: eng.name });
+    } else {
+      setHolidayBlock(null);
+    }
+  }, [engineer, date, engineers, engineersOnLeaveSet.size]);
 
   const isOnLeave = !!holidayBlock;
 
