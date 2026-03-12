@@ -31,7 +31,7 @@ const isCloudinaryVideo = (url: string) =>
 
 const getCloudinaryThumbnail = (url: string): string => {
   if (!url || !url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/");
+  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/").replace(/\.[^.]+$/, ".jpg");
 };
 
 const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
