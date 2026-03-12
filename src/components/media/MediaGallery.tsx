@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Play } from "lucide-react";
+import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
 
 type MediaItem = {
   id: string;
@@ -95,7 +96,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             onClick={() => setLightboxIndex(i)}
             className="relative rounded-lg overflow-hidden border border-border h-[160px] group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
           >
-            {m.file_type === "video" ? (
+            {m.file_type === "video" || (m.public_url && m.public_url.includes("cloudinary.com")) ? (
               <div className="w-full h-full bg-foreground/10 flex items-center justify-center">
                 <Play className="w-10 h-10 text-background/80" />
                 <span className="absolute bottom-2 left-2 text-[10px] text-background bg-foreground/60 px-1.5 py-0.5 rounded">{m.file_name}</span>
@@ -156,8 +157,8 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
               </>
             )}
 
-            {current?.file_type === "video" ? (
-              <video src={current.public_url || ""} controls className="max-h-[80vh] max-w-full" autoPlay />
+            {current?.file_type === "video" || (current?.public_url && current.public_url.includes("cloudinary.com")) ? (
+              <video src={getCloudinaryVideoUrl(current.public_url || "")} controls className="max-h-[80vh] max-w-full" autoPlay />
             ) : (
               <img src={current?.public_url || ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}
