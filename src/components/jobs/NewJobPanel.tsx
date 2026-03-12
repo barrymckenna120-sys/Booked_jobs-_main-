@@ -349,6 +349,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const [block, setBlock] = useState(prefilledBlock || "9–11");
   const [engineer, setEngineer] = useState(prefilledEngineer || "");
   const [errors, setErrors] = useState<{ date?: boolean; block?: boolean; engineer?: boolean }>({});
+  const [holidayBlock, setHolidayBlock] = useState<{ engineerName: string } | null>(null);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-new-job"],
@@ -375,13 +376,35 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     enabled: !!date && !!block,
   });
 
+  // Holiday block check for selected engineer
+  useEffect(() => {
+    if (!engineer || !date) { setHolidayBlock(null); return; }
+    const checkBlock = async () => {
+      const eng = engineers.find((e: any) => e.id === engineer);
+      const { data } = await supabase
+        .from("engineer_blocks")
+        .select("id, block_date, end_date")
+        .eq("engineer_id", engineer)
+        .lte("block_date", date)
+        .or(`end_date.gte.${date},end_date.is.null`);
+      // For rows with null end_date, check if block_date matches exactly
+      const match = (data || []).some((b: any) =>
+        b.end_date ? b.block_date <= date && b.end_date >= date : b.block_date === date
+      );
+      setHolidayBlock(match && eng ? { engineerName: eng.name } : null);
+    };
+    checkBlock();
+  }, [engineer, date, engineers]);
+
+  const isOnLeave = !!holidayBlock;
+
   const handleNext = () => {
     const e: typeof errors = {};
     if (!date) e.date = true;
     if (!block) e.block = true;
     if (!engineer) e.engineer = true;
     setErrors(e);
-    if (Object.keys(e).length > 0) return;
+    if (Object.keys(e).length > 0 || isOnLeave) return;
     onNext({ date, timeBlock: block, engineerId: engineer });
   };
 
@@ -450,12 +473,21 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
             })}
           </div>
           <ValidationMessage show={!!errors.engineer} />
+
+          {isOnLeave && (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                ⚠️ {holidayBlock!.engineerName} is on leave on this date and cannot be assigned.
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" onClick={handleNext}>
+        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave} onClick={handleNext}>
           Set payment →
         </Button>
       </div>
