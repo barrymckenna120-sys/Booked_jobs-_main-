@@ -95,6 +95,7 @@ const Quotes = () => {
 
   // Create form
   const [createOpen, setCreateOpen] = useState(false);
+  const [showCreateLeaveGuard, setShowCreateLeaveGuard] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [formCustomerId, setFormCustomerId] = useState("");
