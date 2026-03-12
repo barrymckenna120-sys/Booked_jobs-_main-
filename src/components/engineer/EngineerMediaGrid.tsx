@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
-import { Play, X, Image, ChevronDown, Camera } from "lucide-react";
+import { Play, X, Image, ChevronDown, Video } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -55,16 +55,15 @@ const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
   });
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="mb-3">
-      <CollapsibleTrigger className="flex items-center justify-between w-full py-2 group">
-        <div className="flex items-center gap-1.5">
-          <Camera className="w-3.5 h-3.5 text-muted-foreground/60" />
-          <span className="text-[11px] font-bold text-muted-foreground/60 tracking-wider">📹 PHOTOS & VIDEOS</span>
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
+      <CollapsibleTrigger className="flex items-center justify-between w-full bg-muted/40 rounded-xl px-4 py-3 text-sm font-bold text-foreground">
+        <span className="flex items-center gap-2">
+          <Video className="w-4 h-4 text-[#4A86E8]" /> Photos & Videos
           {media.length > 0 && (
             <span className="text-[10px] bg-muted rounded-full px-1.5 py-0.5 font-bold text-muted-foreground">{media.length}</span>
           )}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground/50 transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </CollapsibleTrigger>
 
       <CollapsibleContent>
