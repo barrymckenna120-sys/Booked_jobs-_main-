@@ -202,7 +202,8 @@ const ImportCustomers = () => {
       for (const df of dateFieldKeys) {
         const val = field(row, df.key);
         // Skip validation if it's already a Date object (SheetJS parsed it)
-        if (val && !(val instanceof Date) && !parseDate(val)) {
+        if (val && (val as any) instanceof Date) continue;
+        if (val && !parseDate(val)) {
           errors.push(`${df.label} must be a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`);
         }
       }
