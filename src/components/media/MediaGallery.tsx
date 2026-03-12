@@ -36,6 +36,35 @@ const getCloudinaryThumbnail = (url: string): string => {
     .replace(/\.[^.]+$/, ".jpg");
 };
 
+const formatDuration = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
+/** Hook to detect video durations from Cloudinary MP4 URLs */
+const useVideoDurations = (media: MediaItem[]) => {
+  const [durations, setDurations] = useState<Record<string, number>>({});
+  const resolved = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    media.forEach((m) => {
+      if (!isVideoItem(m) || !m.public_url || resolved.current.has(m.id)) return;
+      resolved.current.add(m.id);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.src = getCloudinaryVideoUrl(m.public_url);
+      video.onloadedmetadata = () => {
+        if (isFinite(video.duration)) {
+          setDurations((prev) => ({ ...prev, [m.id]: video.duration }));
+        }
+        video.src = "";
+      };
+    });
+  }, [media]);
+
+  return durations;
+};
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
