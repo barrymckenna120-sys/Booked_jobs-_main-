@@ -84,9 +84,20 @@ const Jobs = () => {
     return sortDir === "asc" ? <ArrowUp className="w-3.5 h-3.5 ml-1" /> : <ArrowDown className="w-3.5 h-3.5 ml-1" />;
   };
 
+  const INCOMPLETE_STATUSES = ["Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
+
   const filtered = jobs
     .filter(j => {
-      const matchStatus = statusFilter === "all" || j.status === statusFilter;
+      let matchStatus: boolean;
+      if (statusFilter === "all") {
+        matchStatus = true;
+      } else if (statusFilter === "incomplete,cancelled") {
+        matchStatus = INCOMPLETE_STATUSES.includes(j.status) || j.status === "Cancelled";
+      } else if (statusFilter === "incomplete") {
+        matchStatus = INCOMPLETE_STATUSES.includes(j.status);
+      } else {
+        matchStatus = j.status === statusFilter;
+      }
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
