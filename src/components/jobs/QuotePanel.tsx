@@ -197,7 +197,14 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           <h3 className="font-bold text-base">{editing ? "Edit Quote" : "Create Quote"}</h3>
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">Quote Description *</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Replace faulty burner unit and test system" />
+            <Input
+              value={description}
+              onChange={(e) => { setDescription(e.target.value); setFormErrors(er => ({ ...er, description: false })); }}
+              onBlur={() => { if (!description.trim()) setFormErrors(er => ({ ...er, description: true })); }}
+              placeholder="e.g. Replace faulty burner unit and test system"
+              className={validationBorderClass(!!formErrors.description)}
+            />
+            <ValidationMessage show={!!formErrors.description} />
           </div>
 
           <div className="flex items-center gap-2">
