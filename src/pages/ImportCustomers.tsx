@@ -201,7 +201,7 @@ const ImportCustomers = () => {
       const serviceStatus = field(row, "service_status");
 
       if (!name) errors.push("Customer Name is required");
-      const phoneValidation = validatePhone(phone);
+      const phoneValidation = validateImportPhone(phone);
       if (!phoneValidation.valid) {
         errors.push(phoneValidation.error || "Phone Number is required");
       }
