@@ -63,7 +63,7 @@ const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWo
           customer={customer}
           file={pendingFile}
           onClose={() => setPendingFile(null)}
-          onSuccess={() => {}}
+          onSuccess={() => { onMediaRefresh?.(); }}
         />
       )}
     </>
