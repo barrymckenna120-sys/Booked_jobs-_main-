@@ -129,14 +129,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
             className="aspect-square rounded-xl border-2 border-dashed border-primary bg-primary/5 text-primary flex flex-col items-center justify-center gap-1 cursor-pointer"
             disabled={uploading}
           >
-            {uploading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <>
-                <Video className="w-6 h-6" />
-                <span className="text-[11px] font-bold">Video</span>
-              </>
-            )}
+            <Video className="w-6 h-6" />
+            <span className="text-[11px] font-bold">Video</span>
           </button>
         </div>
 
