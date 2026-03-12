@@ -129,6 +129,7 @@ const ImportCustomers = () => {
     imported: number;
     updated: number;
     skipped: number;
+    failedRows: { name: string; reason: string }[];
   } | null>(null);
 
   const handleFile = (f: File) => {
@@ -267,6 +268,21 @@ const ImportCustomers = () => {
     setValidated(true);
   };
 
+  /** Strip null/empty optional fields so we don't send null values that may violate constraints */
+  const cleanData = (raw: Record<string, any>): Record<string, any> => {
+    const required = ["name", "phone", "address", "eircode"];
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (required.includes(key)) {
+        cleaned[key] = value;
+      } else if (value !== null && value !== undefined && value !== "") {
+        cleaned[key] = value;
+      }
+      // skip null/empty optional fields entirely
+    }
+    return cleaned;
+  };
+
   const handleImport = async () => {
     if (!user) return;
     const validRows = parsedRows.filter((r) => r.isValid);
@@ -277,38 +293,40 @@ const ImportCustomers = () => {
     let imported = 0;
     let updated = 0;
     let skipped = 0;
+    const failedRows: { name: string; reason: string }[] = [];
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
       try {
+        const cleaned = cleanData(row.data);
+
         // Check if customer with same phone exists
         const { data: existing } = await supabase
           .from("customers")
           .select("id")
-          .eq("phone", row.data.phone)
+          .eq("phone", cleaned.phone)
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (existing) {
           const { error } = await supabase
             .from("customers")
-            .update(row.data)
+            .update(cleaned)
             .eq("id", existing.id);
           if (error) throw error;
           updated++;
         } else {
           const { error } = await supabase
             .from("customers")
-            .insert([{ ...row.data, user_id: user.id } as any]);
+            .insert([{ ...cleaned, user_id: user.id } as any]);
           if (error) throw error;
           imported++;
         }
       } catch (err: any) {
         skipped++;
-        toast({
-          title: `Error on row ${row.rowNum}`,
-          description: err.message,
-          variant: "destructive",
+        failedRows.push({
+          name: row.data.name || `Row ${row.rowNum}`,
+          reason: err.message || "Unknown error",
         });
       }
 
@@ -316,7 +334,7 @@ const ImportCustomers = () => {
     }
 
     setImporting(false);
-    setImportResult({ imported, updated, skipped });
+    setImportResult({ imported, updated, skipped, failedRows });
   };
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
@@ -339,16 +357,16 @@ const ImportCustomers = () => {
             <h1 className="text-xl font-bold">Import Customers</h1>
           </div>
         </header>
-        <div className="max-w-md mx-auto px-4 py-12">
+        <div className="max-w-lg mx-auto px-4 py-12 space-y-4">
           <Card>
             <CardContent className="pt-8 text-center space-y-4">
-              <div className="text-5xl">✅</div>
+              <div className="text-5xl">{importResult.skipped > 0 ? "⚠️" : "✅"}</div>
               <h2 className="text-xl font-bold">Import Complete!</h2>
               <div className="space-y-1 text-sm">
-                <p><strong>{importResult.imported}</strong> customers imported</p>
+                <p><strong>{importResult.imported}</strong> customers imported successfully</p>
                 <p><strong>{importResult.updated}</strong> customers updated</p>
                 {importResult.skipped > 0 && (
-                  <p><strong>{importResult.skipped}</strong> rows skipped (errors)</p>
+                  <p className="text-destructive font-medium"><strong>{importResult.skipped}</strong> rows failed</p>
                 )}
               </div>
               <div className="flex gap-3 justify-center pt-4">
@@ -362,6 +380,26 @@ const ImportCustomers = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Failed rows detail */}
+          {importResult.failedRows.length > 0 && (
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-destructive" />
+                  Failed Rows ({importResult.failedRows.length})
+                </h3>
+                <div className="divide-y divide-border">
+                  {importResult.failedRows.map((fr, idx) => (
+                    <div key={idx} className="py-2 text-sm">
+                      <p className="font-medium">{fr.name}</p>
+                      <p className="text-muted-foreground text-xs">{fr.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     );
