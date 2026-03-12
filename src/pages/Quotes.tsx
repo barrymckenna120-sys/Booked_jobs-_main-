@@ -204,8 +204,11 @@ const Quotes = () => {
   const saveEdit = async () => {
     if (!selected || !user) return;
     const total = parseFloat(editForm.total);
-    if (!editForm.description.trim() || isNaN(total) || total <= 0) {
-      toast({ title: "Description and valid total required", variant: "destructive" });
+    const errs: Record<string, boolean> = {};
+    if (!editForm.description.trim()) errs.description = true;
+    if (isNaN(total) || total <= 0) errs.total = true;
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs);
       return;
     }
     setEditSaving(true);
