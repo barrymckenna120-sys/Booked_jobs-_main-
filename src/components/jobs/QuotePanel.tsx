@@ -106,7 +106,6 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
       return;
     }
     if (!user) return;
-    }
     setSaving(true);
     const payload = {
       job_id: jobId,
