@@ -94,8 +94,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
         <div className="grid grid-cols-3 gap-2.5">
           {media.map((m, i) => (
             <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary">
-              {isVideo(m.type) ? (
-                <video src={m.url} className="w-full h-full object-cover" muted playsInline />
+              {isVideo(m.type) || m.url.includes("cloudinary.com") ? (
+                <video src={getCloudinaryVideoUrl(m.url)} className="w-full h-full object-cover" muted playsInline />
               ) : (
                 <img src={m.url} alt="" className="w-full h-full object-cover" />
               )}
