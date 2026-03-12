@@ -129,6 +129,7 @@ const ImportCustomers = () => {
     imported: number;
     updated: number;
     skipped: number;
+    failedRows: { name: string; reason: string }[];
   } | null>(null);
 
   const handleFile = (f: File) => {
