@@ -162,7 +162,7 @@ const ImportCustomers = () => {
   const validateFile = async () => {
     if (!file) return;
     const data = await file.arrayBuffer();
-    const wb = XLSX.read(new Uint8Array(data), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(data), { type: "array", cellDates: true });
     const sheetName = wb.SheetNames.find((n) => n.toLowerCase().includes("customer")) || wb.SheetNames[0];
     const sheet = wb.Sheets[sheetName];
     const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -179,6 +179,12 @@ const ImportCustomers = () => {
     const field = (row: any[], key: string): string => {
       const idx = colMap[key];
       return idx !== undefined ? cellStr(row, idx) : "";
+    };
+    // Raw field accessor that preserves Date objects for date columns
+    const rawField = (row: any[], key: string): any => {
+      const idx = colMap[key];
+      if (idx === undefined) return undefined;
+      return row[idx];
     };
 
     // Data rows start immediately after the header row
@@ -220,10 +226,11 @@ const ImportCustomers = () => {
         { key: "customer_since", label: "Customer Since" },
       ];
       for (const df of dateFieldKeys) {
-        const val = field(row, df.key);
-        // Skip validation if it's already a Date object (SheetJS parsed it)
-        if (val && (val as any) instanceof Date) continue;
-        if (val && !parseDate(val)) {
+        const rawVal = rawField(row, df.key);
+        // Skip if empty, already a Date object, or parseable
+        if (!rawVal) continue;
+        if (rawVal instanceof Date) continue;
+        if (!parseDate(rawVal)) {
           errors.push(`${df.label} must be a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`);
         }
       }
@@ -240,16 +247,16 @@ const ImportCustomers = () => {
           access_notes: field(row, "access_notes"),
           boiler_make_model: field(row, "boiler_make_model"),
           boiler_type: boilerType || null,
-          boiler_installation_date: parseDate(field(row, "boiler_installation_date")),
+          boiler_installation_date: parseDate(rawField(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
-          last_service_date: parseDate(field(row, "last_service_date")),
+          last_service_date: parseDate(rawField(row, "last_service_date")),
           last_service_engineer: field(row, "last_service_engineer"),
           engineer_notes: field(row, "engineer_notes"),
-          next_service_due: parseDate(field(row, "next_service_due")),
+          next_service_due: parseDate(rawField(row, "next_service_due")),
           service_status: serviceStatus || "Up to Date",
           assigned_engineer: field(row, "assigned_engineer"),
           notes: field(row, "notes"),
-          customer_since: parseDate(field(row, "customer_since")),
+          customer_since: parseDate(rawField(row, "customer_since")),
         },
         errors,
         isValid: errors.length === 0,
