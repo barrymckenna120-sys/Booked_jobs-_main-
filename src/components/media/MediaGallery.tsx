@@ -38,10 +38,12 @@ const getCloudinaryThumbnail = (url: string): string => {
     .replace(/\.[^.]+$/, ".jpg");
 };
 
-const formatDuration = (seconds: number): string => {
+const formatDuration = (seconds: number): string | null => {
+  if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return null;
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+};
 };
 
 /** Hook to detect video durations from Cloudinary MP4 URLs */
