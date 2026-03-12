@@ -376,13 +376,35 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     enabled: !!date && !!block,
   });
 
+  // Holiday block check for selected engineer
+  useEffect(() => {
+    if (!engineer || !date) { setHolidayBlock(null); return; }
+    const checkBlock = async () => {
+      const eng = engineers.find((e: any) => e.id === engineer);
+      const { data } = await supabase
+        .from("engineer_blocks")
+        .select("id, block_date, end_date")
+        .eq("engineer_id", engineer)
+        .lte("block_date", date)
+        .or(`end_date.gte.${date},end_date.is.null`);
+      // For rows with null end_date, check if block_date matches exactly
+      const match = (data || []).some((b: any) =>
+        b.end_date ? b.block_date <= date && b.end_date >= date : b.block_date === date
+      );
+      setHolidayBlock(match && eng ? { engineerName: eng.name } : null);
+    };
+    checkBlock();
+  }, [engineer, date, engineers]);
+
+  const isOnLeave = !!holidayBlock;
+
   const handleNext = () => {
     const e: typeof errors = {};
     if (!date) e.date = true;
     if (!block) e.block = true;
     if (!engineer) e.engineer = true;
     setErrors(e);
-    if (Object.keys(e).length > 0) return;
+    if (Object.keys(e).length > 0 || isOnLeave) return;
     onNext({ date, timeBlock: block, engineerId: engineer });
   };
 
