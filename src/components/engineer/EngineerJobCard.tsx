@@ -125,8 +125,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {/* Collapsible Service History & Notes */}
         <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
         <JobNotesSection jobId={job.id} customerId={job.customer_id} jobNotes={job.notes} />
-        <EngineerJobMessages jobId={job.id} officeUserId={job.user_id} />
         <EngineerMediaGrid jobId={job.id} />
+        <EngineerJobMessages jobId={job.id} officeUserId={job.user_id} />
 
         {!isDone && (
           <SecondaryActions
