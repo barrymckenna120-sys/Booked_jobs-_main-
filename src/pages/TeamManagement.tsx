@@ -546,9 +546,9 @@ const TeamManagement = () => {
                         ✓ Login linked
                       </div>
                     )}
-                    {isBlocked && member.blocked_reason && (
+                    {isBlocked && (member.blocked_reason || authLockedOut) && (
                       <div className="text-xs text-destructive font-medium mt-0.5">
-                        🚫 Blocked: {member.blocked_reason}
+                        🚫 {authLockedOut && member.status !== "blocked" ? "Locked out (failed login attempts)" : `Blocked: ${member.blocked_reason || "No reason"}`}
                       </div>
                     )}
                   </div>
