@@ -235,7 +235,15 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
           ) : (
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Total Price € *</Label>
-              <Input type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="0" />
+              <Input
+                type="number"
+                value={totalAmount}
+                onChange={(e) => { setTotalAmount(e.target.value); setFormErrors(er => ({ ...er, total: false })); }}
+                onBlur={() => { if (!showBreakdown && (parseFloat(totalAmount) || 0) <= 0) setFormErrors(er => ({ ...er, total: true })); }}
+                placeholder="0"
+                className={validationBorderClass(!!formErrors.total)}
+              />
+              <ValidationMessage show={!!formErrors.total} />
             </div>
           )}
 
