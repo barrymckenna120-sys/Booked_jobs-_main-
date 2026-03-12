@@ -349,6 +349,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const [block, setBlock] = useState(prefilledBlock || "9–11");
   const [engineer, setEngineer] = useState(prefilledEngineer || "");
   const [errors, setErrors] = useState<{ date?: boolean; block?: boolean; engineer?: boolean }>({});
+  const [holidayBlock, setHolidayBlock] = useState<{ engineerName: string } | null>(null);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-new-job"],
