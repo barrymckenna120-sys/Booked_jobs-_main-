@@ -94,6 +94,32 @@ Deno.serve(async (req) => {
       console.error('Quote update failed:', updateErr)
     }
 
+    // Log to whatsapp_messages for tracking
+    const { data: quoteRow } = await supabase
+      .from('quotes')
+      .select('user_id, customer_id')
+      .eq('id', quote_id)
+      .single()
+
+    if (quoteRow) {
+      const { error: logErr } = await supabase
+        .from('whatsapp_messages')
+        .insert({
+          user_id: quoteRow.user_id,
+          customer_id: quoteRow.customer_id,
+          message_type: 'quote',
+          message_body: message,
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          sent_by: 'system',
+          linked_quote_id: quote_id,
+        })
+
+      if (logErr) {
+        console.error('WhatsApp message log failed:', logErr)
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, message_id: waResult?.messages?.[0]?.id }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
