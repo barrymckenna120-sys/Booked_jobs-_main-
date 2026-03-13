@@ -16,6 +16,7 @@ import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 type Quote = {
   id: string;
+  job_id: string;
   description: string;
   parts_cost: number | null;
   labour_cost: number | null;
@@ -162,11 +163,19 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
     // Auto-create job when accepted
     if (newStatus === "Accepted" && !quote.converted_job_id && user) {
       const quoteRef = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
+      // Get original job details for engineer & type
+      const { data: origJob } = await supabase.from("service_calls")
+        .select("job_type, assigned_engineer, assigned_engineer_id")
+        .eq("id", quote.job_id)
+        .maybeSingle();
+
       const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
         customer_id: customerId,
         user_id: user.id,
-        job_type: "Repair",
+        job_type: (origJob as any)?.job_type || "Repair",
         job_issue: quote.description,
+        assigned_engineer: (origJob as any)?.assigned_engineer || null,
+        assigned_engineer_id: (origJob as any)?.assigned_engineer_id || null,
         status: "Pending",
         has_quote: true,
         notes: `Created from quote ${quoteRef}`,
