@@ -799,8 +799,10 @@ const Quotes = () => {
         <Card className="border-dashed">
           <CardContent className="p-12 text-center space-y-3">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground" />
-            <p className="font-bold">No {filter !== "All" ? filter : ""} quotes</p>
-            <p className="text-sm text-muted-foreground">Tap + New Quote to create one</p>
+            <p className="font-bold">No {filter !== "All" ? filter + " " : ""}quotes {hasActiveFilters ? "match your filters" : "found"}</p>
+            <p className="text-sm text-muted-foreground">
+              {hasActiveFilters ? <Button variant="link" className="p-0 h-auto text-sm" onClick={clearAllFilters}>Clear all filters</Button> : "Tap + New Quote to create one"}
+            </p>
           </CardContent>
         </Card>
       ) : (
