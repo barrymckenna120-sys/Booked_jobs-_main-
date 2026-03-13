@@ -414,11 +414,31 @@ const Quotes = () => {
     setWhatsappOpen(true);
   };
 
-  const sendWhatsApp = (q: Quote) => {
-    const phone = q.customers.phone.replace(/\D/g, "");
-    const fullPhone = phone.startsWith("353") ? phone : phone.startsWith("0") ? "353" + phone.slice(1) : "353" + phone;
-    window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(whatsappMsg)}`, "_blank");
-    updateStatus(q.id, "Sent", { sent_at: new Date().toISOString() });
+  const sendWhatsApp = async (q: Quote) => {
+    setWhatsappSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-quote-whatsapp", {
+        body: {
+          quote_id: q.id,
+          customer_name: q.customers.name,
+          mobile_number: q.customers.phone,
+          job_description: q.description,
+          quote_amount: Number(q.total_amount),
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: "Send failed", description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+      } else {
+        toast({ title: "Quote sent via WhatsApp ✅" });
+        fetchQuotes();
+        if (selected?.id === q.id) {
+          setSelected((prev) => prev ? { ...prev, status: "Sent", sent_at: new Date().toISOString() } : null);
+        }
+      }
+    } catch (err: any) {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    }
+    setWhatsappSending(false);
     setWhatsappOpen(false);
   };
 
