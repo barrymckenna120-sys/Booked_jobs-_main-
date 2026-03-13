@@ -31,7 +31,7 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get("MESSENGER_API_KEY");
     const firstName = customer_name.split(" ")[0];
-    const refNumber = quote_id.substring(0, 8).toUpperCase();
+    const refNumber = `Q-${quote_id.substring(0, 4).toUpperCase()}`;
 
     // Build breakdown lines — only show parts/labour if > 0
     const breakdownLines: string[] = [];

@@ -36,7 +36,7 @@ const SendQuoteModal = ({ mode, quote, customer, businessPhone, onClose, onSent 
   const { toast } = useToast();
 
   const firstName = customer.name.split(" ")[0];
-  const refNumber = quote.id.substring(0, 8).toUpperCase();
+  const refNumber = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
   const parts = Number(quote.parts_cost || 0);
   const labour = Number(quote.labour_cost || 0);
   const total = Number(quote.total_amount).toFixed(2);

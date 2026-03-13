@@ -23,7 +23,7 @@ export type UnsentQuote = {
 
 const buildMsg = (q: UnsentQuote) => {
   const firstName = q.customer.split(" ")[0];
-  const refNumber = q.quoteId.substring(0, 8).toUpperCase();
+  const refNumber = `Q-${q.quoteId.slice(0, 4).toUpperCase()}`;
   const parts = Number(q.parts_cost || 0);
   const labour = Number(q.labour_cost || 0);
   const total = Number(q.total).toFixed(2);
