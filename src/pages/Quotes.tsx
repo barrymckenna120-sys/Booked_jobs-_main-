@@ -436,7 +436,7 @@ const Quotes = () => {
   // ── WhatsApp ──
   const openWhatsApp = (q: Quote) => {
     const firstName = q.customers.name.split(" ")[0];
-    const refNumber = q.id.substring(0, 8).toUpperCase();
+    const refNumber = `Q-${q.id.slice(0, 4).toUpperCase()}`;
     const parts = Number(q.parts_cost || 0);
     const labour = Number(q.labour_cost || 0);
     const total = Number(q.total_amount).toFixed(2);
