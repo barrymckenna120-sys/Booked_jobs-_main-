@@ -332,7 +332,7 @@ const Quotes = () => {
       total: Number(q.total_amount) || 0,
       description: q.description,
       notes: q.notes || "",
-      quoteUrl: `${window.location.origin}/quote/${q.id}`,
+      quoteId: q.id,
     }));
 
   const handleQuoteSent = async (quoteId: string) => {

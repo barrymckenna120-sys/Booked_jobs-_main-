@@ -150,11 +150,12 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
               {/* Send button */}
               <Button
                 onClick={sendCurrent}
+                disabled={sending}
                 className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold py-6 text-lg"
                 size="lg"
               >
-                <Send className="w-5 h-5 mr-2" />
-                {sentIds.length === 0
+                {sending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                {sending ? "Sending..." : sentIds.length === 0
                   ? `Send to ${currentQ?.customer.split(" ")[0]}`
                   : `Next → ${currentQ?.customer.split(" ")[0]}`}
               </Button>
