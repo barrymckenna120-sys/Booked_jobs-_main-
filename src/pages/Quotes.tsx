@@ -265,11 +265,27 @@ const Quotes = () => {
     }
   };
 
-  const handleResend = () => {
-    if (!resendQuoteData) return;
-    const noteLine = resendQuoteData.notes ? ` ${resendQuoteData.notes}` : "";
-    const msg = `Hi ${resendQuoteData.firstName}, please find your updated quote ${resendQuoteData.ref} for ${resendQuoteData.description}. Total: €${resendQuoteData.total.toFixed(2)}.${noteLine} Reply to confirm. Karl's Gas`;
-    window.open(`https://wa.me/${resendQuoteData.phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  const handleResend = async () => {
+    if (!resendQuoteData || !selected) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("send-quote-whatsapp", {
+        body: {
+          quote_id: selected.id,
+          customer_name: selected.customers.name,
+          mobile_number: selected.customers.phone,
+          job_description: resendQuoteData.description,
+          quote_amount: resendQuoteData.total,
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: "Resend failed", description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+      } else {
+        toast({ title: "Updated quote resent via WhatsApp ✅" });
+        fetchQuotes();
+      }
+    } catch (err: any) {
+      toast({ title: "Resend failed", description: err.message, variant: "destructive" });
+    }
     setResendPromptOpen(false);
     setResendQuoteData(null);
   };
