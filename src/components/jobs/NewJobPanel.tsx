@@ -274,6 +274,14 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState(prefilledBoiler || "");
   const [jobTypeError, setJobTypeError] = useState(false);
+  const [email, setEmail] = useState("");
+  const [jobIssue, setJobIssue] = useState("");
+  const [extraDetails, setExtraDetails] = useState("");
+  const [boilerType, setBoilerType] = useState("");
+  const [boilerErrorCode, setBoilerErrorCode] = useState("");
+  const [areaCode, setAreaCode] = useState("");
+  const [ownerOrTenant, setOwnerOrTenant] = useState("");
+  const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
 
   const handleNext = () => {
@@ -281,7 +289,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
       setJobTypeError(true);
       return;
     }
-    onNext({ jobType, isUrgent, notes, boilerModel: boiler });
+    onNext({ jobType, isUrgent, notes, boilerModel: boiler, email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
   };
 
   return (
@@ -321,6 +329,56 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make / Model</Label>
           <Input value={boiler} onChange={(e) => setBoiler(e.target.value)} placeholder="e.g. Vaillant ecoFIT Pure 25kW" className="mt-1" />
           <p className="text-[11px] text-muted-foreground mt-1">Leave blank if unknown</p>
+        </div>
+
+        <div>
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
+          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. john@example.com" className="mt-1" />
+        </div>
+
+        <div>
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Job Issue</Label>
+          <Input value={jobIssue} onChange={(e) => setJobIssue(e.target.value)} placeholder="e.g. Boiler not heating water" className="mt-1" />
+        </div>
+
+        <div>
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Extra Details on Issue</Label>
+          <Textarea rows={3} value={extraDetails} onChange={(e) => setExtraDetails(e.target.value)} placeholder="Any additional details about the issue…" className="mt-1" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Type</Label>
+            <Input value={boilerType} onChange={(e) => setBoilerType(e.target.value)} placeholder="e.g. Combi" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Error Code</Label>
+            <Input value={boilerErrorCode} onChange={(e) => setBoilerErrorCode(e.target.value)} placeholder="e.g. F28" className="mt-1" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Area Code</Label>
+            <Input value={areaCode} onChange={(e) => setAreaCode(e.target.value)} placeholder="e.g. D15" className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Owner or Tenant</Label>
+            <select
+              value={ownerOrTenant}
+              onChange={(e) => setOwnerOrTenant(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
+            >
+              <option value="">Select…</option>
+              <option value="Owner">Owner</option>
+              <option value="Tenant">Tenant</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Access Notes</Label>
+          <Textarea rows={2} value={accessNotes} onChange={(e) => setAccessNotes(e.target.value)} placeholder="e.g. Key under the mat, ring doorbell twice…" className="mt-1" />
         </div>
 
         <div>
@@ -792,7 +850,15 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         deposit_amount: finalData.payment.status === "deposit" ? finalData.payment.amount : null,
         source: "Manual",
         incoming_status: "Accepted",
-      }).select("id").single();
+        email: finalData.job.email || null,
+        job_issue: finalData.job.jobIssue || null,
+        extra_details: finalData.job.extraDetails || null,
+        boiler_type: finalData.job.boilerType || null,
+        boiler_error_code: finalData.job.boilerErrorCode || null,
+        area_code: finalData.job.areaCode || null,
+        owner_or_tenant: finalData.job.ownerOrTenant || null,
+        access_notes: finalData.job.accessNotes || null,
+      } as any).select("id").single();
       if (jobErr) {
         console.error("[NewJobPanel] Job insert error:", jobErr);
         throw jobErr;
