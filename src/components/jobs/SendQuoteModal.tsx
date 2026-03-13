@@ -32,21 +32,40 @@ type Props = {
   onSent: () => void;
 };
 
-const SendQuoteModal = ({ mode, quote, customer, onClose, onSent }: Props) => {
+const SendQuoteModal = ({ mode, quote, customer, businessPhone, onClose, onSent }: Props) => {
   const { toast } = useToast();
 
-  const defaultMessage = `Hi ${customer.name.split(" ")[0]},
+  const firstName = customer.name.split(" ")[0];
+  const refNumber = quote.id.substring(0, 8).toUpperCase();
+  const parts = Number(quote.parts_cost || 0);
+  const labour = Number(quote.labour_cost || 0);
+  const total = Number(quote.total_amount).toFixed(2);
+
+  let breakdownLines = "";
+  if (parts > 0) breakdownLines += `• Parts: €${parts.toFixed(2)}\n`;
+  if (labour > 0) breakdownLines += `• Labour: €${labour.toFixed(2)}\n`;
+  breakdownLines += `• Total: €${total}`;
+
+  const defaultMessage = `Hi ${firstName},
 
 Here is your quote from Karl's Gas.
 
-Job: ${quote.description}
-Total: €${Number(quote.total_amount).toFixed(2)}
+Quote Ref: ${refNumber}
 
-Karl's Gas`;
+Job: ${quote.description}
+
+Breakdown:
+${breakdownLines}
+
+To accept this quote, simply reply *YES* to this message.
+
+This quote is valid for 14 days from today.
+
+Karl's Gas${businessPhone ? `\n📞 ${businessPhone}` : ""}`;
 
   const [message, setMessage] = useState(defaultMessage);
   const [emailTo, setEmailTo] = useState(customer.email || "");
-  const [emailSubject, setEmailSubject] = useState(`Your Quote from Karl's Gas — €${Number(quote.total_amount).toFixed(2)}`);
+  const [emailSubject, setEmailSubject] = useState(`Your Quote from Karl's Gas — €${total}`);
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
@@ -60,6 +79,9 @@ Karl's Gas`;
             mobile_number: customer.phone,
             job_description: quote.description,
             quote_amount: Number(quote.total_amount),
+            parts_cost: quote.parts_cost,
+            labour_cost: quote.labour_cost,
+            business_phone: businessPhone,
           },
         });
         if (error || !data?.success) {
