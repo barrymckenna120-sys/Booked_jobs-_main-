@@ -11,11 +11,60 @@ serve(async (req) => {
   }
 
   try {
-    const { quote_id, customer_name, mobile_number, job_description, quote_amount } = await req.json();
+    const {
+      quote_id,
+      customer_name,
+      mobile_number,
+      job_description,
+      quote_amount,
+      parts_cost,
+      labour_cost,
+      business_phone,
+    } = await req.json();
+
+    if (!quote_id || !customer_name || !mobile_number || !job_description || quote_amount == null) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing required fields: quote_id, customer_name, mobile_number, job_description, quote_amount" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
 
     const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const firstName = customer_name.split(" ")[0];
+    const refNumber = quote_id.substring(0, 8).toUpperCase();
 
-    const message = `Hi ${customer_name},\n\nHere is your quote from Karl's Gas.\n\nJob: ${job_description}\nTotal: €${quote_amount}\n\nKarl's Gas`;
+    // Build breakdown lines — only show parts/labour if > 0
+    const breakdownLines: string[] = [];
+    if (parts_cost && Number(parts_cost) > 0) {
+      breakdownLines.push(`• Parts: €${Number(parts_cost).toFixed(2)}`);
+    }
+    if (labour_cost && Number(labour_cost) > 0) {
+      breakdownLines.push(`• Labour: €${Number(labour_cost).toFixed(2)}`);
+    }
+    breakdownLines.push(`• Total: €${Number(quote_amount).toFixed(2)}`);
+
+    const breakdownBlock = breakdownLines.join("\n");
+
+    let message = `Hi ${firstName},
+
+Here is your quote from Karl's Gas.
+
+Quote Ref: ${refNumber}
+
+Job: ${job_description}
+
+Breakdown:
+${breakdownBlock}
+
+To accept this quote, simply reply *YES* to this message.
+
+This quote is valid for 14 days from today.
+
+Karl's Gas`;
+
+    if (business_phone) {
+      message += `\n📞 ${business_phone}`;
+    }
 
     const formData = new FormData();
     formData.append("phonenumber", mobile_number);
@@ -32,15 +81,14 @@ serve(async (req) => {
     const result = await response.json();
 
     if (result.success) {
-      // Update quote status to sent
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      
+
       await fetch(`${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}`, {
         method: "PATCH",
         headers: {
           "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey,
+          "apikey": supabaseKey!,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status: "sent" }),

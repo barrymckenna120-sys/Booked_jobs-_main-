@@ -27,6 +27,7 @@ type Props = {
   mode: "whatsapp" | "email";
   quote: Quote;
   customer: Customer;
+  businessPhone?: string;
   onClose: () => void;
   onSent: () => void;
 };
