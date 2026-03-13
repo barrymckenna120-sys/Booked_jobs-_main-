@@ -274,6 +274,14 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState(prefilledBoiler || "");
   const [jobTypeError, setJobTypeError] = useState(false);
+  const [email, setEmail] = useState("");
+  const [jobIssue, setJobIssue] = useState("");
+  const [extraDetails, setExtraDetails] = useState("");
+  const [boilerType, setBoilerType] = useState("");
+  const [boilerErrorCode, setBoilerErrorCode] = useState("");
+  const [areaCode, setAreaCode] = useState("");
+  const [ownerOrTenant, setOwnerOrTenant] = useState("");
+  const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
 
   const handleNext = () => {
@@ -281,7 +289,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
       setJobTypeError(true);
       return;
     }
-    onNext({ jobType, isUrgent, notes, boilerModel: boiler });
+    onNext({ jobType, isUrgent, notes, boilerModel: boiler, email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
   };
 
   return (
