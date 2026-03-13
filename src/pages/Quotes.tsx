@@ -345,6 +345,9 @@ const Quotes = () => {
       description: q.description,
       notes: q.notes || "",
       quoteId: q.id,
+      parts_cost: q.parts_cost,
+      labour_cost: q.labour_cost,
+      business_phone: settings?.business_phone,
     }));
 
   const handleQuoteSent = async (quoteId: string) => {

@@ -296,4 +296,4 @@ export function SendAllBanner({ unsentQuotes, onSendAll }: SendAllBannerProps) {
   );
 }
 
-export type { UnsentQuote };
+
