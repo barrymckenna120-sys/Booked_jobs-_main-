@@ -243,6 +243,21 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             <MediaGallery jobId={job.id} />
           </div>
 
+          {/* Additional Job Details */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase text-muted-foreground">Additional Details</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {job.email && <div className="col-span-2"><span className="text-muted-foreground">Email:</span> <span className="font-semibold">{job.email}</span></div>}
+              {job.job_issue && <div className="col-span-2"><span className="text-muted-foreground">Job Issue:</span> <span className="font-semibold">{job.job_issue}</span></div>}
+              {job.extra_details && <div className="col-span-2"><span className="text-muted-foreground">Extra Details:</span> <span className="font-semibold">{job.extra_details}</span></div>}
+              {job.boiler_type && <div><span className="text-muted-foreground">Boiler Type:</span> <span className="font-semibold">{job.boiler_type}</span></div>}
+              {job.boiler_error_code && <div><span className="text-muted-foreground">Error Code:</span> <span className="font-semibold">{job.boiler_error_code}</span></div>}
+              {job.area_code && <div><span className="text-muted-foreground">Area Code:</span> <span className="font-semibold">{job.area_code}</span></div>}
+              {job.owner_or_tenant && <div><span className="text-muted-foreground">Owner/Tenant:</span> <span className="font-semibold">{job.owner_or_tenant}</span></div>}
+              {job.access_notes && <div className="col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{job.access_notes}</span></div>}
+            </div>
+          </div>
+
           {/* Booking Preference */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground">Booking Preference</h4>
