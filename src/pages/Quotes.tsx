@@ -43,6 +43,7 @@ type Quote = {
   deposit_amount: number | null;
   notes: string | null;
   created_at: string;
+  converted_job_id: string | null;
   customers: {
     id: string;
     name: string;
@@ -55,6 +56,7 @@ type Quote = {
     id: string;
     job_type: string;
     assigned_engineer: string | null;
+    assigned_engineer_id: string | null;
     scheduled_date: string | null;
     time_block: string | null;
   };
