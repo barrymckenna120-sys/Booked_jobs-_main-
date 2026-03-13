@@ -1,0 +1,244 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const MAX_NAME_LEN = 200
+const MAX_ADDRESS_LEN = 500
+const MAX_TEXT_LEN = 1000
+const MAX_SHORT_LEN = 100
+
+const sanitize = (val: unknown, maxLen: number): string | null => {
+  if (!val || typeof val !== 'string') return null
+  return val.trim().substring(0, maxLen) || null
+}
+
+const isValidPhone = (phone: string): boolean =>
+  /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ''))
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  try {
+    const body = await req.json()
+
+    // Extract and sanitize fields
+    const customerName = sanitize(body.customer_name, MAX_NAME_LEN)
+    const mobileNumber = sanitize(body.mobile_number, MAX_SHORT_LEN)
+    const email = sanitize(body.email, MAX_NAME_LEN)
+    const jobIssue = sanitize(body.job_issue, MAX_TEXT_LEN)
+    const extraDetails = sanitize(body.extra_details, MAX_TEXT_LEN)
+    const boilerType = sanitize(body.boiler_type, MAX_SHORT_LEN)
+    const boilerBrand = sanitize(body.boiler_brand, MAX_SHORT_LEN)
+    const boilerModel = sanitize(body.boiler_model, MAX_SHORT_LEN)
+    const boilerErrorCode = sanitize(body.boiler_error_code, MAX_SHORT_LEN)
+    const boilerWorking = body.boiler_working
+    const fullAddress = sanitize(body.full_address, MAX_ADDRESS_LEN)
+    const areaCode = sanitize(body.area_code, MAX_SHORT_LEN)
+    const eircode = sanitize(body.eircode, 10)
+    const preferredDay = sanitize(body.preferred_day, MAX_SHORT_LEN)
+    const preferredTime = sanitize(body.preferred_time, MAX_SHORT_LEN)
+    const ownerOrTenant = sanitize(body.owner_or_tenant, MAX_SHORT_LEN)
+    const accessNotes = sanitize(body.access_notes, MAX_TEXT_LEN)
+    const photoVideoUpload = body.photo_video_upload // could be string URL or array
+
+    // Validate required fields
+    if (!customerName || !mobileNumber) {
+      return new Response(JSON.stringify({ success: false, error: 'customer_name and mobile_number are required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!isValidPhone(mobileNumber)) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid mobile number format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Get the business user_id (single-tenant)
+    const { data: firstSettings } = await supabase
+      .from('settings')
+      .select('user_id')
+      .limit(1)
+      .single()
+
+    const userId = firstSettings?.user_id
+    if (!userId) {
+      console.error('No business user found in settings')
+      return new Response(JSON.stringify({ success: false, error: 'Unable to process submission.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Upsert customer (match by phone)
+    let customerId: string
+
+    const { data: existing } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('phone', mobileNumber)
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      customerId = existing.id
+      await supabase.from('customers').update({
+        name: customerName,
+        email,
+        address: fullAddress || undefined,
+        eircode: eircode || undefined,
+        area_code: areaCode,
+        boiler_make_model: boilerModel,
+      }).eq('id', customerId)
+    } else {
+      const { data: newCustomer, error: insertErr } = await supabase
+        .from('customers')
+        .insert({
+          user_id: userId,
+          name: customerName,
+          phone: mobileNumber,
+          email,
+          address: fullAddress || 'TBC',
+          eircode: eircode || 'TBC',
+          area_code: areaCode,
+          boiler_make_model: boilerModel,
+        })
+        .select('id')
+        .single()
+
+      if (insertErr || !newCustomer) {
+        console.error('Customer creation failed:', insertErr)
+        return new Response(JSON.stringify({ success: false, error: 'Unable to process submission.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      customerId = newCustomer.id
+    }
+
+    // Parse boiler_working
+    const boilerWorkingBool = boilerWorking === true || boilerWorking === 'Yes' || boilerWorking === 'yes' || boilerWorking === 'true'
+
+    // Map preferred_time to time_block
+    const timeBlockMap: Record<string, string> = {
+      morning: 'Morning',
+      midday: 'Midday',
+      afternoon: 'Afternoon',
+    }
+    const timeBlock = timeBlockMap[(preferredTime ?? '').toLowerCase()] ?? preferredTime ?? null
+
+    // Create service call
+    const { data: job, error: jobErr } = await supabase
+      .from('service_calls')
+      .insert({
+        user_id: userId,
+        customer_id: customerId,
+        job_type: 'Boiler Service',
+        status: 'Pending',
+        source: 'Tally Form',
+        incoming_status: 'Pending',
+        scheduled_date: preferredDay ?? null,
+        time_block: timeBlock,
+        boiler_brand: boilerBrand,
+        boiler_working: boilerWorking != null ? boilerWorkingBool : null,
+        boiler_issue: jobIssue,
+        email,
+        job_issue: jobIssue,
+        extra_details: extraDetails,
+        boiler_type: boilerType,
+        boiler_error_code: boilerErrorCode,
+        area_code: areaCode,
+        owner_or_tenant: ownerOrTenant,
+        access_notes: accessNotes,
+        notes: extraDetails,
+      })
+      .select('id')
+      .single()
+
+    if (jobErr || !job) {
+      console.error('Job creation failed:', jobErr)
+      return new Response(JSON.stringify({ success: false, error: 'Unable to process submission.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Handle photo/video uploads if provided as URLs
+    if (photoVideoUpload) {
+      const urls = Array.isArray(photoVideoUpload) ? photoVideoUpload : [photoVideoUpload]
+      let fileCount = 0
+      for (const fileEntry of urls) {
+        if (fileCount >= 10) break
+        try {
+          const fileUrl = typeof fileEntry === 'string' ? fileEntry : fileEntry?.url
+          if (!fileUrl || typeof fileUrl !== 'string') continue
+
+          const fileResponse = await fetch(fileUrl)
+          const fileBuffer = await fileResponse.arrayBuffer()
+          const rawName = typeof fileEntry === 'object' && fileEntry?.name
+            ? sanitize(fileEntry.name, MAX_SHORT_LEN) ?? `upload-${Date.now()}`
+            : `upload-${Date.now()}`
+          const fileName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_')
+          const storagePath = `customers/${customerId}/${job.id}/${fileName}`
+          const isVideo = /\.(mp4|mov|avi|webm)$/i.test(fileName)
+
+          await supabase.storage
+            .from('job-media')
+            .upload(storagePath, fileBuffer, {
+              contentType: fileResponse.headers.get('content-type') ?? 'image/jpeg',
+              upsert: true,
+            })
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('job-media')
+            .getPublicUrl(storagePath)
+
+          await supabase.from('job_media').insert({
+            job_id: job.id,
+            customer_id: customerId,
+            user_id: userId,
+            file_name: fileName,
+            file_type: isVideo ? 'video' : 'image',
+            storage_path: storagePath,
+            public_url: publicUrl,
+            uploaded_by: 'customer',
+          })
+          fileCount++
+        } catch (fileErr) {
+          console.error('File upload error:', fileErr)
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, id: job.id }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err) {
+    console.error('tally-incoming-job error:', err)
+    return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})
