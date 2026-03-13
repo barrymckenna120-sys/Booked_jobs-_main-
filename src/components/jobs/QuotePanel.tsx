@@ -61,6 +61,7 @@ const quoteStatusBadge = (status: string) => {
 const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
