@@ -253,7 +253,7 @@ const Quotes = () => {
     // Refresh selected
     const { data: refreshed } = await supabase
       .from("quotes")
-      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
+      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!quotes_job_id_fkey!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
       .eq("id", selected.id)
       .single();
     if (refreshed) setSelected(refreshed as unknown as Quote);
