@@ -28,7 +28,7 @@ serve(async (req) => {
 
     // Find recent "Sent" quotes joined with customer phone
     const searchRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,customers!inner(phone)`,
+      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,customers!inner(phone,name)`,
       {
         headers: {
           Authorization: `Bearer ${supabaseKey}`,
