@@ -750,10 +750,14 @@ export type Database = {
       }
       service_calls: {
         Row: {
+          access_notes: string | null
+          area_code: string | null
           assigned_engineer: string | null
           assigned_engineer_id: string | null
           boiler_brand: string | null
+          boiler_error_code: string | null
           boiler_issue: string | null
+          boiler_type: string | null
           boiler_working: boolean | null
           cancellation_note: string | null
           cancellation_reason: string | null
@@ -764,14 +768,18 @@ export type Database = {
           deposit_amount: number | null
           deposit_paid: boolean
           deposit_required: boolean
+          email: string | null
+          extra_details: string | null
           follow_up_detail: string | null
           follow_up_needed: boolean
           has_quote: boolean
           id: string
           incoming_status: string | null
+          job_issue: string | null
           job_type: string
           needs_scheduling: boolean
           notes: string | null
+          owner_or_tenant: string | null
           paid_at: string | null
           payment_collected_by: string | null
           payment_method: string | null
@@ -790,10 +798,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          access_notes?: string | null
+          area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
           boiler_brand?: string | null
+          boiler_error_code?: string | null
           boiler_issue?: string | null
+          boiler_type?: string | null
           boiler_working?: boolean | null
           cancellation_note?: string | null
           cancellation_reason?: string | null
@@ -804,14 +816,18 @@ export type Database = {
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
+          email?: string | null
+          extra_details?: string | null
           follow_up_detail?: string | null
           follow_up_needed?: boolean
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          job_issue?: string | null
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
+          owner_or_tenant?: string | null
           paid_at?: string | null
           payment_collected_by?: string | null
           payment_method?: string | null
@@ -830,10 +846,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          access_notes?: string | null
+          area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
           boiler_brand?: string | null
+          boiler_error_code?: string | null
           boiler_issue?: string | null
+          boiler_type?: string | null
           boiler_working?: boolean | null
           cancellation_note?: string | null
           cancellation_reason?: string | null
@@ -844,14 +864,18 @@ export type Database = {
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
+          email?: string | null
+          extra_details?: string | null
           follow_up_detail?: string | null
           follow_up_needed?: boolean
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          job_issue?: string | null
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
+          owner_or_tenant?: string | null
           paid_at?: string | null
           payment_collected_by?: string | null
           payment_method?: string | null
