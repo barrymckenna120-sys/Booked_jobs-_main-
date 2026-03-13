@@ -12,6 +12,7 @@ type RenewalCustomer = {
   next_service_due: string | null;
   assigned_engineer: string | null;
   reminder_30_days_sent: boolean | null;
+  opted_out?: boolean | null;
 };
 
 type Props = {
