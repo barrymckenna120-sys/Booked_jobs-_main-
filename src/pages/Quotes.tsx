@@ -112,6 +112,7 @@ const Quotes = () => {
   // WhatsApp send
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [whatsappMsg, setWhatsappMsg] = useState("");
+  const [whatsappSending, setWhatsappSending] = useState(false);
 
   // Send All Quotes
   const [sendAllOpen, setSendAllOpen] = useState(false);
