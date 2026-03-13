@@ -26,18 +26,15 @@ Deno.serve(async (req) => {
 
     const googleReviewLink = settings?.google_review_url || null;
 
-    // Find completed jobs where completed_at is between 4 and 5 hours ago
-    const now = new Date();
-    const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString();
-    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
+    // Find completed jobs where completed_at is at least 2 hours ago
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
     const { data: jobs, error } = await supabase
       .from("service_calls")
       .select("id, customer_id")
       .eq("status", "Completed")
       .eq("review_sent", false)
-      .gte("completed_at", fiveHoursAgo)
-      .lte("completed_at", fourHoursAgo);
+      .lte("completed_at", twoHoursAgo);
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {
