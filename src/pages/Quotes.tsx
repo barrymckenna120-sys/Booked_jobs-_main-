@@ -641,10 +641,8 @@ const Quotes = () => {
     }
   };
 
-  // Override filtered for "Open" pseudo-filter
-  const displayedQuotes = filter === "Open"
-    ? quotes.filter((q) => ["Draft", "Sent"].includes(q.status))
-    : filtered;
+  // Override filtered for "Open" pseudo-filter — now handled in unified filter above
+  const displayedQuotes = filtered;
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
