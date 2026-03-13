@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN completed_at timestamp with time zone DEFAULT NULL;
