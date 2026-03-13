@@ -360,10 +360,48 @@ const Quotes = () => {
   // ── Status update ──
   const updateStatus = async (quoteId: string, newStatus: string, extra: Record<string, any> = {}) => {
     await supabase.from("quotes").update({ status: newStatus, ...extra } as any).eq("id", quoteId);
-    toast({ title: `Quote marked as ${newStatus}` });
+
+    // Auto-create job when accepted
+    if (newStatus === "Accepted") {
+      const quote = quotes.find(q => q.id === quoteId) || selected;
+      if (quote && !quote.converted_job_id && user) {
+        const quoteRef = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
+        const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
+          customer_id: quote.customer_id,
+          user_id: user.id,
+          job_type: quote.service_calls?.job_type || "Repair",
+          job_issue: quote.description,
+          assigned_engineer: quote.service_calls?.assigned_engineer || null,
+          assigned_engineer_id: quote.service_calls?.assigned_engineer_id || null,
+          status: "Pending",
+          has_quote: true,
+          notes: `Created from quote ${quoteRef}`,
+          source: "Quote",
+        } as any).select("id").single();
+
+        if (newJob && !jobErr) {
+          await supabase.from("quotes").update({ converted_job_id: newJob.id } as any).eq("id", quoteId);
+          toast({ title: `Job created from quote ${quoteRef}` });
+        } else {
+          toast({ title: `Quote marked as ${newStatus}` });
+          if (jobErr) console.error("Failed to create job from quote:", jobErr);
+        }
+      } else {
+        toast({ title: `Quote marked as ${newStatus}` });
+      }
+    } else {
+      toast({ title: `Quote marked as ${newStatus}` });
+    }
+
     fetchQuotes();
     if (selected?.id === quoteId) {
-      setSelected((prev) => prev ? { ...prev, status: newStatus, ...extra } : null);
+      // Re-fetch the selected quote to get converted_job_id
+      const { data: refreshed } = await supabase
+        .from("quotes")
+        .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
+        .eq("id", quoteId)
+        .single();
+      if (refreshed) setSelected(refreshed as unknown as Quote);
     }
   };
 
