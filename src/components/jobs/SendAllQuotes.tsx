@@ -3,7 +3,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Send, SkipForward, CheckCircle2, MessageCircle } from "lucide-react";
+import { Send, SkipForward, CheckCircle2, MessageCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type UnsentQuote = {
   id: string;
@@ -13,16 +15,12 @@ type UnsentQuote = {
   total: number;
   description: string;
   notes: string;
-  quoteUrl: string;
+  quoteId: string;
 };
 
 const buildMsg = (q: UnsentQuote) => {
-  const noteLine = q.notes ? `\n\n${q.notes}` : "";
-  return `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}${noteLine}\n\nView and approve here:\n${q.quoteUrl}\n\nKarl's Gas 🔥`;
+  return `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}\n\nKarl's Gas`
 };
-
-const waUrl = (phone: string, msg: string) =>
-  `https://wa.me/${phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`;
 
 interface SendAllQuotesSheetProps {
   open: boolean;
@@ -35,6 +33,8 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
   const [sentIds, setSentIds] = useState<string[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
 
   const remaining = quotes.filter(q => !sentIds.includes(q.id) && !skipped.includes(q.id));
   const currentQ = remaining[0] || null;
@@ -42,14 +42,31 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
   const isFinished = started && remaining.length === 0;
   const progress = quotes.length > 0 ? (sentIds.length / quotes.length) * 100 : 0;
 
-  const sendCurrent = () => {
-    if (!currentQ) return;
-    const phone = currentQ.phone.replace(/\D/g, "");
-    const fullPhone = phone.startsWith("353") ? phone : phone.startsWith("0") ? "353" + phone.slice(1) : "353" + phone;
-    window.open(waUrl(fullPhone, buildMsg(currentQ)), "_blank");
-    setSentIds(p => [...p, currentQ.id]);
-    onQuoteSent(currentQ.id);
+  const sendCurrent = async () => {
+    if (!currentQ || sending) return;
+    setSending(true);
     if (!started) setStarted(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-quote-whatsapp", {
+        body: {
+          quote_id: currentQ.quoteId,
+          customer_name: currentQ.customer,
+          mobile_number: currentQ.phone,
+          job_description: currentQ.description,
+          quote_amount: currentQ.total,
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: `Failed to send to ${currentQ.customer.split(" ")[0]}`, description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+      } else {
+        setSentIds(p => [...p, currentQ.id]);
+        onQuoteSent(currentQ.id);
+        toast({ title: `Sent to ${currentQ.customer.split(" ")[0]} ✅` });
+      }
+    } catch (err: any) {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    }
+    setSending(false);
   };
 
   const skipCurrent = () => {
@@ -133,11 +150,12 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
               {/* Send button */}
               <Button
                 onClick={sendCurrent}
+                disabled={sending}
                 className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold py-6 text-lg"
                 size="lg"
               >
-                <Send className="w-5 h-5 mr-2" />
-                {sentIds.length === 0
+                {sending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                {sending ? "Sending..." : sentIds.length === 0
                   ? `Send to ${currentQ?.customer.split(" ")[0]}`
                   : `Next → ${currentQ?.customer.split(" ")[0]}`}
               </Button>
