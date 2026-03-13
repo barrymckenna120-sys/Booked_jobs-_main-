@@ -92,6 +92,9 @@ const Quotes = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selected, setSelected] = useState<Quote | null>(null);
   const [tab, setTab] = useState<"details" | "timeline" | "actions">("details");
 
@@ -320,7 +323,40 @@ const Quotes = () => {
     if (user) fetchQuotes();
   }, [user]);
 
-  const filtered = filter === "All" ? quotes : quotes.filter((q) => q.status === filter);
+  const hasActiveFilters = searchTerm.trim() !== "" || !!dateFrom || !!dateTo;
+  const clearAllFilters = () => { setSearchTerm(""); setDateFrom(undefined); setDateTo(undefined); setFilter("All"); };
+
+  const filtered = quotes.filter((q) => {
+    // Status filter
+    if (filter !== "All" && filter !== "Open") {
+      if (q.status !== filter) return false;
+    }
+    if (filter === "Open" && !["Draft", "Sent"].includes(q.status)) return false;
+
+    // Search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      const ref = `q-${q.id.slice(0, 4).toLowerCase()}`;
+      const name = (q.customers?.name || "").toLowerCase();
+      if (!ref.includes(term) && !name.includes(term)) return false;
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      const created = new Date(q.created_at);
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      if (created < from) return false;
+    }
+    if (dateTo) {
+      const created = new Date(q.created_at);
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      if (created > to) return false;
+    }
+
+    return true;
+  });
 
   const kpi = {
     total: quotes.length,
@@ -605,10 +641,8 @@ const Quotes = () => {
     }
   };
 
-  // Override filtered for "Open" pseudo-filter
-  const displayedQuotes = filter === "Open"
-    ? quotes.filter((q) => ["Draft", "Sent"].includes(q.status))
-    : filtered;
+  // Override filtered for "Open" pseudo-filter — now handled in unified filter above
+  const displayedQuotes = filtered;
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
@@ -671,7 +705,45 @@ const Quotes = () => {
         })}
       </div>
 
-      {/* Quote Response Notifications */}
+      {/* Search & Date Filters */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <Input
+            placeholder="Search by name or ref (e.g. Q-3523)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9"
+          />
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className={cn("h-9 gap-1.5 text-xs", dateFrom && "border-primary text-primary")}>
+              <CalendarIcon className="w-3.5 h-3.5" />
+              {dateFrom ? format(dateFrom, "dd MMM") : "From"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className={cn("h-9 gap-1.5 text-xs", dateTo && "border-primary text-primary")}>
+              <CalendarIcon className="w-3.5 h-3.5" />
+              {dateTo ? format(dateTo, "dd MMM") : "To"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" className="h-9 text-xs text-destructive hover:text-destructive" onClick={clearAllFilters}>
+            <X className="w-3.5 h-3.5 mr-1" /> Clear
+          </Button>
+        )}
+      </div>
+
       {!loading && (() => {
         const recent = quotes.filter(q => {
           if (q.status !== "Accepted" && q.status !== "Rejected") return false;
@@ -727,8 +799,10 @@ const Quotes = () => {
         <Card className="border-dashed">
           <CardContent className="p-12 text-center space-y-3">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground" />
-            <p className="font-bold">No {filter !== "All" ? filter : ""} quotes</p>
-            <p className="text-sm text-muted-foreground">Tap + New Quote to create one</p>
+            <p className="font-bold">No {filter !== "All" ? filter + " " : ""}quotes {hasActiveFilters ? "match your filters" : "found"}</p>
+            <p className="text-sm text-muted-foreground">
+              {hasActiveFilters ? <Button variant="link" className="p-0 h-auto text-sm" onClick={clearAllFilters}>Clear all filters</Button> : "Tap + New Quote to create one"}
+            </p>
           </CardContent>
         </Card>
       ) : (
