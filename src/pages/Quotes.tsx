@@ -43,6 +43,7 @@ type Quote = {
   deposit_amount: number | null;
   notes: string | null;
   created_at: string;
+  converted_job_id: string | null;
   customers: {
     id: string;
     name: string;
@@ -55,6 +56,7 @@ type Quote = {
     id: string;
     job_type: string;
     assigned_engineer: string | null;
+    assigned_engineer_id: string | null;
     scheduled_date: string | null;
     time_block: string | null;
   };
@@ -251,7 +253,7 @@ const Quotes = () => {
     // Refresh selected
     const { data: refreshed } = await supabase
       .from("quotes")
-      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)")
+      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
       .eq("id", selected.id)
       .single();
     if (refreshed) setSelected(refreshed as unknown as Quote);
@@ -307,7 +309,7 @@ const Quotes = () => {
     setLoading(true);
     const { data } = await supabase
       .from("quotes")
-      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)")
+      .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setQuotes((data || []) as unknown as Quote[]);
@@ -358,10 +360,48 @@ const Quotes = () => {
   // ── Status update ──
   const updateStatus = async (quoteId: string, newStatus: string, extra: Record<string, any> = {}) => {
     await supabase.from("quotes").update({ status: newStatus, ...extra } as any).eq("id", quoteId);
-    toast({ title: `Quote marked as ${newStatus}` });
+
+    // Auto-create job when accepted
+    if (newStatus === "Accepted") {
+      const quote = quotes.find(q => q.id === quoteId) || selected;
+      if (quote && !quote.converted_job_id && user) {
+        const quoteRef = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
+        const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
+          customer_id: quote.customer_id,
+          user_id: user.id,
+          job_type: quote.service_calls?.job_type || "Repair",
+          job_issue: quote.description,
+          assigned_engineer: quote.service_calls?.assigned_engineer || null,
+          assigned_engineer_id: quote.service_calls?.assigned_engineer_id || null,
+          status: "Pending",
+          has_quote: true,
+          notes: `Created from quote ${quoteRef}`,
+          source: "Quote",
+        } as any).select("id").single();
+
+        if (newJob && !jobErr) {
+          await supabase.from("quotes").update({ converted_job_id: newJob.id } as any).eq("id", quoteId);
+          toast({ title: `Job created from quote ${quoteRef}` });
+        } else {
+          toast({ title: `Quote marked as ${newStatus}` });
+          if (jobErr) console.error("Failed to create job from quote:", jobErr);
+        }
+      } else {
+        toast({ title: `Quote marked as ${newStatus}` });
+      }
+    } else {
+      toast({ title: `Quote marked as ${newStatus}` });
+    }
+
     fetchQuotes();
     if (selected?.id === quoteId) {
-      setSelected((prev) => prev ? { ...prev, status: newStatus, ...extra } : null);
+      // Re-fetch the selected quote to get converted_job_id
+      const { data: refreshed } = await supabase
+        .from("quotes")
+        .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
+        .eq("id", quoteId)
+        .single();
+      if (refreshed) setSelected(refreshed as unknown as Quote);
     }
   };
 
@@ -1089,6 +1129,12 @@ const Quotes = () => {
                             <p className="text-sm text-muted-foreground mt-1">Follow up via WhatsApp</p>
                           </CardContent>
                         </Card>
+                      )}
+
+                      {q.converted_job_id && (
+                        <Button className="w-full justify-center" onClick={() => navigate(`/jobs/${q.converted_job_id}`)}>
+                          📋 View Job
+                        </Button>
                       )}
 
                       <Button variant="outline" className="w-full justify-center" onClick={() => navigate(`/customers/${q.customer_id}`)}>

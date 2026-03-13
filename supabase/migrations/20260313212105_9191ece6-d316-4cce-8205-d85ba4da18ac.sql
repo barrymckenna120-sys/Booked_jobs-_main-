@@ -1,0 +1,1 @@
+ALTER TABLE public.quotes ADD COLUMN converted_job_id uuid REFERENCES public.service_calls(id) DEFAULT NULL;

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ type Quote = {
   paid_at: string | null;
   payment_link: string | null;
   deposit_amount: number | null;
+  converted_job_id: string | null;
 };
 
 type Customer = {
@@ -59,6 +61,7 @@ const quoteStatusBadge = (status: string) => {
 const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -153,11 +156,35 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
       .eq("id", quote.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    // Auto-create job when accepted
+    if (newStatus === "Accepted" && !quote.converted_job_id && user) {
+      const quoteRef = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
+      const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
+        customer_id: customerId,
+        user_id: user.id,
+        job_type: "Repair",
+        job_issue: quote.description,
+        status: "Pending",
+        has_quote: true,
+        notes: `Created from quote ${quoteRef}`,
+        source: "Quote",
+      } as any).select("id").single();
+
+      if (newJob && !jobErr) {
+        await supabase.from("quotes").update({ converted_job_id: newJob.id } as any).eq("id", quote.id);
+        toast({ title: `Job created from quote ${quoteRef}` });
+      } else {
+        toast({ title: `Quote marked as ${newStatus}` });
+      }
     } else {
       toast({ title: `Quote marked as ${newStatus}` });
-      await fetchQuote();
-      onQuoteChange();
     }
+
+    await fetchQuote();
+    onQuoteChange();
   };
 
   const startEdit = () => {
@@ -321,6 +348,11 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
                 💳 Payment Link Added ✓
                 <button className="underline text-primary text-xs" onClick={() => setShowPaymentForm(true)}>Edit</button>
               </span>
+            )}
+            {quote!.converted_job_id && (
+              <Button size="sm" variant="outline" onClick={() => navigate(`/jobs/${quote!.converted_job_id}`)}>
+                📋 View Job
+              </Button>
             )}
           </div>
 
