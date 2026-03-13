@@ -86,8 +86,85 @@ serve(async (req) => {
       );
     }
 
+    // Auto-create job from accepted quote (if not already converted)
+    // First check if quote already has a converted_job_id
+    const quoteCheckRes = await fetch(
+      `${supabaseUrl}/rest/v1/quotes?id=eq.${match.id}&select=converted_job_id,customer_id,description,user_id,job_id`,
+      {
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          apikey: supabaseKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const quoteData = await quoteCheckRes.json();
+    const quoteRow = Array.isArray(quoteData) ? quoteData[0] : null;
+
+    let newJobId: string | null = null;
+    if (quoteRow && !quoteRow.converted_job_id) {
+      // Get original job details for engineer info
+      const origJobRes = await fetch(
+        `${supabaseUrl}/rest/v1/service_calls?id=eq.${quoteRow.job_id}&select=job_type,assigned_engineer,assigned_engineer_id`,
+        {
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const origJobs = await origJobRes.json();
+      const origJob = Array.isArray(origJobs) ? origJobs[0] : null;
+
+      const insertRes = await fetch(
+        `${supabaseUrl}/rest/v1/service_calls`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({
+            customer_id: quoteRow.customer_id,
+            user_id: quoteRow.user_id,
+            job_type: origJob?.job_type || "Repair",
+            job_issue: quoteRow.description,
+            assigned_engineer: origJob?.assigned_engineer || null,
+            assigned_engineer_id: origJob?.assigned_engineer_id || null,
+            status: "Pending",
+            has_quote: true,
+            notes: `Created from quote ${quoteRef}`,
+            source: "Quote",
+          }),
+        }
+      );
+
+      if (insertRes.ok) {
+        const newJobs = await insertRes.json();
+        newJobId = Array.isArray(newJobs) ? newJobs[0]?.id : null;
+        if (newJobId) {
+          await fetch(
+            `${supabaseUrl}/rest/v1/quotes?id=eq.${match.id}`,
+            {
+              method: "PATCH",
+              headers: {
+                Authorization: `Bearer ${supabaseKey}`,
+                apikey: supabaseKey,
+                "Content-Type": "application/json",
+                Prefer: "return=minimal",
+              },
+              body: JSON.stringify({ converted_job_id: newJobId }),
+            }
+          );
+        }
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: match.id }),
+      JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: match.id, job_id: newJobId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
