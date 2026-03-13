@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDistanceToNow, isToday } from "date-fns";
-import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore } from "lucide-react";
+import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore, BellOff } from "lucide-react";
 
 type RenewalCustomer = {
   id: string;
@@ -12,6 +12,7 @@ type RenewalCustomer = {
   next_service_due: string | null;
   assigned_engineer: string | null;
   reminder_30_days_sent: boolean | null;
+  opted_out?: boolean | null;
 };
 
 type Props = {
@@ -86,7 +87,14 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
       {/* Top row */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
-          <div className="text-base font-extrabold">{customer.name}</div>
+          <div className="text-base font-extrabold flex items-center gap-1.5">
+            {customer.name}
+            {customer.opted_out && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                <BellOff className="w-2.5 h-2.5" /> Opted Out
+              </span>
+            )}
+          </div>
           <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
             <MapPin className="w-3 h-3 shrink-0" /> {customer.address}
           </div>
