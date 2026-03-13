@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.lock-failed-login]
 verify_jwt = false
+
+[functions.renewal-reminder-30]
+verify_jwt = false
