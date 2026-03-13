@@ -404,12 +404,8 @@ const Quotes = () => {
 
   // ── WhatsApp ──
   const openWhatsApp = (q: Quote) => {
-    const quoteLink = `${window.location.origin}/quote/${q.id}`;
-    const payLine = q.payment_link
-      ? `\n\nPay ${q.deposit_amount ? `deposit of €${q.deposit_amount}` : "now"}: ${q.payment_link}`
-      : "";
     setWhatsappMsg(
-      `Hi ${q.customers.name.split(" ")[0]},\n\nHere is your quote for: ${q.description}\n\nTotal: €${Number(q.total_amount).toLocaleString()}\n\nView & approve here:\n${quoteLink}${payLine}\n\nKarl's Gas`
+      `Hi ${q.customers.name.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${Number(q.total_amount).toLocaleString()}\n\nKarl's Gas`
     );
     setWhatsappOpen(true);
   };
