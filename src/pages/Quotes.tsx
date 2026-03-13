@@ -275,6 +275,9 @@ const Quotes = () => {
           mobile_number: selected.customers.phone,
           job_description: resendQuoteData.description,
           quote_amount: resendQuoteData.total,
+          parts_cost: selected.parts_cost,
+          labour_cost: selected.labour_cost,
+          business_phone: settings?.business_phone,
         },
       });
       if (error || !data?.success) {
