@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDistanceToNow, isToday } from "date-fns";
-import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore } from "lucide-react";
+import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore, BellOff } from "lucide-react";
 
 type RenewalCustomer = {
   id: string;
