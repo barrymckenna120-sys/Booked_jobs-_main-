@@ -439,6 +439,9 @@ const Quotes = () => {
           mobile_number: q.customers.phone,
           job_description: q.description,
           quote_amount: Number(q.total_amount),
+          parts_cost: q.parts_cost,
+          labour_cost: q.labour_cost,
+          business_phone: settings?.business_phone,
         },
       });
       if (error || !data?.success) {
