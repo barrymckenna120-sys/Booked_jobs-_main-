@@ -323,7 +323,40 @@ const Quotes = () => {
     if (user) fetchQuotes();
   }, [user]);
 
-  const filtered = filter === "All" ? quotes : quotes.filter((q) => q.status === filter);
+  const hasActiveFilters = searchTerm.trim() !== "" || !!dateFrom || !!dateTo;
+  const clearAllFilters = () => { setSearchTerm(""); setDateFrom(undefined); setDateTo(undefined); setFilter("All"); };
+
+  const filtered = quotes.filter((q) => {
+    // Status filter
+    if (filter !== "All" && filter !== "Open") {
+      if (q.status !== filter) return false;
+    }
+    if (filter === "Open" && !["Draft", "Sent"].includes(q.status)) return false;
+
+    // Search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      const ref = `q-${q.id.slice(0, 4).toLowerCase()}`;
+      const name = (q.customers?.name || "").toLowerCase();
+      if (!ref.includes(term) && !name.includes(term)) return false;
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      const created = new Date(q.created_at);
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      if (created < from) return false;
+    }
+    if (dateTo) {
+      const created = new Date(q.created_at);
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      if (created > to) return false;
+    }
+
+    return true;
+  });
 
   const kpi = {
     total: quotes.length,
