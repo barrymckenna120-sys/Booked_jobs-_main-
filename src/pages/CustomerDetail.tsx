@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -212,6 +213,17 @@ const CustomerDetail = () => {
             <PlainField label="Address" field="address" value={form.address} />
             <CustomerFormField label="Eircode" id="eircode" value={form.eircode ?? ""} onChange={(v) => handleChange("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
             <CustomerFormField label="Area Code" id="area_code" value={form.area_code ?? ""} onChange={(v) => handleChange("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
+            <div className="sm:col-span-2 flex items-center justify-between rounded-md border border-input px-3 py-2.5">
+              <div>
+                <Label htmlFor="opted_out" className="text-sm font-medium text-foreground">Opt out of service reminders</Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5">This customer won't receive automated renewal reminders</p>
+              </div>
+              <Switch
+                id="opted_out"
+                checked={!!form.opted_out}
+                onCheckedChange={(v) => handleChange("opted_out", v)}
+              />
+            </div>
           </CardContent>
         </Card>
 
