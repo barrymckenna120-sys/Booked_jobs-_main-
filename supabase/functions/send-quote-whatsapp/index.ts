@@ -17,9 +17,9 @@ Deno.serve(async (req) => {
     })
   }
 
-  const apiKey = Deno.env.get('MESSENGER_API_KEY')
+  const apiKey = Deno.env.get('THREESIXTY_API_KEY')
   if (!apiKey) {
-    console.error('MESSENGER_API_KEY not configured')
+    console.error('THREESIXTY_API_KEY not configured')
     return new Response(JSON.stringify({ success: false, error: 'WhatsApp API not configured' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
