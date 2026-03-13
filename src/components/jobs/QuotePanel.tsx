@@ -155,11 +155,35 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
       .eq("id", quote.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    // Auto-create job when accepted
+    if (newStatus === "Accepted" && !quote.converted_job_id && user) {
+      const quoteRef = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
+      const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
+        customer_id: customerId,
+        user_id: user.id,
+        job_type: "Repair",
+        job_issue: quote.description,
+        status: "Pending",
+        has_quote: true,
+        notes: `Created from quote ${quoteRef}`,
+        source: "Quote",
+      } as any).select("id").single();
+
+      if (newJob && !jobErr) {
+        await supabase.from("quotes").update({ converted_job_id: newJob.id } as any).eq("id", quote.id);
+        toast({ title: `Job created from quote ${quoteRef}` });
+      } else {
+        toast({ title: `Quote marked as ${newStatus}` });
+      }
     } else {
       toast({ title: `Quote marked as ${newStatus}` });
-      await fetchQuote();
-      onQuoteChange();
     }
+
+    await fetchQuote();
+    onQuoteChange();
   };
 
   const startEdit = () => {
