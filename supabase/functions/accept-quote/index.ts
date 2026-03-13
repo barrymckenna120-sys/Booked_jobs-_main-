@@ -163,6 +163,37 @@ serve(async (req) => {
       }
     }
 
+    // Send notification to office
+    const customerName = match.customers?.name || "Customer";
+    if (quoteRow?.user_id) {
+      await fetch(
+        `${supabaseUrl}/rest/v1/notifications`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            recipient_user_id: quoteRow.user_id,
+            notification_type: "quote_accepted",
+            title: `Quote Accepted — ${quoteRef}`,
+            body: `${customerName} accepted the quote for €${Number(match.total_amount).toFixed(2)}`,
+            job_id: newJobId || quoteRow.job_id,
+            role: "office",
+            metadata: {
+              customer_name: customerName,
+              quote_ref: quoteRef,
+              quote_id: match.id,
+              total_amount: match.total_amount,
+            },
+          }),
+        }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: match.id, job_id: newJobId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
