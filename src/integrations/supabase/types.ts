@@ -674,6 +674,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           callout_cost: number | null
+          converted_job_id: string | null
           created_at: string
           customer_id: string
           deposit_amount: number | null
@@ -694,6 +695,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           callout_cost?: number | null
+          converted_job_id?: string | null
           created_at?: string
           customer_id: string
           deposit_amount?: number | null
@@ -714,6 +716,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           callout_cost?: number | null
+          converted_job_id?: string | null
           created_at?: string
           customer_id?: string
           deposit_amount?: number | null
@@ -732,6 +735,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quotes_converted_job_id_fkey"
+            columns: ["converted_job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotes_customer_id_fkey"
             columns: ["customer_id"]
