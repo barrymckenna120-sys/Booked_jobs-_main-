@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
 Deno.serve(async (req) => {
@@ -17,9 +17,9 @@ Deno.serve(async (req) => {
     })
   }
 
-  const apiKey = Deno.env.get('THREESIXTY_API_KEY')
+  const apiKey = Deno.env.get('MESSENGER_API_KEY')
   if (!apiKey) {
-    console.error('THREESIXTY_API_KEY not configured')
+    console.error('MESSENGER_API_KEY not configured')
     return new Response(JSON.stringify({ success: false, error: 'WhatsApp API not configured' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const { quote_id, customer_name, mobile_number, job_description, quote_amount, quote_url } = await req.json()
+    const { quote_id, customer_name, mobile_number, job_description, quote_amount } = await req.json()
 
     // Validate required fields
     const missing: string[] = []
@@ -41,7 +41,6 @@ Deno.serve(async (req) => {
     if (!mobile_number) missing.push('mobile_number')
     if (!job_description) missing.push('job_description')
     if (quote_amount == null) missing.push('quote_amount')
-    if (!quote_url) missing.push('quote_url')
 
     if (missing.length > 0) {
       return new Response(JSON.stringify({ success: false, error: `Missing required fields: ${missing.join(', ')}` }), {
@@ -50,7 +49,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Sanitize phone number to international format
+    // Sanitize phone number to international format (Ireland)
     const cleaned = mobile_number.replace(/[\s\-()]/g, '')
     const phone = cleaned.startsWith('353') ? cleaned
       : cleaned.startsWith('0') ? '353' + cleaned.slice(1)
@@ -58,7 +57,7 @@ Deno.serve(async (req) => {
 
     const firstName = customer_name.split(' ')[0]
 
-    const message = `Hi ${firstName},\n\nHere is your quote from Karl's Gas.\n\nJob: ${job_description}\nTotal: €${quote_amount}\n\nView and approve here:\n${quote_url}\n\nKarl's Gas`
+    const message = `Hi ${firstName},\n\nHere is your quote from Karl's Gas.\n\nJob: ${job_description}\nTotal: €${quote_amount}\n\nKarl's Gas`
 
     // Send via 360Messenger API
     const waResponse = await fetch('https://waba-v2.360dialog.io/messages', {
@@ -93,7 +92,6 @@ Deno.serve(async (req) => {
 
     if (updateErr) {
       console.error('Quote update failed:', updateErr)
-      // Message was sent successfully, just log the DB error
     }
 
     return new Response(JSON.stringify({ success: true, message_id: waResult?.messages?.[0]?.id }), {
