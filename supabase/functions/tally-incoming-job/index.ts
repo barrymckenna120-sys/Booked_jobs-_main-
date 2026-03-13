@@ -15,6 +15,9 @@ const sanitize = (val: unknown, maxLen: number): string | null => {
   return val.trim().substring(0, maxLen) || null
 }
 
+const isValidEmail = (email: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
 const isValidPhone = (phone: string): boolean =>
   /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ''))
 
@@ -68,6 +71,13 @@ Deno.serve(async (req) => {
 
     if (!isValidPhone(mobileNumber)) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid mobile number format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (email && !isValidEmail(email)) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid email format' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
