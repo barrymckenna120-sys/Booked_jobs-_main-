@@ -26,9 +26,9 @@ serve(async (req) => {
     // Strip non-digits for matching
     const digits = customer_mobile_number.replace(/\D/g, "");
 
-    // Find the most recent "Sent" quote for this mobile number by joining quotes → customers
+    // Find recent "Sent" quotes joined with customer phone
     const searchRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=1&select=id,total_amount,description,customer_id,customers!inner(phone)`,
+      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,customers!inner(phone)`,
       {
         headers: {
           Authorization: `Bearer ${supabaseKey}`,
