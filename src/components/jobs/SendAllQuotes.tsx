@@ -66,6 +66,9 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
           mobile_number: currentQ.phone,
           job_description: currentQ.description,
           quote_amount: currentQ.total,
+          parts_cost: currentQ.parts_cost,
+          labour_cost: currentQ.labour_cost,
+          business_phone: currentQ.business_phone,
         },
       });
       if (error || !data?.success) {
