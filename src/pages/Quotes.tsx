@@ -171,6 +171,15 @@ const Quotes = () => {
     }
   }, []);
 
+  const [settings, setSettings] = useState<{ business_phone?: string } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("settings").select("business_phone").eq("user_id", user.id).single().then(({ data }) => {
+      if (data) setSettings(data as any);
+    });
+  }, [user]);
+
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
     queryFn: async () => {
