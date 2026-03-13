@@ -61,26 +61,51 @@ Deno.serve(async (req) => {
 
     const message = `Hi ${firstName},\n\nHere is your quote from Karl's Gas.\n\nJob: ${job_description}\nTotal: €${quote_amount}\n\nKarl's Gas`
 
-    // Send via 360Messenger API
-    const waResponse = await fetch('https://waba-v2.360dialog.io/messages', {
-      method: 'POST',
-      headers: {
-        'D360-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: phone,
-        type: 'text',
-        text: { body: message },
-      }),
+    const waPayload = {
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: 'text',
+      text: { body: message },
+    }
+
+    const call360 = async (headers: Record<string, string>) => {
+      const response = await fetch('https://waba-v2.360dialog.io/messages', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(waPayload),
+      })
+
+      const raw = await response.text()
+      let parsed: any = null
+      try {
+        parsed = raw ? JSON.parse(raw) : null
+      } catch {
+        parsed = { raw }
+      }
+
+      return { response, parsed }
+    }
+
+    // Primary auth mode (360dialog API key header)
+    let { response: waResponse, parsed: waResult } = await call360({
+      'D360-API-KEY': normalizedApiKey,
+      'Content-Type': 'application/json',
     })
 
-    const waResult = await waResponse.json()
+    // Fallback auth mode (Bearer token header)
+    if (!waResponse.ok && (waResponse.status === 401 || waResponse.status === 403)) {
+      console.warn('Primary auth header rejected, retrying with Bearer token format')
+      const retry = await call360({
+        Authorization: `Bearer ${normalizedApiKey}`,
+        'Content-Type': 'application/json',
+      })
+      waResponse = retry.response
+      waResult = retry.parsed
+    }
 
     if (!waResponse.ok) {
       console.error('360Messenger API error:', JSON.stringify(waResult))
-      return new Response(JSON.stringify({ success: false, error: `WhatsApp send failed: ${waResult?.error?.message || waResponse.statusText}` }), {
+      return new Response(JSON.stringify({ success: false, error: `WhatsApp send failed: ${waResult?.error?.message || waResult?.error || waResponse.statusText}` }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
