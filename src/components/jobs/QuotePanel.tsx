@@ -16,6 +16,7 @@ import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
 type Quote = {
   id: string;
+  job_id: string;
   description: string;
   parts_cost: number | null;
   labour_cost: number | null;
