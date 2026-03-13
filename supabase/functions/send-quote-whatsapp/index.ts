@@ -17,8 +17,10 @@ Deno.serve(async (req) => {
     })
   }
 
-  const apiKey = Deno.env.get('THREESIXTY_API_KEY')
-  if (!apiKey) {
+  const apiKey = (Deno.env.get('THREESIXTY_API_KEY') || Deno.env.get('MESSENGER_API_KEY') || '').trim()
+  const normalizedApiKey = apiKey.replace(/^Bearer\s+/i, '').trim()
+
+  if (!normalizedApiKey) {
     console.error('THREESIXTY_API_KEY not configured')
     return new Response(JSON.stringify({ success: false, error: 'WhatsApp API not configured' }), {
       status: 500,
