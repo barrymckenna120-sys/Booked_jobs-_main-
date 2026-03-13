@@ -11,6 +11,8 @@ type Quote = {
   id: string;
   description: string;
   total_amount: number;
+  parts_cost: number | null;
+  labour_cost: number | null;
   payment_link: string | null;
   deposit_amount: number | null;
 };
