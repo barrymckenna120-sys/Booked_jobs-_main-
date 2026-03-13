@@ -1131,6 +1131,12 @@ const Quotes = () => {
                         </Card>
                       )}
 
+                      {q.converted_job_id && (
+                        <Button className="w-full justify-center" onClick={() => navigate(`/jobs/${q.converted_job_id}`)}>
+                          📋 View Job
+                        </Button>
+                      )}
+
                       <Button variant="outline" className="w-full justify-center" onClick={() => navigate(`/customers/${q.customer_id}`)}>
                         <User className="w-4 h-4 mr-2" /> View Customer Profile
                       </Button>

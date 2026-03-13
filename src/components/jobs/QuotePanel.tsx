@@ -26,6 +26,7 @@ type Quote = {
   paid_at: string | null;
   payment_link: string | null;
   deposit_amount: number | null;
+  converted_job_id: string | null;
 };
 
 type Customer = {
