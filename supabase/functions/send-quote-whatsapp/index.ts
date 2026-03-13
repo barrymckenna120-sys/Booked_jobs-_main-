@@ -86,21 +86,34 @@ Deno.serve(async (req) => {
       return { response, parsed }
     }
 
-    // Primary auth mode (360dialog API key header)
-    let { response: waResponse, parsed: waResult } = await call360({
+    const primaryAttempt = await call360({
       'D360-API-KEY': normalizedApiKey,
       'Content-Type': 'application/json',
     })
 
-    // Fallback auth mode (Bearer token header)
+    let waResponse = primaryAttempt.response
+    let waResult = primaryAttempt.parsed
+
     if (!waResponse.ok && (waResponse.status === 401 || waResponse.status === 403)) {
       console.warn('Primary auth header rejected, retrying with Bearer token format')
-      const retry = await call360({
+      const retryAttempt = await call360({
         Authorization: `Bearer ${normalizedApiKey}`,
         'Content-Type': 'application/json',
       })
-      waResponse = retry.response
-      waResult = retry.parsed
+
+      if (retryAttempt.response.ok) {
+        waResponse = retryAttempt.response
+        waResult = retryAttempt.parsed
+      } else {
+        const primaryError = primaryAttempt.parsed?.error?.message || primaryAttempt.parsed?.error || primaryAttempt.response.statusText
+        const retryError = retryAttempt.parsed?.error?.message || retryAttempt.parsed?.error || retryAttempt.response.statusText
+        console.error('360Messenger API error:', JSON.stringify({ primaryError, retryError }))
+
+        return new Response(JSON.stringify({ success: false, error: `WhatsApp send failed: ${primaryError}` }), {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     if (!waResponse.ok) {
