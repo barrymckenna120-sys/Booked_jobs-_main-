@@ -27,6 +27,14 @@ type Job = {
   source: string | null;
   incoming_status: string | null;
   created_at: string;
+  email: string | null;
+  job_issue: string | null;
+  extra_details: string | null;
+  boiler_type: string | null;
+  boiler_error_code: string | null;
+  area_code: string | null;
+  owner_or_tenant: string | null;
+  access_notes: string | null;
 };
 
 type Customer = {
