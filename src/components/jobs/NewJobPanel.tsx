@@ -850,7 +850,15 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         deposit_amount: finalData.payment.status === "deposit" ? finalData.payment.amount : null,
         source: "Manual",
         incoming_status: "Accepted",
-      }).select("id").single();
+        email: finalData.job.email || null,
+        job_issue: finalData.job.jobIssue || null,
+        extra_details: finalData.job.extraDetails || null,
+        boiler_type: finalData.job.boilerType || null,
+        boiler_error_code: finalData.job.boilerErrorCode || null,
+        area_code: finalData.job.areaCode || null,
+        owner_or_tenant: finalData.job.ownerOrTenant || null,
+        access_notes: finalData.job.accessNotes || null,
+      } as any).select("id").single();
       if (jobErr) {
         console.error("[NewJobPanel] Job insert error:", jobErr);
         throw jobErr;
