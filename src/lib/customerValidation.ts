@@ -4,7 +4,7 @@ export type CustomerFieldErrors = Record<string, string>;
 
 const PHONE_RE = /^(\+?353|0)\d{7,10}$/;
 const EIRCODE_RE = /^[A-Z]\d[\dW][A-Z0-9]{4}$/i;
-const AREA_CODE_RE = /^0\d{1,2}$/;
+const AREA_CODE_RE = /^(0\d{1,2}|D\d{1,2}W?)$/i;
 
 export const validatePhone = (raw: string): string | null => {
   const stripped = raw.replace(/\s+/g, "");
@@ -23,7 +23,7 @@ export const validateEircode = (raw: string): string | null => {
 export const validateAreaCode = (raw: string): string | null => {
   const stripped = raw.trim();
   if (!stripped) return null; // optional field
-  if (!AREA_CODE_RE.test(stripped)) return "Enter a valid area code (e.g. 01 or 021)";
+  if (!AREA_CODE_RE.test(stripped)) return "Enter a valid area code (e.g. 01, 021, D7, D15)";
   return null;
 };
 
