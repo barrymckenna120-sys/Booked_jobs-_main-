@@ -91,7 +91,7 @@ Karl's Gas`;
           "apikey": supabaseKey!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: "sent" }),
+        body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
       });
     }
 

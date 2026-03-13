@@ -805,6 +805,11 @@ const Quotes = () => {
                         </>
                       )}
                     </div>
+                    {q.sent_at && (
+                      <p className="text-[11px] text-muted-foreground mt-2">
+                        Sent: {new Date(q.sent_at).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })} at {new Date(q.sent_at).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                      </p>
+                    )}
                   </div>
                 </div>
 
