@@ -1163,7 +1163,9 @@ const Quotes = () => {
                 onChange={(e) => setWhatsappMsg(e.target.value)}
               />
               <p className="text-xs text-muted-foreground text-right">Edit before sending ↑</p>
-              <Button className="w-full" onClick={() => sendWhatsApp(selected)}>📲 Open WhatsApp</Button>
+              <Button className="w-full" onClick={() => sendWhatsApp(selected)} disabled={whatsappSending}>
+                {whatsappSending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending…</> : "📲 Send via WhatsApp"}
+              </Button>
               <Button variant="outline" className="w-full" onClick={() => setWhatsappOpen(false)}>Cancel</Button>
             </div>
           )}
