@@ -3,7 +3,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Send, SkipForward, CheckCircle2, MessageCircle } from "lucide-react";
+import { Send, SkipForward, CheckCircle2, MessageCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type UnsentQuote = {
   id: string;
@@ -13,16 +15,12 @@ type UnsentQuote = {
   total: number;
   description: string;
   notes: string;
-  quoteUrl: string;
+  quoteId: string;
 };
 
 const buildMsg = (q: UnsentQuote) => {
-  const noteLine = q.notes ? `\n\n${q.notes}` : "";
-  return `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}${noteLine}\n\nView and approve here:\n${q.quoteUrl}\n\nKarl's Gas 🔥`;
+  return `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}\n\nKarl's Gas`
 };
-
-const waUrl = (phone: string, msg: string) =>
-  `https://wa.me/${phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`;
 
 interface SendAllQuotesSheetProps {
   open: boolean;
