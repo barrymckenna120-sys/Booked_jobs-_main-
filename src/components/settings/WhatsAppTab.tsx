@@ -60,20 +60,26 @@ Karl's Gas 🔥`,
   },
   {
     key: "template_quote_sent",
-    name: "Quote Sent",
+    name: "Quote Message",
     description: "Sent when office clicks Send Quote via WhatsApp",
-    variables: ["{{name}}", "{{job_type}}", "{{amount}}", "{{quote_link}}", "{{phone}}"],
+    variables: ["{{name}}", "{{ref}}", "{{job_type}}", "{{parts}}", "{{labour}}", "{{amount}}", "{{phone}}"],
     defaultBody: `Hi {{name}}, here is your quote from Karl's Gas 🔥
 
+Quote Ref: {{ref}}
+
 Job: {{job_type}}
-Amount: €{{amount}}
 
-To approve your quote tap the link below:
-→ {{quote_link}}
+Breakdown:
+• Parts: €{{parts}}
+• Labour: €{{labour}}
+• Total: €{{amount}}
 
-Any questions call us on {{phone}}.
+To accept this quote, simply reply *YES* to this message.
 
-Karl's Gas`,
+This quote is valid for 14 days from today.
+
+Karl's Gas
+📞 {{phone}}`,
   },
   {
     key: "template_payment_link",

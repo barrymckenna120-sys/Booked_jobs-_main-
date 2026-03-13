@@ -171,6 +171,15 @@ const Quotes = () => {
     }
   }, []);
 
+  const [settings, setSettings] = useState<{ business_phone?: string } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("settings").select("business_phone").eq("user_id", user.id).single().then(({ data }) => {
+      if (data) setSettings(data as any);
+    });
+  }, [user]);
+
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers-for-schedule"],
     queryFn: async () => {
@@ -275,6 +284,9 @@ const Quotes = () => {
           mobile_number: selected.customers.phone,
           job_description: resendQuoteData.description,
           quote_amount: resendQuoteData.total,
+          parts_cost: selected.parts_cost,
+          labour_cost: selected.labour_cost,
+          business_phone: settings?.business_phone,
         },
       });
       if (error || !data?.success) {
@@ -333,6 +345,9 @@ const Quotes = () => {
       description: q.description,
       notes: q.notes || "",
       quoteId: q.id,
+      parts_cost: q.parts_cost,
+      labour_cost: q.labour_cost,
+      business_phone: settings?.business_phone,
     }));
 
   const handleQuoteSent = async (quoteId: string) => {
@@ -420,8 +435,17 @@ const Quotes = () => {
 
   // ── WhatsApp ──
   const openWhatsApp = (q: Quote) => {
+    const firstName = q.customers.name.split(" ")[0];
+    const refNumber = q.id.substring(0, 8).toUpperCase();
+    const parts = Number(q.parts_cost || 0);
+    const labour = Number(q.labour_cost || 0);
+    const total = Number(q.total_amount).toFixed(2);
+    let breakdown = "";
+    if (parts > 0) breakdown += `• Parts: €${parts.toFixed(2)}\n`;
+    if (labour > 0) breakdown += `• Labour: €${labour.toFixed(2)}\n`;
+    breakdown += `• Total: €${total}`;
     setWhatsappMsg(
-      `Hi ${q.customers.name.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${Number(q.total_amount).toLocaleString()}\n\nKarl's Gas`
+      `Hi ${firstName},\n\nHere is your quote from Karl's Gas.\n\nQuote Ref: ${refNumber}\n\nJob: ${q.description}\n\nBreakdown:\n${breakdown}\n\nTo accept this quote, simply reply *YES* to this message.\n\nThis quote is valid for 14 days from today.\n\nKarl's Gas${settings?.business_phone ? `\n📞 ${settings.business_phone}` : ""}`
     );
     setWhatsappOpen(true);
   };
@@ -436,6 +460,9 @@ const Quotes = () => {
           mobile_number: q.customers.phone,
           job_description: q.description,
           quote_amount: Number(q.total_amount),
+          parts_cost: q.parts_cost,
+          labour_cost: q.labour_cost,
+          business_phone: settings?.business_phone,
         },
       });
       if (error || !data?.success) {

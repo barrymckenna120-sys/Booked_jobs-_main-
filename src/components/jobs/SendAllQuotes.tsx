@@ -7,7 +7,7 @@ import { Send, SkipForward, CheckCircle2, MessageCircle, Loader2 } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-type UnsentQuote = {
+export type UnsentQuote = {
   id: string;
   customer: string;
   phone: string;
@@ -16,10 +16,22 @@ type UnsentQuote = {
   description: string;
   notes: string;
   quoteId: string;
+  parts_cost: number | null;
+  labour_cost: number | null;
+  business_phone?: string;
 };
 
 const buildMsg = (q: UnsentQuote) => {
-  return `Hi ${q.customer.split(" ")[0]},\n\nHere is your quote from Karl's Gas.\n\nJob: ${q.description}\nTotal: €${q.total}\n\nKarl's Gas`
+  const firstName = q.customer.split(" ")[0];
+  const refNumber = q.quoteId.substring(0, 8).toUpperCase();
+  const parts = Number(q.parts_cost || 0);
+  const labour = Number(q.labour_cost || 0);
+  const total = Number(q.total).toFixed(2);
+  let breakdown = "";
+  if (parts > 0) breakdown += `• Parts: €${parts.toFixed(2)}\n`;
+  if (labour > 0) breakdown += `• Labour: €${labour.toFixed(2)}\n`;
+  breakdown += `• Total: €${total}`;
+  return `Hi ${firstName},\n\nHere is your quote from Karl's Gas.\n\nQuote Ref: ${refNumber}\n\nJob: ${q.description}\n\nBreakdown:\n${breakdown}\n\nTo accept this quote, simply reply *YES* to this message.\n\nThis quote is valid for 14 days from today.\n\nKarl's Gas${q.business_phone ? `\n📞 ${q.business_phone}` : ""}`;
 };
 
 interface SendAllQuotesSheetProps {
@@ -54,6 +66,9 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
           mobile_number: currentQ.phone,
           job_description: currentQ.description,
           quote_amount: currentQ.total,
+          parts_cost: currentQ.parts_cost,
+          labour_cost: currentQ.labour_cost,
+          business_phone: currentQ.business_phone,
         },
       });
       if (error || !data?.success) {
@@ -281,4 +296,4 @@ export function SendAllBanner({ unsentQuotes, onSendAll }: SendAllBannerProps) {
   );
 }
 
-export type { UnsentQuote };
+
