@@ -23,7 +23,7 @@ export const validateEircode = (raw: string): string | null => {
 export const validateAreaCode = (raw: string): string | null => {
   const stripped = raw.trim();
   if (!stripped) return null; // optional field
-  if (!AREA_CODE_RE.test(stripped)) return "Enter a valid area code (e.g. 01 or 021)";
+  if (!AREA_CODE_RE.test(stripped)) return "Enter a valid area code (e.g. 01, 021, D7, D15)";
   return null;
 };
 
