@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.renewal-reminder-30]
 verify_jwt = false
+
+[functions.renewal-reminder-7]
+verify_jwt = false
