@@ -15,6 +15,9 @@ const sanitize = (val: unknown, maxLen: number): string | null => {
   return val.trim().substring(0, maxLen) || null
 }
 
+const isValidEmail = (email: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
 const isValidPhone = (phone: string): boolean =>
   /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ''))
 
