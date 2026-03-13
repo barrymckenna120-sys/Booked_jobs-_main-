@@ -789,6 +789,7 @@ export type Database = {
           receipt_sent_at: string | null
           revenue: number | null
           review_sent: boolean
+          review_sent_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           scheduled_date: string | null
@@ -839,6 +840,7 @@ export type Database = {
           receipt_sent_at?: string | null
           revenue?: number | null
           review_sent?: boolean
+          review_sent_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           scheduled_date?: string | null
@@ -889,6 +891,7 @@ export type Database = {
           receipt_sent_at?: string | null
           revenue?: number | null
           review_sent?: boolean
+          review_sent_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           scheduled_date?: string | null
