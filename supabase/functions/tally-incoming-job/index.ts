@@ -76,6 +76,13 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (email && !isValidEmail(email)) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid email format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Get the business user_id (single-tenant)
     const { data: firstSettings } = await supabase
       .from('settings')
