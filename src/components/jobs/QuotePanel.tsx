@@ -348,6 +348,11 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
                 <button className="underline text-primary text-xs" onClick={() => setShowPaymentForm(true)}>Edit</button>
               </span>
             )}
+            {quote!.converted_job_id && (
+              <Button size="sm" variant="outline" onClick={() => navigate(`/jobs/${quote!.converted_job_id}`)}>
+                📋 View Job
+              </Button>
+            )}
           </div>
 
           {/* Payment Link Form */}
