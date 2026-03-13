@@ -33,6 +33,8 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
   const [sentIds, setSentIds] = useState<string[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
 
   const remaining = quotes.filter(q => !sentIds.includes(q.id) && !skipped.includes(q.id));
   const currentQ = remaining[0] || null;
@@ -40,14 +42,31 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
   const isFinished = started && remaining.length === 0;
   const progress = quotes.length > 0 ? (sentIds.length / quotes.length) * 100 : 0;
 
-  const sendCurrent = () => {
-    if (!currentQ) return;
-    const phone = currentQ.phone.replace(/\D/g, "");
-    const fullPhone = phone.startsWith("353") ? phone : phone.startsWith("0") ? "353" + phone.slice(1) : "353" + phone;
-    window.open(waUrl(fullPhone, buildMsg(currentQ)), "_blank");
-    setSentIds(p => [...p, currentQ.id]);
-    onQuoteSent(currentQ.id);
+  const sendCurrent = async () => {
+    if (!currentQ || sending) return;
+    setSending(true);
     if (!started) setStarted(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-quote-whatsapp", {
+        body: {
+          quote_id: currentQ.quoteId,
+          customer_name: currentQ.customer,
+          mobile_number: currentQ.phone,
+          job_description: currentQ.description,
+          quote_amount: currentQ.total,
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: `Failed to send to ${currentQ.customer.split(" ")[0]}`, description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+      } else {
+        setSentIds(p => [...p, currentQ.id]);
+        onQuoteSent(currentQ.id);
+        toast({ title: `Sent to ${currentQ.customer.split(" ")[0]} ✅` });
+      }
+    } catch (err: any) {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    }
+    setSending(false);
   };
 
   const skipCurrent = () => {
