@@ -92,6 +92,9 @@ const Quotes = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selected, setSelected] = useState<Quote | null>(null);
   const [tab, setTab] = useState<"details" | "timeline" | "actions">("details");
 
