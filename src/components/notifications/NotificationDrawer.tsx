@@ -21,6 +21,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   parts_needed:      { icon: Cog,            color: "text-amber-500",   label: "Parts Needed" },
   payment_collected:     { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
   new_video_uploaded:    { icon: Video,          color: "text-primary",     label: "New Video" },
+  quote_accepted:        { icon: CheckCircle2,   color: "text-success",     label: "Quote Accepted" },
 };
 
 type FilterTab = "all" | "unread" | "engineer" | "office";

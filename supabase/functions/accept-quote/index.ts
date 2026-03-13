@@ -28,7 +28,7 @@ serve(async (req) => {
 
     // Find recent "Sent" quotes joined with customer phone
     const searchRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,customers!inner(phone)`,
+      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,customers!inner(phone,name)`,
       {
         headers: {
           Authorization: `Bearer ${supabaseKey}`,
@@ -161,6 +161,37 @@ serve(async (req) => {
           );
         }
       }
+    }
+
+    // Send notification to office
+    const customerName = match.customers?.name || "Customer";
+    if (quoteRow?.user_id) {
+      await fetch(
+        `${supabaseUrl}/rest/v1/notifications`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            recipient_user_id: quoteRow.user_id,
+            notification_type: "quote_accepted",
+            title: `Quote Accepted — ${quoteRef}`,
+            body: `${customerName} accepted the quote for €${Number(match.total_amount).toFixed(2)}`,
+            job_id: newJobId || quoteRow.job_id,
+            role: "office",
+            metadata: {
+              customer_name: customerName,
+              quote_ref: quoteRef,
+              quote_id: match.id,
+              total_amount: match.total_amount,
+            },
+          }),
+        }
+      );
     }
 
     return new Response(

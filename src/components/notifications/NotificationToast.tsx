@@ -13,6 +13,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", label: "Completed" },
   parts_needed:      { icon: Cog,            color: "text-amber-500",   label: "Parts Needed" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
+  quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", label: "Quote Accepted" },
 };
 
 interface Props {
