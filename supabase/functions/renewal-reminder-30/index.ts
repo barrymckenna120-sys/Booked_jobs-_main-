@@ -18,15 +18,19 @@ Deno.serve(async (req) => {
     );
 
     const today = new Date();
-    const target = new Date(today);
-    target.setDate(target.getDate() + 30);
-    const targetDate = target.toISOString().split("T")[0];
+    const rangeStart = new Date(today);
+    rangeStart.setDate(rangeStart.getDate() + 28);
+    const rangeEnd = new Date(today);
+    rangeEnd.setDate(rangeEnd.getDate() + 32);
+    const startDate = rangeStart.toISOString().split("T")[0];
+    const endDate = rangeEnd.toISOString().split("T")[0];
 
-    // Get customers due in 30 days who haven't opted out
+    // Get customers due in 28-32 days who haven't opted out
     const { data: customers, error: custErr } = await supabase
       .from("customers")
       .select("id, name, phone, next_service_due")
-      .eq("next_service_due", targetDate)
+      .gte("next_service_due", startDate)
+      .lte("next_service_due", endDate)
       .neq("opted_out", true);
 
     if (custErr) throw custErr;
