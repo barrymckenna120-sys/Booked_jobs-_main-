@@ -1,31 +1,25 @@
 project_id = "ktkfuquqxbrmuqrmbmdj"
 
-[functions.tally-webhook]
-verify_jwt = false
-
-[functions.send-email]
-verify_jwt = false
-
-[functions.send-reset-email]
-verify_jwt = false
-
-[functions.list-users]
-verify_jwt = false
-
-[functions.unblock-user]
-verify_jwt = false
-
-[functions.lock-failed-login]
-verify_jwt = false
-
-[functions.renewal-reminder-30]
-verify_jwt = false
-
-[functions.renewal-reminder-7]
-verify_jwt = false
-
-[functions.tally-incoming-job]
-verify_jwt = false
-
-[functions.send-quote-whatsapp]
-verify_jwt = false
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.list-users]
+    verify_jwt = false
+  [functions.lock-failed-login]
+    verify_jwt = false
+  [functions.renewal-reminder-30]
+    verify_jwt = false
+  [functions.renewal-reminder-7]
+    verify_jwt = false
+  [functions.send-email]
+    verify_jwt = false
+  [functions.send-quote-whatsapp]
+    verify_jwt = false
+  [functions.send-reset-email]
+    verify_jwt = false
+  [functions.tally-incoming-job]
+    verify_jwt = false
+  [functions.tally-webhook]
+    verify_jwt = false
+  [functions.unblock-user]
+    verify_jwt = false
