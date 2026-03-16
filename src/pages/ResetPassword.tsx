@@ -175,14 +175,44 @@ const ResetPassword = () => {
             <div>
               <CardTitle className="text-xl text-foreground">Link Expired</CardTitle>
               <CardDescription className="mt-1">
-                {error || "This link has expired or is invalid. Please request a new password reset."}
+                This reset link has expired or was already used. This can happen if your email provider scanned the link before you clicked it.
               </CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="pt-4 text-center">
-            <Button onClick={() => navigate("/auth")} className="w-full">
+          <CardContent className="pt-4 space-y-3">
+            <Button
+              className="w-full"
+              onClick={() => {
+                setError(null);
+                setChecking(true);
+                setSessionReady(false);
+                // Re-attempt token parsing
+                const { access_token, refresh_token, token, email } = parseTokensFromUrl();
+                const tryAgain = async () => {
+                  if (token && email) {
+                    const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
+                    if (!otpError) { setSessionReady(true); setChecking(false); return; }
+                  }
+                  if (access_token && refresh_token) {
+                    const { error: sessErr } = await supabase.auth.setSession({ access_token, refresh_token });
+                    if (!sessErr) { setSessionReady(true); setChecking(false); return; }
+                  }
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (session?.user) { setSessionReady(true); setChecking(false); return; }
+                  setError("Still unable to verify. Please request a new password reset from the sign-in page.");
+                  setChecking(false);
+                };
+                tryAgain();
+              }}
+            >
+              Try Again
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
               Back to Sign In
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              If this keeps happening, go to Sign In and request a new reset link.
+            </p>
           </CardContent>
         </Card>
       </div>
