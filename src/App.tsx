@@ -85,6 +85,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <RecoveryRedirectGuard>
+          <InstallAppBanner />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
