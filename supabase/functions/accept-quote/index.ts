@@ -138,6 +138,7 @@ serve(async (req) => {
             has_quote: true,
             notes: `Created from quote ${quoteRef}`,
             source: "Quote",
+            revenue: match.total_amount || null,
           }),
         }
       );

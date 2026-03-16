@@ -413,6 +413,7 @@ const Quotes = () => {
           has_quote: true,
           notes: `Created from quote ${quoteRef}`,
           source: "Quote",
+          revenue: quote.total_amount || null,
         } as any).select("id").single();
 
         if (newJob && !jobErr) {
