@@ -39,6 +39,7 @@ import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
 import ServiceReceipt from "./pages/ServiceReceipt";
 import Messages from "./pages/Messages";
+import InstallAppBanner from "./components/pwa/InstallAppBanner";
 
 const queryClient = new QueryClient();
 
