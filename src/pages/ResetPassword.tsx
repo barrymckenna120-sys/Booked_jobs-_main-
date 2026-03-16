@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+
+const parseTokensFromUrl = () => {
+  // Try hash first (#access_token=...&refresh_token=...)
+  const hash = window.location.hash.substring(1);
+  const hashParams = new URLSearchParams(hash);
+
+  // Then try query params (?access_token=...&refresh_token=...)
+  const queryParams = new URLSearchParams(window.location.search);
+
+  const access_token = hashParams.get("access_token") || queryParams.get("access_token");
+  const refresh_token = hashParams.get("refresh_token") || queryParams.get("refresh_token");
+  const type = hashParams.get("type") || queryParams.get("type");
+  const token = queryParams.get("token");
+  const email = queryParams.get("email");
+
+  return { access_token, refresh_token, type, token, email };
+};
 
 const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
@@ -20,15 +37,13 @@ const ResetPassword = () => {
   const [sessionReady, setSessionReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   useEffect(() => {
-    const verifyToken = async () => {
-      // Check for OTP token + email in query params (from custom Resend email)
-      const token = searchParams.get("token");
-      const email = searchParams.get("email");
+    const establish = async () => {
+      const { access_token, refresh_token, type, token, email } = parseTokensFromUrl();
 
+      // Method 1: OTP token + email (from custom Resend email)
       if (token && email) {
         const { error: otpError } = await supabase.auth.verifyOtp({
           email,
@@ -37,7 +52,7 @@ const ResetPassword = () => {
         });
         if (otpError) {
           console.error("OTP verification failed:", otpError);
-          setError("This reset link has expired or is invalid. Please request a new one.");
+          setError("This link has expired or is invalid. Please request a new password reset.");
           setChecking(false);
           return;
         }
@@ -46,15 +61,35 @@ const ResetPassword = () => {
         return;
       }
 
-      // Check for hash-based recovery token (from Supabase built-in flow)
-      const hash = window.location.hash;
-      if (hash.includes("type=recovery")) {
+      // Method 2: Explicit access_token + refresh_token in URL (fixes mobile Chrome)
+      if (access_token && refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+        if (sessionError) {
+          console.error("setSession failed:", sessionError);
+          setError("This link has expired or is invalid. Please request a new password reset.");
+          setChecking(false);
+          return;
+        }
         setSessionReady(true);
         setChecking(false);
         return;
       }
 
-      // Check if there's already an active session (redirected after PASSWORD_RECOVERY event)
+      // Method 3: Hash contains type=recovery — let Supabase auto-detect
+      if (type === "recovery") {
+        // Give Supabase a moment to process the hash
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setSessionReady(true);
+          setChecking(false);
+          return;
+        }
+      }
+
+      // Method 4: Already have a session (redirected after PASSWORD_RECOVERY event)
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setSessionReady(true);
@@ -62,24 +97,29 @@ const ResetPassword = () => {
         return;
       }
 
-      // Listen for PASSWORD_RECOVERY event as fallback
+      // Fallback: listen for PASSWORD_RECOVERY event
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
         if (event === "PASSWORD_RECOVERY") {
           setSessionReady(true);
+          setChecking(false);
         }
-        setChecking(false);
       });
 
-      // Give auth state a moment to process
+      // Timeout after 4s — if no session established, show error
       setTimeout(() => {
-        setChecking(false);
-      }, 3000);
+        setChecking((prev) => {
+          if (prev) {
+            setError("This link has expired or is invalid. Please request a new password reset.");
+          }
+          return false;
+        });
+      }, 4000);
 
       return () => subscription.unsubscribe();
     };
 
-    verifyToken();
-  }, [searchParams]);
+    establish();
+  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,19 +145,12 @@ const ResetPassword = () => {
           detail: `Password reset completed by ${user.email}`,
           metadata: { target_email: user.email, triggered_by: "self" },
         });
-
-        // Redirect to correct dashboard based on role
-        try {
-          const { data: role } = await supabase.rpc("get_user_role", { _user_id: user.id });
-          const dest = role === "engineer" ? "/engineer/today" : "/dashboard";
-          toast({ title: "Password updated successfully" });
-          navigate(dest, { replace: true });
-          return;
-        } catch {}
       }
 
-      toast({ title: "Password updated successfully" });
-      navigate("/dashboard", { replace: true });
+      // Sign out and redirect to login with success message
+      await supabase.auth.signOut();
+      toast({ title: "Password updated successfully", description: "Please sign in with your new password." });
+      navigate("/auth", { replace: true });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -133,7 +166,7 @@ const ResetPassword = () => {
     );
   }
 
-  if (error) {
+  if (error || !sessionReady) {
     return (
       <div className="min-h-screen bg-muted flex items-center justify-center px-4">
         <Card className="w-full max-w-md shadow-md border-border/60">
@@ -141,7 +174,9 @@ const ResetPassword = () => {
             <img src={bookedJobsLogo} alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
             <div>
               <CardTitle className="text-xl text-foreground">Link Expired</CardTitle>
-              <CardDescription className="mt-1">{error}</CardDescription>
+              <CardDescription className="mt-1">
+                {error || "This link has expired or is invalid. Please request a new password reset."}
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="pt-4 text-center">
