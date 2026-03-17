@@ -22,9 +22,10 @@ const parseTokensFromUrl = () => {
   const refresh_token = hashParams.get("refresh_token") || queryParams.get("refresh_token");
   const type = hashParams.get("type") || queryParams.get("type");
   const token = queryParams.get("token");
+  const token_hash = queryParams.get("token_hash") || hashParams.get("token_hash");
   const email = queryParams.get("email");
 
-  return { access_token, refresh_token, type, token, email };
+  return { access_token, refresh_token, type, token, token_hash, email };
 };
 
 const ResetPassword = () => {
