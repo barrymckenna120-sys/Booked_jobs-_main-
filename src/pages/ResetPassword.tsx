@@ -42,7 +42,7 @@ const ResetPassword = () => {
 
   useEffect(() => {
     const establish = async () => {
-      const { access_token, refresh_token, type, token, email } = parseTokensFromUrl();
+      const { access_token, refresh_token, type, token, token_hash, email } = parseTokensFromUrl();
 
       // Method 1: OTP token + email (from custom Resend email)
       if (token && email) {
@@ -62,7 +62,24 @@ const ResetPassword = () => {
         return;
       }
 
-      // Method 2: Explicit access_token + refresh_token in URL (fixes mobile Chrome)
+      // Method 2: PKCE token_hash (mobile browsers / Supabase default email links)
+      if (token_hash && type === "recovery") {
+        const { error: hashError } = await supabase.auth.verifyOtp({
+          token_hash,
+          type: "recovery",
+        });
+        if (hashError) {
+          console.error("token_hash verification failed:", hashError);
+          setError("This link has expired or is invalid. Please request a new password reset.");
+          setChecking(false);
+          return;
+        }
+        setSessionReady(true);
+        setChecking(false);
+        return;
+      }
+
+      // Method 3: Explicit access_token + refresh_token in URL (fixes mobile Chrome)
       if (access_token && refresh_token) {
         const { error: sessionError } = await supabase.auth.setSession({
           access_token,
@@ -79,9 +96,8 @@ const ResetPassword = () => {
         return;
       }
 
-      // Method 3: Hash contains type=recovery — let Supabase auto-detect
+      // Method 4: Hash contains type=recovery — let Supabase auto-detect
       if (type === "recovery") {
-        // Give Supabase a moment to process the hash
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setSessionReady(true);
@@ -90,7 +106,7 @@ const ResetPassword = () => {
         }
       }
 
-      // Method 4: Already have a session (redirected after PASSWORD_RECOVERY event)
+      // Method 5: Already have a session (redirected after PASSWORD_RECOVERY event)
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setSessionReady(true);
@@ -100,21 +116,21 @@ const ResetPassword = () => {
 
       // Fallback: listen for PASSWORD_RECOVERY event
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === "PASSWORD_RECOVERY") {
+        if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
           setSessionReady(true);
           setChecking(false);
         }
       });
 
-      // Timeout after 4s — if no session established, show error
+      // Timeout after 3s — if no session established, show error
       setTimeout(() => {
         setChecking((prev) => {
           if (prev) {
-            setError("This link has expired or is invalid. Please request a new password reset.");
+            setError("This link may have expired. Request a new one from the sign-in page.");
           }
           return false;
         });
-      }, 4000);
+      }, 3000);
 
       return () => subscription.unsubscribe();
     };
