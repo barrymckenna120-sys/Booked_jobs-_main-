@@ -204,11 +204,16 @@ const ResetPassword = () => {
                 setChecking(true);
                 setSessionReady(false);
                 // Re-attempt token parsing
-                const { access_token, refresh_token, token, email } = parseTokensFromUrl();
+                const { access_token, refresh_token, token, token_hash, email } = parseTokensFromUrl();
+                const type = new URLSearchParams(window.location.search).get("type") || new URLSearchParams(window.location.hash.substring(1)).get("type");
                 const tryAgain = async () => {
                   if (token && email) {
                     const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
                     if (!otpError) { setSessionReady(true); setChecking(false); return; }
+                  }
+                  if (token_hash && type === "recovery") {
+                    const { error: hashErr } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
+                    if (!hashErr) { setSessionReady(true); setChecking(false); return; }
                   }
                   if (access_token && refresh_token) {
                     const { error: sessErr } = await supabase.auth.setSession({ access_token, refresh_token });
