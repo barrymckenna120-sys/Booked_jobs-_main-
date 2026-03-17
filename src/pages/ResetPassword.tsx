@@ -122,15 +122,15 @@ const ResetPassword = () => {
         }
       });
 
-      // Timeout after 3s — if no session established, show error
+      // Timeout after 5s — if no session established, show error
       setTimeout(() => {
         setChecking((prev) => {
           if (prev) {
-            setError("This link may have expired. Request a new one from the sign-in page.");
+            setError("This link has expired. Please request a new password reset.");
           }
           return false;
         });
-      }, 3000);
+      }, 5000);
 
       return () => subscription.unsubscribe();
     };
