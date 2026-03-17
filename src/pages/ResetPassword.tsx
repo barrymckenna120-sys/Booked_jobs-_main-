@@ -122,15 +122,15 @@ const ResetPassword = () => {
         }
       });
 
-      // Timeout after 3s — if no session established, show error
+      // Timeout after 5s — if no session established, show error
       setTimeout(() => {
         setChecking((prev) => {
           if (prev) {
-            setError("This link may have expired. Request a new one from the sign-in page.");
+            setError("This link has expired. Please request a new password reset.");
           }
           return false;
         });
-      }, 3000);
+      }, 5000);
 
       return () => subscription.unsubscribe();
     };
@@ -148,6 +148,18 @@ const ResetPassword = () => {
       toast({ title: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
+
+    // Double-check session exists before attempting update (iOS fix)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      toast({
+        title: "Session expired",
+        description: "Please request a new password reset link.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -166,7 +178,7 @@ const ResetPassword = () => {
 
       // Sign out and redirect to login with success message
       await supabase.auth.signOut();
-      toast({ title: "Password updated successfully", description: "Please sign in with your new password." });
+      toast({ title: "Password updated!", description: "Please log in." });
       navigate("/auth", { replace: true });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -177,8 +189,9 @@ const ResetPassword = () => {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Verifying link…</p>
       </div>
     );
   }
