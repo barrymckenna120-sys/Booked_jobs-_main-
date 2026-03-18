@@ -52,7 +52,8 @@ const TodayTimeline = () => {
   const byBlock: Record<string, any[]> = {};
   TIME_BLOCKS.forEach((b) => { byBlock[b.key] = []; });
   jobs.forEach((j: any) => {
-    if (byBlock[j.time_block]) byBlock[j.time_block].push(j);
+    const normalized = normalizeBlock(j.time_block);
+    if (normalized && byBlock[normalized]) byBlock[normalized].push(j);
   });
 
   const activeCount = jobs.filter((j: any) => !["Completed", "Cancelled"].includes(j.status)).length;
