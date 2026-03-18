@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
+import OfflineBanner from "@/components/engineer/OfflineBanner";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
