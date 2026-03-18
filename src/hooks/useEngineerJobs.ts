@@ -191,8 +191,27 @@ export const useEngineerJobs = () => {
       if (patch.status === "Completed") {
         toast({ title: "Job completed ✔" });
         navigate(`/receipt/${jobId}`);
+      } else if (patch.status === "Cancelled") {
+        toast({ title: "Job cancelled" });
+        // Start 10-second fade-out timer
+        if (!fadeTimers.current[jobId]) {
+          // After 7s, start CSS fade animation
+          fadeTimers.current[jobId] = setTimeout(() => {
+            setFadingJobIds(prev => new Set(prev).add(jobId));
+            // After 3s fade animation, fully hide
+            setTimeout(() => {
+              setHiddenJobIds(prev => new Set(prev).add(jobId));
+              setFadingJobIds(prev => {
+                const next = new Set(prev);
+                next.delete(jobId);
+                return next;
+              });
+              delete fadeTimers.current[jobId];
+            }, 3000);
+          }, 7000);
+        }
       } else {
-        toast({ title: patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+        toast({ title: "Updated" });
       }
     }
   };
