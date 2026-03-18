@@ -134,34 +134,65 @@ const SalesLedger = () => {
     };
   }, [filtered]);
 
-  const exportCsv = () => {
+  const buildCsvContent = (rows: PaidJob[]) => {
     const headers = ["Receipt No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Total inc VAT", "Net", "VAT"];
-    const rows = filtered.map((r) => {
+    let totalInc = 0, totalNet = 0, totalVat = 0;
+    const csvRows = rows.map((r) => {
       const rev = r.revenue || 0;
       const net = Math.round((rev / 1.135) * 100) / 100;
       const vat = Math.round((rev - net) * 100) / 100;
+      totalInc += rev; totalNet += net; totalVat += vat;
       return [
         r.receipt_number,
         r.paid_at ? format(new Date(r.paid_at), "dd/MM/yy") : "",
-        r.customer_name,
-        r.job_type,
-        r.assigned_engineer || "",
-        r.payment_method || "",
-        rev.toFixed(2),
-        net.toFixed(2),
-        vat.toFixed(2),
+        r.customer_name, r.job_type, r.assigned_engineer || "",
+        r.payment_method || "", rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
       ];
     });
-    rows.push(["", "", "", "", "", "TOTALS", totals.inc.toFixed(2), totals.net.toFixed(2), totals.vat.toFixed(2)]);
+    csvRows.push(["", "", "", "", "", "TOTALS", totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2)]);
+    return [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+  };
 
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+  const downloadCsv = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sales-ledger-${format(start, "yyyy-MM-dd")}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportCsv = () => {
+    downloadCsv(buildCsvContent(filtered), `sales-ledger-${format(start, "yyyy-MM-dd")}.csv`);
+  };
+
+  const [customStart, setCustomStart] = useState<Date | undefined>();
+  const [customEnd, setCustomEnd] = useState<Date | undefined>();
+  const [customExporting, setCustomExporting] = useState(false);
+
+  const exportCustomRange = async () => {
+    if (!customStart || !customEnd || !user) return;
+    setCustomExporting(true);
+    const startStr = format(customStart, "yyyy-MM-dd");
+    const endStr = format(customEnd, "yyyy-MM-dd");
+    const { data: rows } = await supabase
+      .from("service_calls")
+      .select("id, receipt_number, paid_at, job_type, assigned_engineer, payment_method, revenue, customer_id, customers(name)")
+      .not("paid_at", "is", null)
+      .not("receipt_number", "is", null)
+      .gte("paid_at", startStr)
+      .lte("paid_at", endStr + "T23:59:59")
+      .order("paid_at", { ascending: false });
+    setCustomExporting(false);
+    if (!rows || rows.length === 0) return;
+    const mapped = rows.map((r: any) => ({
+      id: r.id, receipt_number: r.receipt_number, paid_at: r.paid_at,
+      job_type: r.job_type, assigned_engineer: r.assigned_engineer,
+      payment_method: r.payment_method, revenue: r.revenue,
+      customer_name: r.customers?.name || "Unknown",
+    }));
+    downloadCsv(buildCsvContent(mapped), `sales-ledger-${startStr}-to-${endStr}.csv`);
   };
 
   return (
