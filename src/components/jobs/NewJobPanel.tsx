@@ -583,7 +583,6 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               </button>
             ))}
           </div>
-          )}
           <ValidationMessage show={!!errors.block} />
           {isSlotFull && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
@@ -594,6 +593,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
             </div>
           )}
         </div>
+        )}
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Assign Engineer</Label>
