@@ -21,8 +21,15 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { BookOpen, Download, Loader2, Search } from "lucide-react";
+import { BookOpen, CalendarIcon, Download, Loader2, Search } from "lucide-react";
 import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 type PaidJob = {
   id: string;
