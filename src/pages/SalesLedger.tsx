@@ -262,16 +262,69 @@ const SalesLedger = () => {
 
       {/* Table Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2">
           <CardTitle className="text-lg font-extrabold">Sales Ledger</CardTitle>
-          <Button
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
-            onClick={exportCsv}
-            disabled={filtered.length === 0}
-          >
-            <Download className="w-4 h-4" /> Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Custom Date Range Export */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 font-bold text-xs">
+                  <CalendarIcon className="w-4 h-4" /> Custom Export
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-4" align="end">
+                <div className="space-y-3">
+                  <p className="text-sm font-bold">Export Custom Date Range</p>
+                  <div className="flex gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">From</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-[130px] justify-start text-left text-xs font-normal", !customStart && "text-muted-foreground")}>
+                            {customStart ? format(customStart, "dd/MM/yyyy") : "Start date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={customStart} onSelect={setCustomStart} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">To</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-[130px] justify-start text-left text-xs font-normal", !customEnd && "text-muted-foreground")}>
+                            {customEnd ? format(customEnd, "dd/MM/yyyy") : "End date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={customEnd} onSelect={setCustomEnd} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full gap-1.5 font-bold"
+                    onClick={exportCustomRange}
+                    disabled={!customStart || !customEnd || customExporting}
+                  >
+                    {customExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    Export Range
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            {/* Current period export */}
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
