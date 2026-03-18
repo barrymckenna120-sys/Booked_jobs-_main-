@@ -95,7 +95,7 @@ const EngineerLayout = () => {
       </div>
 
       {/* Offline Banner */}
-      <OfflineBanner />
+      <OfflineBanner topOffsetClassName="top-0" />
 
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">
