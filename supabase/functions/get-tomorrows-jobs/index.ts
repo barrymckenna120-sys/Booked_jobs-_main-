@@ -53,6 +53,8 @@ serve(async (req) => {
       customer_phone: job.customers?.phone || null,
       customer_address: job.customers?.address || null,
       customer_eircode: job.customers?.eircode || null,
+      boiler_make_model: job.customers?.boiler_make_model || null,
+      access_notes: job.customers?.access_notes || null,
       appointment_time: job.time_block || "No time set",
       scheduled_date: job.scheduled_date,
       engineer_name: job.engineers?.name || job.assigned_engineer || null,
