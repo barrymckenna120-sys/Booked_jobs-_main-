@@ -58,6 +58,7 @@ const MOBILE_NAV = [
   { label: "Messages", icon: MessageSquare, path: "/messages" },
   { label: "Quotes", icon: Euro, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
