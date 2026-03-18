@@ -277,6 +277,16 @@ const SalesLedger = () => {
                         <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
                         <TableCell className="text-right">{eur(net)}</TableCell>
                         <TableCell className="text-right">{eur(vat)}</TableCell>
+                        <TableCell className="text-center">
+                          <a
+                            href={`/receipt/${row.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-xs font-semibold"
+                          >
+                            View
+                          </a>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
