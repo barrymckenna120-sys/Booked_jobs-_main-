@@ -32,7 +32,7 @@ const formatDateHeading = (d: Date) => {
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth("/auth");
+  const { user, signOut } = useAuth("/auth");
   const { authLoading, todayActive, todayCompleted, upcomingJobs, engineerName } = useEngineerJobs();
   const [notifOpen, setNotifOpen] = useState(false);
   const {
