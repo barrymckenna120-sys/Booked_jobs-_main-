@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,6 +50,10 @@ export const useEngineerJobs = () => {
   const [jobPhotos, setJobPhotos] = useState<Record<string, { url: string; name: string; type?: string }[]>>({});
   const [engineerName, setEngineerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track cancelled jobs that should fade out after 10 seconds
+  const [fadingJobIds, setFadingJobIds] = useState<Set<string>>(new Set());
+  const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
+  const fadeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
@@ -187,8 +191,27 @@ export const useEngineerJobs = () => {
       if (patch.status === "Completed") {
         toast({ title: "Job completed ✔" });
         navigate(`/receipt/${jobId}`);
+      } else if (patch.status === "Cancelled") {
+        toast({ title: "Job cancelled" });
+        // Start 10-second fade-out timer
+        if (!fadeTimers.current[jobId]) {
+          // After 7s, start CSS fade animation
+          fadeTimers.current[jobId] = setTimeout(() => {
+            setFadingJobIds(prev => new Set(prev).add(jobId));
+            // After 3s fade animation, fully hide
+            setTimeout(() => {
+              setHiddenJobIds(prev => new Set(prev).add(jobId));
+              setFadingJobIds(prev => {
+                const next = new Set(prev);
+                next.delete(jobId);
+                return next;
+              });
+              delete fadeTimers.current[jobId];
+            }, 3000);
+          }, 7000);
+        }
       } else {
-        toast({ title: patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
+        toast({ title: "Updated" });
       }
     }
   };
@@ -196,7 +219,7 @@ export const useEngineerJobs = () => {
   // Derived today data
   const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled"));
   const todayCompleted = sortByTime(todayJobs.filter((j) => j.status === "Completed"));
-  const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled"));
+  const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled" && !hiddenJobIds.has(j.id)));
   const todayInProgress = todayJobs.filter((j) => ["En Route", "On Site", "In Progress"].includes(j.status));
 
   // Realtime subscription
@@ -251,6 +274,6 @@ export const useEngineerJobs = () => {
     user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
-    updateJob, fetchAll,
+    updateJob, fetchAll, fadingJobIds,
   };
 };

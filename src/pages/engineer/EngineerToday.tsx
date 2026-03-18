@@ -19,7 +19,7 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 
 const EngineerToday = () => {
   const navigate = useNavigate();
-  const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos } = useEngineerJobs();
+  const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos, fadingJobIds } = useEngineerJobs();
 
   const nextJobId = getNextJobId(todayActive);
   const sortedActive = nextJobId
@@ -107,7 +107,14 @@ const EngineerToday = () => {
             <>
               <SectionDivider label="CANCELLED" />
               {todayCancelled.map((job: any) => (
-                <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} />
+                <div
+                  key={job.id}
+                  className={`transition-all duration-[3000ms] ease-in-out ${
+                    fadingJobIds.has(job.id) ? "opacity-0 scale-95 max-h-0 overflow-hidden" : "opacity-100 scale-100"
+                  }`}
+                >
+                  <EngineerJobCard job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} />
+                </div>
               ))}
             </>
           )}
