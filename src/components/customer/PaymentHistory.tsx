@@ -46,13 +46,13 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
         .limit(1)
         .maybeSingle();
 
-      if (media?.public_url) {
-        window.open(media.public_url, "_blank");
-      } else if (media?.storage_path) {
+      if (media?.storage_path) {
         const { data: urlData } = await supabase.storage
           .from("job-media")
           .createSignedUrl(media.storage_path, 300);
         if (urlData?.signedUrl) window.open(urlData.signedUrl, "_blank");
+      } else if (media?.public_url) {
+        window.open(media.public_url, "_blank");
       } else {
         // Fallback: navigate to receipt page
         window.open(`/receipt/${job.id}`, "_blank");

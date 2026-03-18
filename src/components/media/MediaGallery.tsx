@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, ChevronRight, X, Play, Trash2 } from "lucide-react";
 import { getCloudinaryVideoUrl, uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
 import { useToast } from "@/hooks/use-toast";
+import { useSignedMediaUrls } from "@/lib/mediaUrl";
 
 type MediaItem = {
   id: string;
@@ -28,12 +29,6 @@ const isVideoItem = (m: MediaItem) =>
   m.file_type === "video" ||
   m.file_type?.startsWith("video/") ||
   (m.public_url && m.public_url.includes("cloudinary.com"));
-
-// Generate Cloudinary thumbnail from video URL (first frame)
-const getCloudinaryThumbnail = (url: string): string => {
-  if (!url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/").replace(/\.[^.]+$/, ".jpg");
-};
 
 const formatDuration = (seconds: number): string | null => {
   if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return null;
@@ -76,6 +71,12 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const durations = useVideoDurations(media);
+  const signedUrls = useSignedMediaUrls(media);
+
+  const getDisplayUrl = (m: MediaItem): string => {
+    if (isVideoItem(m) && m.public_url) return getCloudinaryVideoUrl(m.public_url);
+    return signedUrls[m.id] || "";
+  };
 
   useEffect(() => {
     fetchMedia();
@@ -110,23 +111,20 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
       const isVideo = file.type?.startsWith("video/") || /\.(mp4|mov|avi|hevc|webm)$/i.test(file.name);
       const { data: { user } } = await supabase.auth.getUser();
 
-      let publicUrl: string;
+      let publicUrl: string | null = null;
       let storagePath: string;
 
       if (isVideo) {
-        // Upload video to Cloudinary for transcoding
         const result = await uploadVideoToCloudinary(file, (pct) => setUploadProgress(pct));
         publicUrl = result.secure_url;
         storagePath = `cloudinary/${result.public_id}`;
       } else {
-        // Upload photo to Supabase Storage
         storagePath = `customers/${customerId}/${jobId}/${fileName}`;
         await supabase.storage.from("job-media").upload(storagePath, file, {
           contentType: file.type,
           upsert: true,
         });
-        const { data: { publicUrl: url } } = supabase.storage.from("job-media").getPublicUrl(storagePath);
-        publicUrl = url;
+        // No public URL needed — signed URLs are used for display
       }
 
       await supabase.from("job_media").insert({
@@ -151,13 +149,11 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      // Delete from storage if not Cloudinary
       if (!deleteTarget.storage_path.startsWith("cloudinary/")) {
         await supabase.storage.from("job-media").remove([deleteTarget.storage_path]);
       }
       await supabase.from("job_media").delete().eq("id", deleteTarget.id);
       setMedia((prev) => prev.filter((m) => m.id !== deleteTarget.id));
-      // Close lightbox if viewing deleted item
       if (lightboxIndex !== null && media[lightboxIndex]?.id === deleteTarget.id) {
         setLightboxIndex(null);
       }
@@ -185,66 +181,68 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {media.map((m, i) => (
-          <button
-            key={m.id}
-            onClick={() => setLightboxIndex(i)}
-            className="relative rounded-lg overflow-hidden border border-border group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer flex flex-col"
-          >
-            {/* Delete button */}
-            <div
-              role="button"
-              onClick={(e) => { e.stopPropagation(); setDeleteTarget(m); }}
-              className="absolute top-1.5 left-1.5 z-10 w-7 h-7 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-destructive"
+        {media.map((m, i) => {
+          const displayUrl = getDisplayUrl(m);
+          return (
+            <button
+              key={m.id}
+              onClick={() => setLightboxIndex(i)}
+              className="relative rounded-lg overflow-hidden border border-border group hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer flex flex-col"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-            </div>
-            <div className="aspect-square relative">
-              {isVideoItem(m) ? (
-                <>
-                  <video
-                    src={getCloudinaryVideoUrl(m.public_url || "") + "#t=0.1"}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                      <Play className="w-6 h-6 text-foreground fill-foreground ml-0.5" />
+              <div
+                role="button"
+                onClick={(e) => { e.stopPropagation(); setDeleteTarget(m); }}
+                className="absolute top-1.5 left-1.5 z-10 w-7 h-7 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-destructive"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </div>
+              <div className="aspect-square relative">
+                {isVideoItem(m) ? (
+                  <>
+                    <video
+                      src={displayUrl + "#t=0.1"}
+                      className="w-full h-full object-cover"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
+                        <Play className="w-6 h-6 text-foreground fill-foreground ml-0.5" />
+                      </div>
                     </div>
-                  </div>
-                  {durations[m.id] && formatDuration(durations[m.id]) && (
-                    <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
-                      {formatDuration(durations[m.id])}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <img
-                  src={m.public_url || ""}
-                  alt={m.file_name}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              )}
-            </div>
-            <div className="px-2 py-1.5 bg-card border-t border-border text-left">
-              <p className="text-[11px] text-muted-foreground">
-                {(() => {
-                  if (!m.uploaded_at) return 'Unknown date';
-                  const d = new Date(m.uploaded_at);
-                  if (isNaN(d.getTime())) return 'Unknown date';
-                  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-                })()}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {m.uploaded_by === "engineer" ? "📋 Engineer" : "📷 Customer"}
-              </p>
-            </div>
-          </button>
-        ))}
+                    {durations[m.id] && formatDuration(durations[m.id]) && (
+                      <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
+                        {formatDuration(durations[m.id])}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <img
+                    src={displayUrl}
+                    alt={m.file_name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+              <div className="px-2 py-1.5 bg-card border-t border-border text-left">
+                <p className="text-[11px] text-muted-foreground">
+                  {(() => {
+                    if (!m.uploaded_at) return 'Unknown date';
+                    const d = new Date(m.uploaded_at);
+                    if (isNaN(d.getTime())) return 'Unknown date';
+                    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                  })()}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {m.uploaded_by === "engineer" ? "📋 Engineer" : "📷 Customer"}
+                </p>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {uploading && (
@@ -299,9 +297,9 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             )}
 
             {current && isVideoItem(current) ? (
-              <video src={getCloudinaryVideoUrl(current.public_url || "")} controls className="max-h-[80vh] max-w-full" autoPlay playsInline />
+              <video src={getDisplayUrl(current)} controls className="max-h-[80vh] max-w-full" autoPlay playsInline />
             ) : (
-              <img src={current?.public_url || ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
+              <img src={current ? getDisplayUrl(current) : ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}
           </div>
           <div className="flex items-center justify-center gap-3 pb-3">
