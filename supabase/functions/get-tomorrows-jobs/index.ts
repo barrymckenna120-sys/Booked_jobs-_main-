@@ -34,7 +34,7 @@ serve(async (req) => {
         assigned_engineer_id,
         status,
         customer_id,
-        customers ( name, phone, address, eircode ),
+        customers ( name, phone, address, eircode, boiler_make_model, access_notes ),
         engineers:assigned_engineer_id ( name )
       `)
       .eq("scheduled_date", tomorrowStr)
