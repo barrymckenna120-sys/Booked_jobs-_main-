@@ -14,6 +14,7 @@ import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import { useAuth } from "@/hooks/useAuth";
+import OfflineBanner from "@/components/engineer/OfflineBanner";
 
 const greeting = () => {
   const h = new Date().getHours();
