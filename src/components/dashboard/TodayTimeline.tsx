@@ -8,10 +8,18 @@ import { Clock, MapPin, Phone, ChevronRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 const TIME_BLOCKS = [
-  { key: "9–11", label: "Morning", time: "9 – 11am" },
-  { key: "11–2", label: "Midday", time: "11am – 1pm" },
-  { key: "2–5", label: "Afternoon", time: "2 – 5pm" },
+  { key: "9am–11am", label: "Morning", time: "9 – 11am" },
+  { key: "11am–1pm", label: "Midday", time: "11am – 1pm" },
+  { key: "2pm–5pm", label: "Afternoon", time: "2 – 5pm" },
 ];
+
+// Normalize legacy time_block variants to canonical form
+const BLOCK_MAP: Record<string, string> = {
+  "9–11": "9am–11am", "9-11": "9am–11am", "morning": "9am–11am", "Morning": "9am–11am", "9am–11am": "9am–11am",
+  "11–2": "11am–1pm", "11-2": "11am–1pm", "midday": "11am–1pm", "Midday": "11am–1pm", "11am–1pm": "11am–1pm",
+  "2–5": "2pm–5pm", "2-5": "2pm–5pm", "afternoon": "2pm–5pm", "Afternoon": "2pm–5pm", "2pm–5pm": "2pm–5pm",
+};
+const normalizeBlock = (b: string | null) => (b ? BLOCK_MAP[b] || b : null);
 
 const STATUS_DOT: Record<string, string> = {
   Scheduled: "bg-primary",
@@ -44,7 +52,8 @@ const TodayTimeline = () => {
   const byBlock: Record<string, any[]> = {};
   TIME_BLOCKS.forEach((b) => { byBlock[b.key] = []; });
   jobs.forEach((j: any) => {
-    if (byBlock[j.time_block]) byBlock[j.time_block].push(j);
+    const normalized = normalizeBlock(j.time_block);
+    if (normalized && byBlock[normalized]) byBlock[normalized].push(j);
   });
 
   const activeCount = jobs.filter((j: any) => !["Completed", "Cancelled"].includes(j.status)).length;
