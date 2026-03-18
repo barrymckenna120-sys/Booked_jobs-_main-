@@ -563,6 +563,19 @@ const TeamManagement = () => {
                     {isBlocked ? "Blocked" : role.label}
                   </Badge>
 
+                  {/* Inline Unblock button */}
+                  {isBlocked && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1.5 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      onClick={() => handleUnblock(member.id)}
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      Unblock
+                    </Button>
+                  )}
+
                   {/* Actions menu */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
