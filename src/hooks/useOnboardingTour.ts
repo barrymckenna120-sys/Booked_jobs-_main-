@@ -16,6 +16,8 @@ interface UseOnboardingTourReturn {
   loading: boolean;
 }
 
+const localKey = (userId: string) => `onboarding_tour_completed_${userId}`;
+
 export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn => {
   const { role, loading: roleLoading } = useUserRole(user);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
@@ -24,9 +26,17 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
 
   const tourType: TourType = role === "engineer" ? "engineer" : "office";
 
-  // Read onboarding_complete from profiles
+  // Read onboarding_complete from localStorage first, then profiles
   useEffect(() => {
     if (!user || roleLoading) return;
+
+    // Check localStorage first — fast & reliable
+    if (localStorage.getItem(localKey(user.id)) === "true") {
+      setOnboardingComplete(true);
+      setShowTour(false);
+      setLoading(false);
+      return;
+    }
 
     const fetchStatus = async () => {
       setLoading(true);
@@ -39,8 +49,10 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
       const complete = (data as any)?.onboarding_complete ?? false;
       setOnboardingComplete(complete);
 
-      // Auto-launch if not complete
-      if (!complete) {
+      if (complete) {
+        // Sync to localStorage so future checks are instant
+        localStorage.setItem(localKey(user.id), "true");
+      } else {
         setShowTour(true);
       }
       setLoading(false);
@@ -51,6 +63,8 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
 
   const markComplete = useCallback(async () => {
     if (!user) return;
+    // Always persist to localStorage (works even if DB update fails for engineers)
+    localStorage.setItem(localKey(user.id), "true");
     await supabase
       .from("profiles")
       .update({ onboarding_complete: true } as any)
@@ -72,9 +86,10 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
     setShowTour(true);
   }, []);
 
-  const closeTour = useCallback(() => {
+  const closeTour = useCallback(async () => {
+    await markComplete();
     setShowTour(false);
-  }, []);
+  }, [markComplete]);
 
   return {
     shouldShowTour: onboardingComplete === false,
