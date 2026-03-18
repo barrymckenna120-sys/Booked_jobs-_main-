@@ -71,7 +71,7 @@ const Schedule = () => {
   const { data: jobs = [], refetch: refetchJobs } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
     queryFn: async () => {
-      const weekEnd = format(addDays(weekStart, 4), "yyyy-MM-dd");
+      const weekEnd = format(addDays(weekStart, 6), "yyyy-MM-dd");
       const startStr = format(weekStart, "yyyy-MM-dd");
 
       // Get scheduled jobs for the week + unallocated jobs
