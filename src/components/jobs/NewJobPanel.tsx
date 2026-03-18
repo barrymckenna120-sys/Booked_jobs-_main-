@@ -560,8 +560,16 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
+          {availableTimeBlocks.length === 0 ? (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                ⚠️ No time slots available — this day is closed or outside working hours.
+              </span>
+            </div>
+          ) : (
           <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
-            {TIME_BLOCKS.map((t) => (
+            {availableTimeBlocks.map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setBlock(t.id); setErrors((prev) => ({ ...prev, block: false })); }}
@@ -574,6 +582,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               </button>
             ))}
           </div>
+          )}
           <ValidationMessage show={!!errors.block} />
           {isSlotFull && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
