@@ -102,6 +102,13 @@ const Schedule = () => {
     enabled: !!user,
   });
 
+  // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days
+  const hasJobOnDay = (day: Date) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    return jobs.some((j) => j.scheduled_date === dateStr && j.status !== "Completed" && j.status !== "Cancelled");
+  };
+  const weekDays = allWeekDays.filter((day, i) => i < 5 || hasJobOnDay(day));
+
   // Realtime: auto-refresh when any service_call changes
   useEffect(() => {
     const channel = supabase
