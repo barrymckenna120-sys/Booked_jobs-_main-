@@ -19,7 +19,7 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 
 const EngineerToday = () => {
   const navigate = useNavigate();
-  const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos } = useEngineerJobs();
+  const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos, fadingJobIds } = useEngineerJobs();
 
   const nextJobId = getNextJobId(todayActive);
   const sortedActive = nextJobId
