@@ -30,6 +30,7 @@ import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
+import SalesLedger from "./pages/SalesLedger";
 import Schedule from "./pages/Schedule";
 import TeamManagement from "./pages/TeamManagement";
 import AuditLog from "./pages/AuditLog";
