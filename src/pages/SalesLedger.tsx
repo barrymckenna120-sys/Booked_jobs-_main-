@@ -40,7 +40,7 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const SalesLedger = () => {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [offset, setOffset] = useState(0);
+  const [anchor, setAnchor] = useState(new Date());
   const [search, setSearch] = useState("");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -49,7 +49,7 @@ const SalesLedger = () => {
   const [data, setData] = useState<PaidJob[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { start, end } = getDateRange(viewMode, offset);
+  const { start, end } = getDateRange(viewMode, anchor);
 
   // Fetch engineers
   useEffect(() => {
@@ -95,6 +95,7 @@ const SalesLedger = () => {
         }
         setLoading(false);
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, start.getTime(), end.getTime()]);
 
   const filtered = useMemo(() => {
@@ -161,14 +162,14 @@ const SalesLedger = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <BookOpen className="w-7 h-7 text-[#4A86E8]" />
+          <BookOpen className="w-7 h-7 text-primary" />
           <h1 className="text-2xl font-black tracking-tight">Sales Ledger</h1>
         </div>
         <DateRangeToggle
-          viewMode={viewMode}
-          offset={offset}
-          onViewModeChange={setViewMode}
-          onOffsetChange={setOffset}
+          value={viewMode}
+          onChange={setViewMode}
+          anchor={anchor}
+          onAnchorChange={setAnchor}
         />
       </div>
 
@@ -266,7 +267,7 @@ const SalesLedger = () => {
                     const vat = Math.round((rev - net) * 100) / 100;
                     return (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono font-bold text-[#4A86E8]">{row.receipt_number}</TableCell>
+                        <TableCell className="font-mono font-bold text-primary">{row.receipt_number}</TableCell>
                         <TableCell>{row.paid_at ? format(new Date(row.paid_at), "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
