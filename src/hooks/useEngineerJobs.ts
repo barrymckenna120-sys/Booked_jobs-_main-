@@ -274,6 +274,6 @@ export const useEngineerJobs = () => {
     user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
-    updateJob, fetchAll,
+    updateJob, fetchAll, fadingJobIds,
   };
 };
