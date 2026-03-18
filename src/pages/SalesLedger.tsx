@@ -21,8 +21,15 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { BookOpen, Download, Loader2, Search } from "lucide-react";
+import { BookOpen, CalendarIcon, Download, Loader2, Search } from "lucide-react";
 import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 type PaidJob = {
   id: string;
@@ -127,34 +134,65 @@ const SalesLedger = () => {
     };
   }, [filtered]);
 
-  const exportCsv = () => {
+  const buildCsvContent = (rows: PaidJob[]) => {
     const headers = ["Receipt No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Total inc VAT", "Net", "VAT"];
-    const rows = filtered.map((r) => {
+    let totalInc = 0, totalNet = 0, totalVat = 0;
+    const csvRows = rows.map((r) => {
       const rev = r.revenue || 0;
       const net = Math.round((rev / 1.135) * 100) / 100;
       const vat = Math.round((rev - net) * 100) / 100;
+      totalInc += rev; totalNet += net; totalVat += vat;
       return [
         r.receipt_number,
         r.paid_at ? format(new Date(r.paid_at), "dd/MM/yy") : "",
-        r.customer_name,
-        r.job_type,
-        r.assigned_engineer || "",
-        r.payment_method || "",
-        rev.toFixed(2),
-        net.toFixed(2),
-        vat.toFixed(2),
+        r.customer_name, r.job_type, r.assigned_engineer || "",
+        r.payment_method || "", rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
       ];
     });
-    rows.push(["", "", "", "", "", "TOTALS", totals.inc.toFixed(2), totals.net.toFixed(2), totals.vat.toFixed(2)]);
+    csvRows.push(["", "", "", "", "", "TOTALS", totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2)]);
+    return [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+  };
 
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+  const downloadCsv = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sales-ledger-${format(start, "yyyy-MM-dd")}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportCsv = () => {
+    downloadCsv(buildCsvContent(filtered), `sales-ledger-${format(start, "yyyy-MM-dd")}.csv`);
+  };
+
+  const [customStart, setCustomStart] = useState<Date | undefined>();
+  const [customEnd, setCustomEnd] = useState<Date | undefined>();
+  const [customExporting, setCustomExporting] = useState(false);
+
+  const exportCustomRange = async () => {
+    if (!customStart || !customEnd || !user) return;
+    setCustomExporting(true);
+    const startStr = format(customStart, "yyyy-MM-dd");
+    const endStr = format(customEnd, "yyyy-MM-dd");
+    const { data: rows } = await supabase
+      .from("service_calls")
+      .select("id, receipt_number, paid_at, job_type, assigned_engineer, payment_method, revenue, customer_id, customers(name)")
+      .not("paid_at", "is", null)
+      .not("receipt_number", "is", null)
+      .gte("paid_at", startStr)
+      .lte("paid_at", endStr + "T23:59:59")
+      .order("paid_at", { ascending: false });
+    setCustomExporting(false);
+    if (!rows || rows.length === 0) return;
+    const mapped = rows.map((r: any) => ({
+      id: r.id, receipt_number: r.receipt_number, paid_at: r.paid_at,
+      job_type: r.job_type, assigned_engineer: r.assigned_engineer,
+      payment_method: r.payment_method, revenue: r.revenue,
+      customer_name: r.customers?.name || "Unknown",
+    }));
+    downloadCsv(buildCsvContent(mapped), `sales-ledger-${startStr}-to-${endStr}.csv`);
   };
 
   return (
@@ -224,16 +262,69 @@ const SalesLedger = () => {
 
       {/* Table Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2">
           <CardTitle className="text-lg font-extrabold">Sales Ledger</CardTitle>
-          <Button
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
-            onClick={exportCsv}
-            disabled={filtered.length === 0}
-          >
-            <Download className="w-4 h-4" /> Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Custom Date Range Export */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 font-bold text-xs">
+                  <CalendarIcon className="w-4 h-4" /> Custom Export
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-4" align="end">
+                <div className="space-y-3">
+                  <p className="text-sm font-bold">Export Custom Date Range</p>
+                  <div className="flex gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">From</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-[130px] justify-start text-left text-xs font-normal", !customStart && "text-muted-foreground")}>
+                            {customStart ? format(customStart, "dd/MM/yyyy") : "Start date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={customStart} onSelect={setCustomStart} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">To</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-[130px] justify-start text-left text-xs font-normal", !customEnd && "text-muted-foreground")}>
+                            {customEnd ? format(customEnd, "dd/MM/yyyy") : "End date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={customEnd} onSelect={setCustomEnd} initialFocus className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full gap-1.5 font-bold"
+                    onClick={exportCustomRange}
+                    disabled={!customStart || !customEnd || customExporting}
+                  >
+                    {customExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    Export Range
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            {/* Current period export */}
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
