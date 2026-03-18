@@ -23,3 +23,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.unblock-user]
     verify_jwt = false
+  [functions.get-tomorrows-jobs]
+    verify_jwt = false
