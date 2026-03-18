@@ -207,6 +207,7 @@ const AppLayoutInner = () => {
 
       {/* Main Content */}
       <main className="flex-1 md:ml-[220px] pb-20 md:pb-0">
+        <OfflineBanner />
         <Outlet />
       </main>
 
