@@ -30,6 +30,7 @@ import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
+import SalesLedger from "./pages/SalesLedger";
 import Schedule from "./pages/Schedule";
 import TeamManagement from "./pages/TeamManagement";
 import AuditLog from "./pages/AuditLog";
@@ -104,6 +105,7 @@ const App = () => (
               <Route path="/incoming" element={<IncomingJobs />} />
               
               <Route path="/finance" element={<Finance />} />
+              <Route path="/sales-ledger" element={<SalesLedger />} />
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/import" element={<ImportCustomers />} />

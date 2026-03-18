@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare, BookOpen } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import { unlockAudio } from "@/utils/audio";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ const MAIN_NAV = [
   { label: "Messages", icon: MessageCircle, path: "/messages" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
 ];
 
 const WHATSAPP_CHILDREN = [
@@ -57,6 +58,7 @@ const MOBILE_NAV = [
   { label: "Messages", icon: MessageSquare, path: "/messages" },
   { label: "Quotes", icon: Euro, path: "/quotes" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
