@@ -50,6 +50,11 @@ export const useEngineerJobs = () => {
   const [jobPhotos, setJobPhotos] = useState<Record<string, { url: string; name: string; type?: string }[]>>({});
   const [engineerName, setEngineerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track cancelled jobs that should fade out after 10 seconds
+  const [fadingJobIds, setFadingJobIds] = useState<Set<string>>(new Set());
+  const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
+  const fadeTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const [loading, setLoading] = useState(true);
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
