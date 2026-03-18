@@ -81,6 +81,8 @@ export const useEngineerJobs = () => {
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
+    // Skip network requests when offline to avoid error modals/toasts
+    if (!navigator.onLine) return;
     setLoading(true);
 
     // First resolve the engineer record for this auth user
