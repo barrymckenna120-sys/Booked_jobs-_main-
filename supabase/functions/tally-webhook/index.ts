@@ -217,8 +217,6 @@ Deno.serve(async (req) => {
             public_url: null,
             uploaded_by: 'customer',
           })
-            uploaded_by: 'customer',
-          })
           fileCount++
         } catch (fileErr) {
           console.error('File upload error:', fileErr)
