@@ -53,8 +53,7 @@ export const useEngineerJobs = () => {
   // Track cancelled jobs that should fade out after 10 seconds
   const [fadingJobIds, setFadingJobIds] = useState<Set<string>>(new Set());
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
-  const fadeTimers = useRef<Record<string, NodeJS.Timeout>>({});
-  const [loading, setLoading] = useState(true);
+  const fadeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
