@@ -219,7 +219,7 @@ export const useEngineerJobs = () => {
   // Derived today data
   const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled"));
   const todayCompleted = sortByTime(todayJobs.filter((j) => j.status === "Completed"));
-  const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled"));
+  const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled" && !hiddenJobIds.has(j.id)));
   const todayInProgress = todayJobs.filter((j) => ["En Route", "On Site", "In Progress"].includes(j.status));
 
   // Realtime subscription
