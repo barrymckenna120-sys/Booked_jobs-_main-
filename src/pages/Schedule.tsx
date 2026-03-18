@@ -54,8 +54,8 @@ const Schedule = () => {
   const [unallocatedOpen, setUnallocatedOpen] = useState(true);
   const [cancelModal, setCancelModal] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
 
-  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
-  const weekLabel = `${format(weekDays[0], "d")}–${format(weekDays[4], "d MMM yyyy")}`;
+  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekLabel = `${format(allWeekDays[0], "d")}–${format(allWeekDays[4], "d MMM yyyy")}`;
 
   // Fetch engineers
   const { data: engineers = [] } = useQuery({
