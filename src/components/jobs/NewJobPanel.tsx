@@ -574,7 +574,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
           )}
         </div>
 
-        {availableTimeBlocks.length > 0 && (
+        {availableTimeBlocks.length > 0 && (!date || date >= todayISO) && (
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
           <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
