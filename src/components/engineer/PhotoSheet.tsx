@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Camera, Video } from "lucide-react";
+import { getSignedUrl } from "@/lib/mediaUrl";
 
 interface Props {
   job: any;
@@ -40,7 +41,8 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("job-media").getPublicUrl(path);
+    // Get signed URL for immediate display
+    const signedUrl = await getSignedUrl(path);
 
     await supabase.from("job_media").insert({
       job_id: job.id,
@@ -49,11 +51,11 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
       file_name: file.name,
       storage_path: path,
       file_type: file.type,
-      public_url: urlData.publicUrl,
+      public_url: null,
       uploaded_by: "engineer",
     } as any);
 
-    setMedia((prev) => [...prev, { url: urlData.publicUrl, name: file.name, type: file.type }]);
+    setMedia((prev) => [...prev, { url: signedUrl || "", name: file.name, type: file.type }]);
     toast({ title: isVideo(file.type) ? "Video uploaded" : "Photo uploaded" });
     setUploading(false);
   };

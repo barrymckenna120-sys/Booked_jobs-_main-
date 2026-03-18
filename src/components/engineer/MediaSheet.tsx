@@ -9,6 +9,7 @@ import { Camera, Video, Play, X } from "lucide-react";
 import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import VideoUploadSheet from "./VideoUploadSheet";
+import { getSignedUrl } from "@/lib/mediaUrl";
 
 interface Props {
   job: any;
@@ -45,22 +46,27 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
 
-  // Load existing media from DB on mount
+  // Load existing media from DB on mount, resolving signed URLs
   useEffect(() => {
     const loadMedia = async () => {
       const { data } = await supabase
         .from("job_media")
-        .select("file_name, file_type, public_url")
+        .select("file_name, file_type, public_url, storage_path")
         .eq("job_id", job.id)
         .order("uploaded_at");
       if (data) {
-        setMedia(
-          data.map((m: any) => ({
-            url: m.public_url || "",
-            name: m.file_name,
-            type: m.file_type || "image",
-          }))
+        const resolved = await Promise.all(
+          data.map(async (m: any) => {
+            const isCloudinary = m.public_url && m.public_url.includes("cloudinary.com");
+            if (isCloudinary) {
+              return { url: m.public_url || "", name: m.file_name, type: m.file_type || "image" };
+            }
+            // Get signed URL for Supabase storage items
+            const signedUrl = await getSignedUrl(m.storage_path);
+            return { url: signedUrl || "", name: m.file_name, type: m.file_type || "image" };
+          })
         );
+        setMedia(resolved);
       }
     };
     loadMedia();
@@ -87,8 +93,9 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
         setUploading(false);
         return;
       }
-      const { data: urlData } = supabase.storage.from("job-media").getPublicUrl(path);
-      const publicUrl = urlData.publicUrl;
+
+      // Get signed URL for immediate display
+      const signedUrl = await getSignedUrl(path);
 
       await supabase.from("job_media").insert({
         job_id: job.id,
@@ -97,11 +104,11 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
         file_name: file.name,
         storage_path: path,
         file_type: "image",
-        public_url: publicUrl,
+        public_url: null,
         uploaded_by: "engineer",
       } as any);
 
-      setMedia((prev) => [...prev, { url: publicUrl, name: file.name, type: file.type }]);
+      setMedia((prev) => [...prev, { url: signedUrl || "", name: file.name, type: file.type }]);
       toast({ title: "Photo uploaded ✓" });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err?.message || "Unknown error", variant: "destructive" });
@@ -113,6 +120,27 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
 
   const isMediaVideo = (m: MediaFile) =>
     isVideo(m.type) || isCloudinaryVideo(m.url);
+
+  const reloadMedia = async () => {
+    const { data } = await supabase
+      .from("job_media")
+      .select("file_name, file_type, public_url, storage_path")
+      .eq("job_id", job.id)
+      .order("uploaded_at");
+    if (data) {
+      const resolved = await Promise.all(
+        data.map(async (m: any) => {
+          const isCloudinary = m.public_url && m.public_url.includes("cloudinary.com");
+          if (isCloudinary) {
+            return { url: m.public_url || "", name: m.file_name, type: m.file_type || "image" };
+          }
+          const signedUrl = await getSignedUrl(m.storage_path);
+          return { url: signedUrl || "", name: m.file_name, type: m.file_type || "image" };
+        })
+      );
+      setMedia(resolved);
+    }
+  };
 
   return (
     <>
@@ -234,23 +262,7 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
           file={pendingVideoFile}
           onClose={() => setPendingVideoFile(null)}
           onSuccess={() => {
-            // Reload from DB to get the correct Cloudinary URL
-            supabase
-              .from("job_media")
-              .select("file_name, file_type, public_url")
-              .eq("job_id", job.id)
-              .order("uploaded_at")
-              .then(({ data }) => {
-                if (data) {
-                  setMedia(
-                    data.map((m: any) => ({
-                      url: m.public_url || "",
-                      name: m.file_name,
-                      type: m.file_type || "image",
-                    }))
-                  );
-                }
-              });
+            reloadMedia();
             setPendingVideoFile(null);
           }}
         />

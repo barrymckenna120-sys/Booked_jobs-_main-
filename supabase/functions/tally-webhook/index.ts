@@ -207,10 +207,6 @@ Deno.serve(async (req) => {
               upsert: true,
             })
 
-          const { data: { publicUrl } } = supabase.storage
-            .from('job-media')
-            .getPublicUrl(storagePath)
-
           await supabase.from('job_media').insert({
             job_id: job.id,
             customer_id: customerId,
@@ -218,7 +214,9 @@ Deno.serve(async (req) => {
             file_name: fileName,
             file_type: isVideo ? 'video' : 'image',
             storage_path: storagePath,
-            public_url: publicUrl,
+            public_url: null,
+            uploaded_by: 'customer',
+          })
             uploaded_by: 'customer',
           })
           fileCount++
