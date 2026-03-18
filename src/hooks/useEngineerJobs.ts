@@ -81,6 +81,8 @@ export const useEngineerJobs = () => {
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
+    // Skip network requests when offline to avoid error modals/toasts
+    if (!navigator.onLine) return;
     setLoading(true);
 
     // First resolve the engineer record for this auth user
@@ -125,6 +127,10 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>) => {
+    if (!navigator.onLine) {
+      toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
+      return;
+    }
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, ...rest } = patch;
 
     let notesUpdate = rest.notes;
@@ -229,10 +235,16 @@ export const useEngineerJobs = () => {
   // Refetch when tab becomes visible (engineer returning to app)
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && user) fetchAll();
+      if (document.visibilityState === "visible" && user && navigator.onLine) fetchAll();
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    // Re-fetch when coming back online so data is fresh
+    const handleOnline = () => { if (user) fetchAll(); };
+    window.addEventListener("online", handleOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [user, fetchAll]);
 
   return {
