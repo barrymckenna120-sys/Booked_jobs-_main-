@@ -541,7 +541,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     if (!block) e.block = true;
     if (!engineer) e.engineer = true;
     setErrors(e);
-    if (Object.keys(e).length > 0 || isOnLeave || isSlotFull) return;
+    if (Object.keys(e).length > 0 || isOnLeave || isSlotFull || (date && date < todayISO)) return;
     onNext({ date, timeBlock: block, engineerId: engineer });
   };
 
