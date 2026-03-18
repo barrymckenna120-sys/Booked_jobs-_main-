@@ -54,8 +54,15 @@ const Schedule = () => {
   const [unallocatedOpen, setUnallocatedOpen] = useState(true);
   const [cancelModal, setCancelModal] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
 
-  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
-  const weekLabel = `${format(weekDays[0], "d")}–${format(weekDays[4], "d MMM yyyy")}`;
+  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekLabel = `${format(allWeekDays[0], "d")}–${format(allWeekDays[4], "d MMM yyyy")}`;
+
+  // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days
+  const hasJobOnDay = (day: Date) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    return jobs.some((j) => j.scheduled_date === dateStr && j.status !== "Completed" && j.status !== "Cancelled");
+  };
+  const weekDays = allWeekDays.filter((day, i) => i < 5 || hasJobOnDay(day));
 
   // Fetch engineers
   const { data: engineers = [] } = useQuery({
@@ -71,7 +78,7 @@ const Schedule = () => {
   const { data: jobs = [], refetch: refetchJobs } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
     queryFn: async () => {
-      const weekEnd = format(addDays(weekStart, 4), "yyyy-MM-dd");
+      const weekEnd = format(addDays(weekStart, 6), "yyyy-MM-dd");
       const startStr = format(weekStart, "yyyy-MM-dd");
 
       // Get scheduled jobs for the week + unallocated jobs
