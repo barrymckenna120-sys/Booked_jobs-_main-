@@ -257,7 +257,7 @@ const SalesLedger = () => {
                     <TableHead className="font-extrabold">Payment</TableHead>
                     <TableHead className="font-extrabold text-right">Total inc VAT</TableHead>
                     <TableHead className="font-extrabold text-right">Net</TableHead>
-                    <TableHead className="font-extrabold text-right">VAT</TableHead>
+                    <TableHead className="font-extrabold text-right">VAT (13.5%)</TableHead>
                     <TableHead className="font-extrabold text-center w-[80px]">Receipt</TableHead>
                   </TableRow>
                 </TableHeader>
