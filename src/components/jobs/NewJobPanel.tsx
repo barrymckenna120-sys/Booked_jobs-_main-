@@ -556,18 +556,19 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
           <Input type="date" value={date} min={todayISO} onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: false })); }} className={`mt-1 ${validationBorderClass(!!errors.date)}`} />
           <ValidationMessage show={!!errors.date} />
-        </div>
-
-        <div>
-          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
-          {availableTimeBlocks.length === 0 ? (
+          {date && availableTimeBlocks.length === 0 && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
-              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <CalendarDays className="w-5 h-5 text-warning shrink-0" />
               <span className="text-[13px] font-semibold text-warning">
-                ⚠️ No time slots available — this day is closed or outside working hours.
+                This day is not available for bookings. Please select a different date.
               </span>
             </div>
-          ) : (
+          )}
+        </div>
+
+        {availableTimeBlocks.length > 0 && (
+        <div>
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
           <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {availableTimeBlocks.map((t) => (
               <button
@@ -582,7 +583,6 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               </button>
             ))}
           </div>
-          )}
           <ValidationMessage show={!!errors.block} />
           {isSlotFull && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
@@ -593,6 +593,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
             </div>
           )}
         </div>
+        )}
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Assign Engineer</Label>
