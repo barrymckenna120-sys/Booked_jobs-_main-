@@ -541,7 +541,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     if (!block) e.block = true;
     if (!engineer) e.engineer = true;
     setErrors(e);
-    if (Object.keys(e).length > 0 || isOnLeave || isSlotFull) return;
+    if (Object.keys(e).length > 0 || isOnLeave || isSlotFull || (date && date < todayISO)) return;
     onNext({ date, timeBlock: block, engineerId: engineer });
   };
 
@@ -556,7 +556,15 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
           <Input type="date" value={date} min={todayISO} onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: false })); }} className={`mt-1 ${validationBorderClass(!!errors.date)}`} />
           <ValidationMessage show={!!errors.date} />
-          {date && availableTimeBlocks.length === 0 && (
+          {date && date < todayISO && (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <CalendarDays className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                Please select a future date — this date has already passed.
+              </span>
+            </div>
+          )}
+          {date && date >= todayISO && availableTimeBlocks.length === 0 && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
               <CalendarDays className="w-5 h-5 text-warning shrink-0" />
               <span className="text-[13px] font-semibold text-warning">
@@ -566,7 +574,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
           )}
         </div>
 
-        {availableTimeBlocks.length > 0 && (
+        {availableTimeBlocks.length > 0 && (!date || date >= todayISO) && (
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
           <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
