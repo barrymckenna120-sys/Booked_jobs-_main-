@@ -57,13 +57,6 @@ const Schedule = () => {
   const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(allWeekDays[0], "d")}–${format(allWeekDays[4], "d MMM yyyy")}`;
 
-  // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days
-  const hasJobOnDay = (day: Date) => {
-    const dateStr = format(day, "yyyy-MM-dd");
-    return jobs.some((j) => j.scheduled_date === dateStr && j.status !== "Completed" && j.status !== "Cancelled");
-  };
-  const weekDays = allWeekDays.filter((day, i) => i < 5 || hasJobOnDay(day));
-
   // Fetch engineers
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers", user?.id],
