@@ -268,7 +268,9 @@ const SalesLedger = () => {
                     const vat = Math.round((rev - net) * 100) / 100;
                     return (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono font-bold text-primary">{row.receipt_number}</TableCell>
+                        <TableCell className="font-mono font-bold">
+                          <a href={`/jobs/${row.id}`} className="text-primary hover:underline">{row.receipt_number}</a>
+                        </TableCell>
                         <TableCell>{row.paid_at ? format(new Date(row.paid_at), "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
