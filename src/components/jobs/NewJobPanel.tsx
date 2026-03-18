@@ -456,14 +456,59 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     enabled: !!date && !!block,
   });
 
-  // Total slot capacity check from settings.job_time_blocks
-  const { data: slotMaxJobs } = useQuery({
-    queryKey: ["slot-max-jobs"],
+  // Total slot capacity check from settings.job_time_blocks + opening_hours
+  const { data: settingsData } = useQuery({
+    queryKey: ["slot-settings"],
     queryFn: async () => {
-      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
-      return (data?.job_time_blocks as any[] | null) || [];
+      const { data } = await supabase.from("settings").select("job_time_blocks, opening_hours").limit(1).single();
+      return {
+        slotMaxJobs: (data?.job_time_blocks as any[] | null) || [],
+        openingHours: (data?.opening_hours as any[] | null) || [],
+      };
     },
   });
+
+  const slotMaxJobs = settingsData?.slotMaxJobs || [];
+  const openingHours = settingsData?.openingHours || [];
+
+  // Filter time blocks based on working hours for the selected date
+  const BLOCK_HOURS: Record<string, { start: number; end: number }> = {
+    "9–11": { start: 9, end: 11 },
+    "11–2": { start: 11, end: 14 },
+    "2–5": { start: 14, end: 17 },
+  };
+
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const availableTimeBlocks = useMemo(() => {
+    if (!date || openingHours.length === 0) return TIME_BLOCKS;
+    const selectedDay = new Date(date + "T12:00:00"); // noon to avoid timezone issues
+    const dayLabel = DAY_LABELS[selectedDay.getDay()];
+    const dayConfig = openingHours.find((h: any) => h.day === dayLabel);
+    if (!dayConfig || !dayConfig.enabled) return []; // whole day closed
+
+    const closeHour = parseInt(dayConfig.end?.split(":")[0] || "17", 10);
+    const closeMin = parseInt(dayConfig.end?.split(":")[1] || "0", 10);
+    const closeDecimal = closeHour + closeMin / 60;
+    const openHour = parseInt(dayConfig.start?.split(":")[0] || "9", 10);
+    const openMin = parseInt(dayConfig.start?.split(":")[1] || "0", 10);
+    const openDecimal = openHour + openMin / 60;
+
+    return TIME_BLOCKS.filter((t) => {
+      const hours = BLOCK_HOURS[t.id];
+      if (!hours) return true;
+      return hours.start >= openDecimal && hours.start < closeDecimal;
+    });
+  }, [date, openingHours]);
+
+  // Reset block selection if current block is no longer available
+  useEffect(() => {
+    if (block && availableTimeBlocks.length > 0 && !availableTimeBlocks.find(t => t.id === block)) {
+      setBlock(availableTimeBlocks[0].id);
+    } else if (availableTimeBlocks.length === 0) {
+      setBlock("");
+    }
+  }, [availableTimeBlocks]);
 
   const totalSlotJobs = Object.values(slotCounts as Record<string, number>).reduce((a, b) => a + b, 0);
   const slotConfig = (slotMaxJobs || []).find((s: any) => {
@@ -515,8 +560,16 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time Block</Label>
+          {availableTimeBlocks.length === 0 ? (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                ⚠️ No time slots available — this day is closed or outside working hours.
+              </span>
+            </div>
+          ) : (
           <div className={`flex gap-2.5 mt-1.5 rounded-xl ${errors.block ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
-            {TIME_BLOCKS.map((t) => (
+            {availableTimeBlocks.map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setBlock(t.id); setErrors((prev) => ({ ...prev, block: false })); }}
@@ -529,6 +582,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
               </button>
             ))}
           </div>
+          )}
           <ValidationMessage show={!!errors.block} />
           {isSlotFull && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
@@ -599,7 +653,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave || isSlotFull} onClick={handleNext}>
+        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave || isSlotFull || availableTimeBlocks.length === 0} onClick={handleNext}>
           Set payment →
         </Button>
       </div>
