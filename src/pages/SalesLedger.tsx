@@ -1,0 +1,299 @@
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableFooter,
+} from "@/components/ui/table";
+import { BookOpen, Download, Loader2, Search } from "lucide-react";
+import { format } from "date-fns";
+
+type PaidJob = {
+  id: string;
+  receipt_number: string;
+  paid_at: string;
+  job_type: string;
+  assigned_engineer: string | null;
+  payment_method: string | null;
+  revenue: number | null;
+  customer_name: string;
+};
+
+const eur = (n: number) => `€${n.toFixed(2)}`;
+
+const SalesLedger = () => {
+  const { user } = useAuth();
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [offset, setOffset] = useState(0);
+  const [search, setSearch] = useState("");
+  const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [engineerFilter, setEngineerFilter] = useState("all");
+  const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
+  const [data, setData] = useState<PaidJob[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const { start, end } = getDateRange(viewMode, offset);
+
+  // Fetch engineers
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("id, name")
+      .eq("status", "active")
+      .then(({ data }) => {
+        if (data) setEngineers(data);
+      });
+  }, [user]);
+
+  // Fetch paid jobs
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    const startStr = format(start, "yyyy-MM-dd");
+    const endStr = format(end, "yyyy-MM-dd");
+
+    supabase
+      .from("service_calls")
+      .select("id, receipt_number, paid_at, job_type, assigned_engineer, payment_method, revenue, customer_id, customers(name)")
+      .not("paid_at", "is", null)
+      .not("receipt_number", "is", null)
+      .gte("paid_at", startStr)
+      .lte("paid_at", endStr + "T23:59:59")
+      .order("paid_at", { ascending: false })
+      .then(({ data: rows }) => {
+        if (rows) {
+          setData(
+            rows.map((r: any) => ({
+              id: r.id,
+              receipt_number: r.receipt_number,
+              paid_at: r.paid_at,
+              job_type: r.job_type,
+              assigned_engineer: r.assigned_engineer,
+              payment_method: r.payment_method,
+              revenue: r.revenue,
+              customer_name: r.customers?.name || "Unknown",
+            }))
+          );
+        }
+        setLoading(false);
+      });
+  }, [user, start.getTime(), end.getTime()]);
+
+  const filtered = useMemo(() => {
+    return data.filter((row) => {
+      if (search && !row.customer_name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (jobTypeFilter !== "all" && row.job_type !== jobTypeFilter) return false;
+      if (paymentFilter !== "all" && row.payment_method !== paymentFilter) return false;
+      if (engineerFilter !== "all" && row.assigned_engineer !== engineerFilter) return false;
+      return true;
+    });
+  }, [data, search, jobTypeFilter, paymentFilter, engineerFilter]);
+
+  const totals = useMemo(() => {
+    let totalInc = 0;
+    let totalNet = 0;
+    let totalVat = 0;
+    for (const row of filtered) {
+      const rev = row.revenue || 0;
+      const net = Math.round((rev / 1.135) * 100) / 100;
+      const vat = Math.round((rev - net) * 100) / 100;
+      totalInc += rev;
+      totalNet += net;
+      totalVat += vat;
+    }
+    return {
+      inc: Math.round(totalInc * 100) / 100,
+      net: Math.round(totalNet * 100) / 100,
+      vat: Math.round(totalVat * 100) / 100,
+    };
+  }, [filtered]);
+
+  const exportCsv = () => {
+    const headers = ["Receipt No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Total inc VAT", "Net", "VAT"];
+    const rows = filtered.map((r) => {
+      const rev = r.revenue || 0;
+      const net = Math.round((rev / 1.135) * 100) / 100;
+      const vat = Math.round((rev - net) * 100) / 100;
+      return [
+        r.receipt_number,
+        r.paid_at ? format(new Date(r.paid_at), "dd/MM/yy") : "",
+        r.customer_name,
+        r.job_type,
+        r.assigned_engineer || "",
+        r.payment_method || "",
+        rev.toFixed(2),
+        net.toFixed(2),
+        vat.toFixed(2),
+      ];
+    });
+    rows.push(["", "", "", "", "", "TOTALS", totals.inc.toFixed(2), totals.net.toFixed(2), totals.vat.toFixed(2)]);
+
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sales-ledger-${format(start, "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <BookOpen className="w-7 h-7 text-[#4A86E8]" />
+          <h1 className="text-2xl font-black tracking-tight">Sales Ledger</h1>
+        </div>
+        <DateRangeToggle
+          viewMode={viewMode}
+          offset={offset}
+          onViewModeChange={setViewMode}
+          onOffsetChange={setOffset}
+        />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customer..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Job Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Job Types</SelectItem>
+            <SelectItem value="Boiler Service">Boiler Service</SelectItem>
+            <SelectItem value="Emergency">Emergency</SelectItem>
+            <SelectItem value="Repair">Repair</SelectItem>
+            <SelectItem value="Quote">Quote</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Payment Method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payments</SelectItem>
+            <SelectItem value="cash">Cash</SelectItem>
+            <SelectItem value="card">Card</SelectItem>
+            <SelectItem value="invoice">Invoice</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={engineerFilter} onValueChange={setEngineerFilter}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Engineer" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Engineers</SelectItem>
+            {engineers.map((e) => (
+              <SelectItem key={e.id} value={e.name}>
+                {e.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="text-lg font-extrabold">Sales Ledger</CardTitle>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+          >
+            <Download className="w-4 h-4" /> Export CSV
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-muted-foreground py-16 text-sm">
+              No payments recorded for this period.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-extrabold">Receipt No</TableHead>
+                    <TableHead className="font-extrabold">Date</TableHead>
+                    <TableHead className="font-extrabold">Customer</TableHead>
+                    <TableHead className="font-extrabold">Job Type</TableHead>
+                    <TableHead className="font-extrabold">Engineer</TableHead>
+                    <TableHead className="font-extrabold">Payment</TableHead>
+                    <TableHead className="font-extrabold text-right">Total inc VAT</TableHead>
+                    <TableHead className="font-extrabold text-right">Net</TableHead>
+                    <TableHead className="font-extrabold text-right">VAT</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((row) => {
+                    const rev = row.revenue || 0;
+                    const net = Math.round((rev / 1.135) * 100) / 100;
+                    const vat = Math.round((rev - net) * 100) / 100;
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-mono font-bold text-[#4A86E8]">{row.receipt_number}</TableCell>
+                        <TableCell>{row.paid_at ? format(new Date(row.paid_at), "dd/MM/yy") : "—"}</TableCell>
+                        <TableCell className="font-semibold">{row.customer_name}</TableCell>
+                        <TableCell>{row.job_type}</TableCell>
+                        <TableCell>{row.assigned_engineer || "—"}</TableCell>
+                        <TableCell className="capitalize">{row.payment_method || "—"}</TableCell>
+                        <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
+                        <TableCell className="text-right">{eur(net)}</TableCell>
+                        <TableCell className="text-right">{eur(vat)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+                <TableFooter>
+                  <TableRow className="bg-muted/50 font-extrabold">
+                    <TableCell colSpan={6} className="text-right">TOTALS</TableCell>
+                    <TableCell className="text-right">{eur(totals.inc)}</TableCell>
+                    <TableCell className="text-right">{eur(totals.net)}</TableCell>
+                    <TableCell className="text-right">{eur(totals.vat)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default SalesLedger;
