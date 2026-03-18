@@ -556,7 +556,15 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
           <Input type="date" value={date} min={todayISO} onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: false })); }} className={`mt-1 ${validationBorderClass(!!errors.date)}`} />
           <ValidationMessage show={!!errors.date} />
-          {date && availableTimeBlocks.length === 0 && (
+          {date && date < todayISO && (
+            <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
+              <CalendarDays className="w-5 h-5 text-warning shrink-0" />
+              <span className="text-[13px] font-semibold text-warning">
+                Please select a future date — this date has already passed.
+              </span>
+            </div>
+          )}
+          {date && date >= todayISO && availableTimeBlocks.length === 0 && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
               <CalendarDays className="w-5 h-5 text-warning shrink-0" />
               <span className="text-[13px] font-semibold text-warning">
