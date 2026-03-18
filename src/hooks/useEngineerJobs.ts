@@ -127,6 +127,10 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>) => {
+    if (!navigator.onLine) {
+      toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
+      return;
+    }
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, ...rest } = patch;
 
     let notesUpdate = rest.notes;
