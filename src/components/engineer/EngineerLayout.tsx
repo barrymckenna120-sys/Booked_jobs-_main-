@@ -14,6 +14,7 @@ import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import { useAuth } from "@/hooks/useAuth";
+import OfflineBanner from "@/components/engineer/OfflineBanner";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -92,6 +93,9 @@ const EngineerLayout = () => {
             : <><PartyPopper className="w-4 h-4" /> All jobs done for today!</>}
         </div>
       </div>
+
+      {/* Offline Banner */}
+      <OfflineBanner />
 
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">
