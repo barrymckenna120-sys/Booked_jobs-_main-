@@ -28,10 +28,10 @@ interface NewJobPanelProps {
 }
 
 const JOB_TYPES = [
-  { id: "Boiler Service", label: "Boiler Service", Icon: Flame, price: 120 },
-  { id: "Repair", label: "Repair", Icon: Wrench, price: 0 },
-  { id: "Emergency", label: "Emergency", Icon: AlertTriangle, price: 150 },
-  { id: "Installation", label: "Installation", Icon: Settings, price: 0 },
+  { id: "Boiler Service", label: "Boiler Service", Icon: Flame },
+  { id: "Repair", label: "Repair", Icon: Wrench },
+  { id: "Emergency", label: "Emergency", Icon: AlertTriangle },
+  { id: "Installation", label: "Installation", Icon: Settings },
 ];
 
 const TIME_BLOCKS = [
@@ -308,7 +308,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
               >
                 <j.Icon className={`w-6 h-6 ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`} />
                 <span className={`text-[13px] ${jobType === j.id ? "font-extrabold text-primary" : "font-semibold"}`}>{j.label}</span>
-                {j.price > 0 && <span className={`text-[11px] font-semibold ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`}>€{j.price}</span>}
+                
               </button>
             ))}
           </div>
@@ -683,28 +683,34 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("settings")
-        .select("default_service_price, default_emergency_price")
+        .select("default_service_price, default_emergency_price, default_repair_price, default_callout_charge")
         .eq("user_id", user!.id)
         .maybeSingle();
       if (error) console.error("[StepPayment] settings fetch error:", error);
       return {
-        service: data?.default_service_price ?? 120,
-        emergency: data?.default_emergency_price ?? 150,
+        service: Number(data?.default_service_price ?? 120),
+        emergency: Number(data?.default_emergency_price ?? 150),
+        repair: Number(data?.default_repair_price ?? 0),
+        callout: Number(data?.default_callout_charge ?? 85),
       };
     },
     enabled: !!user,
   });
 
-  const getPrice = (jobType: string, prices: { service: number; emergency: number } | undefined) => {
-    if (!prices) return jt.price;
+  const getPrice = (jobType: string, prices: typeof defaultPrices) => {
+    if (!prices) return 0;
     if (jobType === "Emergency") return prices.emergency;
     if (jobType === "Boiler Service") return prices.service;
-    return jt.price;
+    if (jobType === "Repair") return prices.repair;
+    return 0;
   };
 
   const suggestedPrice = getPrice(jobData.job.jobType, defaultPrices);
 
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(() => {
+    // Try to compute initial value synchronously (won't have query data yet)
+    return "";
+  });
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
   const [sendWA, setSendWA] = useState(true);
@@ -713,10 +719,10 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   useEffect(() => {
     if (!priceInitialized && defaultPrices) {
       const price = getPrice(jobData.job.jobType, defaultPrices);
-      setAmount(String(price || ""));
+      setAmount(price > 0 ? String(price) : "");
       setPriceInitialized(true);
     }
-  }, [defaultPrices, priceInitialized]);
+  }, [defaultPrices, priceInitialized, jobData.job.jobType]);
 
   const eng = engineers.find((e: any) => e.id === jobData.schedule.engineerId);
   const tb = TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock);
