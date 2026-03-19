@@ -675,10 +675,38 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void;
 }) => {
   const jt = JOB_TYPES.find((j) => j.id === jobData.job.jobType) || JOB_TYPES[0];
-  const suggestedPrice = jt.price;
-  const [amount, setAmount] = useState(String(suggestedPrice || ""));
+
+  // Fetch default prices from settings
+  const { data: defaultPrices } = useQuery({
+    queryKey: ["default-job-prices"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("default_service_price, default_emergency_price").limit(1).single();
+      return {
+        service: data?.default_service_price ?? 120,
+        emergency: data?.default_emergency_price ?? 150,
+      };
+    },
+  });
+
+  const suggestedPrice = useMemo(() => {
+    if (!defaultPrices) return jt.price;
+    if (jobData.job.jobType === "Emergency") return defaultPrices.emergency;
+    if (jobData.job.jobType === "Boiler Service") return defaultPrices.service;
+    return jt.price;
+  }, [defaultPrices, jobData.job.jobType, jt.price]);
+
+  const [amount, setAmount] = useState("");
+  const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
   const [sendWA, setSendWA] = useState(true);
+
+  // Set initial amount once settings load
+  useEffect(() => {
+    if (!priceInitialized && suggestedPrice != null) {
+      setAmount(String(suggestedPrice || ""));
+      setPriceInitialized(true);
+    }
+  }, [suggestedPrice, priceInitialized]);
 
   const eng = engineers.find((e: any) => e.id === jobData.schedule.engineerId);
   const tb = TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock);
