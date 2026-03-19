@@ -110,6 +110,7 @@ const App = () => (
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/import" element={<ImportCustomers />} />
+              <Route path="/system-logs" element={<SystemLogs />} />
             </Route>
             {/* Engineer Mode */}
             <Route path="/engineer" element={<EngineerLayout />}>

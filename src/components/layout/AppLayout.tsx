@@ -46,6 +46,7 @@ const WHATSAPP_CHILDREN = [
 
 const BOTTOM_NAV = [
   { label: "Settings", icon: Settings, path: "/settings" },
+  { label: "System Logs", icon: Terminal, path: "/system-logs" },
 ];
 
 // Mobile: flatten but group WhatsApp as single item
