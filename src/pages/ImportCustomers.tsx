@@ -244,7 +244,7 @@ const ImportCustomers = () => {
           email: field(row, "email"),
           address,
           eircode,
-          area_code: field(row, "area_code"),
+          area_code: (() => { const ac = field(row, "area_code"); return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac; })(),
           access_notes: field(row, "access_notes"),
           boiler_make_model: field(row, "boiler_make_model"),
           boiler_type: boilerType || null,

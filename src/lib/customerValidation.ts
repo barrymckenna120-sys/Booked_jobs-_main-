@@ -53,4 +53,11 @@ export const formatPhoneInternational = (raw: string): string => {
   return `+353${stripped}`;
 };
 
+/** Normalise area code: "Dublin 15" → "D15", "Dublin 6W" → "D6W", trim & uppercase */
+export const normalizeAreaCode = (raw: string): string => {
+  let val = raw.trim();
+  val = val.replace(/^dublin\s+/i, "D");
+  return val.toUpperCase();
+};
+
 export const RED_BORDER = "ring-2 ring-[#EF4444] border-[#EF4444]";

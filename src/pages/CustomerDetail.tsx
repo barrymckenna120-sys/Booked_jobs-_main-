@@ -114,6 +114,7 @@ const CustomerDetail = () => {
     // Clean phone & eircode
     if (updates.phone) updates.phone = formatPhoneInternational(updates.phone);
     if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
+    if (updates.area_code) updates.area_code = normalizeAreaCode(updates.area_code);
     // Ensure required fields are never null
     if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
     if (!updates.address && updates.address !== undefined) updates.address = "";

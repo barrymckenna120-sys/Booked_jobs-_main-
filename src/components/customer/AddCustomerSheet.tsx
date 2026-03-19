@@ -78,7 +78,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       email: form.email.trim() || null,
       address: form.address.trim(),
       eircode: cleanEircode,
-      area_code: form.area_code.trim() || null,
+      area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
     });
     setSaving(false);
 
