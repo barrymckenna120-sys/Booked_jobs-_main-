@@ -40,6 +40,7 @@ import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
 import ServiceReceipt from "./pages/ServiceReceipt";
 import Messages from "./pages/Messages";
+import SystemLogs from "./pages/SystemLogs";
 import InstallAppBanner from "./components/pwa/InstallAppBanner";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,7 @@ const App = () => (
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/import" element={<ImportCustomers />} />
+              <Route path="/system-logs" element={<SystemLogs />} />
             </Route>
             {/* Engineer Mode */}
             <Route path="/engineer" element={<EngineerLayout />}>
