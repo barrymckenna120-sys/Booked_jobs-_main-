@@ -111,54 +111,53 @@ const SystemLogs = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs.map((log) => {
+            {logs.map((log) => {
                 const expanded = expandedId === log.id;
                 return (
-                  <TableRow key={log.id} className="align-top">
-                    <TableCell className="whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">
-                          {format(new Date(log.created_at), "dd MMM yyyy, HH:mm")}
-                        </span>
-                        {isRecent(log.created_at) && (
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Recent</Badge>
+                  <>
+                    <TableRow key={log.id} className="align-top">
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">
+                            {format(new Date(log.created_at), "dd MMM yyyy, HH:mm")}
+                          </span>
+                          {isRecent(log.created_at) && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Recent</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{log.function_name}</code>
+                      </TableCell>
+                      <TableCell className="text-sm text-destructive max-w-[300px] break-words">
+                        {log.error_message}
+                      </TableCell>
+                      <TableCell>
+                        {log.payload ? (
+                          <button
+                            onClick={() => setExpandedId(expanded ? null : log.id)}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            {expanded ? "Hide" : "View"}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{log.function_name}</code>
-                    </TableCell>
-                    <TableCell className="text-sm text-destructive max-w-[300px] break-words">
-                      {log.error_message}
-                    </TableCell>
-                    <TableCell>
-                      {log.payload ? (
-                        <button
-                          onClick={() => setExpandedId(expanded ? null : log.id)}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                          {expanded ? "Hide" : "View"}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                    </TableRow>
+                    {expanded && log.payload && (
+                      <TableRow key={`${log.id}-payload`}>
+                        <TableCell colSpan={4} className="bg-muted/50 p-0">
+                          <pre className="text-xs p-4 overflow-x-auto max-h-60 whitespace-pre-wrap">
+                            {JSON.stringify(log.payload, null, 2)}
+                          </pre>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 );
               })}
-              {/* Expanded payload rows */}
-              {logs.map((log) =>
-                expandedId === log.id && log.payload ? (
-                  <TableRow key={`${log.id}-payload`}>
-                    <TableCell colSpan={4} className="bg-muted/50 p-0">
-                      <pre className="text-xs p-4 overflow-x-auto max-h-60 whitespace-pre-wrap">
-                        {JSON.stringify(log.payload, null, 2)}
-                      </pre>
-                    </TableCell>
-                  </TableRow>
-                ) : null
-              )}
             </TableBody>
           </Table>
         )}
