@@ -165,9 +165,28 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><Label>Default — Boiler Service (€)</Label><Input type="number" value={form.default_service_price} onChange={(e) => set("default_service_price", parseFloat(e.target.value) || 0)} /></div>
-            <div><Label>Default — Repair (€)</Label><Input type="number" value={form.default_repair_price} onChange={(e) => set("default_repair_price", parseFloat(e.target.value) || 0)} /><p className="text-xs text-muted-foreground mt-1">0 = variable pricing</p></div>
-            <div><Label>Default — Emergency (€)</Label><Input type="number" value={form.default_emergency_price} onChange={(e) => set("default_emergency_price", parseFloat(e.target.value) || 0)} /></div>
+            <div>
+              <Label>Default — Boiler Service</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">€</span>
+                <Input type="number" value={form.default_service_price} onChange={(e) => set("default_service_price", parseFloat(e.target.value) || 0)} className="pl-8" />
+              </div>
+            </div>
+            <div>
+              <Label>Default — Repair</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">€</span>
+                <Input type="number" value={form.default_repair_price} onChange={(e) => set("default_repair_price", parseFloat(e.target.value) || 0)} className="pl-8" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">0 = variable pricing</p>
+            </div>
+            <div>
+              <Label>Default — Emergency</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">€</span>
+                <Input type="number" value={form.default_emergency_price} onChange={(e) => set("default_emergency_price", parseFloat(e.target.value) || 0)} className="pl-8" />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
