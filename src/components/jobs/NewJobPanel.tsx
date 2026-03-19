@@ -270,6 +270,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
 
 /* ── STEP 2: Job Details ───────────────────────────────── */
 const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilledType?: string; prefilledBoiler?: string; onNext: (j: any) => void; onBack: () => void }) => {
+  const { user } = useAuth();
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState(prefilledBoiler || "");
@@ -283,6 +284,32 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
   const [ownerOrTenant, setOwnerOrTenant] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
+
+  const { data: defaultPrices } = useQuery({
+    queryKey: ["default-job-prices", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("settings")
+        .select("default_service_price, default_emergency_price, default_repair_price, default_callout_charge")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return {
+        service: Number(data?.default_service_price ?? 120),
+        emergency: Number(data?.default_emergency_price ?? 150),
+        repair: Number(data?.default_repair_price ?? 0),
+        callout: Number(data?.default_callout_charge ?? 85),
+      };
+    },
+    enabled: !!user,
+  });
+
+  const getJobPrice = (typeId: string) => {
+    if (!defaultPrices) return null;
+    if (typeId === "Emergency") return defaultPrices.emergency;
+    if (typeId === "Boiler Service") return defaultPrices.service;
+    if (typeId === "Repair") return defaultPrices.repair;
+    return null;
+  };
 
   const handleNext = () => {
     if (!jobType) {
@@ -308,7 +335,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
               >
                 <j.Icon className={`w-6 h-6 ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`} />
                 <span className={`text-[13px] ${jobType === j.id ? "font-extrabold text-primary" : "font-semibold"}`}>{j.label}</span>
-                
+                {(() => { const p = getJobPrice(j.id); return p && p > 0 ? <span className="text-[11px] text-muted-foreground">€{p}</span> : null; })()}
               </button>
             ))}
           </div>
