@@ -11,11 +11,8 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
 
 const parseTokensFromUrl = () => {
-  // Try hash first (#access_token=...&refresh_token=...)
   const hash = window.location.hash.substring(1);
   const hashParams = new URLSearchParams(hash);
-
-  // Then try query params (?access_token=...&refresh_token=...)
   const queryParams = new URLSearchParams(window.location.search);
 
   const access_token = hashParams.get("access_token") || queryParams.get("access_token");
@@ -28,107 +25,75 @@ const parseTokensFromUrl = () => {
   return { access_token, refresh_token, type, token, token_hash, email };
 };
 
+const hasRecoveryIntent = () => {
+  const hash = window.location.hash;
+  const params = new URLSearchParams(window.location.search);
+  return hash.includes("type=recovery") || params.get("type") === "recovery";
+};
+
 const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
+    // iOS Chrome fix: if recovery intent is detected, show form immediately
+    // without waiting for session establishment
+    if (hasRecoveryIntent()) {
+      setShowForm(true);
+    }
+
     const establish = async () => {
       const { access_token, refresh_token, type, token, token_hash, email } = parseTokensFromUrl();
 
-      // Method 1: OTP token + email (from custom Resend email)
+      // Method 1: OTP token + email
       if (token && email) {
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          email,
-          token,
-          type: "recovery",
-        });
-        if (otpError) {
-          console.error("OTP verification failed:", otpError);
-          setError("This link has expired or is invalid. Please request a new password reset.");
-          setChecking(false);
-          return;
-        }
-        setSessionReady(true);
-        setChecking(false);
+        const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
+        if (!otpError) { setSessionReady(true); setShowForm(true); return; }
+        if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
         return;
       }
 
-      // Method 2: PKCE token_hash (mobile browsers / Supabase default email links)
+      // Method 2: PKCE token_hash
       if (token_hash && type === "recovery") {
-        const { error: hashError } = await supabase.auth.verifyOtp({
-          token_hash,
-          type: "recovery",
-        });
-        if (hashError) {
-          console.error("token_hash verification failed:", hashError);
-          setError("This link has expired or is invalid. Please request a new password reset.");
-          setChecking(false);
-          return;
-        }
-        setSessionReady(true);
-        setChecking(false);
+        const { error: hashError } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
+        if (!hashError) { setSessionReady(true); setShowForm(true); return; }
+        if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
         return;
       }
 
-      // Method 3: Explicit access_token + refresh_token in URL (fixes mobile Chrome)
+      // Method 3: Explicit access_token + refresh_token
       if (access_token && refresh_token) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        });
-        if (sessionError) {
-          console.error("setSession failed:", sessionError);
-          setError("This link has expired or is invalid. Please request a new password reset.");
-          setChecking(false);
-          return;
-        }
-        setSessionReady(true);
-        setChecking(false);
+        const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (!sessionError) { setSessionReady(true); setShowForm(true); return; }
+        if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
         return;
       }
 
-      // Method 4: Hash contains type=recovery — let Supabase auto-detect
-      if (type === "recovery") {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setSessionReady(true);
-          setChecking(false);
-          return;
-        }
-      }
-
-      // Method 5: Already have a session (redirected after PASSWORD_RECOVERY event)
+      // Method 4: Already have a session
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setSessionReady(true);
-        setChecking(false);
-        return;
-      }
+      if (session?.user) { setSessionReady(true); setShowForm(true); return; }
 
       // Fallback: listen for PASSWORD_RECOVERY event
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
         if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
           setSessionReady(true);
-          setChecking(false);
+          setShowForm(true);
         }
       });
 
-      // Timeout after 5s — if no session established, show error
+      // Timeout — only show error if form isn't already visible
       setTimeout(() => {
-        setChecking((prev) => {
-          if (prev) {
-            setError("This link has expired. Please request a new password reset.");
-          }
-          return false;
+        setShowForm((prev) => {
+          if (!prev) setError("This link has expired. Please request a new password reset.");
+          return prev;
         });
       }, 5000);
 
@@ -137,6 +102,29 @@ const ResetPassword = () => {
 
     establish();
   }, []);
+
+  const establishSessionIfNeeded = async (): Promise<boolean> => {
+    // Check if we already have a session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) return true;
+
+    // Try to establish from URL tokens
+    const { access_token, refresh_token, token, token_hash, email } = parseTokensFromUrl();
+
+    if (token && email) {
+      const { error } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
+      if (!error) return true;
+    }
+    if (token_hash) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
+      if (!error) return true;
+    }
+    if (access_token && refresh_token) {
+      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (!error) return true;
+    }
+    return false;
+  };
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,19 +137,35 @@ const ResetPassword = () => {
       return;
     }
 
-    // Double-check session exists before attempting update (iOS fix)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      toast({
-        title: "Session expired",
-        description: "Please request a new password reset link.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
+      // If session wasn't ready yet (iOS Chrome), try to establish it now
+      if (!sessionReady) {
+        const established = await establishSessionIfNeeded();
+        if (!established) {
+          toast({
+            title: "Session expired",
+            description: "Please request a new password reset link.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        setSessionReady(true);
+      }
+
+      // Double-check session exists
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          title: "Session expired",
+          description: "Please request a new password reset link.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
@@ -176,7 +180,6 @@ const ResetPassword = () => {
         });
       }
 
-      // Sign out and redirect to login with success message
       await supabase.auth.signOut();
       toast({ title: "Password updated!", description: "Please log in." });
       navigate("/auth", { replace: true });
@@ -187,16 +190,8 @@ const ResetPassword = () => {
     }
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Verifying link…</p>
-      </div>
-    );
-  }
-
-  if (error || !sessionReady) {
+  // Show error only if form isn't visible
+  if (error && !showForm) {
     return (
       <div className="min-h-screen bg-muted flex items-center justify-center px-4">
         <Card className="w-full max-w-md shadow-md border-border/60">
@@ -210,46 +205,23 @@ const ResetPassword = () => {
             </div>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
-            <Button
-              className="w-full"
-              onClick={() => {
-                setError(null);
-                setChecking(true);
-                setSessionReady(false);
-                // Re-attempt token parsing
-                const { access_token, refresh_token, token, token_hash, email } = parseTokensFromUrl();
-                const type = new URLSearchParams(window.location.search).get("type") || new URLSearchParams(window.location.hash.substring(1)).get("type");
-                const tryAgain = async () => {
-                  if (token && email) {
-                    const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
-                    if (!otpError) { setSessionReady(true); setChecking(false); return; }
-                  }
-                  if (token_hash && type === "recovery") {
-                    const { error: hashErr } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
-                    if (!hashErr) { setSessionReady(true); setChecking(false); return; }
-                  }
-                  if (access_token && refresh_token) {
-                    const { error: sessErr } = await supabase.auth.setSession({ access_token, refresh_token });
-                    if (!sessErr) { setSessionReady(true); setChecking(false); return; }
-                  }
-                  const { data: { session } } = await supabase.auth.getSession();
-                  if (session?.user) { setSessionReady(true); setChecking(false); return; }
-                  setError("Still unable to verify. Please request a new password reset from the sign-in page.");
-                  setChecking(false);
-                };
-                tryAgain();
-              }}
-            >
-              Try Again
-            </Button>
             <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
               Back to Sign In
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              If this keeps happening, go to Sign In and request a new reset link.
+              Go to Sign In and request a new reset link.
             </p>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (!showForm) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Verifying link…</p>
       </div>
     );
   }
