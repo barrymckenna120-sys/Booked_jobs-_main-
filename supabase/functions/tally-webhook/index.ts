@@ -230,6 +230,13 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     console.error('Tally webhook error:', err)
+    try {
+      await supabase.from('edge_function_logs').insert({
+        function_name: 'tally-webhook',
+        error_message: err instanceof Error ? err.message : String(err),
+        payload: null,
+      })
+    } catch (_) { /* logging best-effort */ }
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
