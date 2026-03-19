@@ -39,7 +39,12 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const body = await req.json()
+    // Sanitize control characters that Make/Tally may inject into string values
+    const rawText = await req.text()
+    const cleanText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) =>
+      ch === '\n' || ch === '\r' || ch === '\t' ? ' ' : ''
+    )
+    const body = JSON.parse(cleanText)
 
     // Extract and sanitize fields
     const customerName = sanitize(body.customer_name, MAX_NAME_LEN)
