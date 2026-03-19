@@ -308,7 +308,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
               >
                 <j.Icon className={`w-6 h-6 ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`} />
                 <span className={`text-[13px] ${jobType === j.id ? "font-extrabold text-primary" : "font-semibold"}`}>{j.label}</span>
-                {j.price > 0 && <span className={`text-[11px] font-semibold ${jobType === j.id ? "text-primary" : "text-muted-foreground"}`}>€{j.price}</span>}
+                
               </button>
             ))}
           </div>
