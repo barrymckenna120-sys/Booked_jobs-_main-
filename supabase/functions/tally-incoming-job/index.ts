@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     const boilerErrorCode = sanitize(body.boiler_error_code, MAX_SHORT_LEN)
     const boilerWorking = body.boiler_working
     const fullAddress = sanitize(body.full_address, MAX_ADDRESS_LEN)
-    const areaCode = sanitize(body.area_code, MAX_SHORT_LEN)
+    const areaCode = (() => { const raw = sanitize(body.area_code, MAX_SHORT_LEN); return raw ? raw.replace(/^dublin\s+/i, 'D').toUpperCase() : null })()
     const eircode = sanitize(body.eircode, 10)
     const preferredDay = sanitize(body.preferred_day, MAX_SHORT_LEN)
     const preferredTime = sanitize(body.preferred_time, MAX_SHORT_LEN)

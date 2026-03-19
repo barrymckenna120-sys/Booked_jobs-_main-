@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
-  formatEircode, formatPhoneInternational, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, normalizeAreaCode, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -78,7 +78,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       email: form.email.trim() || null,
       address: form.address.trim(),
       eircode: cleanEircode,
-      area_code: form.area_code.trim() || null,
+      area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
     });
     setSaving(false);
 

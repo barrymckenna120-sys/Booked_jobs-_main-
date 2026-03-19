@@ -22,7 +22,7 @@ import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
-  formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, normalizeAreaCode, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 
 const formatDateForInput = (val: string | null) => val || "";
@@ -114,6 +114,7 @@ const CustomerDetail = () => {
     // Clean phone & eircode
     if (updates.phone) updates.phone = formatPhoneInternational(updates.phone);
     if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
+    if (updates.area_code) updates.area_code = normalizeAreaCode(updates.area_code);
     // Ensure required fields are never null
     if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
     if (!updates.address && updates.address !== undefined) updates.address = "";

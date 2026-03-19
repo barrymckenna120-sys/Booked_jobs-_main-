@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Normalise "Dublin 15" → "D15" etc.
+const normalizeAreaCode = (raw: string | null): string | null => {
+  if (!raw) return null
+  return raw.trim().replace(/^dublin\s+/i, 'D').toUpperCase() || null
+}
+
 // --- Input validation helpers ---
 const MAX_NAME_LEN = 200
 const MAX_ADDRESS_LEN = 500
@@ -55,7 +61,7 @@ Deno.serve(async (req) => {
     const email = sanitize(rawEmail, MAX_NAME_LEN)
     const address = sanitize(get('address'), MAX_ADDRESS_LEN)
     const eircode = sanitize(get('eircode'), 10)
-    const areaCode = sanitize(get('area code'), 10)
+    const areaCode = normalizeAreaCode(sanitize(get('area code'), 10))
     const boilerBrand = sanitize(get('boiler brand'), MAX_SHORT_LEN)
     const boilerModel = sanitize(get('boiler model'), MAX_SHORT_LEN)
     const isWorking = get('boiler working')
