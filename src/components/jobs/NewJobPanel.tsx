@@ -28,10 +28,10 @@ interface NewJobPanelProps {
 }
 
 const JOB_TYPES = [
-  { id: "Boiler Service", label: "Boiler Service", Icon: Flame, price: 120 },
-  { id: "Repair", label: "Repair", Icon: Wrench, price: 0 },
-  { id: "Emergency", label: "Emergency", Icon: AlertTriangle, price: 150 },
-  { id: "Installation", label: "Installation", Icon: Settings, price: 0 },
+  { id: "Boiler Service", label: "Boiler Service", Icon: Flame },
+  { id: "Repair", label: "Repair", Icon: Wrench },
+  { id: "Emergency", label: "Emergency", Icon: AlertTriangle },
+  { id: "Installation", label: "Installation", Icon: Settings },
 ];
 
 const TIME_BLOCKS = [
