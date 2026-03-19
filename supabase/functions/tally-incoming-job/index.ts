@@ -256,6 +256,13 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     console.error('tally-incoming-job error:', err)
+    try {
+      await supabase.from('edge_function_logs').insert({
+        function_name: 'tally-incoming-job',
+        error_message: err instanceof Error ? err.message : String(err),
+        payload: null,
+      })
+    } catch (_) { /* logging best-effort */ }
     return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
