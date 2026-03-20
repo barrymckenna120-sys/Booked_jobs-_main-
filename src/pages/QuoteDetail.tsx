@@ -30,6 +30,7 @@ const QuoteDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [converting, setConverting] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ["quote-detail", id],
