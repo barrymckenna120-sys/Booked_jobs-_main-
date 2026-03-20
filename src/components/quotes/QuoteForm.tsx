@@ -292,16 +292,31 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   onBlur={() => setTimeout(() => setActiveProductSearch(null), 200)}
                   placeholder="Type to search products or enter custom…"
                 />
-                {activeProductSearch === li.id && li.description.trim().length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-40 overflow-auto">
-                    {products.filter((p: any) => p.name.toLowerCase().includes(li.description.toLowerCase())).slice(0, 5).map((p: any) => (
-                      <button key={p.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors" onMouseDown={() => selectProduct(li.id, p)}>
-                        <span className="font-medium">{p.name}</span>
-                        <span className="text-muted-foreground ml-2">€{Number(p.unit_price).toFixed(2)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {activeProductSearch === li.id && li.description.trim().length > 0 && (() => {
+                  const matches = products.filter((p: any) => p.name.toLowerCase().includes(li.description.toLowerCase())).slice(0, 10);
+                  if (matches.length === 0) return null;
+                  const grouped: Record<string, any[]> = {};
+                  matches.forEach((p: any) => {
+                    const cat = (p as any).category || "Parts";
+                    if (!grouped[cat]) grouped[cat] = [];
+                    grouped[cat].push(p);
+                  });
+                  return (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-48 overflow-auto">
+                      {Object.entries(grouped).map(([cat, items]) => (
+                        <div key={cat}>
+                          <div className="px-3 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider bg-muted/50">{cat}</div>
+                          {items.map((p: any) => (
+                            <button key={p.id} className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors" onMouseDown={() => selectProduct(li.id, p)}>
+                              <span className="font-medium">{p.name}</span>
+                              <span className="text-muted-foreground ml-2">€{Number(p.unit_price).toFixed(2)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
                 <div>

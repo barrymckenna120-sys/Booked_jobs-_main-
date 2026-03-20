@@ -10,7 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Pencil, Trash2, Loader2, Package } from "lucide-react";
+
+const CATEGORIES = ["Boilers", "Heat Pumps", "Heat Controls", "WiFi & App Units", "Parts", "Labour", "Materials"] as const;
+type Category = (typeof CATEGORIES)[number];
 
 type Product = {
   id: string;
@@ -18,18 +22,19 @@ type Product = {
   description: string | null;
   unit_price: number;
   active: boolean;
+  category: string | null;
   created_at: string;
 };
 
 const Products = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", unit_price: "", active: true });
+  const [form, setForm] = useState({ name: "", description: "", unit_price: "", active: true, category: "Parts" });
   const [saving, setSaving] = useState(false);
 
   const { data: products = [], isLoading } = useQuery({
@@ -45,6 +50,7 @@ const Products = () => {
 
   const filtered = products.filter((p) => {
     if (!showInactive && !p.active) return false;
+    if (categoryFilter !== "All" && (p.category || "Parts") !== categoryFilter) return false;
     if (search.trim()) {
       const s = search.toLowerCase();
       if (!p.name.toLowerCase().includes(s) && !(p.description || "").toLowerCase().includes(s)) return false;
@@ -54,13 +60,13 @@ const Products = () => {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", description: "", unit_price: "", active: true });
+    setForm({ name: "", description: "", unit_price: "", active: true, category: "Parts" });
     setModalOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing(p);
-    setForm({ name: p.name, description: p.description || "", unit_price: String(p.unit_price), active: p.active });
+    setForm({ name: p.name, description: p.description || "", unit_price: String(p.unit_price), active: p.active, category: p.category || "Parts" });
     setModalOpen(true);
   };
 
@@ -70,11 +76,12 @@ const Products = () => {
       return;
     }
     setSaving(true);
-    const payload = {
+    const payload: any = {
       name: form.name.trim(),
       description: form.description.trim() || null,
       unit_price: parseFloat(form.unit_price) || 0,
       active: form.active,
+      category: form.category,
     };
 
     if (editing) {
@@ -102,6 +109,21 @@ const Products = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-extrabold text-foreground">Products & Parts</h1>
         <Button onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
+      </div>
+
+      {/* Category filter tabs */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {["All", ...CATEGORIES].map((cat) => (
+          <Button
+            key={cat}
+            variant={categoryFilter === cat ? "default" : "outline"}
+            size="sm"
+            className="text-xs"
+            onClick={() => setCategoryFilter(cat)}
+          >
+            {cat}
+          </Button>
+        ))}
       </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
@@ -133,6 +155,7 @@ const Products = () => {
                 <tr className="border-b border-border text-left">
                   <th className="px-4 py-3 font-semibold text-muted-foreground">Name</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Description</th>
+                  <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Category</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Price</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Active</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
@@ -143,6 +166,7 @@ const Products = () => {
                   <tr key={p.id} className={`border-b border-border last:border-0 ${!p.active ? "opacity-50" : ""}`}>
                     <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
                     <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{p.description || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell capitalize">{p.category || "Parts"}</td>
                     <td className="px-4 py-3 text-right font-semibold text-foreground">€{Number(p.unit_price).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-block w-2 h-2 rounded-full ${p.active ? "bg-success" : "bg-muted-foreground/30"}`} />
@@ -181,6 +205,15 @@ const Products = () => {
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Description</Label>
               <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Category</Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue placeholder="Select category…" /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Unit Price € *</Label>
