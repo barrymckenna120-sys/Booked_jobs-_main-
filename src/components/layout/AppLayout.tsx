@@ -60,6 +60,7 @@ const MOBILE_NAV = [
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Messages", icon: MessageSquare, path: "/messages" },
   { label: "Quotes", icon: Euro, path: "/quotes" },
+  { label: "Products", icon: Package, path: "/products" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
   { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
