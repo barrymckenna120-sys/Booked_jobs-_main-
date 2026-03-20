@@ -129,10 +129,11 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   // Calculations
   const subtotal = useMemo(() => lineItems.reduce((s, li) => s + (parseFloat(li.qty) || 0) * (parseFloat(li.unit_price) || 0), 0), [lineItems]);
   const discountNum = parseFloat(discount) || 0;
-  const vatAmount = vatEnabled ? (subtotal - discountNum) * 0.23 : 0;
-  const total = subtotal - discountNum + vatAmount;
+  const afterDiscount = Math.max(subtotal - discountNum, 0);
+  const vatAmount = vatEnabled ? afterDiscount * 0.23 : 0;
+  const total = Math.max(afterDiscount + vatAmount, 0);
   const depositNum = parseFloat(deposit) || 0;
-  const balanceDue = total - depositNum;
+  const balanceDue = Math.max(total - depositNum, 0);
 
   const updateLineItem = (id: string, field: keyof LineItem, value: string) => {
     setLineItems((prev) => prev.map((li) => li.id === id ? { ...li, [field]: value } : li));
@@ -354,6 +355,12 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
               <Label className="text-sm text-muted-foreground">Discount €</Label>
               <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-28 text-right" placeholder="0.00" />
             </div>
+            {discountNum > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Discount</span>
+                <span className="font-semibold text-destructive">−€{discountNum.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
@@ -369,6 +376,12 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
               <Label className="text-sm text-muted-foreground">Deposit €</Label>
               <Input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-28 text-right" placeholder="0.00" />
             </div>
+            {depositNum > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Deposit</span>
+                <span className="font-semibold">−€{depositNum.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm font-bold">
               <span className="text-muted-foreground">Balance Due</span>
               <span>€{balanceDue.toFixed(2)}</span>

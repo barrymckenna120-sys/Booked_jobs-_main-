@@ -248,10 +248,11 @@ Deno.serve(async (req) => {
     // ── Totals ──
     const subtotal = items.reduce((s: number, li: any) => s + Number(li.line_total || 0), 0);
     const discountVal = Number(quote.discount || 0);
-    const vatAmt = quote.vat_enabled ? (subtotal - discountVal) * 0.23 : 0;
-    const total = Number(quote.total_amount || 0);
+    const afterDiscount = Math.max(subtotal - discountVal, 0);
+    const vatAmt = quote.vat_enabled ? afterDiscount * 0.23 : 0;
+    const total = Math.max(afterDiscount + vatAmt, 0);
     const depositVal = Number(quote.deposit || 0);
-    const balance = Number(quote.balance_due || total - depositVal);
+    const balance = Math.max(total - depositVal, 0);
 
     const totalsX = margin + contentW - 70;
     const totalsValX = margin + contentW - 3;
@@ -267,7 +268,7 @@ Deno.serve(async (req) => {
     };
 
     addTotalLine("Subtotal", euro(subtotal));
-    if (discountVal > 0) addTotalLine("Discount", `−${euro(discountVal)}`);
+    if (discountVal > 0) addTotalLine("Special Offer Applied", `−${euro(discountVal)}`);
     if (quote.vat_enabled) addTotalLine("VAT 23%", euro(vatAmt));
 
     drawLine(y - 2);
