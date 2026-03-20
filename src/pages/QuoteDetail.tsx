@@ -94,10 +94,11 @@ const QuoteDetail = () => {
   const customer: any = q.customers;
   const subtotal = lineItems.reduce((s: number, li: any) => s + Number(li.line_total || 0), 0);
   const discountVal = Number(q.discount || 0);
-  const vatAmt = q.vat_enabled ? (subtotal - discountVal) * 0.23 : 0;
-  const total = Number(q.total_amount || 0);
+  const afterDiscount = Math.max(subtotal - discountVal, 0);
+  const vatAmt = q.vat_enabled ? afterDiscount * 0.23 : 0;
+  const total = Math.max(afterDiscount + vatAmt, 0);
   const depositVal = Number(q.deposit || 0);
-  const balance = Number(q.balance_due || total - depositVal);
+  const balance = Math.max(total - depositVal, 0);
 
   const statusLabel = q.status?.charAt(0).toUpperCase() + q.status?.slice(1);
 
