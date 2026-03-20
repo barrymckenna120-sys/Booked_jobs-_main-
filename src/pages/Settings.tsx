@@ -14,6 +14,7 @@ import EngineerAvailabilityTab from "@/components/settings/EngineerAvailabilityT
 import TeamManagementTab from "@/components/settings/TeamManagementTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import QuickRepliesTab from "@/components/settings/QuickRepliesTab";
+import QuoteDefaultsTab from "@/components/settings/QuoteDefaultsTab";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
