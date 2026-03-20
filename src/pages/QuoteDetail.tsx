@@ -236,6 +236,32 @@ const QuoteDetail = () => {
         <Button variant="outline" onClick={() => navigate(`/quotes/${id}/edit`)}>
           <Edit2 className="w-4 h-4 mr-1" /> Edit Quote
         </Button>
+        <Button
+          variant="outline"
+          disabled={generatingPdf}
+          onClick={async () => {
+            if (!id) return;
+            setGeneratingPdf(true);
+            try {
+              const { data, error } = await supabase.functions.invoke("generate-quote-pdf", {
+                body: { quote_id: id },
+              });
+              if (error || !data?.success) {
+                toast({ title: "PDF failed", description: data?.error || error?.message, variant: "destructive" });
+              } else {
+                toast({ title: "PDF generated ✅" });
+                queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+                window.open(data.pdf_url, "_blank");
+              }
+            } catch (err: any) {
+              toast({ title: "PDF failed", description: err.message, variant: "destructive" });
+            }
+            setGeneratingPdf(false);
+          }}
+        >
+          {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
+          {q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
+        </Button>
         {q.pdf_url && (
           <Button variant="outline" asChild>
             <a href={q.pdf_url} target="_blank" rel="noopener noreferrer">
