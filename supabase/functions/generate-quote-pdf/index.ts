@@ -57,6 +57,41 @@ Deno.serve(async (req) => {
     const customer = (quote as any).customers;
     const biz = settings || {} as any;
 
+    // ── Fetch logo if available ──
+    let logoDataUrl: string | null = null;
+    let logoW = 0;
+    let logoH = 0;
+    if (biz.logo_url) {
+      try {
+        const logoResp = await fetch(biz.logo_url);
+        if (logoResp.ok) {
+          const logoBuffer = await logoResp.arrayBuffer();
+          const logoBytes = new Uint8Array(logoBuffer);
+          const contentType = logoResp.headers.get("content-type") || "image/png";
+          const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "JPEG" : "PNG";
+
+          // Convert to base64 data URL
+          let binary = "";
+          for (let i = 0; i < logoBytes.length; i++) {
+            binary += String.fromCharCode(logoBytes[i]);
+          }
+          const base64 = btoa(binary);
+          logoDataUrl = `data:${contentType};base64,${base64}`;
+
+          // Target logo height ~14mm, calculate width proportionally (assume roughly square if we can't detect)
+          logoH = 14;
+          logoW = 14; // default square
+          // Try to get dimensions from the image - use a reasonable aspect ratio
+          // jsPDF will handle scaling; we'll use a max width constraint
+          if (logoW > 40) logoW = 40;
+
+          console.log(`Logo fetched: ${ext}, ${logoBytes.length} bytes`);
+        }
+      } catch (logoErr) {
+        console.warn("Could not fetch logo:", logoErr);
+      }
+    }
+
     // ── Build PDF ──
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pw = 210; // page width
@@ -80,10 +115,21 @@ Deno.serve(async (req) => {
     const euro = (v: number) => `€${v.toFixed(2)}`;
 
     // ── Header ──
+    let textStartX = margin;
+
+    if (logoDataUrl) {
+      try {
+        doc.addImage(logoDataUrl, "PNG", margin, y - 2, logoW, logoH);
+        textStartX = margin + logoW + 4;
+      } catch (imgErr) {
+        console.warn("Could not embed logo in PDF:", imgErr);
+      }
+    }
+
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
-    doc.text(biz.business_name || "Quote", margin, y + 7);
+    doc.text(biz.business_name || "Quote", textStartX, y + 7);
 
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
