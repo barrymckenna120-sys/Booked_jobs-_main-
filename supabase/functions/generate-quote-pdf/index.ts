@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
     };
 
     addTotalLine("Subtotal", euro(subtotal));
-    if (discountVal > 0) addTotalLine("Discount", `−${euro(discountVal)}`);
+    if (discountVal > 0) addTotalLine("Special Offer Applied", `−${euro(discountVal)}`);
     if (quote.vat_enabled) addTotalLine("VAT 23%", euro(vatAmt));
 
     drawLine(y - 2);
