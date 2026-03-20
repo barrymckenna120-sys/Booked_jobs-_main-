@@ -118,6 +118,7 @@ const Settings = () => {
           {activeTab === "security" && <SecurityTab />}
           {activeTab === "audit" && <AuditLogTab />}
           {activeTab === "quick_replies" && <QuickRepliesTab />}
+          {activeTab === "quote_defaults" && <QuoteDefaultsTab settings={settings} onSave={handleSave} saving={saving} />}
         </div>
       </div>
     </div>
