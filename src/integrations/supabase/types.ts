@@ -640,6 +640,33 @@ export type Database = {
         }
         Relationships: []
       }
+      products: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          unit_price: number
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          unit_price?: number
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          unit_price?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -694,69 +721,153 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_line_items: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          line_total: number | null
+          product_id: string | null
+          qty: number
+          quote_id: string
+          sort_order: number | null
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          line_total?: number | null
+          product_id?: string | null
+          qty?: number
+          quote_id: string
+          sort_order?: number | null
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          line_total?: number | null
+          product_id?: string | null
+          qty?: number
+          quote_id?: string
+          sort_order?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_line_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_line_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotes: {
         Row: {
           accepted_at: string | null
+          balance_due: number | null
           callout_cost: number | null
           converted_job_id: string | null
           created_at: string
           customer_id: string
+          deposit: number | null
           deposit_amount: number | null
           description: string
+          discount: number | null
+          expiry_date: string | null
+          follow_up_sent: boolean | null
           id: string
           job_id: string
+          job_type: string | null
           labour_cost: number | null
           notes: string | null
           paid_at: string | null
           parts_cost: number | null
           payment_link: string | null
+          pdf_url: string | null
+          quote_number: string | null
           sent_at: string | null
           status: string
+          terms: string | null
           total_amount: number
           updated_at: string
           user_id: string
+          vat_enabled: boolean | null
+          viewed_at: string | null
         }
         Insert: {
           accepted_at?: string | null
+          balance_due?: number | null
           callout_cost?: number | null
           converted_job_id?: string | null
           created_at?: string
           customer_id: string
+          deposit?: number | null
           deposit_amount?: number | null
           description: string
+          discount?: number | null
+          expiry_date?: string | null
+          follow_up_sent?: boolean | null
           id?: string
           job_id: string
+          job_type?: string | null
           labour_cost?: number | null
           notes?: string | null
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
+          pdf_url?: string | null
+          quote_number?: string | null
           sent_at?: string | null
           status?: string
+          terms?: string | null
           total_amount?: number
           updated_at?: string
           user_id: string
+          vat_enabled?: boolean | null
+          viewed_at?: string | null
         }
         Update: {
           accepted_at?: string | null
+          balance_due?: number | null
           callout_cost?: number | null
           converted_job_id?: string | null
           created_at?: string
           customer_id?: string
+          deposit?: number | null
           deposit_amount?: number | null
           description?: string
+          discount?: number | null
+          expiry_date?: string | null
+          follow_up_sent?: boolean | null
           id?: string
           job_id?: string
+          job_type?: string | null
           labour_cost?: number | null
           notes?: string | null
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
+          pdf_url?: string | null
+          quote_number?: string | null
           sent_at?: string | null
           status?: string
+          terms?: string | null
           total_amount?: number
           updated_at?: string
           user_id?: string
+          vat_enabled?: boolean | null
+          viewed_at?: string | null
         }
         Relationships: [
           {
@@ -960,9 +1071,13 @@ export type Database = {
           business_name: string
           business_phone: string | null
           default_callout_charge: number | null
+          default_deposit: number | null
           default_emergency_price: number | null
+          default_expiry_days: number | null
           default_repair_price: number | null
           default_service_price: number | null
+          default_terms: string | null
+          default_vat_enabled: boolean | null
           google_review_url: string | null
           id: string
           invoice_prefix: string | null
@@ -1001,9 +1116,13 @@ export type Database = {
           business_name?: string
           business_phone?: string | null
           default_callout_charge?: number | null
+          default_deposit?: number | null
           default_emergency_price?: number | null
+          default_expiry_days?: number | null
           default_repair_price?: number | null
           default_service_price?: number | null
+          default_terms?: string | null
+          default_vat_enabled?: boolean | null
           google_review_url?: string | null
           id?: string
           invoice_prefix?: string | null
@@ -1042,9 +1161,13 @@ export type Database = {
           business_name?: string
           business_phone?: string | null
           default_callout_charge?: number | null
+          default_deposit?: number | null
           default_emergency_price?: number | null
+          default_expiry_days?: number | null
           default_repair_price?: number | null
           default_service_price?: number | null
+          default_terms?: string | null
+          default_vat_enabled?: boolean | null
           google_review_url?: string | null
           id?: string
           invoice_prefix?: string | null
@@ -1209,6 +1332,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
