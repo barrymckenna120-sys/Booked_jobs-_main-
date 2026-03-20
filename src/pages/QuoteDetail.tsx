@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2, FileText } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -30,6 +30,7 @@ const QuoteDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [converting, setConverting] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ["quote-detail", id],
@@ -234,6 +235,32 @@ const QuoteDetail = () => {
       <div className="flex flex-wrap gap-2 pb-8">
         <Button variant="outline" onClick={() => navigate(`/quotes/${id}/edit`)}>
           <Edit2 className="w-4 h-4 mr-1" /> Edit Quote
+        </Button>
+        <Button
+          variant="outline"
+          disabled={generatingPdf}
+          onClick={async () => {
+            if (!id) return;
+            setGeneratingPdf(true);
+            try {
+              const { data, error } = await supabase.functions.invoke("generate-quote-pdf", {
+                body: { quote_id: id },
+              });
+              if (error || !data?.success) {
+                toast({ title: "PDF failed", description: data?.error || error?.message, variant: "destructive" });
+              } else {
+                toast({ title: "PDF generated ✅" });
+                queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+                window.open(data.pdf_url, "_blank");
+              }
+            } catch (err: any) {
+              toast({ title: "PDF failed", description: err.message, variant: "destructive" });
+            }
+            setGeneratingPdf(false);
+          }}
+        >
+          {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
+          {q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
         </Button>
         {q.pdf_url && (
           <Button variant="outline" asChild>

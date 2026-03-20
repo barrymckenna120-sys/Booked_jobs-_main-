@@ -27,3 +27,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.reset-auth-block]
     verify_jwt = false
+  [functions.generate-quote-pdf]
+    verify_jwt = false
