@@ -129,10 +129,11 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   // Calculations
   const subtotal = useMemo(() => lineItems.reduce((s, li) => s + (parseFloat(li.qty) || 0) * (parseFloat(li.unit_price) || 0), 0), [lineItems]);
   const discountNum = parseFloat(discount) || 0;
-  const vatAmount = vatEnabled ? (subtotal - discountNum) * 0.23 : 0;
-  const total = subtotal - discountNum + vatAmount;
+  const afterDiscount = Math.max(subtotal - discountNum, 0);
+  const vatAmount = vatEnabled ? afterDiscount * 0.23 : 0;
+  const total = Math.max(afterDiscount + vatAmount, 0);
   const depositNum = parseFloat(deposit) || 0;
-  const balanceDue = total - depositNum;
+  const balanceDue = Math.max(total - depositNum, 0);
 
   const updateLineItem = (id: string, field: keyof LineItem, value: string) => {
     setLineItems((prev) => prev.map((li) => li.id === id ? { ...li, [field]: value } : li));
