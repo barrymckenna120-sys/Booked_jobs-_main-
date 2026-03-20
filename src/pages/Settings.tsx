@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2, Wrench, Users, ClipboardList, MessageSquare } from "lucide-react";
+import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2, Wrench, Users, ClipboardList, MessageSquare, FileText } from "lucide-react";
 import GeneralTab from "@/components/settings/GeneralTab";
 import WhatsAppTab from "@/components/settings/WhatsAppTab";
 import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
