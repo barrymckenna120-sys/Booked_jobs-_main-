@@ -10,7 +10,6 @@ import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import Jobs from "./pages/Jobs";
-import Quotes from "./pages/Quotes";
 import JobDetail from "./pages/JobDetail";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -42,7 +41,11 @@ import ServiceReceipt from "./pages/ServiceReceipt";
 import Messages from "./pages/Messages";
 import SystemLogs from "./pages/SystemLogs";
 import InstallAppBanner from "./components/pwa/InstallAppBanner";
-
+import Products from "./pages/Products";
+import QuotesList from "./pages/QuotesList";
+import QuoteNew from "./pages/QuoteNew";
+import QuoteEdit from "./pages/QuoteEdit";
+import QuoteDetail from "./pages/QuoteDetail";
 const queryClient = new QueryClient();
 
 /**
@@ -97,7 +100,11 @@ const App = () => (
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/jobs/:id" element={<JobDetail />} />
               <Route path="/messages" element={<Messages />} />
-              <Route path="/quotes" element={<Quotes />} />
+              <Route path="/quotes" element={<QuotesList />} />
+              <Route path="/quotes/new" element={<QuoteNew />} />
+              <Route path="/quotes/:id" element={<QuoteDetail />} />
+              <Route path="/quotes/:id/edit" element={<QuoteEdit />} />
+              <Route path="/products" element={<Products />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/customers/:id" element={<CustomerDetail />} />
               <Route path="/renewals" element={<Renewals />} />
