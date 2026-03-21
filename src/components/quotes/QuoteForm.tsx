@@ -153,7 +153,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     setActiveProductSearch(null);
   };
 
-  const handleSave = async (sendNow: boolean) => {
+  const handleSave = async (sendNow: boolean, sendWhatsApp: boolean = false) => {
     if (!user || !customerId) {
       toast({ title: "Please select a customer", variant: "destructive" });
       return;
@@ -168,7 +168,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     const quotePayload: any = {
       user_id: user.id,
       customer_id: customerId,
-      job_id: customerId, // Will be updated if linked to a job
+      job_id: customerId,
       description: jobDescription.trim(),
       job_type: jobType || "other",
       total_amount: total,
@@ -184,14 +184,13 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     };
 
     let savedQuoteId = quoteId;
+    let savedQuoteNumber = quoteNumber;
 
     if (quoteId) {
       const { error } = await supabase.from("quotes").update(quotePayload).eq("id", quoteId);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
-      // Delete old line items
       await supabase.from("quote_line_items").delete().eq("quote_id", quoteId);
     } else {
-      // Need a job_id — create a placeholder job or find existing
       const { data: existingJobs } = await supabase.from("service_calls").select("id").eq("customer_id", customerId).eq("user_id", user.id).eq("status", "Pending").order("created_at", { ascending: false }).limit(1);
       let jobId = existingJobs?.[0]?.id;
       if (!jobId) {
@@ -212,10 +211,10 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       const { data: newQuote, error } = await supabase.from("quotes").insert(quotePayload).select("id, quote_number").single();
       if (error || !newQuote) { toast({ title: "Error", description: error?.message, variant: "destructive" }); setSaving(false); return; }
       savedQuoteId = newQuote.id;
-      setQuoteNumber((newQuote as any).quote_number || "");
+      savedQuoteNumber = (newQuote as any).quote_number || "";
+      setQuoteNumber(savedQuoteNumber);
     }
 
-    // Insert line items
     const itemsPayload = lineItems.filter((li) => li.description.trim()).map((li, i) => ({
       quote_id: savedQuoteId,
       product_id: li.product_id || null,
@@ -228,8 +227,35 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       await supabase.from("quote_line_items").insert(itemsPayload);
     }
 
+    if (sendWhatsApp && savedQuoteId) {
+      const customer = customers.find((c: any) => c.id === customerId);
+      if (customer) {
+        try {
+          const { error: waError } = await supabase.functions.invoke("send-quote-whatsapp", {
+            body: {
+              quote_id: savedQuoteId,
+              customer_name: customer.name,
+              mobile_number: customer.phone,
+              job_description: jobDescription.trim() || jobType || "Quote",
+              quote_amount: total,
+              deposit_amount: depositNum,
+              quote_number: savedQuoteNumber,
+            },
+          });
+          if (waError) {
+            toast({ title: "Quote saved but WhatsApp failed", description: String(waError.message || ""), variant: "destructive" });
+          } else {
+            toast({ title: "Quote sent via WhatsApp ✓" });
+          }
+        } catch {
+          toast({ title: "Quote saved but WhatsApp failed", variant: "destructive" });
+        }
+      }
+    } else {
+      toast({ title: sendNow ? "Quote sent" : "Quote saved as draft" });
+    }
+
     setSaving(false);
-    toast({ title: sendNow ? "Quote sent" : "Quote saved as draft" });
     if (onSaved) onSaved();
     else navigate("/quotes");
   };
