@@ -13,6 +13,7 @@ type QuoteData = {
   deposit_amount: number | null; created_at: string; customer_id: string; job_id: string;
   expiry_date: string | null; discount: number | null; vat_enabled: boolean | null;
   balance_due: number | null; quote_number: string | null; notes: string | null; job_type: string | null;
+  pdf_url: string | null;
 };
 
 type PublicQuoteData = {
