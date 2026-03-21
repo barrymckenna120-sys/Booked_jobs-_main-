@@ -319,8 +319,9 @@ const QuoteDetail = () => {
           </Button>
         )}
         {q.pdf_url && (
-          <Button variant="outline">
-            <MessageCircle className="w-4 h-4 mr-1" /> Resend WhatsApp
+          <Button variant="outline" onClick={sendWhatsApp} disabled={sendingWhatsApp}>
+            {sendingWhatsApp ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageCircle className="w-4 h-4 mr-1" />}
+            Resend WhatsApp
           </Button>
         )}
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
