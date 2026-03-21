@@ -1,0 +1,3 @@
+CREATE POLICY "Public read quote PDFs" ON storage.objects FOR SELECT TO public USING (bucket_id = 'quote-pdfs');
+CREATE POLICY "Service role upload quote PDFs" ON storage.objects FOR INSERT TO service_role WITH CHECK (bucket_id = 'quote-pdfs');
+CREATE POLICY "Service role update quote PDFs" ON storage.objects FOR UPDATE TO service_role USING (bucket_id = 'quote-pdfs') WITH CHECK (bucket_id = 'quote-pdfs');
