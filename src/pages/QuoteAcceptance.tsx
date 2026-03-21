@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Clock, CheckCircle2, Shield, Star, Wrench } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, Shield, Star, Wrench, Download } from "lucide-react";
 
 type LineItem = { description: string; qty: number; unit_price: number; line_total: number };
 
@@ -13,6 +13,7 @@ type QuoteData = {
   deposit_amount: number | null; created_at: string; customer_id: string; job_id: string;
   expiry_date: string | null; discount: number | null; vat_enabled: boolean | null;
   balance_due: number | null; quote_number: string | null; notes: string | null; job_type: string | null;
+  pdf_url: string | null;
 };
 
 type PublicQuoteData = {
@@ -286,6 +287,19 @@ const QuoteAcceptance = () => {
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-sm text-muted-foreground">Our team will be in touch to arrange your deposit.</p>
             </div>
+          )}
+
+          {quote.pdf_url && (
+            <Button
+              variant="outline"
+              className="w-full py-5 text-base rounded-xl border-2"
+              asChild
+            >
+              <a href={quote.pdf_url} target="_blank" rel="noopener noreferrer">
+                <Download className="w-4 h-4 mr-2" />
+                Download Quote PDF
+              </a>
+            </Button>
           )}
 
           <p className="text-xs text-muted-foreground text-center">
