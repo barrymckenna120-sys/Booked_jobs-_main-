@@ -46,6 +46,15 @@ const QuoteDetail = () => {
     enabled: !!id,
   });
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings-for-quote"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("business_name, business_phone, whatsapp_number").limit(1).single();
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const { data: lineItems = [] } = useQuery({
     queryKey: ["quote-line-items", id],
     queryFn: async () => {
