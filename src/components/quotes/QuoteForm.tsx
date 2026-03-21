@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format, addDays } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Loader2, Save, Send, Search } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, Save, Send, Search, MessageCircle } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 const JOB_TYPES = ["Boiler Service", "Boiler Repair", "Boiler Replacement", "Heating Upgrade", "Power Flush", "Other"];
