@@ -8,24 +8,19 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { quote_id } = await req.json();
     if (!quote_id) {
       return new Response(JSON.stringify({ error: "quote_id required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, serviceKey);
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Fetch quote with customer
+    // ── Fetch data ──────────────────────────────────────
     const { data: quote, error: qErr } = await sb
       .from("quotes")
       .select("*, customers!inner(name, phone, email, address, eircode)")
@@ -34,380 +29,425 @@ Deno.serve(async (req) => {
 
     if (qErr || !quote) {
       return new Response(JSON.stringify({ error: "Quote not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch line items
     const { data: lineItems } = await sb
-      .from("quote_line_items")
-      .select("*")
-      .eq("quote_id", quote_id)
-      .order("sort_order");
+      .from("quote_line_items").select("*").eq("quote_id", quote_id).order("sort_order");
 
-    // Fetch business settings
     const { data: settings } = await sb
-      .from("settings")
-      .select("*")
-      .eq("user_id", quote.user_id)
-      .single();
+      .from("settings").select("*").eq("user_id", quote.user_id).single();
 
     const items = lineItems || [];
-    const customer = (quote as any).customers;
+    const cust = (quote as any).customers;
     const biz = settings || {} as any;
 
-    // ── Fetch logo if available ──
+    // ── Fetch logo ──────────────────────────────────────
     let logoDataUrl: string | null = null;
-    let logoW = 0;
-    let logoH = 0;
     if (biz.logo_url) {
       try {
-        const logoResp = await fetch(biz.logo_url);
-        if (logoResp.ok) {
-          const logoBuffer = await logoResp.arrayBuffer();
-          const logoBytes = new Uint8Array(logoBuffer);
-          const contentType = logoResp.headers.get("content-type") || "image/png";
-          const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "JPEG" : "PNG";
-
-          // Convert to base64 data URL
-          let binary = "";
-          for (let i = 0; i < logoBytes.length; i++) {
-            binary += String.fromCharCode(logoBytes[i]);
-          }
-          const base64 = btoa(binary);
-          logoDataUrl = `data:${contentType};base64,${base64}`;
-
-          // Target logo height ~14mm, calculate width proportionally (assume roughly square if we can't detect)
-          logoH = 14;
-          logoW = 14; // default square
-          // Try to get dimensions from the image - use a reasonable aspect ratio
-          // jsPDF will handle scaling; we'll use a max width constraint
-          if (logoW > 40) logoW = 40;
-
-          console.log(`Logo fetched: ${ext}, ${logoBytes.length} bytes`);
+        const resp = await fetch(biz.logo_url);
+        if (resp.ok) {
+          const bytes = new Uint8Array(await resp.arrayBuffer());
+          let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          logoDataUrl = `data:${resp.headers.get("content-type") || "image/png"};base64,${btoa(bin)}`;
         }
-      } catch (logoErr) {
-        console.warn("Could not fetch logo:", logoErr);
-      }
+      } catch { /* ignore */ }
     }
 
-    // ── Build PDF ──
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const pw = 210; // page width
-    const margin = 18;
-    const contentW = pw - margin * 2;
-    let y = margin;
-
-    const grey = "#64748b";
-    const dark = "#0f172a";
+    // ── Colours & helpers ───────────────────────────────
+    const PW = 210;
+    const M = 18;
+    const CW = PW - M * 2;
+    const darkBg  = "#111827";
+    const dark    = "#0f172a";
+    const grey    = "#64748b";
     const primary = "#2563eb";
     const lightBg = "#f8fafc";
-    const borderCol = "#e2e8f0";
+    const border  = "#e2e8f0";
+    const green   = "#16a34a";
+    const white   = "#ffffff";
+    const eur = (v: number) => `€${v.toFixed(2)}`;
 
-    // ── Helper functions ──
-    const drawLine = (yPos: number) => {
-      doc.setDrawColor(borderCol);
-      doc.setLineWidth(0.3);
-      doc.line(margin, yPos, pw - margin, yPos);
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+
+    const drawLine = (yy: number) => { doc.setDrawColor(border); doc.setLineWidth(0.3); doc.line(M, yy, PW - M, yy); };
+    const ensureSpace = (need: number, yRef: { y: number }) => {
+      if (yRef.y + need > 280) { doc.addPage(); yRef.y = M; }
     };
 
-    const euro = (v: number) => `€${v.toFixed(2)}`;
+    let y = 0;
 
-    // ── Header ──
-    let textStartX = margin;
+    // ═══════════════════════════════════════════════════
+    // PAGE 1 — HEADER (dark background)
+    // ═══════════════════════════════════════════════════
+    const headerH = 42;
+    doc.setFillColor(darkBg);
+    doc.rect(0, 0, PW, headerH, "F");
 
+    // Logo + Company name
+    let nameX = M;
     if (logoDataUrl) {
-      try {
-        doc.addImage(logoDataUrl, "PNG", margin, y - 2, logoW, logoH);
-        textStartX = margin + logoW + 4;
-      } catch (imgErr) {
-        console.warn("Could not embed logo in PDF:", imgErr);
-      }
+      try { doc.addImage(logoDataUrl, "PNG", M, 8, 14, 14); nameX = M + 18; } catch { /* ignore */ }
+    }
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(white);
+    doc.text(biz.business_name || "Quote", nameX, 18);
+
+    // Contact line beneath name
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#94a3b8");
+    const contactParts: string[] = [];
+    if (biz.business_phone) contactParts.push(biz.business_phone);
+    if (biz.business_email) contactParts.push(biz.business_email);
+    if (biz.website) contactParts.push(biz.website);
+    if (contactParts.length) doc.text(contactParts.join("  |  "), nameX, 24);
+
+    // Right side — Quote number, Date, Valid Until
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(white);
+    const qNum = quote.quote_number || `Q-${quote.id.slice(0, 8).toUpperCase()}`;
+    doc.text(`Quote No: ${qNum}`, PW - M, 14, { align: "right" });
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#94a3b8");
+    const issueDateStr = new Date(quote.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
+    doc.text(`Date: ${issueDateStr}`, PW - M, 20, { align: "right" });
+
+    if (quote.expiry_date) {
+      const expiryStr = new Date(quote.expiry_date).toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
+      doc.text(`Valid Until: ${expiryStr}`, PW - M, 26, { align: "right" });
     }
 
-    doc.setFontSize(22);
+    // Business address small
+    if (biz.business_address) {
+      doc.setFontSize(7);
+      doc.text(biz.business_address, nameX, 30);
+    }
+
+    y = headerH + 8;
+
+    // ═══════════════════════════════════════════════════
+    // QUOTE FOR BLOCK
+    // ═══════════════════════════════════════════════════
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(grey);
+    doc.text("QUOTE FOR", M, y);
+    y += 5;
+
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
-    doc.text(biz.business_name || "Quote", textStartX, y + 7);
+    doc.text(cust.name, M, y);
+    y += 5;
 
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
-    const headerRight: string[] = [];
-    if (biz.business_phone) headerRight.push(biz.business_phone);
-    if (biz.business_email) headerRight.push(biz.business_email);
-    if (biz.website) headerRight.push(biz.website);
-    headerRight.forEach((line, i) => {
-      doc.text(line, pw - margin, y + 2 + i * 4, { align: "right" });
-    });
+    if (cust.address) { doc.text(cust.address, M, y); y += 4; }
+    if (cust.eircode) { doc.text(cust.eircode, M, y); y += 4; }
+    if (cust.phone) { doc.text(cust.phone, M, y); y += 4; }
+    if (cust.email) { doc.text(cust.email, M, y); y += 4; }
 
-    y += 16;
-    if (biz.business_address) {
-      doc.setFontSize(8);
-      doc.setTextColor(grey);
-      doc.text(biz.business_address, margin, y);
+    y += 4;
+    drawLine(y); y += 6;
+
+    // ═══════════════════════════════════════════════════
+    // JOB SUMMARY BLOCK
+    // ═══════════════════════════════════════════════════
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(grey);
+    doc.text("JOB SUMMARY", M, y);
+    y += 5;
+
+    if (quote.job_type && quote.job_type !== "other") {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(primary);
+      doc.text(quote.job_type.replace(/_/g, " "), M, y);
       y += 5;
     }
-    if (biz.vat_number) {
-      doc.text(`VAT: ${biz.vat_number}`, margin, y);
-      y += 5;
+
+    if (quote.description) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(dark);
+      const descLines = doc.splitTextToSize(quote.description, CW);
+      doc.text(descLines, M, y);
+      y += descLines.length * 4 + 2;
     }
 
     y += 4;
-    drawLine(y);
-    y += 8;
+    drawLine(y); y += 6;
 
-    // ── Quote title & ref ──
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(primary);
-    doc.text("QUOTE", margin, y);
-
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(dark);
-    doc.text(quote.quote_number || `Q-${quote.id.slice(0, 4).toUpperCase()}`, pw - margin, y, { align: "right" });
-    y += 10;
-
-    // ── Two-column: Customer & Quote Details ──
-    const colW = contentW / 2 - 4;
-
-    // Customer box
-    doc.setFillColor(lightBg);
-    doc.roundedRect(margin, y, colW, 30, 2, 2, "F");
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(grey);
-    doc.text("BILL TO", margin + 4, y + 5);
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(dark);
-    doc.text(customer.name, margin + 4, y + 11);
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(grey);
-    let cy = y + 16;
-    if (customer.address) { doc.text(customer.address, margin + 4, cy); cy += 4; }
-    if (customer.eircode) { doc.text(customer.eircode, margin + 4, cy); cy += 4; }
-    if (customer.phone) { doc.text(customer.phone, margin + 4, cy); cy += 4; }
-    if (customer.email) { doc.text(customer.email, margin + 4, cy); }
-
-    // Details box
-    const detailX = margin + colW + 8;
-    doc.setFillColor(lightBg);
-    doc.roundedRect(detailX, y, colW, 30, 2, 2, "F");
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(grey);
-    doc.text("QUOTE DETAILS", detailX + 4, y + 5);
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    let dy = y + 11;
-    const addDetail = (label: string, value: string) => {
-      doc.setTextColor(grey);
-      doc.text(label, detailX + 4, dy);
-      doc.setTextColor(dark);
-      doc.setFont("helvetica", "bold");
-      doc.text(value, detailX + colW - 4, dy, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      dy += 5;
-    };
-
-    addDetail("Date:", new Date(quote.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" }));
-    if (quote.expiry_date) {
-      addDetail("Expires:", new Date(quote.expiry_date).toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" }));
-    }
-    if (quote.job_type && quote.job_type !== "other") {
-      addDetail("Job Type:", quote.job_type);
-    }
-    addDetail("Status:", quote.status);
-
-    y += 38;
-
-    // ── Description ──
-    if (quote.description) {
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(dark);
-      doc.text("Description", margin, y);
-      y += 5;
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(grey);
-      const descLines = doc.splitTextToSize(quote.description, contentW);
-      doc.text(descLines, margin, y);
-      y += descLines.length * 4 + 4;
-    }
-
-    // ── Line Items Table ──
+    // ═══════════════════════════════════════════════════
+    // PRICING TABLE
+    // ═══════════════════════════════════════════════════
     if (items.length > 0) {
-      // Table header
-      doc.setFillColor("#1e293b");
-      doc.rect(margin, y, contentW, 8, "F");
+      // Header row
+      doc.setFillColor(darkBg);
+      doc.rect(M, y, CW, 8, "F");
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor("#ffffff");
-      doc.text("#", margin + 3, y + 5.5);
-      doc.text("DESCRIPTION", margin + 12, y + 5.5);
-      doc.text("QTY", margin + contentW - 55, y + 5.5, { align: "right" });
-      doc.text("UNIT PRICE", margin + contentW - 25, y + 5.5, { align: "right" });
-      doc.text("TOTAL", margin + contentW - 3, y + 5.5, { align: "right" });
+      doc.setTextColor(white);
+      doc.text("#", M + 3, y + 5.5);
+      doc.text("DESCRIPTION", M + 12, y + 5.5);
+      doc.text("QTY", M + CW - 55, y + 5.5, { align: "right" });
+      doc.text("PRICE", M + CW - 25, y + 5.5, { align: "right" });
+      doc.text("TOTAL", M + CW - 3, y + 5.5, { align: "right" });
       y += 8;
 
-      // Table rows
       items.forEach((item: any, idx: number) => {
-        if (y > 265) {
-          doc.addPage();
-          y = margin;
-        }
+        const ref = { y };
+        ensureSpace(10, ref);
+        y = ref.y;
+
         const rowH = 8;
-        if (idx % 2 === 0) {
-          doc.setFillColor(lightBg);
-          doc.rect(margin, y, contentW, rowH, "F");
-        }
+        if (idx % 2 === 0) { doc.setFillColor(lightBg); doc.rect(M, y, CW, rowH, "F"); }
+
         doc.setFontSize(8);
-        doc.setTextColor(grey);
         doc.setFont("helvetica", "normal");
-        doc.text(`${idx + 1}`, margin + 3, y + 5.5);
+        doc.setTextColor(grey);
+        doc.text(`${idx + 1}`, M + 3, y + 5.5);
 
         doc.setTextColor(dark);
-        doc.setFont("helvetica", "normal");
-        const desc = doc.splitTextToSize(item.description || "", contentW - 80);
-        doc.text(desc[0] || "", margin + 12, y + 5.5);
+        const descTrunc = doc.splitTextToSize(item.description || "", CW - 80);
+        doc.text(descTrunc[0] || "", M + 12, y + 5.5);
 
         doc.setTextColor(grey);
-        doc.text(`${item.qty}`, margin + contentW - 55, y + 5.5, { align: "right" });
-        doc.text(euro(Number(item.unit_price)), margin + contentW - 25, y + 5.5, { align: "right" });
+        doc.text(`${item.qty}`, M + CW - 55, y + 5.5, { align: "right" });
+        doc.text(eur(Number(item.unit_price)), M + CW - 25, y + 5.5, { align: "right" });
+
         doc.setFont("helvetica", "bold");
         doc.setTextColor(dark);
-        doc.text(euro(Number(item.line_total || 0)), margin + contentW - 3, y + 5.5, { align: "right" });
+        doc.text(eur(Number(item.line_total || 0)), M + CW - 3, y + 5.5, { align: "right" });
         y += rowH;
       });
 
-      drawLine(y);
-      y += 6;
+      drawLine(y); y += 6;
     }
 
-    // ── Totals ──
-    const subtotal = items.reduce((s: number, li: any) => s + Number(li.line_total || 0), 0);
-    const discountVal = Number(quote.discount || 0);
-    const afterDiscount = Math.max(subtotal - discountVal, 0);
-    const vatAmt = quote.vat_enabled ? afterDiscount * 0.23 : 0;
-    const total = Math.max(afterDiscount + vatAmt, 0);
-    const depositVal = Number(quote.deposit || 0);
-    const balance = Math.max(total - depositVal, 0);
+    // ── Totals calculation ──
+    const subtotal = items.length > 0
+      ? items.reduce((s: number, li: any) => s + Number(li.line_total || 0), 0)
+      : Number(quote.total_amount || 0);
+    const disc = Number(quote.discount || 0);
+    const afterDisc = Math.max(subtotal - disc, 0);
+    const vatAmt = quote.vat_enabled ? afterDisc * 0.23 : 0;
+    const total = Math.max(afterDisc + vatAmt, 0);
+    const deposit = Number(quote.deposit_amount || quote.deposit || 0);
+    const balance = Math.max(total - deposit, 0);
 
-    const totalsX = margin + contentW - 70;
-    const totalsValX = margin + contentW - 3;
+    // ── Totals block (right-aligned) ──
+    const tLabelX = M + CW - 75;
+    const tValueX = M + CW - 3;
 
-    const addTotalLine = (label: string, value: string, bold = false) => {
-      doc.setFontSize(9);
-      doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.setTextColor(bold ? dark : grey);
-      doc.text(label, totalsX, y);
-      doc.setTextColor(dark);
-      doc.text(value, totalsValX, y, { align: "right" });
-      y += 6;
+    const totLine = (label: string, value: string, opts?: { bold?: boolean; color?: string; size?: number }) => {
+      const ref = { y };
+      ensureSpace(8, ref);
+      y = ref.y;
+      doc.setFontSize(opts?.size || 9);
+      doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
+      doc.setTextColor(opts?.color || grey);
+      doc.text(label, tLabelX, y);
+      doc.setTextColor(opts?.bold ? dark : dark);
+      doc.text(value, tValueX, y, { align: "right" });
+      y += 5.5;
     };
 
-    addTotalLine("Subtotal", euro(subtotal));
-    if (discountVal > 0) addTotalLine("Special Offer Applied", `−${euro(discountVal)}`);
-    if (quote.vat_enabled) addTotalLine("VAT 23%", euro(vatAmt));
+    totLine("Subtotal", eur(subtotal));
+    if (disc > 0) totLine("Special Offer Applied", `−${eur(disc)}`, { color: green });
+    if (quote.vat_enabled) totLine("VAT 23%", eur(vatAmt));
 
-    drawLine(y - 2);
-    y += 3;
-    doc.setFontSize(12);
+    drawLine(y - 1); y += 3;
+
+    // Grand total
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(primary);
-    doc.text("TOTAL", totalsX, y);
-    doc.text(euro(total), totalsValX, y, { align: "right" });
+    doc.text("TOTAL", tLabelX, y);
+    doc.text(eur(total), tValueX, y, { align: "right" });
     y += 8;
 
-    if (depositVal > 0) {
-      addTotalLine("Deposit", euro(depositVal));
-      doc.setFont("helvetica", "bold");
-      addTotalLine("Balance Due", euro(balance), true);
+    if (deposit > 0) {
+      totLine("Deposit to secure booking", eur(deposit), { bold: true });
+      totLine("Balance Due", eur(balance), { bold: true });
     }
 
-    y += 6;
+    y += 4;
+    drawLine(y); y += 8;
 
-    // ── Notes & Terms ──
+    // ═══════════════════════════════════════════════════
+    // PAYMENT TERMS BLOCK
+    // ═══════════════════════════════════════════════════
+    {
+      const ref = { y };
+      ensureSpace(30, ref);
+      y = ref.y;
+
+      doc.setFillColor(lightBg);
+      doc.roundedRect(M, y, CW, 22, 2, 2, "F");
+
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(grey);
+      doc.text("PAYMENT TERMS", M + 5, y + 5);
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(dark);
+      let py = y + 10;
+      if (deposit > 0) { doc.text(`• Deposit to secure booking: ${eur(deposit)}`, M + 5, py); py += 4; }
+      doc.text("• Balance due: On completion", M + 5, py); py += 4;
+      doc.text("• Install window: 3–5 working days", M + 5, py);
+
+      y += 28;
+    }
+
+    // ═══════════════════════════════════════════════════
+    // NOTES BLOCK
+    // ═══════════════════════════════════════════════════
     if (quote.notes) {
-      if (y > 250) { doc.addPage(); y = margin; }
-      doc.setFillColor(lightBg);
-      doc.roundedRect(margin, y, contentW, 4, 1, 1, "F");
+      const ref = { y };
+      ensureSpace(16, ref);
+      y = ref.y;
+
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
-      doc.text("NOTES", margin + 4, y + 3);
-      y += 7;
+      doc.text("NOTES", M, y);
+      y += 5;
+
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
-      const noteLines = doc.splitTextToSize(quote.notes, contentW - 8);
-      doc.text(noteLines, margin + 4, y);
-      y += noteLines.length * 4 + 6;
+      const nLines = doc.splitTextToSize(quote.notes, CW);
+      doc.text(nLines, M, y);
+      y += nLines.length * 4 + 6;
     }
 
+    // ═══════════════════════════════════════════════════
+    // TERMS & CONDITIONS BLOCK
+    // ═══════════════════════════════════════════════════
     if (quote.terms) {
-      if (y > 250) { doc.addPage(); y = margin; }
-      doc.setFillColor(lightBg);
-      doc.roundedRect(margin, y, contentW, 4, 1, 1, "F");
+      const ref = { y };
+      ensureSpace(16, ref);
+      y = ref.y;
+
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
-      doc.text("TERMS & CONDITIONS", margin + 4, y + 3);
-      y += 7;
-      doc.setFontSize(8);
+      doc.text("TERMS & CONDITIONS", M, y);
+      y += 5;
+
+      doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(dark);
-      const termLines = doc.splitTextToSize(quote.terms, contentW - 8);
-      doc.text(termLines, margin + 4, y);
-      y += termLines.length * 4 + 6;
+      doc.setTextColor(grey);
+      const tLines = doc.splitTextToSize(quote.terms, CW);
+      doc.text(tLines, M, y);
+      y += tLines.length * 3.5 + 6;
     }
 
-    // ── Footer ──
-    const footerY = 285;
+    // ── Page 1 footer ──
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
     doc.text(
-      `${biz.business_name || ""}${biz.business_phone ? " · " + biz.business_phone : ""}${biz.business_email ? " · " + biz.business_email : ""}`,
-      pw / 2,
-      footerY,
-      { align: "center" }
+      [biz.business_name, biz.business_phone, biz.business_email].filter(Boolean).join("  ·  "),
+      PW / 2, 287, { align: "center" }
     );
 
-    // ── Output PDF ──
-    const pdfOutput = doc.output("arraybuffer");
-    const pdfBytes = new Uint8Array(pdfOutput);
+    // ═══════════════════════════════════════════════════
+    // PAGE 2 — CTA + WhatsApp
+    // ═══════════════════════════════════════════════════
+    doc.addPage();
+    y = M;
 
-    const fileName = `quote-${quote.quote_number || quote.id.slice(0, 8)}.pdf`;
-    const storagePath = `quotes/${quote.user_id}/${fileName}`;
+    // Dark CTA block
+    doc.setFillColor(darkBg);
+    doc.roundedRect(M, y, CW, 50, 3, 3, "F");
 
-    // Upload to storage
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(white);
+    doc.text("Accept This Quote", M + CW / 2, y + 14, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#94a3b8");
+    const ctaLines = doc.splitTextToSize(
+      "Approve the job, pay the deposit, and confirm your installation slot.",
+      CW - 20
+    );
+    doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
+
+    // Accept URL
+    const acceptUrl = `bookedjobs.ie/quote/${quote.id}`;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primary);
+    doc.text(acceptUrl, M + CW / 2, y + 38, { align: "center" });
+
+    y += 60;
+
+    // WhatsApp message block
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(grey);
+    doc.text("WHATSAPP MESSAGE VERSION", M, y);
+    y += 6;
+
+    doc.setFillColor(lightBg);
+    const firstName = cust.name.split(" ")[0];
+    const waMsg = [
+      `Hi ${firstName},`,
+      "",
+      `Here is your quote for ${quote.description || "your job"}.`,
+      "",
+      `Total: ${eur(total)}`,
+      deposit > 0 ? `Deposit to secure booking: ${eur(deposit)}` : "",
+      "",
+      `To accept this quote, reply: YES ${qNum}`,
+      "",
+      `Or view and approve online:`,
+      acceptUrl,
+    ].filter((l) => l !== undefined).join("\n");
+
+    const waLines = doc.splitTextToSize(waMsg, CW - 16);
+    const waBlockH = waLines.length * 4 + 12;
+    doc.roundedRect(M, y, CW, waBlockH, 2, 2, "F");
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(dark);
+    doc.text(waLines, M + 8, y + 8);
+
+    // ── Output & Upload ─────────────────────────────────
+    const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
+    const fileName = `quote-${qNum.replace(/\s/g, "")}.pdf`;
+    const storagePath = `${quote.user_id}/${fileName}`;
+
     const { error: uploadErr } = await sb.storage
-      .from("business-logos") // reuse public bucket
-      .upload(storagePath, pdfBytes, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+      .from("quote-pdfs")
+      .upload(storagePath, pdfBytes, { contentType: "application/pdf", upsert: true });
 
     if (uploadErr) {
       console.error("Upload error:", uploadErr);
       return new Response(JSON.stringify({ error: "Failed to upload PDF" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: urlData } = sb.storage.from("business-logos").getPublicUrl(storagePath);
+    const { data: urlData } = sb.storage.from("quote-pdfs").getPublicUrl(storagePath);
     const publicUrl = urlData.publicUrl;
 
-    // Save URL to quote
     await sb.from("quotes").update({ pdf_url: publicUrl }).eq("id", quote_id);
 
     return new Response(JSON.stringify({ success: true, pdf_url: publicUrl }), {
@@ -416,8 +456,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("PDF generation error:", err);
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
