@@ -289,6 +289,19 @@ const QuoteAcceptance = () => {
             </div>
           )}
 
+          {quote.pdf_url && (
+            <Button
+              variant="outline"
+              className="w-full py-5 text-base rounded-xl border-2"
+              asChild
+            >
+              <a href={quote.pdf_url} target="_blank" rel="noopener noreferrer">
+                <Download className="w-4 h-4 mr-2" />
+                Download Quote PDF
+              </a>
+            </Button>
+          )}
+
           <p className="text-xs text-muted-foreground text-center">
             We'll contact you shortly to confirm your appointment.
           </p>
