@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Clock, CheckCircle2, Shield, Star, Wrench } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, Shield, Star, Wrench, Download } from "lucide-react";
 
 type LineItem = { description: string; qty: number; unit_price: number; line_total: number };
 
