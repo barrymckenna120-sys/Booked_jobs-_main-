@@ -31,6 +31,7 @@ const QuoteDetail = () => {
   const queryClient = useQueryClient();
   const [converting, setConverting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ["quote-detail", id],
@@ -43,6 +44,15 @@ const QuoteDetail = () => {
       return data;
     },
     enabled: !!id,
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings-for-quote"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("business_name, business_phone, whatsapp_number").limit(1).single();
+      return data;
+    },
+    enabled: !!user,
   });
 
   const { data: lineItems = [] } = useQuery({
@@ -85,6 +95,44 @@ const QuoteDetail = () => {
       toast({ title: "Error", description: error?.message, variant: "destructive" });
     }
     setConverting(false);
+  };
+
+  const sendWhatsApp = async () => {
+    if (!quote || !id) return;
+    const qw: any = quote;
+    const cust: any = qw.customers;
+    if (!cust?.phone) {
+      toast({ title: "No phone number", description: "Customer has no mobile number on file.", variant: "destructive" });
+      return;
+    }
+    setSendingWhatsApp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-quote-whatsapp", {
+        body: {
+          quote_id: id,
+          customer_name: cust.name,
+          mobile_number: cust.phone,
+          job_description: qw.description,
+          quote_amount: qw.total_amount,
+          parts_cost: qw.parts_cost,
+          labour_cost: qw.labour_cost,
+          deposit_amount: qw.deposit_amount || qw.deposit,
+          business_phone: settings?.whatsapp_number || settings?.business_phone,
+          business_name: settings?.business_name,
+          pdf_url: qw.pdf_url,
+          quote_number: qw.quote_number,
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: "WhatsApp failed", description: data?.error || error?.message, variant: "destructive" });
+      } else {
+        toast({ title: "Quote sent via WhatsApp ✅" });
+        queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+      }
+    } catch (err: any) {
+      toast({ title: "WhatsApp failed", description: err.message, variant: "destructive" });
+    }
+    setSendingWhatsApp(false);
   };
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
@@ -271,8 +319,9 @@ const QuoteDetail = () => {
           </Button>
         )}
         {q.pdf_url && (
-          <Button variant="outline">
-            <MessageCircle className="w-4 h-4 mr-1" /> Resend WhatsApp
+          <Button variant="outline" onClick={sendWhatsApp} disabled={sendingWhatsApp}>
+            {sendingWhatsApp ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageCircle className="w-4 h-4 mr-1" />}
+            Resend WhatsApp
           </Button>
         )}
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
