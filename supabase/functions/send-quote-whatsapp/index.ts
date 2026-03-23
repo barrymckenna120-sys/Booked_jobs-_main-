@@ -65,7 +65,6 @@ ${acceptUrl}`;
       message += `\n\n📄 View your full quote PDF:\n${pdf_url}`;
     }
 
-    message += `\n\nThis quote is valid for 14 days from today.`;
     message += `\n\n${companyName}`;
 
     if (business_phone) {
