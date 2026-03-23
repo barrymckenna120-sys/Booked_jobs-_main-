@@ -293,12 +293,12 @@ Deno.serve(async (req) => {
     drawLine(y - 1); y += 3;
 
     // Grand total
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(headerBlue);
     doc.text("TOTAL", tLabelX, y);
     doc.text(eur(total), tValueX, y, { align: "right" });
-    y += 8;
+    y += 6;
 
     if (deposit > 0) {
       totLine("Deposit", `-${eur(deposit)}`, { bold: true });
