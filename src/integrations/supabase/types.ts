@@ -53,6 +53,63 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          cert_number: string | null
+          checks: Json | null
+          created_at: string | null
+          customer_id: string | null
+          customer_sig_url: string | null
+          engineer_sig_url: string | null
+          id: string
+          job_id: string | null
+          notes: Json | null
+          pdf_url: string | null
+          readings: Json | null
+        }
+        Insert: {
+          cert_number?: string | null
+          checks?: Json | null
+          created_at?: string | null
+          customer_id?: string | null
+          customer_sig_url?: string | null
+          engineer_sig_url?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: Json | null
+          pdf_url?: string | null
+          readings?: Json | null
+        }
+        Update: {
+          cert_number?: string | null
+          checks?: Json | null
+          created_at?: string | null
+          customer_id?: string | null
+          customer_sig_url?: string | null
+          engineer_sig_url?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: Json | null
+          pdf_url?: string | null
+          readings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_call_notes: {
         Row: {
           created_at: string | null
