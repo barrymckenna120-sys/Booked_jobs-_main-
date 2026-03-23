@@ -34,11 +34,43 @@ const JOB_TYPES = [
   { id: "Installation", label: "Installation", Icon: Settings },
 ];
 
-const TIME_BLOCKS = [
-  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9am–11am" },
-  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11am–1pm" },
-  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2pm–5pm" },
+const DEFAULT_TIME_BLOCKS = [
+  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9am–11am", startHour: 9, endHour: 11 },
+  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11am–1pm", startHour: 11, endHour: 14 },
+  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2pm–5pm", startHour: 14, endHour: 17 },
 ];
+
+const SLOT_ICONS = [Sunrise, Sun, CloudSun];
+
+const formatTimeLabel = (start: string, end: string) => {
+  const fmtHour = (t: string) => {
+    const h = parseInt(t.split(":")[0], 10);
+    const suffix = h >= 12 ? "pm" : "am";
+    const display = h > 12 ? h - 12 : h;
+    return `${display}${suffix}`;
+  };
+  return `${fmtHour(start)}–${fmtHour(end)}`;
+};
+
+const buildTimeBlocks = (slotMaxJobs: any[]) => {
+  if (!slotMaxJobs || slotMaxJobs.length === 0) return DEFAULT_TIME_BLOCKS;
+  return slotMaxJobs.map((s: any, i: number) => {
+    const startH = parseInt(s.start?.split(":")[0] || "9", 10);
+    const startM = parseInt(s.start?.split(":")[1] || "0", 10);
+    const endH = parseInt(s.end?.split(":")[0] || "17", 10);
+    const endM = parseInt(s.end?.split(":")[1] || "0", 10);
+    const label = formatTimeLabel(s.start || "09:00", s.end || "17:00");
+    const id = `${startH}–${endH}`;
+    return {
+      id,
+      label,
+      Icon: SLOT_ICONS[i % SLOT_ICONS.length],
+      dbValue: label,
+      startHour: startH + startM / 60,
+      endHour: endH + endM / 60,
+    };
+  });
+};
 
 const PAYMENT_OPTIONS = [
   { id: "unpaid", label: "Invoice After", Icon: FileText },
