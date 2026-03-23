@@ -176,7 +176,10 @@ const QuoteAcceptance = () => {
           {!data?.logo_url ? null : (
             <p style={{ fontSize: 16, fontWeight: 700, color: "#111", marginTop: 8 }}>{biz}</p>
           )}
-          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>RGI Registered • Fully Insured</p>
+          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>RGI Registered (R-1899) • Fully Insured</p>
+          {data?.business_address && (
+            <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{data.business_address}</p>
+          )}
           {data?.business_phone && (
             <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{data.business_phone}</p>
           )}
