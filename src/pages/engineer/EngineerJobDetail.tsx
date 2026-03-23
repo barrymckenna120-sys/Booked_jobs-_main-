@@ -465,16 +465,25 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         )}
 
         {job.status === "Completed" && (
-          <div className="bg-success/10 rounded-2xl p-4 flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-success" />
-            <div>
-              <div className="text-sm font-extrabold text-success">Job Completed</div>
-              {job.updated_at && (
-                <div className="text-xs text-muted-foreground">
-                  {new Date(job.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="bg-success/10 rounded-2xl p-4 flex items-center gap-3">
+              <CheckCircle2 className="w-6 h-6 text-success" />
+              <div>
+                <div className="text-sm font-extrabold text-success">Job Completed</div>
+                {job.updated_at && (
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(job.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                  </div>
+                )}
+              </div>
             </div>
+            <Button
+              className="w-full h-14 text-lg font-extrabold gap-2"
+              style={{ backgroundColor: "#4A86E8" }}
+              onClick={() => setShowCertificate(true)}
+            >
+              <FileText className="w-5 h-5" /> Generate Certificate
+            </Button>
           </div>
         )}
       </div>
