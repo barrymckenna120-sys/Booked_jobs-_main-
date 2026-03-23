@@ -29,3 +29,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.generate-quote-pdf]
     verify_jwt = false
+  [functions.send-certificate-whatsapp]
+    verify_jwt = false

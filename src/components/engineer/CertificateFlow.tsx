@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Checks", "Readings", "Customer", "Engineer"];
 
@@ -133,6 +133,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [certNumber, setCertNumber] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [certId, setCertId] = useState<string | null>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
   // Step 1 — Details
   const [details, setDetails] = useState({
@@ -238,7 +239,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           body: { certificate_id: newCertId },
         }).catch((err) => console.error("PDF generation error:", err));
 
-        // Poll for pdf_url
+        // Poll for pdf_url, then send WhatsApp
         const poll = setInterval(async () => {
           const { data } = await supabase
             .from("certificates" as any)
@@ -246,8 +247,24 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
             .eq("id", newCertId)
             .single();
           if ((data as any)?.pdf_url) {
-            setPdfUrl((data as any).pdf_url);
+            const url = (data as any).pdf_url;
+            setPdfUrl(url);
             clearInterval(poll);
+
+            // Auto-send certificate via WhatsApp
+            setWhatsappStatus("sending");
+            try {
+              const { data: waData, error: waError } = await supabase.functions.invoke("send-certificate-whatsapp", {
+                body: { certificate_id: newCertId },
+              });
+              if (waError || !waData?.success) {
+                setWhatsappStatus("failed");
+              } else {
+                setWhatsappStatus("sent");
+              }
+            } catch {
+              setWhatsappStatus("failed");
+            }
           }
         }, 3000);
 
@@ -288,6 +305,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{customer.name}</p>
 
+        {/* PDF Status */}
         {pdfUrl ? (
           <a
             href={pdfUrl}
@@ -300,7 +318,24 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           </a>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" /> Generating PDF…
+            <Loader2 className="w-4 h-4 animate-spin" /> ⏳ Generating PDF…
+          </div>
+        )}
+
+        {/* WhatsApp Status */}
+        {whatsappStatus === "sending" && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Sending to customer…
+          </div>
+        )}
+        {whatsappStatus === "sent" && (
+          <div className="flex items-center gap-2 text-sm font-bold" style={{ color: "#22c55e" }}>
+            <MessageSquare className="w-4 h-4" /> 📱 Sent to customer via WhatsApp
+          </div>
+        )}
+        {whatsappStatus === "failed" && (
+          <div className="flex items-center gap-2 text-sm font-bold text-destructive">
+            <AlertTriangle className="w-4 h-4" /> WhatsApp send failed — check Message Log
           </div>
         )}
 
