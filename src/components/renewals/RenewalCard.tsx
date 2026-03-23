@@ -78,7 +78,7 @@ const STAGE_OPTIONS = [
   { value: "paid",          label: "Paid",          Icon: Wallet },
 ];
 
-const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange, onArchive, isArchived }: Props) => {
+const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange, onArchive, isArchived, hasFailedSend }: Props) => {
   const leftBorder = borderColorMap[status] || "border-l-success";
   const dueDate = formatDueDate(customer.next_service_due, status);
   const contacted = formatLastContacted(lastContacted);
