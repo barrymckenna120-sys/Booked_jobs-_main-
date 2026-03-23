@@ -217,7 +217,7 @@ const Jobs = () => {
                         className="h-8 text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-white"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setScheduleJob(j);
+                          navigate(`/jobs/${j.id}`);
                         }}
                       >
                         <CalendarPlus className="w-3.5 h-3.5" /> Schedule
