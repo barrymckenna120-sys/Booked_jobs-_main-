@@ -342,8 +342,14 @@ Deno.serve(async (req) => {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
       inclItems.forEach((item) => {
-        doc.setTextColor(green);
-        doc.text("✓", M + 2, y);
+        doc.setFillColor(green);
+        doc.circle(M + 3.5, y - 1.2, 2, "F");
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(white);
+        doc.text("Y", M + 2.4, y);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(dark);
         doc.text(item, M + 9, y);
         y += 5.5;
