@@ -623,6 +623,27 @@ export type Database = {
           },
         ]
       }
+      job_tags: {
+        Row: {
+          colour: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          colour: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          colour?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       message_log: {
         Row: {
           channel: string | null
@@ -1011,6 +1032,52 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_call_tags: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          service_call_id: string
+          tag_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          service_call_id: string
+          tag_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          service_call_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_call_tags_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_call_tags_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_call_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "job_tags"
             referencedColumns: ["id"]
           },
         ]
