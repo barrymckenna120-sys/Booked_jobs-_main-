@@ -17,6 +17,7 @@ import SoundPrompt from "@/components/notifications/SoundPrompt";
 import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
 import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
+import WhatsAppConnectionBanner from "@/components/whatsapp/WhatsAppConnectionBanner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
