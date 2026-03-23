@@ -74,8 +74,9 @@ Deno.serve(async (req) => {
 
     const eur = (v: number) => {
       const abs = Math.abs(v);
-      const formatted = abs.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      return `€${formatted}`;
+      const parts = abs.toFixed(2).split(".");
+      const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return `\u20AC${intPart}.${parts[1]}`;
     };
 
     const fmtDate = (d: string) => {
