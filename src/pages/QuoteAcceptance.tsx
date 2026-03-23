@@ -104,7 +104,7 @@ const QuoteAcceptance = () => {
   );
 
   /* ── Already accepted ── */
-  if (quote.status === "Accepted" || quote.status === "Paid" || accepted) return (
+  if (quote.status === "Accepted" || quote.status === "Paid" || quote.status === "converted" || accepted) return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
       <div style={{ borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center", backgroundColor: "#22c55e" }}>
         <CheckCircle2 className="w-12 h-12 mx-auto" style={{ color: "white" }} />
