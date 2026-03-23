@@ -158,9 +158,21 @@ const QuotesList = () => {
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{q.job_type !== "other" ? q.job_type : "—"}</td>
                       <td className="px-4 py-3 text-right font-semibold">€{Number(q.total_amount).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[q.status] || STATUS_BADGE.draft}`}>
-                          {statusLabel}
-                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[q.status] || STATUS_BADGE.draft}`}>
+                            {statusLabel}
+                          </span>
+                          {failedQuoteIds.has(q.id) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">WhatsApp send failed — check Message Log</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center hidden sm:table-cell">
                         {q.pdf_url ? (
