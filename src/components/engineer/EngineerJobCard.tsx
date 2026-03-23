@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import EngineerMediaGrid from "./EngineerMediaGrid";
 import CertificateFlow from "./CertificateFlow";
 import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, FileText } from "lucide-react";
