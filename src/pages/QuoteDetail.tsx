@@ -328,7 +328,6 @@ const QuoteDetail = () => {
             <Eye className="w-4 h-4 mr-1" /> Preview PDF
           </Button>
         )}
-        </Button>
         <Button
           variant="outline"
           onClick={async () => {
