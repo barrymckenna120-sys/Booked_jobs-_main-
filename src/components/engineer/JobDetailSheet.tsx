@@ -103,6 +103,20 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           </div>
         )}
 
+        {jobTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3.5">
+            {jobTags.map((tag: any) => (
+              <span
+                key={tag.name}
+                className="px-3 py-1 rounded-full text-xs font-semibold text-white"
+                style={{ backgroundColor: tag.colour }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2 mb-3">
           <Button variant="outline" className="flex-1 gap-1.5" onClick={() => window.open(`tel:${customer.phone}`)}>
             <Phone className="w-4 h-4" /> Call
