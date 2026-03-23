@@ -131,6 +131,8 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [certNumber, setCertNumber] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [certId, setCertId] = useState<string | null>(null);
 
   // Step 1 — Details
   const [details, setDetails] = useState({
