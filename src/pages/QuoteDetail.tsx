@@ -34,6 +34,7 @@ const QuoteDetail = () => {
   const queryClient = useQueryClient();
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const { setConnectionError, clearConnectionError } = useWhatsAppConnection();
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ["quote-detail", id],
