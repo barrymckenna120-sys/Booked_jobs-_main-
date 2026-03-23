@@ -78,13 +78,21 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
 
       // Save selected tags
       if (selectedTags.length > 0) {
+        // Look up profile.id (added_by FK references profiles.id, not auth.uid)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        const profileId = profile?.id || null;
+
         const { data: tagRows } = await supabase
           .from("job_tags")
           .select("id, name")
           .in("name", selectedTags);
 
         if (tagRows && tagRows.length > 0) {
-          // Get existing tags for this job to skip duplicates
           const { data: existing } = await supabase
             .from("service_call_tags")
             .select("tag_id")
@@ -97,7 +105,7 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
             .map((t) => ({
               service_call_id: jobId,
               tag_id: t.id,
-              added_by: userId,
+              added_by: profileId,
             }));
 
           if (inserts.length > 0) {
