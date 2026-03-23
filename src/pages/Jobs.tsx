@@ -7,9 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import AssignJobModal from "@/components/schedule/AssignJobModal";
 
 const PAGE_SIZE = 15;
 
@@ -28,6 +29,8 @@ type Job = {
   revenue: number | null;
   user_id: string;
   source: string | null;
+  notes: string | null;
+  created_at: string;
   customer_name?: string;
 };
 
@@ -47,6 +50,8 @@ const Jobs = () => {
   const [page, setPage] = useState(0);
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [scheduleJob, setScheduleJob] = useState<any | null>(null);
+  const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (user) fetchJobs();
@@ -70,6 +75,19 @@ const Jobs = () => {
       const cMap: Record<string, any> = {};
       (customers || []).forEach(c => { cMap[c.id] = c; });
       setCustomersMap(cMap);
+
+      // Fetch quotes linked to incoming jobs
+      const incomingJobIds = jobsData.filter(j => j.status === "incoming").map(j => j.id);
+      if (incomingJobIds.length > 0) {
+        const { data: quotes } = await supabase
+          .from("quotes")
+          .select("id, quote_number, converted_job_id, accepted_at, total_amount")
+          .in("converted_job_id", incomingJobIds);
+        const qMap: Record<string, any> = {};
+        (quotes || []).forEach(q => { if (q.converted_job_id) qMap[q.converted_job_id] = q; });
+        setQuotesMap(qMap);
+      }
+
       setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown" })) as Job[]);
     }
     setLoading(false);
@@ -87,7 +105,11 @@ const Jobs = () => {
 
   const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
 
-  const filtered = jobs
+  // Separate incoming jobs from the rest
+  const incomingJobs = jobs.filter(j => j.status === "incoming");
+  const nonIncomingJobs = jobs.filter(j => j.status !== "incoming");
+
+  const filtered = nonIncomingJobs
     .filter(j => {
       let matchStatus: boolean;
       if (statusFilter === "all") {
@@ -108,7 +130,6 @@ const Jobs = () => {
       const dir = sortDir === "asc" ? 1 : -1;
       if (sortCol === "customer_name") return dir * (a.customer_name || "").localeCompare(b.customer_name || "");
       if (sortCol === "status") return dir * a.status.localeCompare(b.status);
-      // scheduled_date
       const da = a.scheduled_date || "";
       const db = b.scheduled_date || "";
       return dir * da.localeCompare(db);
@@ -139,15 +160,104 @@ const Jobs = () => {
       "Awaiting Deposit": "badge-due-soon",
       no_show: "badge-overdue",
       parts_needed: "badge-due-soon",
+      incoming: "badge-due-soon",
     };
-    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "Pending" ? "Pending" : status;
+    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "incoming" ? "Incoming" : status === "Pending" ? "Pending" : status;
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
+
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
+  const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
 
+      {/* ── INCOMING JOBS SECTION ── */}
+      {incomingJobs.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <h2 className="text-lg font-bold text-foreground">
+                Incoming Jobs
+              </h2>
+              <span className="inline-flex items-center justify-center text-xs font-bold rounded-full px-2.5 py-0.5 bg-amber-500 text-white min-w-[24px]">
+                {incomingJobs.length}
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {incomingJobs.map((j) => {
+                const quote = quotesMap[j.id];
+                return (
+                  <div
+                    key={j.id}
+                    className="rounded-lg border border-amber-200 bg-white p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-bold text-foreground">{j.customer_name}</p>
+                        <p className="text-sm text-muted-foreground">{j.job_type}</p>
+                      </div>
+                      {j.revenue != null && j.revenue > 0 && (
+                        <span className="text-sm font-bold text-foreground">{eur(j.revenue)}</span>
+                      )}
+                    </div>
+
+                    {quote && (
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        <p>From Quote <span className="font-semibold text-primary">{quote.quote_number}</span></p>
+                        {quote.accepted_at && (
+                          <p>Accepted {fmtDate(quote.accepted_at)}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setScheduleJob(j);
+                        }}
+                      >
+                        <CalendarPlus className="w-3.5 h-3.5" /> Schedule
+                      </Button>
+                      {quote && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs font-bold gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/quotes/${quote.id}`);
+                          }}
+                        >
+                          <Eye className="w-3.5 h-3.5" /> View Quote
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs font-bold gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/jobs/${j.id}`);
+                        }}
+                      >
+                        View Job
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── FILTERS ── */}
       <div className="flex flex-wrap gap-3">
         <div className="relative w-full sm:w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -199,6 +309,7 @@ const Jobs = () => {
         </Select>
       </div>
 
+      {/* ── JOBS TABLE ── */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -322,6 +433,21 @@ const Jobs = () => {
           job={paymentJob.job}
           customer={paymentJob.customer}
           onPaymentComplete={() => fetchJobs()}
+        />
+      )}
+
+      {/* Schedule Incoming Job Modal */}
+      {scheduleJob && (
+        <AssignJobModal
+          open={!!scheduleJob}
+          onClose={() => setScheduleJob(null)}
+          job={scheduleJob}
+          customer={customersMap[scheduleJob.customer_id]}
+          onAssigned={() => {
+            setScheduleJob(null);
+            fetchJobs();
+            toast({ title: "Job scheduled", description: "The incoming job has been scheduled successfully." });
+          }}
         />
       )}
     </div>
