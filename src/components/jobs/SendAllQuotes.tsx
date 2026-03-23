@@ -73,14 +73,17 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
         },
       });
       if (error || !data?.success) {
-        toast({ title: `Failed to send to ${currentQ.customer.split(" ")[0]}`, description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+        const errorDetail = data?.error_detail || data?.error || error?.message || "Unknown error";
+        const errorType = classifyWhatsAppError(errorDetail);
+        toast(getWhatsAppErrorToast(errorType, currentQ.customer, errorDetail));
       } else {
         setSentIds(p => [...p, currentQ.id]);
         onQuoteSent(currentQ.id);
-        toast({ title: `Sent to ${currentQ.customer.split(" ")[0]} ✅` });
+        toast({ title: `WhatsApp sent successfully to ${currentQ.customer.split(" ")[0]} ✅`, duration: 4000 });
       }
     } catch (err: any) {
-      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+      const errorType = classifyWhatsAppError(err.message);
+      toast(getWhatsAppErrorToast(errorType, currentQ.customer, err.message));
     }
     setSending(false);
   };
