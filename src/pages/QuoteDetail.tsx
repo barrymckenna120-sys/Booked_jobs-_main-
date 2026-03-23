@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2, FileText } from "lucide-react";
+import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2, FileText, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_BADGE: Record<string, string> = {
