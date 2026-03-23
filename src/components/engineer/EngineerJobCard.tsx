@@ -220,18 +220,6 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         )}
 
-        {/* Generate Certificate button for completed jobs */}
-        {job.status === "Completed" && (
-          <div className="mt-3">
-            <Button
-              className="w-full h-14 text-base font-extrabold gap-2 text-white"
-              style={{ backgroundColor: "#1e3a5f" }}
-              onClick={() => setShowCertificate(true)}
-            >
-              <FileText className="w-5 h-5" /> Generate Certificate
-            </Button>
-          </div>
-        )}
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
