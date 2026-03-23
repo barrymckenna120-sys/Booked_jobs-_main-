@@ -131,6 +131,8 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [certNumber, setCertNumber] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [certId, setCertId] = useState<string | null>(null);
 
   // Step 1 — Details
   const [details, setDetails] = useState({
@@ -202,7 +204,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     setSaving(true);
     const cn = generateCertNumber();
 
-    const { error } = await supabase.from("certificates" as any).insert({
+    const { data: insertedRow, error } = await supabase.from("certificates" as any).insert({
       job_id: job.id,
       customer_id: customer.id,
       cert_number: cn,
@@ -219,14 +221,39 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
       } as any,
       customer_sig_url: customerSig,
       engineer_sig_url: engSigUrl,
-    } as any);
+    } as any).select("id").single();
 
     setSaving(false);
     if (error) {
       toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
     } else {
       setCertNumber(cn);
-      setStep(5); // success
+      const newCertId = (insertedRow as any)?.id;
+      setCertId(newCertId);
+      setStep(5);
+
+      // Trigger PDF generation
+      if (newCertId) {
+        supabase.functions.invoke("generate-certificate-pdf", {
+          body: { certificate_id: newCertId },
+        }).catch((err) => console.error("PDF generation error:", err));
+
+        // Poll for pdf_url
+        const poll = setInterval(async () => {
+          const { data } = await supabase
+            .from("certificates" as any)
+            .select("pdf_url")
+            .eq("id", newCertId)
+            .single();
+          if ((data as any)?.pdf_url) {
+            setPdfUrl((data as any).pdf_url);
+            clearInterval(poll);
+          }
+        }, 3000);
+
+        // Stop polling after 60s
+        setTimeout(() => clearInterval(poll), 60000);
+      }
     }
   };
 
@@ -260,6 +287,23 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
         <h1 className="text-2xl font-extrabold text-foreground">Certificate Created</h1>
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{customer.name}</p>
+
+        {pdfUrl ? (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white"
+            style={{ backgroundColor: "#22c55e" }}
+          >
+            <CheckCircle2 className="w-4 h-4" /> PDF Ready — View
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Generating PDF…
+          </div>
+        )}
+
         <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
           Back to Job
         </Button>
