@@ -83,6 +83,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
     </div>
     <div>
       <div class="field"><span class="label">Phone</span><div class="value">${escapeHtml(companyPhone)}</div></div>
+      <div class="field"><span class="label">Email</span><div class="value">${escapeHtml(companyEmail)}</div></div>
       <div class="field"><span class="label">Engineer</span><div class="value">${escapeHtml(engineerName)}</div></div>
       <div class="field"><span class="label">RGI Number</span><div class="value">${escapeHtml(engineerRgi)}</div></div>
     </div>
