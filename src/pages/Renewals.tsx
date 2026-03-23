@@ -139,6 +139,21 @@ const Renewals = () => {
 
   useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
 
+  // Fetch failed renewal message logs
+  useEffect(() => {
+    if (!customers.length) return;
+    const ids = customers.map(c => c.id);
+    supabase
+      .from("message_log")
+      .select("customer_id")
+      .eq("related_type", "renewal")
+      .eq("status", "failed")
+      .in("customer_id", ids)
+      .then(({ data }) => {
+        setFailedCustomerIds(new Set((data || []).map((r: any) => r.customer_id)));
+      });
+  }, [customers]);
+
   // Auto-refresh every 30s so counters stay current
   useEffect(() => {
     const interval = setInterval(fetchCustomers, 30000);
