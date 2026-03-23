@@ -34,11 +34,43 @@ const JOB_TYPES = [
   { id: "Installation", label: "Installation", Icon: Settings },
 ];
 
-const TIME_BLOCKS = [
-  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9am–11am" },
-  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11am–1pm" },
-  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2pm–5pm" },
+const DEFAULT_TIME_BLOCKS = [
+  { id: "9–11", label: "9–11am", Icon: Sunrise, dbValue: "9am–11am", startHour: 9, endHour: 11 },
+  { id: "11–2", label: "11am–2pm", Icon: Sun, dbValue: "11am–1pm", startHour: 11, endHour: 14 },
+  { id: "2–5", label: "2–5pm", Icon: CloudSun, dbValue: "2pm–5pm", startHour: 14, endHour: 17 },
 ];
+
+const SLOT_ICONS = [Sunrise, Sun, CloudSun];
+
+const formatTimeLabel = (start: string, end: string) => {
+  const fmtHour = (t: string) => {
+    const h = parseInt(t.split(":")[0], 10);
+    const suffix = h >= 12 ? "pm" : "am";
+    const display = h > 12 ? h - 12 : h;
+    return `${display}${suffix}`;
+  };
+  return `${fmtHour(start)}–${fmtHour(end)}`;
+};
+
+const buildTimeBlocks = (slotMaxJobs: any[]) => {
+  if (!slotMaxJobs || slotMaxJobs.length === 0) return DEFAULT_TIME_BLOCKS;
+  return slotMaxJobs.map((s: any, i: number) => {
+    const startH = parseInt(s.start?.split(":")[0] || "9", 10);
+    const startM = parseInt(s.start?.split(":")[1] || "0", 10);
+    const endH = parseInt(s.end?.split(":")[0] || "17", 10);
+    const endM = parseInt(s.end?.split(":")[1] || "0", 10);
+    const label = formatTimeLabel(s.start || "09:00", s.end || "17:00");
+    const id = `${startH}–${endH}`;
+    return {
+      id,
+      label,
+      Icon: SLOT_ICONS[i % SLOT_ICONS.length],
+      dbValue: label,
+      startHour: startH + startM / 60,
+      endHour: endH + endM / 60,
+    };
+  });
+};
 
 const PAYMENT_OPTIONS = [
   { id: "unpaid", label: "Invoice After", Icon: FileText },
@@ -464,6 +496,22 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     (engineerBlocksOnDate as any[]).map((b: any) => b.engineer_id)
   );
 
+  // Total slot capacity check from settings.job_time_blocks + opening_hours
+  const { data: settingsData } = useQuery({
+    queryKey: ["slot-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks, opening_hours").limit(1).single();
+      return {
+        slotMaxJobs: (data?.job_time_blocks as any[] | null) || [],
+        openingHours: (data?.opening_hours as any[] | null) || [],
+      };
+    },
+  });
+
+  const slotMaxJobs = settingsData?.slotMaxJobs || [];
+  const openingHours = settingsData?.openingHours || [];
+
+  const TIME_BLOCKS = useMemo(() => buildTimeBlocks(slotMaxJobs), [slotMaxJobs]);
   const dbBlock = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || block;
 
   // Get job counts for selected date + block per engineer
@@ -483,36 +531,14 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     enabled: !!date && !!block,
   });
 
-  // Total slot capacity check from settings.job_time_blocks + opening_hours
-  const { data: settingsData } = useQuery({
-    queryKey: ["slot-settings"],
-    queryFn: async () => {
-      const { data } = await supabase.from("settings").select("job_time_blocks, opening_hours").limit(1).single();
-      return {
-        slotMaxJobs: (data?.job_time_blocks as any[] | null) || [],
-        openingHours: (data?.opening_hours as any[] | null) || [],
-      };
-    },
-  });
-
-  const slotMaxJobs = settingsData?.slotMaxJobs || [];
-  const openingHours = settingsData?.openingHours || [];
-
-  // Filter time blocks based on working hours for the selected date
-  const BLOCK_HOURS: Record<string, { start: number; end: number }> = {
-    "9–11": { start: 9, end: 11 },
-    "11–2": { start: 11, end: 14 },
-    "2–5": { start: 14, end: 17 },
-  };
-
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const availableTimeBlocks = useMemo(() => {
     if (!date || openingHours.length === 0) return TIME_BLOCKS;
-    const selectedDay = new Date(date + "T12:00:00"); // noon to avoid timezone issues
+    const selectedDay = new Date(date + "T12:00:00");
     const dayLabel = DAY_LABELS[selectedDay.getDay()];
     const dayConfig = openingHours.find((h: any) => h.day === dayLabel);
-    if (!dayConfig || !dayConfig.enabled) return []; // whole day closed
+    if (!dayConfig || !dayConfig.enabled) return [];
 
     const closeHour = parseInt(dayConfig.end?.split(":")[0] || "17", 10);
     const closeMin = parseInt(dayConfig.end?.split(":")[1] || "0", 10);
@@ -522,9 +548,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     const openDecimal = openHour + openMin / 60;
 
     return TIME_BLOCKS.filter((t) => {
-      const hours = BLOCK_HOURS[t.id];
-      if (!hours) return true;
-      return hours.start >= openDecimal && hours.start < closeDecimal;
+      return t.startHour >= openDecimal && t.startHour < closeDecimal;
     });
   }, [date, openingHours]);
 
@@ -752,7 +776,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   }, [defaultPrices, priceInitialized, jobData.job.jobType]);
 
   const eng = engineers.find((e: any) => e.id === jobData.schedule.engineerId);
-  const tb = TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock);
+  const tb = DEFAULT_TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock) || { label: jobData.schedule.timeBlock };
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEE d MMM"); } catch { return jobData.schedule.date; } })();
 
   return (
@@ -839,7 +863,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 }) => {
   const navigate = useNavigate();
   const eng = engineers.find((e: any) => e.id === jobData.schedule?.engineerId);
-  const tb = TIME_BLOCKS.find((t) => t.id === jobData.schedule?.timeBlock);
+  const tb = DEFAULT_TIME_BLOCKS.find((t) => t.id === jobData.schedule?.timeBlock) || { label: jobData.schedule?.timeBlock };
   const jt = JOB_TYPES.find((j) => j.id === jobData.job?.jobType);
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEEE d MMMM"); } catch { return ""; } })();
 
@@ -918,6 +942,14 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     },
   });
 
+  const { data: settingsBlocks = [] } = useQuery({
+    queryKey: ["slot-settings-blocks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      return (data?.job_time_blocks as any[] | null) || [];
+    },
+  });
+
   const handleCustomer = (c: any) => { setJobData((d: any) => ({ ...d, customer: c })); setStep(1); };
   const handleJob = (j: any) => { setJobData((d: any) => ({ ...d, job: j })); setStep(2); };
   const handleSchedule = (s: any) => { setJobData((d: any) => ({ ...d, schedule: s })); setStep(3); };
@@ -975,7 +1007,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
         scheduled_date: finalData.schedule.date,
-        time_block: TIME_BLOCKS.find(t => t.id === finalData.schedule.timeBlock)?.dbValue || finalData.schedule.timeBlock,
+        time_block: buildTimeBlocks(settingsBlocks).find(t => t.id === finalData.schedule.timeBlock)?.dbValue || finalData.schedule.timeBlock,
         assigned_engineer_id: finalData.schedule.engineerId,
         assigned_engineer: eng?.name || null,
         status: "Booked",
