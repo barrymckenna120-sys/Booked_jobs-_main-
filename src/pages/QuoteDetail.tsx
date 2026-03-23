@@ -28,6 +28,7 @@ const QuoteDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const queryClient = useQueryClient();
   const [converting, setConverting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
