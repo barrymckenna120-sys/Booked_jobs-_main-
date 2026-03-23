@@ -158,23 +158,23 @@ Deno.serve(async (req) => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(grey);
     doc.text("QUOTE PREPARED FOR", M, y);
-    y += 5;
+    y += 4;
 
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
     doc.text(cust.name, M, y);
-    y += 5;
+    y += 4.5;
 
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
-    if (cust.address) { doc.text(cust.address, M, y); y += 4; }
-    if (cust.eircode) { doc.text(cust.eircode, M, y); y += 4; }
-    if (cust.phone) { doc.text(`Mobile: ${cust.phone}`, M, y); y += 4; }
+    if (cust.address) { doc.text(cust.address, M, y); y += 3.5; }
+    if (cust.eircode) { doc.text(cust.eircode, M, y); y += 3.5; }
+    if (cust.phone) { doc.text(`Mobile: ${cust.phone}`, M, y); y += 3.5; }
 
-    y += 4;
-    drawLine(y); y += 6;
+    y += 3;
+    drawLine(y); y += 4;
 
     // ═══════════════════════════════════════════════════
     // JOB SUMMARY BLOCK
