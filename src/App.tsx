@@ -48,6 +48,7 @@ import QuoteNew from "./pages/QuoteNew";
 import QuoteEdit from "./pages/QuoteEdit";
 import QuoteDetail from "./pages/QuoteDetail";
 import MessageLog from "./pages/MessageLog";
+import PdfRedirect from "./pages/PdfRedirect";
 const queryClient = new QueryClient();
 
 /**

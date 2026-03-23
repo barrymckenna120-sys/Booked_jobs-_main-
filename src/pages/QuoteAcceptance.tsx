@@ -30,7 +30,7 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const BLUE = "#4A86E8";
 
 const QuoteAcceptance = () => {
-  const { quoteId } = useParams<{ quoteId: string }>();
+  const { quoteNumber } = useParams<{ quoteNumber: string }>();
   const [data, setData] = useState<PublicQuoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -39,9 +39,14 @@ const QuoteAcceptance = () => {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [approveError, setApproveError] = useState(false);
 
-  useEffect(() => { if (quoteId) fetchQuote(); }, [quoteId]);
+  useEffect(() => { if (quoteNumber) fetchQuote(); }, [quoteNumber]);
 
   const fetchQuote = async () => {
+    // Resolve quote_number to UUID first
+    const { data: lookup } = await supabase.rpc("get_quote_by_number", { p_quote_number: quoteNumber });
+    const quoteId = (lookup as any)?.quote_id;
+    if (!quoteId) { setLoading(false); return; }
+
     const { data: result, error } = await supabase.rpc("get_quote_public", { p_quote_id: quoteId });
     if (error || !result || !(result as any).quote) { setLoading(false); return; }
     const publicData = result as unknown as PublicQuoteData;

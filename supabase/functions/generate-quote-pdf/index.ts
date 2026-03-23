@@ -471,7 +471,8 @@ Deno.serve(async (req) => {
     doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
 
     // Accept URL
-    const acceptUrl = `https://karlsgas.bookedjobs.ie/quote/${quote.id}`;
+    const quoteNum = quote.quote_number || `Q-${quote.id.substring(0, 4).toUpperCase()}`;
+    const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${quoteNum}`;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(white);

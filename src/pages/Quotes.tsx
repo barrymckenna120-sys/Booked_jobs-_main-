@@ -1144,7 +1144,7 @@ const Quotes = () => {
                           <Button variant="outline" className="w-full justify-center" onClick={() => {
                             const phone = q.customers.phone.replace(/\D/g, "");
                             const fp = phone.startsWith("353") ? phone : "353" + phone.replace(/^0/, "");
-                            const quoteLink = `${window.location.origin}/quote/${q.id}`;
+                            const quoteLink = `https://kngasservices.bookedjobs.ie/quote/${q.quote_number || q.id}`;
                             const sub = encodeURIComponent(`Your Quote from Karl's Gas — €${Number(q.total_amount).toFixed(2)}`);
                             const body = encodeURIComponent(`Hi ${q.customers.name},\n\nHere is your quote: ${quoteLink}\n\nTotal: €${Number(q.total_amount).toFixed(2)}\n\nKarl's Gas 🔥`);
                             window.open(`mailto:${q.customers.email}?subject=${sub}&body=${body}`, "_blank");
