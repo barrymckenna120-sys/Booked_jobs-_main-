@@ -20,6 +20,7 @@ import { SendAllRemindersSheet, type ReminderCustomer } from "@/components/renew
 import RenewalsHeroStats from "@/components/renewals/RenewalsHeroStats";
 import UrgentList from "@/components/renewals/UrgentList";
 import MonthlyBreakdown from "@/components/renewals/MonthlyBreakdown";
+import SendServiceReminders from "@/components/renewals/SendServiceReminders";
 import { formatDistanceToNow, isToday, differenceInDays, addDays, startOfWeek, endOfWeek } from "date-fns";
 
 type Customer = {
