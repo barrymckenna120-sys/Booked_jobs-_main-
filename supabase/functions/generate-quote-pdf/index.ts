@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
     y += 8;
 
     if (deposit > 0) {
-      totLine("Deposit", `−${eur(deposit)}`, { bold: true });
+      totLine("Deposit", `-${eur(deposit)}`, { bold: true });
       totLine("Balance Due", eur(balance), { bold: true, size: 11 });
     }
 
