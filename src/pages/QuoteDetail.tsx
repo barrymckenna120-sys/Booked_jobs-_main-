@@ -257,14 +257,42 @@ const QuoteDetail = () => {
         </Card>
       )}
 
-      {/* Dates & Meta */}
+      {/* Activity Timeline */}
       <Card className="mb-6">
-        <CardContent className="p-4 space-y-1 text-sm">
-          <p><span className="text-muted-foreground">Created:</span> {format(new Date(q.created_at), "dd MMM yyyy")}</p>
-          {q.sent_at && <p><span className="text-muted-foreground">Sent:</span> {format(new Date(q.sent_at), "dd MMMM yyyy HH:mm")}</p>}
-          {q.viewed_at && <p><span className="text-muted-foreground">Viewed:</span> {format(new Date(q.viewed_at), "dd MMMM yyyy HH:mm")}</p>}
-          {q.accepted_at && <p><span className="text-muted-foreground">Accepted:</span> {format(new Date(q.accepted_at), "dd MMMM yyyy HH:mm")}</p>}
-          {q.expiry_date && <p><span className="text-muted-foreground">Expires:</span> {format(new Date(q.expiry_date), "dd MMMM yyyy")}</p>}
+        <CardContent className="p-4">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Activity</p>
+          <div className="relative pl-6">
+            {[
+              { label: "Created", date: q.created_at, fmt: "dd MMM yyyy", active: true },
+              { label: "Sent", date: q.sent_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.sent_at },
+              { label: "Viewed", date: q.viewed_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.viewed_at },
+              { label: "Accepted", date: q.accepted_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.accepted_at },
+              { label: "Expires", date: q.expiry_date, fmt: "dd MMMM yyyy", active: !!q.expiry_date },
+            ]
+              .filter((step) => step.active)
+              .map((step, i, arr) => (
+                <div key={step.label} className="relative pb-5 last:pb-0">
+                  {/* Connecting line */}
+                  {i < arr.length - 1 && (
+                    <span className="absolute left-[-16px] top-[18px] w-0.5 h-[calc(100%-6px)] bg-border" />
+                  )}
+                  {/* Dot */}
+                  <span
+                    className={`absolute left-[-20px] top-[5px] w-[9px] h-[9px] rounded-full border-2 ${
+                      i === arr.length - 1 && step.label !== "Expires"
+                        ? "border-primary bg-primary"
+                        : step.label === "Expires"
+                        ? "border-muted-foreground bg-muted"
+                        : "border-primary bg-primary"
+                    }`}
+                  />
+                  <p className="text-sm leading-tight">
+                    <span className="font-semibold text-foreground">{step.label}</span>
+                    <span className="text-muted-foreground ml-2">{format(new Date(step.date!), step.fmt)}</span>
+                  </p>
+                </div>
+              ))}
+          </div>
         </CardContent>
       </Card>
 
