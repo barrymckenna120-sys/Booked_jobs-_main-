@@ -17,6 +17,7 @@ import SoundPrompt from "@/components/notifications/SoundPrompt";
 import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
 import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
+import WhatsAppConnectionBanner from "@/components/whatsapp/WhatsAppConnectionBanner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
@@ -102,6 +103,7 @@ const AppLayoutInner = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      <WhatsAppConnectionBanner />
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">

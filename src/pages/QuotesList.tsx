@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Search, FileText, Loader2 } from "lucide-react";
+import { Plus, Search, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const FILTERS = ["All", "Draft", "Sent", "Viewed", "Accepted", "expired"];
 
@@ -44,6 +45,25 @@ const QuotesList = () => {
     },
     enabled: !!user,
   });
+
+  // Fetch failed message_log entries for quotes
+  const quoteIds = quotes.map((q: any) => q.id);
+  const { data: failedLogs = [] } = useQuery({
+    queryKey: ["failed-quote-logs", quoteIds.join(",")],
+    queryFn: async () => {
+      if (quoteIds.length === 0) return [];
+      const { data } = await supabase
+        .from("message_log")
+        .select("related_id")
+        .eq("related_type", "quote")
+        .eq("status", "failed")
+        .in("related_id", quoteIds);
+      return data || [];
+    },
+    enabled: quoteIds.length > 0,
+  });
+
+  const failedQuoteIds = new Set((failedLogs as any[]).map((l: any) => l.related_id));
 
   const filtered = quotes.filter((q: any) => {
     if (filter !== "All") {
@@ -138,9 +158,21 @@ const QuotesList = () => {
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{q.job_type !== "other" ? q.job_type : "—"}</td>
                       <td className="px-4 py-3 text-right font-semibold">€{Number(q.total_amount).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[q.status] || STATUS_BADGE.draft}`}>
-                          {statusLabel}
-                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[q.status] || STATUS_BADGE.draft}`}>
+                            {statusLabel}
+                          </span>
+                          {failedQuoteIds.has(q.id) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">WhatsApp send failed — check Message Log</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center hidden sm:table-cell">
                         {q.pdf_url ? (

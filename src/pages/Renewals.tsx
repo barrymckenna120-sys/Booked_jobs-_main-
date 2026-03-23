@@ -112,6 +112,7 @@ const Renewals = () => {
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
+  const [failedCustomerIds, setFailedCustomerIds] = useState<Set<string>>(new Set());
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -137,6 +138,21 @@ const Renewals = () => {
   }, [user]);
 
   useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
+
+  // Fetch failed renewal message logs
+  useEffect(() => {
+    if (!customers.length) return;
+    const ids = customers.map(c => c.id);
+    supabase
+      .from("message_log")
+      .select("customer_id")
+      .eq("related_type", "renewal")
+      .eq("status", "failed")
+      .in("customer_id", ids)
+      .then(({ data }) => {
+        setFailedCustomerIds(new Set((data || []).map((r: any) => r.customer_id)));
+      });
+  }, [customers]);
 
   // Auto-refresh every 30s so counters stay current
   useEffect(() => {
@@ -576,6 +592,7 @@ const Renewals = () => {
             onStageChange={(newStage) => handleStageChange(c.id, newStage)}
             onArchive={() => confirmArchive(c.id, c.name, !c.is_archived)}
             isArchived={c.is_archived}
+            hasFailedSend={failedCustomerIds.has(c.id)}
           />
         ))
       )}

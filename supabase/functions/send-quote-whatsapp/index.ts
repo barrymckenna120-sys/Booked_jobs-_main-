@@ -144,6 +144,8 @@ ${acceptUrl}`;
         body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
       });
     } else {
+      const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}`;
+
       await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
         method: "POST",
         headers: {
@@ -157,13 +159,51 @@ ${acceptUrl}`;
           payload: { api_response: result, sent_to: mobile_number, quote_id },
         }),
       });
+
+      // Insert failure notification for office/admin users
+      // Get admin users from the quote owner's org
+      const usersRes = await fetch(
+        `${supabaseUrl}/rest/v1/engineers?user_id=eq.${sent_by_user_id || ""}&role=in.(admin,office)&auth_user_id=not.is.null&select=auth_user_id`,
+        { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey!, "Content-Type": "application/json" } }
+      );
+      const adminUsers = await usersRes.json();
+
+      // Also notify the quote owner
+      const recipientIds = new Set<string>();
+      if (sent_by_user_id) recipientIds.add(sent_by_user_id);
+      if (Array.isArray(adminUsers)) {
+        adminUsers.forEach((u: any) => { if (u.auth_user_id) recipientIds.add(u.auth_user_id); });
+      }
+
+      for (const recipientId of recipientIds) {
+        await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${supabaseKey}`,
+            "apikey": supabaseKey!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            recipient_user_id: recipientId,
+            notification_type: "message",
+            title: "⚠️ WhatsApp Send Failed",
+            body: `Failed to send WhatsApp to ${customer_name} (${mobile_number}). Please contact them manually. Error: ${errorDetail.substring(0, 200)}`,
+            role: "office",
+            metadata: { quote_id, customer_name, phone: mobile_number, error: errorDetail.substring(0, 200) },
+          }),
+        });
+      }
     }
 
-    return new Response(JSON.stringify({ success: result.success }), {
+    return new Response(JSON.stringify({
+      success: result.success,
+      error_detail: result.success ? undefined : `360Messenger HTTP ${response.status}: ${resultText.substring(0, 300)}`,
+      customer_name,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: error.message, error_detail: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileText, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
+import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",
@@ -32,6 +34,7 @@ const QuoteDetail = () => {
   const queryClient = useQueryClient();
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const { setConnectionError, clearConnectionError } = useWhatsAppConnection();
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ["quote-detail", id],
@@ -111,9 +114,14 @@ const QuoteDetail = () => {
         },
       });
       if (error || !data?.success) {
-        toast({ title: "WhatsApp failed", description: data?.error || error?.message, variant: "destructive" });
+        const errorDetail = data?.error_detail || data?.error || error?.message;
+        const errorType = classifyWhatsAppError(errorDetail);
+        const customerName = (quote as any)?.customers?.name;
+        toast(getWhatsAppErrorToast(errorType, customerName, errorDetail));
+        if (errorType === "connection") setConnectionError(true);
       } else {
-        toast({ title: "Quote sent via WhatsApp ✅" });
+        clearConnectionError();
+        toast({ title: `WhatsApp sent successfully to ${(quote as any)?.customers?.name || "customer"} ✅`, duration: 4000 });
         queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
       }
     } catch (err: any) {

@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow, isToday } from "date-fns";
-import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore, BellOff } from "lucide-react";
+import { PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, Send, MapPin, Archive, ArchiveRestore, BellOff, AlertTriangle } from "lucide-react";
 
 type RenewalCustomer = {
   id: string;
@@ -28,6 +29,7 @@ type Props = {
   onStageChange?: (newStage: string) => void;
   onArchive?: () => void;
   isArchived?: boolean;
+  hasFailedSend?: boolean;
 };
 
 const STAGE_DISPLAY: Record<string, { label: string; Icon: React.ComponentType<any>; textClass: string; bgClass: string }> = {
@@ -76,7 +78,7 @@ const STAGE_OPTIONS = [
   { value: "paid",          label: "Paid",          Icon: Wallet },
 ];
 
-const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange, onArchive, isArchived }: Props) => {
+const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastContacted, onOpen, onSendReminder, onBook, onStageChange, onArchive, isArchived, hasFailedSend }: Props) => {
   const leftBorder = borderColorMap[status] || "border-l-success";
   const dueDate = formatDueDate(customer.next_service_due, status);
   const contacted = formatLastContacted(lastContacted);
@@ -89,6 +91,16 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
           <div className="text-base font-extrabold flex items-center gap-1.5">
             {customer.name}
+            {hasFailedSend && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">WhatsApp send failed — check Message Log</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {customer.opted_out && (
               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
                 <BellOff className="w-2.5 h-2.5" /> Opted Out

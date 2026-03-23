@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 
 type Quote = {
   id: string;
@@ -85,13 +86,16 @@ Karl's Gas${businessPhone ? `\n📞 ${businessPhone}` : ""}`;
           },
         });
         if (error || !data?.success) {
-          toast({ title: "Send failed", description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+          const errorDetail = data?.error_detail || data?.error || error?.message || "Unknown error";
+          const errorType = classifyWhatsAppError(errorDetail);
+          toast(getWhatsAppErrorToast(errorType, customer.name, errorDetail));
           setSending(false);
           return;
         }
-        toast({ title: "Quote sent via WhatsApp ✅" });
+        toast({ title: `WhatsApp sent successfully to ${customer.name} ✅`, duration: 4000 });
       } catch (err: any) {
-        toast({ title: "Send failed", description: err.message, variant: "destructive" });
+        const errorType = classifyWhatsAppError(err.message);
+        toast(getWhatsAppErrorToast(errorType, customer.name, err.message));
         setSending(false);
         return;
       }
