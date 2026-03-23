@@ -146,10 +146,24 @@ const QuoteAcceptance = () => {
   /* ── Actions ── */
   const handleApprove = async () => {
     setActionLoading(true);
-    await supabase.rpc("respond_to_quote", { p_quote_id: quote.id, p_accepted: true });
-    // Send WhatsApp office alert (best-effort)
-    supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: quote.id } }).catch(() => {});
-    setAccepted(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-quote`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quote_id: quote.id }),
+        }
+      );
+      const result = await response.json();
+      if (result.success) {
+        setAccepted(true);
+      } else {
+        setApproveError(true);
+      }
+    } catch {
+      setApproveError(true);
+    }
     setActionLoading(false);
   };
   const handleDeposit = () => setDepositTapped(true);
