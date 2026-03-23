@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Clock, CheckCircle2, Shield, Star, Wrench, Download } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, Star, Shield, Wrench, Download } from "lucide-react";
 
 type LineItem = { description: string; qty: number; unit_price: number; line_total: number };
 
@@ -23,10 +22,11 @@ type PublicQuoteData = {
   logo_url: string | null; line_items: LineItem[];
 };
 
-/* ── Helpers ─────────────────────────────────────────── */
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" });
 const fmtShortDate = (d: string) => new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "long" });
 const eur = (n: number) => `€${n.toFixed(2)}`;
+
+const BLUE = "#4A86E8";
 
 const QuoteAcceptance = () => {
   const { quoteId } = useParams<{ quoteId: string }>();
@@ -44,8 +44,6 @@ const QuoteAcceptance = () => {
     const publicData = result as unknown as PublicQuoteData;
     setData(publicData);
     setLoading(false);
-
-    // Silently mark as viewed if currently 'Sent' or 'sent'
     const s = publicData.quote.status;
     if (s === "Sent" || s === "sent") {
       fetch(
@@ -63,7 +61,6 @@ const QuoteAcceptance = () => {
     }
   };
 
-  /* ── Derived ────────────────────────────────────────── */
   const quote = data?.quote ?? null;
   const biz = data?.business_name ?? "BookedJobs";
   const custName = data?.customer_name ?? "Customer";
@@ -73,68 +70,66 @@ const QuoteAcceptance = () => {
   const lineItems = data?.line_items ?? [];
   const firstName = custName.split(" ")[0];
 
-  /* ── Loading ────────────────────────────────────────── */
+  /* ── Loading ── */
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: BLUE }} />
     </div>
   );
 
-  /* ── Not found ──────────────────────────────────────── */
+  /* ── Not found ── */
   if (!quote) return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-[440px] shadow-md"><CardContent className="p-8 text-center">
-        <p className="text-lg font-bold">Quote Not Found</p>
-        <p className="text-sm text-muted-foreground mt-2">This quote link is no longer valid.</p>
-      </CardContent></Card>
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center" }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: "#111" }}>Quote Not Found</p>
+        <p style={{ fontSize: 14, color: "#6b7280", marginTop: 8 }}>This quote link is no longer valid.</p>
+      </div>
     </div>
   );
 
-  /* ── Expired ────────────────────────────────────────── */
+  /* ── Expired ── */
   const isExpired = quote.expiry_date && new Date(quote.expiry_date) < new Date() && !["Accepted", "Paid", "converted"].includes(quote.status);
   if (isExpired) return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-[440px] shadow-md"><CardContent className="p-8 text-center space-y-3">
-        <p className="text-4xl">⏰</p>
-        <p className="text-lg font-bold">This quote has expired</p>
-        <p className="text-sm text-muted-foreground">Please contact us for an updated quote.</p>
-        {contactNum && <p className="text-sm text-muted-foreground">Call us on {contactNum}</p>}
-        <p className="text-xs text-muted-foreground pt-2">{biz}</p>
-      </CardContent></Card>
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center" }}>
+        <p style={{ fontSize: 40 }}>⏰</p>
+        <p style={{ fontSize: 18, fontWeight: 700, color: "#111", marginTop: 12 }}>This quote has expired</p>
+        <p style={{ fontSize: 14, color: "#6b7280", marginTop: 8 }}>Please contact us for an updated quote.</p>
+        {contactNum && <p style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Call us on {contactNum}</p>}
+        <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 16 }}>{biz}</p>
+      </div>
     </div>
   );
 
-  /* ── Already accepted ───────────────────────────────── */
+  /* ── Already accepted ── */
   if (quote.status === "Accepted" || quote.status === "Paid" || accepted) return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-[440px] shadow-md border-0" style={{ backgroundColor: "hsl(142, 71%, 45%)" }}>
-        <CardContent className="p-8 text-center space-y-3">
-          <CheckCircle2 className="w-12 h-12 text-white mx-auto" />
-          <p className="text-xl font-bold text-white">
-            {quote.status === "Paid" ? "Quote Paid — Thank You!" : "Quote Accepted"}
-          </p>
-          <p className="text-sm text-white/90">
-            Thank you {firstName}. We've received your approval{quote.quote_number ? ` for ${quote.quote_number}` : ""}.
-          </p>
-          <p className="text-sm text-white/90">We'll be in touch shortly to confirm your appointment.</p>
-          <p className="text-xs text-white/70 pt-2">{biz}</p>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div style={{ borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center", backgroundColor: "#22c55e" }}>
+        <CheckCircle2 className="w-12 h-12 mx-auto" style={{ color: "white" }} />
+        <p style={{ fontSize: 20, fontWeight: 700, color: "white", marginTop: 12 }}>
+          {quote.status === "Paid" ? "Quote Paid — Thank You!" : "Quote Accepted"}
+        </p>
+        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 8 }}>
+          Thank you {firstName}. We've received your approval{quote.quote_number ? ` for ${quote.quote_number}` : ""}.
+        </p>
+        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 4 }}>We'll be in touch shortly to confirm your appointment.</p>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 16 }}>{biz}</p>
+      </div>
     </div>
   );
 
-  /* ── Declined ───────────────────────────────────────── */
+  /* ── Declined ── */
   if (quote.status === "Rejected") return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-[440px] shadow-md"><CardContent className="p-8 text-center space-y-3">
-        <p className="text-sm text-muted-foreground">This quote has been declined.</p>
-        {contactNum && <p className="text-sm text-muted-foreground">If you'd like to discuss, call us on {contactNum}.</p>}
-        <p className="text-xs text-muted-foreground pt-2">{biz}</p>
-      </CardContent></Card>
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center" }}>
+        <p style={{ fontSize: 14, color: "#6b7280" }}>This quote has been declined.</p>
+        {contactNum && <p style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>If you'd like to discuss, call us on {contactNum}.</p>}
+        <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 16 }}>{biz}</p>
+      </div>
     </div>
   );
 
-  /* ── Pricing calc ───────────────────────────────────── */
+  /* ── Pricing calc ── */
   const subtotal = lineItems.length > 0
     ? lineItems.reduce((s, li) => s + Number(li.line_total || 0), 0)
     : Number(quote.total_amount);
@@ -146,221 +141,266 @@ const QuoteAcceptance = () => {
   const deposit = Number(quote.deposit_amount || 0);
   const balance = Math.max(total - deposit, 0);
 
-  /* ── Actions ────────────────────────────────────────── */
+  /* ── Actions ── */
   const handleApprove = async () => {
     setActionLoading(true);
     await supabase.rpc("respond_to_quote", { p_quote_id: quote.id, p_accepted: true });
     setAccepted(true);
     setActionLoading(false);
   };
-
   const handleDeposit = () => setDepositTapped(true);
 
-  /* ── MAIN RENDER ────────────────────────────────────── */
-  return (
-    <div className="min-h-screen bg-background">
-      {/* ─── 1. HEADER ─────────────────────────────────── */}
-      <div className="bg-card border-b border-border">
-        <div className="max-w-[440px] mx-auto px-5 py-6 space-y-3">
-          <div className="flex items-center justify-between">
-            {data?.logo_url
-              ? <img src={data.logo_url} alt={biz} className="h-10 object-contain" />
-              : <span className="text-2xl">🔧</span>}
-            <div className="text-right">
-              {quote.quote_number && <p className="text-sm font-bold text-foreground">{quote.quote_number}</p>}
-              <p className="text-xs text-muted-foreground">Issued {fmtDate(quote.created_at)}</p>
-            </div>
-          </div>
-          <p className="text-lg font-bold text-foreground">{biz}</p>
+  const cardStyle: React.CSSProperties = {
+    border: "1px solid #e5e7eb",
+    borderRadius: 10,
+    padding: "20px",
+    backgroundColor: "white",
+  };
 
-          {/* Valid Until pill — amber */}
-          {quote.expiry_date && (
-            <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ backgroundColor: "#fffbeb" }}>
-              <Clock className="w-3.5 h-3.5" style={{ color: "#b45309" }} />
-              <span className="text-xs" style={{ color: "#92400e" }}>
-                Price guaranteed until <span className="font-semibold">{fmtShortDate(quote.expiry_date)}</span>
-              </span>
-            </div>
+  /* ── RENDER ── */
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "#ffffff", fontFamily: "'Inter', 'Poppins', sans-serif" }}>
+
+      {/* ── BLUE TOP BAR ── */}
+      <div style={{ height: 4, backgroundColor: BLUE, width: "100%" }} />
+
+      {/* ── HEADER ── */}
+      <div style={{ borderBottom: "1px solid #e5e7eb", backgroundColor: "#fafafa" }}>
+        <div style={{ maxWidth: 440, margin: "0 auto", padding: "20px 20px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {data?.logo_url
+              ? <img src={data.logo_url} alt={biz} style={{ height: 36, objectFit: "contain" }} />
+              : <span style={{ fontSize: 20, fontWeight: 700, color: "#111" }}>{biz}</span>}
+          </div>
+          {!data?.logo_url ? null : (
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#111", marginTop: 8 }}>{biz}</p>
+          )}
+          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>RGI Registered • Fully Insured</p>
+          {data?.business_phone && (
+            <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{data.business_phone}</p>
           )}
         </div>
       </div>
 
-      <div className="max-w-[440px] mx-auto px-5 py-6 space-y-5">
+      <div style={{ maxWidth: 440, margin: "0 auto", padding: "20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* ─── 2. QUOTE FOR ──────────────────────────────── */}
-        <div className="space-y-0.5">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Quote prepared for</p>
-          <p className="text-lg font-bold text-foreground">{custName}</p>
-          {custAddr && <p className="text-sm text-muted-foreground">{custAddr}</p>}
-          {custPhone && <p className="text-sm text-muted-foreground">{custPhone}</p>}
-        </div>
-
-        {/* ─── 3. JOB SUMMARY ────────────────────────────── */}
-        <Card className="shadow-sm">
-          <CardContent className="p-5 space-y-2">
-            {quote.job_type && (
-              <span className="inline-block text-xs font-semibold bg-primary/10 text-primary rounded px-2 py-0.5 capitalize">
-                {quote.job_type.replace(/_/g, " ")}
-              </span>
+          {/* ── QUOTE META ── */}
+          <div style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                {quote.quote_number && (
+                  <p style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{quote.quote_number}</p>
+                )}
+                <p style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>Issued {fmtDate(quote.created_at)}</p>
+              </div>
+            </div>
+            {quote.expiry_date && (
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                backgroundColor: "#fffbeb", borderRadius: 20, padding: "6px 12px", marginTop: 12
+              }}>
+                <Clock style={{ width: 14, height: 14, color: "#b45309" }} />
+                <span style={{ fontSize: 12, color: "#92400e" }}>
+                  Price guaranteed until <span style={{ fontWeight: 600 }}>{fmtShortDate(quote.expiry_date)}</span>
+                </span>
+              </div>
             )}
-            <p className="text-sm text-foreground leading-relaxed">{quote.description}</p>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* ─── 3b. WHAT'S INCLUDED ───────────────────────── */}
-        <Card className="shadow-sm bg-muted/30">
-          <CardContent className="p-5">
-            <p className="font-semibold text-sm mb-3 text-foreground">What's Included</p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              {["Full installation", "System testing & commissioning", "Old unit removal", "Clean-up included"].map((t) => (
-                <li key={t} className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+          {/* ── QUOTE FOR ── */}
+          <div style={cardStyle}>
+            <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#9ca3af", marginBottom: 6 }}>Quote prepared for</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: "#111" }}>{custName}</p>
+            {custAddr && <p style={{ fontSize: 14, color: "#6b7280", marginTop: 2 }}>{custAddr}</p>}
+            {custPhone && <p style={{ fontSize: 14, color: "#6b7280", marginTop: 2 }}>{custPhone}</p>}
+          </div>
 
-        {/* ─── 4. PRICING BREAKDOWN ──────────────────────── */}
-        <Card className="shadow-md">
-          <CardContent className="p-5 space-y-4">
+          {/* ── JOB SUMMARY ── */}
+          <div style={cardStyle}>
+            {quote.job_type && (
+              <p style={{
+                display: "inline-block", fontSize: 12, fontWeight: 600,
+                backgroundColor: `${BLUE}15`, color: BLUE,
+                borderRadius: 4, padding: "3px 10px", marginBottom: 8, textTransform: "capitalize"
+              }}>
+                {quote.job_type.replace(/_/g, " ")}
+              </p>
+            )}
+            <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.6 }}>{quote.description}</p>
+          </div>
+
+          {/* ── PRICING ── */}
+          <div style={{ ...cardStyle, padding: 0 }}>
             {/* Line items */}
             {lineItems.length > 0 && (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border">
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Description</th>
-                      <th className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground">Qty</th>
-                      <th className="text-right px-2 py-2 text-xs font-semibold text-muted-foreground">Price</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
+              <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                    <th style={{ textAlign: "left", padding: "12px 16px", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>Description</th>
+                    <th style={{ textAlign: "center", padding: "12px 8px", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>Qty</th>
+                    <th style={{ textAlign: "right", padding: "12px 16px", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((li, i) => (
+                    <tr key={i} style={{ borderBottom: i < lineItems.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                      <td style={{ padding: "10px 16px", color: "#111" }}>{li.description}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "center", color: "#6b7280" }}>{Number(li.qty)}</td>
+                      <td style={{ padding: "10px 16px", textAlign: "right", color: "#111", fontWeight: 500 }}>{eur(Number(li.line_total))}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {lineItems.map((li, i) => (
-                      <tr key={i} className="border-b border-border last:border-0">
-                        <td className="px-3 py-2.5 text-foreground">{li.description}</td>
-                        <td className="px-2 py-2.5 text-center text-muted-foreground">{Number(li.qty)}</td>
-                        <td className="px-2 py-2.5 text-right text-muted-foreground">{eur(Number(li.unit_price))}</td>
-                        <td className="px-3 py-2.5 text-right font-medium text-foreground">{eur(Number(li.line_total))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             )}
 
             {/* Legacy fallback */}
             {lineItems.length === 0 && (quote.parts_cost || quote.labour_cost || quote.callout_cost) && (
-              <div className="space-y-1 text-sm">
-                {quote.parts_cost ? <div className="flex justify-between"><span className="text-muted-foreground">Parts</span><span>{eur(Number(quote.parts_cost))}</span></div> : null}
-                {quote.labour_cost ? <div className="flex justify-between"><span className="text-muted-foreground">Labour</span><span>{eur(Number(quote.labour_cost))}</span></div> : null}
-                {quote.callout_cost ? <div className="flex justify-between"><span className="text-muted-foreground">Call-Out</span><span>{eur(Number(quote.callout_cost))}</span></div> : null}
+              <div style={{ padding: "16px 16px 0" }}>
+                {quote.parts_cost ? <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}><span style={{ color: "#6b7280" }}>Parts</span><span>{eur(Number(quote.parts_cost))}</span></div> : null}
+                {quote.labour_cost ? <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}><span style={{ color: "#6b7280" }}>Labour</span><span>{eur(Number(quote.labour_cost))}</span></div> : null}
+                {quote.callout_cost ? <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}><span style={{ color: "#6b7280" }}>Call-Out</span><span>{eur(Number(quote.callout_cost))}</span></div> : null}
               </div>
             )}
 
             {/* Summary rows */}
-            <div className="border-t border-border pt-3 space-y-1.5 text-sm">
+            <div style={{ borderTop: "1px solid #e5e7eb", padding: "16px" }}>
               {(disc > 0 || vatOn) && (
-                <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{eur(subtotal)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#6b7280", marginBottom: 6 }}>
+                  <span>Subtotal</span><span>{eur(subtotal)}</span>
+                </div>
               )}
               {disc > 0 && (
-                <div className="flex justify-between text-green-600 dark:text-green-400"><span>Special Offer Applied</span><span>-{eur(disc)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#16a34a", marginBottom: 6 }}>
+                  <span>Special Offer Applied</span><span>-{eur(disc)}</span>
+                </div>
               )}
               {vatOn && (
-                <div className="flex justify-between text-muted-foreground"><span>VAT (23%)</span><span>{eur(vatAmt)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#6b7280", marginBottom: 6 }}>
+                  <span>VAT (23%)</span><span>{eur(vatAmt)}</span>
+                </div>
               )}
-              <div className="flex justify-between text-lg font-extrabold pt-1 border-t border-border">
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 800, color: "#111", paddingTop: 8, borderTop: "1px solid #e5e7eb" }}>
                 <span>Total</span><span>{eur(total)}</span>
               </div>
               {deposit > 0 && (
                 <>
-                  <div className="flex justify-between text-sm text-muted-foreground"><span>Deposit</span><span>-{eur(deposit)}</span></div>
-                  <div className="flex justify-between text-sm font-bold"><span>Balance Due</span><span>{eur(balance)}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "#6b7280", marginTop: 8 }}>
+                    <span>Deposit</span><span>-{eur(deposit)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700, color: "#111", marginTop: 4 }}>
+                    <span>Balance Due</span><span>{eur(balance)}</span>
+                  </div>
                 </>
               )}
-              <p className="text-[11px] text-muted-foreground pt-1">No hidden costs. Fixed price.</p>
+              <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>No hidden costs. Fixed price.</p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* ─── 5. BRIDGE + CTA SECTION ───────────────────── */}
-        <div className="space-y-4 pt-4 pb-2">
-          <div className="text-center space-y-1">
-            <p className="font-bold text-base text-foreground">Secure your installation date today</p>
-            <p className="text-xs text-muted-foreground">No hidden costs. Fixed price.</p>
           </div>
 
-          {deposit > 0 && (
-            <p className="text-xs text-muted-foreground text-center">Deposit required to confirm your booking</p>
-          )}
-
-          <Button
-            className="w-full text-base font-bold rounded-xl"
-            style={{ minHeight: "52px" }}
-            onClick={handleApprove}
-            disabled={actionLoading}
-          >
-            {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            ✅ Approve Quote
-          </Button>
-
-          {deposit > 0 && !depositTapped && (
-            <Button
-              variant="outline"
-              className="w-full text-base rounded-xl border-2 font-semibold"
-              style={{ minHeight: "52px" }}
-              onClick={handleDeposit}
-            >
-              💳 Pay Deposit {eur(deposit)}
-            </Button>
-          )}
-
-          {depositTapped && (
-            <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-sm text-muted-foreground">Our team will be in touch to arrange your deposit payment.</p>
+          {/* ── WHAT'S INCLUDED ── */}
+          <div style={{ ...cardStyle, backgroundColor: "#f9fafb" }}>
+            <p style={{ fontWeight: 600, fontSize: 15, color: "#111", marginBottom: 12 }}>What's Included</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Full installation", "System testing & commissioning", "Old unit removal", "Clean-up included"].map((t) => (
+                <div key={t} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 14, color: "#4b5563" }}>
+                  <CheckCircle2 style={{ width: 16, height: 16, color: "#22c55e", marginTop: 2, flexShrink: 0 }} />
+                  <span>{t}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          {quote.pdf_url && (
-            <Button
-              variant="outline"
-              className="w-full text-base rounded-xl border-2"
-              style={{ minHeight: "52px" }}
-              asChild
+          {/* ── CTA SECTION ── */}
+          <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Secure your installation date today</p>
+              <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>No hidden costs. Fixed price.</p>
+            </div>
+
+            <button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              style={{
+                width: "100%", minHeight: 52, borderRadius: 10, border: "none",
+                backgroundColor: BLUE, color: "white", fontSize: 16, fontWeight: 700,
+                cursor: actionLoading ? "not-allowed" : "pointer", opacity: actionLoading ? 0.7 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
             >
-              <a href={quote.pdf_url} target="_blank" rel="noopener noreferrer">
-                <Download className="w-4 h-4 mr-2" />
+              {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              ✅ Approve Quote
+            </button>
+
+            {deposit > 0 && (
+              <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 10 }}>
+                Deposit required to confirm your booking
+              </p>
+            )}
+
+            {deposit > 0 && !depositTapped && (
+              <button
+                onClick={handleDeposit}
+                style={{
+                  width: "100%", minHeight: 52, borderRadius: 10,
+                  border: `2px solid ${BLUE}`, backgroundColor: "transparent",
+                  color: BLUE, fontSize: 16, fontWeight: 600, cursor: "pointer",
+                  marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                💳 Pay Deposit {eur(deposit)}
+              </button>
+            )}
+
+            {depositTapped && (
+              <div style={{ backgroundColor: "#f9fafb", borderRadius: 10, padding: 16, textAlign: "center", marginTop: 12 }}>
+                <p style={{ fontSize: 14, color: "#6b7280" }}>Our team will be in touch to arrange your deposit payment.</p>
+              </div>
+            )}
+
+            {quote.pdf_url && (
+              <a
+                href={quote.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  width: "100%", minHeight: 52, borderRadius: 10,
+                  border: "2px solid #e5e7eb", backgroundColor: "transparent",
+                  color: "#374151", fontSize: 16, fontWeight: 500, cursor: "pointer",
+                  marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  textDecoration: "none", boxSizing: "border-box",
+                }}
+              >
+                <Download style={{ width: 16, height: 16 }} />
                 Download Quote PDF
               </a>
-            </Button>
-          )}
+            )}
 
-          <p className="text-xs text-muted-foreground text-center">
-            We'll contact you shortly to confirm your appointment.
-          </p>
-        </div>
-
-        {/* ─── 7. TRUST SECTION ──────────────────────────── */}
-        <div className="pt-6 pb-8">
-          <div className="flex items-center justify-center gap-10">
-            <div className="flex flex-col items-center gap-2">
-              <Star className="w-8 h-8 text-yellow-500" />
-              <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium">4.9 Google<br />Rating</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <Shield className="w-8 h-8 text-primary" />
-              <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium">RGI<br />Registered</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <Wrench className="w-8 h-8 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium">Fully<br />Insured</span>
-            </div>
+            <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 14 }}>
+              We'll contact you shortly to confirm your appointment.
+            </p>
           </div>
-          <p className="text-[11px] text-muted-foreground text-center mt-5">
-            Trusted by homeowners across Dublin
-          </p>
+
+          {/* ── TRUST SECTION ── */}
+          <div style={{ paddingTop: 16, paddingBottom: 32 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 48 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <Star style={{ width: 32, height: 32, color: "#eab308" }} />
+                <span style={{ fontSize: 11, color: "#6b7280", textAlign: "center", lineHeight: 1.3, fontWeight: 500 }}>4.9 Google<br />Rating</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <Shield style={{ width: 32, height: 32, color: BLUE }} />
+                <span style={{ fontSize: 11, color: "#6b7280", textAlign: "center", lineHeight: 1.3, fontWeight: 500 }}>RGI<br />Registered</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <Wrench style={{ width: 32, height: 32, color: "#6b7280" }} />
+                <span style={{ fontSize: 11, color: "#6b7280", textAlign: "center", lineHeight: 1.3, fontWeight: 500 }}>Fully<br />Insured</span>
+              </div>
+            </div>
+            <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginTop: 20 }}>
+              Trusted by homeowners across Dublin
+            </p>
+          </div>
+
         </div>
       </div>
     </div>
