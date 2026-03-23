@@ -48,6 +48,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const [discount, setDiscount] = useState("0");
   const [vatEnabled, setVatEnabled] = useState(false);
   const [deposit, setDeposit] = useState("0");
+  const [depositManuallySet, setDepositManuallySet] = useState(false);
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [expiryDate, setExpiryDate] = useState<Date | undefined>();
