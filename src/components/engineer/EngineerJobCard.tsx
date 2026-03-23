@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import EngineerMediaGrid from "./EngineerMediaGrid";
 import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
