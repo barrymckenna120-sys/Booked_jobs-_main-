@@ -127,33 +127,29 @@ Deno.serve(async (req) => {
       doc.text(`Valid Until: ${fmtDate(quote.expiry_date)}`, PW - M, 23, { align: "right" });
     }
 
-    y = headerH + 8;
+    y = headerH + 5;
 
     // ═══════════════════════════════════════════════════
-    // COMPANY DETAILS (below header)
+    // COMPANY DETAILS (below header) — compact single block
     // ═══════════════════════════════════════════════════
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
     doc.text(biz.business_name || "", M, y);
-    y += 4.5;
 
-    doc.setFontSize(8);
+    // Right side: address + contact in compact form
+    doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
+    const compactDetails: string[] = [];
+    if (biz.business_address) compactDetails.push(biz.business_address.replace(/\n/g, ", "));
+    if (biz.business_phone) compactDetails.push(`Tel: ${biz.business_phone}`);
+    if (biz.rgi_number) compactDetails.push(`RGI: ${biz.rgi_number}`);
+    const detailLines = doc.splitTextToSize(compactDetails.join("  |  "), CW);
+    doc.text(detailLines, M, y + 4);
+    y += 4 + detailLines.length * 3.5 + 3;
 
-    if (biz.business_address) {
-      const addrLines = biz.business_address.split(/\n|,\s*/);
-      addrLines.forEach((line: string) => {
-        if (line.trim()) { doc.text(line.trim(), M, y); y += 3.5; }
-      });
-    }
-    if (biz.business_phone) { doc.text(`Tel: ${biz.business_phone}`, M, y); y += 3.5; }
-    if (biz.business_email) { doc.text(biz.business_email, M, y); y += 3.5; }
-    if (biz.rgi_number) { doc.text(`RGI Reg: ${biz.rgi_number}`, M, y); y += 3.5; }
-
-    y += 5;
-    drawLine(y); y += 6;
+    drawLine(y); y += 4;
 
     // ═══════════════════════════════════════════════════
     // QUOTE FOR BLOCK
