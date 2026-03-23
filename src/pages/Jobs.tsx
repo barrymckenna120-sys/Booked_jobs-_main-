@@ -221,6 +221,7 @@ const Jobs = () => {
                     <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
                       <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
                     </TableHead>
+                    <TableHead className="hidden md:table-cell">Source</TableHead>
                     <TableHead className="hidden md:table-cell">Quote</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead className="w-[100px]">Receipt</TableHead>
