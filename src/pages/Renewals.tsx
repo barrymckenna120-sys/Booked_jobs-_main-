@@ -112,6 +112,7 @@ const Renewals = () => {
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
+  const [failedCustomerIds, setFailedCustomerIds] = useState<Set<string>>(new Set());
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
