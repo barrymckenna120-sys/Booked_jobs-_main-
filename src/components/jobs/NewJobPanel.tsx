@@ -999,7 +999,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
         scheduled_date: finalData.schedule.date,
-        time_block: TIME_BLOCKS.find(t => t.id === finalData.schedule.timeBlock)?.dbValue || finalData.schedule.timeBlock,
+        time_block: buildTimeBlocks(settingsBlocks).find(t => t.id === finalData.schedule.timeBlock)?.dbValue || finalData.schedule.timeBlock,
         assigned_engineer_id: finalData.schedule.engineerId,
         assigned_engineer: eng?.name || null,
         status: "Booked",
