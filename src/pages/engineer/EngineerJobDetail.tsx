@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
+import CertificateFlow from "@/components/engineer/CertificateFlow";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
@@ -61,15 +62,29 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [showPhotos, setShowPhotos] = useState(false);
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [replyNote, setReplyNote] = useState("");
   const [savingReply, setSavingReply] = useState(false);
+  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
 
   useEffect(() => {
     if (user && id) fetchJob();
   }, [user, id]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name, rgi_number")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
+      });
+  }, [user]);
 
   const fetchJob = async () => {
     setLoading(true);
@@ -450,16 +465,25 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         )}
 
         {job.status === "Completed" && (
-          <div className="bg-success/10 rounded-2xl p-4 flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-success" />
-            <div>
-              <div className="text-sm font-extrabold text-success">Job Completed</div>
-              {job.updated_at && (
-                <div className="text-xs text-muted-foreground">
-                  {new Date(job.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="bg-success/10 rounded-2xl p-4 flex items-center gap-3">
+              <CheckCircle2 className="w-6 h-6 text-success" />
+              <div>
+                <div className="text-sm font-extrabold text-success">Job Completed</div>
+                {job.updated_at && (
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(job.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                  </div>
+                )}
+              </div>
             </div>
+            <Button
+              className="w-full h-14 text-lg font-extrabold gap-2"
+              style={{ backgroundColor: "#4A86E8" }}
+              onClick={() => setShowCertificate(true)}
+            >
+              <FileText className="w-5 h-5" /> Generate Certificate
+            </Button>
           </div>
         )}
       </div>
@@ -502,6 +526,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           job={job}
           customer={customer}
           onClose={() => setShowExtraWork(false)}
+        />
+      )}
+      {showCertificate && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCertificate(false); fetchJob(); }}
         />
       )}
 
