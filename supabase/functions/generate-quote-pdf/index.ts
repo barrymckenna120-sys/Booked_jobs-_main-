@@ -277,13 +277,13 @@ Deno.serve(async (req) => {
       const ref = { y };
       ensureSpace(8, ref);
       y = ref.y;
-      doc.setFontSize(opts?.size || 10);
+      doc.setFontSize(opts?.size || 9);
       doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
       doc.setTextColor(opts?.color || grey);
       doc.text(label, tLabelX, y);
       doc.setTextColor(opts?.bold ? dark : dark);
       doc.text(value, tValueX, y, { align: "right" });
-      y += 5.5;
+      y += 5;
     };
 
     totLine("Subtotal", eur(subtotal));
