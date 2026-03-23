@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2, FileText } from "lucide-react";
+import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2, FileText, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -310,8 +310,9 @@ const QuoteDetail = () => {
                 toast({ title: "PDF generation failed. Please try again.", description: result?.error, variant: "destructive" });
               } else {
                 await supabase.from("quotes").update({ pdf_url: result.pdf_url } as any).eq("id", id);
-                toast({ title: "PDF regenerated successfully" });
+                toast({ title: "PDF regenerated — opening preview" });
                 queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+                window.open(result.pdf_url, "_blank");
               }
             } catch (err: any) {
               toast({ title: "PDF generation failed. Please try again.", variant: "destructive" });
@@ -320,8 +321,13 @@ const QuoteDetail = () => {
           }}
         >
           {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
-          {q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
+          {generatingPdf ? "Generating..." : q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
         </Button>
+        {q.pdf_url && (
+          <Button variant="outline" onClick={() => window.open(q.pdf_url, "_blank")}>
+            <Eye className="w-4 h-4 mr-1" /> Preview PDF
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={async () => {
