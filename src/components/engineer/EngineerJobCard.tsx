@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import EngineerMediaGrid from "./EngineerMediaGrid";
-import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
+import CertificateFlow from "./CertificateFlow";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
@@ -51,7 +53,21 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
   const [showMessageOffice, setShowMessageOffice] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const { user } = useAuth();
+  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name, rgi_number")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
+      });
+  }, [user]);
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
@@ -204,6 +220,19 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             )}
           </div>
         )}
+
+        {/* Generate Certificate button for completed jobs */}
+        {job.status === "Completed" && (
+          <div className="mt-3">
+            <Button
+              className="w-full h-12 text-sm font-extrabold gap-2"
+              style={{ backgroundColor: "#4A86E8" }}
+              onClick={() => setShowCertificate(true)}
+            >
+              <FileText className="w-4 h-4" /> Generate Certificate
+            </Button>
+          </div>
+        )}
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
@@ -232,6 +261,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         jobId={job.id}
         officeUserId={job.user_id}
       />
+      {showCertificate && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => setShowCertificate(false)}
+        />
+      )}
     </>
   );
 };
