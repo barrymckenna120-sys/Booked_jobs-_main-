@@ -1100,6 +1100,7 @@ export type Database = {
           renewal_reminders_enabled: boolean | null
           review_request_hours: number | null
           review_requests_enabled: boolean | null
+          rgi_number: string | null
           service_areas: Json | null
           stripe_connected: boolean
           template_booking_confirmation: string | null
@@ -1145,6 +1146,7 @@ export type Database = {
           renewal_reminders_enabled?: boolean | null
           review_request_hours?: number | null
           review_requests_enabled?: boolean | null
+          rgi_number?: string | null
           service_areas?: Json | null
           stripe_connected?: boolean
           template_booking_confirmation?: string | null
@@ -1190,6 +1192,7 @@ export type Database = {
           renewal_reminders_enabled?: boolean | null
           review_request_hours?: number | null
           review_requests_enabled?: boolean | null
+          rgi_number?: string | null
           service_areas?: Json | null
           stripe_connected?: boolean
           template_booking_confirmation?: string | null
