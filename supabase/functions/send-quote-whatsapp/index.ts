@@ -26,7 +26,7 @@ serve(async (req) => {
       quote_number,
     } = await req.json();
 
-    if (!quote_id || !customer_name || !mobile_number || !job_description || quote_amount == null) {
+    if (!quote_id || !customer_name || !mobile_number || quote_amount == null) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
