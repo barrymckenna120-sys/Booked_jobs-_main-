@@ -62,11 +62,13 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [showPhotos, setShowPhotos] = useState(false);
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [replyNote, setReplyNote] = useState("");
   const [savingReply, setSavingReply] = useState(false);
+  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
 
   useEffect(() => {
     if (user && id) fetchJob();
