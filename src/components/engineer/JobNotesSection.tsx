@@ -163,6 +163,26 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
             placeholder="Add a note…"
             className="text-[15px] min-h-[80px] p-3"
           />
+          <div className="flex flex-wrap gap-2">
+            {TAG_OPTIONS.map((tag) => {
+              const isSelected = selectedTags.includes(tag.name);
+              return (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => toggleTag(tag.name)}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
+                  style={{
+                    borderColor: tag.colour,
+                    backgroundColor: isSelected ? tag.colour : "transparent",
+                    color: isSelected ? "#fff" : "hsl(var(--muted-foreground))",
+                  }}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
           <Button
             className="w-full h-11 text-sm font-extrabold gap-2"
             onClick={handleSave}
