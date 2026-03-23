@@ -121,7 +121,10 @@ const Schedule = () => {
   }, [queryClient]);
 
   const unallocatedJobs = jobs.filter(
-    (j) => j.status !== "Completed" && j.status !== "Cancelled" && j.status !== "Booked" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer)
+    (j) => {
+      const s = j.status?.toLowerCase();
+      return s !== "completed" && s !== "cancelled" && s !== "booked" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer);
+    }
   );
 
   const getJobForSlot = (date: Date, timeBlock: string, engineerName?: string) => {
