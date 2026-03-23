@@ -48,6 +48,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const [discount, setDiscount] = useState("0");
   const [vatEnabled, setVatEnabled] = useState(false);
   const [deposit, setDeposit] = useState("0");
+  const [depositManuallySet, setDepositManuallySet] = useState(false);
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [expiryDate, setExpiryDate] = useState<Date | undefined>();
@@ -96,6 +97,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       setDiscount(String((q as any).discount ?? 0));
       setVatEnabled((q as any).vat_enabled ?? false);
       setDeposit(String((q as any).deposit ?? 0));
+      setDepositManuallySet(true); // Existing quote has saved deposit
       setNotes(q.notes || "");
       setTerms((q as any).terms || "");
       setExpiryDate((q as any).expiry_date ? new Date((q as any).expiry_date) : undefined);
@@ -134,6 +136,13 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const total = Math.max(afterDiscount + vatAmount, 0);
   const depositNum = parseFloat(deposit) || 0;
   const balanceDue = Math.max(total - depositNum, 0);
+
+  // Auto-set deposit to 50% of total unless user manually overrode
+  useEffect(() => {
+    if (!depositManuallySet) {
+      setDeposit((Math.round(total * 50) / 100).toFixed(2));
+    }
+  }, [total, depositManuallySet]);
 
   const updateLineItem = (id: string, field: keyof LineItem, value: string) => {
     setLineItems((prev) => prev.map((li) => li.id === id ? { ...li, [field]: value } : li));
@@ -400,7 +409,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
             </div>
             <div className="flex items-center justify-between gap-2">
               <Label className="text-sm text-muted-foreground">Deposit €</Label>
-              <Input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-28 text-right" placeholder="0.00" />
+              <Input type="number" value={deposit} onChange={(e) => { setDeposit(e.target.value); setDepositManuallySet(true); }} className="w-28 text-right" placeholder="0.00" />
             </div>
             {depositNum > 0 && (
               <div className="flex justify-between text-sm">
@@ -408,9 +417,9 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                 <span className="font-semibold">−€{depositNum.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-bold">
+            <div className="flex justify-between text-sm font-bold border-t border-border pt-2">
               <span className="text-muted-foreground">Balance Due</span>
-              <span>€{balanceDue.toFixed(2)}</span>
+              <span className="text-foreground">€{balanceDue.toFixed(2)}</span>
             </div>
           </div>
         </CardContent>
