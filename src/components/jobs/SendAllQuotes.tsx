@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Send, SkipForward, CheckCircle2, MessageCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 
 export type UnsentQuote = {
   id: string;
