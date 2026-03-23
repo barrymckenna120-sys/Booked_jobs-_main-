@@ -49,7 +49,6 @@ const Jobs = () => {
   const [page, setPage] = useState(0);
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [scheduleJob, setScheduleJob] = useState<any | null>(null);
   const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
