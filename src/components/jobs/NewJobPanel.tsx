@@ -776,7 +776,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   }, [defaultPrices, priceInitialized, jobData.job.jobType]);
 
   const eng = engineers.find((e: any) => e.id === jobData.schedule.engineerId);
-  const tb = TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock);
+  const tb = DEFAULT_TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock) || { label: jobData.schedule.timeBlock };
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEE d MMM"); } catch { return jobData.schedule.date; } })();
 
   return (
