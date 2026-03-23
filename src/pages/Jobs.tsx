@@ -180,6 +180,8 @@ const Jobs = () => {
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="Boiler Service">Boiler Service</SelectItem>
+            <SelectItem value="Boiler Replacement">Boiler Replacement</SelectItem>
+            <SelectItem value="Boiler Installation">Boiler Installation</SelectItem>
             <SelectItem value="Repair">Repair</SelectItem>
             <SelectItem value="Emergency">Emergency</SelectItem>
           </SelectContent>
