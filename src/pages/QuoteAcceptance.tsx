@@ -37,6 +37,7 @@ const QuoteAcceptance = () => {
   const [accepted, setAccepted] = useState(false);
   const [depositTapped, setDepositTapped] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [approveError, setApproveError] = useState(false);
 
   useEffect(() => { if (quoteId) fetchQuote(); }, [quoteId]);
 
@@ -146,10 +147,24 @@ const QuoteAcceptance = () => {
   /* ── Actions ── */
   const handleApprove = async () => {
     setActionLoading(true);
-    await supabase.rpc("respond_to_quote", { p_quote_id: quote.id, p_accepted: true });
-    // Send WhatsApp office alert (best-effort)
-    supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: quote.id } }).catch(() => {});
-    setAccepted(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/accept-quote`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quote_id: quote.id }),
+        }
+      );
+      const result = await response.json();
+      if (result.success) {
+        setAccepted(true);
+      } else {
+        setApproveError(true);
+      }
+    } catch {
+      setApproveError(true);
+    }
     setActionLoading(false);
   };
   const handleDeposit = () => setDepositTapped(true);
@@ -340,10 +355,18 @@ const QuoteAcceptance = () => {
               ✅ Approve Quote
             </button>
 
-            {deposit > 0 && (
+            {deposit > 0 && !approveError && (
               <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 10 }}>
                 Deposit required to confirm your booking
               </p>
+            )}
+
+            {approveError && (
+              <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: 16, textAlign: "center", marginTop: 12 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>Something went wrong</p>
+                <p style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Please call us directly to confirm your quote.</p>
+                {contactNum && <p style={{ fontSize: 14, fontWeight: 600, color: "#111", marginTop: 8 }}>{contactNum}</p>}
+              </div>
             )}
 
             {deposit > 0 && !depositTapped && (
