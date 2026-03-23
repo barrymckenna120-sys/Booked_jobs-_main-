@@ -71,8 +71,9 @@ ${acceptUrl}`;
       message += `\n📞 ${business_phone}`;
     }
 
+    const cleanNumber = mobile_number.replace(/^\+/, "");
     const formData = new FormData();
-    formData.append("phonenumber", mobile_number);
+    formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
