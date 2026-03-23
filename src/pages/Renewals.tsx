@@ -442,6 +442,19 @@ const Renewals = () => {
         servicePrice={servicePrice}
       />
 
+      {/* SECTION 4: Send Service Reminders */}
+      <SendServiceReminders
+        customers={activeCustomers.map(c => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          eircode: c.eircode,
+          next_service_due: c.next_service_due,
+        }))}
+        userId={user?.id}
+        onRemindersSent={fetchCustomers}
+      />
+
       {/* Divider */}
       <div className="border-t border-border/60 pt-4">
         <h2 className="text-sm font-bold text-foreground mb-3">All Renewals</h2>
