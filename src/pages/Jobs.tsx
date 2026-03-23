@@ -434,20 +434,6 @@ const Jobs = () => {
         />
       )}
 
-      {/* Schedule Incoming Job Modal */}
-      {scheduleJob && (
-        <AssignJobModal
-          open={!!scheduleJob}
-          onClose={() => setScheduleJob(null)}
-          job={scheduleJob}
-          customer={customersMap[scheduleJob.customer_id]}
-          onAssigned={() => {
-            setScheduleJob(null);
-            fetchJobs();
-            toast({ title: "Job scheduled", description: "The incoming job has been scheduled successfully." });
-          }}
-        />
-      )}
     </div>
   );
 };
