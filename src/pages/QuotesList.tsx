@@ -49,6 +49,7 @@ const QuotesList = () => {
     if (filter !== "All") {
       const matchStatuses = filter === "Draft" ? ["Draft", "draft"] :
         filter === "Sent" ? ["Sent", "sent"] :
+        filter === "Viewed" ? ["viewed", "Viewed"] :
         filter === "Accepted" ? ["Accepted", "accepted"] :
         filter === "expired" ? ["expired"] : [filter];
       if (!matchStatuses.includes(q.status)) return false;
@@ -66,6 +67,7 @@ const QuotesList = () => {
     All: quotes.length,
     Draft: quotes.filter((q: any) => ["Draft", "draft"].includes(q.status)).length,
     Sent: quotes.filter((q: any) => ["Sent", "sent"].includes(q.status)).length,
+    Viewed: quotes.filter((q: any) => ["viewed", "Viewed"].includes(q.status)).length,
     Accepted: quotes.filter((q: any) => ["Accepted", "accepted"].includes(q.status)).length,
     expired: quotes.filter((q: any) => q.status === "expired").length,
   };
