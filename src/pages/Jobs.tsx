@@ -127,6 +127,7 @@ const Jobs = () => {
 
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
+      Pending: "badge-due-soon",
       Scheduled: "badge-scheduled",
       Booked: "badge-scheduled",
       "En Route": "badge-due-soon",
