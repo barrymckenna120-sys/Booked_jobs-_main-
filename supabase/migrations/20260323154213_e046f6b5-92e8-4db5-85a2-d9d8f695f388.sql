@@ -1,0 +1,1 @@
+ALTER TABLE public.engineers ADD COLUMN rgi_number text DEFAULT NULL;
