@@ -139,7 +139,7 @@ const Jobs = () => {
       no_show: "badge-overdue",
       parts_needed: "badge-due-soon",
     };
-    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status;
+    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "Pending" ? "Pending" : status;
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
