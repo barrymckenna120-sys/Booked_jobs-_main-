@@ -52,7 +52,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
   const [showMessageOffice, setShowMessageOffice] = useState(false);
-  const [showCertificate, setShowCertificate] = useState(false);
+  
   const { user } = useAuth();
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
 
