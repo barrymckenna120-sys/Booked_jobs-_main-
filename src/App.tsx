@@ -139,6 +139,7 @@ const App = () => (
           </Routes>
         </RecoveryRedirectGuard>
       </BrowserRouter>
+      </WhatsAppConnectionProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
