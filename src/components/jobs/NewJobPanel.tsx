@@ -942,6 +942,14 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     },
   });
 
+  const { data: settingsBlocks = [] } = useQuery({
+    queryKey: ["slot-settings-blocks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      return (data?.job_time_blocks as any[] | null) || [];
+    },
+  });
+
   const handleCustomer = (c: any) => { setJobData((d: any) => ({ ...d, customer: c })); setStep(1); };
   const handleJob = (j: any) => { setJobData((d: any) => ({ ...d, job: j })); setStep(2); };
   const handleSchedule = (s: any) => { setJobData((d: any) => ({ ...d, schedule: s })); setStep(3); };
