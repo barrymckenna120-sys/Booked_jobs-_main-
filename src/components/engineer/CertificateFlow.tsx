@@ -239,7 +239,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           body: { certificate_id: newCertId },
         }).catch((err) => console.error("PDF generation error:", err));
 
-        // Poll for pdf_url
+        // Poll for pdf_url, then send WhatsApp
         const poll = setInterval(async () => {
           const { data } = await supabase
             .from("certificates" as any)
@@ -247,8 +247,24 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
             .eq("id", newCertId)
             .single();
           if ((data as any)?.pdf_url) {
-            setPdfUrl((data as any).pdf_url);
+            const url = (data as any).pdf_url;
+            setPdfUrl(url);
             clearInterval(poll);
+
+            // Auto-send certificate via WhatsApp
+            setWhatsappStatus("sending");
+            try {
+              const { data: waData, error: waError } = await supabase.functions.invoke("send-certificate-whatsapp", {
+                body: { certificate_id: newCertId },
+              });
+              if (waError || !waData?.success) {
+                setWhatsappStatus("failed");
+              } else {
+                setWhatsappStatus("sent");
+              }
+            } catch {
+              setWhatsappStatus("failed");
+            }
           }
         }, 3000);
 
