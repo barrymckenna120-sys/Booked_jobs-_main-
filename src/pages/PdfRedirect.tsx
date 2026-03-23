@@ -30,9 +30,9 @@ const PdfRedirect = () => {
 
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div className="border border-gray-200 rounded-xl max-w-md w-full p-8 text-center">
-        <p className="text-lg font-bold text-gray-900">PDF Not Found</p>
-        <p className="text-sm text-gray-500 mt-2">This PDF link is no longer valid or has not been generated yet.</p>
+      <div className="border border-border rounded-xl max-w-md w-full p-8 text-center">
+        <p className="text-lg font-bold text-foreground">PDF Not Found</p>
+        <p className="text-sm text-muted-foreground mt-2">This PDF link is no longer valid or has not been generated yet.</p>
       </div>
     </div>
   );

@@ -46,6 +46,7 @@ type Quote = {
   notes: string | null;
   created_at: string;
   converted_job_id: string | null;
+  quote_number: string | null;
   customers: {
     id: string;
     name: string;
