@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, MessageCircle } from "lucide-react";
