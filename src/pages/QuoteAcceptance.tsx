@@ -48,7 +48,19 @@ const QuoteAcceptance = () => {
     // Silently mark as viewed if currently 'Sent' or 'sent'
     const s = publicData.quote.status;
     if (s === "Sent" || s === "sent") {
-      supabase.rpc("mark_quote_viewed", { p_quote_id: quoteId });
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/mark_quote_viewed`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ p_quote_id: quoteId }),
+        }
+      ).catch(() => {});
+    }
     }
   };
 
