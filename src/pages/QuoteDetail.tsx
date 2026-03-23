@@ -114,9 +114,14 @@ const QuoteDetail = () => {
         },
       });
       if (error || !data?.success) {
-        toast({ title: "WhatsApp failed", description: data?.error || error?.message, variant: "destructive" });
+        const errorDetail = data?.error_detail || data?.error || error?.message;
+        const errorType = classifyWhatsAppError(errorDetail);
+        const customerName = (quote as any)?.customers?.name;
+        toast(getWhatsAppErrorToast(errorType, customerName, errorDetail));
+        if (errorType === "connection") setConnectionError(true);
       } else {
-        toast({ title: "Quote sent via WhatsApp ✅" });
+        clearConnectionError();
+        toast({ title: `WhatsApp sent successfully to ${(quote as any)?.customers?.name || "customer"} ✅`, duration: 4000 });
         queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
       }
     } catch (err: any) {
