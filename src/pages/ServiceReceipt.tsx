@@ -102,9 +102,23 @@ const ServiceReceipt = () => {
 
     const data = getReceiptData();
     const formattedPhone = formatPhoneForWhatsApp(phone);
-    const message = encodeURIComponent(
-      `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`
-    );
+    const messageText = `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`;
+
+    // Log to message_log
+    const { data: logRow } = await supabase.from("message_log").insert({
+      customer_id: customer?.id || null,
+      message_type: "receipt",
+      channel: "whatsapp",
+      direction: "outbound",
+      content: messageText,
+      status: "sent",
+      related_id: id,
+      related_type: "job",
+      sent_by: user?.id || "system",
+      sent_at: new Date().toISOString(),
+    } as any).select("id").single();
+
+    const message = encodeURIComponent(messageText);
     window.open(`https://wa.me/${formattedPhone}?text=${message}`, "_blank");
 
     // Mark receipt as sent

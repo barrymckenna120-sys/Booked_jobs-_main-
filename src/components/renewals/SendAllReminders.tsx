@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +49,7 @@ export function SendAllRemindersSheet({
   customers,
   onReminderSent,
 }: SendAllRemindersSheetProps) {
+  const { user } = useAuth();
   const [sentIds, setSentIds] = useState<string[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
@@ -59,7 +62,7 @@ export function SendAllRemindersSheet({
   const progress =
     customers.length > 0 ? (sentIds.length / customers.length) * 100 : 0;
 
-  const sendCurrent = () => {
+  const sendCurrent = async () => {
     if (!current) return;
     const phone = current.phone.replace(/\D/g, "");
     const fullPhone = phone.startsWith("353")
@@ -67,7 +70,22 @@ export function SendAllRemindersSheet({
       : phone.startsWith("0")
       ? "353" + phone.slice(1)
       : "353" + phone;
-    window.open(waUrl(fullPhone, buildMsg(current)), "_blank");
+    const msg = buildMsg(current);
+    window.open(waUrl(fullPhone, msg), "_blank");
+
+    // Log to message_log
+    await supabase.from("message_log").insert({
+      customer_id: current.id,
+      message_type: "renewal",
+      channel: "whatsapp",
+      direction: "outbound",
+      content: msg,
+      status: "sent",
+      related_type: "renewal",
+      sent_by: user?.id || "system",
+      sent_at: new Date().toISOString(),
+    } as any);
+
     setSentIds((p) => [...p, current.id]);
     onReminderSent(current.id);
     if (!started) setStarted(true);

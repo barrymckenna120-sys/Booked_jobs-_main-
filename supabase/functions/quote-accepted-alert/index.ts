@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // Get quote + customer + settings
     const quoteRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=quote_number,total_amount,deposit,deposit_amount,user_id,customers!inner(name)`,
+      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=quote_number,total_amount,deposit,deposit_amount,user_id,customer_id,customers!inner(name)`,
       { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey, "Content-Type": "application/json" } }
     );
     const quotes = await quoteRes.json();
@@ -68,6 +68,31 @@ Deposit: €${depositAmount}
 
 Job has been created — open BookedJobs to schedule.`;
 
+    // Log pending message
+    const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "apikey": supabaseKey,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+      },
+      body: JSON.stringify({
+        customer_id: quote.customer_id || null,
+        message_type: "quote",
+        channel: "whatsapp",
+        direction: "outbound",
+        content: alertMsg,
+        status: "pending",
+        related_id: quote_id,
+        related_type: "quote",
+        sent_by: "system",
+        sent_at: new Date().toISOString(),
+      }),
+    });
+    const logRows = await logRes.json();
+    const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
+
     const cleanNumber = officeNumber.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
@@ -82,6 +107,23 @@ Job has been created — open BookedJobs to schedule.`;
     const resultText = await res.text();
     let result: any;
     try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+
+    // Update message_log status
+    if (logId) {
+      const updateBody = result.success
+        ? { status: "sent" }
+        : { status: "failed", error_message: `360Messenger HTTP ${res.status}: ${resultText.substring(0, 500)}` };
+
+      await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateBody),
+      });
+    }
 
     return new Response(JSON.stringify({ success: true, sent: result.success }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

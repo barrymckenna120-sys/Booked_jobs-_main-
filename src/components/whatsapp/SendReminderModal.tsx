@@ -101,6 +101,19 @@ const SendReminderModal = ({ customer, defaultType = "30 Day Reminder", settings
       status: "Sent",
     } as any);
 
+    // Log to message_log
+    await supabase.from("message_log").insert({
+      customer_id: customer.id,
+      message_type: "renewal",
+      channel: "whatsapp",
+      direction: "outbound",
+      content: messageBody,
+      status: "sent",
+      related_type: "renewal",
+      sent_by: user.id,
+      sent_at: new Date().toISOString(),
+    } as any);
+
     const updates: Record<string, any> = {
       last_message_sent_at: new Date().toISOString(),
       last_message_type: messageType,
