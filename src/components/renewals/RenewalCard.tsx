@@ -29,6 +29,7 @@ type Props = {
   onStageChange?: (newStage: string) => void;
   onArchive?: () => void;
   isArchived?: boolean;
+  hasFailedSend?: boolean;
 };
 
 const STAGE_DISPLAY: Record<string, { label: string; Icon: React.ComponentType<any>; textClass: string; bgClass: string }> = {
