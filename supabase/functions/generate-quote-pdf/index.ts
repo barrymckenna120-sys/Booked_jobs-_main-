@@ -74,8 +74,9 @@ Deno.serve(async (req) => {
 
     const eur = (v: number) => {
       const abs = Math.abs(v);
-      const formatted = abs.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      return `€${formatted}`;
+      const parts = abs.toFixed(2).split(".");
+      const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return `\u20AC${intPart}.${parts[1]}`;
     };
 
     const fmtDate = (d: string) => {
@@ -290,7 +291,7 @@ Deno.serve(async (req) => {
     };
 
     totLine("Subtotal", eur(subtotal));
-    if (disc > 0) totLine("Special Offer Applied", `−${eur(disc)}`, { color: green });
+    if (disc > 0) totLine("Special Offer Applied", `-${eur(disc)}`, { color: green });
     if (quote.vat_enabled) totLine("VAT 23%", eur(vatAmt));
 
     drawLine(y - 1); y += 3;
@@ -304,7 +305,7 @@ Deno.serve(async (req) => {
     y += 8;
 
     if (deposit > 0) {
-      totLine("Deposit", `−${eur(deposit)}`, { bold: true });
+      totLine("Deposit", `-${eur(deposit)}`, { bold: true });
       totLine("Balance Due", eur(balance), { bold: true, size: 11 });
     }
 
@@ -341,8 +342,14 @@ Deno.serve(async (req) => {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
       inclItems.forEach((item) => {
-        doc.setTextColor(green);
-        doc.text("✓", M + 2, y);
+        doc.setFillColor(green);
+        doc.circle(M + 3.5, y - 1.2, 2, "F");
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(white);
+        doc.text("Y", M + 2.4, y);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(dark);
         doc.text(item, M + 9, y);
         y += 5.5;
