@@ -46,6 +46,25 @@ const QuotesList = () => {
     enabled: !!user,
   });
 
+  // Fetch failed message_log entries for quotes
+  const quoteIds = quotes.map((q: any) => q.id);
+  const { data: failedLogs = [] } = useQuery({
+    queryKey: ["failed-quote-logs", quoteIds.join(",")],
+    queryFn: async () => {
+      if (quoteIds.length === 0) return [];
+      const { data } = await supabase
+        .from("message_log")
+        .select("related_id")
+        .eq("related_type", "quote")
+        .eq("status", "failed")
+        .in("related_id", quoteIds);
+      return data || [];
+    },
+    enabled: quoteIds.length > 0,
+  });
+
+  const failedQuoteIds = new Set((failedLogs as any[]).map((l: any) => l.related_id));
+
   const filtered = quotes.filter((q: any) => {
     if (filter !== "All") {
       const matchStatuses = filter === "Draft" ? ["Draft", "draft"] :
