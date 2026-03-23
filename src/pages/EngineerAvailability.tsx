@@ -23,6 +23,7 @@ interface Engineer {
   name: string;
   phone: string | null;
   is_available: boolean;
+  rgi_number: string | null;
 }
 
 interface WorkingDay {
