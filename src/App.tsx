@@ -87,6 +87,7 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <WhatsAppConnectionProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
