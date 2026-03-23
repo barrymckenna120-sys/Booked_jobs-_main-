@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, FileText, Save, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -14,12 +15,20 @@ interface Props {
   jobNotes?: string | null;
 }
 
+const TAG_OPTIONS = [
+  { name: "New Fitted", colour: "#4A86E8" },
+  { name: "Needs New Soon", colour: "#F59E0B" },
+  { name: "Under Warranty", colour: "#10B981" },
+];
+
 const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth("");
   const qc = useQueryClient();
 
   const { data: callNotes = [], refetch } = useQuery({
@@ -37,23 +46,29 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
     },
   });
 
+  const toggleTag = (name: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
+
   const handleSave = async () => {
     if (!note.trim()) return;
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const userId = user?.id;
+      if (!userId) throw new Error("Not authenticated");
 
       // Get engineer display name
       const { data: eng } = await supabase
         .from("engineers")
         .select("name")
-        .eq("auth_user_id", user.id)
+        .eq("auth_user_id", userId)
         .maybeSingle();
 
       const { error } = await supabase.from("customer_call_notes").insert({
         customer_id: customerId,
-        user_id: user.id,
+        user_id: userId,
         note: note.trim(),
         created_by_name: eng?.name || "Engineer",
         service_call_id: jobId,
@@ -61,7 +76,38 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
 
       if (error) throw error;
 
+      // Save selected tags
+      if (selectedTags.length > 0) {
+        const { data: tagRows } = await supabase
+          .from("job_tags")
+          .select("id, name")
+          .in("name", selectedTags);
+
+        if (tagRows && tagRows.length > 0) {
+          // Get existing tags for this job to skip duplicates
+          const { data: existing } = await supabase
+            .from("service_call_tags")
+            .select("tag_id")
+            .eq("service_call_id", jobId);
+
+          const existingIds = new Set((existing || []).map((e) => e.tag_id));
+
+          const inserts = tagRows
+            .filter((t) => !existingIds.has(t.id))
+            .map((t) => ({
+              service_call_id: jobId,
+              tag_id: t.id,
+              added_by: userId,
+            }));
+
+          if (inserts.length > 0) {
+            await supabase.from("service_call_tags").insert(inserts as any);
+          }
+        }
+      }
+
       setNote("");
+      setSelectedTags([]);
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2000);
       refetch();
@@ -117,6 +163,26 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
             placeholder="Add a note…"
             className="text-[15px] min-h-[80px] p-3"
           />
+          <div className="flex flex-wrap gap-2">
+            {TAG_OPTIONS.map((tag) => {
+              const isSelected = selectedTags.includes(tag.name);
+              return (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => toggleTag(tag.name)}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
+                  style={{
+                    borderColor: tag.colour,
+                    backgroundColor: isSelected ? tag.colour : "transparent",
+                    color: isSelected ? "#fff" : "hsl(var(--muted-foreground))",
+                  }}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
           <Button
             className="w-full h-11 text-sm font-extrabold gap-2"
             onClick={handleSave}
