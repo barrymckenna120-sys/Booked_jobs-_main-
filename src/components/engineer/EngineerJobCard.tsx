@@ -50,22 +50,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showPayment, setShowPayment] = useState(false);
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
-  const [showMessageOffice, setShowMessageOffice] = useState(false);
-  
-  const { user } = useAuth();
-  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("engineers")
-      .select("name, rgi_number")
-      .eq("auth_user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
-      });
-  }, [user]);
+
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
