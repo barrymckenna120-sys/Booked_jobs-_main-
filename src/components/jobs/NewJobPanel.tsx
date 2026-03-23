@@ -496,6 +496,21 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     (engineerBlocksOnDate as any[]).map((b: any) => b.engineer_id)
   );
 
+  // Total slot capacity check from settings.job_time_blocks + opening_hours
+  const { data: settingsData } = useQuery({
+    queryKey: ["slot-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks, opening_hours").limit(1).single();
+      return {
+        slotMaxJobs: (data?.job_time_blocks as any[] | null) || [],
+        openingHours: (data?.opening_hours as any[] | null) || [],
+      };
+    },
+  });
+
+  const slotMaxJobs = settingsData?.slotMaxJobs || [];
+  const openingHours = settingsData?.openingHours || [];
+
   const TIME_BLOCKS = useMemo(() => buildTimeBlocks(slotMaxJobs), [slotMaxJobs]);
   const dbBlock = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || block;
 
@@ -515,21 +530,6 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     },
     enabled: !!date && !!block,
   });
-
-  // Total slot capacity check from settings.job_time_blocks + opening_hours
-  const { data: settingsData } = useQuery({
-    queryKey: ["slot-settings"],
-    queryFn: async () => {
-      const { data } = await supabase.from("settings").select("job_time_blocks, opening_hours").limit(1).single();
-      return {
-        slotMaxJobs: (data?.job_time_blocks as any[] | null) || [],
-        openingHours: (data?.opening_hours as any[] | null) || [],
-      };
-    },
-  });
-
-  const slotMaxJobs = settingsData?.slotMaxJobs || [];
-  const openingHours = settingsData?.openingHours || [];
 
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
