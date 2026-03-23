@@ -261,6 +261,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         jobId={job.id}
         officeUserId={job.user_id}
       />
+      {showCertificate && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => setShowCertificate(false)}
+        />
+      )}
     </>
   );
 };
