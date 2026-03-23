@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
 import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
