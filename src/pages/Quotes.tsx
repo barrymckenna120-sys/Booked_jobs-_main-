@@ -25,6 +25,8 @@ import { SendAllBanner, SendAllQuotesSheet, type UnsentQuote } from "@/component
 import { format } from "date-fns";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
+import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
+import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
 
 type Quote = {
   id: string;
