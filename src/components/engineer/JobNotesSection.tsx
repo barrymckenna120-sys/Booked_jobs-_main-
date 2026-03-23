@@ -15,12 +15,20 @@ interface Props {
   jobNotes?: string | null;
 }
 
+const TAG_OPTIONS = [
+  { name: "New Fitted", colour: "#4A86E8" },
+  { name: "Needs New Soon", colour: "#F59E0B" },
+  { name: "Under Warranty", colour: "#10B981" },
+];
+
 const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth("");
   const qc = useQueryClient();
 
   const { data: callNotes = [], refetch } = useQuery({
