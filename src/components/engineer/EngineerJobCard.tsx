@@ -112,6 +112,21 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
 
         <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} />
 
+        {/* Saved Tags */}
+        {jobTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {jobTags.map((tag: any) => (
+              <span
+                key={tag.name}
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style={{ backgroundColor: tag.colour }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Last Service Info */}
         <div className="flex gap-4 mb-3 text-xs">
           <div>
