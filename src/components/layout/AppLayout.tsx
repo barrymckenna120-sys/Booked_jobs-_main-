@@ -39,6 +39,7 @@ const MAIN_NAV = [
   { label: "Products", icon: Package, path: "/products" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
   { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
+  { label: "Message Log", icon: ScrollText, path: "/message-log" },
 ];
 
 const WHATSAPP_CHILDREN = [
