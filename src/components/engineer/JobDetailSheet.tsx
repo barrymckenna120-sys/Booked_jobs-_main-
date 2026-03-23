@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, MessageCircle } from "lucide-react";
@@ -36,6 +38,20 @@ interface Props {
 
 const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
   const s = STATUS_CONFIG[job.status] || STATUS_CONFIG.Scheduled;
+
+  const { data: jobTags = [] } = useQuery({
+    queryKey: ["job-detail-tags", job.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_call_tags")
+        .select("tag_id, job_tags(name, colour)")
+        .eq("service_call_id", job.id);
+      return (data || []).map((r: any) => ({
+        name: r.job_tags?.name,
+        colour: r.job_tags?.colour,
+      })).filter((t: any) => t.name);
+    },
+  });
 
   return (
     <EngineerSheet onClose={onClose}>
@@ -84,6 +100,20 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           <div className="bg-primary/5 rounded-xl p-3 mb-3.5">
             <div className="text-[11px] font-bold text-primary uppercase tracking-wider mb-0.5">🔑 Access Note</div>
             <div className="text-[13px] text-foreground">{customer.access_notes}</div>
+          </div>
+        )}
+
+        {jobTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3.5">
+            {jobTags.map((tag: any) => (
+              <span
+                key={tag.name}
+                className="px-3 py-1 rounded-full text-xs font-semibold text-white"
+                style={{ backgroundColor: tag.colour }}
+              >
+                {tag.name}
+              </span>
+            ))}
           </div>
         )}
 
