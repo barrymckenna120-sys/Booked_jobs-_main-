@@ -528,6 +528,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           onClose={() => setShowExtraWork(false)}
         />
       )}
+      {showCertificate && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCertificate(false); fetchJob(); }}
+        />
+      )}
 
       {/* Reschedule Dialog */}
       <Dialog open={showReschedule} onOpenChange={setShowReschedule}>
