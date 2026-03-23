@@ -27,6 +27,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
     business_email: "",
     website: "",
     vat_number: "",
+    rgi_number: "",
     business_address: "",
     invoice_prefix: "K",
     next_invoice_number: 1,
