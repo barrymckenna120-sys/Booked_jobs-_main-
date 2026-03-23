@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import CancelSheet from "@/components/engineer/CancelSheet";
@@ -54,6 +54,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [job, setJob] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [callNotes, setCallNotes] = useState<any[]>([]);
+  const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [showComplete, setShowComplete] = useState(false);
@@ -102,13 +103,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     setJob(jobData);
 
-    const [custRes, notesRes] = await Promise.all([
+    const [custRes, notesRes, certRes] = await Promise.all([
       supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
       supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
+      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
     ]);
 
     if (custRes.data) setCustomer(custRes.data);
     if (notesRes.data) setCallNotes(notesRes.data);
+    setCertificate(certRes.data || null);
     setLoading(false);
   };
 
@@ -478,13 +481,22 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               </div>
             </div>
             
-            <Button
-              className="w-full h-14 text-lg font-extrabold gap-2 text-white"
-              style={{ backgroundColor: "#1e3a5f" }}
-              onClick={() => setShowCertificate(true)}
-            >
-              <FileText className="w-5 h-5" /> Generate Certificate
-            </Button>
+            {certificate?.pdf_url ? (
+              <Button
+                className="w-full h-14 text-lg font-extrabold gap-2 text-white bg-success hover:bg-success/90"
+                onClick={() => window.open(certificate.pdf_url!, "_blank")}
+              >
+                <Eye className="w-5 h-5" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+              </Button>
+            ) : (
+              <Button
+                className="w-full h-14 text-lg font-extrabold gap-2 text-white"
+                style={{ backgroundColor: "#1e3a5f" }}
+                onClick={() => setShowCertificate(true)}
+              >
+                <FileText className="w-5 h-5" /> Generate Certificate
+              </Button>
+            )}
           </div>
         )}
       </div>
