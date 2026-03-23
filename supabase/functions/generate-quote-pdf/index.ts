@@ -361,7 +361,7 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     {
       const ref = { y };
-      ensureSpace(34, ref);
+      ensureSpace(28, ref);
       y = ref.y;
 
       const ptLines: string[] = [];
@@ -369,25 +369,25 @@ Deno.serve(async (req) => {
       ptLines.push("Balance due: On completion");
       ptLines.push("Install window: 3-5 working days");
 
-      const boxH = 10 + ptLines.length * 5;
+      const boxH = 8 + ptLines.length * 4.5;
       doc.setFillColor(lightBlue);
       doc.roundedRect(M, y, CW, boxH, 2, 2, "F");
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(headerBlue);
-      doc.text("PAYMENT TERMS", M + 5, y + 6);
+      doc.text("PAYMENT TERMS", M + 5, y + 5);
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
-      let py = y + 12;
+      let py = y + 10;
       ptLines.forEach((line) => {
         doc.text(`• ${line}`, M + 5, py);
-        py += 5;
+        py += 4.5;
       });
 
-      y += boxH + 8;
+      y += boxH + 5;
     }
 
     // ═══════════════════════════════════════════════════
