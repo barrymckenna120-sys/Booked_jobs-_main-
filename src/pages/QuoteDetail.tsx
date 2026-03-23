@@ -30,7 +30,6 @@ const QuoteDetail = () => {
   const navigate = useNavigate();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const queryClient = useQueryClient();
-  const [converting, setConverting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
