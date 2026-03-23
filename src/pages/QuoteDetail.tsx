@@ -324,16 +324,34 @@ const QuoteDetail = () => {
         </Button>
         <Button
           variant="outline"
-          onClick={() => {
-            if (q.pdf_url) {
-              window.open(q.pdf_url, "_blank");
-            } else {
+          onClick={async () => {
+            if (!q.pdf_url) {
               toast({ title: "No PDF found. Please regenerate." });
+              return;
+            }
+            setDownloadingPdf(true);
+            try {
+              const response = await fetch(q.pdf_url);
+              if (!response.ok) throw new Error("Failed to fetch");
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = (q.quote_number || "quote") + ".pdf";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+            } catch {
+              toast({ title: "Download failed. Please try again.", variant: "destructive" });
+            } finally {
+              setDownloadingPdf(false);
             }
           }}
-          disabled={!q.pdf_url}
+          disabled={!q.pdf_url || downloadingPdf}
         >
-          <Download className="w-4 h-4 mr-1" /> Download PDF
+          {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Download className="w-4 h-4 mr-1" />}
+          {downloadingPdf ? "Downloading..." : "Download PDF"}
         </Button>
         <Button variant="outline" onClick={sendWhatsApp} disabled={sendingWhatsApp}>
           {sendingWhatsApp ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageCircle className="w-4 h-4 mr-1" />}

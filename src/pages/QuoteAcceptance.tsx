@@ -365,21 +365,41 @@ const QuoteAcceptance = () => {
             )}
 
             {quote.pdf_url && (
-              <a
-                href={quote.pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={async () => {
+                  setDownloadingPdf(true);
+                  try {
+                    const response = await fetch(quote.pdf_url!);
+                    if (!response.ok) throw new Error("Failed");
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = (quote.quote_number || "quote") + ".pdf";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                  } catch {
+                    // silent fail on public page
+                  } finally {
+                    setDownloadingPdf(false);
+                  }
+                }}
+                disabled={downloadingPdf}
                 style={{
                   width: "100%", minHeight: 52, borderRadius: 10,
                   border: "2px solid #e5e7eb", backgroundColor: "transparent",
-                  color: "#374151", fontSize: 16, fontWeight: 500, cursor: "pointer",
+                  color: "#374151", fontSize: 16, fontWeight: 500,
+                  cursor: downloadingPdf ? "not-allowed" : "pointer", opacity: downloadingPdf ? 0.7 : 1,
                   marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  textDecoration: "none", boxSizing: "border-box",
                 }}
               >
-                <Download style={{ width: 16, height: 16 }} />
-                Download Quote PDF
-              </a>
+                {downloadingPdf
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Download style={{ width: 16, height: 16 }} />}
+                {downloadingPdf ? "Downloading..." : "Download Quote PDF"}
+              </button>
             )}
 
             <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 14 }}>
