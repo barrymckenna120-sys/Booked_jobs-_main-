@@ -496,6 +496,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     (engineerBlocksOnDate as any[]).map((b: any) => b.engineer_id)
   );
 
+  const TIME_BLOCKS = useMemo(() => buildTimeBlocks(slotMaxJobs), [slotMaxJobs]);
   const dbBlock = TIME_BLOCKS.find((t) => t.id === block)?.dbValue || block;
 
   // Get job counts for selected date + block per engineer
