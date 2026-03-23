@@ -204,6 +204,46 @@ const EngineerAvailability = () => {
 
           {currentEngineer && (
             <>
+              {/* RGI Number */}
+              <Card className="shadow-sm">
+                <CardContent className="pt-5 pb-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">
+                    RGI Number — {currentEngineer.name}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      value={currentEngineer.rgi_number ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEngineers((prev) =>
+                          prev.map((eng) =>
+                            eng.id === currentEngineer.id ? { ...eng, rgi_number: val || null } : eng
+                          )
+                        );
+                      }}
+                      placeholder="e.g. 12345"
+                      className="max-w-xs"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("engineers")
+                          .update({ rgi_number: currentEngineer.rgi_number } as any)
+                          .eq("id", currentEngineer.id);
+                        if (error) {
+                          toast({ title: "Error saving RGI", description: error.message, variant: "destructive" });
+                        } else {
+                          toast({ title: "RGI number saved" });
+                        }
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Working Days */}
               <Card className="shadow-sm">
                 <CardContent className="pt-5 pb-4">
