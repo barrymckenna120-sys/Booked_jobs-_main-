@@ -162,6 +162,7 @@ const Jobs = () => {
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="incomplete,cancelled">Incomplete & Cancelled</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
             <SelectItem value="Scheduled">Scheduled</SelectItem>
             <SelectItem value="Booked">Booked</SelectItem>
             <SelectItem value="En Route">En Route</SelectItem>
