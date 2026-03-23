@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -296,7 +297,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
 
   // ─── Success Screen ────────────
   if (step === 5) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[900] bg-background flex flex-col items-center justify-center px-6 text-center gap-4">
         <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: `${ACCENT}20` }}>
           <CheckCircle2 className="w-10 h-10" style={{ color: ACCENT }} />
@@ -342,11 +343,12 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
         <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
           Back to Job
         </Button>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[900] bg-background flex flex-col overflow-hidden">
       <ProgressBar />
 
@@ -512,7 +514,8 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 
