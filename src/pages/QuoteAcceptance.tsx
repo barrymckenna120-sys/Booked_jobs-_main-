@@ -41,8 +41,26 @@ const QuoteAcceptance = () => {
   const fetchQuote = async () => {
     const { data: result, error } = await supabase.rpc("get_quote_public", { p_quote_id: quoteId });
     if (error || !result || !(result as any).quote) { setLoading(false); return; }
-    setData(result as unknown as PublicQuoteData);
+    const publicData = result as unknown as PublicQuoteData;
+    setData(publicData);
     setLoading(false);
+
+    // Silently mark as viewed if currently 'Sent' or 'sent'
+    const s = publicData.quote.status;
+    if (s === "Sent" || s === "sent") {
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/mark_quote_viewed`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ p_quote_id: quoteId }),
+        }
+      ).catch(() => {});
+    }
   };
 
   /* ── Derived ────────────────────────────────────────── */
