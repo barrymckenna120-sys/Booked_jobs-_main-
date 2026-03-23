@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileText, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
+import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",
