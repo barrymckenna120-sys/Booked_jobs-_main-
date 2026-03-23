@@ -84,7 +84,7 @@ const Jobs = () => {
     return sortDir === "asc" ? <ArrowUp className="w-3.5 h-3.5 ml-1" /> : <ArrowDown className="w-3.5 h-3.5 ml-1" />;
   };
 
-  const INCOMPLETE_STATUSES = ["Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
+  const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
 
   const filtered = jobs
     .filter(j => {
@@ -127,6 +127,7 @@ const Jobs = () => {
 
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
+      Pending: "badge-due-soon",
       Scheduled: "badge-scheduled",
       Booked: "badge-scheduled",
       "En Route": "badge-due-soon",
@@ -138,7 +139,7 @@ const Jobs = () => {
       no_show: "badge-overdue",
       parts_needed: "badge-due-soon",
     };
-    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status;
+    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "Pending" ? "Pending" : status;
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
@@ -161,6 +162,7 @@ const Jobs = () => {
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="incomplete,cancelled">Incomplete & Cancelled</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
             <SelectItem value="Scheduled">Scheduled</SelectItem>
             <SelectItem value="Booked">Booked</SelectItem>
             <SelectItem value="En Route">En Route</SelectItem>
@@ -178,6 +180,8 @@ const Jobs = () => {
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="Boiler Service">Boiler Service</SelectItem>
+            <SelectItem value="Boiler Replacement">Boiler Replacement</SelectItem>
+            <SelectItem value="Boiler Installation">Boiler Installation</SelectItem>
             <SelectItem value="Repair">Repair</SelectItem>
             <SelectItem value="Emergency">Emergency</SelectItem>
           </SelectContent>
