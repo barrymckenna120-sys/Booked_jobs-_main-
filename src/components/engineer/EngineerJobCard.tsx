@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
 import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
@@ -53,6 +54,16 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showMessageOffice, setShowMessageOffice] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
+  const { data: jobTags = [] } = useQuery({
+    queryKey: ["job-card-tags", job.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_call_tags")
+        .select("tag_id, job_tags(name, colour)")
+        .eq("service_call_id", job.id);
+      return (data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name);
+    },
+  });
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
 
@@ -100,6 +111,21 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         )}
 
         <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} />
+
+        {/* Saved Tags */}
+        {jobTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {jobTags.map((tag: any) => (
+              <span
+                key={tag.name}
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style={{ backgroundColor: tag.colour }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Last Service Info */}
         <div className="flex gap-4 mb-3 text-xs">
