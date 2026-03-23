@@ -287,6 +287,23 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
         <h1 className="text-2xl font-extrabold text-foreground">Certificate Created</h1>
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{customer.name}</p>
+
+        {pdfUrl ? (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white"
+            style={{ backgroundColor: "#22c55e" }}
+          >
+            <CheckCircle2 className="w-4 h-4" /> PDF Ready — View
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Generating PDF…
+          </div>
+        )}
+
         <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
           Back to Job
         </Button>
