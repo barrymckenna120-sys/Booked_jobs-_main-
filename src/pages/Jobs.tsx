@@ -27,6 +27,7 @@ type Job = {
   receipt_sent: boolean;
   revenue: number | null;
   user_id: string;
+  source: string | null;
   customer_name?: string;
 };
 
