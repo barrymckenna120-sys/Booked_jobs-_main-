@@ -297,9 +297,11 @@ const Quotes = () => {
         },
       });
       if (error || !data?.success) {
-        toast({ title: "Resend failed", description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+        const errorDetail = data?.error_detail || data?.error || error?.message || "Unknown error";
+        const errorType = classifyWhatsAppError(errorDetail);
+        toast(getWhatsAppErrorToast(errorType, selected.customers.name, errorDetail));
       } else {
-        toast({ title: "Updated quote resent via WhatsApp ✅" });
+        toast({ title: `WhatsApp sent successfully to ${selected.customers.name} ✅`, duration: 4000 });
         fetchQuotes();
       }
     } catch (err: any) {
