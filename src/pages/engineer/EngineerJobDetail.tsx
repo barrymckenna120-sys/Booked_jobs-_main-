@@ -477,6 +477,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
                 )}
               </div>
             </div>
+            <div className="text-xs font-mono bg-destructive/10 text-destructive p-2 rounded">DEBUG STATUS: {job.status}</div>
             <Button
               className="w-full h-14 text-lg font-extrabold gap-2"
               style={{ backgroundColor: "#4A86E8" }}
