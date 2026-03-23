@@ -197,7 +197,10 @@ const EngineerAvailability = () => {
                 className="gap-2"
               >
                 <Wrench className="w-4 h-4" />
-                {eng.name}
+                <span className="flex flex-col items-start leading-tight">
+                  <span>{eng.name}</span>
+                  {eng.rgi_number && <span className="text-[10px] font-normal text-muted-foreground">RGI: {eng.rgi_number}</span>}
+                </span>
               </Button>
             ))}
           </div>
