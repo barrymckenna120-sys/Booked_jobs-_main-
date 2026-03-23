@@ -27,6 +27,7 @@ type Job = {
   receipt_sent: boolean;
   revenue: number | null;
   user_id: string;
+  source: string | null;
   customer_name?: string;
 };
 
@@ -220,6 +221,7 @@ const Jobs = () => {
                     <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
                       <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
                     </TableHead>
+                    <TableHead className="hidden md:table-cell">Source</TableHead>
                     <TableHead className="hidden md:table-cell">Quote</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead className="w-[100px]">Receipt</TableHead>
@@ -240,6 +242,15 @@ const Jobs = () => {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
                       <TableCell>{statusBadge(j.status)}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {j.source === "Quote" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
+                        ) : j.source === "Tally" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">Tally</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
+                        )}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
                       <TableCell>
                         {j.payment_method === "cash" ? (
