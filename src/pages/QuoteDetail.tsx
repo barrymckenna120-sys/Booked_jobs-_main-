@@ -311,11 +311,15 @@ const QuoteDetail = () => {
           {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
           {q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
         </Button>
-        {q.pdf_url && (
+        {q.pdf_url ? (
           <Button variant="outline" asChild>
             <a href={q.pdf_url} target="_blank" rel="noopener noreferrer">
               <Download className="w-4 h-4 mr-1" /> Download PDF
             </a>
+          </Button>
+        ) : (
+          <Button variant="outline" disabled title="Generate PDF first">
+            <Download className="w-4 h-4 mr-1" /> Download PDF
           </Button>
         )}
         {q.pdf_url && (
