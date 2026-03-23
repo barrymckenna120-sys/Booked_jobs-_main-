@@ -19,7 +19,7 @@ type PublicQuoteData = {
   quote: QuoteData; customer_name: string | null; customer_address: string | null;
   customer_phone: string | null;
   business_name: string; business_phone: string | null; business_address: string | null;
-  whatsapp_number: string | null;
+  rgi_number: string | null; whatsapp_number: string | null;
   logo_url: string | null; line_items: LineItem[];
 };
 
