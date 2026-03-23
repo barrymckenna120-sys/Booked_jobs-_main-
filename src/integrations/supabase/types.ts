@@ -1528,6 +1528,7 @@ export type Database = {
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
+      get_quote_by_number: { Args: { p_quote_number: string }; Returns: Json }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       mark_quote_viewed: { Args: { p_quote_id: string }; Returns: undefined }

@@ -48,6 +48,7 @@ import QuoteNew from "./pages/QuoteNew";
 import QuoteEdit from "./pages/QuoteEdit";
 import QuoteDetail from "./pages/QuoteDetail";
 import MessageLog from "./pages/MessageLog";
+import PdfRedirect from "./pages/PdfRedirect";
 const queryClient = new QueryClient();
 
 /**
@@ -133,7 +134,8 @@ const App = () => (
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
             <Route path="/receipt/:id" element={<ServiceReceipt />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
-            <Route path="/quote/:quoteId" element={<QuoteAcceptance />} />
+            <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
+            <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
