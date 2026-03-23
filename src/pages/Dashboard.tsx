@@ -86,6 +86,9 @@ const Dashboard = () => {
       {/* Jobs Update */}
       <JobsUpdateSection />
 
+      {/* Message Log */}
+      <MessageLogWidget />
+
       {/* Needs Attention */}
       <AlertsPanel />
 

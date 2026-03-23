@@ -121,6 +121,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/import" element={<ImportCustomers />} />
               <Route path="/system-logs" element={<SystemLogs />} />
+              <Route path="/message-log" element={<MessageLog />} />
             </Route>
             {/* Engineer Mode */}
             <Route path="/engineer" element={<EngineerLayout />}>
