@@ -310,8 +310,9 @@ const QuoteDetail = () => {
                 toast({ title: "PDF generation failed. Please try again.", description: result?.error, variant: "destructive" });
               } else {
                 await supabase.from("quotes").update({ pdf_url: result.pdf_url } as any).eq("id", id);
-                toast({ title: "PDF regenerated successfully" });
+                toast({ title: "PDF regenerated — opening preview" });
                 queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+                window.open(result.pdf_url, "_blank");
               }
             } catch (err: any) {
               toast({ title: "PDF generation failed. Please try again.", variant: "destructive" });
