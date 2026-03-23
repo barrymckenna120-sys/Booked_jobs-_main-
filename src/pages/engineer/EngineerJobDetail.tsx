@@ -74,6 +74,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (user && id) fetchJob();
   }, [user, id]);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name, rgi_number")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
+      });
+  }, [user]);
+
   const fetchJob = async () => {
     setLoading(true);
     const { data: jobData } = await supabase
