@@ -102,9 +102,9 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
                   type="button"
                   onClick={() => toggleTag(tag.name)}
                   className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
-                  style={{
+                   style={{
                     borderColor: tag.colour,
-                    backgroundColor: isSelected ? tag.colour : "#fff",
+                    backgroundColor: isSelected ? tag.colour : "transparent",
                     color: isSelected ? "#fff" : tag.colour,
                   }}
                 >
