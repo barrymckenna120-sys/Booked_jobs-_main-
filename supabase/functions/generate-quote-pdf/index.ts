@@ -389,7 +389,7 @@ Deno.serve(async (req) => {
     doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
 
     // Accept URL
-    const acceptUrl = `bookedjobs.ie/quote/${quote.id}`;
+    const acceptUrl = `kngasservices.bookedjobs.ie/quote/${quote.id}`;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(primary);

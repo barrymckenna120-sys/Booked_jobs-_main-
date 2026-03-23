@@ -39,7 +39,7 @@ serve(async (req) => {
     const companyName = business_name || "Karl's Gas";
     const deposit = Number(deposit_amount || 0);
 
-    const acceptUrl = `https://bookedjobs.ie/quote/${quote_id}`;
+    const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${quote_id}`;
 
     let message = `Hi ${firstName},
 
