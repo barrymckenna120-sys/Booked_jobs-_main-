@@ -306,27 +306,30 @@ Deno.serve(async (req) => {
     }
 
     // "No hidden costs" text
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(grey);
     doc.text("No hidden costs. Fixed price.", tLabelX, y);
-    y += 8;
+    y += 5;
 
-    drawLine(y); y += 8;
+    drawLine(y); y += 5;
 
     // ═══════════════════════════════════════════════════
-    // WHAT'S INCLUDED
+    // WHAT'S INCLUDED (only for installation/replacement)
     // ═══════════════════════════════════════════════════
-    {
+    const jobTypeLower = (quote.job_type || "").toLowerCase();
+    const isInstallation = jobTypeLower.includes("install") || jobTypeLower.includes("replacement") || jobTypeLower.includes("boiler_replacement");
+
+    if (isInstallation) {
       const ref = { y };
-      ensureSpace(30, ref);
+      ensureSpace(26, ref);
       y = ref.y;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
       doc.text("WHAT'S INCLUDED", M, y);
-      y += 6;
+      y += 5;
 
       const inclItems = [
         "Full installation",
@@ -334,25 +337,23 @@ Deno.serve(async (req) => {
         "Old unit removal",
         "Clean-up included",
       ];
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(dark);
+      doc.setFontSize(9);
       inclItems.forEach((item) => {
         doc.setFillColor(green);
-        doc.circle(M + 3.5, y - 1.2, 2, "F");
-        doc.setFontSize(7);
+        doc.circle(M + 3.5, y - 1.2, 1.8, "F");
+        doc.setFontSize(6.5);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(white);
-        doc.text("Y", M + 2.4, y);
-        doc.setFontSize(10);
+        doc.text("Y", M + 2.5, y);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(dark);
         doc.text(item, M + 9, y);
-        y += 5.5;
+        y += 4.5;
       });
 
-      y += 4;
-      drawLine(y); y += 8;
+      y += 2;
+      drawLine(y); y += 5;
     }
 
     // ═══════════════════════════════════════════════════
