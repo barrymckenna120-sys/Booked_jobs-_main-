@@ -9,13 +9,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Search, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
-const FILTERS = ["All", "Draft", "Sent", "Accepted", "expired"];
+const FILTERS = ["All", "Draft", "Sent", "Viewed", "Accepted", "expired"];
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",
   draft: "bg-muted text-muted-foreground",
   Sent: "bg-primary/10 text-primary",
   sent: "bg-primary/10 text-primary",
+  viewed: "bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))]",
+  Viewed: "bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))]",
   Accepted: "bg-[hsl(142,76%,92%)] text-[hsl(142,72%,29%)]",
   accepted: "bg-[hsl(142,76%,92%)] text-[hsl(142,72%,29%)]",
   expired: "bg-destructive/10 text-destructive",
@@ -47,6 +49,7 @@ const QuotesList = () => {
     if (filter !== "All") {
       const matchStatuses = filter === "Draft" ? ["Draft", "draft"] :
         filter === "Sent" ? ["Sent", "sent"] :
+        filter === "Viewed" ? ["viewed", "Viewed"] :
         filter === "Accepted" ? ["Accepted", "accepted"] :
         filter === "expired" ? ["expired"] : [filter];
       if (!matchStatuses.includes(q.status)) return false;
@@ -64,6 +67,7 @@ const QuotesList = () => {
     All: quotes.length,
     Draft: quotes.filter((q: any) => ["Draft", "draft"].includes(q.status)).length,
     Sent: quotes.filter((q: any) => ["Sent", "sent"].includes(q.status)).length,
+    Viewed: quotes.filter((q: any) => ["viewed", "Viewed"].includes(q.status)).length,
     Accepted: quotes.filter((q: any) => ["Accepted", "accepted"].includes(q.status)).length,
     expired: quotes.filter((q: any) => q.status === "expired").length,
   };
