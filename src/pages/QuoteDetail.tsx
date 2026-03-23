@@ -260,10 +260,11 @@ const QuoteDetail = () => {
       {/* Dates & Meta */}
       <Card className="mb-6">
         <CardContent className="p-4 space-y-1 text-sm">
-          {q.expiry_date && <p><span className="text-muted-foreground">Expires:</span> {format(new Date(q.expiry_date), "dd MMM yyyy")}</p>}
-          {q.sent_at && <p><span className="text-muted-foreground">Sent:</span> {format(new Date(q.sent_at), "dd MMM yyyy 'at' HH:mm")}</p>}
-          {q.accepted_at && <p><span className="text-muted-foreground">Accepted:</span> {format(new Date(q.accepted_at), "dd MMM yyyy 'at' HH:mm")}</p>}
           <p><span className="text-muted-foreground">Created:</span> {format(new Date(q.created_at), "dd MMM yyyy")}</p>
+          {q.sent_at && <p><span className="text-muted-foreground">Sent:</span> {format(new Date(q.sent_at), "dd MMMM yyyy HH:mm")}</p>}
+          {q.viewed_at && <p><span className="text-muted-foreground">Viewed:</span> {format(new Date(q.viewed_at), "dd MMMM yyyy HH:mm")}</p>}
+          {q.accepted_at && <p><span className="text-muted-foreground">Accepted:</span> {format(new Date(q.accepted_at), "dd MMMM yyyy HH:mm")}</p>}
+          {q.expiry_date && <p><span className="text-muted-foreground">Expires:</span> {format(new Date(q.expiry_date), "dd MMMM yyyy")}</p>}
         </CardContent>
       </Card>
 
