@@ -262,15 +262,6 @@ const ServiceReceipt = () => {
         </div>
       </div>
 
-      {showCertificate && (
-        <CertificateFlow
-          job={job}
-          customer={customer}
-          engineerName={engineerInfo.name}
-          engineerRgi={engineerInfo.rgi_number}
-          onClose={() => setShowCertificate(false)}
-        />
-      )}
     </div>
   );
 };
