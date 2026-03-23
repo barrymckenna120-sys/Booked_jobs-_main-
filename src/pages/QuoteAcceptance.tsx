@@ -355,10 +355,18 @@ const QuoteAcceptance = () => {
               ✅ Approve Quote
             </button>
 
-            {deposit > 0 && (
+            {deposit > 0 && !approveError && (
               <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 10 }}>
                 Deposit required to confirm your booking
               </p>
+            )}
+
+            {approveError && (
+              <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: 16, textAlign: "center", marginTop: 12 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>Something went wrong</p>
+                <p style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Please call us directly to confirm your quote.</p>
+                {contactNum && <p style={{ fontSize: 14, fontWeight: 600, color: "#111", marginTop: 8 }}>{contactNum}</p>}
+              </div>
             )}
 
             {deposit > 0 && !depositTapped && (
