@@ -47,6 +47,7 @@ import QuotesList from "./pages/QuotesList";
 import QuoteNew from "./pages/QuoteNew";
 import QuoteEdit from "./pages/QuoteEdit";
 import QuoteDetail from "./pages/QuoteDetail";
+import MessageLog from "./pages/MessageLog";
 const queryClient = new QueryClient();
 
 /**
