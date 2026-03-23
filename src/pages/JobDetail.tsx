@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText } from "lucide-react";
+import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
@@ -119,6 +119,7 @@ const JobDetail = () => {
   const [reassignLoading, setReassignLoading] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
   const [assignedEngineerAuth, setAssignedEngineerAuth] = useState<string | null>(null);
+  const [certificate, setCertificate] = useState<{ cert_number: string; pdf_url: string | null; created_at: string } | null>(null);
 
   // Fetch assigned engineer's auth_user_id for messaging
   useEffect(() => {
@@ -130,7 +131,12 @@ const JobDetail = () => {
   }, [job?.assigned_engineer_id]);
 
   useEffect(() => {
-    if (user && id) fetchJob();
+    if (user && id) {
+      fetchJob();
+      supabase.from("certificates").select("cert_number, pdf_url, created_at").eq("job_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle().then(({ data }) => {
+        if (data) setCertificate(data);
+      });
+    }
   }, [user, id]);
 
   useEffect(() => {
@@ -419,6 +425,28 @@ const JobDetail = () => {
                 <span className="text-muted-foreground">Collected:</span>{" "}
                 <span className="font-semibold">{new Date((job as any).paid_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* View Certificate */}
+      {job.status === "Completed" && certificate && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-primary" />
+              <div>
+                <div className="text-sm font-extrabold">{certificate.cert_number}</div>
+                <div className="text-xs text-muted-foreground">{new Date(certificate.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" })}</div>
+              </div>
+            </div>
+            {certificate.pdf_url ? (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.open(certificate.pdf_url!, "_blank")}>
+                <ExternalLink className="w-3.5 h-3.5" /> View Certificate
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">PDF pending…</span>
             )}
           </CardContent>
         </Card>
