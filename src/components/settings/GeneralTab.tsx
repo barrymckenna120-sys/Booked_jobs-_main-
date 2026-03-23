@@ -140,6 +140,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
             <div><Label>Business Email</Label><Input value={form.business_email} onChange={(e) => set("business_email", e.target.value)} placeholder="info@karls.ie" /></div>
             <div><Label>Website</Label><Input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://karls.ie" /></div>
             <div><Label>VAT Number</Label><Input value={form.vat_number} onChange={(e) => set("vat_number", e.target.value)} placeholder="IE1234567T" /></div>
+            <div><Label>RGI Number</Label><Input value={form.rgi_number} onChange={(e) => set("rgi_number", e.target.value)} placeholder="R-1899" /></div>
           </div>
           <div><Label>Business Address</Label><Textarea value={form.business_address} onChange={(e) => set("business_address", e.target.value)} placeholder="Enter your business address" rows={3} /></div>
         </CardContent>
