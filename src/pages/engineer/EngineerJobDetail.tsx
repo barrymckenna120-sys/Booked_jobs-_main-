@@ -54,6 +54,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [job, setJob] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [callNotes, setCallNotes] = useState<any[]>([]);
+  const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [showComplete, setShowComplete] = useState(false);
