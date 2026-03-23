@@ -77,41 +77,7 @@ const QuoteDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
 
       // Send WhatsApp office alert (best-effort)
-      try {
-        const qw: any = quote;
-        const cust: any = qw.customers;
-        const officeNum = settings?.whatsapp_number || settings?.business_phone;
-        if (officeNum) {
-          const quoteNum = qw.quote_number || `Q-${id.slice(0, 4).toUpperCase()}`;
-          const totalAmt = Number(qw.total_amount || 0).toFixed(2);
-          const depositAmt = Number(qw.deposit || qw.deposit_amount || 0).toFixed(2);
-          const alertMsg = `✅ Quote Accepted\n\nCustomer: ${cust?.name || 'Customer'}\nQuote: ${quoteNum}\nTotal: €${totalAmt}\nDeposit: €${depositAmt}\n\nJob has been created — open BookedJobs to schedule.`;
-
-          const cleanNumber = officeNum.replace(/^\+/, "");
-          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-          const formData = new FormData();
-          formData.append("phonenumber", cleanNumber);
-          formData.append("text", alertMsg);
-
-          // Use the send-quote-whatsapp-like direct API call pattern isn't available from client
-          // Instead invoke a lightweight edge function
-          await supabase.functions.invoke("send-quote-whatsapp", {
-            body: {
-              quote_id: id,
-              customer_name: "Office Alert",
-              mobile_number: officeNum,
-              job_description: "Quote Acceptance Alert",
-              quote_amount: 0,
-              business_name: settings?.business_name,
-              _internal_alert: true,
-              _alert_message: alertMsg,
-            },
-          });
-        }
-      } catch (_) {
-        // WhatsApp alert is best-effort
-      }
+      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }

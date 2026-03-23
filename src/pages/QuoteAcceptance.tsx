@@ -147,6 +147,8 @@ const QuoteAcceptance = () => {
   const handleApprove = async () => {
     setActionLoading(true);
     await supabase.rpc("respond_to_quote", { p_quote_id: quote.id, p_accepted: true });
+    // Send WhatsApp office alert (best-effort)
+    supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: quote.id } }).catch(() => {});
     setAccepted(true);
     setActionLoading(false);
   };
