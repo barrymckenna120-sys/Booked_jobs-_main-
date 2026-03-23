@@ -395,21 +395,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     if (quote.notes) {
       const ref = { y };
-      ensureSpace(16, ref);
+      ensureSpace(12, ref);
       y = ref.y;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
       doc.text("NOTES", M, y);
-      y += 5;
+      y += 4;
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
       const nLines = doc.splitTextToSize(quote.notes, CW);
       doc.text(nLines, M, y);
-      y += nLines.length * 4 + 6;
+      y += nLines.length * 3.5 + 4;
     }
 
     // ═══════════════════════════════════════════════════
@@ -417,21 +417,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     if (quote.terms) {
       const ref = { y };
-      ensureSpace(16, ref);
+      ensureSpace(12, ref);
       y = ref.y;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
       doc.text("TERMS & CONDITIONS", M, y);
-      y += 5;
+      y += 4;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(grey);
       const tLines = doc.splitTextToSize(quote.terms, CW);
       doc.text(tLines, M, y);
-      y += tLines.length * 3.5 + 6;
+      y += tLines.length * 3 + 4;
     }
 
     // ── Page 1 footer ──
