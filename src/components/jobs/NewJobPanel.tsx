@@ -863,7 +863,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 }) => {
   const navigate = useNavigate();
   const eng = engineers.find((e: any) => e.id === jobData.schedule?.engineerId);
-  const tb = TIME_BLOCKS.find((t) => t.id === jobData.schedule?.timeBlock);
+  const tb = DEFAULT_TIME_BLOCKS.find((t) => t.id === jobData.schedule?.timeBlock) || { label: jobData.schedule?.timeBlock };
   const jt = JOB_TYPES.find((j) => j.id === jobData.job?.jobType);
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEEE d MMMM"); } catch { return ""; } })();
 
