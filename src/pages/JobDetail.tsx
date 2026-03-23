@@ -131,7 +131,12 @@ const JobDetail = () => {
   }, [job?.assigned_engineer_id]);
 
   useEffect(() => {
-    if (user && id) fetchJob();
+    if (user && id) {
+      fetchJob();
+      supabase.from("certificates").select("cert_number, pdf_url, created_at").eq("job_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle().then(({ data }) => {
+        if (data) setCertificate(data);
+      });
+    }
   }, [user, id]);
 
   useEffect(() => {
