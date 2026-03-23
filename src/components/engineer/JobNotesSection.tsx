@@ -46,23 +46,29 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
     },
   });
 
+  const toggleTag = (name: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
+
   const handleSave = async () => {
     if (!note.trim()) return;
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const userId = user?.id;
+      if (!userId) throw new Error("Not authenticated");
 
       // Get engineer display name
       const { data: eng } = await supabase
         .from("engineers")
         .select("name")
-        .eq("auth_user_id", user.id)
+        .eq("auth_user_id", userId)
         .maybeSingle();
 
       const { error } = await supabase.from("customer_call_notes").insert({
         customer_id: customerId,
-        user_id: user.id,
+        user_id: userId,
         note: note.trim(),
         created_by_name: eng?.name || "Engineer",
         service_call_id: jobId,
@@ -70,7 +76,38 @@ const JobNotesSection = ({ jobId, customerId, jobNotes }: Props) => {
 
       if (error) throw error;
 
+      // Save selected tags
+      if (selectedTags.length > 0) {
+        const { data: tagRows } = await supabase
+          .from("job_tags")
+          .select("id, name")
+          .in("name", selectedTags);
+
+        if (tagRows && tagRows.length > 0) {
+          // Get existing tags for this job to skip duplicates
+          const { data: existing } = await supabase
+            .from("service_call_tags")
+            .select("tag_id")
+            .eq("service_call_id", jobId);
+
+          const existingIds = new Set((existing || []).map((e) => e.tag_id));
+
+          const inserts = tagRows
+            .filter((t) => !existingIds.has(t.id))
+            .map((t) => ({
+              service_call_id: jobId,
+              tag_id: t.id,
+              added_by: userId,
+            }));
+
+          if (inserts.length > 0) {
+            await supabase.from("service_call_tags").insert(inserts as any);
+          }
+        }
+      }
+
       setNote("");
+      setSelectedTags([]);
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2000);
       refetch();
