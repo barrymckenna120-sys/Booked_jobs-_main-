@@ -230,7 +230,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const todayStr = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-8">
+    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
       {/* Compact header */}
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
