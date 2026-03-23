@@ -321,7 +321,13 @@ const QuoteDetail = () => {
           }}
         >
           {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
-          {q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
+          {generatingPdf ? "Generating..." : q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
+        </Button>
+        {q.pdf_url && (
+          <Button variant="outline" onClick={() => window.open(q.pdf_url, "_blank")}>
+            <Eye className="w-4 h-4 mr-1" /> Preview PDF
+          </Button>
+        )}
         </Button>
         <Button
           variant="outline"
