@@ -54,6 +54,16 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showMessageOffice, setShowMessageOffice] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
+  const { data: jobTags = [] } = useQuery({
+    queryKey: ["job-card-tags", job.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_call_tags")
+        .select("tag_id, job_tags(name, colour)")
+        .eq("service_call_id", job.id);
+      return (data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name);
+    },
+  });
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
 
