@@ -24,6 +24,8 @@ serve(async (req) => {
       business_name,
       pdf_url,
       quote_number,
+      customer_id,
+      sent_by_user_id,
     } = await req.json();
 
     if (!quote_id || !customer_name || !mobile_number || quote_amount == null) {
@@ -71,6 +73,34 @@ ${acceptUrl}`;
       message += `\n📞 ${business_phone}`;
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    // Log pending message
+    const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "apikey": supabaseKey!,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+      },
+      body: JSON.stringify({
+        customer_id: customer_id || null,
+        message_type: "quote",
+        channel: "whatsapp",
+        direction: "outbound",
+        content: message,
+        status: "pending",
+        related_id: quote_id,
+        related_type: "quote",
+        sent_by: sent_by_user_id || "system",
+        sent_at: new Date().toISOString(),
+      }),
+    });
+    const logRows = await logRes.json();
+    const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
+
     const cleanNumber = mobile_number.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
@@ -86,8 +116,22 @@ ${acceptUrl}`;
     let result: any;
     try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // Update message_log status
+    if (logId) {
+      const updateBody = result.success
+        ? { status: "sent" }
+        : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
+
+      await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateBody),
+      });
+    }
 
     if (result.success) {
       await fetch(`${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}`, {
@@ -100,7 +144,6 @@ ${acceptUrl}`;
         body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
       });
     } else {
-      // Log the full API response to edge_function_logs
       await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
         method: "POST",
         headers: {
