@@ -204,7 +204,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     setSaving(true);
     const cn = generateCertNumber();
 
-    const { error } = await supabase.from("certificates" as any).insert({
+    const { data: insertedRow, error } = await supabase.from("certificates" as any).insert({
       job_id: job.id,
       customer_id: customer.id,
       cert_number: cn,
@@ -221,14 +221,39 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
       } as any,
       customer_sig_url: customerSig,
       engineer_sig_url: engSigUrl,
-    } as any);
+    } as any).select("id").single();
 
     setSaving(false);
     if (error) {
       toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
     } else {
       setCertNumber(cn);
-      setStep(5); // success
+      const newCertId = (insertedRow as any)?.id;
+      setCertId(newCertId);
+      setStep(5);
+
+      // Trigger PDF generation
+      if (newCertId) {
+        supabase.functions.invoke("generate-certificate-pdf", {
+          body: { certificate_id: newCertId },
+        }).catch((err) => console.error("PDF generation error:", err));
+
+        // Poll for pdf_url
+        const poll = setInterval(async () => {
+          const { data } = await supabase
+            .from("certificates" as any)
+            .select("pdf_url")
+            .eq("id", newCertId)
+            .single();
+          if ((data as any)?.pdf_url) {
+            setPdfUrl((data as any).pdf_url);
+            clearInterval(poll);
+          }
+        }, 3000);
+
+        // Stop polling after 60s
+        setTimeout(() => clearInterval(poll), 60000);
+      }
     }
   };
 
