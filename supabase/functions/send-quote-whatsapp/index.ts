@@ -39,41 +39,32 @@ serve(async (req) => {
     const companyName = business_name || "Karl's Gas";
     const deposit = Number(deposit_amount || 0);
 
-    const breakdownLines: string[] = [];
-    if (parts_cost && Number(parts_cost) > 0) {
-      breakdownLines.push(`• Parts: €${Number(parts_cost).toFixed(2)}`);
-    }
-    if (labour_cost && Number(labour_cost) > 0) {
-      breakdownLines.push(`• Labour: €${Number(labour_cost).toFixed(2)}`);
-    }
-    breakdownLines.push(`• Total: €${Number(quote_amount).toFixed(2)}`);
-    if (deposit > 0) {
-      breakdownLines.push(`• Deposit to secure booking: €${deposit.toFixed(2)}`);
-    }
-
-    const breakdownBlock = breakdownLines.join("\n");
-    const acceptUrl = `https://plumb-on-call.lovable.app/quote/${quote_id}`;
+    const acceptUrl = `https://bookedjobs.ie/quote/${quote_id}`;
 
     let message = `Hi ${firstName},
 
-Here is your quote from ${companyName}.
+Here is your quote for ${job_description}.
 
-Quote Ref: ${refNumber}
+Quote No: ${refNumber}
 
-Job: ${job_description}
+Total: €${Number(quote_amount).toFixed(2)}`;
 
-${breakdownBlock}
+    if (deposit > 0) {
+      message += `\n\nDeposit to secure booking: €${deposit.toFixed(2)}`;
+    }
 
-To accept this quote, reply *YES ${refNumber}*
+    message += `
 
-Or view and approve online:
+To accept this quote, reply:
+YES ${refNumber}
+
+View and approve here:
 ${acceptUrl}`;
 
     if (pdf_url) {
       message += `\n\n📄 View your full quote PDF:\n${pdf_url}`;
     }
 
-    message += `\n\nThis quote is valid for 14 days from today.`;
     message += `\n\n${companyName}`;
 
     if (business_phone) {
