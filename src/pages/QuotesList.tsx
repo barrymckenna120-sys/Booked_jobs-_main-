@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Search, FileText, Loader2 } from "lucide-react";
+import { Plus, Search, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const FILTERS = ["All", "Draft", "Sent", "Viewed", "Accepted", "expired"];
 
