@@ -46,7 +46,6 @@ const ServiceReceipt = () => {
         if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
       });
   }, [user]);
-  }, [user, id]);
 
   const loadData = async () => {
     setLoading(true);
