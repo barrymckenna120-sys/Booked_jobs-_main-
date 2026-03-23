@@ -18,6 +18,7 @@ type QuoteData = {
 
 type PublicQuoteData = {
   quote: QuoteData; customer_name: string | null; customer_address: string | null;
+  customer_phone: string | null;
   business_name: string; business_phone: string | null; whatsapp_number: string | null;
   logo_url: string | null; line_items: LineItem[];
 };
@@ -49,8 +50,10 @@ const QuoteAcceptance = () => {
   const biz = data?.business_name ?? "BookedJobs";
   const custName = data?.customer_name ?? "Customer";
   const custAddr = data?.customer_address ?? "";
+  const custPhone = data?.customer_phone ?? null;
   const contactNum = data?.whatsapp_number ?? data?.business_phone ?? null;
   const lineItems = data?.line_items ?? [];
+  const firstName = custName.split(" ")[0];
 
   /* ── Loading ────────────────────────────────────────── */
   if (loading) return (
@@ -86,12 +89,19 @@ const QuoteAcceptance = () => {
   /* ── Already accepted ───────────────────────────────── */
   if (quote.status === "Accepted" || quote.status === "Paid" || accepted) return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-[440px] shadow-md"><CardContent className="p-8 text-center space-y-3">
-        <p className="text-4xl">✅</p>
-        <p className="text-lg font-bold">{quote.status === "Paid" ? "Quote Paid — Thank You!" : "This quote has already been accepted."}</p>
-        <p className="text-sm text-muted-foreground">We'll be in touch shortly.</p>
-        <p className="text-xs text-muted-foreground pt-2">{biz}</p>
-      </CardContent></Card>
+      <Card className="w-full max-w-[440px] shadow-md border-0" style={{ backgroundColor: "hsl(142, 71%, 45%)" }}>
+        <CardContent className="p-8 text-center space-y-3">
+          <CheckCircle2 className="w-12 h-12 text-white mx-auto" />
+          <p className="text-xl font-bold text-white">
+            {quote.status === "Paid" ? "Quote Paid — Thank You!" : "Quote Accepted"}
+          </p>
+          <p className="text-sm text-white/90">
+            Thank you {firstName}. We've received your approval{quote.quote_number ? ` for ${quote.quote_number}` : ""}.
+          </p>
+          <p className="text-sm text-white/90">We'll be in touch shortly to confirm your appointment.</p>
+          <p className="text-xs text-white/70 pt-2">{biz}</p>
+        </CardContent>
+      </Card>
     </div>
   );
 
@@ -145,12 +155,12 @@ const QuoteAcceptance = () => {
           </div>
           <p className="text-lg font-bold text-foreground">{biz}</p>
 
-          {/* Valid Until pill */}
+          {/* Valid Until pill — amber */}
           {quote.expiry_date && (
-            <div className="inline-flex items-center gap-1.5 bg-muted/60 rounded-full px-3 py-1.5">
-              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">
-                Valid until <span className="font-semibold text-foreground">{fmtShortDate(quote.expiry_date)}</span>
+            <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ backgroundColor: "#fffbeb" }}>
+              <Clock className="w-3.5 h-3.5" style={{ color: "#b45309" }} />
+              <span className="text-xs" style={{ color: "#92400e" }}>
+                Price guaranteed until <span className="font-semibold">{fmtShortDate(quote.expiry_date)}</span>
               </span>
             </div>
           )}
@@ -161,10 +171,10 @@ const QuoteAcceptance = () => {
 
         {/* ─── 2. QUOTE FOR ──────────────────────────────── */}
         <div className="space-y-0.5">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Quote for</p>
-          <p className="text-base font-bold text-foreground">{custName}</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Quote prepared for</p>
+          <p className="text-lg font-bold text-foreground">{custName}</p>
           {custAddr && <p className="text-sm text-muted-foreground">{custAddr}</p>}
-          {contactNum && <p className="text-sm text-muted-foreground">{contactNum}</p>}
+          {custPhone && <p className="text-sm text-muted-foreground">{custPhone}</p>}
         </div>
 
         {/* ─── 3. JOB SUMMARY ────────────────────────────── */}
@@ -176,6 +186,21 @@ const QuoteAcceptance = () => {
               </span>
             )}
             <p className="text-sm text-foreground leading-relaxed">{quote.description}</p>
+          </CardContent>
+        </Card>
+
+        {/* ─── 3b. WHAT'S INCLUDED ───────────────────────── */}
+        <Card className="shadow-sm bg-muted/30">
+          <CardContent className="p-5">
+            <p className="font-semibold text-sm mb-3 text-foreground">What's Included</p>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              {["Full installation", "System testing & commissioning", "Old unit removal", "Clean-up included"].map((t) => (
+                <li key={t} className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
 
@@ -233,8 +258,8 @@ const QuoteAcceptance = () => {
               </div>
               {deposit > 0 && (
                 <>
-                  <div className="flex justify-between text-sm text-muted-foreground"><span>Deposit Required</span><span>{eur(deposit)}</span></div>
-                  <div className="flex justify-between text-sm font-semibold"><span>Balance Due</span><span>{eur(balance)}</span></div>
+                  <div className="flex justify-between text-sm text-muted-foreground"><span>Deposit</span><span>-{eur(deposit)}</span></div>
+                  <div className="flex justify-between text-sm font-bold"><span>Balance Due</span><span>{eur(balance)}</span></div>
                 </>
               )}
               <p className="text-[11px] text-muted-foreground pt-1">No hidden costs. Fixed price.</p>
@@ -242,30 +267,20 @@ const QuoteAcceptance = () => {
           </CardContent>
         </Card>
 
-        {/* ─── 5. WHAT'S INCLUDED ────────────────────────── */}
-        <Card className="shadow-sm">
-          <CardContent className="p-5">
-            <p className="font-semibold text-sm mb-3 text-foreground">What's Included</p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              {["Full installation", "System testing & commissioning", "Old unit removal", "Clean-up included"].map((t) => (
-                <li key={t} className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        {/* ─── 6. CTA SECTION ────────────────────────────── */}
-        <div className="space-y-4 pt-2">
+        {/* ─── 5. BRIDGE + CTA SECTION ───────────────────── */}
+        <div className="space-y-4 pt-4 pb-2">
           <div className="text-center space-y-1">
             <p className="font-bold text-base text-foreground">Secure your installation date today</p>
-            {deposit > 0 && <p className="text-xs text-muted-foreground">Deposit required to confirm your booking</p>}
+            <p className="text-xs text-muted-foreground">No hidden costs. Fixed price.</p>
           </div>
 
+          {deposit > 0 && (
+            <p className="text-xs text-muted-foreground text-center">Deposit required to confirm your booking</p>
+          )}
+
           <Button
-            className="w-full py-6 text-base font-bold rounded-xl"
+            className="w-full text-base font-bold rounded-xl"
+            style={{ minHeight: "52px" }}
             onClick={handleApprove}
             disabled={actionLoading}
           >
@@ -276,7 +291,8 @@ const QuoteAcceptance = () => {
           {deposit > 0 && !depositTapped && (
             <Button
               variant="outline"
-              className="w-full py-5 text-base rounded-xl border-2"
+              className="w-full text-base rounded-xl border-2 font-semibold"
+              style={{ minHeight: "52px" }}
               onClick={handleDeposit}
             >
               💳 Pay Deposit {eur(deposit)}
@@ -285,14 +301,15 @@ const QuoteAcceptance = () => {
 
           {depositTapped && (
             <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-sm text-muted-foreground">Our team will be in touch to arrange your deposit.</p>
+              <p className="text-sm text-muted-foreground">Our team will be in touch to arrange your deposit payment.</p>
             </div>
           )}
 
           {quote.pdf_url && (
             <Button
               variant="outline"
-              className="w-full py-5 text-base rounded-xl border-2"
+              className="w-full text-base rounded-xl border-2"
+              style={{ minHeight: "52px" }}
               asChild
             >
               <a href={quote.pdf_url} target="_blank" rel="noopener noreferrer">
@@ -308,22 +325,22 @@ const QuoteAcceptance = () => {
         </div>
 
         {/* ─── 7. TRUST SECTION ──────────────────────────── */}
-        <div className="pt-4 pb-6">
-          <div className="flex items-center justify-center gap-8">
-            <div className="flex flex-col items-center gap-1.5">
-              <Star className="w-7 h-7 text-yellow-500" />
+        <div className="pt-6 pb-8">
+          <div className="flex items-center justify-center gap-10">
+            <div className="flex flex-col items-center gap-2">
+              <Star className="w-8 h-8 text-yellow-500" />
               <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium">4.9 Google<br />Rating</span>
             </div>
-            <div className="flex flex-col items-center gap-1.5">
-              <Shield className="w-7 h-7 text-primary" />
+            <div className="flex flex-col items-center gap-2">
+              <Shield className="w-8 h-8 text-primary" />
               <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium">RGI<br />Registered</span>
             </div>
-            <div className="flex flex-col items-center gap-1.5">
-              <Wrench className="w-7 h-7 text-muted-foreground" />
+            <div className="flex flex-col items-center gap-2">
+              <Wrench className="w-8 h-8 text-muted-foreground" />
               <span className="text-[11px] text-muted-foreground text-center leading-tight font-medium">Fully<br />Insured</span>
             </div>
           </div>
-          <p className="text-[11px] text-muted-foreground text-center mt-4">
+          <p className="text-[11px] text-muted-foreground text-center mt-5">
             Trusted by homeowners across Dublin
           </p>
         </div>
