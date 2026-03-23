@@ -39,6 +39,20 @@ interface Props {
 const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
   const s = STATUS_CONFIG[job.status] || STATUS_CONFIG.Scheduled;
 
+  const { data: jobTags = [] } = useQuery({
+    queryKey: ["job-detail-tags", job.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_call_tags")
+        .select("tag_id, job_tags(name, colour)")
+        .eq("service_call_id", job.id);
+      return (data || []).map((r: any) => ({
+        name: r.job_tags?.name,
+        colour: r.job_tags?.colour,
+      })).filter((t: any) => t.name);
+    },
+  });
+
   return (
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
