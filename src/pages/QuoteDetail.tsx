@@ -82,31 +82,7 @@ const QuoteDetail = () => {
     }
   };
 
-  const convertToJob = async () => {
-    if (!quote || !user) return;
-    setConverting(true);
-    const { data: newJob, error } = await supabase.from("service_calls").insert({
-      customer_id: quote.customer_id,
-      user_id: user.id,
-      job_type: (quote as any).job_type || "Other",
-      job_issue: quote.description,
-      status: "Pending",
-      has_quote: true,
-      notes: `Created from quote ${(quote as any).quote_number || quote.id.slice(0, 8)}`,
-      source: "Quote",
-      revenue: quote.total_amount || null,
-    } as any).select("id").single();
 
-    if (newJob && !error) {
-      await supabase.from("quotes").update({ status: "converted", converted_job_id: newJob.id } as any).eq("id", id!);
-      toast({ title: "Job created from quote" });
-      queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-      navigate(`/jobs/${newJob.id}`);
-    } else {
-      toast({ title: "Error", description: error?.message, variant: "destructive" });
-    }
-    setConverting(false);
-  };
 
   const sendWhatsApp = async () => {
     if (!quote || !id) return;
