@@ -292,6 +292,7 @@ Deno.serve(async (req) => {
     const companyName = settings?.business_name || "Company";
     const companyAddress = settings?.business_address || "";
     const companyPhone = settings?.business_phone || "";
+    const companyEmail = settings?.business_email || "";
     const companyRgi = settings?.rgi_number || "";
     const engineerName = engineer?.name || "";
     const engineerRgi = (engineer as any)?.rgi_number || companyRgi;
