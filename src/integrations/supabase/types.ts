@@ -1335,6 +1335,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      expire_overdue_quotes: { Args: never; Returns: undefined }
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }

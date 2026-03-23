@@ -320,7 +320,10 @@ const Quotes = () => {
   };
 
   useEffect(() => {
-    if (user) fetchQuotes();
+    if (user) {
+      // Silently expire overdue quotes before fetching
+      supabase.functions.invoke("expire-quotes").finally(() => fetchQuotes());
+    }
   }, [user]);
 
   const hasActiveFilters = searchTerm.trim() !== "" || !!dateFrom || !!dateTo;
