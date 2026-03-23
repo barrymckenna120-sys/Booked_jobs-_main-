@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, ArrowRightCircle, Loader2, FileText, Eye } from "lucide-react";
+import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileText, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -30,7 +30,6 @@ const QuoteDetail = () => {
   const navigate = useNavigate();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const queryClient = useQueryClient();
-  const [converting, setConverting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
@@ -67,36 +66,23 @@ const QuoteDetail = () => {
 
   const markAccepted = async () => {
     if (!id) return;
-    await supabase.from("quotes").update({ status: "Accepted", accepted_at: new Date().toISOString() } as any).eq("id", id);
-    toast({ title: "Quote marked as accepted" });
-    queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-  };
-
-  const convertToJob = async () => {
-    if (!quote || !user) return;
-    setConverting(true);
-    const { data: newJob, error } = await supabase.from("service_calls").insert({
-      customer_id: quote.customer_id,
-      user_id: user.id,
-      job_type: (quote as any).job_type || "Other",
-      job_issue: quote.description,
-      status: "Pending",
-      has_quote: true,
-      notes: `Created from quote ${(quote as any).quote_number || quote.id.slice(0, 8)}`,
-      source: "Quote",
-      revenue: quote.total_amount || null,
-    } as any).select("id").single();
-
-    if (newJob && !error) {
-      await supabase.from("quotes").update({ status: "converted", converted_job_id: newJob.id } as any).eq("id", id!);
-      toast({ title: "Job created from quote" });
+    try {
+      const { error } = await supabase.rpc("respond_to_quote", { p_quote_id: id, p_accepted: true });
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Quote accepted — job created ✅" });
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-      navigate(`/jobs/${newJob.id}`);
-    } else {
-      toast({ title: "Error", description: error?.message, variant: "destructive" });
+
+      // Send WhatsApp office alert (best-effort)
+      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
-    setConverting(false);
   };
+
+
 
   const sendWhatsApp = async () => {
     if (!quote || !id) return;
@@ -368,12 +354,8 @@ const QuoteDetail = () => {
             <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
           </Button>
         )}
-        {["Accepted", "accepted"].includes(q.status) && !q.converted_job_id && (
-          <Button onClick={convertToJob} disabled={converting}>
-            {converting && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-            <ArrowRightCircle className="w-4 h-4 mr-1" /> Convert to Job
-          </Button>
-        )}
+
+
         {q.converted_job_id && (
           <Button variant="outline" onClick={() => navigate(`/jobs/${q.converted_job_id}`)}>
             📋 View Job
