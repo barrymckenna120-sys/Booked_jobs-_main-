@@ -253,13 +253,6 @@ const ServiceReceipt = () => {
             Send via WhatsApp
           </Button>
           <Button
-            className="w-full h-14 text-base font-extrabold gap-2 text-white"
-            style={{ backgroundColor: "#1e3a5f" }}
-            onClick={() => setShowCertificate(true)}
-          >
-            <FileText className="w-5 h-5" /> Generate Certificate
-          </Button>
-          <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
             onClick={() => navigate(-1)}
