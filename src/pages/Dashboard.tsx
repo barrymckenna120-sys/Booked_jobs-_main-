@@ -14,6 +14,7 @@ import AlertsPanel from "@/components/dashboard/AlertsPanel";
 
 import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
 import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
+import MessageLogWidget from "@/components/dashboard/MessageLogWidget";
 
 const greeting = () => {
   const h = new Date().getHours();
