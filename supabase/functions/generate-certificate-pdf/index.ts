@@ -305,6 +305,7 @@ Deno.serve(async (req) => {
     const leftEnd = y;
     y = savedY;
     fieldPair("Phone", companyPhone, margin + contentW / 2);
+    fieldPair("Email", companyEmail, margin + contentW / 2);
     fieldPair("Engineer", engineerName, margin + contentW / 2);
     fieldPair("RGI Number", engineerRgi, margin + contentW / 2);
     y = Math.max(leftEnd, y) + 2;
