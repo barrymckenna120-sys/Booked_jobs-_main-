@@ -97,6 +97,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       setDiscount(String((q as any).discount ?? 0));
       setVatEnabled((q as any).vat_enabled ?? false);
       setDeposit(String((q as any).deposit ?? 0));
+      setDepositManuallySet(true); // Existing quote has saved deposit
       setNotes(q.notes || "");
       setTerms((q as any).terms || "");
       setExpiryDate((q as any).expiry_date ? new Date((q as any).expiry_date) : undefined);
