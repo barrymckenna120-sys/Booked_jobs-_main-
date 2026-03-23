@@ -253,6 +253,13 @@ const ServiceReceipt = () => {
             Send via WhatsApp
           </Button>
           <Button
+            className="w-full h-12 text-sm font-extrabold gap-2"
+            style={{ backgroundColor: "#4A86E8" }}
+            onClick={() => setShowCertificate(true)}
+          >
+            <FileText className="w-4 h-4" /> Generate Certificate
+          </Button>
+          <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
             onClick={() => navigate(-1)}
@@ -261,6 +268,16 @@ const ServiceReceipt = () => {
           </Button>
         </div>
       </div>
+
+      {showCertificate && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => setShowCertificate(false)}
+        />
+      )}
     </div>
   );
 };
