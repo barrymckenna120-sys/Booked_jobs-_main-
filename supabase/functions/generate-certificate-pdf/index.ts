@@ -30,6 +30,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   const companyName = settings?.business_name || "Company";
   const companyAddress = settings?.business_address || "";
   const companyPhone = settings?.business_phone || "";
+  const companyEmail = settings?.business_email || "";
   const companyRgi = settings?.rgi_number || "";
   const engineerName = engineer?.name || details.customerName || "";
   const engineerRgi = engineer?.rgi_number || companyRgi;
@@ -82,6 +83,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
     </div>
     <div>
       <div class="field"><span class="label">Phone</span><div class="value">${escapeHtml(companyPhone)}</div></div>
+      <div class="field"><span class="label">Email</span><div class="value">${escapeHtml(companyEmail)}</div></div>
       <div class="field"><span class="label">Engineer</span><div class="value">${escapeHtml(engineerName)}</div></div>
       <div class="field"><span class="label">RGI Number</span><div class="value">${escapeHtml(engineerRgi)}</div></div>
     </div>
@@ -290,6 +292,7 @@ Deno.serve(async (req) => {
     const companyName = settings?.business_name || "Company";
     const companyAddress = settings?.business_address || "";
     const companyPhone = settings?.business_phone || "";
+    const companyEmail = settings?.business_email || "";
     const companyRgi = settings?.rgi_number || "";
     const engineerName = engineer?.name || "";
     const engineerRgi = (engineer as any)?.rgi_number || companyRgi;
@@ -302,6 +305,7 @@ Deno.serve(async (req) => {
     const leftEnd = y;
     y = savedY;
     fieldPair("Phone", companyPhone, margin + contentW / 2);
+    fieldPair("Email", companyEmail, margin + contentW / 2);
     fieldPair("Engineer", engineerName, margin + contentW / 2);
     fieldPair("RGI Number", engineerRgi, margin + contentW / 2);
     y = Math.max(leftEnd, y) + 2;
