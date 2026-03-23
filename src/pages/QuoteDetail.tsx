@@ -354,12 +354,8 @@ const QuoteDetail = () => {
             <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
           </Button>
         )}
-        {["Accepted", "accepted"].includes(q.status) && !q.converted_job_id && (
-          <Button onClick={convertToJob} disabled={converting}>
-            {converting && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-            <ArrowRightCircle className="w-4 h-4 mr-1" /> Convert to Job
-          </Button>
-        )}
+
+
         {q.converted_job_id && (
           <Button variant="outline" onClick={() => navigate(`/jobs/${q.converted_job_id}`)}>
             📋 View Job
