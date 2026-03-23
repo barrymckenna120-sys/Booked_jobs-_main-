@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
     };
 
     totLine("Subtotal", eur(subtotal));
-    if (disc > 0) totLine("Special Offer Applied", `−${eur(disc)}`, { color: green });
+    if (disc > 0) totLine("Special Offer Applied", `-${eur(disc)}`, { color: green });
     if (quote.vat_enabled) totLine("VAT 23%", eur(vatAmt));
 
     drawLine(y - 1); y += 3;
