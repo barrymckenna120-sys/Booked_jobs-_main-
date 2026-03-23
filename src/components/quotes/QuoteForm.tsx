@@ -408,7 +408,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
             </div>
             <div className="flex items-center justify-between gap-2">
               <Label className="text-sm text-muted-foreground">Deposit €</Label>
-              <Input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-28 text-right" placeholder="0.00" />
+              <Input type="number" value={deposit} onChange={(e) => { setDeposit(e.target.value); setDepositManuallySet(true); }} className="w-28 text-right" placeholder="0.00" />
             </div>
             {depositNum > 0 && (
               <div className="flex justify-between text-sm">
@@ -416,9 +416,9 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                 <span className="font-semibold">−€{depositNum.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-bold">
+            <div className="flex justify-between text-sm font-bold border-t border-border pt-2">
               <span className="text-muted-foreground">Balance Due</span>
-              <span>€{balanceDue.toFixed(2)}</span>
+              <span className="text-foreground">€{balanceDue.toFixed(2)}</span>
             </div>
           </div>
         </CardContent>
