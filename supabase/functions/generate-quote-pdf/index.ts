@@ -183,27 +183,27 @@ Deno.serve(async (req) => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(grey);
     doc.text("JOB SUMMARY", M, y);
-    y += 5;
+    y += 4;
 
     if (quote.job_type && quote.job_type !== "other") {
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(dark);
       doc.text(quote.job_type.replace(/_/g, " "), M, y);
-      y += 5;
+      y += 4;
     }
 
     if (quote.description) {
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
       const descLines = doc.splitTextToSize(quote.description, CW);
       doc.text(descLines, M, y);
-      y += descLines.length * 4 + 2;
+      y += descLines.length * 3.5 + 1;
     }
 
-    y += 4;
-    drawLine(y); y += 6;
+    y += 3;
+    drawLine(y); y += 4;
 
     // ═══════════════════════════════════════════════════
     // PRICING TABLE
