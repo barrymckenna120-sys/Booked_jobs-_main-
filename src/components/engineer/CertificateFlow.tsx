@@ -133,6 +133,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [certNumber, setCertNumber] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [certId, setCertId] = useState<string | null>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
   // Step 1 — Details
   const [details, setDetails] = useState({
