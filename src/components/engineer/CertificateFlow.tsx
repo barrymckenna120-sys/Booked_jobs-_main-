@@ -348,7 +348,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     );
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[900] bg-background flex flex-col overflow-hidden">
       <ProgressBar />
 
@@ -514,7 +514,8 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 
