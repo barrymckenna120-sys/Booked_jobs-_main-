@@ -127,33 +127,29 @@ Deno.serve(async (req) => {
       doc.text(`Valid Until: ${fmtDate(quote.expiry_date)}`, PW - M, 23, { align: "right" });
     }
 
-    y = headerH + 8;
+    y = headerH + 5;
 
     // ═══════════════════════════════════════════════════
-    // COMPANY DETAILS (below header)
+    // COMPANY DETAILS (below header) — compact single block
     // ═══════════════════════════════════════════════════
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
     doc.text(biz.business_name || "", M, y);
-    y += 4.5;
 
-    doc.setFontSize(8);
+    // Right side: address + contact in compact form
+    doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
+    const compactDetails: string[] = [];
+    if (biz.business_address) compactDetails.push(biz.business_address.replace(/\n/g, ", "));
+    if (biz.business_phone) compactDetails.push(`Tel: ${biz.business_phone}`);
+    if (biz.rgi_number) compactDetails.push(`RGI: ${biz.rgi_number}`);
+    const detailLines = doc.splitTextToSize(compactDetails.join("  |  "), CW);
+    doc.text(detailLines, M, y + 4);
+    y += 4 + detailLines.length * 3.5 + 3;
 
-    if (biz.business_address) {
-      const addrLines = biz.business_address.split(/\n|,\s*/);
-      addrLines.forEach((line: string) => {
-        if (line.trim()) { doc.text(line.trim(), M, y); y += 3.5; }
-      });
-    }
-    if (biz.business_phone) { doc.text(`Tel: ${biz.business_phone}`, M, y); y += 3.5; }
-    if (biz.business_email) { doc.text(biz.business_email, M, y); y += 3.5; }
-    if (biz.rgi_number) { doc.text(`RGI Reg: ${biz.rgi_number}`, M, y); y += 3.5; }
-
-    y += 5;
-    drawLine(y); y += 6;
+    drawLine(y); y += 4;
 
     // ═══════════════════════════════════════════════════
     // QUOTE FOR BLOCK
@@ -162,23 +158,23 @@ Deno.serve(async (req) => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(grey);
     doc.text("QUOTE PREPARED FOR", M, y);
-    y += 5;
+    y += 4;
 
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(dark);
     doc.text(cust.name, M, y);
-    y += 5;
+    y += 4.5;
 
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
-    if (cust.address) { doc.text(cust.address, M, y); y += 4; }
-    if (cust.eircode) { doc.text(cust.eircode, M, y); y += 4; }
-    if (cust.phone) { doc.text(`Mobile: ${cust.phone}`, M, y); y += 4; }
+    if (cust.address) { doc.text(cust.address, M, y); y += 3.5; }
+    if (cust.eircode) { doc.text(cust.eircode, M, y); y += 3.5; }
+    if (cust.phone) { doc.text(`Mobile: ${cust.phone}`, M, y); y += 3.5; }
 
-    y += 4;
-    drawLine(y); y += 6;
+    y += 3;
+    drawLine(y); y += 4;
 
     // ═══════════════════════════════════════════════════
     // JOB SUMMARY BLOCK
@@ -187,27 +183,27 @@ Deno.serve(async (req) => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(grey);
     doc.text("JOB SUMMARY", M, y);
-    y += 5;
+    y += 4;
 
     if (quote.job_type && quote.job_type !== "other") {
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(dark);
       doc.text(quote.job_type.replace(/_/g, " "), M, y);
-      y += 5;
+      y += 4;
     }
 
     if (quote.description) {
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
       const descLines = doc.splitTextToSize(quote.description, CW);
       doc.text(descLines, M, y);
-      y += descLines.length * 4 + 2;
+      y += descLines.length * 3.5 + 1;
     }
 
-    y += 4;
-    drawLine(y); y += 6;
+    y += 3;
+    drawLine(y); y += 4;
 
     // ═══════════════════════════════════════════════════
     // PRICING TABLE
@@ -281,13 +277,13 @@ Deno.serve(async (req) => {
       const ref = { y };
       ensureSpace(8, ref);
       y = ref.y;
-      doc.setFontSize(opts?.size || 10);
+      doc.setFontSize(opts?.size || 9);
       doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
       doc.setTextColor(opts?.color || grey);
       doc.text(label, tLabelX, y);
       doc.setTextColor(opts?.bold ? dark : dark);
       doc.text(value, tValueX, y, { align: "right" });
-      y += 5.5;
+      y += 5;
     };
 
     totLine("Subtotal", eur(subtotal));
@@ -297,12 +293,12 @@ Deno.serve(async (req) => {
     drawLine(y - 1); y += 3;
 
     // Grand total
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(headerBlue);
     doc.text("TOTAL", tLabelX, y);
     doc.text(eur(total), tValueX, y, { align: "right" });
-    y += 8;
+    y += 6;
 
     if (deposit > 0) {
       totLine("Deposit", `-${eur(deposit)}`, { bold: true });
@@ -310,27 +306,30 @@ Deno.serve(async (req) => {
     }
 
     // "No hidden costs" text
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(grey);
     doc.text("No hidden costs. Fixed price.", tLabelX, y);
-    y += 8;
+    y += 5;
 
-    drawLine(y); y += 8;
+    drawLine(y); y += 5;
 
     // ═══════════════════════════════════════════════════
-    // WHAT'S INCLUDED
+    // WHAT'S INCLUDED (only for installation/replacement)
     // ═══════════════════════════════════════════════════
-    {
+    const jobTypeLower = (quote.job_type || "").toLowerCase();
+    const isInstallation = jobTypeLower.includes("install") || jobTypeLower.includes("replacement") || jobTypeLower.includes("boiler_replacement");
+
+    if (isInstallation) {
       const ref = { y };
-      ensureSpace(30, ref);
+      ensureSpace(26, ref);
       y = ref.y;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
       doc.text("WHAT'S INCLUDED", M, y);
-      y += 6;
+      y += 5;
 
       const inclItems = [
         "Full installation",
@@ -338,25 +337,23 @@ Deno.serve(async (req) => {
         "Old unit removal",
         "Clean-up included",
       ];
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(dark);
+      doc.setFontSize(9);
       inclItems.forEach((item) => {
         doc.setFillColor(green);
-        doc.circle(M + 3.5, y - 1.2, 2, "F");
-        doc.setFontSize(7);
+        doc.circle(M + 3.5, y - 1.2, 1.8, "F");
+        doc.setFontSize(6.5);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(white);
-        doc.text("Y", M + 2.4, y);
-        doc.setFontSize(10);
+        doc.text("Y", M + 2.5, y);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(dark);
         doc.text(item, M + 9, y);
-        y += 5.5;
+        y += 4.5;
       });
 
-      y += 4;
-      drawLine(y); y += 8;
+      y += 2;
+      drawLine(y); y += 5;
     }
 
     // ═══════════════════════════════════════════════════
@@ -364,7 +361,7 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     {
       const ref = { y };
-      ensureSpace(34, ref);
+      ensureSpace(28, ref);
       y = ref.y;
 
       const ptLines: string[] = [];
@@ -372,25 +369,25 @@ Deno.serve(async (req) => {
       ptLines.push("Balance due: On completion");
       ptLines.push("Install window: 3-5 working days");
 
-      const boxH = 10 + ptLines.length * 5;
+      const boxH = 8 + ptLines.length * 4.5;
       doc.setFillColor(lightBlue);
       doc.roundedRect(M, y, CW, boxH, 2, 2, "F");
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(headerBlue);
-      doc.text("PAYMENT TERMS", M + 5, y + 6);
+      doc.text("PAYMENT TERMS", M + 5, y + 5);
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
-      let py = y + 12;
+      let py = y + 10;
       ptLines.forEach((line) => {
         doc.text(`• ${line}`, M + 5, py);
-        py += 5;
+        py += 4.5;
       });
 
-      y += boxH + 8;
+      y += boxH + 5;
     }
 
     // ═══════════════════════════════════════════════════
@@ -398,21 +395,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     if (quote.notes) {
       const ref = { y };
-      ensureSpace(16, ref);
+      ensureSpace(12, ref);
       y = ref.y;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
       doc.text("NOTES", M, y);
-      y += 5;
+      y += 4;
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(dark);
       const nLines = doc.splitTextToSize(quote.notes, CW);
       doc.text(nLines, M, y);
-      y += nLines.length * 4 + 6;
+      y += nLines.length * 3.5 + 4;
     }
 
     // ═══════════════════════════════════════════════════
@@ -420,21 +417,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     if (quote.terms) {
       const ref = { y };
-      ensureSpace(16, ref);
+      ensureSpace(12, ref);
       y = ref.y;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(grey);
       doc.text("TERMS & CONDITIONS", M, y);
-      y += 5;
+      y += 4;
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(grey);
       const tLines = doc.splitTextToSize(quote.terms, CW);
       doc.text(tLines, M, y);
-      y += tLines.length * 3.5 + 6;
+      y += tLines.length * 3 + 4;
     }
 
     // ── Page 1 footer ──
