@@ -592,6 +592,7 @@ const Renewals = () => {
             onStageChange={(newStage) => handleStageChange(c.id, newStage)}
             onArchive={() => confirmArchive(c.id, c.name, !c.is_archived)}
             isArchived={c.is_archived}
+            hasFailedSend={failedCustomerIds.has(c.id)}
           />
         ))
       )}
