@@ -531,21 +531,14 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const slotMaxJobs = settingsData?.slotMaxJobs || [];
   const openingHours = settingsData?.openingHours || [];
 
-  // Filter time blocks based on working hours for the selected date
-  const BLOCK_HOURS: Record<string, { start: number; end: number }> = {
-    "9–11": { start: 9, end: 11 },
-    "11–2": { start: 11, end: 14 },
-    "2–5": { start: 14, end: 17 },
-  };
-
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const availableTimeBlocks = useMemo(() => {
     if (!date || openingHours.length === 0) return TIME_BLOCKS;
-    const selectedDay = new Date(date + "T12:00:00"); // noon to avoid timezone issues
+    const selectedDay = new Date(date + "T12:00:00");
     const dayLabel = DAY_LABELS[selectedDay.getDay()];
     const dayConfig = openingHours.find((h: any) => h.day === dayLabel);
-    if (!dayConfig || !dayConfig.enabled) return []; // whole day closed
+    if (!dayConfig || !dayConfig.enabled) return [];
 
     const closeHour = parseInt(dayConfig.end?.split(":")[0] || "17", 10);
     const closeMin = parseInt(dayConfig.end?.split(":")[1] || "0", 10);
@@ -555,9 +548,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     const openDecimal = openHour + openMin / 60;
 
     return TIME_BLOCKS.filter((t) => {
-      const hours = BLOCK_HOURS[t.id];
-      if (!hours) return true;
-      return hours.start >= openDecimal && hours.start < closeDecimal;
+      return t.startHour >= openDecimal && t.startHour < closeDecimal;
     });
   }, [date, openingHours]);
 
