@@ -292,18 +292,28 @@ const QuoteDetail = () => {
             if (!id) return;
             setGeneratingPdf(true);
             try {
-              const { data, error } = await supabase.functions.invoke("generate-quote-pdf", {
-                body: { quote_id: id },
+              const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+              const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+              const url = `https://${projectId}.supabase.co/functions/v1/generate-quote-pdf`;
+              const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${anonKey}`,
+                  "apikey": anonKey,
+                },
+                body: JSON.stringify({ quote_id: id }),
               });
-              if (error || !data?.success) {
-                toast({ title: "PDF failed", description: data?.error || error?.message, variant: "destructive" });
+              const result = await res.json();
+              if (!res.ok || !result.success) {
+                toast({ title: "PDF generation failed. Please try again.", description: result?.error, variant: "destructive" });
               } else {
-                toast({ title: "PDF generated ✅" });
+                await supabase.from("quotes").update({ pdf_url: result.pdf_url } as any).eq("id", id);
+                toast({ title: "PDF regenerated successfully" });
                 queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-                window.open(data.pdf_url, "_blank");
               }
             } catch (err: any) {
-              toast({ title: "PDF failed", description: err.message, variant: "destructive" });
+              toast({ title: "PDF generation failed. Please try again.", variant: "destructive" });
             }
             setGeneratingPdf(false);
           }}
@@ -311,17 +321,19 @@ const QuoteDetail = () => {
           {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <FileText className="w-4 h-4 mr-1" />}
           {q.pdf_url ? "Regenerate PDF" : "Generate PDF"}
         </Button>
-        {q.pdf_url ? (
-          <Button variant="outline" asChild>
-            <a href={q.pdf_url} target="_blank" rel="noopener noreferrer">
-              <Download className="w-4 h-4 mr-1" /> Download PDF
-            </a>
-          </Button>
-        ) : (
-          <Button variant="outline" disabled title="Generate PDF first">
-            <Download className="w-4 h-4 mr-1" /> Download PDF
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (q.pdf_url) {
+              window.open(q.pdf_url, "_blank");
+            } else {
+              toast({ title: "No PDF found. Please regenerate." });
+            }
+          }}
+          disabled={!q.pdf_url}
+        >
+          <Download className="w-4 h-4 mr-1" /> Download PDF
+        </Button>
         {q.pdf_url && (
           <Button variant="outline" onClick={sendWhatsApp} disabled={sendingWhatsApp}>
             {sendingWhatsApp ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageCircle className="w-4 h-4 mr-1" />}
