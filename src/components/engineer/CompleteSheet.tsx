@@ -8,6 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { CheckCircle2 } from "lucide-react";
 
+const TAG_OPTIONS = [
+  { name: "New Fitted", colour: "#4A86E8" },
+  { name: "Needs New Soon", colour: "#F59E0B" },
+  { name: "Under Warranty", colour: "#10B981" },
+];
+
 interface Props {
   job: any;
   customer: any;
@@ -22,6 +28,13 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [followUp, setFollowUp] = useState(false);
   const [followUpNote, setFollowUpNote] = useState("");
   const [officeNote, setOfficeNote] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const toggleTag = (name: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
 
   return (
     <EngineerSheet onClose={onClose}>
@@ -78,10 +91,34 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
             placeholder="Anything the office should know…" />
         </div>
 
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Job Tags</Label>
+          <div className="flex flex-wrap gap-2">
+            {TAG_OPTIONS.map((tag) => {
+              const isSelected = selectedTags.includes(tag.name);
+              return (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => toggleTag(tag.name)}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
+                  style={{
+                    borderColor: tag.colour,
+                    backgroundColor: isSelected ? tag.colour : "#fff",
+                    color: isSelected ? "#fff" : tag.colour,
+                  }}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
           disabled={!workDone.trim()}
-          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote })}
+          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags })}
         >
           <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>

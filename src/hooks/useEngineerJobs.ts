@@ -135,7 +135,7 @@ export const useEngineerJobs = () => {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
     }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -189,6 +189,46 @@ export const useEngineerJobs = () => {
       setCompletedJobs(updater);
 
       if (patch.status === "Completed") {
+        // Save selected tags to service_call_tags
+        if (selectedTags && selectedTags.length > 0) {
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("user_id", user!.id)
+              .maybeSingle();
+
+            const profileId = profile?.id || null;
+
+            const { data: tagRows } = await supabase
+              .from("job_tags")
+              .select("id, name")
+              .in("name", selectedTags);
+
+            if (tagRows && tagRows.length > 0) {
+              const { data: existing } = await supabase
+                .from("service_call_tags")
+                .select("tag_id")
+                .eq("service_call_id", jobId);
+
+              const existingIds = new Set((existing || []).map((e: any) => e.tag_id));
+
+              const inserts = tagRows
+                .filter((t: any) => !existingIds.has(t.id))
+                .map((t: any) => ({
+                  service_call_id: jobId,
+                  tag_id: t.id,
+                  added_by: profileId,
+                }));
+
+              if (inserts.length > 0) {
+                await supabase.from("service_call_tags").insert(inserts as any);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to save job tags:", e);
+          }
+        }
         toast({ title: "Job completed ✔" });
         navigate(`/receipt/${jobId}`);
       } else if (patch.status === "Cancelled") {
