@@ -84,7 +84,7 @@ const Jobs = () => {
     return sortDir === "asc" ? <ArrowUp className="w-3.5 h-3.5 ml-1" /> : <ArrowDown className="w-3.5 h-3.5 ml-1" />;
   };
 
-  const INCOMPLETE_STATUSES = ["Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
+  const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
 
   const filtered = jobs
     .filter(j => {
