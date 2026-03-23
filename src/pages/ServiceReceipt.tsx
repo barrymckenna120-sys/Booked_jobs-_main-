@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { printReceipt } from "@/lib/printReceipt";
-import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText } from "lucide-react";
+import { CheckCircle2, Download, CalendarPlus, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import CertificateFlow from "@/components/engineer/CertificateFlow";
+
 
 const formatDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
@@ -27,25 +27,12 @@ const ServiceReceipt = () => {
   const [customer, setCustomer] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showCertificate, setShowCertificate] = useState(false);
-  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   
 
   useEffect(() => {
     if (user && id) loadData();
   }, [user, id]);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("engineers")
-      .select("name, rgi_number")
-      .eq("auth_user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
-      });
-  }, [user]);
 
   const loadData = async () => {
     setLoading(true);
@@ -253,13 +240,6 @@ const ServiceReceipt = () => {
             Send via WhatsApp
           </Button>
           <Button
-            className="w-full h-14 text-base font-extrabold gap-2 text-white"
-            style={{ backgroundColor: "#1e3a5f" }}
-            onClick={() => setShowCertificate(true)}
-          >
-            <FileText className="w-5 h-5" /> Generate Certificate
-          </Button>
-          <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
             onClick={() => navigate(-1)}
@@ -269,15 +249,6 @@ const ServiceReceipt = () => {
         </div>
       </div>
 
-      {showCertificate && (
-        <CertificateFlow
-          job={job}
-          customer={customer}
-          engineerName={engineerInfo.name}
-          engineerRgi={engineerInfo.rgi_number}
-          onClose={() => setShowCertificate(false)}
-        />
-      )}
     </div>
   );
 };
