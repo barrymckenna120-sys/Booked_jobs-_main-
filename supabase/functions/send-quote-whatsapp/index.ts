@@ -81,12 +81,14 @@ ${acceptUrl}`;
       body: formData,
     });
 
-    const result = await response.json();
+    const resultText = await response.text();
+    let result: any;
+    try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (result.success) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL");
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
       await fetch(`${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}`, {
         method: "PATCH",
         headers: {
@@ -95,6 +97,21 @@ ${acceptUrl}`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
+      });
+    } else {
+      // Log the full API response to edge_function_logs
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${supabaseKey}`,
+          "apikey": supabaseKey!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          function_name: "send-quote-whatsapp",
+          error_message: `360Messenger API returned success:false. HTTP ${response.status}`,
+          payload: { api_response: result, sent_to: mobile_number, quote_id },
+        }),
       });
     }
 
