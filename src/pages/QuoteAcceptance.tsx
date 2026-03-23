@@ -19,7 +19,7 @@ type PublicQuoteData = {
   quote: QuoteData; customer_name: string | null; customer_address: string | null;
   customer_phone: string | null;
   business_name: string; business_phone: string | null; business_address: string | null;
-  whatsapp_number: string | null;
+  rgi_number: string | null; whatsapp_number: string | null;
   logo_url: string | null; line_items: LineItem[];
 };
 
@@ -176,7 +176,9 @@ const QuoteAcceptance = () => {
           {!data?.logo_url ? null : (
             <p style={{ fontSize: 16, fontWeight: 700, color: "#111", marginTop: 8 }}>{biz}</p>
           )}
-          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>RGI Registered (R-1899) • Fully Insured</p>
+          <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+            {data?.rgi_number ? `RGI Registered (${data.rgi_number})` : "RGI Registered"} • Fully Insured
+          </p>
           {data?.business_address && (
             <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{data.business_address}</p>
           )}
