@@ -430,6 +430,28 @@ const JobDetail = () => {
         </Card>
       )}
 
+      {/* View Certificate */}
+      {job.status === "Completed" && certificate && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-primary" />
+              <div>
+                <div className="text-sm font-extrabold">{certificate.cert_number}</div>
+                <div className="text-xs text-muted-foreground">{new Date(certificate.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" })}</div>
+              </div>
+            </div>
+            {certificate.pdf_url ? (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => window.open(certificate.pdf_url!, "_blank")}>
+                <ExternalLink className="w-3.5 h-3.5" /> View Certificate
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">PDF pending…</span>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
