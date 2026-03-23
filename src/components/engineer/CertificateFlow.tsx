@@ -305,6 +305,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{customer.name}</p>
 
+        {/* PDF Status */}
         {pdfUrl ? (
           <a
             href={pdfUrl}
@@ -317,7 +318,24 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           </a>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" /> Generating PDF…
+            <Loader2 className="w-4 h-4 animate-spin" /> ⏳ Generating PDF…
+          </div>
+        )}
+
+        {/* WhatsApp Status */}
+        {whatsappStatus === "sending" && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Sending to customer…
+          </div>
+        )}
+        {whatsappStatus === "sent" && (
+          <div className="flex items-center gap-2 text-sm font-bold" style={{ color: "#22c55e" }}>
+            <MessageSquare className="w-4 h-4" /> 📱 Sent to customer via WhatsApp
+          </div>
+        )}
+        {whatsappStatus === "failed" && (
+          <div className="flex items-center gap-2 text-sm font-bold text-destructive">
+            <AlertTriangle className="w-4 h-4" /> WhatsApp send failed — check Message Log
           </div>
         )}
 
