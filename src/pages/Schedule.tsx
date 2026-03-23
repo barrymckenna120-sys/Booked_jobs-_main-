@@ -78,7 +78,7 @@ const Schedule = () => {
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
         .select("*, customers!inner(name, address, boiler_make_model)")
-        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null`)
+        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,status.in.(incoming,accepted)`)
         .not("status", "in", "(Completed,Cancelled)");
 
       return (scheduledJobs || []).map((j: any) => ({
