@@ -550,9 +550,11 @@ const Quotes = () => {
         },
       });
       if (error || !data?.success) {
-        toast({ title: "Send failed", description: data?.error || error?.message || "Unknown error", variant: "destructive" });
+        const errorDetail = data?.error_detail || data?.error || error?.message || "Unknown error";
+        const errorType = classifyWhatsAppError(errorDetail);
+        toast(getWhatsAppErrorToast(errorType, q.customers.name, errorDetail));
       } else {
-        toast({ title: "Quote sent via WhatsApp ✅" });
+        toast({ title: `WhatsApp sent successfully to ${q.customers.name} ✅`, duration: 4000 });
         fetchQuotes();
         if (selected?.id === q.id) {
           setSelected((prev) => prev ? { ...prev, status: "Sent", sent_at: new Date().toISOString() } : null);
