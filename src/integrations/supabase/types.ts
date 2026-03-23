@@ -563,6 +563,65 @@ export type Database = {
           },
         ]
       }
+      message_log: {
+        Row: {
+          channel: string | null
+          content: string | null
+          created_at: string | null
+          customer_id: string | null
+          direction: string | null
+          error_message: string | null
+          id: string
+          message_type: string | null
+          organisation_id: string | null
+          related_id: string | null
+          related_type: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+        }
+        Insert: {
+          channel?: string | null
+          content?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          direction?: string | null
+          error_message?: string | null
+          id?: string
+          message_type?: string | null
+          organisation_id?: string | null
+          related_id?: string | null
+          related_type?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          channel?: string | null
+          content?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          direction?: string | null
+          error_message?: string | null
+          id?: string
+          message_type?: string | null
+          organisation_id?: string | null
+          related_id?: string | null
+          related_type?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_log_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string
