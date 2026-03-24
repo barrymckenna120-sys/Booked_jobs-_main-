@@ -12,6 +12,12 @@ import AddCustomerSheet from "@/components/customer/AddCustomerSheet";
 
 const PAGE_SIZE = 15;
 
+const TAG_FILTERS = [
+  { name: "New Boiler Fitted", colour: "#4A86E8" },
+  { name: "New Boiler Soon", colour: "#F59E0B" },
+  { name: "Under Warranty", colour: "#10B981" },
+];
+
 const Customers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -21,6 +27,8 @@ const Customers = () => {
   const initialStatus = searchParams.get("status") || "all";
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [areaFilter, setAreaFilter] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagCustomerIds, setTagCustomerIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
@@ -29,7 +37,48 @@ const Customers = () => {
     if (user) fetchCustomers();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter, selectedTags]);
+
+  // Fetch customer IDs matching selected tags
+  useEffect(() => {
+    if (selectedTags.length === 0) {
+      setTagCustomerIds(null);
+      return;
+    }
+    const fetchTaggedCustomers = async () => {
+      // Get tag IDs for selected tag names
+      const { data: tags } = await supabase
+        .from("job_tags")
+        .select("id, name")
+        .in("name", selectedTags);
+      if (!tags || tags.length === 0) { setTagCustomerIds(new Set()); return; }
+
+      const tagIds = tags.map((t) => t.id);
+      const { data: sctRows } = await supabase
+        .from("service_call_tags")
+        .select("service_call_id")
+        .in("tag_id", tagIds);
+      if (!sctRows || sctRows.length === 0) { setTagCustomerIds(new Set()); return; }
+
+      const jobIds = [...new Set(sctRows.map((r) => r.service_call_id))];
+      const { data: jobs } = await supabase
+        .from("service_calls")
+        .select("customer_id")
+        .in("id", jobIds);
+      if (jobs) {
+        setTagCustomerIds(new Set(jobs.map((j) => j.customer_id)));
+      } else {
+        setTagCustomerIds(new Set());
+      }
+    };
+    fetchTaggedCustomers();
+  }, [selectedTags]);
+
+  const toggleTagFilter = (name: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -60,7 +109,8 @@ const Customers = () => {
     const matchesSearch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
     const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
-    return matchesSearch && matchesStatus && matchesArea;
+    const matchesTags = tagCustomerIds === null || tagCustomerIds.has(c.id);
+    return matchesSearch && matchesStatus && matchesArea && matchesTags;
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -134,7 +184,28 @@ const Customers = () => {
         </Select>
       </div>
 
-      {/* Customer Table */}
+      {/* Tag Filter Chips */}
+      <div className="flex flex-wrap gap-2">
+        {TAG_FILTERS.map((tag) => {
+          const isSelected = selectedTags.includes(tag.name);
+          return (
+            <button
+              key={tag.name}
+              type="button"
+              onClick={() => toggleTagFilter(tag.name)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all border cursor-pointer"
+              style={{
+                borderColor: tag.colour,
+                backgroundColor: isSelected ? tag.colour : "transparent",
+                color: isSelected ? "#fff" : tag.colour,
+              }}
+            >
+              {tag.name}
+            </button>
+          );
+        })}
+      </div>
+
       <Card className="shadow-sm border-border/60">
         <CardContent className="p-0">
           {loading ? (
