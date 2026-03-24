@@ -31,6 +31,8 @@ type Job = {
   notes: string | null;
   created_at: string;
   customer_name?: string;
+  follow_up_needed?: boolean;
+  follow_up_detail?: string | null;
 };
 
 const Jobs = () => {
