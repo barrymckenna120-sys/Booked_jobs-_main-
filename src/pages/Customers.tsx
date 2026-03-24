@@ -97,7 +97,8 @@ const Customers = () => {
     const matchesSearch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
     const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
-    return matchesSearch && matchesStatus && matchesArea;
+    const matchesTags = tagCustomerIds === null || tagCustomerIds.has(c.id);
+    return matchesSearch && matchesStatus && matchesArea && matchesTags;
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
