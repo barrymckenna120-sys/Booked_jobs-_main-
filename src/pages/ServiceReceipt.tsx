@@ -94,6 +94,8 @@ const ServiceReceipt = () => {
       businessName,
       businessPhone,
       businessTagline: "Professional Gas & Boiler Services",
+      businessAddress: settings?.business_address || undefined,
+      rgiNumber: settings?.rgi_number || undefined,
     };
   };
 
