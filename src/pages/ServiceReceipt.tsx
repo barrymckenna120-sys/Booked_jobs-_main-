@@ -94,6 +94,8 @@ const ServiceReceipt = () => {
       businessName,
       businessPhone,
       businessTagline: "Professional Gas & Boiler Services",
+      businessAddress: settings?.business_address || undefined,
+      rgiNumber: settings?.rgi_number || undefined,
     };
   };
 
@@ -171,7 +173,10 @@ const ServiceReceipt = () => {
           <div className="px-5 pt-6 pb-4 text-center">
             <h1 className="text-lg font-extrabold text-foreground">{data.businessName}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{data.businessTagline}</p>
-            <p className="text-[11px] text-muted-foreground">Phone: {data.businessPhone}</p>
+            <p className="text-xs text-muted-foreground">Phone: {data.businessPhone}</p>
+            {data.businessAddress && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{data.businessAddress}</p>
+            )}
           </div>
 
           {/* Success indicator */}
@@ -238,6 +243,11 @@ const ServiceReceipt = () => {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Next Boiler Service Due — {data.nextServiceDue}
             </p>
+            {data.rgiNumber && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                RGI Reg: {data.rgiNumber}
+              </p>
+            )}
           </div>
         </div>
 

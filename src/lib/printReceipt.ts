@@ -16,6 +16,7 @@ export interface ReceiptPrintData {
   businessPhone: string;
   businessTagline: string;
   businessAddress?: string;
+  rgiNumber?: string;
   engineerName?: string;
 }
 
@@ -34,6 +35,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
   .header { margin-bottom: 20px; }
   .header h1 { font-size: 22px; font-weight: 800; color: #111827; margin-bottom: 4px; }
   .header p { font-size: 13px; color: #6B7280; }
+  .header .phone { font-size: 13px; color: #6B7280; }
   .title { font-size: 15px; font-weight: 700; color: #4A86E8; margin: 16px 0 12px; text-transform: uppercase; letter-spacing: 0.5px; }
   .divider { border: none; border-top: 1px solid #E5E7EB; margin: 12px 0; }
   .section-label { font-size: 10px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
@@ -55,7 +57,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
   <div class="header">
     <h1>${esc(data.businessName)}</h1>
     <p>${esc(data.businessTagline)}</p>
-    <p>Phone: ${esc(data.businessPhone)}</p>
+    <p class="phone">Phone: ${esc(data.businessPhone)}</p>
     ${data.businessAddress ? `<p>${esc(data.businessAddress)}</p>` : ''}
   </div>
 
@@ -98,6 +100,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
     <p>Thank you for choosing ${esc(data.businessName)}.</p>
     <p>Your next annual boiler service reminder will be sent in 12 months.</p>
     <p>Next service due: ${esc(data.nextServiceDue)}</p>
+    ${data.rgiNumber ? `<p style="margin-top:8px;">RGI Reg: ${esc(data.rgiNumber)}</p>` : ''}
   </div>
 </div>
 </body>
