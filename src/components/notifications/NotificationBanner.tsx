@@ -23,7 +23,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
 
 const AUTO_DISMISS_MS = 15000;
 const HIGH_PRIORITY_DISMISS_MS = 20000;
-const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "quote_accepted"]);
+const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "quote_accepted", "follow_up"]);
 
 interface Props {
   notifications: AppNotification[];
