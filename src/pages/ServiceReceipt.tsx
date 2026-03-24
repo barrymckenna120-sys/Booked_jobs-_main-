@@ -36,6 +36,17 @@ const ServiceReceipt = () => {
     if (user && id) loadData();
   }, [user, id]);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name, rgi_number")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
+      });
+  }, [user]);
 
   const loadData = async () => {
     setLoading(true);
