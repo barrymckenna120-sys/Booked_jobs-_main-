@@ -181,11 +181,15 @@ Deno.serve(async (req) => {
     if (biz.business_address) {
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(...headerTextRgb);
-      doc.setGState(new doc.GState({ opacity: 0.7 }));
+      // Blend header text toward primary for muted appearance (GState not reliable in Deno)
+      const fadedHdr: [number, number, number] = [
+        Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
+        Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
+        Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
+      ];
+      doc.setTextColor(...fadedHdr);
       const addrLine = biz.business_address.replace(/\n/g, ", ");
       doc.text(addrLine, nameX, 17);
-      doc.setGState(new doc.GState({ opacity: 1 }));
     }
 
     // Right: Quote No, Date, Valid Until
