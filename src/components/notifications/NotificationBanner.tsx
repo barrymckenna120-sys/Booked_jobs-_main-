@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Mail, Navigation, MapPinCheck, Play, Video } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
@@ -18,11 +18,12 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   in_progress:       { icon: Play,           color: "text-amber-500",   bg: "bg-amber-500/10",   label: "In Progress" },
   new_video_uploaded:{ icon: Video,          color: "text-purple-500",  bg: "bg-purple-500/10",  label: "New Video" },
   quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Quote Accepted" },
+  follow_up:         { icon: AlertTriangle,  color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Follow-up" },
 };
 
 const AUTO_DISMISS_MS = 15000;
 const HIGH_PRIORITY_DISMISS_MS = 20000;
-const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "quote_accepted"]);
+const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "quote_accepted", "follow_up"]);
 
 interface Props {
   notifications: AppNotification[];

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -14,6 +14,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   parts_needed:      { icon: Cog,            color: "text-amber-500",   label: "Parts Needed" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
   quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", label: "Quote Accepted" },
+  follow_up:         { icon: AlertTriangle,  color: "text-amber-500",   label: "Follow-up" },
 };
 
 interface Props {

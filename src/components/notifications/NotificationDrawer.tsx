@@ -7,7 +7,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Video } from "lucide-react";
+import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Video, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
@@ -22,6 +22,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   payment_collected:     { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
   new_video_uploaded:    { icon: Video,          color: "text-primary",     label: "New Video" },
   quote_accepted:        { icon: CheckCircle2,   color: "text-success",     label: "Quote Accepted" },
+  follow_up:             { icon: AlertTriangle,  color: "text-amber-500",   label: "Follow-up" },
 };
 
 type FilterTab = "all" | "unread" | "engineer" | "office";
