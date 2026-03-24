@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
@@ -39,6 +40,7 @@ interface EngineerJobCardProps {
 }
 
 const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
@@ -77,8 +79,9 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   return (
     <>
       <div
-        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-50 grayscale-[30%]" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border/60"}`}
+        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-70 cursor-pointer" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border/60"}`}
         style={{ borderLeftColor }}
+        onClick={isDone ? () => navigate(`/engineer/job/${job.id}`) : undefined}
       >
         {/* Next Job Badge */}
         {isNextJob && (

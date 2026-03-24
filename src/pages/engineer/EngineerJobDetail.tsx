@@ -54,6 +54,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [job, setJob] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [callNotes, setCallNotes] = useState<any[]>([]);
+  const [jobTags, setJobTags] = useState<{ name: string; colour: string }[]>([]);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -103,15 +104,17 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     setJob(jobData);
 
-    const [custRes, notesRes, certRes] = await Promise.all([
+    const [custRes, notesRes, certRes, tagsRes] = await Promise.all([
       supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
       supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
       supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+      supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
     ]);
 
     if (custRes.data) setCustomer(custRes.data);
     if (notesRes.data) setCallNotes(notesRes.data);
     setCertificate(certRes.data || null);
+    setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
     setLoading(false);
   };
 
@@ -371,6 +374,24 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               <FileText className="w-3 h-3" /> Notes
             </div>
             <div className="text-[13px] text-foreground whitespace-pre-wrap">{job.notes}</div>
+          </div>
+        )}
+
+        {/* Job Tags */}
+        {jobTags.length > 0 && (
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Job Tags</div>
+            <div className="flex flex-wrap gap-1.5">
+              {jobTags.map((tag) => (
+                <span
+                  key={tag.name}
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                  style={{ backgroundColor: tag.colour }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
