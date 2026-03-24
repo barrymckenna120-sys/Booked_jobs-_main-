@@ -82,8 +82,25 @@ serve(async (req) => {
       }
     }
 
+    // Fetch certificate template from settings
+    let messageTemplate = `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}} from K & N Gas Services Limited.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+
+    if (userId) {
+      const tmplRes = await fetch(
+        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=template_certificate&limit=1`,
+        { headers }
+      );
+      const tmplSettings = await tmplRes.json();
+      if (Array.isArray(tmplSettings) && tmplSettings[0]?.template_certificate) {
+        messageTemplate = tmplSettings[0].template_certificate;
+      }
+    }
+
     const firstName = customer.name.split(" ")[0];
-    const message = `Hi ${firstName}, please find attached your Gas Service Certificate ${cert.cert_number} from ${businessName}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us.\n\n📄 ${cert.pdf_url}`;
+    const message = messageTemplate
+      .replace(/\{\{customer_name\}\}/g, firstName)
+      .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
+      .replace(/\{\{certificate_url\}\}/g, cert.pdf_url);
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
