@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { printReceipt } from "@/lib/printReceipt";
-import { CheckCircle2, Download, CalendarPlus, Loader2, Send } from "lucide-react";
+import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CertificateFlow from "@/components/engineer/CertificateFlow";
 
 
 const formatDate = (d: string) =>
