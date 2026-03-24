@@ -290,7 +290,9 @@ const JobDetail = () => {
             )}
           </div>
         </div>
-      )
+      )}
+
+      {/* Header */}
       <div className="flex items-start gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
           <ArrowLeft className="w-4 h-4" />
