@@ -61,11 +61,15 @@ const ServiceReceipt = () => {
       return;
     }
 
-    const custRes = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+    const [custRes, certRes] = await Promise.all([
+      supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
+      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+    ]);
 
     setJob(jobRes.data);
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
+    setCertificate(certRes.data || null);
     setLoading(false);
   };
 
