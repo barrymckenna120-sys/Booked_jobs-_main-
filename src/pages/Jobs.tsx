@@ -106,13 +106,14 @@ const Jobs = () => {
   };
 
   const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
+  const ACTIVE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed", "Awaiting Deposit", "Cancelled"];
 
   // Separate incoming jobs from the rest
   const incomingJobs = jobs.filter(j => j.status === "incoming");
   const nonIncomingJobs = jobs.filter(j => j.status !== "incoming");
 
-  const filtered = nonIncomingJobs
-    .filter(j => {
+  const applyFilters = (list: Job[]) =>
+    list.filter(j => {
       let matchStatus: boolean;
       if (statusFilter === "all") {
         matchStatus = true;
@@ -127,18 +128,28 @@ const Jobs = () => {
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
       return matchStatus && matchType && matchSearch && matchPayment;
-    })
-    .sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
+    });
+
+  const applySorting = (list: Job[], overrideDir?: "asc" | "desc") => {
+    const dir = overrideDir ? (overrideDir === "asc" ? 1 : -1) : (sortDir === "asc" ? 1 : -1);
+    return [...list].sort((a, b) => {
       if (sortCol === "customer_name") return dir * (a.customer_name || "").localeCompare(b.customer_name || "");
       if (sortCol === "status") return dir * a.status.localeCompare(b.status);
       const da = a.scheduled_date || "";
       const db = b.scheduled_date || "";
       return dir * da.localeCompare(db);
     });
+  };
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  // Split non-incoming into active & completed
+  const activeFiltered = applySorting(applyFilters(nonIncomingJobs.filter(j => j.status !== "Completed")), "asc");
+  const completedFiltered = applySorting(applyFilters(nonIncomingJobs.filter(j => j.status === "Completed")), "desc");
+
+  const activeTotalPages = Math.ceil(activeFiltered.length / PAGE_SIZE);
+  const activePaginated = activeFiltered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const completedTotalPages = Math.ceil(completedFiltered.length / PAGE_SIZE);
+  const completedPaginated = completedFiltered.slice(completedPage * PAGE_SIZE, (completedPage + 1) * PAGE_SIZE);
 
   const jobTypeBadge = (type: string) => {
     const styles: Record<string, string> = {
