@@ -31,6 +31,8 @@ type Job = {
   notes: string | null;
   created_at: string;
   customer_name?: string;
+  follow_up_needed?: boolean;
+  follow_up_detail?: string | null;
 };
 
 const Jobs = () => {
@@ -342,7 +344,17 @@ const Jobs = () => {
                     const hasReceipt = !!j.receipt_number;
                     return (
                     <TableRow key={j.id} className="cursor-pointer hover:bg-primary-light" onClick={() => navigate(`/jobs/${j.id}`)}>
-                      <TableCell className="font-semibold">{j.customer_name}</TableCell>
+                      <TableCell>
+                        <span className="font-semibold">{j.customer_name}</span>
+                        {j.follow_up_needed && (
+                          <div className="mt-1 space-y-0.5">
+                            <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Follow-up</span>
+                            {j.follow_up_detail && (
+                              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{j.follow_up_detail}</p>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
                       <TableCell>
                         {j.scheduled_date

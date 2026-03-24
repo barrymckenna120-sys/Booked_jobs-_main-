@@ -1,0 +1,2 @@
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS follow_up_resolved boolean NOT NULL DEFAULT false;
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS follow_up_resolved_at timestamptz;

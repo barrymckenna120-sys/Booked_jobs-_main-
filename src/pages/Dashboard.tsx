@@ -4,13 +4,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Loader2 } from "lucide-react";
+import { CalendarDays, Plus, Loader2, AlertTriangle } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { format } from "date-fns";
 
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
+import FollowUpsPanel from "@/components/dashboard/FollowUpsPanel";
 
 import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
 import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
@@ -29,10 +30,18 @@ const titleCase = (str: string) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
 
+const TABS = [
+  { key: "dashboard" as const, label: "Dashboard", icon: null as any },
+  { key: "follow-ups" as const, label: "Follow-ups", icon: AlertTriangle },
+];
+
+type TabKey = (typeof TABS)[number]["key"];
+
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [showNewJob, setShowNewJob] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
 
@@ -45,6 +54,19 @@ const Dashboard = () => {
         .eq("user_id", user!.id)
         .maybeSingle();
       return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: followUpCount = 0 } = useQuery({
+    queryKey: ["follow-up-count", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("service_calls")
+        .select("id", { count: "exact", head: true })
+        .eq("follow_up_needed", true)
+        .eq("follow_up_resolved", false);
+      return count || 0;
     },
     enabled: !!user,
   });
@@ -77,20 +99,43 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Today's Schedule */}
-      <TodayTimeline />
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {TABS.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-colors ${
+                active
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.icon && <tab.icon className="w-4 h-4" />}
+              {tab.label}
+              {tab.key === "follow-ups" && followUpCount > 0 && (
+                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-amber-500 text-white">
+                  {followUpCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Today's Revenue */}
-      <TodaysRevenueCard />
+      {activeTab === "dashboard" && (
+        <>
+          <TodayTimeline />
+          <TodaysRevenueCard />
+          <JobsUpdateSection />
+          <MessageLogWidget />
+          <AlertsPanel />
+        </>
+      )}
 
-      {/* Jobs Update */}
-      <JobsUpdateSection />
-
-      {/* Message Log */}
-      <MessageLogWidget />
-
-      {/* Needs Attention */}
-      <AlertsPanel />
+      {activeTab === "follow-ups" && <FollowUpsPanel />}
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
     </div>

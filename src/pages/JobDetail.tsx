@@ -269,6 +269,16 @@ const JobDetail = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      {/* Follow-up Banner */}
+      {(job as any).follow_up_needed && !(job as any).follow_up_resolved && (
+        <div className="flex items-start gap-2 rounded-lg p-3 bg-amber-500/10 border-l-4 border-amber-500">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm font-bold text-amber-800">
+            ⚠️ Follow-up required: {(job as any).follow_up_detail || "Details not specified"}
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
