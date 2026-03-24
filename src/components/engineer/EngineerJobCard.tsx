@@ -40,6 +40,7 @@ interface EngineerJobCardProps {
 }
 
 const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
