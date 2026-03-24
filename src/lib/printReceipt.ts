@@ -33,7 +33,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
   .receipt { max-width: 600px; margin: 0 auto; padding: 24px; }
   .header { margin-bottom: 20px; }
   .header h1 { font-size: 22px; font-weight: 800; color: #111827; margin-bottom: 4px; }
-  .header p { font-size: 11px; color: #6B7280; }
+  .header p { font-size: 13px; color: #6B7280; }
   .title { font-size: 15px; font-weight: 700; color: #4A86E8; margin: 16px 0 12px; text-transform: uppercase; letter-spacing: 0.5px; }
   .divider { border: none; border-top: 1px solid #E5E7EB; margin: 12px 0; }
   .section-label { font-size: 10px; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
