@@ -15,6 +15,8 @@ import TeamManagementTab from "@/components/settings/TeamManagementTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
 import QuickRepliesTab from "@/components/settings/QuickRepliesTab";
 import QuoteDefaultsTab from "@/components/settings/QuoteDefaultsTab";
+import BrandTab from "@/components/settings/BrandTab";
+import { Palette } from "lucide-react";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
@@ -22,6 +24,7 @@ const TABS = [
   { key: "team", label: "Team", icon: Users },
   { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   { key: "business", label: "Business", icon: Building2 },
+  { key: "brand", label: "Brand", icon: Palette },
   { key: "reminders", label: "Reminders", icon: Bell },
   { key: "data", label: "Data", icon: Database },
   { key: "security", label: "Security", icon: Shield },
@@ -113,6 +116,7 @@ const Settings = () => {
           {activeTab === "team" && <TeamManagementTab />}
           {activeTab === "whatsapp" && <WhatsAppTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "business" && <BusinessProfileTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "brand" && <BrandTab />}
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "data" && <DataTab />}
           {activeTab === "security" && <SecurityTab />}
