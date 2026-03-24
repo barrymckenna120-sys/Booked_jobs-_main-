@@ -377,6 +377,24 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
+        {/* Job Tags */}
+        {jobTags.length > 0 && (
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Job Tags</div>
+            <div className="flex flex-wrap gap-1.5">
+              {jobTags.map((tag) => (
+                <span
+                  key={tag.name}
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                  style={{ backgroundColor: tag.colour }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+
         {/* Access notes */}
         {customer.access_notes && (
           <div className="bg-primary/5 rounded-xl border border-primary/10 p-3">
