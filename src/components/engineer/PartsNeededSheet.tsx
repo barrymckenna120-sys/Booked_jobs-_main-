@@ -43,6 +43,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Thermocouple, pilot jet, flue seal..."
             className="min-h-[110px]"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
           />
           <div className="flex gap-3 pt-1">
             <Button variant="outline" className="flex-1" onClick={() => handleOpenChange(false)}>
