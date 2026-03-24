@@ -37,7 +37,36 @@ const Customers = () => {
     if (user) fetchCustomers();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter, selectedTags]);
+
+  // Fetch customer IDs matching selected tags
+  useEffect(() => {
+    if (selectedTags.length === 0) {
+      setTagCustomerIds(null);
+      return;
+    }
+    const fetchTaggedCustomers = async () => {
+      const { data } = await supabase
+        .from("service_call_tags")
+        .select("service_call_id, job_tags!inner(name), service_calls:service_call_id(customer_id, status)")
+        .in("job_tags.name", selectedTags);
+      if (data) {
+        const ids = new Set<string>();
+        data.forEach((row: any) => {
+          const sc = row.service_calls;
+          if (sc?.customer_id) ids.add(sc.customer_id);
+        });
+        setTagCustomerIds(ids);
+      }
+    };
+    fetchTaggedCustomers();
+  }, [selectedTags]);
+
+  const toggleTagFilter = (name: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
 
   const fetchCustomers = async () => {
     setLoading(true);
