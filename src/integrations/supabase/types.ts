@@ -1107,6 +1107,8 @@ export type Database = {
           extra_details: string | null
           follow_up_detail: string | null
           follow_up_needed: boolean
+          follow_up_resolved: boolean
+          follow_up_resolved_at: string | null
           has_quote: boolean
           id: string
           incoming_status: string | null
@@ -1158,6 +1160,8 @@ export type Database = {
           extra_details?: string | null
           follow_up_detail?: string | null
           follow_up_needed?: boolean
+          follow_up_resolved?: boolean
+          follow_up_resolved_at?: string | null
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
@@ -1209,6 +1213,8 @@ export type Database = {
           extra_details?: string | null
           follow_up_detail?: string | null
           follow_up_needed?: boolean
+          follow_up_resolved?: boolean
+          follow_up_resolved_at?: string | null
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
