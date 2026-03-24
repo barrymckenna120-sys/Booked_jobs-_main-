@@ -130,7 +130,33 @@ const BusinessProfileTab = ({ settings, onSave, saving }: Props) => {
         </CardContent>
       </Card>
 
-      <Button onClick={() => onSave({ opening_hours: hours, service_areas: areas, job_time_blocks: blocks })} disabled={saving} className="w-full md:w-auto">
+      {/* Payments */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Payments</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label htmlFor="deposit-pct" className="text-sm font-medium">Default Deposit Percentage</Label>
+            <div className="relative mt-1.5 w-32">
+              <Input
+                id="deposit-pct"
+                type="number"
+                value={depositPercentage}
+                onChange={(e) => setDepositPercentage(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                min={0}
+                max={100}
+                step={1}
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">%</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              This is the deposit % applied when generating quotes and payment requests.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => onSave({ opening_hours: hours, service_areas: areas, job_time_blocks: blocks, deposit_percentage: depositPercentage })} disabled={saving} className="w-full md:w-auto">
         {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Business Profile
       </Button>
     </div>
