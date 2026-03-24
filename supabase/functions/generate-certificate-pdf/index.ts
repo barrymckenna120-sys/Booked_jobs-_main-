@@ -11,11 +11,68 @@ function escapeHtml(str: string | null | undefined): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: any): string {
+// ── Brand defaults ──────────────────────────────────────────────────────────
+interface BrandColors {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  background_color: string;
+  header_text_color: string;
+  body_text_color: string;
+  section_label_color: string;
+  border_color: string;
+  table_header_color: string;
+  table_row_color: string;
+  table_alt_color: string;
+  font_family: string;
+}
+
+const BRAND_DEFAULTS: BrandColors = {
+  primary_color: "#1E3A5F",
+  secondary_color: "#2C4F7C",
+  accent_color: "#4A86E8",
+  background_color: "#FFFFFF",
+  header_text_color: "#FFFFFF",
+  body_text_color: "#1F2937",
+  section_label_color: "#1E3A5F",
+  border_color: "#E2E8F0",
+  table_header_color: "#EBF2FF",
+  table_row_color: "#FFFFFF",
+  table_alt_color: "#F8FAFF",
+  font_family: "Poppins",
+};
+
+function mergeBrand(row: any): BrandColors {
+  if (!row) return { ...BRAND_DEFAULTS };
+  return {
+    primary_color: row.primary_color ?? BRAND_DEFAULTS.primary_color,
+    secondary_color: row.secondary_color ?? BRAND_DEFAULTS.secondary_color,
+    accent_color: row.accent_color ?? BRAND_DEFAULTS.accent_color,
+    background_color: row.background_color ?? BRAND_DEFAULTS.background_color,
+    header_text_color: row.header_text_color ?? BRAND_DEFAULTS.header_text_color,
+    body_text_color: row.body_text_color ?? BRAND_DEFAULTS.body_text_color,
+    section_label_color: row.section_label_color ?? BRAND_DEFAULTS.section_label_color,
+    border_color: row.border_color ?? BRAND_DEFAULTS.border_color,
+    table_header_color: row.table_header_color ?? BRAND_DEFAULTS.table_header_color,
+    table_row_color: row.table_row_color ?? BRAND_DEFAULTS.table_row_color,
+    table_alt_color: row.table_alt_color ?? BRAND_DEFAULTS.table_alt_color,
+    font_family: row.font_family ?? BRAND_DEFAULTS.font_family,
+  };
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+
+function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: any, brand: BrandColors): string {
   const checks = cert.checks || {};
   const readings = cert.readings || {};
   const notes = cert.notes || {};
   const details = notes.details || {};
+
+  const b = brand;
+  const fontImport = `@import url('https://fonts.googleapis.com/css2?family=${b.font_family.replace(/ /g, "+")}:wght@400;600;700&display=swap');`;
 
   const checkRows = Object.entries(checks as Record<string, { status: string; note: string }>)
     .map(([key, val]) => {
@@ -23,7 +80,21 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
       const icon = val.status === "pass"
         ? '<span style="color:#22c55e;font-size:18px;">&#10003;</span>'
         : `<span style="color:#c8102e;font-size:18px;">&#10007;</span>${val.note ? `<br/><span style="font-size:11px;color:#c8102e;">${escapeHtml(val.note)}</span>` : ""}`;
-      return `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${icon}</td></tr>`;
+      return `<tr style="background:${checkRows.length % 2 === 0 ? b.table_row_color : b.table_alt_color};"><td style="padding:8px 12px;border-bottom:1px solid ${b.border_color};">${label}</td><td style="padding:8px 12px;border-bottom:1px solid ${b.border_color};text-align:center;">${icon}</td></tr>`;
+    })
+    .join("");
+
+  // Re-generate rows with proper alternation
+  let rowIdx = 0;
+  const checkRowsFixed = Object.entries(checks as Record<string, { status: string; note: string }>)
+    .map(([key, val]) => {
+      const label = key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const bgColor = rowIdx % 2 === 0 ? b.table_row_color : b.table_alt_color;
+      rowIdx++;
+      const icon = val.status === "pass"
+        ? '<span style="color:#22c55e;font-size:18px;">&#10003;</span>'
+        : `<span style="color:#c8102e;font-size:18px;">&#10007;</span>${val.note ? `<br/><span style="font-size:11px;color:#c8102e;">${escapeHtml(val.note)}</span>` : ""}`;
+      return `<tr style="background:${bgColor};"><td style="padding:8px 12px;border-bottom:1px solid ${b.border_color};">${label}</td><td style="padding:8px 12px;border-bottom:1px solid ${b.border_color};text-align:center;">${icon}</td></tr>`;
     })
     .join("");
 
@@ -37,32 +108,33 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><style>
+  ${fontImport}
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1a1a1a;padding:30px 40px;}
-  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e3a5f;padding-bottom:14px;margin-bottom:18px;}
-  .header h1{font-size:20px;color:#1e3a5f;margin:0;}
-  .cert-num{font-size:14px;color:#c8102e;font-weight:bold;margin-top:4px;}
+  body{font-family:'${b.font_family}',Arial,Helvetica,sans-serif;font-size:13px;color:${b.body_text_color};background:${b.background_color};padding:30px 40px;}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid ${b.primary_color};padding-bottom:14px;margin-bottom:18px;}
+  .header h1{font-size:20px;color:${b.primary_color};margin:0;}
+  .cert-num{font-size:14px;color:${b.accent_color};font-weight:bold;margin-top:4px;}
   .date{font-size:12px;color:#666;margin-top:2px;}
-  .rgi-badge{width:60px;height:60px;border-radius:50%;background:#1e3a5f;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;text-align:center;line-height:1.2;}
+  .rgi-badge{width:60px;height:60px;border-radius:50%;background:${b.primary_color};color:${b.header_text_color};display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;text-align:center;line-height:1.2;}
   .section{margin-bottom:16px;}
-  .section-title{font-size:13px;font-weight:bold;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px;}
+  .section-title{font-size:13px;font-weight:bold;color:${b.section_label_color};text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid ${b.border_color};padding-bottom:4px;margin-bottom:8px;}
   .two-col{display:flex;gap:30px;}
   .two-col > div{flex:1;}
   .field{margin-bottom:5px;}
   .field .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;}
   .field .value{font-size:13px;font-weight:600;}
   table{width:100%;border-collapse:collapse;}
-  th{background:#1e3a5f;color:#fff;padding:8px 12px;text-align:left;font-size:12px;}
+  th{background:${b.table_header_color};color:${b.section_label_color};padding:8px 12px;text-align:left;font-size:12px;}
   .reading-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-  .reading-box{border:1px solid #ddd;border-radius:6px;padding:10px;text-align:center;}
+  .reading-box{border:1px solid ${b.border_color};border-radius:6px;padding:10px;text-align:center;}
   .reading-box .r-label{font-size:10px;color:#888;text-transform:uppercase;}
-  .reading-box .r-value{font-size:20px;font-weight:bold;color:#1e3a5f;}
-  .declaration{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:6px;padding:14px;font-size:11px;line-height:1.6;color:#444;margin-top:16px;}
+  .reading-box .r-value{font-size:20px;font-weight:bold;color:${b.primary_color};}
+  .declaration{background:${b.table_alt_color};border:1px solid ${b.border_color};border-radius:6px;padding:14px;font-size:11px;line-height:1.6;color:#444;margin-top:16px;}
   .sig-row{display:flex;gap:40px;margin-top:20px;}
   .sig-box{flex:1;text-align:center;}
   .sig-box img{max-width:200px;max-height:80px;border-bottom:1px solid #333;}
   .sig-label{font-size:11px;color:#666;margin-top:4px;}
-  .footer{border-top:2px solid #1e3a5f;padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:#666;}
+  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px;border-radius:0 0 6px 6px;}
 </style></head><body>
 
 <div class="header">
@@ -113,7 +185,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   <div class="section-title">Safety Checks</div>
   <table>
     <tr><th>Check</th><th style="text-align:center;">Result</th></tr>
-    ${checkRows}
+    ${checkRowsFixed}
   </table>
 </div>
 
@@ -199,16 +271,19 @@ Deno.serve(async (req) => {
     const customer = customerRes.data;
     const job = jobRes.data;
 
-    // Fetch settings for the job owner
+    // Fetch settings and brand_settings for the job owner
     let settings = null;
+    let brandRow = null;
     if (job?.user_id) {
-      const { data } = await supabaseAdmin
-        .from("settings")
-        .select("*")
-        .eq("user_id", job.user_id)
-        .maybeSingle();
-      settings = data;
+      const [settingsRes, brandRes] = await Promise.all([
+        supabaseAdmin.from("settings").select("*").eq("user_id", job.user_id).maybeSingle(),
+        supabaseAdmin.from("brand_settings").select("*").eq("organisation_id", job.user_id).maybeSingle(),
+      ]);
+      settings = settingsRes.data;
+      brandRow = brandRes.data;
     }
+
+    const brand = mergeBrand(brandRow);
 
     // Fetch engineer info
     let engineer = null;
@@ -222,11 +297,9 @@ Deno.serve(async (req) => {
     }
 
     // Build HTML
-    const html = buildHtml(cert, customer, job, settings, engineer);
+    const html = buildHtml(cert, customer, job, settings, engineer, brand);
 
-    // Convert HTML to PDF using jsPDF (same approach as quote PDF generation)
-    // Since we can't use a headless browser in Deno edge, we'll use the HTML as a base
-    // and convert via a simple text-based PDF approach with jsPDF
+    // ── jsPDF rendering ──
     const { default: jsPDF } = await import("https://esm.sh/jspdf@2.5.2");
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -235,11 +308,22 @@ Deno.serve(async (req) => {
     const contentW = pageW - margin * 2;
     let y = margin;
 
+    // Brand RGB helpers
+    const primaryRgb = hexToRgb(brand.primary_color);
+    const headerTextRgb = hexToRgb(brand.header_text_color);
+    const accentRgb = hexToRgb(brand.accent_color);
+    const sectionLabelRgb = hexToRgb(brand.section_label_color);
+    const bodyTextRgb = hexToRgb(brand.body_text_color);
+    const borderRgb = hexToRgb(brand.border_color);
+    const tableHeaderRgb = hexToRgb(brand.table_header_color);
+    const tableRowRgb = hexToRgb(brand.table_row_color);
+    const tableAltRgb = hexToRgb(brand.table_alt_color);
+
     const addText = (text: string, x: number, _y: number, opts: { size?: number; bold?: boolean; color?: [number, number, number]; maxWidth?: number; align?: string } = {}) => {
       doc.setFontSize(opts.size || 11);
       doc.setFont("helvetica", opts.bold ? "bold" : "normal");
       if (opts.color) doc.setTextColor(...opts.color);
-      else doc.setTextColor(26, 26, 26);
+      else doc.setTextColor(...bodyTextRgb);
       
       if (opts.maxWidth) {
         const lines = doc.splitTextToSize(text, opts.maxWidth);
@@ -258,12 +342,12 @@ Deno.serve(async (req) => {
     };
 
     // Header
-    doc.setFillColor(30, 58, 95);
+    doc.setFillColor(...primaryRgb);
     doc.roundedRect(margin, y, contentW, 22, 2, 2, "F");
-    addText("RGI", margin + 5, y + 9, { size: 9, bold: true, color: [255, 255, 255] });
-    addText("Cert", margin + 5, y + 14, { size: 9, bold: true, color: [255, 255, 255] });
-    addText("RGI Domestic Gas Certificate", margin + 22, y + 10, { size: 16, bold: true, color: [255, 255, 255] });
-    addText(cert.cert_number || "", pageW - margin, y + 10, { size: 12, bold: true, color: [200, 16, 46], align: "right" });
+    addText("RGI", margin + 5, y + 9, { size: 9, bold: true, color: headerTextRgb });
+    addText("Cert", margin + 5, y + 14, { size: 9, bold: true, color: headerTextRgb });
+    addText("RGI Domestic Gas Certificate", margin + 22, y + 10, { size: 16, bold: true, color: headerTextRgb });
+    addText(cert.cert_number || "", pageW - margin, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
     const dateStr = new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" });
     addText(`Issued: ${dateStr}`, pageW - margin, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
     y += 28;
@@ -271,9 +355,9 @@ Deno.serve(async (req) => {
     // Section helper
     const sectionTitle = (title: string) => {
       checkNewPage(12);
-      doc.setFillColor(30, 58, 95);
+      doc.setFillColor(...primaryRgb);
       doc.rect(margin, y, contentW, 7, "F");
-      addText(title, margin + 3, y + 5, { size: 10, bold: true, color: [255, 255, 255] });
+      addText(title, margin + 3, y + 5, { size: 10, bold: true, color: headerTextRgb });
       y += 10;
     };
 
@@ -328,10 +412,17 @@ Deno.serve(async (req) => {
 
     // Safety Checks
     sectionTitle("SAFETY CHECKS");
+    let checkIdx = 0;
     for (const [key, val] of Object.entries(checks as Record<string, { status: string; note: string }>)) {
       checkNewPage(10);
       const label = key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-      doc.setDrawColor(229, 231, 235);
+
+      // Alternating row background
+      const rowBg = checkIdx % 2 === 0 ? tableRowRgb : tableAltRgb;
+      doc.setFillColor(...rowBg);
+      doc.rect(margin, y - 2, contentW, 8, "F");
+
+      doc.setDrawColor(...borderRgb);
       doc.line(margin, y + 6, margin + contentW, y + 6);
       addText(label, margin + 2, y + 4, { size: 10 });
       if (val.status === "pass") {
@@ -344,6 +435,7 @@ Deno.serve(async (req) => {
         addText(val.note, margin + 4, y, { size: 8, color: [200, 16, 46], maxWidth: contentW - 20 });
         y += 5;
       }
+      checkIdx++;
     }
     y += 2;
 
@@ -366,16 +458,16 @@ Deno.serve(async (req) => {
       if (col === 0 && i > 0) y += 14;
       if (col === 0) checkNewPage(16);
       const x = margin + col * colW + 2;
-      doc.setDrawColor(221, 221, 221);
+      doc.setDrawColor(...borderRgb);
       doc.roundedRect(x, y, colW - 4, 13, 1, 1, "S");
       addText(readingPairs[i][0], x + (colW - 4) / 2, y + 4, { size: 7, color: [136, 136, 136], align: "center" });
-      addText(readingPairs[i][1], x + (colW - 4) / 2, y + 10, { size: 14, bold: true, color: [30, 58, 95], align: "center" });
+      addText(readingPairs[i][1], x + (colW - 4) / 2, y + 10, { size: 14, bold: true, color: primaryRgb, align: "center" });
     }
     y += 18;
 
     if (notes.work_carried_out) {
       checkNewPage(15);
-      addText("Work Carried Out:", margin + 2, y, { size: 9, bold: true, color: [30, 58, 95] });
+      addText("Work Carried Out:", margin + 2, y, { size: 9, bold: true, color: sectionLabelRgb });
       y += 4;
       const h = addText(notes.work_carried_out, margin + 2, y, { size: 9, maxWidth: contentW - 4 });
       y += h + 4;
@@ -383,9 +475,9 @@ Deno.serve(async (req) => {
 
     // Declaration
     checkNewPage(30);
-    doc.setFillColor(248, 249, 250);
+    doc.setFillColor(...tableAltRgb);
     doc.roundedRect(margin, y, contentW, 28, 2, 2, "F");
-    doc.setDrawColor(229, 231, 235);
+    doc.setDrawColor(...borderRgb);
     doc.roundedRect(margin, y, contentW, 28, 2, 2, "S");
     addText("Declaration:", margin + 4, y + 5, { size: 8, bold: true, color: [68, 68, 68] });
     addText(
@@ -423,9 +515,9 @@ Deno.serve(async (req) => {
     y += 36;
 
     // Footer
-    doc.setFillColor(30, 58, 95);
+    doc.setFillColor(...primaryRgb);
     doc.rect(margin, 285, contentW, 5, "F");
-    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, 289, { size: 8, color: [255, 255, 255], align: "center" });
+    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, 289, { size: 8, color: headerTextRgb, align: "center" });
 
     // Generate PDF buffer
     const pdfOutput = doc.output("arraybuffer");
