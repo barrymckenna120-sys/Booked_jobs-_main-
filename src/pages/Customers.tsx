@@ -12,6 +12,12 @@ import AddCustomerSheet from "@/components/customer/AddCustomerSheet";
 
 const PAGE_SIZE = 15;
 
+const TAG_FILTERS = [
+  { name: "New Boiler Fitted", colour: "#4A86E8" },
+  { name: "New Boiler Soon", colour: "#F59E0B" },
+  { name: "Under Warranty", colour: "#10B981" },
+];
+
 const Customers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
