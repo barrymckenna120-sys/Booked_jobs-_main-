@@ -171,7 +171,7 @@ const ServiceReceipt = () => {
           <div className="px-5 pt-6 pb-4 text-center">
             <h1 className="text-lg font-extrabold text-foreground">{data.businessName}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{data.businessTagline}</p>
-            <p className="text-xs text-muted-foreground">Phone: {data.businessPhone}</p>
+            <p className="text-[11px] text-muted-foreground">Phone: {data.businessPhone}</p>
           </div>
 
           {/* Success indicator */}
