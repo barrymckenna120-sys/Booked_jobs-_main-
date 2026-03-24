@@ -57,7 +57,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
   <div class="header">
     <h1>${esc(data.businessName)}</h1>
     <p>${esc(data.businessTagline)}</p>
-    <p>Phone: ${esc(data.businessPhone)}</p>
+    <p class="phone">Phone: ${esc(data.businessPhone)}</p>
     ${data.businessAddress ? `<p>${esc(data.businessAddress)}</p>` : ''}
   </div>
 
