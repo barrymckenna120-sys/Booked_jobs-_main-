@@ -181,8 +181,10 @@ const Renewals = () => {
   // Customers with stage "booked" or "paid" are resolved — exclude from overdue/due-soon
   const isResolved = (c: typeof withStatus[0]) => c.stage === "booked" || c.stage === "paid";
 
+  const selectedMonthIndex = parseInt(monthFilter);
+
   const filtered = withStatus
-    .filter((c) => showArchived ? true : !isResolved(c)) // In archived view, show all
+    .filter((c) => showArchived ? true : !isResolved(c))
     .filter((c) => {
       if (filter === "All") return true;
       if (filter === "Contacted") return c.contactedRecently || reminderSent[c.id];
@@ -196,6 +198,16 @@ const Renewals = () => {
       if (!search) return true;
       const q = search.toLowerCase();
       return c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
+    })
+    .filter((c) => {
+      if (!c.next_service_due) return false;
+      const dueDate = new Date(c.next_service_due + "T00:00:00");
+      return dueDate.getMonth() === selectedMonthIndex;
+    })
+    .filter((c) => {
+      if (!postcodeFilter.trim()) return true;
+      const q = postcodeFilter.trim().toLowerCase();
+      return c.eircode.toLowerCase().includes(q);
     })
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
