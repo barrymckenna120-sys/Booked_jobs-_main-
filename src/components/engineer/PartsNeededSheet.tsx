@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Wrench, Loader2 } from "lucide-react";
 
 interface Props {
@@ -19,38 +19,47 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
     setNotes("");
   };
 
+  const handleOpenChange = (v: boolean) => {
+    if (!v) {
+      setNotes("");
+      onClose();
+    }
+  };
+
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-2xl max-h-[80vh]">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="rounded-2xl max-w-[92vw] sm:max-w-md p-6">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg">
             <Wrench className="w-5 h-5 text-amber-500" /> Parts Needed
-          </SheetTitle>
-        </SheetHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Parts required (optional)</Label>
-            <textarea
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Describe the parts needed..."
-            />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground pt-1">
+            What parts are required for this job?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Thermocouple, pilot jet, flue seal..."
+            className="min-h-[110px]"
+          />
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => handleOpenChange(false)}>
+              Cancel
+            </Button>
             <Button
               className="flex-1 bg-amber-500 hover:bg-amber-500/90 text-white"
               onClick={handleConfirm}
-              disabled={loading}
+              disabled={loading || !notes.trim()}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
               Confirm
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 
