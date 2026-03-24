@@ -59,7 +59,7 @@ const Jobs = () => {
     if (user) fetchJobs();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [statusFilter, typeFilter, search, paymentFilter]);
+  useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter]);
 
   const fetchJobs = async () => {
     setLoading(true);
