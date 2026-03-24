@@ -507,9 +507,16 @@ Deno.serve(async (req) => {
     y += 36;
 
     // Footer
+    const footerH = companyAddress ? 10 : 5;
     doc.setFillColor(...primaryRgb);
-    doc.rect(margin, 285, contentW, 5, "F");
-    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, 289, { size: 8, color: headerTextRgb, align: "center" });
+    doc.rect(margin, 297 - margin - footerH, contentW, footerH, "F");
+    const footerTopY = 297 - margin - footerH;
+    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
+    if (companyAddress) {
+      doc.setGState(new doc.GState({ opacity: 0.7 }));
+      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: headerTextRgb, align: "center" });
+      doc.setGState(new doc.GState({ opacity: 1 }));
+    }
 
     // Generate PDF buffer
     const pdfOutput = doc.output("arraybuffer");
