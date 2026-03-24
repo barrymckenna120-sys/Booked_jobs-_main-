@@ -18,6 +18,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   in_progress:       { icon: Play,           color: "text-amber-500",   bg: "bg-amber-500/10",   label: "In Progress" },
   new_video_uploaded:{ icon: Video,          color: "text-purple-500",  bg: "bg-purple-500/10",  label: "New Video" },
   quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Quote Accepted" },
+  follow_up:         { icon: AlertTriangle,  color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Follow-up" },
 };
 
 const AUTO_DISMISS_MS = 15000;
