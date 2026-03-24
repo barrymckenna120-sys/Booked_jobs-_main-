@@ -172,7 +172,28 @@ const Customers = () => {
         </Select>
       </div>
 
-      {/* Customer Table */}
+      {/* Tag Filter Chips */}
+      <div className="flex flex-wrap gap-2">
+        {TAG_FILTERS.map((tag) => {
+          const isSelected = selectedTags.includes(tag.name);
+          return (
+            <button
+              key={tag.name}
+              type="button"
+              onClick={() => toggleTagFilter(tag.name)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all border cursor-pointer"
+              style={{
+                borderColor: tag.colour,
+                backgroundColor: isSelected ? tag.colour : "transparent",
+                color: isSelected ? "#fff" : tag.colour,
+              }}
+            >
+              {tag.name}
+            </button>
+          );
+        })}
+      </div>
+
       <Card className="shadow-sm border-border/60">
         <CardContent className="p-0">
           {loading ? (
