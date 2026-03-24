@@ -137,6 +137,7 @@ const App = () => (
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
+            <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />

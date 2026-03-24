@@ -97,10 +97,14 @@ serve(async (req) => {
     }
 
     const firstName = customer.name.split(" ")[0];
+    // Use clean public URL for the WhatsApp message text
+    const cleanCertUrl = cert.cert_number
+      ? `https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}.pdf`
+      : cert.pdf_url;
     const message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
-      .replace(/\{\{certificate_url\}\}/g, cert.pdf_url);
+      .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
