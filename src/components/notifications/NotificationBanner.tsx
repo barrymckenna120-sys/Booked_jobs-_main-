@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {

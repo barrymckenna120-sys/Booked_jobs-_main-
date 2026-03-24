@@ -7,7 +7,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, Video, AlertTriangle } from "lucide-react";
+import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Banknote, Video, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
