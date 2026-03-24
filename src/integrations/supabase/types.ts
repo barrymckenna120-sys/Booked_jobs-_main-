@@ -53,6 +53,60 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_settings: {
+        Row: {
+          accent_color: string
+          background_color: string
+          body_text_color: string
+          border_color: string
+          font_family: string
+          header_text_color: string
+          id: string
+          organisation_id: string
+          primary_color: string
+          secondary_color: string
+          section_label_color: string
+          table_alt_color: string
+          table_header_color: string
+          table_row_color: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          background_color?: string
+          body_text_color?: string
+          border_color?: string
+          font_family?: string
+          header_text_color?: string
+          id?: string
+          organisation_id: string
+          primary_color?: string
+          secondary_color?: string
+          section_label_color?: string
+          table_alt_color?: string
+          table_header_color?: string
+          table_row_color?: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          background_color?: string
+          body_text_color?: string
+          border_color?: string
+          font_family?: string
+          header_text_color?: string
+          id?: string
+          organisation_id?: string
+          primary_color?: string
+          secondary_color?: string
+          section_label_color?: string
+          table_alt_color?: string
+          table_header_color?: string
+          table_row_color?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       certificates: {
         Row: {
           cert_number: string | null
