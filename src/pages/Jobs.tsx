@@ -33,6 +33,7 @@ type Job = {
   customer_name?: string;
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
+  follow_up_resolved?: boolean;
 };
 
 const Jobs = () => {
