@@ -50,10 +50,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
             data-form-type="other"
           />
           <div className="flex gap-3 pt-1">
-            <Button variant="outline" className="flex-1" onClick={() => handleOpenChange(false)}>
+            <Button type="button" variant="outline" className="flex-1" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
             <Button
+              type="button"
               className="flex-1 bg-amber-500 hover:bg-amber-500/90 text-white"
               onClick={handleConfirm}
               disabled={loading || !notes.trim()}
