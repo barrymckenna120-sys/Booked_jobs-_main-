@@ -399,6 +399,7 @@ const Jobs = () => {
             <SelectItem value="Awaiting Deposit">Awaiting Deposit</SelectItem>
             <SelectItem value="no_show">No Show</SelectItem>
             <SelectItem value="parts_needed">Parts Needed</SelectItem>
+            <SelectItem value="follow_up">Follow-up</SelectItem>
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
