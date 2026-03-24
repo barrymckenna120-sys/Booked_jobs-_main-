@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2 } from "lucide-react";
+import { format } from "date-fns";
 
 const TAG_OPTIONS = [
   { name: "New Boiler Fitted", colour: "#4A86E8" },
   { name: "New Boiler Soon", colour: "#F59E0B" },
   { name: "Under Warranty", colour: "#10B981" },
+];
+
+const JOB_TYPES = [
+  { label: "Service", colour: "#4A86E8", prefix: "Boiler serviced" },
+  { label: "Repair", colour: "#F59E0B", prefix: "Repair completed" },
+  { label: "Install", colour: "#10B981", prefix: "New boiler fitted" },
 ];
 
 interface Props {
@@ -24,7 +31,32 @@ interface Props {
 
 const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [workDone, setWorkDone] = useState("");
+  const [userHasTyped, setUserHasTyped] = useState(false);
+  const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [parts, setParts] = useState("");
+  const workDoneRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleJobType = (label: string) => {
+    setSelectedJobType(label);
+    if (userHasTyped && workDone.trim()) return;
+    const jt = JOB_TYPES.find((j) => j.label === label)!;
+    const today = format(new Date(), "d MMM yyyy");
+    const text = `${jt.prefix} –  – ${today}`;
+    setWorkDone(text);
+    setTimeout(() => {
+      const ta = workDoneRef.current;
+      if (ta) {
+        const cursor = jt.prefix.length + 3; // after "prefix – "
+        ta.focus();
+        ta.setSelectionRange(cursor, cursor);
+      }
+    }, 0);
+  };
+
+  const handleWorkDoneChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setWorkDone(e.target.value);
+    setUserHasTyped(true);
+  };
   const [nextService, setNextService] = useState("12 months");
   const [followUp, setFollowUp] = useState(false);
   const [followUpNote, setFollowUpNote] = useState("");
