@@ -32,6 +32,7 @@ const BusinessProfileTab = ({ settings, onSave, saving }: Props) => {
   const [areas, setAreas] = useState<string[]>([]);
   const [newArea, setNewArea] = useState("");
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
+  const [depositPercentage, setDepositPercentage] = useState(50);
 
   useEffect(() => {
     if (settings) {
