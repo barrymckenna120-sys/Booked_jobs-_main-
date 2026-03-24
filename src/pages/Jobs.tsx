@@ -145,8 +145,9 @@ const Jobs = () => {
   };
 
   // Split non-incoming into active & completed
+  const allCompleted = nonIncomingJobs.filter(j => j.status === "Completed");
   const activeFiltered = applySorting(applyFilters(nonIncomingJobs.filter(j => j.status !== "Completed")), "asc");
-  const completedFiltered = applySorting(applyFilters(nonIncomingJobs.filter(j => j.status === "Completed")), "desc");
+  const completedFiltered = applySorting(applyFilters(allCompleted), "desc");
 
   const activeTotalPages = Math.ceil(activeFiltered.length / PAGE_SIZE);
   const activePaginated = activeFiltered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
