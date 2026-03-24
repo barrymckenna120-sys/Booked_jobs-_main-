@@ -78,9 +78,35 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
         <div className="text-[13px] text-muted-foreground mt-0.5">{customer.name} · {customer.address}</div>
       </div>
       <div className="px-5 pt-4 space-y-4">
+        {/* Job Type Selector */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Job Type</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {JOB_TYPES.map((jt) => {
+              const isSelected = selectedJobType === jt.label;
+              return (
+                <button
+                  key={jt.label}
+                  type="button"
+                  onClick={() => handleJobType(jt.label)}
+                  className="min-h-[48px] rounded-full text-sm font-bold transition-all border-2"
+                  style={{
+                    borderColor: jt.colour,
+                    backgroundColor: isSelected ? jt.colour : "transparent",
+                    color: isSelected ? "#fff" : jt.colour,
+                    boxShadow: isSelected ? `0 2px 8px ${jt.colour}40` : "none",
+                  }}
+                >
+                  {jt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">What was done? *</Label>
-          <Textarea rows={3} value={workDone} onChange={(e) => setWorkDone(e.target.value)}
+          <Textarea ref={workDoneRef} rows={3} value={workDone} onChange={handleWorkDoneChange}
             placeholder="e.g. Annual service completed, cleaned heat exchanger…" />
         </div>
 
