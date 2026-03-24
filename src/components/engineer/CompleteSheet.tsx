@@ -6,11 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { CheckCircle2 } from "lucide-react";
 
 const TAG_OPTIONS = [
-  { name: "New Fitted", colour: "#4A86E8" },
-  { name: "Needs New Soon", colour: "#F59E0B" },
+  { name: "New Boiler Fitted", colour: "#4A86E8" },
+  { name: "New Boiler Soon", colour: "#F59E0B" },
   { name: "Under Warranty", colour: "#10B981" },
 ];
 
@@ -87,31 +88,38 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
 
         <div className="space-y-1.5">
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes for office</Label>
-          <Textarea rows={2} value={officeNote} onChange={(e) => setOfficeNote(e.target.value)}
-            placeholder="Anything the office should know…" />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Job Tags</Label>
-          <div className="flex flex-wrap gap-2">
-            {TAG_OPTIONS.map((tag) => {
-              const isSelected = selectedTags.includes(tag.name);
-              return (
-                <button
-                  key={tag.name}
-                  type="button"
-                  onClick={() => toggleTag(tag.name)}
-                  className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
-                   style={{
-                    borderColor: tag.colour,
-                    backgroundColor: isSelected ? tag.colour : "transparent",
-                    color: isSelected ? "#fff" : tag.colour,
-                  }}
-                >
-                  {tag.name}
-                </button>
-              );
-            })}
+          <div className="rounded-md border border-input bg-background overflow-hidden">
+            <Textarea
+              rows={2}
+              value={officeNote}
+              onChange={(e) => setOfficeNote(e.target.value)}
+              placeholder="Anything the office should know…"
+              className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none"
+            />
+            <Separator className="bg-border" />
+            <div className="px-3 py-2.5 space-y-1.5">
+              <span className="text-[11px] font-medium text-muted-foreground">Tag this job:</span>
+              <div className="flex flex-wrap gap-2">
+                {TAG_OPTIONS.map((tag) => {
+                  const isSelected = selectedTags.includes(tag.name);
+                  return (
+                    <button
+                      key={tag.name}
+                      type="button"
+                      onClick={() => toggleTag(tag.name)}
+                      className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
+                      style={{
+                        borderColor: isSelected ? tag.colour : "hsl(var(--border))",
+                        backgroundColor: isSelected ? tag.colour : "transparent",
+                        color: isSelected ? "#fff" : "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
