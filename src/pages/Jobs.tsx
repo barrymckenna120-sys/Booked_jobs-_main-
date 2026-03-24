@@ -461,7 +461,7 @@ const Jobs = () => {
       </div>
 
       {/* ── COMPLETED JOBS ── */}
-      {completedFiltered.length > 0 && (
+      {allCompleted.length > 0 && (
         <div>
           <Button
             variant="outline"
@@ -469,9 +469,9 @@ const Jobs = () => {
             onClick={() => { setShowCompleted(s => !s); setCompletedPage(0); }}
           >
             <ChevronDown className={`w-4 h-4 transition-transform ${showCompleted ? "rotate-180" : ""}`} />
-            {showCompleted ? "Hide" : "Show"} Completed ({completedFiltered.length})
+            {showCompleted ? "Hide" : "Show"} Completed ({allCompleted.length})
           </Button>
-          {showCompleted && (
+          {showCompleted && completedPaginated.length > 0 && (
             <Card className="mt-2">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
