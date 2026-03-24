@@ -137,12 +137,13 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const depositNum = parseFloat(deposit) || 0;
   const balanceDue = Math.max(total - depositNum, 0);
 
-  // Auto-set deposit to 50% of total unless user manually overrode
+  // Auto-set deposit to configured % of total unless user manually overrode
+  const depositPct = (settings as any)?.deposit_percentage ?? 50;
   useEffect(() => {
     if (!depositManuallySet) {
-      setDeposit((Math.round(total * 50) / 100).toFixed(2));
+      setDeposit((Math.round(total * depositPct) / 100).toFixed(2));
     }
-  }, [total, depositManuallySet]);
+  }, [total, depositManuallySet, depositPct]);
 
   const updateLineItem = (id: string, field: keyof LineItem, value: string) => {
     setLineItems((prev) => prev.map((li) => li.id === id ? { ...li, [field]: value } : li));

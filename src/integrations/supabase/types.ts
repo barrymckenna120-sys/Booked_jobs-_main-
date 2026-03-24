@@ -1273,6 +1273,7 @@ export type Database = {
           default_service_price: number | null
           default_terms: string | null
           default_vat_enabled: boolean | null
+          deposit_percentage: number | null
           google_review_url: string | null
           id: string
           invoice_prefix: string | null
@@ -1320,6 +1321,7 @@ export type Database = {
           default_service_price?: number | null
           default_terms?: string | null
           default_vat_enabled?: boolean | null
+          deposit_percentage?: number | null
           google_review_url?: string | null
           id?: string
           invoice_prefix?: string | null
@@ -1367,6 +1369,7 @@ export type Database = {
           default_service_price?: number | null
           default_terms?: string | null
           default_vat_enabled?: boolean | null
+          deposit_percentage?: number | null
           google_review_url?: string | null
           id?: string
           invoice_prefix?: string | null
