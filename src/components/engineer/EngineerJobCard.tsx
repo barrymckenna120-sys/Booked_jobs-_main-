@@ -244,7 +244,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
       {showExtraWork && <ExtraWorkSheet job={job} customer={customer} onClose={() => setShowExtraWork(false)} />}
       <NoShowSheet open={showNoShow} onClose={() => setShowNoShow(false)} onConfirm={(reason, notes) => { onUpdate(job.id, { status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` }); setShowNoShow(false); }} />
-      <PartsNeededSheet open={showPartsNeeded} onClose={() => setShowPartsNeeded(false)} onConfirm={(notes) => { onUpdate(job.id, { status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" }); setShowPartsNeeded(false); }} />
+      <PartsNeededSheet open={showPartsNeeded} onClose={() => setShowPartsNeeded(false)} onConfirm={(notes) => { onUpdate(job.id, { status: "parts_needed", notes: `Parts Needed: ${notes}` }); setShowPartsNeeded(false); toast({ title: "Parts noted — office has been informed" }); }} />
       {showTakePayment && (
         <TakePaymentModal
           open={showTakePayment}
