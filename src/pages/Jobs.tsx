@@ -33,6 +33,7 @@ type Job = {
   customer_name?: string;
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
+  follow_up_resolved?: boolean;
 };
 
 const Jobs = () => {
@@ -117,6 +118,8 @@ const Jobs = () => {
       let matchStatus: boolean;
       if (statusFilter === "all") {
         matchStatus = true;
+      } else if (statusFilter === "follow_up") {
+        matchStatus = j.follow_up_needed === true && !j.follow_up_resolved;
       } else if (statusFilter === "incomplete,cancelled") {
         matchStatus = INCOMPLETE_STATUSES.includes(j.status) || j.status === "Cancelled";
       } else if (statusFilter === "incomplete") {
@@ -397,6 +400,7 @@ const Jobs = () => {
             <SelectItem value="Awaiting Deposit">Awaiting Deposit</SelectItem>
             <SelectItem value="no_show">No Show</SelectItem>
             <SelectItem value="parts_needed">Parts Needed</SelectItem>
+            <SelectItem value="follow_up">Follow-up</SelectItem>
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
