@@ -10,7 +10,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   new_repair:        { icon: Zap,            color: "text-orange-500",  bg: "bg-orange-500/10",  label: "New Repair" },
   no_show:           { icon: Ban,            color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Completed" },
-  parts_needed:      { icon: Cog,            color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_needed:      { icon: Wrench,        color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
   message:           { icon: Mail,           color: "text-blue-500",    bg: "bg-blue-500/10",    label: "Message" },
   en_route:          { icon: Navigation,     color: "text-blue-500",    bg: "bg-blue-500/10",    label: "En Route" },

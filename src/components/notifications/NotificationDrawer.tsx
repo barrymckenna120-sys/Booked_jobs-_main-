@@ -18,7 +18,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   new_repair:    { icon: Zap,            color: "text-orange-500",  label: "New Repair" },
   no_show:       { icon: Ban,            color: "text-destructive", label: "No Show" },
   completed:     { icon: CheckCircle2,   color: "text-success",     label: "Completed" },
-  parts_needed:      { icon: Cog,            color: "text-amber-500",   label: "Parts Needed" },
+  parts_needed:      { icon: Wrench,         color: "text-amber-500",   label: "Parts Needed" },
   payment_collected:     { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
   new_video_uploaded:    { icon: Video,          color: "text-primary",     label: "New Video" },
   quote_accepted:        { icon: CheckCircle2,   color: "text-success",     label: "Quote Accepted" },
