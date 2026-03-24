@@ -467,6 +467,11 @@ const Renewals = () => {
         }))}
         userId={user?.id}
         onRemindersSent={fetchCustomers}
+        postcodeFilter={postcodeFilter}
+        onPostcodeChange={setPostcodeFilter}
+        monthFilter={monthFilter}
+        onMonthChange={setMonthFilter}
+        filteredCount={filtered.length}
       />
 
       {/* Divider */}
