@@ -393,7 +393,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               ))}
             </div>
           </div>
-        )
+        )}
 
         {/* Access notes */}
         {customer.access_notes && (
