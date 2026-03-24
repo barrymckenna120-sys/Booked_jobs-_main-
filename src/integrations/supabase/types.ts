@@ -1290,6 +1290,7 @@ export type Database = {
           service_areas: Json | null
           stripe_connected: boolean
           template_booking_confirmation: string | null
+          template_certificate: string | null
           template_payment_link: string | null
           template_quote_sent: string | null
           template_renewal_reminder: string | null
@@ -1336,6 +1337,7 @@ export type Database = {
           service_areas?: Json | null
           stripe_connected?: boolean
           template_booking_confirmation?: string | null
+          template_certificate?: string | null
           template_payment_link?: string | null
           template_quote_sent?: string | null
           template_renewal_reminder?: string | null
@@ -1382,6 +1384,7 @@ export type Database = {
           service_areas?: Json | null
           stripe_connected?: boolean
           template_booking_confirmation?: string | null
+          template_certificate?: string | null
           template_payment_link?: string | null
           template_quote_sent?: string | null
           template_renewal_reminder?: string | null

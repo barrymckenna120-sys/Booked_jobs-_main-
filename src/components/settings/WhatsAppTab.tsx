@@ -94,6 +94,22 @@ Your invoice for €{{amount}} is ready:
 Karl's Gas
 {{phone}}`,
   },
+  {
+    key: "template_certificate",
+    name: "Gas Service Certificate",
+    description: "Sent when a gas safety certificate is generated and shared via WhatsApp",
+    variables: ["{{customer_name}}", "{{certificate_number}}", "{{certificate_url}}"],
+    defaultBody: `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}} from K & N Gas Services Limited.
+
+This certificate confirms all work has been completed in accordance with Irish gas safety standards.
+
+Please keep this for your records.
+
+Thank you for choosing us. 🔧
+
+📄 View Certificate:
+{{certificate_url}}`,
+  },
 ];
 
 const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
