@@ -51,6 +51,7 @@ const BusinessProfileTab = ({ settings, onSave, saving }: Props) => {
         { label: "Midday", start: "11:00", end: "14:00", max_jobs: 2 },
         { label: "Afternoon", start: "14:00", end: "17:00", max_jobs: 2 },
       ]);
+      setDepositPercentage(settings.deposit_percentage ?? 50);
     }
   }, [settings]);
 
