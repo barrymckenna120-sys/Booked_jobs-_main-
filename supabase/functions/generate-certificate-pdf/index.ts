@@ -74,15 +74,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   const b = brand;
   const fontImport = `@import url('https://fonts.googleapis.com/css2?family=${b.font_family.replace(/ /g, "+")}:wght@400;600;700&display=swap');`;
 
-  const checkRows = Object.entries(checks as Record<string, { status: string; note: string }>)
-    .map(([key, val]) => {
-      const label = key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-      const icon = val.status === "pass"
-        ? '<span style="color:#22c55e;font-size:18px;">&#10003;</span>'
-        : `<span style="color:#c8102e;font-size:18px;">&#10007;</span>${val.note ? `<br/><span style="font-size:11px;color:#c8102e;">${escapeHtml(val.note)}</span>` : ""}`;
-      return `<tr style="background:${checkRows.length % 2 === 0 ? b.table_row_color : b.table_alt_color};"><td style="padding:8px 12px;border-bottom:1px solid ${b.border_color};">${label}</td><td style="padding:8px 12px;border-bottom:1px solid ${b.border_color};text-align:center;">${icon}</td></tr>`;
-    })
-    .join("");
+  // Build check rows with proper alternation
 
   // Re-generate rows with proper alternation
   let rowIdx = 0;
