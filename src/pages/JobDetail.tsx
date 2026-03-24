@@ -279,6 +279,19 @@ const JobDetail = () => {
         </div>
       )}
 
+      {/* Parts Needed Banner */}
+      {job.status === "parts_needed" && (
+        <div className="flex items-start gap-2 rounded-lg p-3 bg-[#FFFBEB] border-l-4 border-amber-500">
+          <Wrench className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">Parts Needed</p>
+            {job.notes?.startsWith("Parts Needed:") && (
+              <p className="text-sm text-amber-700 mt-0.5">{job.notes.replace(/^Parts Needed:\s*/, "")}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
