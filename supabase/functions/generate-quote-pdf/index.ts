@@ -7,6 +7,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Brand defaults & helpers ────────────────────────────────────────────────
+interface BrandColors {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  background_color: string;
+  header_text_color: string;
+  body_text_color: string;
+  section_label_color: string;
+  border_color: string;
+  table_header_color: string;
+  table_row_color: string;
+  table_alt_color: string;
+  font_family: string;
+}
+
+const BRAND_DEFAULTS: BrandColors = {
+  primary_color: "#1E3A5F",
+  secondary_color: "#2C4F7C",
+  accent_color: "#4A86E8",
+  background_color: "#FFFFFF",
+  header_text_color: "#FFFFFF",
+  body_text_color: "#1F2937",
+  section_label_color: "#1E3A5F",
+  border_color: "#E2E8F0",
+  table_header_color: "#EBF2FF",
+  table_row_color: "#FFFFFF",
+  table_alt_color: "#F8FAFF",
+  font_family: "Poppins",
+};
+
+function mergeBrand(row: any): BrandColors {
+  if (!row) return { ...BRAND_DEFAULTS };
+  return {
+    primary_color: row.primary_color ?? BRAND_DEFAULTS.primary_color,
+    secondary_color: row.secondary_color ?? BRAND_DEFAULTS.secondary_color,
+    accent_color: row.accent_color ?? BRAND_DEFAULTS.accent_color,
+    background_color: row.background_color ?? BRAND_DEFAULTS.background_color,
+    header_text_color: row.header_text_color ?? BRAND_DEFAULTS.header_text_color,
+    body_text_color: row.body_text_color ?? BRAND_DEFAULTS.body_text_color,
+    section_label_color: row.section_label_color ?? BRAND_DEFAULTS.section_label_color,
+    border_color: row.border_color ?? BRAND_DEFAULTS.border_color,
+    table_header_color: row.table_header_color ?? BRAND_DEFAULTS.table_header_color,
+    table_row_color: row.table_row_color ?? BRAND_DEFAULTS.table_row_color,
+    table_alt_color: row.table_alt_color ?? BRAND_DEFAULTS.table_alt_color,
+    font_family: row.font_family ?? BRAND_DEFAULTS.font_family,
+  };
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -33,15 +87,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: lineItems } = await sb
-      .from("quote_line_items").select("*").eq("quote_id", quote_id).order("sort_order");
+    const [lineItemsRes, settingsRes, brandRes] = await Promise.all([
+      sb.from("quote_line_items").select("*").eq("quote_id", quote_id).order("sort_order"),
+      sb.from("settings").select("*").eq("user_id", quote.user_id).single(),
+      sb.from("brand_settings").select("*").eq("organisation_id", quote.user_id).maybeSingle(),
+    ]);
 
-    const { data: settings } = await sb
-      .from("settings").select("*").eq("user_id", quote.user_id).single();
-
-    const items = lineItems || [];
+    const items = lineItemsRes.data || [];
     const cust = (quote as any).customers;
-    const biz = settings || {} as any;
+    const biz = settingsRes.data || {} as any;
+    const brand = mergeBrand(brandRes.data);
 
     // ── Fetch logo ──────────────────────────────────────
     let logoDataUrl: string | null = null;
@@ -56,21 +111,32 @@ Deno.serve(async (req) => {
       } catch { /* ignore */ }
     }
 
-    // ── Colours & helpers ───────────────────────────────
+    // ── Brand-driven colours ────────────────────────────
+    const primaryRgb = hexToRgb(brand.primary_color);
+    const secondaryRgb = hexToRgb(brand.secondary_color);
+    const accentRgb = hexToRgb(brand.accent_color);
+    const headerTextRgb = hexToRgb(brand.header_text_color);
+    const bodyTextRgb = hexToRgb(brand.body_text_color);
+    const sectionLabelRgb = hexToRgb(brand.section_label_color);
+    const borderRgb = hexToRgb(brand.border_color);
+    const tableHeaderRgb = hexToRgb(brand.table_header_color);
+    const tableRowRgb = hexToRgb(brand.table_row_color);
+    const tableAltRgb = hexToRgb(brand.table_alt_color);
+
     const PW = 210;
     const PH = 297;
     const M = 18;
     const CW = PW - M * 2;
-    const headerBlue = "#1f3c88";
-    const dark    = "#0f172a";
-    const grey    = "#64748b";
-    const primary = "#2563eb";
-    const lightBg = "#f8fafc";
-    const lightBlue = "#eff6ff";
-    const border  = "#e2e8f0";
     const green   = "#16a34a";
     const white   = "#ffffff";
-    const altRow  = "#f1f5f9";
+
+    const headerBlue = brand.primary_color;
+    const dark    = brand.body_text_color;
+    const grey    = "#64748b";
+    const lightBg = "#f8fafc";
+    const lightBlue = brand.table_header_color;
+    const border  = brand.border_color;
+    const altRow  = brand.table_alt_color;
 
     const eur = (v: number) => {
       const abs = Math.abs(v);
@@ -96,10 +162,10 @@ Deno.serve(async (req) => {
     let y = 0;
 
     // ═══════════════════════════════════════════════════
-    // PAGE 1 — HEADER BAR (dark blue)
+    // PAGE 1 — HEADER BAR
     // ═══════════════════════════════════════════════════
     const headerH = 28;
-    doc.setFillColor(headerBlue);
+    doc.setFillColor(...primaryRgb);
     doc.rect(0, 0, PW, headerH, "F");
 
     // Left: Company name
@@ -109,13 +175,13 @@ Deno.serve(async (req) => {
     }
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(white);
+    doc.setTextColor(...headerTextRgb);
     doc.text(biz.business_name || "Quote", nameX, 14);
 
     // Right: Quote No, Date, Valid Until
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(white);
+    doc.setTextColor(...headerTextRgb);
     doc.text(qNum, PW - M, 11, { align: "right" });
 
     doc.setFontSize(8);
@@ -134,10 +200,9 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(dark);
+    doc.setTextColor(...bodyTextRgb);
     doc.text(biz.business_name || "", M, y);
 
-    // Right side: address + contact in compact form
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grey);
@@ -156,13 +221,13 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(grey);
+    doc.setTextColor(...sectionLabelRgb);
     doc.text("QUOTE PREPARED FOR", M, y);
     y += 4;
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(dark);
+    doc.setTextColor(...bodyTextRgb);
     doc.text(cust.name, M, y);
     y += 4.5;
 
@@ -181,14 +246,14 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(grey);
+    doc.setTextColor(...sectionLabelRgb);
     doc.text("JOB SUMMARY", M, y);
     y += 4;
 
     if (quote.job_type && quote.job_type !== "other") {
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(dark);
+      doc.setTextColor(...bodyTextRgb);
       doc.text(quote.job_type.replace(/_/g, " "), M, y);
       y += 4;
     }
@@ -196,7 +261,7 @@ Deno.serve(async (req) => {
     if (quote.description) {
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(dark);
+      doc.setTextColor(...bodyTextRgb);
       const descLines = doc.splitTextToSize(quote.description, CW);
       doc.text(descLines, M, y);
       y += descLines.length * 3.5 + 1;
@@ -211,16 +276,16 @@ Deno.serve(async (req) => {
     if (items.length > 0) {
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(grey);
+      doc.setTextColor(...sectionLabelRgb);
       doc.text("PRICING", M, y);
       y += 5;
 
       // Header row
-      doc.setFillColor(headerBlue);
+      doc.setFillColor(...primaryRgb);
       doc.rect(M, y, CW, 8, "F");
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(white);
+      doc.setTextColor(...headerTextRgb);
       doc.text("#", M + 3, y + 5.5);
       doc.text("DESCRIPTION", M + 14, y + 5.5);
       doc.text("QTY", M + CW - 55, y + 5.5, { align: "right" });
@@ -234,14 +299,16 @@ Deno.serve(async (req) => {
         y = ref.y;
 
         const rowH = 8;
-        if (idx % 2 === 0) { doc.setFillColor(altRow); doc.rect(M, y, CW, rowH, "F"); }
+        const rowBg = idx % 2 === 0 ? tableAltRgb : tableRowRgb;
+        doc.setFillColor(...rowBg);
+        doc.rect(M, y, CW, rowH, "F");
 
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(grey);
         doc.text(`${idx + 1}`, M + 3, y + 5.5);
 
-        doc.setTextColor(dark);
+        doc.setTextColor(...bodyTextRgb);
         const descTrunc = doc.splitTextToSize(item.description || "", CW - 80);
         doc.text(descTrunc[0] || "", M + 14, y + 5.5);
 
@@ -250,7 +317,7 @@ Deno.serve(async (req) => {
         doc.text(eur(Number(item.unit_price)), M + CW - 25, y + 5.5, { align: "right" });
 
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(dark);
+        doc.setTextColor(...bodyTextRgb);
         doc.text(eur(Number(item.line_total || 0)), M + CW - 3, y + 5.5, { align: "right" });
         y += rowH;
       });
@@ -281,7 +348,7 @@ Deno.serve(async (req) => {
       doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
       doc.setTextColor(opts?.color || grey);
       doc.text(label, tLabelX, y);
-      doc.setTextColor(opts?.bold ? dark : dark);
+      doc.setTextColor(...bodyTextRgb);
       doc.text(value, tValueX, y, { align: "right" });
       y += 5;
     };
@@ -295,7 +362,7 @@ Deno.serve(async (req) => {
     // Grand total
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(headerBlue);
+    doc.setTextColor(...primaryRgb);
     doc.text("TOTAL", tLabelX, y);
     doc.text(eur(total), tValueX, y, { align: "right" });
     y += 6;
@@ -327,7 +394,7 @@ Deno.serve(async (req) => {
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(grey);
+      doc.setTextColor(...sectionLabelRgb);
       doc.text("WHAT'S INCLUDED", M, y);
       y += 5;
 
@@ -347,7 +414,7 @@ Deno.serve(async (req) => {
         doc.text("Y", M + 2.5, y);
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(dark);
+        doc.setTextColor(...bodyTextRgb);
         doc.text(item, M + 9, y);
         y += 4.5;
       });
@@ -357,7 +424,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════
-    // PAYMENT TERMS BOX (light blue)
+    // PAYMENT TERMS BOX
     // ═══════════════════════════════════════════════════
     {
       const ref = { y };
@@ -370,17 +437,17 @@ Deno.serve(async (req) => {
       ptLines.push("Install window: 3-5 working days");
 
       const boxH = 8 + ptLines.length * 4.5;
-      doc.setFillColor(lightBlue);
+      doc.setFillColor(...tableHeaderRgb);
       doc.roundedRect(M, y, CW, boxH, 2, 2, "F");
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(headerBlue);
+      doc.setTextColor(...primaryRgb);
       doc.text("PAYMENT TERMS", M + 5, y + 5);
 
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(dark);
+      doc.setTextColor(...bodyTextRgb);
       let py = y + 10;
       ptLines.forEach((line) => {
         doc.text(`• ${line}`, M + 5, py);
@@ -400,13 +467,13 @@ Deno.serve(async (req) => {
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(grey);
+      doc.setTextColor(...sectionLabelRgb);
       doc.text("NOTES", M, y);
       y += 4;
 
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(dark);
+      doc.setTextColor(...bodyTextRgb);
       const nLines = doc.splitTextToSize(quote.notes, CW);
       doc.text(nLines, M, y);
       y += nLines.length * 3.5 + 4;
@@ -422,7 +489,7 @@ Deno.serve(async (req) => {
 
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(grey);
+      doc.setTextColor(...sectionLabelRgb);
       doc.text("TERMS & CONDITIONS", M, y);
       y += 4;
 
@@ -453,12 +520,12 @@ Deno.serve(async (req) => {
     y = M;
 
     // Dark CTA block
-    doc.setFillColor(headerBlue);
+    doc.setFillColor(...primaryRgb);
     doc.roundedRect(M, y, CW, 50, 3, 3, "F");
 
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(white);
+    doc.setTextColor(...headerTextRgb);
     doc.text("Accept This Quote", M + CW / 2, y + 14, { align: "center" });
 
     doc.setFontSize(9);
@@ -475,7 +542,7 @@ Deno.serve(async (req) => {
     const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${quoteNum}`;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(white);
+    doc.setTextColor(...headerTextRgb);
     doc.text(acceptUrl, M + CW / 2, y + 38, { align: "center" });
 
     y += 60;
@@ -510,7 +577,7 @@ Deno.serve(async (req) => {
 
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(dark);
+    doc.setTextColor(...bodyTextRgb);
     doc.text(waLines, M + 8, y + 8);
 
     y += waBlockH + 10;
