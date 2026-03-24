@@ -243,6 +243,11 @@ const ServiceReceipt = () => {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Next Boiler Service Due — {data.nextServiceDue}
             </p>
+            {data.rgiNumber && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                RGI Reg: {data.rgiNumber}
+              </p>
+            )}
           </div>
         </div>
 

@@ -100,6 +100,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
     <p>Thank you for choosing ${esc(data.businessName)}.</p>
     <p>Your next annual boiler service reminder will be sent in 12 months.</p>
     <p>Next service due: ${esc(data.nextServiceDue)}</p>
+    ${data.rgiNumber ? `<p style="margin-top:8px;">RGI Reg: ${esc(data.rgiNumber)}</p>` : ''}
   </div>
 </div>
 </body>
