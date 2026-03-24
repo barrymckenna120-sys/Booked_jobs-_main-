@@ -27,13 +27,15 @@ type Props = {
   customers: Customer[];
   userId: string | undefined;
   onRemindersSent: () => void;
+  postcodeFilter: string;
+  onPostcodeChange: (v: string) => void;
+  monthFilter: string;
+  onMonthChange: (v: string) => void;
+  filteredCount: number;
 };
 
-const SendServiceReminders = ({ customers, userId, onRemindersSent }: Props) => {
+const SendServiceReminders = ({ customers, userId, onRemindersSent, postcodeFilter, onPostcodeChange, monthFilter, onMonthChange, filteredCount }: Props) => {
   const { toast } = useToast();
-  const currentMonth = new Date().getMonth();
-  const [postcodeFilter, setPostcodeFilter] = useState("");
-  const [monthFilter, setMonthFilter] = useState(String(currentMonth));
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -136,11 +138,11 @@ const SendServiceReminders = ({ customers, userId, onRemindersSent }: Props) => 
           <Input
             placeholder="Filter by postcode e.g. D18"
             value={postcodeFilter}
-            onChange={(e) => setPostcodeFilter(e.target.value)}
+            onChange={(e) => onPostcodeChange(e.target.value)}
             className="pl-9 text-sm"
           />
         </div>
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
+        <Select value={monthFilter} onValueChange={onMonthChange}>
           <SelectTrigger className="w-[140px]">
             <SelectValue />
           </SelectTrigger>
