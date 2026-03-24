@@ -257,6 +257,22 @@ const ServiceReceipt = () => {
             <Send className="w-4 h-4" />
             Send via WhatsApp
           </Button>
+          {certificate?.pdf_url ? (
+            <Button
+              className="w-full h-12 text-sm font-extrabold gap-2 text-white bg-success hover:bg-success/90"
+              onClick={() => window.open(certificate.pdf_url!, "_blank")}
+            >
+              <Eye className="w-4 h-4" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+            </Button>
+          ) : (
+            <Button
+              className="w-full h-12 text-sm font-extrabold gap-2 text-white"
+              style={{ backgroundColor: "#1e3a5f" }}
+              onClick={() => setShowCertificate(true)}
+            >
+              <FileText className="w-4 h-4" /> Generate Certificate
+            </Button>
+          )}
           <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
@@ -267,6 +283,15 @@ const ServiceReceipt = () => {
         </div>
       </div>
 
+      {showCertificate && job && customer && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCertificate(false); loadData(); }}
+        />
+      )}
     </div>
   );
 };
