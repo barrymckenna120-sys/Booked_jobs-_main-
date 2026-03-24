@@ -116,6 +116,7 @@ const Settings = () => {
           {activeTab === "team" && <TeamManagementTab />}
           {activeTab === "whatsapp" && <WhatsAppTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "business" && <BusinessProfileTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "brand" && <BrandTab />}
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "data" && <DataTab />}
           {activeTab === "security" && <SecurityTab />}
