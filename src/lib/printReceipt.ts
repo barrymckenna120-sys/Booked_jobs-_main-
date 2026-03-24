@@ -16,6 +16,7 @@ export interface ReceiptPrintData {
   businessPhone: string;
   businessTagline: string;
   businessAddress?: string;
+  rgiNumber?: string;
   engineerName?: string;
 }
 
