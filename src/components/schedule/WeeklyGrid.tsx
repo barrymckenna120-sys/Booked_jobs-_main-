@@ -139,6 +139,11 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                                       {job.status === "En Route" ? "🚗" : job.status === "On Site" ? "📍" : "⚙️"} {job.status}
                                     </span>
                                   )}
+                                  {job.status === "parts_needed" && (
+                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 rounded-full px-1.5 py-0.5">
+                                      🔧 Parts Needed
+                                    </span>
+                                  )}
                                   {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning shrink-0" title="Unpaid" />}
                                 </div>
                               </div>
