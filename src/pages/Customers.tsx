@@ -46,17 +46,29 @@ const Customers = () => {
       return;
     }
     const fetchTaggedCustomers = async () => {
-      const { data } = await supabase
+      // Get tag IDs for selected tag names
+      const { data: tags } = await supabase
+        .from("job_tags")
+        .select("id, name")
+        .in("name", selectedTags);
+      if (!tags || tags.length === 0) { setTagCustomerIds(new Set()); return; }
+
+      const tagIds = tags.map((t) => t.id);
+      const { data: sctRows } = await supabase
         .from("service_call_tags")
-        .select("service_call_id, job_tags!inner(name), service_calls:service_call_id(customer_id, status)")
-        .in("job_tags.name", selectedTags);
-      if (data) {
-        const ids = new Set<string>();
-        data.forEach((row: any) => {
-          const sc = row.service_calls;
-          if (sc?.customer_id) ids.add(sc.customer_id);
-        });
-        setTagCustomerIds(ids);
+        .select("service_call_id")
+        .in("tag_id", tagIds);
+      if (!sctRows || sctRows.length === 0) { setTagCustomerIds(new Set()); return; }
+
+      const jobIds = [...new Set(sctRows.map((r) => r.service_call_id))];
+      const { data: jobs } = await supabase
+        .from("service_calls")
+        .select("customer_id")
+        .in("id", jobIds);
+      if (jobs) {
+        setTagCustomerIds(new Set(jobs.map((j) => j.customer_id)));
+      } else {
+        setTagCustomerIds(new Set());
       }
     };
     fetchTaggedCustomers();
