@@ -607,7 +607,11 @@ const Renewals = () => {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <RefreshCw className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <div className="font-bold">No {filter !== "All" ? filter : ""} renewals</div>
+          <div className="font-bold">
+            {postcodeFilter.trim()
+              ? "No renewals found for this area and month."
+              : `No ${filter !== "All" ? filter : ""} renewals`}
+          </div>
         </div>
       ) : (
         filtered.map((c) => (
