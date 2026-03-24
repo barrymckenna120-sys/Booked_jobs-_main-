@@ -119,7 +119,7 @@ const Jobs = () => {
       if (statusFilter === "all") {
         matchStatus = true;
       } else if (statusFilter === "follow_up") {
-        matchStatus = j.follow_up_needed === true && !(j as any).follow_up_resolved;
+        matchStatus = j.follow_up_needed === true && !j.follow_up_resolved;
       } else if (statusFilter === "incomplete,cancelled") {
         matchStatus = INCOMPLETE_STATUSES.includes(j.status) || j.status === "Cancelled";
       } else if (statusFilter === "incomplete") {
