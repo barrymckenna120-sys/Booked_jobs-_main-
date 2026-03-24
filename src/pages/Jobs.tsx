@@ -49,9 +49,11 @@ const Jobs = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get("payment") || "all");
   const [page, setPage] = useState(0);
+  const [completedPage, setCompletedPage] = useState(0);
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
     if (user) fetchJobs();
