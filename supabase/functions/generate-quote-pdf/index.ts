@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
     doc.setFillColor(...primaryRgb);
     doc.rect(0, 0, PW, headerH, "F");
 
-    // Left: Company name
+    // Left: Company name + address
     let nameX = M;
     if (logoDataUrl) {
       try { doc.addImage(logoDataUrl, "PNG", M, 5, 16, 16); nameX = M + 20; } catch { /* ignore */ }
@@ -176,7 +176,17 @@ Deno.serve(async (req) => {
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...headerTextRgb);
-    doc.text(biz.business_name || "Quote", nameX, 14);
+    doc.text(biz.business_name || "Quote", nameX, 12);
+
+    if (biz.business_address) {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...headerTextRgb);
+      doc.setGState(new doc.GState({ opacity: 0.7 }));
+      const addrLine = biz.business_address.replace(/\n/g, ", ");
+      doc.text(addrLine, nameX, 17);
+      doc.setGState(new doc.GState({ opacity: 1 }));
+    }
 
     // Right: Quote No, Date, Valid Until
     doc.setFontSize(9);
