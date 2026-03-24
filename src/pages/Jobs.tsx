@@ -182,6 +182,106 @@ const Jobs = () => {
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
   const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const renderJobsTable = (rows: Job[]) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("customer_name")}>
+            <span className="inline-flex items-center">Customer <SortIcon col="customer_name" /></span>
+          </TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("scheduled_date")}>
+            <span className="inline-flex items-center">Date <SortIcon col="scheduled_date" /></span>
+          </TableHead>
+          <TableHead className="hidden md:table-cell">Engineer</TableHead>
+          <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
+            <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
+          </TableHead>
+          <TableHead className="hidden md:table-cell">Source</TableHead>
+          <TableHead className="hidden md:table-cell">Quote</TableHead>
+          <TableHead>Payment</TableHead>
+          <TableHead className="w-[100px]">Receipt</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((j) => {
+          const canTakePayment = ["Completed", "In Progress"].includes(j.status);
+          const hasReceipt = !!j.receipt_number;
+          return (
+            <TableRow key={j.id} className="cursor-pointer hover:bg-primary-light" onClick={() => navigate(`/jobs/${j.id}`)}>
+              <TableCell>
+                <span className="font-semibold">{j.customer_name}</span>
+                {j.follow_up_needed && (
+                  <div className="mt-1 space-y-0.5">
+                    <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Follow-up</span>
+                    {j.follow_up_detail && (
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">{j.follow_up_detail}</p>
+                    )}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
+              <TableCell>
+                {j.scheduled_date
+                  ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-GB")}${j.time_block ? ` · ${j.time_block}` : ""}`
+                  : "—"}
+              </TableCell>
+              <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
+              <TableCell>{statusBadge(j.status)}</TableCell>
+              <TableCell className="hidden md:table-cell">
+                {j.source === "Quote" ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
+                ) : j.source === "Tally" ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">Tally</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
+                )}
+              </TableCell>
+              <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
+              <TableCell>
+                {j.payment_method === "cash" ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
+                ) : j.payment_method === "card" ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600"><CreditCard className="w-3.5 h-3.5" />Card</span>
+                ) : j.payment_method === "invoice" ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600"><FileText className="w-3.5 h-3.5" />Invoice</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                {hasReceipt ? (
+                  <button
+                    onClick={() => navigate(`/receipt/${j.id}`)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                  >
+                    <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
+                    {j.receipt_sent && <CheckCircle2 className="w-3.5 h-3.5 text-success ml-0.5" />}
+                  </button>
+                ) : canTakePayment ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold gap-1"
+                    onClick={() => {
+                      const cust = customersMap[j.customer_id];
+                      if (!cust) { toast({ title: "Customer data not loaded" }); return; }
+                      setPaymentJob({ job: j, customer: cust });
+                    }}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" /> Take Payment
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
