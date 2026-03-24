@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { printReceipt } from "@/lib/printReceipt";
-import { CheckCircle2, Download, CalendarPlus, Loader2, Send } from "lucide-react";
+import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CertificateFlow from "@/components/engineer/CertificateFlow";
 
 
 const formatDate = (d: string) =>
@@ -26,13 +27,26 @@ const ServiceReceipt = () => {
   const [job, setJob] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
+  const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [loading, setLoading] = useState(true);
-  
 
   useEffect(() => {
     if (user && id) loadData();
   }, [user, id]);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("engineers")
+      .select("name, rgi_number")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
+      });
+  }, [user]);
 
   const loadData = async () => {
     setLoading(true);
@@ -47,11 +61,15 @@ const ServiceReceipt = () => {
       return;
     }
 
-    const custRes = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+    const [custRes, certRes] = await Promise.all([
+      supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
+      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+    ]);
 
     setJob(jobRes.data);
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
+    setCertificate(certRes.data || null);
     setLoading(false);
   };
 
@@ -239,6 +257,22 @@ const ServiceReceipt = () => {
             <Send className="w-4 h-4" />
             Send via WhatsApp
           </Button>
+          {certificate?.pdf_url ? (
+            <Button
+              className="w-full h-12 text-sm font-extrabold gap-2 text-white bg-success hover:bg-success/90"
+              onClick={() => window.open(certificate.pdf_url!, "_blank")}
+            >
+              <Eye className="w-4 h-4" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+            </Button>
+          ) : (
+            <Button
+              className="w-full h-12 text-sm font-extrabold gap-2 text-white"
+              style={{ backgroundColor: "#1e3a5f" }}
+              onClick={() => setShowCertificate(true)}
+            >
+              <FileText className="w-4 h-4" /> Generate Certificate
+            </Button>
+          )}
           <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
@@ -249,6 +283,15 @@ const ServiceReceipt = () => {
         </div>
       </div>
 
+      {showCertificate && job && customer && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCertificate(false); loadData(); }}
+        />
+      )}
     </div>
   );
 };
