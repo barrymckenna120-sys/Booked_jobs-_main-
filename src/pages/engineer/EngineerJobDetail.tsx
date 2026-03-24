@@ -309,6 +309,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             <div className="text-[13px] text-white/70 mt-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" /> {customer.address}
             </div>
+            {job.status === "Completed" && job.completed_at && (
+              <div className="text-[13px] text-white/90 mt-1 font-semibold">
+                Completed {new Date(job.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date(job.completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
+              </div>
+            )}
           </div>
           <span className={`${s.bg} ${s.color} rounded-full px-3 py-1 text-xs font-bold shrink-0 ml-2 backdrop-blur-sm`}>
             {s.label}
