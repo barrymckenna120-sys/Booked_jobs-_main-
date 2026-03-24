@@ -107,6 +107,8 @@ const Renewals = () => {
   const [filter, setFilter] = useState<StatusFilterType>(initialFilter as StatusFilterType);
   const [stageFilter, setStageFilter] = useState<StageFilterType>("All Stages");
   const [search, setSearch] = useState("");
+  const [postcodeFilter, setPostcodeFilter] = useState("");
+  const [monthFilter, setMonthFilter] = useState(String(new Date().getMonth()));
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
