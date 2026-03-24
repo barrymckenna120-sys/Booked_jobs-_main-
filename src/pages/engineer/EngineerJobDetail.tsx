@@ -104,15 +104,17 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     setJob(jobData);
 
-    const [custRes, notesRes, certRes] = await Promise.all([
+    const [custRes, notesRes, certRes, tagsRes] = await Promise.all([
       supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
       supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
       supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+      supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
     ]);
 
     if (custRes.data) setCustomer(custRes.data);
     if (notesRes.data) setCallNotes(notesRes.data);
     setCertificate(certRes.data || null);
+    setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
     setLoading(false);
   };
 
