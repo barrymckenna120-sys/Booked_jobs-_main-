@@ -141,18 +141,30 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const updateJob = async (patch: Record<string, any>) => {
     if (!job) return;
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
 
     let notesUpdate = rest.notes;
     if (workDone) {
       notesUpdate = `Work done: ${workDone}${parts ? `\nParts: ${parts}` : ""}${officeNote ? `\nOffice note: ${officeNote}` : ""}${followUp ? `\nFollow-up: ${followUpNote}` : ""}`;
     }
+
+    // Wire follow-up toggle to dedicated columns
+    if (workDone !== undefined) {
+      rest.follow_up_needed = !!followUp;
+      rest.follow_up_detail = followUp ? (followUpNote || null) : null;
+    }
+
     if (cancelReason) {
       notesUpdate = `Cancelled: ${cancelReason}${cancelNote ? `\nNote: ${cancelNote}` : ""}`;
     }
 
     const dbPatch: Record<string, any> = { ...rest };
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    if (paymentMethod) {
+      dbPatch.payment_method = paymentMethod;
+      dbPatch.paid_at = new Date().toISOString();
+      dbPatch.payment_collected_by = user?.id || null;
+    }
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
       dbPatch.cancellation_note = cancelNote || null;
@@ -160,20 +172,64 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.cancelled_by = user?.id || null;
     }
 
-    // Generate receipt number on completion
-    if (patch.status === "Completed" && !job.receipt_number) {
-      try {
-        const { data: receiptNum, error: rpcErr } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
-        if (!rpcErr && receiptNum) {
-          dbPatch.receipt_number = receiptNum;
-        }
-      } catch {}
+    // Set completed_at and generate receipt number on completion
+    if (patch.status === "Completed") {
+      dbPatch.completed_at = new Date().toISOString();
+      if (!job.receipt_number) {
+        try {
+          const { data: receiptNum, error: rpcErr } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
+          if (!rpcErr && receiptNum) {
+            dbPatch.receipt_number = receiptNum;
+          }
+        } catch {}
+      }
     }
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Save selected tags on completion
+      if (patch.status === "Completed" && selectedTags && selectedTags.length > 0) {
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("user_id", user!.id)
+            .maybeSingle();
+
+          const profileId = profile?.id || null;
+
+          const { data: tagRows } = await supabase
+            .from("job_tags")
+            .select("id, name")
+            .in("name", selectedTags);
+
+          if (tagRows && tagRows.length > 0) {
+            const { data: existing } = await supabase
+              .from("service_call_tags")
+              .select("tag_id")
+              .eq("service_call_id", job.id);
+
+            const existingIds = new Set((existing || []).map((e: any) => e.tag_id));
+
+            const inserts = tagRows
+              .filter((t: any) => !existingIds.has(t.id))
+              .map((t: any) => ({
+                service_call_id: job.id,
+                tag_id: t.id,
+                added_by: profileId,
+              }));
+
+            if (inserts.length > 0) {
+              await supabase.from("service_call_tags").insert(inserts as any);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to save job tags:", e);
+        }
+      }
+
       if (patch.status === "Completed") {
         logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
         toast({ title: "Job completed" });
