@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { job_id, customer_name, customer_phone, follow_up_detail } = await req.json();
+    const { job_id, customer_name, customer_phone, follow_up_detail, message: customMessage } = await req.json();
 
     if (!job_id || !customer_name || !customer_phone) {
       return new Response(
@@ -31,7 +31,7 @@ serve(async (req) => {
     };
 
     const firstName = customer_name.split(" ")[0];
-    const message = `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.\n\nK & N Gas Services Limited`;
+    const message = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.\n\nK & N Gas Services Limited`;
 
     // Log to message_log
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
