@@ -281,17 +281,7 @@ const JobDetail = () => {
       )}
 
       {/* Parts Needed Banner */}
-      {job.status === "parts_needed" && (
-        <div className="flex items-start gap-2 rounded-lg p-3 bg-[#FFFBEB] border-l-4 border-amber-500">
-          <Wrench className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-amber-800">Parts Needed</p>
-            {job.notes?.startsWith("Parts Needed:") && (
-              <p className="text-sm text-amber-700 mt-0.5">{job.notes.replace(/^Parts Needed:\s*/, "")}</p>
-            )}
-          </div>
-        </div>
-      )}
+      {job.status === "parts_needed" && <PartsNeededBanner jobId={job.id} customerId={job.customer_id} notes={job.notes} />}
 
       {/* Header */}
       <div className="flex items-start gap-3">
