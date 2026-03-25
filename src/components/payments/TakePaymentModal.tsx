@@ -49,9 +49,15 @@ const addMonths = (d: string, months: number) => {
 
 const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: TakePaymentModalProps) => {
   const { toast } = useToast();
+  const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
+  const jobTotal = job.revenue ?? 0;
+  const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
+  const balanceDue = hasDeposit ? jobTotal - depositAmount : jobTotal;
+  const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [method, setMethod] = useState<"card" | "cash" | null>(null);
-  const [amount, setAmount] = useState(job.revenue ? String(job.revenue) : "120");
+  const [amount, setAmount] = useState(defaultAmount);
   const [amountError, setAmountError] = useState("");
   const [settings, setSettings] = useState<any>(null);
   const hasPhone = !!customer.phone?.trim();
