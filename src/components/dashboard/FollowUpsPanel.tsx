@@ -95,6 +95,21 @@ const FollowUpsPanel = () => {
   const fmtDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
+  const fmtTimestamp = (d: string) => {
+    const dt = new Date(d);
+    const day = dt.getDate();
+    const mon = dt.toLocaleDateString("en-IE", { month: "short" });
+    const year = dt.getFullYear();
+    const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${day} ${mon} ${year}, ${time}`;
+  };
+
+  const priorityConfig: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
+    urgent: { emoji: "🔴", label: "Urgent", bg: "bg-[#FEE2E2]", text: "text-[#DC2626]" },
+    normal: { emoji: "🟡", label: "Normal", bg: "bg-[#FEF3C7]", text: "text-[#D97706]" },
+    low:    { emoji: "🟢", label: "Low",    bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
