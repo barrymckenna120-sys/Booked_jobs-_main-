@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Package } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
@@ -122,21 +123,104 @@ const formatPartsTimestamp = (iso: string, author?: string | null) => {
   return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
 };
 
-const PartsNeededBanner = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string | null }) => {
-  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void }) => {
+  const { data: meta } = usePartsNeededMeta(job.id, customerId);
+  const { user } = useAuth("");
+  const { toast } = useToast();
+  const [marking, setMarking] = useState(false);
+  const [orderedMeta, setOrderedMeta] = useState<{ name: string; time: string } | null>(null);
+  const isOrdered = job.status === "parts_ordered";
+  const accentBorder = isOrdered ? "border-blue-500" : "border-amber-500";
+  const accentBg = isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
+  const accentIcon = isOrdered ? "text-blue-500" : "text-amber-500";
+  const accentTitle = isOrdered ? "text-blue-800" : "text-amber-800";
+
+  // Fetch ordered-by metadata
+  useEffect(() => {
+    if (!isOrdered) return;
+    supabase
+      .from("customer_call_notes")
+      .select("created_at, created_by_name")
+      .eq("customer_id", customerId)
+      .like("note", "Parts ordered by%")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.created_at) {
+          setOrderedMeta({ name: data.created_by_name || "Office", time: formatPartsTimestamp(data.created_at, data.created_by_name).replace("Logged by", "Parts ordered by") });
+        }
+      });
+  }, [isOrdered, customerId]);
+
+  const handleMarkOrdered = async () => {
+    setMarking(true);
+    try {
+      // Get office user display name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+      const officeName = profile?.display_name || "Office";
+
+      await supabase
+        .from("service_calls")
+        .update({ status: "parts_ordered" } as any)
+        .eq("id", job.id);
+
+      // Log a note
+      await supabase.from("customer_call_notes").insert({
+        customer_id: customerId,
+        user_id: user?.id,
+        note: `Parts ordered by ${officeName}`,
+        created_by_name: officeName,
+        service_call_id: job.id,
+      } as any);
+
+      toast({ title: "Marked as ordered ✓" });
+      onStatusChange();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  const partText = notes?.startsWith("Parts Needed:") ? notes.replace(/^Parts Needed:\s*/, "") : null;
+
   return (
-    <div className="flex items-start gap-2 rounded-lg p-3 bg-[#FFFBEB] border-l-4 border-amber-500">
-      <Wrench className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-      <div>
-        <p className="text-sm font-bold text-amber-800">Parts Needed</p>
-        {notes?.startsWith("Parts Needed:") && (
-          <p className="text-sm text-amber-700 mt-0.5">{notes.replace(/^Parts Needed:\s*/, "")}</p>
-        )}
+    <Card className={`border-l-4 ${accentBorder} ${accentBg}`}>
+      <CardHeader className="pb-2">
+        <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
+          {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
+          {isOrdered ? "Parts Ordered" : "Parts Needed"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {partText && <p className="text-sm font-semibold text-foreground">{partText}</p>}
         {meta?.created_at && (
-          <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
+          <p className="text-xs text-muted-foreground">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
         )}
-      </div>
-    </div>
+        {isOrdered && orderedMeta && (
+          <p className="text-xs text-blue-600 font-medium">{orderedMeta.time}</p>
+        )}
+        {!isOrdered ? (
+          <Button
+            variant="outline"
+            className="mt-2 border-amber-500 text-amber-600 hover:bg-amber-50 gap-2"
+            onClick={handleMarkOrdered}
+            disabled={marking}
+          >
+            <Package className="w-4 h-4" /> {marking ? "Updating…" : "Mark as Ordered"}
+          </Button>
+        ) : (
+          <Button variant="outline" className="mt-2 gap-2" disabled>
+            <Package className="w-4 h-4" /> Parts Ordered ✓
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
@@ -336,8 +420,10 @@ const JobDetail = () => {
         </div>
       )}
 
-      {/* Parts Needed Banner */}
-      {job.status === "parts_needed" && <PartsNeededBanner jobId={job.id} customerId={job.customer_id} notes={job.notes} />}
+      {/* Parts Needed / Ordered Section */}
+      {(job.status === "parts_needed" || job.status === "parts_ordered") && (
+        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} />
+      )}
 
       {/* Header */}
       <div className="flex items-start gap-3">
