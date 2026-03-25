@@ -878,6 +878,18 @@ const JobDetail = () => {
         engineerName={job.assigned_engineer || "Engineer"}
         engineerAuthUserId={assignedEngineerAuth}
       />
+      {/* Parts Arrived Modal */}
+      {partsArrivedOpen && customer && (
+        <PartsArrivedModal
+          open={partsArrivedOpen}
+          onClose={() => setPartsArrivedOpen(false)}
+          jobId={job.id}
+          customerName={customer.name}
+          customerPhone={customer.phone}
+          followUpDetail={(job as any).follow_up_detail}
+          onSent={fetchJob}
+        />
+      )}
     </div>
   );
 };
