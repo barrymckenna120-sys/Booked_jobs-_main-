@@ -247,7 +247,7 @@ const Schedule = () => {
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addWeeks(weekStart, 1))}>
             <ChevronRight className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(dublinNow(), { weekStartsOn: 1 }))}>
             Today
           </Button>
         </div>
