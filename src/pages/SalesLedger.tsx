@@ -22,6 +22,7 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { BookOpen, CalendarIcon, Download, Loader2, Search } from "lucide-react";
+import OutstandingBalances from "@/components/sales-ledger/OutstandingBalances";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
