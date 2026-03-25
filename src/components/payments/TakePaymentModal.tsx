@@ -72,7 +72,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     if (open) {
       setStep(1);
       setMethod(null);
-      setAmount(job.revenue ? String(job.revenue) : "120");
+      setAmount(defaultAmount);
       setAmountError("");
       setProcStep(0);
       setReceiptData(null);
