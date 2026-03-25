@@ -24,6 +24,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   "In Progress": { color: "text-warning",     bg: "bg-warning/10",     label: "In Progress" },
   Completed:     { color: "text-success",     bg: "bg-success/10",     label: "Completed" },
   Cancelled:     { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
+  parts_needed:  { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_ordered: { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
 };
 
 const TIME_LABELS: Record<string, string> = {
