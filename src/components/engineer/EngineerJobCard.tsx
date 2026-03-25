@@ -70,7 +70,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
   const isPartsStatus = job.status === "parts_needed" || job.status === "parts_ordered";
 
-  const borderLeftColor = isPartsStatus ? "#F59E0B" : `hsl(var(--${
+  const borderLeftColor = job.status === "parts_ordered" ? "#2563EB" : job.status === "parts_needed" ? "#F59E0B" : `hsl(var(--${
     job.job_type === "Emergency" ? "destructive" :
     isActive ? "warning" :
     job.status === "Completed" ? "success" :
