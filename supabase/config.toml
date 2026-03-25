@@ -31,3 +31,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-certificate-whatsapp]
     verify_jwt = false
+  [functions.send-part-arrived]
+    verify_jwt = false
