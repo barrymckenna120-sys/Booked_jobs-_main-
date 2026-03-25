@@ -179,9 +179,10 @@ const Jobs = () => {
       "Awaiting Deposit": "badge-due-soon",
       no_show: "badge-overdue",
       parts_needed: "badge-due-soon",
+      parts_ordered: "inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-600",
       incoming: "badge-due-soon",
     };
-    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "incoming" ? "Incoming" : status === "Pending" ? "Pending" : status;
+    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "parts_ordered" ? "Parts Ordered" : status === "incoming" ? "Incoming" : status === "Pending" ? "Pending" : status;
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
