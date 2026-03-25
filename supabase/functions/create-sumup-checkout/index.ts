@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
     };
 
     console.log("Checkout body:", JSON.stringify(checkoutBody));
+
+    const sumupRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${SUMUP_API_KEY}`,
