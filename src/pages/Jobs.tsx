@@ -124,6 +124,8 @@ const Jobs = () => {
         matchStatus = INCOMPLETE_STATUSES.includes(j.status) || j.status === "Cancelled";
       } else if (statusFilter === "incomplete") {
         matchStatus = INCOMPLETE_STATUSES.includes(j.status);
+      } else if (statusFilter === "parts") {
+        matchStatus = j.status === "parts_needed" || j.status === "parts_ordered";
       } else {
         matchStatus = j.status === statusFilter;
       }
