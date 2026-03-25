@@ -234,7 +234,20 @@ const Jobs = () => {
                   : "—"}
               </TableCell>
               <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
-              <TableCell>{statusBadge(j.status)}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  {statusBadge(j.status)}
+                  {(j.status === "parts_needed" || j.status === "parts_ordered") && (j as any).parts_priority && (
+                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      (j as any).parts_priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]"
+                      : (j as any).parts_priority === "low" ? "bg-[#DCFCE7] text-[#16A34A]"
+                      : "bg-[#FEF3C7] text-[#D97706]"
+                    }`}>
+                      {(j as any).parts_priority === "urgent" ? "🔴" : (j as any).parts_priority === "low" ? "🟢" : "🟡"}
+                    </span>
+                  )}
+                </div>
+              </TableCell>
               <TableCell className="hidden md:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>

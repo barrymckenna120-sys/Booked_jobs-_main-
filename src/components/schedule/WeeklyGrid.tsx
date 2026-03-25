@@ -150,6 +150,15 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                                       📦 Parts Ordered
                                     </span>
                                   )}
+                                  {(job.status === "parts_needed" || job.status === "parts_ordered") && job.parts_priority && (
+                                    <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
+                                      job.parts_priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]"
+                                      : job.parts_priority === "low" ? "bg-[#DCFCE7] text-[#16A34A]"
+                                      : "bg-[#FEF3C7] text-[#D97706]"
+                                    }`}>
+                                      {job.parts_priority === "urgent" ? "🔴" : job.parts_priority === "low" ? "🟢" : "🟡"} {job.parts_priority.charAt(0).toUpperCase() + job.parts_priority.slice(1)}
+                                    </span>
+                                  )}
                                   {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning shrink-0" title="Unpaid" />}
                                 </div>
                               </div>
