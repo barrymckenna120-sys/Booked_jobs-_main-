@@ -39,6 +39,8 @@ type ServiceCall = {
   deposit_required: boolean;
   deposit_paid: boolean;
   deposit_amount: number | null;
+  balance_due: number | null;
+  payment_status: string | null;
   boiler_brand: string | null;
   boiler_working: boolean | null;
   boiler_issue: string | null;
@@ -569,7 +571,51 @@ const JobDetail = () => {
         </CardContent>
       </Card>
 
-      {/* Messages Panel */}
+      {/* Financial Summary */}
+      {job.deposit_required && (job.deposit_amount ?? 0) > 0 && (
+        <Card className="border-l-4 border-primary/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-primary" /> Financial Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Job Total</span>
+                <p className="text-lg font-extrabold text-foreground mt-0.5">€{(job.revenue ?? 0).toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Deposit {job.deposit_paid ? "Paid" : "Required"}</span>
+                <p className={`text-lg font-extrabold mt-0.5 ${job.deposit_paid ? "text-success" : "text-warning"}`}>
+                  €{(job.deposit_amount ?? 0).toFixed(2)}
+                  {job.deposit_paid && <span className="ml-1 text-sm">✅</span>}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Balance Due</span>
+                <p className={`text-lg font-extrabold mt-0.5 ${(job.balance_due ?? 0) > 0 ? "text-amber-600" : "text-success"}`}>
+                  €{(job.balance_due ?? ((job.revenue ?? 0) - (job.deposit_amount ?? 0))).toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${job.deposit_required ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                Deposit Required
+              </span>
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                job.payment_status === "paid" ? "bg-success/10 text-success" :
+                job.deposit_paid ? "bg-warning/10 text-warning" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {job.payment_status === "paid" ? "Fully Paid" : job.deposit_paid ? "Deposit Paid — Balance Due" : "Unpaid"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Messages</CardTitle>
