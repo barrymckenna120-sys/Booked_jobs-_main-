@@ -97,7 +97,61 @@ const statusBadge = (status: string) => {
   );
 };
 
-const JobDetail = () => {
+const usePartsNeededMeta = (jobId: string, customerId: string) => {
+  return useQuery({
+    queryKey: ["parts-needed-meta", jobId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customer_call_notes")
+        .select("created_at, created_by_name")
+        .eq("customer_id", customerId)
+        .like("note", "Parts Needed:%")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+  });
+};
+
+const formatPartsTimestamp = (iso: string, author?: string | null) => {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: false });
+  return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
+};
+
+const PartsNeededBanner = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string | null }) => {
+  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+  return (
+    <div className="flex items-start gap-2 rounded-lg p-3 bg-[#FFFBEB] border-l-4 border-amber-500">
+      <Wrench className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+      <div>
+        <p className="text-sm font-bold text-amber-800">Parts Needed</p>
+        {notes?.startsWith("Parts Needed:") && (
+          <p className="text-sm text-amber-700 mt-0.5">{notes.replace(/^Parts Needed:\s*/, "")}</p>
+        )}
+        {meta?.created_at && (
+          <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PartsNeededNoteBlock = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string }) => {
+  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+  return (
+    <div>
+      <span className="text-sm font-bold text-amber-600">Parts Needed</span>
+      <p className="text-sm font-semibold mt-0.5">{notes.replace(/^Parts Needed:\s*/, "")}</p>
+      {meta?.created_at && (
+        <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
+      )}
+    </div>
+  );
+};
+
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
