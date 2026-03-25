@@ -168,6 +168,9 @@ export const useEngineerJobs = () => {
     // Set completed_at and generate receipt number on completion
     if (patch.status === "Completed") {
       dbPatch.completed_at = new Date().toISOString();
+      if (paymentMethod === "invoice") {
+        dbPatch.invoiced_at = new Date().toISOString();
+      }
       try {
         const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
         const ownerId = job?.user_id;
