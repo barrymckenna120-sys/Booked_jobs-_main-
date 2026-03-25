@@ -41,6 +41,7 @@ export type ScheduleJob = {
   notes: string | null;
   boiler_brand: string | null;
   user_id: string;
+  parts_priority?: string | null;
 };
 
 const Schedule = () => {
