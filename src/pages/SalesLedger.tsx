@@ -261,6 +261,9 @@ const SalesLedger = () => {
         </Select>
       </div>
 
+      {/* Outstanding Balances */}
+      <OutstandingBalances />
+
       {/* Table Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2">
