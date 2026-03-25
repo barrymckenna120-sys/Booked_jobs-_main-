@@ -129,7 +129,6 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         revenue: parseFloat(amount),
         payment_method: method,
         paid_at: new Date().toISOString(),
-        ...(method === "invoice" && !job.invoiced_at ? { invoiced_at: new Date().toISOString() } : {}),
       } as any).eq("id", job.id);
 
       // Auto advance
