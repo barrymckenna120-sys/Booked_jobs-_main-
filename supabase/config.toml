@@ -39,3 +39,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-upcoming-reminders]
     verify_jwt = false
+  [functions.create-sumup-checkout]
+    verify_jwt = false
