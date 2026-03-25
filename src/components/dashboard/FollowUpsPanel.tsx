@@ -21,10 +21,16 @@ const FollowUpsPanel = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, customer_id, follow_up_detail, completed_at, scheduled_date, assigned_engineer, customers(name, phone, address)")
+        .select("id, customer_id, status, follow_up_detail, completed_at, scheduled_date, assigned_engineer, parts_priority, parts_logged_at, customers(name, phone, address)")
         .eq("follow_up_needed", true)
         .eq("follow_up_resolved", false)
         .order("completed_at", { ascending: false });
+      const priorityOrder: Record<string, number> = { urgent: 0, normal: 1, low: 2 };
+      return (data || []).sort((a: any, b: any) => {
+        const ap = priorityOrder[a.parts_priority] ?? 99;
+        const bp = priorityOrder[b.parts_priority] ?? 99;
+        return ap - bp;
+      });
       return data || [];
     },
     enabled: !!user,
