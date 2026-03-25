@@ -180,6 +180,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // Set completed_at and generate receipt number on completion
     if (patch.status === "Completed") {
       dbPatch.completed_at = new Date().toISOString();
+      if (paymentMethod === "invoice") {
+        dbPatch.invoiced_at = new Date().toISOString();
+      }
       if (!job.receipt_number) {
         try {
           const { data: receiptNum, error: rpcErr } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
