@@ -107,7 +107,7 @@ const usePartsNeededMeta = (jobId: string, customerId: string) => {
         .from("customer_call_notes")
         .select("created_at, created_by_name")
         .eq("customer_id", customerId)
-        .like("note", "Parts Needed:%")
+        .like("note", "Parts Needed%")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
