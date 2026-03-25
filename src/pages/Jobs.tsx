@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 
@@ -54,6 +55,7 @@ const Jobs = () => {
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
+  const [jobQuotesMap, setJobQuotesMap] = useState<Record<string, string>>({});
   const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
@@ -79,16 +81,29 @@ const Jobs = () => {
       (customers || []).forEach(c => { cMap[c.id] = c; });
       setCustomersMap(cMap);
 
-      // Fetch quotes linked to incoming jobs
-      const incomingJobIds = jobsData.filter(j => j.status === "incoming").map(j => j.id);
-      if (incomingJobIds.length > 0) {
-        const { data: quotes } = await supabase
-          .from("quotes")
-          .select("id, quote_number, converted_job_id, accepted_at, total_amount")
-          .in("converted_job_id", incomingJobIds);
+      // Fetch all quotes to build lookup maps
+      const { data: allQuotes } = await supabase
+        .from("quotes")
+        .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
+        .neq("status", "Draft")
+        .order("created_at", { ascending: false });
+
+      if (allQuotes) {
+        // Map for incoming jobs (by converted_job_id)
         const qMap: Record<string, any> = {};
-        (quotes || []).forEach(q => { if (q.converted_job_id) qMap[q.converted_job_id] = q; });
+        allQuotes.forEach(q => { if (q.converted_job_id) qMap[q.converted_job_id] = q; });
         setQuotesMap(qMap);
+
+        // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
+        const jqMap: Record<string, string> = {};
+        const quotesWithJobs = jobsData.filter(j => j.has_quote);
+        for (const job of quotesWithJobs) {
+          const match = allQuotes.find(q => q.converted_job_id === job.id)
+            || allQuotes.find(q => q.job_id === job.id)
+            || allQuotes.find(q => q.customer_id === job.customer_id);
+          if (match) jqMap[job.id] = match.id;
+        }
+        setJobQuotesMap(jqMap);
       }
 
       setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown" })) as Job[]);
@@ -257,7 +272,28 @@ const Jobs = () => {
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
                 )}
               </TableCell>
-              <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
+              <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                {j.has_quote ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            const quoteId = jobQuotesMap[j.id];
+                            if (quoteId) navigate(`/quotes/${quoteId}`);
+                          }}
+                          className="hover:bg-primary/10 rounded p-1 transition-colors"
+                        >
+                          <ClipboardList className="w-4 h-4 text-primary" />
+                        </button>
+                      </TooltipTrigger>
+                      {!jobQuotesMap[j.id] && (
+                        <TooltipContent><p>No quote found</p></TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : "—"}
+              </TableCell>
               <TableCell>
                 {j.payment_method === "cash" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
