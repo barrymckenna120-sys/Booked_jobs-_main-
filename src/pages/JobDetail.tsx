@@ -534,7 +534,7 @@ const JobDetail = () => {
             )}
             {job.notes && (
               <div className="sm:col-span-2">
-                {job.notes.startsWith("Parts Needed:") ? (
+                {job.notes.startsWith("Parts Needed") ? (
                   <PartsNeededNoteBlock jobId={job.id} customerId={job.customer_id} notes={job.notes} />
                 ) : (
                   <><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></>
