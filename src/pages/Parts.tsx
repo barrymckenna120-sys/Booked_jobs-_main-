@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wrench, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Wrench, Package, CalendarClock } from "lucide-react";
+import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 
 const priorityOrder: Record<string, number> = { urgent: 0, normal: 1, low: 2 };
 
@@ -20,13 +23,14 @@ const fmtDate = (iso: string | null) => {
 
 const Parts = () => {
   const navigate = useNavigate();
+  const [arrivedJob, setArrivedJob] = useState<any>(null);
 
-  const { data: jobs = [], isLoading } = useQuery({
+  const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ["parts-page-jobs"],
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, status, notes, parts_priority, parts_logged_at, assigned_engineer, scheduled_date, customers(name, address)")
+        .select("id, status, notes, parts_priority, parts_logged_at, assigned_engineer, scheduled_date, follow_up_detail, customers(name, address, phone)")
         .in("status", ["parts_needed", "parts_ordered"])
         .order("parts_logged_at", { ascending: false });
       return data || [];
@@ -122,9 +126,22 @@ const Parts = () => {
                         <span>📅 {fmtDate(job.parts_logged_at)}</span>
                       </div>
                     </div>
-                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-blue-100 text-blue-600 shrink-0">
-                      <Package className="w-3 h-3" /> Ordered
-                    </span>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-blue-100 text-blue-600">
+                        <Package className="w-3 h-3" /> Ordered
+                      </span>
+                      <Button
+                        size="sm"
+                        className="text-white font-bold gap-1 text-[11px] h-7 px-2.5"
+                        style={{ backgroundColor: "#22C55E" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setArrivedJob(job);
+                        }}
+                      >
+                        <CalendarClock className="w-3 h-3" /> Parts Arrived
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -139,6 +156,22 @@ const Parts = () => {
           <p className="font-semibold">No parts needed right now</p>
           <p className="text-sm mt-1">When engineers flag parts, they'll appear here.</p>
         </div>
+      )}
+
+      {/* Parts Arrived Modal */}
+      {arrivedJob && (
+        <PartsArrivedModal
+          open={!!arrivedJob}
+          onClose={() => setArrivedJob(null)}
+          jobId={arrivedJob.id}
+          customerName={arrivedJob.customers?.name || "Customer"}
+          customerPhone={arrivedJob.customers?.phone || ""}
+          followUpDetail={arrivedJob.follow_up_detail}
+          onSent={() => {
+            setArrivedJob(null);
+            refetch();
+          }}
+        />
       )}
     </div>
   );
