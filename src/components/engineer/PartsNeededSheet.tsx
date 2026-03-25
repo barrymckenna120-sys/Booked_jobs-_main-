@@ -4,29 +4,40 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Wrench, Loader2, X } from "lucide-react";
 
+type Priority = "urgent" | "normal" | "low";
+
+const PRIORITIES: { value: Priority; label: string; emoji: string; border: string; text: string; bg: string }[] = [
+  { value: "urgent", label: "Urgent", emoji: "🔴", border: "border-[#DC2626]", text: "text-[#DC2626]", bg: "bg-[#DC2626] text-white border-[#DC2626]" },
+  { value: "normal", label: "Normal", emoji: "🟡", border: "border-[#D97706]", text: "text-[#D97706]", bg: "bg-[#D97706] text-white border-[#D97706]" },
+  { value: "low",    label: "Low",    emoji: "🟢", border: "border-[#16A34A]", text: "text-[#16A34A]", bg: "bg-[#16A34A] text-white border-[#16A34A]" },
+];
+
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (notes: string) => void;
+  onConfirm: (notes: string, priority: Priority) => void;
   loading?: boolean;
 }
 
 const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
   const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState<Priority>("normal");
 
   if (!open) return null;
 
   const handleConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    onConfirm(notes);
+    onConfirm(notes, priority);
     setNotes("");
+    setPriority("normal");
   };
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     setNotes("");
+    setPriority("normal");
     onClose();
   };
 
@@ -34,6 +45,7 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
     e.stopPropagation();
     e.preventDefault();
     setNotes("");
+    setPriority("normal");
     onClose();
   };
 
@@ -76,6 +88,29 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
             spellCheck={false}
             data-form-type="other"
           />
+
+          {/* Priority selector */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Priority</p>
+            <div className="flex gap-2">
+              {PRIORITIES.map((p) => {
+                const isSelected = priority === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setPriority(p.value); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-full border-2 px-3 py-2 text-xs font-semibold transition-all ${
+                      isSelected ? p.bg : `${p.border} ${p.text} bg-transparent`
+                    }`}
+                  >
+                    <span>{p.emoji}</span> {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
               Cancel
