@@ -97,7 +97,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { id: sumup_checkout_id, hosted_checkout_url } = sumupData;
+    const sumup_checkout_id = sumupData.id;
+    const hosted_checkout_url = sumupData.hosted_checkout_url || `https://pay.sumup.com/b2c/Q${sumup_checkout_id}`;
 
     // Update service_calls with checkout details
     const { error: updateErr } = await supabase
