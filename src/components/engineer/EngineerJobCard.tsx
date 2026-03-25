@@ -103,9 +103,9 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         </div>
 
         {/* Parts Needed note preview */}
-        {job.status === "parts_needed" && job.notes?.startsWith("Parts Needed:") && (
+        {job.status === "parts_needed" && job.notes?.startsWith("Parts Needed") && (
           <p className="text-xs text-muted-foreground/70 mb-1 truncate">
-            {job.notes.replace(/^Parts Needed:\s*/, "")}
+            {job.notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "")}
           </p>
         )}
 

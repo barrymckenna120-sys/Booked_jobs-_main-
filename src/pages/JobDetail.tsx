@@ -257,7 +257,7 @@ const PartsNeededNoteBlock = ({ jobId, customerId, notes }: { jobId: string; cus
   return (
     <div>
       <span className="text-sm font-bold text-amber-600">Parts Needed</span>
-      <p className="text-sm font-semibold mt-0.5">{notes.replace(/^Parts Needed:\s*/, "")}</p>
+      <p className="text-sm font-semibold mt-0.5">{notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "")}</p>
       {meta?.created_at && (
         <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
       )}
