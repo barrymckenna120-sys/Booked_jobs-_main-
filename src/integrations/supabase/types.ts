@@ -1142,6 +1142,7 @@ export type Database = {
           area_code: string | null
           assigned_engineer: string | null
           assigned_engineer_id: string | null
+          balance_due: number | null
           boiler_brand: string | null
           boiler_error_code: string | null
           boiler_issue: string | null
@@ -1201,6 +1202,7 @@ export type Database = {
           area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
+          balance_due?: number | null
           boiler_brand?: string | null
           boiler_error_code?: string | null
           boiler_issue?: string | null
@@ -1260,6 +1262,7 @@ export type Database = {
           area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
+          balance_due?: number | null
           boiler_brand?: string | null
           boiler_error_code?: string | null
           boiler_issue?: string | null
