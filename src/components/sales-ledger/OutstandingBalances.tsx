@@ -31,8 +31,9 @@ const OutstandingBalances = () => {
     setLoading(true);
     supabase
       .from("service_calls")
-      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_paid, payment_status, customer_id, customers(name)")
-      .eq("deposit_paid", true)
+      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, customer_id, customers(name)")
+      .eq("deposit_required", true)
+      .gt("deposit_amount", 0)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
       .order("scheduled_date", { ascending: false })
