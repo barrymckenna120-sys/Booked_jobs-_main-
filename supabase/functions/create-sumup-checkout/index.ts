@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const SUMUP_API_KEY = Deno.env.get("SUMUP_API_KEY");
-    const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE");
+    const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE")?.trim();
     if (!SUMUP_API_KEY) {
       throw new Error("SUMUP_API_KEY is not configured");
     }
