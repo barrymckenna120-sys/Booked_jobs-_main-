@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import CancelSheet from "@/components/engineer/CancelSheet";
@@ -24,6 +24,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   "In Progress": { color: "text-warning",     bg: "bg-warning/10",     label: "In Progress" },
   Completed:     { color: "text-success",     bg: "bg-success/10",     label: "Completed" },
   Cancelled:     { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
+  parts_needed:  { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_ordered: { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
 };
 
 const TIME_LABELS: Record<string, string> = {
@@ -365,6 +367,28 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           <InfoTile label="Last Service" value={customer.last_service_date ? new Date(customer.last_service_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : null} Icon={Calendar} />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
         </div>
+
+        {/* Parts Ordered banner */}
+        {job.status === "parts_ordered" && (
+          <div className="rounded-r-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: "#EFF6FF", borderLeft: "3px solid #2563EB" }}>
+            <Package className="w-4 h-4 shrink-0" style={{ color: "#2563EB" }} />
+            <div>
+              <div className="text-[13px] font-bold" style={{ color: "#2563EB" }}>Parts Ordered</div>
+              <div className="text-[11px] text-muted-foreground">Office is sourcing your parts</div>
+            </div>
+          </div>
+        )}
+
+        {/* Parts Needed banner */}
+        {job.status === "parts_needed" && (
+          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3 flex items-center gap-2.5">
+            <Wrench className="w-4 h-4 text-warning shrink-0" />
+            <div>
+              <div className="text-[13px] font-bold text-warning">Parts Needed</div>
+              <div className="text-[11px] text-muted-foreground">Waiting for office to order parts</div>
+            </div>
+          </div>
+        )}
 
         {/* Boiler issue */}
         {job.boiler_issue && (

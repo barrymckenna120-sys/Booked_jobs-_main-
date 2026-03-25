@@ -70,7 +70,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
   const isPartsStatus = job.status === "parts_needed" || job.status === "parts_ordered";
 
-  const borderLeftColor = isPartsStatus ? "#F59E0B" : `hsl(var(--${
+  const borderLeftColor = job.status === "parts_ordered" ? "#2563EB" : job.status === "parts_needed" ? "#F59E0B" : `hsl(var(--${
     job.job_type === "Emergency" ? "destructive" :
     isActive ? "warning" :
     job.status === "Completed" ? "success" :
@@ -102,10 +102,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <StatusBadge status={job.status} />
         </div>
 
-        {/* Parts Needed note preview */}
+        {/* Parts Needed / Ordered note preview */}
         {job.status === "parts_needed" && job.notes?.startsWith("Parts Needed") && (
           <p className="text-xs text-muted-foreground/70 mb-1 truncate">
             {job.notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "")}
+          </p>
+        )}
+        {job.status === "parts_ordered" && (
+          <p className="text-xs mb-1 truncate" style={{ color: "#2563EB" }}>
+            Parts Ordered — office is sourcing your parts
           </p>
         )}
 
