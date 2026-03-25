@@ -1,0 +1,1 @@
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS message_footer text DEFAULT 'K&N Gas Services';
