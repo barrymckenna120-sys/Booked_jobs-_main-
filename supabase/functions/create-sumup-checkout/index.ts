@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       description: "K&N Gas Services Payment",
     };
 
-    const sumupRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
+    console.log("Checkout body:", JSON.stringify(checkoutBody));
       method: "POST",
       headers: {
         Authorization: `Bearer ${SUMUP_API_KEY}`,
