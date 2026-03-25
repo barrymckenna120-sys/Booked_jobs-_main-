@@ -136,6 +136,29 @@ const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
 
   return (
     <div className="space-y-6">
+      {/* Message Footer */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Message Footer</CardTitle>
+          <CardDescription>This text is automatically added to the bottom of all WhatsApp messages sent from the app</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            value={footer}
+            onChange={(e) => setFooter(e.target.value)}
+            rows={2}
+            className="font-mono text-sm"
+          />
+          <Button
+            size="sm"
+            onClick={() => onSave({ message_footer: footer })}
+            disabled={saving}
+          >
+            {saving && <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />} Save Footer
+          </Button>
+        </CardContent>
+      </Card>
+
       <Alert>
         <MessageCircle className="w-4 h-4" />
         <AlertDescription>
