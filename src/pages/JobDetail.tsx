@@ -189,17 +189,45 @@ const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: a
 
   const partText = notes?.startsWith("Parts Needed:") ? notes.replace(/^Parts Needed:\s*/, "") : null;
 
+  const priorityConfig: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
+    urgent: { emoji: "🔴", label: "Urgent", bg: "bg-[#FEE2E2]", text: "text-[#DC2626]" },
+    normal: { emoji: "🟡", label: "Normal", bg: "bg-[#FEF3C7]", text: "text-[#D97706]" },
+    low:    { emoji: "🟢", label: "Low",    bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
+  };
+  const pCfg = job.parts_priority ? priorityConfig[job.parts_priority] : null;
+
+  const fmtPartsLoggedAt = (iso: string) => {
+    const dt = new Date(iso);
+    const day = dt.getDate();
+    const mon = dt.toLocaleDateString("en-IE", { month: "short" });
+    const year = dt.getFullYear();
+    const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${day} ${mon} ${year}, ${time}`;
+  };
+
   return (
     <Card className={`border-l-4 ${accentBorder} ${accentBg}`}>
       <CardHeader className="pb-2">
-        <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
-          {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
-          {isOrdered ? "Parts Ordered" : "Parts Needed"}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
+            {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
+            {isOrdered ? "Parts Ordered" : "Parts Needed"}
+          </CardTitle>
+          {pCfg && (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
+              {pCfg.emoji} {pCfg.label}
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
         {partText && <p className="text-sm font-semibold text-foreground">{partText}</p>}
-        {meta?.created_at && (
+        {job.parts_logged_at && (
+          <p className="text-xs text-muted-foreground">
+            Logged by {job.assigned_engineer || "Engineer"} · {fmtPartsLoggedAt(job.parts_logged_at)}
+          </p>
+        )}
+        {!job.parts_logged_at && meta?.created_at && (
           <p className="text-xs text-muted-foreground">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
         )}
         {isOrdered && orderedMeta && (
