@@ -175,6 +175,9 @@ const Jobs = () => {
   const jobTypeBadge = (type: string) => {
     const styles: Record<string, string> = {
       "Boiler Service": "bg-primary/10 text-primary",
+      "Boiler Replacement": "bg-violet-500/10 text-violet-600",
+      "Boiler Installation": "bg-violet-500/10 text-violet-600",
+      "Installation": "bg-indigo-500/10 text-indigo-600",
       "Repair": "bg-warning/10 text-warning",
       "Emergency": "bg-destructive/10 text-destructive",
     };
@@ -465,6 +468,7 @@ const Jobs = () => {
             <SelectItem value="Boiler Service">Boiler Service</SelectItem>
             <SelectItem value="Boiler Replacement">Boiler Replacement</SelectItem>
             <SelectItem value="Boiler Installation">Boiler Installation</SelectItem>
+            <SelectItem value="Installation">Installation</SelectItem>
             <SelectItem value="Repair">Repair</SelectItem>
             <SelectItem value="Emergency">Emergency</SelectItem>
           </SelectContent>
