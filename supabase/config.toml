@@ -33,3 +33,7 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-part-arrived]
     verify_jwt = false
+  [functions.get-upcoming-jobs]
+    verify_jwt = false
+  [functions.send-booking-confirmation]
+    verify_jwt = false
