@@ -151,6 +151,11 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                                       📦 Parts Ordered
                                     </span>
                                   )}
+                                  {job.status === "parts_arrived" && (
+                                    <span className="text-[9px] font-bold text-[#7C3AED] bg-[#F3E8FF] rounded-full px-1.5 py-0.5">
+                                      📅 Awaiting Booking
+                                    </span>
+                                  )}
                                   {(job.status === "parts_needed" || job.status === "parts_ordered") && job.parts_priority && (
                                     <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
                                       job.parts_priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]"

@@ -59,8 +59,8 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Status</span>
-              <p className={`font-semibold mt-0.5 ${job.status === "parts_needed" ? "text-amber-600" : job.status === "parts_ordered" ? "text-blue-600" : ""}`}>
-                {job.status === "parts_needed" ? "Parts Needed" : job.status === "parts_ordered" ? "Parts Ordered" : job.status === "no_show" ? "No Show" : job.status}
+              <p className={`font-semibold mt-0.5 ${job.status === "parts_needed" ? "text-amber-600" : job.status === "parts_ordered" ? "text-blue-600" : job.status === "parts_arrived" ? "text-[#7C3AED]" : ""}`}>
+                {job.status === "parts_needed" ? "Parts Needed" : job.status === "parts_ordered" ? "Parts Ordered" : job.status === "parts_arrived" ? "Awaiting Booking" : job.status === "no_show" ? "No Show" : job.status}
               </p>
             </div>
             <div>
