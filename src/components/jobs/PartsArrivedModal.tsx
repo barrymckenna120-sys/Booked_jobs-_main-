@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Loader2, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 type Props = {
   open: boolean;
@@ -18,7 +20,23 @@ type Props = {
 
 const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, followUpDetail, onSent }: Props) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const firstName = customerName.split(" ")[0];
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings-footer", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("settings")
+        .select("message_footer")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const messageFooter = (settings as any)?.message_footer || "K&N Gas Services";
 
   const defaultMessage = `Hi ${firstName}, great news — the parts for your boiler have arrived. Would you like to arrange a time to have the work completed? Please reply with a day and time that suits you.`;
 
@@ -75,6 +93,7 @@ const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, 
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground italic">Footer "{messageFooter}" will be added automatically</p>
           </div>
 
           <p className="text-xs text-muted-foreground">{customerPhone}</p>

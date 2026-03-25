@@ -21,10 +21,16 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    const dbHeaders = {
+      Authorization: `Bearer ${supabaseKey}`,
+      apikey: supabaseKey,
+      "Content-Type": "application/json",
+    };
+
     // Get quote + customer + settings
     const quoteRes = await fetch(
       `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=quote_number,total_amount,deposit,deposit_amount,user_id,customer_id,customers!inner(name)`,
-      { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey, "Content-Type": "application/json" } }
+      { headers: dbHeaders }
     );
     const quotes = await quoteRes.json();
     const quote = Array.isArray(quotes) ? quotes[0] : null;
@@ -34,12 +40,14 @@ serve(async (req) => {
       });
     }
 
+    // Fetch settings: whatsapp_number, business_phone, message_footer
     const settingsRes = await fetch(
-      `${supabaseUrl}/rest/v1/settings?user_id=eq.${quote.user_id}&select=whatsapp_number,business_phone&limit=1`,
-      { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey, "Content-Type": "application/json" } }
+      `${supabaseUrl}/rest/v1/settings?user_id=eq.${quote.user_id}&select=whatsapp_number,business_phone,message_footer&limit=1`,
+      { headers: dbHeaders }
     );
     const settings = await settingsRes.json();
     const officeNumber = Array.isArray(settings) ? (settings[0]?.whatsapp_number || settings[0]?.business_phone) : null;
+    const messageFooter = (Array.isArray(settings) && settings[0]?.message_footer) ? settings[0].message_footer : "K&N Gas Services";
 
     if (!officeNumber) {
       return new Response(JSON.stringify({ success: true, sent: false, reason: "No office number configured" }), {
@@ -66,17 +74,14 @@ Quote: ${quoteRef}
 Total: €${totalAmount}
 Deposit: €${depositAmount}
 
-Job has been created — open BookedJobs to schedule.`;
+Job has been created — open BookedJobs to schedule.
+
+${messageFooter}`;
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${supabaseKey}`,
-        "apikey": supabaseKey,
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-      },
+      headers: { ...dbHeaders, "Prefer": "return=representation" },
       body: JSON.stringify({
         customer_id: quote.customer_id || null,
         message_type: "quote",
@@ -116,11 +121,7 @@ Job has been created — open BookedJobs to schedule.`;
 
       await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
         method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey,
-          "Content-Type": "application/json",
-        },
+        headers: dbHeaders,
         body: JSON.stringify(updateBody),
       });
     }

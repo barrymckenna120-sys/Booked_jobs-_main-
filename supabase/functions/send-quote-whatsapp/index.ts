@@ -36,9 +36,30 @@ serve(async (req) => {
     }
 
     const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    const dbHeaders = {
+      "Authorization": `Bearer ${supabaseKey}`,
+      "apikey": supabaseKey!,
+      "Content-Type": "application/json",
+    };
+
+    // Fetch message_footer from settings
+    let messageFooter = "K&N Gas Services";
+    if (sent_by_user_id) {
+      const settingsRes = await fetch(
+        `${supabaseUrl}/rest/v1/settings?user_id=eq.${sent_by_user_id}&select=message_footer&limit=1`,
+        { headers: dbHeaders }
+      );
+      const settings = await settingsRes.json();
+      if (Array.isArray(settings) && settings[0]?.message_footer) {
+        messageFooter = settings[0].message_footer;
+      }
+    }
+
     const firstName = customer_name.split(" ")[0];
     const refNumber = quote_number || `Q-${quote_id.substring(0, 4).toUpperCase()}`;
-    const companyName = business_name || "Karl's Gas";
     const deposit = Number(deposit_amount || 0);
 
     const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${refNumber}`;
@@ -67,24 +88,16 @@ ${acceptUrl}`;
       message += `\n\n📄 View your full quote PDF:\n${pdf_url}`;
     }
 
-    message += `\n\n${companyName}`;
+    message += `\n\n${messageFooter}`;
 
     if (business_phone) {
       message += `\n📞 ${business_phone}`;
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${supabaseKey}`,
-        "apikey": supabaseKey!,
-        "Content-Type": "application/json",
-        "Prefer": "return=representation",
-      },
+      headers: { ...dbHeaders, "Prefer": "return=representation" },
       body: JSON.stringify({
         customer_id: customer_id || null,
         message_type: "quote",
@@ -124,11 +137,7 @@ ${acceptUrl}`;
 
       await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
         method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey!,
-          "Content-Type": "application/json",
-        },
+        headers: dbHeaders,
         body: JSON.stringify(updateBody),
       });
     }
@@ -136,11 +145,7 @@ ${acceptUrl}`;
     if (result.success) {
       await fetch(`${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}`, {
         method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey!,
-          "Content-Type": "application/json",
-        },
+        headers: dbHeaders,
         body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
       });
     } else {
@@ -148,11 +153,7 @@ ${acceptUrl}`;
 
       await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${supabaseKey}`,
-          "apikey": supabaseKey!,
-          "Content-Type": "application/json",
-        },
+        headers: dbHeaders,
         body: JSON.stringify({
           function_name: "send-quote-whatsapp",
           error_message: `360Messenger API returned success:false. HTTP ${response.status}`,
@@ -161,14 +162,12 @@ ${acceptUrl}`;
       });
 
       // Insert failure notification for office/admin users
-      // Get admin users from the quote owner's org
       const usersRes = await fetch(
         `${supabaseUrl}/rest/v1/engineers?user_id=eq.${sent_by_user_id || ""}&role=in.(admin,office)&auth_user_id=not.is.null&select=auth_user_id`,
-        { headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey!, "Content-Type": "application/json" } }
+        { headers: dbHeaders }
       );
       const adminUsers = await usersRes.json();
 
-      // Also notify the quote owner
       const recipientIds = new Set<string>();
       if (sent_by_user_id) recipientIds.add(sent_by_user_id);
       if (Array.isArray(adminUsers)) {
@@ -178,11 +177,7 @@ ${acceptUrl}`;
       for (const recipientId of recipientIds) {
         await fetch(`${supabaseUrl}/rest/v1/notifications`, {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${supabaseKey}`,
-            "apikey": supabaseKey!,
-            "Content-Type": "application/json",
-          },
+          headers: dbHeaders,
           body: JSON.stringify({
             recipient_user_id: recipientId,
             notification_type: "message",

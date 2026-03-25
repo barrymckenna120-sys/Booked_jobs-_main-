@@ -1339,6 +1339,7 @@ export type Database = {
           invoice_prefix: string | null
           job_time_blocks: Json | null
           logo_url: string | null
+          message_footer: string | null
           next_invoice_number: number | null
           opening_hours: Json | null
           owner_name: string | null
@@ -1387,6 +1388,7 @@ export type Database = {
           invoice_prefix?: string | null
           job_time_blocks?: Json | null
           logo_url?: string | null
+          message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
           owner_name?: string | null
@@ -1435,6 +1437,7 @@ export type Database = {
           invoice_prefix?: string | null
           job_time_blocks?: Json | null
           logo_url?: string | null
+          message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
           owner_name?: string | null
