@@ -308,6 +308,18 @@ const JobDetail = () => {
     }
   }, [user, id]);
 
+  // Realtime: refetch job when service_call row changes
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`job-detail-${id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_calls", filter: `id=eq.${id}` }, () => {
+        fetchJob();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
+
   useEffect(() => {
     if (user) {
       supabase.from("engineers").select("id, name").eq("status", "active").then(({ data }) => {
