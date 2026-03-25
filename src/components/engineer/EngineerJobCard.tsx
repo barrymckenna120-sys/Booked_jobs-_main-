@@ -66,7 +66,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       return (data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name);
     },
   });
-  const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show" || job.status === "parts_needed" || job.status === "parts_ordered";
+  const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
   const isPartsStatus = job.status === "parts_needed" || job.status === "parts_ordered";
 
