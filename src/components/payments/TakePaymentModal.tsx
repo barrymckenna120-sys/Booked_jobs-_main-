@@ -202,6 +202,24 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
               </div>
             </div>
 
+            {/* Deposit summary for deposit jobs */}
+            {hasDeposit && (
+              <div className="bg-[hsl(220,14%,96%)] rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[hsl(220,9%,46%)]">Job Total</span>
+                  <span className="font-bold text-[hsl(222,47%,11%)]">€{jobTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[hsl(220,9%,46%)]">Deposit Paid</span>
+                  <span className="font-bold text-[hsl(142,71%,35%)]">−€{depositAmount.toFixed(2)} ✅</span>
+                </div>
+                <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
+                  <span className="font-bold text-[hsl(222,47%,11%)]">Balance Due</span>
+                  <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{balanceDue.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
             {/* Payment method */}
             <div>
               <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">Payment Method</p>
