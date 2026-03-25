@@ -465,6 +465,7 @@ const Jobs = () => {
             <SelectItem value="Boiler Service">Boiler Service</SelectItem>
             <SelectItem value="Boiler Replacement">Boiler Replacement</SelectItem>
             <SelectItem value="Boiler Installation">Boiler Installation</SelectItem>
+            <SelectItem value="Installation">Installation</SelectItem>
             <SelectItem value="Repair">Repair</SelectItem>
             <SelectItem value="Emergency">Emergency</SelectItem>
           </SelectContent>
