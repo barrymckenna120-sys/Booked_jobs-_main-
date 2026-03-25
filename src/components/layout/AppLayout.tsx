@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare, BookOpen, Terminal, Package, ScrollText as MessageLogIcon } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
