@@ -169,19 +169,35 @@ const FollowUpsPanel = () => {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                  disabled={sendingId === job.id}
-                  onClick={() => handleSendPartArrived(job)}
-                >
-                  {sendingId === job.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <MessageCircle className="w-3.5 h-3.5" />
-                  )}
-                  Send Part Arrived Message
-                </Button>
+                {isPartsJob ? (
+                  <Button
+                    size="sm"
+                    className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    disabled={sendingId === job.id}
+                    onClick={() => handleSendPartArrived(job)}
+                  >
+                    {sendingId === job.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <MessageCircle className="w-3.5 h-3.5" />
+                    )}
+                    Send Part Arrived Message
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    disabled={sendingId === job.id}
+                    onClick={() => handleSendPartArrived(job)}
+                  >
+                    {sendingId === job.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <MessageCircle className="w-3.5 h-3.5" />
+                    )}
+                    Send Message
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="secondary"
