@@ -23,6 +23,10 @@ interface TakePaymentModalProps {
     user_id: string;
     receipt_number?: string | null;
     revenue?: number | null;
+    deposit_required?: boolean;
+    deposit_amount?: number | null;
+    deposit_paid?: boolean;
+    balance_due?: number | null;
   };
   customer: {
     id: string;
