@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const SUMUP_API_KEY = Deno.env.get("SUMUP_API_KEY");
-    const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE");
+    const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE")?.trim();
     if (!SUMUP_API_KEY) {
       throw new Error("SUMUP_API_KEY is not configured");
     }
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       description: "K&N Gas Services Payment",
     };
 
-    console.log("Checkout body:", JSON.stringify(checkoutBody));
+    
 
     const sumupRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
       method: "POST",
@@ -97,7 +97,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { id: sumup_checkout_id, hosted_checkout_url } = sumupData;
+    const sumup_checkout_id = sumupData.id;
+    const hosted_checkout_url = sumupData.hosted_checkout_url || `https://pay.sumup.com/b2c/Q${sumup_checkout_id}`;
 
     // Update service_calls with checkout details
     const { error: updateErr } = await supabase
