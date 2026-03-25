@@ -92,6 +92,17 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
   const unreadMessages = useUnreadMessages();
+  const { data: partsCount = 0 } = useQuery({
+    queryKey: ["parts-nav-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("service_calls")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["parts_needed", "parts_ordered"]);
+      return count || 0;
+    },
+    refetchInterval: 30000,
+  });
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS Safari/Chrome)
