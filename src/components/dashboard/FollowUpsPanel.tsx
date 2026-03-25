@@ -118,6 +118,8 @@ const FollowUpsPanel = () => {
       </div>
       {followUps.map((job: any) => {
         const customer = job.customers;
+        const isPartsJob = job.status === "parts_needed" || job.status === "parts_ordered";
+        const pCfg = job.parts_priority ? priorityConfig[job.parts_priority] : null;
         return (
           <Card key={job.id} className="border-amber-200">
             <CardContent className="p-4 space-y-3">
@@ -131,15 +133,27 @@ const FollowUpsPanel = () => {
                   </button>
                   <p className="text-sm text-muted-foreground">{customer?.address || "—"}</p>
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Completed {fmtDate(job.completed_at || job.scheduled_date)}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  {pCfg && (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
+                      {pCfg.emoji} {pCfg.label}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    Completed {fmtDate(job.completed_at || job.scheduled_date)}
+                  </span>
+                </div>
               </div>
 
               <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
                 <p className="text-sm font-medium text-amber-800">
                   ⚠️ {job.follow_up_detail || "Follow-up required"}
                 </p>
+                {isPartsJob && job.parts_logged_at && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Logged by {job.assigned_engineer || "Engineer"} · {fmtTimestamp(job.parts_logged_at)}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2">
