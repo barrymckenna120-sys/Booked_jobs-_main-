@@ -77,6 +77,39 @@ const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow
     );
   }
 
+  if (status === "parts_needed" || status === "parts_ordered") {
+    return (
+      <div className="space-y-2 mt-1">
+        <div className="flex gap-3">
+          <Button
+            className="flex-[2] h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
+            onClick={onComplete}
+          >
+            <CheckCircle2 className="w-5 h-5" /> Complete
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
+            onClick={onCancel}
+          >
+            <XCircle className="w-5 h-5" />
+          </Button>
+        </div>
+        <div className="flex gap-3">
+          {onNoShow && (
+            <Button
+              variant="outline"
+              className="flex-1 h-[44px] text-destructive border-destructive/30 font-semibold gap-1.5 text-sm"
+              onClick={onNoShow}
+            >
+              <Ban className="w-4 h-4" /> No Access
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return null;
 };
 
