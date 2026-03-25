@@ -23,6 +23,10 @@ interface TakePaymentModalProps {
     user_id: string;
     receipt_number?: string | null;
     revenue?: number | null;
+    deposit_required?: boolean;
+    deposit_amount?: number | null;
+    deposit_paid?: boolean;
+    balance_due?: number | null;
   };
   customer: {
     id: string;
@@ -45,9 +49,15 @@ const addMonths = (d: string, months: number) => {
 
 const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: TakePaymentModalProps) => {
   const { toast } = useToast();
+  const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
+  const jobTotal = job.revenue ?? 0;
+  const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
+  const balanceDue = hasDeposit ? jobTotal - depositAmount : jobTotal;
+  const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [method, setMethod] = useState<"card" | "cash" | null>(null);
-  const [amount, setAmount] = useState(job.revenue ? String(job.revenue) : "120");
+  const [amount, setAmount] = useState(defaultAmount);
   const [amountError, setAmountError] = useState("");
   const [settings, setSettings] = useState<any>(null);
   const hasPhone = !!customer.phone?.trim();
@@ -62,7 +72,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     if (open) {
       setStep(1);
       setMethod(null);
-      setAmount(job.revenue ? String(job.revenue) : "120");
+      setAmount(defaultAmount);
       setAmountError("");
       setProcStep(0);
       setReceiptData(null);
@@ -191,6 +201,24 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
                 <span className="font-bold text-[hsl(222,47%,11%)]">{job.assigned_engineer || "—"}</span>
               </div>
             </div>
+
+            {/* Deposit summary for deposit jobs */}
+            {hasDeposit && (
+              <div className="bg-[hsl(220,14%,96%)] rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[hsl(220,9%,46%)]">Job Total</span>
+                  <span className="font-bold text-[hsl(222,47%,11%)]">€{jobTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[hsl(220,9%,46%)]">Deposit Paid</span>
+                  <span className="font-bold text-[hsl(142,71%,35%)]">−€{depositAmount.toFixed(2)} ✅</span>
+                </div>
+                <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
+                  <span className="font-bold text-[hsl(222,47%,11%)]">Balance Due</span>
+                  <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{balanceDue.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
 
             {/* Payment method */}
             <div>
