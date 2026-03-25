@@ -1172,6 +1172,8 @@ export type Database = {
           notes: string | null
           owner_or_tenant: string | null
           paid_at: string | null
+          parts_logged_at: string | null
+          parts_priority: string | null
           payment_collected_by: string | null
           payment_method: string | null
           receipt_number: string | null
@@ -1225,6 +1227,8 @@ export type Database = {
           notes?: string | null
           owner_or_tenant?: string | null
           paid_at?: string | null
+          parts_logged_at?: string | null
+          parts_priority?: string | null
           payment_collected_by?: string | null
           payment_method?: string | null
           receipt_number?: string | null
@@ -1278,6 +1282,8 @@ export type Database = {
           notes?: string | null
           owner_or_tenant?: string | null
           paid_at?: string | null
+          parts_logged_at?: string | null
+          parts_priority?: string | null
           payment_collected_by?: string | null
           payment_method?: string | null
           receipt_number?: string | null
