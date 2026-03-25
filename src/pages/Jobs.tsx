@@ -55,6 +55,7 @@ const Jobs = () => {
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
+  const [jobQuotesMap, setJobQuotesMap] = useState<Record<string, string>>({});
   const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
