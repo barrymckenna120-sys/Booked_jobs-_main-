@@ -98,6 +98,7 @@ const Schedule = () => {
         notes: j.notes,
         boiler_brand: j.customers?.boiler_make_model || null,
         user_id: j.user_id,
+        parts_priority: j.parts_priority || null,
       })) as ScheduleJob[];
     },
     enabled: !!user,
