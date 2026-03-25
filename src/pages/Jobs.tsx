@@ -215,7 +215,7 @@ const Jobs = () => {
           const canTakePayment = ["Completed", "In Progress"].includes(j.status);
           const hasReceipt = !!j.receipt_number;
           return (
-            <TableRow key={j.id} className="cursor-pointer hover:bg-primary-light" onClick={() => navigate(`/jobs/${j.id}`)}>
+            <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${(j.status === "parts_needed" || j.status === "parts_ordered") ? "border-l-4 border-l-amber-500" : ""}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
                 {j.follow_up_needed && (
