@@ -39,6 +39,8 @@ type ServiceCall = {
   deposit_required: boolean;
   deposit_paid: boolean;
   deposit_amount: number | null;
+  balance_due: number | null;
+  payment_status: string | null;
   boiler_brand: string | null;
   boiler_working: boolean | null;
   boiler_issue: string | null;
