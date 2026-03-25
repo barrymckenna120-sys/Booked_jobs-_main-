@@ -61,6 +61,8 @@ const EngineerToday = () => {
           </div>
         );
       })()}
+      {/* Outstanding Balances */}
+      <EngineerOutstandingBalances />
 
       {/* Heading */}
       <div className="flex justify-between items-center">
