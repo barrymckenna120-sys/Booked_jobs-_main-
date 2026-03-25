@@ -1176,7 +1176,9 @@ export type Database = {
           parts_logged_at: string | null
           parts_priority: string | null
           payment_collected_by: string | null
+          payment_link: string | null
           payment_method: string | null
+          payment_status: string | null
           receipt_number: string | null
           receipt_sent: boolean
           receipt_sent_at: string | null
@@ -1188,6 +1190,7 @@ export type Database = {
           scheduled_date: string | null
           source: string | null
           status: string
+          sumup_checkout_id: string | null
           tally_submission_id: string | null
           time_block: string | null
           updated_at: string
@@ -1232,7 +1235,9 @@ export type Database = {
           parts_logged_at?: string | null
           parts_priority?: string | null
           payment_collected_by?: string | null
+          payment_link?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           receipt_number?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
@@ -1244,6 +1249,7 @@ export type Database = {
           scheduled_date?: string | null
           source?: string | null
           status?: string
+          sumup_checkout_id?: string | null
           tally_submission_id?: string | null
           time_block?: string | null
           updated_at?: string
@@ -1288,7 +1294,9 @@ export type Database = {
           parts_logged_at?: string | null
           parts_priority?: string | null
           payment_collected_by?: string | null
+          payment_link?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           receipt_number?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
@@ -1300,6 +1308,7 @@ export type Database = {
           scheduled_date?: string | null
           source?: string | null
           status?: string
+          sumup_checkout_id?: string | null
           tally_submission_id?: string | null
           time_block?: string | null
           updated_at?: string
