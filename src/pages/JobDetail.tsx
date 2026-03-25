@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Package } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
