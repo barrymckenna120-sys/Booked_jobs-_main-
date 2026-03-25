@@ -131,7 +131,19 @@ const FollowUpsPanel = () => {
                   >
                     {customer?.name || "Unknown"}
                   </button>
-                  <p className="text-sm text-muted-foreground">{customer?.address || "—"}</p>
+                  <button
+                    className="text-sm text-muted-foreground text-left hover:text-primary transition-colors"
+                    onClick={() => navigate(`/jobs/${job.id}`)}
+                  >
+                    {customer?.address || "—"}
+                  </button>
+                  <button
+                    className="text-xs font-medium text-left hover:underline"
+                    style={{ color: "#4A86E8" }}
+                    onClick={() => navigate(`/jobs/${job.id}`)}
+                  >
+                    View Job →
+                  </button>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {pCfg && (
