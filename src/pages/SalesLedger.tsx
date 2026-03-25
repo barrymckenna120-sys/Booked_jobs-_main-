@@ -345,6 +345,7 @@ const SalesLedger = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-extrabold">Receipt No</TableHead>
+                    <TableHead className="font-extrabold">Invoice No</TableHead>
                     <TableHead className="font-extrabold">Date</TableHead>
                     <TableHead className="font-extrabold">Customer</TableHead>
                     <TableHead className="font-extrabold">Job Type</TableHead>
@@ -353,19 +354,22 @@ const SalesLedger = () => {
                     <TableHead className="font-extrabold text-right">Total inc VAT</TableHead>
                     <TableHead className="font-extrabold text-right">Net</TableHead>
                     <TableHead className="font-extrabold text-right">VAT (13.5%)</TableHead>
+                    <TableHead className="font-extrabold text-center">Status</TableHead>
                     <TableHead className="font-extrabold text-center w-[80px]">Receipt</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((row) => {
+                  {filtered.map((row, idx) => {
                     const rev = row.revenue || 0;
                     const net = Math.round((rev / 1.135) * 100) / 100;
                     const vat = Math.round((rev - net) * 100) / 100;
+                    const invoiceNo = `INV-${String(idx + 1).padStart(3, "0")}`;
                     return (
                       <TableRow key={row.id}>
                         <TableCell className="font-mono font-bold">
                           <a href={`/jobs/${row.id}`} className="text-primary hover:underline">{row.receipt_number}</a>
                         </TableCell>
+                        <TableCell className="font-mono text-muted-foreground">{invoiceNo}</TableCell>
                         <TableCell>{row.paid_at ? format(new Date(row.paid_at), "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
@@ -374,6 +378,14 @@ const SalesLedger = () => {
                         <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
                         <TableCell className="text-right">{eur(net)}</TableCell>
                         <TableCell className="text-right">{eur(vat)}</TableCell>
+                        <TableCell className="text-center">
+                          <span
+                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold"
+                            style={{ background: "#ECFDF5", color: "#065F46", border: "1px solid #A7F3D0" }}
+                          >
+                            Fully Paid
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center">
                           <a
                             href={`/receipt/${row.id}`}
@@ -390,10 +402,11 @@ const SalesLedger = () => {
                 </TableBody>
                 <TableFooter>
                   <TableRow className="bg-muted/50 font-extrabold">
-                    <TableCell colSpan={6} className="text-right">TOTALS</TableCell>
+                    <TableCell colSpan={7} className="text-right">TOTALS</TableCell>
                     <TableCell className="text-right">{eur(totals.inc)}</TableCell>
                     <TableCell className="text-right">{eur(totals.net)}</TableCell>
                     <TableCell className="text-right">{eur(totals.vat)}</TableCell>
+                    <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>
               </Table>
