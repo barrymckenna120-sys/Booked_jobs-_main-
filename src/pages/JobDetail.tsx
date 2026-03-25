@@ -88,8 +88,9 @@ const statusBadge = (status: string) => {
     "In Progress": "bg-warning/10 text-warning",
     no_show: "bg-destructive/10 text-destructive",
     parts_needed: "bg-amber-500/10 text-amber-500",
+    parts_ordered: "bg-blue-100 text-blue-600",
   };
-  const labels: Record<string, string> = { no_show: "No Show", parts_needed: "Parts Needed" };
+  const labels: Record<string, string> = { no_show: "No Show", parts_needed: "Parts Needed", parts_ordered: "Parts Ordered" };
   return (
     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
       {labels[status] || status}

@@ -125,11 +125,12 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                             <button
                               key={job.id}
                               onClick={() => onJobClick(job)}
-                              className={`w-full text-left rounded-md border p-2 text-xs transition-colors hover:shadow-sm cursor-pointer ${
-                                job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive"
-                                : ["En Route", "On Site", "In Progress"].includes(job.status) ? "border-l-[3px] border-l-warning"
-                                : "border-l-[3px] border-l-primary"
-                              } bg-card`}
+                            className={`w-full text-left rounded-md border p-2 text-xs transition-colors hover:shadow-sm cursor-pointer ${
+                              job.status === "parts_needed" || job.status === "parts_ordered" ? "border-l-[4px] border-l-amber-500"
+                              : job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive"
+                              : ["En Route", "On Site", "In Progress"].includes(job.status) ? "border-l-[3px] border-l-warning"
+                              : "border-l-[3px] border-l-primary"
+                            } bg-card`}
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <span className="font-semibold truncate">{job.customer_name}</span>
@@ -142,6 +143,11 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                                   {job.status === "parts_needed" && (
                                     <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 rounded-full px-1.5 py-0.5">
                                       🔧 Parts Needed
+                                    </span>
+                                  )}
+                                  {job.status === "parts_ordered" && (
+                                    <span className="text-[9px] font-bold text-blue-600 bg-blue-100 rounded-full px-1.5 py-0.5">
+                                      📦 Parts Ordered
                                     </span>
                                   )}
                                   {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning shrink-0" title="Unpaid" />}
@@ -194,9 +200,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                       <button
                         key={job.id}
                         onClick={() => onJobClick(job)}
-                        className={`w-full text-left rounded-md border p-2 text-xs mb-1 ${
-                          job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-l-[3px] border-l-primary"
-                        } bg-card`}
+                      className={`w-full text-left rounded-md border p-2 text-xs mb-1 ${
+                        job.status === "parts_needed" || job.status === "parts_ordered" ? "border-l-[4px] border-l-amber-500"
+                        : job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-l-[3px] border-l-primary"
+                      } bg-card`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{job.customer_name}</span>

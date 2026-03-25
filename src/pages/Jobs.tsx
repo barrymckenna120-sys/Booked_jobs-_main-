@@ -106,8 +106,8 @@ const Jobs = () => {
     return sortDir === "asc" ? <ArrowUp className="w-3.5 h-3.5 ml-1" /> : <ArrowDown className="w-3.5 h-3.5 ml-1" />;
   };
 
-  const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed"];
-  const ACTIVE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed", "Awaiting Deposit", "Cancelled"];
+  const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed", "parts_ordered"];
+  const ACTIVE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed", "parts_ordered", "Awaiting Deposit", "Cancelled"];
 
   // Separate incoming jobs from the rest
   const incomingJobs = jobs.filter(j => j.status === "incoming");
@@ -124,6 +124,8 @@ const Jobs = () => {
         matchStatus = INCOMPLETE_STATUSES.includes(j.status) || j.status === "Cancelled";
       } else if (statusFilter === "incomplete") {
         matchStatus = INCOMPLETE_STATUSES.includes(j.status);
+      } else if (statusFilter === "parts") {
+        matchStatus = j.status === "parts_needed" || j.status === "parts_ordered";
       } else {
         matchStatus = j.status === statusFilter;
       }
@@ -177,9 +179,10 @@ const Jobs = () => {
       "Awaiting Deposit": "badge-due-soon",
       no_show: "badge-overdue",
       parts_needed: "badge-due-soon",
+      parts_ordered: "inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-600",
       incoming: "badge-due-soon",
     };
-    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "incoming" ? "Incoming" : status === "Pending" ? "Pending" : status;
+    const label = status === "no_show" ? "No Show" : status === "parts_needed" ? "Parts Needed" : status === "parts_ordered" ? "Parts Ordered" : status === "incoming" ? "Incoming" : status === "Pending" ? "Pending" : status;
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
@@ -212,7 +215,7 @@ const Jobs = () => {
           const canTakePayment = ["Completed", "In Progress"].includes(j.status);
           const hasReceipt = !!j.receipt_number;
           return (
-            <TableRow key={j.id} className="cursor-pointer hover:bg-primary-light" onClick={() => navigate(`/jobs/${j.id}`)}>
+            <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${(j.status === "parts_needed" || j.status === "parts_ordered") ? "border-l-4 border-l-amber-500" : ""}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
                 {j.follow_up_needed && (
@@ -401,6 +404,8 @@ const Jobs = () => {
             <SelectItem value="Awaiting Deposit">Awaiting Deposit</SelectItem>
             <SelectItem value="no_show">No Show</SelectItem>
             <SelectItem value="parts_needed">Parts Needed</SelectItem>
+            <SelectItem value="parts_ordered">Parts Ordered</SelectItem>
+            <SelectItem value="parts">Parts (All)</SelectItem>
             <SelectItem value="follow_up">Follow-up</SelectItem>
           </SelectContent>
         </Select>

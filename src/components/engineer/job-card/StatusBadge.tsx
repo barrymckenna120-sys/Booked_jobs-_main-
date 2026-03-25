@@ -8,6 +8,7 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   Cancelled:      { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
   no_show:        { color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   parts_needed:   { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_ordered:  { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
 };
 
 export const getStatusConfig = (status: string) =>
