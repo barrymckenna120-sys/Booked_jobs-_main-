@@ -152,6 +152,7 @@ const PartsNeededNoteBlock = ({ jobId, customerId, notes }: { jobId: string; cus
   );
 };
 
+const JobDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
