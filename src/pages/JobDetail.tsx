@@ -420,8 +420,10 @@ const JobDetail = () => {
         </div>
       )}
 
-      {/* Parts Needed Banner */}
-      {job.status === "parts_needed" && <PartsNeededBanner jobId={job.id} customerId={job.customer_id} notes={job.notes} />}
+      {/* Parts Needed / Ordered Section */}
+      {(job.status === "parts_needed" || job.status === "parts_ordered") && (
+        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} />
+      )}
 
       {/* Header */}
       <div className="flex items-start gap-3">
