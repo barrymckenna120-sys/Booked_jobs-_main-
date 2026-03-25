@@ -69,42 +69,33 @@ serve(async (req) => {
     const job = Array.isArray(jobs) ? jobs[0] : null;
     const userId = job?.user_id;
 
-    // Fetch business name from settings
-    let businessName = "BookedJobs";
+    // Fetch settings: message_footer + template_certificate
+    let messageFooter = "K&N Gas Services";
+    let messageTemplate = `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+
     if (userId) {
       const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=business_name&limit=1`,
+        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=message_footer,template_certificate&limit=1`,
         { headers }
       );
       const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]?.business_name) {
-        businessName = settings[0].business_name;
-      }
-    }
-
-    // Fetch certificate template from settings
-    let messageTemplate = `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}} from K & N Gas Services Limited.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
-
-    if (userId) {
-      const tmplRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=template_certificate&limit=1`,
-        { headers }
-      );
-      const tmplSettings = await tmplRes.json();
-      if (Array.isArray(tmplSettings) && tmplSettings[0]?.template_certificate) {
-        messageTemplate = tmplSettings[0].template_certificate;
+      if (Array.isArray(settings) && settings[0]) {
+        if (settings[0].message_footer) messageFooter = settings[0].message_footer;
+        if (settings[0].template_certificate) messageTemplate = settings[0].template_certificate;
       }
     }
 
     const firstName = customer.name.split(" ")[0];
-    // Use clean public URL for the WhatsApp message text
     const cleanCertUrl = cert.cert_number
       ? `https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}.pdf`
       : cert.pdf_url;
-    const message = messageTemplate
+    let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
       .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
+
+    // Append dynamic footer
+    message += `\n\n${messageFooter}`;
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
@@ -127,7 +118,6 @@ serve(async (req) => {
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
     if (!apiKey) {
-      // Update log as failed
       if (logId) {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH",
@@ -145,7 +135,6 @@ serve(async (req) => {
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
-    // Send PDF as document URL
     formData.append("doc_url", cert.pdf_url);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
@@ -185,7 +174,6 @@ serve(async (req) => {
         }),
       });
 
-      // Notify office users
       if (userId) {
         const usersRes = await fetch(
           `${supabaseUrl}/rest/v1/engineers?user_id=eq.${userId}&role=in.(admin,office)&auth_user_id=not.is.null&select=auth_user_id`,

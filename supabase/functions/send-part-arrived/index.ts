@@ -30,8 +30,30 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
+    // Fetch job to get user_id for settings lookup
+    const jobRes = await fetch(
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${job_id}&select=user_id`,
+      { headers }
+    );
+    const jobs = await jobRes.json();
+    const userId = Array.isArray(jobs) ? jobs[0]?.user_id : null;
+
+    // Fetch message_footer from settings
+    let messageFooter = "K&N Gas Services";
+    if (userId) {
+      const settingsRes = await fetch(
+        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=message_footer&limit=1`,
+        { headers }
+      );
+      const settings = await settingsRes.json();
+      if (Array.isArray(settings) && settings[0]?.message_footer) {
+        messageFooter = settings[0].message_footer;
+      }
+    }
+
     const firstName = customer_name.split(" ")[0];
-    const message = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.\n\nK & N Gas Services Limited`;
+    const baseMessage = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.`;
+    const message = `${baseMessage}\n\n${messageFooter}`;
 
     // Log to message_log
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
@@ -60,7 +82,6 @@ serve(async (req) => {
           body: JSON.stringify({ status: "failed", error_message: "MESSENGER_API_KEY not configured" }),
         });
       }
-      // Still return success so the UI shows confirmation — the webhook payload is logged
       return new Response(
         JSON.stringify({ success: true, note: "Message logged but WhatsApp API key not configured" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
