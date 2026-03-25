@@ -114,6 +114,7 @@ Thank you for choosing us. 🔧
 
 const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
   const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [footer, setFooter] = useState("K&N Gas Services");
 
   useEffect(() => {
     if (settings) {
@@ -122,6 +123,7 @@ const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
         init[t.key] = settings[t.key] || t.defaultBody;
       });
       setTemplates(init);
+      setFooter(settings.message_footer || "K&N Gas Services");
     }
   }, [settings]);
 
