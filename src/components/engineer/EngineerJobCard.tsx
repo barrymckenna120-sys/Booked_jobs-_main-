@@ -103,9 +103,9 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         </div>
 
         {/* Parts Needed note preview */}
-        {job.status === "parts_needed" && job.notes?.startsWith("Parts Needed:") && (
+        {job.status === "parts_needed" && job.notes?.startsWith("Parts Needed") && (
           <p className="text-xs text-muted-foreground/70 mb-1 truncate">
-            {job.notes.replace(/^Parts Needed:\s*/, "")}
+            {job.notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "")}
           </p>
         )}
 
@@ -252,7 +252,21 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
       {showExtraWork && <ExtraWorkSheet job={job} customer={customer} onClose={() => setShowExtraWork(false)} />}
       <NoShowSheet open={showNoShow} onClose={() => setShowNoShow(false)} onConfirm={(reason, notes) => { onUpdate(job.id, { status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` }); setShowNoShow(false); }} />
-      <PartsNeededSheet open={showPartsNeeded} onClose={() => setShowPartsNeeded(false)} onConfirm={(notes, priority) => { onUpdate(job.id, { status: "parts_needed", notes: `Parts Needed: ${notes}`, parts_priority: priority, parts_logged_at: new Date().toISOString() }); setShowPartsNeeded(false); toast({ title: "Parts noted — office has been informed" }); }} />
+      <PartsNeededSheet
+        open={showPartsNeeded}
+        onClose={() => setShowPartsNeeded(false)}
+        onConfirm={(notes, priority) => {
+          const pLabel = priority === "urgent" ? "Urgent" : priority === "low" ? "Low" : "Normal";
+          onUpdate(job.id, {
+            status: "parts_needed",
+            notes: `Parts Needed [${pLabel}]: ${notes}`,
+            parts_priority: priority,
+            parts_logged_at: new Date().toISOString(),
+          });
+          setShowPartsNeeded(false);
+          toast({ title: "Parts noted — office has been informed" });
+        }}
+      />
       {showTakePayment && (
         <TakePaymentModal
           open={showTakePayment}
