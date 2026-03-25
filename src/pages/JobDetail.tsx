@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
@@ -93,6 +94,61 @@ const statusBadge = (status: string) => {
     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
       {labels[status] || status}
     </span>
+  );
+};
+
+const usePartsNeededMeta = (jobId: string, customerId: string) => {
+  return useQuery({
+    queryKey: ["parts-needed-meta", jobId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customer_call_notes")
+        .select("created_at, created_by_name")
+        .eq("customer_id", customerId)
+        .like("note", "Parts Needed:%")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+  });
+};
+
+const formatPartsTimestamp = (iso: string, author?: string | null) => {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: false });
+  return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
+};
+
+const PartsNeededBanner = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string | null }) => {
+  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+  return (
+    <div className="flex items-start gap-2 rounded-lg p-3 bg-[#FFFBEB] border-l-4 border-amber-500">
+      <Wrench className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+      <div>
+        <p className="text-sm font-bold text-amber-800">Parts Needed</p>
+        {notes?.startsWith("Parts Needed:") && (
+          <p className="text-sm text-amber-700 mt-0.5">{notes.replace(/^Parts Needed:\s*/, "")}</p>
+        )}
+        {meta?.created_at && (
+          <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PartsNeededNoteBlock = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string }) => {
+  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+  return (
+    <div>
+      <span className="text-sm font-bold text-amber-600">Parts Needed</span>
+      <p className="text-sm font-semibold mt-0.5">{notes.replace(/^Parts Needed:\s*/, "")}</p>
+      {meta?.created_at && (
+        <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
+      )}
+    </div>
   );
 };
 
@@ -280,17 +336,7 @@ const JobDetail = () => {
       )}
 
       {/* Parts Needed Banner */}
-      {job.status === "parts_needed" && (
-        <div className="flex items-start gap-2 rounded-lg p-3 bg-[#FFFBEB] border-l-4 border-amber-500">
-          <Wrench className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-amber-800">Parts Needed</p>
-            {job.notes?.startsWith("Parts Needed:") && (
-              <p className="text-sm text-amber-700 mt-0.5">{job.notes.replace(/^Parts Needed:\s*/, "")}</p>
-            )}
-          </div>
-        </div>
-      )}
+      {job.status === "parts_needed" && <PartsNeededBanner jobId={job.id} customerId={job.customer_id} notes={job.notes} />}
 
       {/* Header */}
       <div className="flex items-start gap-3">
@@ -368,7 +414,13 @@ const JobDetail = () => {
               <div className="sm:col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{customer.access_notes}</span></div>
             )}
             {job.notes && (
-              <div className="sm:col-span-2"><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></div>
+              <div className="sm:col-span-2">
+                {job.notes.startsWith("Parts Needed:") ? (
+                  <PartsNeededNoteBlock jobId={job.id} customerId={job.customer_id} notes={job.notes} />
+                ) : (
+                  <><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></>
+                )}
+              </div>
             )}
           </div>
         </CardContent>

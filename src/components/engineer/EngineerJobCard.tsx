@@ -98,8 +98,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             <div className="text-[11px] font-bold text-muted-foreground/60 tracking-wider mb-1">{getJobRef(job.id)}</div>
             <div className="text-[17px] font-extrabold text-foreground leading-tight">{customer.name}</div>
           </div>
-          <StatusBadge status={job.status} />
+        <StatusBadge status={job.status} />
         </div>
+
+        {/* Parts Needed note preview */}
+        {job.status === "parts_needed" && job.notes?.startsWith("Parts Needed:") && (
+          <p className="text-xs text-muted-foreground/70 mb-1 truncate">
+            {job.notes.replace(/^Parts Needed:\s*/, "")}
+          </p>
+        )}
 
         {/* Address */}
         <div className="text-[13px] text-muted-foreground/70 mb-3 flex items-center gap-1.5">
