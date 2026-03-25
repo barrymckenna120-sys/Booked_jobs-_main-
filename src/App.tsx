@@ -50,6 +50,7 @@ import QuoteDetail from "./pages/QuoteDetail";
 import MessageLog from "./pages/MessageLog";
 import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
+import Parts from "./pages/Parts";
 const queryClient = new QueryClient();
 
 /**
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/settings/import" element={<ImportCustomers />} />
               <Route path="/system-logs" element={<SystemLogs />} />
               <Route path="/message-log" element={<MessageLog />} />
+              <Route path="/parts" element={<Parts />} />
             </Route>
             {/* Engineer Mode */}
             <Route path="/engineer" element={<EngineerLayout />}>

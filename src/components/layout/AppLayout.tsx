@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare, BookOpen, Terminal, Package, ScrollText as MessageLogIcon } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
@@ -34,6 +36,7 @@ const MAIN_NAV = [
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Messages", icon: MessageCircle, path: "/messages" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Products", icon: Package, path: "/products" },
@@ -60,6 +63,7 @@ const MOBILE_NAV = [
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Messages", icon: MessageSquare, path: "/messages" },
   { label: "Quotes", icon: Euro, path: "/quotes" },
   { label: "Products", icon: Package, path: "/products" },
@@ -88,6 +92,17 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications();
   const unreadMessages = useUnreadMessages();
+  const { data: partsCount = 0 } = useQuery({
+    queryKey: ["parts-nav-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("service_calls")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["parts_needed", "parts_ordered"]);
+      return count || 0;
+    },
+    refetchInterval: 30000,
+  });
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS Safari/Chrome)
@@ -133,6 +148,11 @@ const AppLayoutInner = () => {
               {item.path === "/messages" && unreadMessages > 0 && (
                 <span className="bg-[#4A86E8] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
                   {unreadMessages}
+                </span>
+              )}
+              {item.path === "/parts" && partsCount > 0 && (
+                <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {partsCount}
                 </span>
               )}
             </button>
@@ -230,7 +250,14 @@ const AppLayoutInner = () => {
                 active ? "text-primary font-bold" : "text-muted-foreground"
               }`}
             >
-              <item.icon className="w-7 h-7" />
+              <div className="relative">
+                <item.icon className="w-7 h-7" />
+                {item.path === "/parts" && partsCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                    {partsCount}
+                  </span>
+                )}
+              </div>
               {active && <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>}
             </button>
           );
