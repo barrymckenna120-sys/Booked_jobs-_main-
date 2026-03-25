@@ -48,7 +48,9 @@ const Schedule = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  // Use Irish timezone to determine "today" so schedule aligns with Europe/Dublin
+  const dublinNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Dublin' }));
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(dublinNow(), { weekStartsOn: 1 }));
   const [selectedEngineer, setSelectedEngineer] = useState<string>("all");
   const [assignModal, setAssignModal] = useState<{ open: boolean; job?: ScheduleJob; date?: Date; timeBlock?: string }>({ open: false });
   const [detailDrawer, setDetailDrawer] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
@@ -245,7 +247,7 @@ const Schedule = () => {
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addWeeks(weekStart, 1))}>
             <ChevronRight className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(dublinNow(), { weekStartsOn: 1 }))}>
             Today
           </Button>
         </div>
