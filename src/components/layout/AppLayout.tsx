@@ -250,7 +250,14 @@ const AppLayoutInner = () => {
                 active ? "text-primary font-bold" : "text-muted-foreground"
               }`}
             >
-              <item.icon className="w-7 h-7" />
+              <div className="relative">
+                <item.icon className="w-7 h-7" />
+                {item.path === "/parts" && partsCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                    {partsCount}
+                  </span>
+                )}
+              </div>
               {active && <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>}
             </button>
           );
