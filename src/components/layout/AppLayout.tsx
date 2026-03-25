@@ -34,6 +34,7 @@ const MAIN_NAV = [
   { label: "Schedule", icon: CalendarDays, path: "/schedule" },
   { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+  { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Messages", icon: MessageCircle, path: "/messages" },
   { label: "Quotes", icon: Receipt, path: "/quotes" },
   { label: "Products", icon: Package, path: "/products" },
