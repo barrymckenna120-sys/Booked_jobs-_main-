@@ -251,9 +251,13 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const handleReschedule = async () => {
     if (!job || !rescheduleDate) return;
     setActionLoading(true);
+    const patch: Record<string, any> = { scheduled_date: rescheduleDate, time_block: rescheduleTime || null };
+    if (job.status === "parts_needed" || job.status === "parts_ordered") {
+      patch.status = "Scheduled";
+    }
     const { error } = await supabase
       .from("service_calls")
-      .update({ scheduled_date: rescheduleDate, time_block: rescheduleTime || null } as any)
+      .update(patch as any)
       .eq("id", job.id);
     setActionLoading(false);
     if (error) {
