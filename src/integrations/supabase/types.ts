@@ -1166,6 +1166,7 @@ export type Database = {
           has_quote: boolean
           id: string
           incoming_status: string | null
+          invoiced_at: string | null
           job_issue: string | null
           job_type: string
           needs_scheduling: boolean
@@ -1221,6 +1222,7 @@ export type Database = {
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          invoiced_at?: string | null
           job_issue?: string | null
           job_type?: string
           needs_scheduling?: boolean
@@ -1276,6 +1278,7 @@ export type Database = {
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          invoiced_at?: string | null
           job_issue?: string | null
           job_type?: string
           needs_scheduling?: boolean
