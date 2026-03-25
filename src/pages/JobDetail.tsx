@@ -187,7 +187,7 @@ const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: a
     }
   };
 
-  const partText = notes?.startsWith("Parts Needed:") ? notes.replace(/^Parts Needed:\s*/, "") : null;
+  const partText = notes?.startsWith("Parts Needed") ? notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "") : null;
 
   const priorityConfig: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
     urgent: { emoji: "🔴", label: "Urgent", bg: "bg-[#FEE2E2]", text: "text-[#DC2626]" },
