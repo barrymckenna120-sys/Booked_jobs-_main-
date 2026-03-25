@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Package } from "lucide-react";
+import { Package, CalendarClock } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
@@ -23,6 +23,7 @@ import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
+import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 
 type ServiceCall = {
   id: string;
@@ -90,8 +91,9 @@ const statusBadge = (status: string) => {
     no_show: "bg-destructive/10 text-destructive",
     parts_needed: "bg-amber-500/10 text-amber-500",
     parts_ordered: "bg-blue-100 text-blue-600",
+    parts_arrived: "bg-[#F3E8FF] text-[#7C3AED]",
   };
-  const labels: Record<string, string> = { no_show: "No Show", parts_needed: "Parts Needed", parts_ordered: "Parts Ordered" };
+  const labels: Record<string, string> = { no_show: "No Show", parts_needed: "Parts Needed", parts_ordered: "Parts Ordered", parts_arrived: "Awaiting Booking" };
   return (
     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
       {labels[status] || status}
@@ -123,7 +125,7 @@ const formatPartsTimestamp = (iso: string, author?: string | null) => {
   return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
 };
 
-const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void }) => {
+const PartsNeededSection = ({ job, customerId, notes, onStatusChange, onPartsArrived }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void; onPartsArrived?: () => void }) => {
   const { data: meta } = usePartsNeededMeta(job.id, customerId);
   const { user } = useAuth("");
   const { toast } = useToast();
@@ -243,9 +245,18 @@ const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: a
             <Package className="w-4 h-4" /> {marking ? "Updating…" : "Mark as Ordered"}
           </Button>
         ) : (
-          <Button variant="outline" className="mt-2 gap-2" disabled>
-            <Package className="w-4 h-4" /> Parts Ordered ✓
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" className="gap-2" disabled>
+              <Package className="w-4 h-4" /> Parts Ordered ✓
+            </Button>
+            <Button
+              className="gap-2 text-white font-bold"
+              style={{ backgroundColor: "#22C55E" }}
+              onClick={() => onPartsArrived?.()}
+            >
+              <CalendarClock className="w-4 h-4" /> Parts Arrived
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -278,6 +289,7 @@ const JobDetail = () => {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partsNeededOpen, setPartsNeededOpen] = useState(false);
+  const [partsArrivedOpen, setPartsArrivedOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -466,7 +478,7 @@ const JobDetail = () => {
 
       {/* Parts Needed / Ordered Section */}
       {(job.status === "parts_needed" || job.status === "parts_ordered") && (
-        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} />
+        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
       )}
 
       {/* Header */}
@@ -866,6 +878,18 @@ const JobDetail = () => {
         engineerName={job.assigned_engineer || "Engineer"}
         engineerAuthUserId={assignedEngineerAuth}
       />
+      {/* Parts Arrived Modal */}
+      {partsArrivedOpen && customer && (
+        <PartsArrivedModal
+          open={partsArrivedOpen}
+          onClose={() => setPartsArrivedOpen(false)}
+          jobId={job.id}
+          customerName={customer.name}
+          customerPhone={customer.phone}
+          followUpDetail={(job as any).follow_up_detail}
+          onSent={fetchJob}
+        />
+      )}
     </div>
   );
 };

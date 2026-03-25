@@ -127,6 +127,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                               onClick={() => onJobClick(job)}
                             className={`w-full text-left rounded-md border p-2 text-xs transition-colors hover:shadow-sm cursor-pointer ${
                               job.status === "parts_needed" || job.status === "parts_ordered" ? "border-l-[4px] border-l-amber-500"
+                              : job.status === "parts_arrived" ? "border-l-[4px] border-l-[#7C3AED]"
                               : job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive"
                               : ["En Route", "On Site", "In Progress"].includes(job.status) ? "border-l-[3px] border-l-warning"
                               : "border-l-[3px] border-l-primary"
@@ -148,6 +149,11 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                                   {job.status === "parts_ordered" && (
                                     <span className="text-[9px] font-bold text-blue-600 bg-blue-100 rounded-full px-1.5 py-0.5">
                                       📦 Parts Ordered
+                                    </span>
+                                  )}
+                                  {job.status === "parts_arrived" && (
+                                    <span className="text-[9px] font-bold text-[#7C3AED] bg-[#F3E8FF] rounded-full px-1.5 py-0.5">
+                                      📅 Awaiting Booking
                                     </span>
                                   )}
                                   {(job.status === "parts_needed" || job.status === "parts_ordered") && job.parts_priority && (
@@ -211,6 +217,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                         onClick={() => onJobClick(job)}
                       className={`w-full text-left rounded-md border p-2 text-xs mb-1 ${
                         job.status === "parts_needed" || job.status === "parts_ordered" ? "border-l-[4px] border-l-amber-500"
+                        : job.status === "parts_arrived" ? "border-l-[4px] border-l-[#7C3AED]"
                         : job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-l-[3px] border-l-primary"
                       } bg-card`}
                       >

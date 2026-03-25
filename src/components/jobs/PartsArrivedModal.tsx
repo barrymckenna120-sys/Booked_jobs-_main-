@@ -1,0 +1,102 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Loader2, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  jobId: string;
+  customerName: string;
+  customerPhone: string;
+  followUpDetail?: string | null;
+  onSent: () => void;
+};
+
+const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, followUpDetail, onSent }: Props) => {
+  const { toast } = useToast();
+  const firstName = customerName.split(" ")[0];
+
+  const defaultMessage = `Hi ${firstName}, great news — the parts for your boiler have arrived. Would you like to arrange a time to have the work completed? Please reply with a day and time that suits you.`;
+
+  const [message, setMessage] = useState(defaultMessage);
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-part-arrived", {
+        body: {
+          job_id: jobId,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          follow_up_detail: followUpDetail || "Follow-up repair",
+          message,
+        },
+      });
+
+      if (error) {
+        toast({ title: "Error sending WhatsApp", description: error.message, variant: "destructive" });
+        setSending(false);
+        return;
+      }
+
+      // Update job status to parts_arrived
+      await supabase
+        .from("service_calls")
+        .update({ status: "parts_arrived" } as any)
+        .eq("id", jobId);
+
+      toast({ title: `WhatsApp sent to ${customerName} ✅`, duration: 4000 });
+      onSent();
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={() => onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Notify Customer — Parts Arrived</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Message</Label>
+            <textarea
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[120px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">{customerPhone}</p>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose} disabled={sending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSend}
+              disabled={sending || !message.trim()}
+              className="text-white font-bold gap-2"
+              style={{ backgroundColor: "#25D366" }}
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+              Send via WhatsApp
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default PartsArrivedModal;
