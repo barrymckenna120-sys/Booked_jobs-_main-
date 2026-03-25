@@ -13,8 +13,12 @@ Deno.serve(async (req) => {
 
   try {
     const SUMUP_API_KEY = Deno.env.get("SUMUP_API_KEY");
+    const SUMUP_MERCHANT_CODE = Deno.env.get("SUMUP_MERCHANT_CODE");
     if (!SUMUP_API_KEY) {
       throw new Error("SUMUP_API_KEY is not configured");
+    }
+    if (!SUMUP_MERCHANT_CODE) {
+      throw new Error("SUMUP_MERCHANT_CODE is not configured");
     }
 
     const supabase = createClient(
@@ -59,13 +63,15 @@ Deno.serve(async (req) => {
       .single();
 
     // Call SumUp Checkouts API
-    const checkoutBody = {
+    const checkoutBody: Record<string, unknown> = {
       checkout_reference: service_call_id,
       amount: job.revenue,
       currency: "EUR",
+      merchant_code: SUMUP_MERCHANT_CODE,
       description: "K&N Gas Services Payment",
-      ...(customer?.name && { customer_id: customer.name }),
     };
+
+    console.log("Checkout body:", JSON.stringify(checkoutBody));
 
     const sumupRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
       method: "POST",
