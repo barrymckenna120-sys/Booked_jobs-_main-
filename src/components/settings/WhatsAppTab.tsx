@@ -18,7 +18,7 @@ const TEMPLATES = [
     name: "Booking Confirmation",
     description: "Sent immediately when a job is created and 'Send confirmation' is toggled on",
     variables: ["{{name}}", "{{date}}", "{{time_block}}", "{{engineer}}", "{{phone}}", "{{address}}"],
-    defaultBody: `Hi {{name}}, your boiler service is booked with Karl's Gas 🔥
+    defaultBody: `Hi {{name}}, your boiler service is booked! 🔥
 
 📅 {{date}}
 ⏰ {{time_block}}
@@ -26,7 +26,6 @@ const TEMPLATES = [
 
 We'll be in touch if anything changes. See you then!
 
-Karl's Gas
 {{phone}}`,
   },
   {
@@ -34,15 +33,13 @@ Karl's Gas
     name: "Renewal Reminder",
     description: "Sent 30 days before next_service_date",
     variables: ["{{name}}", "{{due_date}}", "{{phone}}", "{{last_service_date}}"],
-    defaultBody: `Hi {{name}}, it's Karl's Gas 🔥
+    defaultBody: `Hi {{name}}, just a friendly reminder 🔥
 
 Your annual boiler service is due on {{due_date}}.
 
 Regular servicing keeps your boiler efficient, safe and your warranty valid.
 
-Reply to book your service or call us on {{phone}}.
-
-Karl's Gas`,
+Reply to book your service or call us on {{phone}}.`,
   },
   {
     key: "template_review_request",
@@ -55,15 +52,14 @@ If you're happy with the service, a quick Google review would mean a lot to us �
 
 → {{review_link}}
 
-Thanks again,
-Karl's Gas 🔥`,
+Thanks again! 🔥`,
   },
   {
     key: "template_quote_sent",
     name: "Quote Message",
     description: "Sent when office clicks Send Quote via WhatsApp",
     variables: ["{{name}}", "{{ref}}", "{{job_type}}", "{{parts}}", "{{labour}}", "{{amount}}", "{{phone}}"],
-    defaultBody: `Hi {{name}}, here is your quote from Karl's Gas 🔥
+    defaultBody: `Hi {{name}}, here is your quote 🔥
 
 Quote Ref: {{ref}}
 
@@ -78,7 +74,6 @@ To accept this quote, simply reply *YES* to this message.
 
 This quote is valid for 14 days from today.
 
-Karl's Gas
 📞 {{phone}}`,
   },
   {
@@ -91,7 +86,6 @@ Karl's Gas
 Your invoice for €{{amount}} is ready:
 → {{payment_link}}
 
-Karl's Gas
 {{phone}}`,
   },
   {
@@ -99,7 +93,7 @@ Karl's Gas
     name: "Gas Service Certificate",
     description: "Sent when a gas safety certificate is generated and shared via WhatsApp",
     variables: ["{{customer_name}}", "{{certificate_number}}", "{{certificate_url}}"],
-    defaultBody: `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}} from K & N Gas Services Limited.
+    defaultBody: `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}}.
 
 This certificate confirms all work has been completed in accordance with Irish gas safety standards.
 
