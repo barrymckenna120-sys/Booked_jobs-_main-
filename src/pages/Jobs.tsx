@@ -272,7 +272,28 @@ const Jobs = () => {
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
                 )}
               </TableCell>
-              <TableCell className="hidden md:table-cell">{j.has_quote ? <ClipboardList className="w-4 h-4 text-primary" /> : "—"}</TableCell>
+              <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                {j.has_quote ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            const quoteId = jobQuotesMap[j.id];
+                            if (quoteId) navigate(`/quotes/${quoteId}`);
+                          }}
+                          className="hover:bg-primary/10 rounded p-1 transition-colors"
+                        >
+                          <ClipboardList className="w-4 h-4 text-primary" />
+                        </button>
+                      </TooltipTrigger>
+                      {!jobQuotesMap[j.id] && (
+                        <TooltipContent><p>No quote found</p></TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : "—"}
+              </TableCell>
               <TableCell>
                 {j.payment_method === "cash" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
