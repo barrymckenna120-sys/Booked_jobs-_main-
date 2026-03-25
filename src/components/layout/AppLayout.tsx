@@ -150,6 +150,11 @@ const AppLayoutInner = () => {
                   {unreadMessages}
                 </span>
               )}
+              {item.path === "/parts" && partsCount > 0 && (
+                <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {partsCount}
+                </span>
+              )}
             </button>
           ))}
 
