@@ -478,7 +478,7 @@ const JobDetail = () => {
 
       {/* Parts Needed / Ordered Section */}
       {(job.status === "parts_needed" || job.status === "parts_ordered") && (
-        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} />
+        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
       )}
 
       {/* Header */}
