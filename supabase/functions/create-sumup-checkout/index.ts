@@ -63,15 +63,13 @@ Deno.serve(async (req) => {
       .single();
 
     // Call SumUp Checkouts API
-    const checkoutBody = {
+    const checkoutBody: Record<string, unknown> = {
       checkout_reference: service_call_id,
       amount: job.revenue,
       currency: "EUR",
-      pay_to_email: undefined as string | undefined,
       merchant_code: SUMUP_MERCHANT_CODE,
       description: "K&N Gas Services Payment",
     };
-    delete checkoutBody.pay_to_email;
 
     const sumupRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
       method: "POST",
