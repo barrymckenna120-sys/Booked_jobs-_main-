@@ -21,10 +21,16 @@ const FollowUpsPanel = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, customer_id, follow_up_detail, completed_at, scheduled_date, assigned_engineer, customers(name, phone, address)")
+        .select("id, customer_id, status, follow_up_detail, completed_at, scheduled_date, assigned_engineer, parts_priority, parts_logged_at, customers(name, phone, address)")
         .eq("follow_up_needed", true)
         .eq("follow_up_resolved", false)
         .order("completed_at", { ascending: false });
+      const priorityOrder: Record<string, number> = { urgent: 0, normal: 1, low: 2 };
+      return (data || []).sort((a: any, b: any) => {
+        const ap = priorityOrder[a.parts_priority] ?? 99;
+        const bp = priorityOrder[b.parts_priority] ?? 99;
+        return ap - bp;
+      });
       return data || [];
     },
     enabled: !!user,
@@ -89,6 +95,21 @@ const FollowUpsPanel = () => {
   const fmtDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
+  const fmtTimestamp = (d: string) => {
+    const dt = new Date(d);
+    const day = dt.getDate();
+    const mon = dt.toLocaleDateString("en-IE", { month: "short" });
+    const year = dt.getFullYear();
+    const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${day} ${mon} ${year}, ${time}`;
+  };
+
+  const priorityConfig: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
+    urgent: { emoji: "🔴", label: "Urgent", bg: "bg-[#FEE2E2]", text: "text-[#DC2626]" },
+    normal: { emoji: "🟡", label: "Normal", bg: "bg-[#FEF3C7]", text: "text-[#D97706]" },
+    low:    { emoji: "🟢", label: "Low",    bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
@@ -97,6 +118,8 @@ const FollowUpsPanel = () => {
       </div>
       {followUps.map((job: any) => {
         const customer = job.customers;
+        const isPartsJob = job.status === "parts_needed" || job.status === "parts_ordered";
+        const pCfg = job.parts_priority ? priorityConfig[job.parts_priority] : null;
         return (
           <Card key={job.id} className="border-amber-200">
             <CardContent className="p-4 space-y-3">
@@ -110,15 +133,27 @@ const FollowUpsPanel = () => {
                   </button>
                   <p className="text-sm text-muted-foreground">{customer?.address || "—"}</p>
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Completed {fmtDate(job.completed_at || job.scheduled_date)}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  {pCfg && (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
+                      {pCfg.emoji} {pCfg.label}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    Completed {fmtDate(job.completed_at || job.scheduled_date)}
+                  </span>
+                </div>
               </div>
 
               <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
                 <p className="text-sm font-medium text-amber-800">
                   ⚠️ {job.follow_up_detail || "Follow-up required"}
                 </p>
+                {isPartsJob && job.parts_logged_at && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Logged by {job.assigned_engineer || "Engineer"} · {fmtTimestamp(job.parts_logged_at)}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2">
