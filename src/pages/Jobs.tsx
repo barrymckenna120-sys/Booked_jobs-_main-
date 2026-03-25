@@ -404,6 +404,8 @@ const Jobs = () => {
             <SelectItem value="Awaiting Deposit">Awaiting Deposit</SelectItem>
             <SelectItem value="no_show">No Show</SelectItem>
             <SelectItem value="parts_needed">Parts Needed</SelectItem>
+            <SelectItem value="parts_ordered">Parts Ordered</SelectItem>
+            <SelectItem value="parts">Parts (All)</SelectItem>
             <SelectItem value="follow_up">Follow-up</SelectItem>
           </SelectContent>
         </Select>

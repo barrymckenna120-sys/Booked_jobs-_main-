@@ -200,9 +200,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
                       <button
                         key={job.id}
                         onClick={() => onJobClick(job)}
-                        className={`w-full text-left rounded-md border p-2 text-xs mb-1 ${
-                          job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-l-[3px] border-l-primary"
-                        } bg-card`}
+                      className={`w-full text-left rounded-md border p-2 text-xs mb-1 ${
+                        job.status === "parts_needed" || job.status === "parts_ordered" ? "border-l-[4px] border-l-amber-500"
+                        : job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-l-[3px] border-l-primary"
+                      } bg-card`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{job.customer_name}</span>
