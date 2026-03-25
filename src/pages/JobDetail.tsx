@@ -125,7 +125,7 @@ const formatPartsTimestamp = (iso: string, author?: string | null) => {
   return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
 };
 
-const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void }) => {
+const PartsNeededSection = ({ job, customerId, notes, onStatusChange, onPartsArrived }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void; onPartsArrived?: () => void }) => {
   const { data: meta } = usePartsNeededMeta(job.id, customerId);
   const { user } = useAuth("");
   const { toast } = useToast();
