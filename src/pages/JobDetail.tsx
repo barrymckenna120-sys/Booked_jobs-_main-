@@ -359,7 +359,13 @@ const JobDetail = () => {
               <div className="sm:col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{customer.access_notes}</span></div>
             )}
             {job.notes && (
-              <div className="sm:col-span-2"><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></div>
+              <div className="sm:col-span-2">
+                {job.notes.startsWith("Parts Needed:") ? (
+                  <PartsNeededNoteBlock jobId={job.id} customerId={job.customer_id} notes={job.notes} />
+                ) : (
+                  <><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></>
+                )}
+              </div>
             )}
           </div>
         </CardContent>
