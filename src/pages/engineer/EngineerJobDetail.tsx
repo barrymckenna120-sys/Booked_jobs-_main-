@@ -368,6 +368,28 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
         </div>
 
+        {/* Parts Ordered banner */}
+        {job.status === "parts_ordered" && (
+          <div className="rounded-r-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: "#EFF6FF", borderLeft: "3px solid #2563EB" }}>
+            <Package className="w-4 h-4 shrink-0" style={{ color: "#2563EB" }} />
+            <div>
+              <div className="text-[13px] font-bold" style={{ color: "#2563EB" }}>Parts Ordered</div>
+              <div className="text-[11px] text-muted-foreground">Office is sourcing your parts</div>
+            </div>
+          </div>
+        )}
+
+        {/* Parts Needed banner */}
+        {job.status === "parts_needed" && (
+          <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3 flex items-center gap-2.5">
+            <Wrench className="w-4 h-4 text-warning shrink-0" />
+            <div>
+              <div className="text-[13px] font-bold text-warning">Parts Needed</div>
+              <div className="text-[11px] text-muted-foreground">Waiting for office to order parts</div>
+            </div>
+          </div>
+        )}
+
         {/* Boiler issue */}
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3">
