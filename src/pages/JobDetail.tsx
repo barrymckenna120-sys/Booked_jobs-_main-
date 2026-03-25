@@ -245,9 +245,18 @@ const PartsNeededSection = ({ job, customerId, notes, onStatusChange }: { job: a
             <Package className="w-4 h-4" /> {marking ? "Updating…" : "Mark as Ordered"}
           </Button>
         ) : (
-          <Button variant="outline" className="mt-2 gap-2" disabled>
-            <Package className="w-4 h-4" /> Parts Ordered ✓
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" className="gap-2" disabled>
+              <Package className="w-4 h-4" /> Parts Ordered ✓
+            </Button>
+            <Button
+              className="gap-2 text-white font-bold"
+              style={{ backgroundColor: "#22C55E" }}
+              onClick={() => onPartsArrived?.()}
+            >
+              <CalendarClock className="w-4 h-4" /> Parts Arrived
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
