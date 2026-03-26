@@ -153,22 +153,33 @@ const Schedule = () => {
     );
   };
 
-  const isSlotTaken = (date: Date, timeBlock: string, engineerName: string) => {
+  const getSlotMaxJobs = (timeBlock: string): number => {
+    const blocks = (settings?.job_time_blocks as any[]) || [];
+    for (const block of blocks) {
+      const canonical = normalizeBlock(block.label);
+      if (canonical === timeBlock) return block.max_jobs ?? 2;
+    }
+    return 2; // fallback default
+  };
+
+  const isSlotFull = (date: Date, timeBlock: string, engineerName: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return jobs.some(
+    const count = jobs.filter(
       (j) =>
         j.scheduled_date === dateStr &&
         normalizeBlock(j.time_block) === timeBlock &&
         j.assigned_engineer === engineerName &&
         j.status !== "Completed" &&
         j.status !== "Cancelled"
-    );
+    ).length;
+    return count >= getSlotMaxJobs(timeBlock);
   };
 
   const handleAssign = async (jobId: string, date: Date, timeBlock: string, engineerName: string) => {
-    // Check double booking
-    if (isSlotTaken(date, timeBlock, engineerName)) {
-      toast({ title: "Slot taken", description: `${engineerName} already has a job in this slot.`, variant: "destructive" });
+    // Check capacity
+    if (isSlotFull(date, timeBlock, engineerName)) {
+      const max = getSlotMaxJobs(timeBlock);
+      toast({ title: "Slot full", description: `${engineerName} already has ${max} job${max !== 1 ? 's' : ''} in this slot.`, variant: "destructive" });
       return;
     }
 
