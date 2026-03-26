@@ -365,10 +365,11 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
               ["eircode", "Eircode"],
               ["applianceType", "Appliance Type"],
               ["boilerBrand", "Boiler Brand"],
-              ["boilerModel", "Boiler Model"],
+              ["boilerModel", "Boiler Make / Model"],
               ["flueType", "Flue Type"],
               ["pipework", "Pipework"],
-              ["date", "Date"],
+              ["engineerName", "Engineer Name"],
+              ["date", "Date of Inspection"],
             ] as [keyof typeof details, string][]).map(([key, label]) => (
               <div key={key} className="space-y-1">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</Label>
