@@ -440,6 +440,7 @@ const QuoteAcceptance = () => {
               We'll contact you shortly to confirm your appointment.
             </p>
           </div>
+          )}
 
           {/* ── TRUST SECTION ── */}
           <div style={{ paddingTop: 16, paddingBottom: 32 }}>
