@@ -122,11 +122,11 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   .reading-box .r-label{font-size:10px;color:#888;text-transform:uppercase;}
   .reading-box .r-value{font-size:20px;font-weight:bold;color:${b.primary_color};}
   .declaration{background:${b.table_alt_color};border:1px solid ${b.border_color};border-radius:6px;padding:14px;font-size:11px;line-height:1.6;color:#444;margin-top:16px;}
-  .sig-row{display:flex;gap:40px;margin-top:20px;}
+  .sig-row{display:flex;gap:40px;margin-top:55px;}
   .sig-box{flex:1;text-align:center;}
   .sig-box img{max-width:200px;max-height:80px;border-bottom:1px solid #333;}
   .sig-label{font-size:11px;color:#666;margin-top:4px;}
-  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px;border-radius:0 0 6px 6px;}
+  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px 20px;border-radius:0 0 6px 6px;}
 </style></head><body>
 
 <div class="header">
