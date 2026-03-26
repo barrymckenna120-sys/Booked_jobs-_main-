@@ -52,7 +52,18 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
   const jobTotal = job.revenue ?? 0;
   const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
-  const balanceDue = hasDeposit ? jobTotal - depositAmount : jobTotal;
+  const isDepositPaid = !!job.deposit_paid;
+
+  // Determine what the engineer should collect right now
+  // 1. Deposit job, deposit already paid → collect balance due
+  // 2. Deposit job, deposit NOT paid → collect deposit first
+  // 3. No deposit → collect full revenue
+  const collectingDeposit = hasDeposit && !isDepositPaid;
+  const balanceDue = hasDeposit && isDepositPaid
+    ? (job.balance_due ?? (jobTotal - depositAmount))
+    : hasDeposit && !isDepositPaid
+      ? depositAmount
+      : jobTotal;
   const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -133,13 +144,27 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setProcStep(1);
       setProcStep(2);
 
-      // Save to service_calls
-      await supabase.from("service_calls").update({
+      // Save to service_calls with correct payment state
+      const updatePayload: Record<string, any> = {
         receipt_number: receiptNum,
-        revenue: parseFloat(amount),
         payment_method: method,
         paid_at: new Date().toISOString(),
-      } as any).eq("id", job.id);
+      };
+
+      if (collectingDeposit) {
+        // Collecting the deposit — mark deposit as paid, status stays pending for balance
+        updatePayload.deposit_paid = true;
+        updatePayload.payment_status = "partial";
+      } else if (hasDeposit && isDepositPaid) {
+        // Collecting the remaining balance — job is fully paid
+        updatePayload.payment_status = "paid";
+        updatePayload.balance_due = 0;
+      } else {
+        // No deposit job — full payment
+        updatePayload.payment_status = "paid";
+      }
+
+      await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
 
       // Auto advance
       setTimeout(() => setStep(3), 600);
@@ -209,14 +234,29 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
                   <span className="text-[hsl(220,9%,46%)]">Job Total</span>
                   <span className="font-bold text-[hsl(222,47%,11%)]">€{jobTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[hsl(220,9%,46%)]">Deposit Paid</span>
-                  <span className="font-bold text-[hsl(142,71%,35%)]">−€{depositAmount.toFixed(2)} ✅</span>
-                </div>
-                <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
-                  <span className="font-bold text-[hsl(222,47%,11%)]">Balance Due</span>
-                  <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{balanceDue.toFixed(2)}</span>
-                </div>
+                {isDepositPaid ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[hsl(220,9%,46%)]">Deposit Paid</span>
+                      <span className="font-bold text-[hsl(142,71%,35%)]">−€{depositAmount.toFixed(2)} ✅</span>
+                    </div>
+                    <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
+                      <span className="font-bold text-[hsl(222,47%,11%)]">Balance Due</span>
+                      <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{balanceDue.toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[hsl(220,9%,46%)]">Deposit Required</span>
+                      <span className="font-bold text-[hsl(35,92%,50%)]">€{depositAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
+                      <span className="font-bold text-[hsl(222,47%,11%)]">Collect Now</span>
+                      <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{depositAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
