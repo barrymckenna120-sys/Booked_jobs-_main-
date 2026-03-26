@@ -122,11 +122,11 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   .reading-box .r-label{font-size:10px;color:#888;text-transform:uppercase;}
   .reading-box .r-value{font-size:20px;font-weight:bold;color:${b.primary_color};}
   .declaration{background:${b.table_alt_color};border:1px solid ${b.border_color};border-radius:6px;padding:14px;font-size:11px;line-height:1.6;color:#444;margin-top:16px;}
-  .sig-row{display:flex;gap:40px;margin-top:20px;}
+  .sig-row{display:flex;gap:40px;margin-top:55px;}
   .sig-box{flex:1;text-align:center;}
   .sig-box img{max-width:200px;max-height:80px;border-bottom:1px solid #333;}
   .sig-label{font-size:11px;color:#666;margin-top:4px;}
-  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px;border-radius:0 0 6px 6px;}
+  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px 20px;border-radius:0 0 6px 6px;}
 </style></head><body>
 
 <div class="header">
@@ -140,16 +140,17 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
 
 <div class="section">
   <div class="section-title">Company Details</div>
-  <div class="two-col">
-    <div>
+  <div style="background:#f5f7fa;border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;display:flex;align-items:center;gap:30px;">
+    <div style="flex:1;min-width:0;">
       <div class="field"><span class="label">Company</span><div class="value">${escapeHtml(companyName)}</div></div>
-      <div class="field"><span class="label">Address</span><div class="value">${escapeHtml(companyAddress)}</div></div>
+      <div class="field" style="margin-bottom:0;"><span class="label">Address</span><div class="value" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;">${escapeHtml(companyAddress)}</div></div>
     </div>
-    <div>
-      <div class="field"><span class="label">Phone</span><div class="value">${escapeHtml(companyPhone)}</div></div>
-      <div class="field"><span class="label">Email</span><div class="value">${escapeHtml(companyEmail)}</div></div>
+    <div style="flex:0 0 auto;">
+      <div class="field" style="margin-bottom:0;"><span class="label">Phone</span><div class="value">${escapeHtml(companyPhone)}</div></div>
+    </div>
+    <div style="flex:0 0 auto;">
       <div class="field"><span class="label">Engineer</span><div class="value">${escapeHtml(engineerName)}</div></div>
-      <div class="field"><span class="label">RGI Number</span><div class="value">${escapeHtml(engineerRgi)}</div></div>
+      <div class="field" style="margin-bottom:0;"><span class="label">RGI Number</span><div class="value">${escapeHtml(engineerRgi)}</div></div>
     </div>
   </div>
 </div>
@@ -373,18 +374,29 @@ Deno.serve(async (req) => {
     const engineerName = engineer?.name || "";
     const engineerRgi = (engineer as any)?.rgi_number || companyRgi;
 
-    // Company Details
+    // Company Details — hardcoded grey card (not brand colour)
     sectionTitle("COMPANY DETAILS");
-    const savedY = y;
-    fieldPair("Company", companyName, margin + 2);
-    fieldPair("Address", companyAddress, margin + 2);
-    const leftEnd = y;
-    y = savedY;
-    fieldPair("Phone", companyPhone, margin + contentW / 2);
-    fieldPair("Email", companyEmail, margin + contentW / 2);
-    fieldPair("Engineer", engineerName, margin + contentW / 2);
-    fieldPair("RGI Number", engineerRgi, margin + contentW / 2);
-    y = Math.max(leftEnd, y) + 2;
+    const compCardH = 20;
+    doc.setFillColor(245, 247, 250); // #f5f7fa
+    doc.setDrawColor(229, 231, 235); // #e5e7eb
+    doc.roundedRect(margin, y, contentW, compCardH, 2, 2, "FD");
+    const compCardMidY = y + compCardH / 2;
+    // Column 1: Company + Address
+    addText("Company", margin + 4, compCardMidY - 4, { size: 8, color: [136, 136, 136] });
+    addText(companyName, margin + 4, compCardMidY, { size: 10, bold: true });
+    addText("Address", margin + 4, compCardMidY + 4, { size: 8, color: [136, 136, 136] });
+    addText(companyAddress.replace(/\n/g, ", "), margin + 4, compCardMidY + 8, { size: 8, bold: true, maxWidth: contentW * 0.45 });
+    // Column 2: Phone
+    const col2X = margin + contentW * 0.5;
+    addText("Phone", col2X, compCardMidY - 2, { size: 8, color: [136, 136, 136] });
+    addText(companyPhone, col2X, compCardMidY + 2, { size: 10, bold: true });
+    // Column 3: Engineer + RGI
+    const col3X = margin + contentW * 0.75;
+    addText("Engineer", col3X, compCardMidY - 4, { size: 8, color: [136, 136, 136] });
+    addText(engineerName, col3X, compCardMidY, { size: 10, bold: true });
+    addText("RGI Number", col3X, compCardMidY + 4, { size: 8, color: [136, 136, 136] });
+    addText(engineerRgi, col3X, compCardMidY + 8, { size: 10, bold: true });
+    y += compCardH + 4;
 
     // Property Details
     sectionTitle("PROPERTY DETAILS");
@@ -480,10 +492,32 @@ Deno.serve(async (req) => {
     );
     y += 32;
 
-    // Signatures
-    checkNewPage(35);
+    // Footer — render first so we know the safe bottom boundary
+    const footerH = companyAddress ? 10 : 5;
+    const footerTopY = 297 - margin - footerH;
+    const footerPadX = 6; // min 20px ≈ 6mm padding from edges
+    doc.setFillColor(...primaryRgb);
+    doc.rect(margin, footerTopY, contentW, footerH, "F");
+    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
+    if (companyAddress) {
+      const fadedRgb: [number, number, number] = [
+        Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
+        Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
+        Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
+      ];
+      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: fadedRgb, align: "center", maxWidth: contentW - footerPadX * 2 });
+    }
+
+    // Signatures — add ~10mm (≈35px) gap, but clamp to available space
+    const sigBlockH = 36; // total height needed for sigs
+    const desiredGap = 10; // ~35px extra
+    const availableSpace = footerTopY - y - 2; // 2mm safety margin above footer
+    const sigGap = Math.min(desiredGap, Math.max(0, availableSpace - sigBlockH));
+    y += sigGap;
+
+    checkNewPage(sigBlockH);
     const sigW = (contentW - 10) / 2;
-    
+
     // Customer signature
     if (cert.customer_sig_url && cert.customer_sig_url.startsWith("data:")) {
       try {
@@ -505,22 +539,6 @@ Deno.serve(async (req) => {
     addText("Engineer Signature", engX + (sigW - 4) / 2, y + 27, { size: 8, color: [102, 102, 102], align: "center" });
     addText(`${engineerName} — RGI: ${engineerRgi}`, engX + (sigW - 4) / 2, y + 31, { size: 7, color: [102, 102, 102], align: "center" });
     y += 36;
-
-    // Footer
-    const footerH = companyAddress ? 10 : 5;
-    const footerTopY = 297 - margin - footerH;
-    doc.setFillColor(...primaryRgb);
-    doc.rect(margin, footerTopY, contentW, footerH, "F");
-    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
-    if (companyAddress) {
-      // Blend header text color toward primary for a muted/reduced-opacity look
-      const fadedRgb: [number, number, number] = [
-        Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
-        Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
-        Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
-      ];
-      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: fadedRgb, align: "center" });
-    }
 
     // Generate PDF buffer
     const pdfOutput = doc.output("arraybuffer");
