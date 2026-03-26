@@ -492,10 +492,32 @@ Deno.serve(async (req) => {
     );
     y += 32;
 
-    // Signatures
-    checkNewPage(35);
+    // Footer — render first so we know the safe bottom boundary
+    const footerH = companyAddress ? 10 : 5;
+    const footerTopY = 297 - margin - footerH;
+    const footerPadX = 6; // min 20px ≈ 6mm padding from edges
+    doc.setFillColor(...primaryRgb);
+    doc.rect(margin, footerTopY, contentW, footerH, "F");
+    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
+    if (companyAddress) {
+      const fadedRgb: [number, number, number] = [
+        Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
+        Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
+        Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
+      ];
+      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: fadedRgb, align: "center", maxWidth: contentW - footerPadX * 2 });
+    }
+
+    // Signatures — add ~10mm (≈35px) gap, but clamp to available space
+    const sigBlockH = 36; // total height needed for sigs
+    const desiredGap = 10; // ~35px extra
+    const availableSpace = footerTopY - y - 2; // 2mm safety margin above footer
+    const sigGap = Math.min(desiredGap, Math.max(0, availableSpace - sigBlockH));
+    y += sigGap;
+
+    checkNewPage(sigBlockH);
     const sigW = (contentW - 10) / 2;
-    
+
     // Customer signature
     if (cert.customer_sig_url && cert.customer_sig_url.startsWith("data:")) {
       try {
@@ -517,22 +539,6 @@ Deno.serve(async (req) => {
     addText("Engineer Signature", engX + (sigW - 4) / 2, y + 27, { size: 8, color: [102, 102, 102], align: "center" });
     addText(`${engineerName} — RGI: ${engineerRgi}`, engX + (sigW - 4) / 2, y + 31, { size: 7, color: [102, 102, 102], align: "center" });
     y += 36;
-
-    // Footer
-    const footerH = companyAddress ? 10 : 5;
-    const footerTopY = 297 - margin - footerH;
-    doc.setFillColor(...primaryRgb);
-    doc.rect(margin, footerTopY, contentW, footerH, "F");
-    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
-    if (companyAddress) {
-      // Blend header text color toward primary for a muted/reduced-opacity look
-      const fadedRgb: [number, number, number] = [
-        Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
-        Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
-        Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
-      ];
-      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: fadedRgb, align: "center" });
-    }
 
     // Generate PDF buffer
     const pdfOutput = doc.output("arraybuffer");
