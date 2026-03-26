@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 type OutstandingJob = {
   id: string;
@@ -23,8 +24,10 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 
 const OutstandingBalances = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<OutstandingJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -61,6 +64,25 @@ const OutstandingBalances = () => {
       });
   }, [user]);
 
+  const handleSendLink = async (job: OutstandingJob) => {
+    setSendingId(job.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-payment-link", {
+        body: { service_call_id: job.id },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Failed to send payment link");
+      }
+
+      toast({ title: "✅ Payment link sent", description: `Sent to ${data.customer_name} via WhatsApp` });
+    } catch (e: any) {
+      toast({ title: "Send failed", description: e.message, variant: "destructive" });
+    } finally {
+      setTimeout(() => setSendingId(null), 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="rounded-xl border-2 p-6" style={{ borderColor: "#FDE68A", background: "#FFFBEB" }}>
@@ -85,7 +107,7 @@ const OutstandingBalances = () => {
     { total: 0, deposit: 0, balance: 0 }
   );
 
-  const jobRef = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
+  const jobRefStr = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
 
   return (
     <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: "#FDE68A" }}>
@@ -129,11 +151,12 @@ const OutstandingBalances = () => {
               const rev = job.revenue || 0;
               const dep = job.deposit_amount || 0;
               const bal = rev - dep;
+              const isSending = sendingId === job.id;
               return (
                 <TableRow key={job.id}>
                   <TableCell className="font-mono font-bold">
                     <a href={`/jobs/${job.id}`} className="text-primary hover:underline">
-                      {jobRef(job.id)}
+                      {jobRefStr(job.id)}
                     </a>
                   </TableCell>
                   <TableCell>
@@ -173,9 +196,14 @@ const OutstandingBalances = () => {
                         size="sm"
                         variant="outline"
                         className="gap-1 text-xs font-bold"
-                        onClick={() => window.location.href = `/jobs/${job.id}`}
+                        disabled={isSending}
+                        onClick={() => handleSendLink(job)}
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> Send Link
+                        {isSending ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                        ) : (
+                          <><ExternalLink className="w-3.5 h-3.5" /> Send Link</>
+                        )}
                       </Button>
                     </div>
                   </TableCell>
