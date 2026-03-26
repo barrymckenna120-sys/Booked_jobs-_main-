@@ -549,6 +549,7 @@ const Quotes = () => {
           parts_cost: q.parts_cost,
           labour_cost: q.labour_cost,
           business_phone: settings?.business_phone,
+          quote_number: q.quote_number,
         },
       });
       if (error || !data?.success) {

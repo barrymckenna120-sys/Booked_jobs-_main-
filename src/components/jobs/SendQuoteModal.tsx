@@ -83,6 +83,7 @@ Karl's Gas${businessPhone ? `\n📞 ${businessPhone}` : ""}`;
             parts_cost: quote.parts_cost,
             labour_cost: quote.labour_cost,
             business_phone: businessPhone,
+            quote_number: quote.quote_number,
           },
         });
         if (error || !data?.success) {

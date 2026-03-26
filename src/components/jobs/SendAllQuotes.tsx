@@ -70,6 +70,7 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
           parts_cost: currentQ.parts_cost,
           labour_cost: currentQ.labour_cost,
           business_phone: currentQ.business_phone,
+          quote_number: currentQ.quote_number,
         },
       });
       if (error || !data?.success) {
