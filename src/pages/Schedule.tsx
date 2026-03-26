@@ -70,6 +70,16 @@ const Schedule = () => {
     enabled: !!user,
   });
 
+  // Fetch settings for slot capacity (max_jobs per time block)
+  const { data: settings } = useQuery({
+    queryKey: ["settings", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").single();
+      return data;
+    },
+    enabled: !!user,
+  });
+
   // Fetch all jobs for the week + unallocated
   const { data: jobs = [], refetch: refetchJobs } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
