@@ -220,14 +220,29 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
                   <span className="text-[hsl(220,9%,46%)]">Job Total</span>
                   <span className="font-bold text-[hsl(222,47%,11%)]">€{jobTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[hsl(220,9%,46%)]">Deposit Paid</span>
-                  <span className="font-bold text-[hsl(142,71%,35%)]">−€{depositAmount.toFixed(2)} ✅</span>
-                </div>
-                <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
-                  <span className="font-bold text-[hsl(222,47%,11%)]">Balance Due</span>
-                  <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{balanceDue.toFixed(2)}</span>
-                </div>
+                {isDepositPaid ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[hsl(220,9%,46%)]">Deposit Paid</span>
+                      <span className="font-bold text-[hsl(142,71%,35%)]">−€{depositAmount.toFixed(2)} ✅</span>
+                    </div>
+                    <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
+                      <span className="font-bold text-[hsl(222,47%,11%)]">Balance Due</span>
+                      <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{balanceDue.toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[hsl(220,9%,46%)]">Deposit Required</span>
+                      <span className="font-bold text-[hsl(35,92%,50%)]">€{depositAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-[hsl(220,13%,91%)] pt-2 flex justify-between items-center">
+                      <span className="font-bold text-[hsl(222,47%,11%)]">Collect Now</span>
+                      <span className="text-lg font-extrabold text-[hsl(35,92%,50%)]">€{depositAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
