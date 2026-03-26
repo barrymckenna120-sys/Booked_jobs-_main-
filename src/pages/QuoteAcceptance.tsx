@@ -197,6 +197,23 @@ const QuoteAcceptance = () => {
         </div>
       </div>
 
+      {/* ── ACCEPTED BANNER ── */}
+      {isAccepted && (
+        <div style={{ backgroundColor: "#22c55e", padding: "16px 20px" }}>
+          <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <CheckCircle2 style={{ width: 22, height: 22, color: "white", flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 700, color: "white" }}>
+                {quote.status === "Paid" ? "Quote Paid — Thank You! ✓" : "Quote Accepted ✓"}
+              </p>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>
+                Thank you {firstName}. We've received your approval and will be in touch shortly.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: 440, margin: "0 auto", padding: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
