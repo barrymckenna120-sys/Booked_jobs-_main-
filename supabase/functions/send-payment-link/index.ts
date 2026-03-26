@@ -14,12 +14,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const messengerKey = Deno.env.get("MESSENGER_API_KEY");
-    const sumupKey = Deno.env.get("SUMUP_API_KEY");
-    const sumupMerchant = Deno.env.get("SUMUP_MERCHANT_CODE")?.trim();
 
     if (!messengerKey) throw new Error("MESSENGER_API_KEY is not configured");
-    if (!sumupKey) throw new Error("SUMUP_API_KEY is not configured");
-    if (!sumupMerchant) throw new Error("SUMUP_MERCHANT_CODE is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { service_call_id } = await req.json();
@@ -55,6 +51,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    const paymentLink = job.payment_link;
+    if (!paymentLink) {
+      return new Response(JSON.stringify({ error: "No payment link set on this job. Add a payment link first." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const jobTotal = job.revenue || 0;
     const depositAmount = job.deposit_required ? (job.deposit_amount || 0) : 0;
     const balanceDue = job.balance_due || (jobTotal - depositAmount) || jobTotal;
@@ -65,52 +68,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 1: Generate or retrieve SumUp payment link
-    let paymentLink = job.payment_link;
-
-    if (!paymentLink) {
-      const checkoutBody = {
-        checkout_reference: service_call_id,
-        amount: balanceDue,
-        currency: "EUR",
-        merchant_code: sumupMerchant,
-        description: `Payment — ${customer.name}`,
-      };
-
-      const sumupRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${sumupKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(checkoutBody),
-      });
-
-      const sumupData = await sumupRes.json();
-
-      if (!sumupRes.ok) {
-        console.error("SumUp API error:", sumupData);
-        await supabase.from("edge_function_logs").insert({
-          function_name: "send-payment-link",
-          error_message: `SumUp API ${sumupRes.status}: ${JSON.stringify(sumupData)}`,
-          payload: { service_call_id },
-        });
-        return new Response(JSON.stringify({ error: "Failed to create payment link", detail: sumupData }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const checkoutId = sumupData.id;
-      paymentLink = sumupData.hosted_checkout_url || `https://pay.sumup.com/b2c/Q${checkoutId}`;
-
-      await supabase.from("service_calls").update({
-        sumup_checkout_id: checkoutId,
-        payment_link: paymentLink,
-        payment_status: "pending",
-      }).eq("id", service_call_id);
-    }
-
-    // Step 2: Get WhatsApp template from settings
+    // Get WhatsApp template from settings
     const { data: settings } = await supabase
       .from("settings")
       .select("template_payment_link, message_footer, business_phone")
@@ -120,7 +78,7 @@ Deno.serve(async (req) => {
     const footer = settings?.message_footer || "K&N Gas Services";
     const businessPhone = settings?.business_phone || "";
 
-    const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n→ {{payment_link}}\n\n{{phone}}`;
+    const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n{{payment_link}}\n\n{{phone}}`;
 
     let message = (settings?.template_payment_link || defaultTemplate)
       .replace(/\{\{name\}\}/g, customer.name)
@@ -133,7 +91,7 @@ Deno.serve(async (req) => {
       message = message.trimEnd() + `\n\n${footer}`;
     }
 
-    // Step 3: Send via 360Messenger
+    // Send via 360Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phone_number", cleanNumber);
