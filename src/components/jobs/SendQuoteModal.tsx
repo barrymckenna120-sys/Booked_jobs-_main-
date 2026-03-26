@@ -16,7 +16,7 @@ type Quote = {
   labour_cost: number | null;
   payment_link: string | null;
   deposit_amount: number | null;
-  quote_number: string | null;
+  quote_number?: string | null;
 };
 
 type Customer = {
