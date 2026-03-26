@@ -374,18 +374,29 @@ Deno.serve(async (req) => {
     const engineerName = engineer?.name || "";
     const engineerRgi = (engineer as any)?.rgi_number || companyRgi;
 
-    // Company Details
+    // Company Details — hardcoded grey card (not brand colour)
     sectionTitle("COMPANY DETAILS");
-    const savedY = y;
-    fieldPair("Company", companyName, margin + 2);
-    fieldPair("Address", companyAddress, margin + 2);
-    const leftEnd = y;
-    y = savedY;
-    fieldPair("Phone", companyPhone, margin + contentW / 2);
-    fieldPair("Email", companyEmail, margin + contentW / 2);
-    fieldPair("Engineer", engineerName, margin + contentW / 2);
-    fieldPair("RGI Number", engineerRgi, margin + contentW / 2);
-    y = Math.max(leftEnd, y) + 2;
+    const compCardH = 20;
+    doc.setFillColor(245, 247, 250); // #f5f7fa
+    doc.setDrawColor(229, 231, 235); // #e5e7eb
+    doc.roundedRect(margin, y, contentW, compCardH, 2, 2, "FD");
+    const compCardMidY = y + compCardH / 2;
+    // Column 1: Company + Address
+    addText("Company", margin + 4, compCardMidY - 4, { size: 8, color: [136, 136, 136] });
+    addText(companyName, margin + 4, compCardMidY, { size: 10, bold: true });
+    addText("Address", margin + 4, compCardMidY + 4, { size: 8, color: [136, 136, 136] });
+    addText(companyAddress.replace(/\n/g, ", "), margin + 4, compCardMidY + 8, { size: 8, bold: true, maxWidth: contentW * 0.45 });
+    // Column 2: Phone
+    const col2X = margin + contentW * 0.5;
+    addText("Phone", col2X, compCardMidY - 2, { size: 8, color: [136, 136, 136] });
+    addText(companyPhone, col2X, compCardMidY + 2, { size: 10, bold: true });
+    // Column 3: Engineer + RGI
+    const col3X = margin + contentW * 0.75;
+    addText("Engineer", col3X, compCardMidY - 4, { size: 8, color: [136, 136, 136] });
+    addText(engineerName, col3X, compCardMidY, { size: 10, bold: true });
+    addText("RGI Number", col3X, compCardMidY + 4, { size: 8, color: [136, 136, 136] });
+    addText(engineerRgi, col3X, compCardMidY + 8, { size: 10, bold: true });
+    y += compCardH + 4;
 
     // Property Details
     sectionTitle("PROPERTY DETAILS");
