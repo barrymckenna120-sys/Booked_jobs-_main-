@@ -340,9 +340,9 @@ Deno.serve(async (req) => {
     addText("RGI", margin + 5, y + 9, { size: 9, bold: true, color: headerTextRgb });
     addText("Cert", margin + 5, y + 14, { size: 9, bold: true, color: headerTextRgb });
     addText("RGI Domestic Gas Certificate", margin + 22, y + 10, { size: 16, bold: true, color: headerTextRgb });
-    addText(cert.cert_number || "", pageW - margin, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
+    addText(cert.cert_number || "", pageW - margin - 3, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
     const dateStr = new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" });
-    addText(`Issued: ${dateStr}`, pageW - margin, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
+    addText(`Issued: ${dateStr}`, pageW - margin - 3, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
     y += 28;
 
     // Section helper
