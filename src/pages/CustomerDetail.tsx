@@ -15,6 +15,7 @@ import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2
 import CustomerHistoryPanel from "@/components/customer/CustomerHistoryPanel";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
+import CustomerQuotes from "@/components/customer/CustomerQuotes";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
@@ -360,6 +361,9 @@ const CustomerDetail = () => {
 
         {/* Payment History */}
         {id && <PaymentHistory customerId={id} />}
+
+        {/* Quotes */}
+        {id && <CustomerQuotes customerId={id} />}
 
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
