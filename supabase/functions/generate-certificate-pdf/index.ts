@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
     addText("Company", margin + 4, compCardMidY - 4, { size: 8, color: [136, 136, 136] });
     addText(companyName, margin + 4, compCardMidY, { size: 10, bold: true });
     addText("Address", margin + 4, compCardMidY + 4, { size: 8, color: [136, 136, 136] });
-    addText(companyAddress.replace(/\n/g, ", "), margin + 4, compCardMidY + 8, { size: 8, bold: true, maxWidth: contentW * 0.45 });
+    addText(companyAddress.replace(/\n/g, ", "), margin + 4, compCardMidY + 8, { size: 8, bold: true, maxWidth: contentW * 0.42 });
     // Column 2: Phone
     const col2X = margin + contentW * 0.5;
     addText("Phone", col2X, compCardMidY - 2, { size: 8, color: [136, 136, 136] });
