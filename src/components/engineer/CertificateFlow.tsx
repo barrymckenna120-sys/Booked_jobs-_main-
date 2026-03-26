@@ -136,18 +136,19 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [certId, setCertId] = useState<string | null>(null);
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
-  // Step 1 — Details
+  // Step 1 — Details (pre-filled from customer + job data, fallback to customer record)
   const [details, setDetails] = useState({
     customerName: customer?.name || "",
     customerMobile: customer?.phone || "",
     customerAddress: customer?.address || "",
     eircode: customer?.eircode || "",
-    applianceType: job?.boiler_type || "",
+    applianceType: job?.boiler_type || customer?.boiler_type || "",
     boilerBrand: job?.boiler_brand || "",
-    boilerModel: job?.boiler_issue || "",
+    boilerModel: customer?.boiler_make_model || "",
     flueType: "",
     pipework: "",
-    date: job?.scheduled_date || new Date().toISOString().split("T")[0],
+    engineerName: engineerName || "",
+    date: new Date().toISOString().split("T")[0],
   });
 
   // Step 2 — Checks
@@ -364,10 +365,11 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
               ["eircode", "Eircode"],
               ["applianceType", "Appliance Type"],
               ["boilerBrand", "Boiler Brand"],
-              ["boilerModel", "Boiler Model"],
+              ["boilerModel", "Boiler Make / Model"],
               ["flueType", "Flue Type"],
               ["pipework", "Pipework"],
-              ["date", "Date"],
+              ["engineerName", "Engineer Name"],
+              ["date", "Date of Inspection"],
             ] as [keyof typeof details, string][]).map(([key, label]) => (
               <div key={key} className="space-y-1">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</Label>
