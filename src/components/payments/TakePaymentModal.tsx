@@ -144,13 +144,27 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setProcStep(1);
       setProcStep(2);
 
-      // Save to service_calls
-      await supabase.from("service_calls").update({
+      // Save to service_calls with correct payment state
+      const updatePayload: Record<string, any> = {
         receipt_number: receiptNum,
-        revenue: parseFloat(amount),
         payment_method: method,
         paid_at: new Date().toISOString(),
-      } as any).eq("id", job.id);
+      };
+
+      if (collectingDeposit) {
+        // Collecting the deposit — mark deposit as paid, status stays pending for balance
+        updatePayload.deposit_paid = true;
+        updatePayload.payment_status = "partial";
+      } else if (hasDeposit && isDepositPaid) {
+        // Collecting the remaining balance — job is fully paid
+        updatePayload.payment_status = "paid";
+        updatePayload.balance_due = 0;
+      } else {
+        // No deposit job — full payment
+        updatePayload.payment_status = "paid";
+      }
+
+      await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
 
       // Auto advance
       setTimeout(() => setStep(3), 600);
