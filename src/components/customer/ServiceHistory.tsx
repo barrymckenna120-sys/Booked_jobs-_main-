@@ -43,6 +43,7 @@ const paymentVariant = (s: string) => {
 
 const ServiceHistory = ({ customerId }: { customerId: string }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
