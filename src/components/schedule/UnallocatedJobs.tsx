@@ -1,11 +1,13 @@
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Clock } from "lucide-react";
+import { CalendarDays, Clock, X } from "lucide-react";
 
 type Props = {
   jobs: ScheduleJob[];
   onAssign: (job: ScheduleJob) => void;
+  onJobClick?: (job: ScheduleJob) => void;
+  onRemove?: (job: ScheduleJob) => void;
 };
 
 const jobTypeBadge = (type: string) => {
@@ -26,7 +28,7 @@ const urgencyBadge = (type: string) => {
   return null;
 };
 
-const UnallocatedJobs = ({ jobs, onAssign }: Props) => {
+const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
   if (jobs.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-2">No unallocated jobs — all scheduled! ✓</p>
@@ -38,17 +40,37 @@ const UnallocatedJobs = ({ jobs, onAssign }: Props) => {
       {jobs.map((job) => (
         <div
           key={job.id}
-          className={`flex items-center justify-between gap-2 rounded-md border p-3 bg-card ${
+          className={`relative flex items-center justify-between gap-2 rounded-md border p-3 bg-card ${
             job.job_type === "Emergency" ? "border-l-[3px] border-l-destructive" : "border-border"
           }`}
         >
-          <div className="min-w-0 flex-1">
+          {/* Remove (X) button */}
+          {onRemove && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemove(job); }}
+              className="absolute top-1.5 right-1.5 p-0.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="Remove from schedule"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          <div className="min-w-0 flex-1 pr-4">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-mono text-muted-foreground">BJ-{job.id.slice(0, 6).toUpperCase()}</span>
               {jobTypeBadge(job.job_type)}
               {urgencyBadge(job.job_type)}
             </div>
-            <p className="text-sm font-semibold truncate mt-0.5">{job.customer_name}</p>
+            {onJobClick ? (
+              <button
+                onClick={() => onJobClick(job)}
+                className="text-sm font-semibold truncate mt-0.5 text-left hover:text-primary hover:underline transition-colors block max-w-full"
+              >
+                {job.customer_name}
+              </button>
+            ) : (
+              <p className="text-sm font-semibold truncate mt-0.5">{job.customer_name}</p>
+            )}
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-muted-foreground truncate">{job.customer_address}</p>
             </div>
