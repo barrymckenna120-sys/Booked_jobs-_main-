@@ -295,6 +295,7 @@ const Quotes = () => {
           parts_cost: selected.parts_cost,
           labour_cost: selected.labour_cost,
           business_phone: settings?.business_phone,
+          quote_number: selected.quote_number,
         },
       });
       if (error || !data?.success) {
@@ -394,6 +395,7 @@ const Quotes = () => {
       parts_cost: q.parts_cost,
       labour_cost: q.labour_cost,
       business_phone: settings?.business_phone,
+      quote_number: q.quote_number,
     }));
 
   const handleQuoteSent = async (quoteId: string) => {
@@ -548,6 +550,7 @@ const Quotes = () => {
           parts_cost: q.parts_cost,
           labour_cost: q.labour_cost,
           business_phone: settings?.business_phone,
+          quote_number: q.quote_number,
         },
       });
       if (error || !data?.success) {

@@ -20,6 +20,7 @@ export type UnsentQuote = {
   parts_cost: number | null;
   labour_cost: number | null;
   business_phone?: string;
+  quote_number: string | null;
 };
 
 const buildMsg = (q: UnsentQuote) => {
@@ -70,6 +71,7 @@ export function SendAllQuotesSheet({ open, onOpenChange, quotes, onQuoteSent }: 
           parts_cost: currentQ.parts_cost,
           labour_cost: currentQ.labour_cost,
           business_phone: currentQ.business_phone,
+          quote_number: currentQ.quote_number,
         },
       });
       if (error || !data?.success) {

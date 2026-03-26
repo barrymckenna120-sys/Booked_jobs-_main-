@@ -16,6 +16,7 @@ type Quote = {
   labour_cost: number | null;
   payment_link: string | null;
   deposit_amount: number | null;
+  quote_number?: string | null;
 };
 
 type Customer = {
@@ -83,6 +84,7 @@ Karl's Gas${businessPhone ? `\n📞 ${businessPhone}` : ""}`;
             parts_cost: quote.parts_cost,
             labour_cost: quote.labour_cost,
             business_phone: businessPhone,
+            quote_number: quote.quote_number,
           },
         });
         if (error || !data?.success) {
