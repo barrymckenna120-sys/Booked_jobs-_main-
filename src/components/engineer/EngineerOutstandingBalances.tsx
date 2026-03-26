@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type OutstandingJob = {
   id: string;
@@ -18,8 +19,10 @@ const jobRef = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
 
 const EngineerOutstandingBalances = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<OutstandingJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -64,6 +67,25 @@ const EngineerOutstandingBalances = () => {
     })();
   }, [user]);
 
+  const handleSendLink = async (job: OutstandingJob) => {
+    setSendingId(job.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-payment-link", {
+        body: { service_call_id: job.id },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Failed to send payment link");
+      }
+
+      toast({ title: "✅ Payment link sent", description: `Sent to ${data.customer_name} via WhatsApp` });
+    } catch (e: any) {
+      toast({ title: "Send failed", description: e.message, variant: "destructive" });
+    } finally {
+      setTimeout(() => setSendingId(null), 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-6">
@@ -88,6 +110,7 @@ const EngineerOutstandingBalances = () => {
 
       {jobs.map((job) => {
         const balance = job.revenue - job.deposit_amount;
+        const isSending = sendingId === job.id;
         return (
           <div
             key={job.id}
@@ -124,9 +147,14 @@ const EngineerOutstandingBalances = () => {
                 size="sm"
                 variant="outline"
                 className="flex-1 gap-1.5 text-xs font-bold"
-                onClick={() => window.location.href = `/engineer/job/${job.id}`}
+                disabled={isSending}
+                onClick={() => handleSendLink(job)}
               >
-                📲 Send Link
+                {isSending ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                ) : (
+                  <>📲 Send Link</>
+                )}
               </Button>
             </div>
           </div>
