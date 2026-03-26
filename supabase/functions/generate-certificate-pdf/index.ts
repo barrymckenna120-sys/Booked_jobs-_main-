@@ -340,9 +340,9 @@ Deno.serve(async (req) => {
     addText("RGI", margin + 5, y + 9, { size: 9, bold: true, color: headerTextRgb });
     addText("Cert", margin + 5, y + 14, { size: 9, bold: true, color: headerTextRgb });
     addText("RGI Domestic Gas Certificate", margin + 22, y + 10, { size: 16, bold: true, color: headerTextRgb });
-    addText(cert.cert_number || "", pageW - margin, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
+    addText(cert.cert_number || "", pageW - margin - 3, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
     const dateStr = new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" });
-    addText(`Issued: ${dateStr}`, pageW - margin, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
+    addText(`Issued: ${dateStr}`, pageW - margin - 3, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
     y += 28;
 
     // Section helper
@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
     addText("Company", margin + 4, compCardMidY - 4, { size: 8, color: [136, 136, 136] });
     addText(companyName, margin + 4, compCardMidY, { size: 10, bold: true });
     addText("Address", margin + 4, compCardMidY + 4, { size: 8, color: [136, 136, 136] });
-    addText(companyAddress.replace(/\n/g, ", "), margin + 4, compCardMidY + 8, { size: 8, bold: true, maxWidth: contentW * 0.45 });
+    addText(companyAddress.replace(/\n/g, ", "), margin + 4, compCardMidY + 8, { size: 8, bold: true, maxWidth: contentW * 0.42 });
     // Column 2: Phone
     const col2X = margin + contentW * 0.5;
     addText("Phone", col2X, compCardMidY - 2, { size: 8, color: [136, 136, 136] });
@@ -498,14 +498,14 @@ Deno.serve(async (req) => {
     const footerPadX = 6; // min 20px ≈ 6mm padding from edges
     doc.setFillColor(...primaryRgb);
     doc.rect(margin, footerTopY, contentW, footerH, "F");
-    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
+    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, margin + 4, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb });
     if (companyAddress) {
       const fadedRgb: [number, number, number] = [
         Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
         Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
         Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
       ];
-      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: fadedRgb, align: "center", maxWidth: contentW - footerPadX * 2 });
+      addText(companyAddress.replace(/\n/g, ", "), margin + 4, footerTopY + 8.5, { size: 7, color: fadedRgb, maxWidth: contentW - 8 });
     }
 
     // Signatures — add ~10mm (≈35px) gap, but clamp to available space
