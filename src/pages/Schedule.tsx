@@ -328,7 +328,12 @@ const Schedule = () => {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="pt-0 pb-4">
-              <UnallocatedJobs jobs={unallocatedJobs} onAssign={openAssignFromUnallocated} />
+              <UnallocatedJobs
+                jobs={unallocatedJobs}
+                onAssign={openAssignFromUnallocated}
+                onJobClick={(job) => setDetailDrawer({ open: true, job })}
+                onRemove={handleRemoveFromSchedule}
+              />
             </CardContent>
           </CollapsibleContent>
         </Card>
