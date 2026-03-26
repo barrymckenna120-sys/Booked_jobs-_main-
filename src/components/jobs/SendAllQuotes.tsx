@@ -20,6 +20,7 @@ export type UnsentQuote = {
   parts_cost: number | null;
   labour_cost: number | null;
   business_phone?: string;
+  quote_number: string | null;
 };
 
 const buildMsg = (q: UnsentQuote) => {
