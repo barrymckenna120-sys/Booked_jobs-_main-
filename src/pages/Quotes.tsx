@@ -295,6 +295,7 @@ const Quotes = () => {
           parts_cost: selected.parts_cost,
           labour_cost: selected.labour_cost,
           business_phone: settings?.business_phone,
+          quote_number: selected.quote_number,
         },
       });
       if (error || !data?.success) {
