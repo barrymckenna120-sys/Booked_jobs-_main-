@@ -137,7 +137,7 @@ const Schedule = () => {
   const unallocatedJobs = jobs.filter(
     (j) => {
       const s = j.status?.toLowerCase();
-      return s !== "completed" && s !== "cancelled" && s !== "booked" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer);
+      return s !== "completed" && s !== "cancelled" && s !== "booked" && s !== "pending" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer);
     }
   );
 
