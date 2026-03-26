@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Receipt, FileText, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 type Job = {
   id: string;
@@ -42,6 +43,7 @@ const paymentVariant = (s: string) => {
 
 const ServiceHistory = ({ customerId }: { customerId: string }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,18 +169,21 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
                         </p>
                       </div>
                     </div>
-                    {cert.pdf_url ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 text-xs font-bold"
-                        onClick={() => window.open(cert.pdf_url!, "_blank")}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" /> View Certificate
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">PDF pending…</span>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs font-bold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (cert.pdf_url) {
+                          window.open(cert.pdf_url, "_blank", "noopener,noreferrer");
+                        } else {
+                          toast({ title: "No certificate available", description: "The PDF has not been generated yet.", variant: "destructive" });
+                        }
+                      }}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> {cert.pdf_url ? "View Certificate" : "PDF pending…"}
+                    </Button>
                   </div>
                 );
               })}
