@@ -442,6 +442,45 @@ const QuoteAcceptance = () => {
           </div>
           )}
 
+          {/* ── PDF Download (always visible) ── */}
+          {isAccepted && quote.pdf_url && (
+            <button
+              onClick={async () => {
+                setDownloadingPdf(true);
+                try {
+                  const response = await fetch(quote.pdf_url!);
+                  if (!response.ok) throw new Error("Failed");
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = (quote.quote_number || "quote") + ".pdf";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                } catch {
+                  // silent fail
+                } finally {
+                  setDownloadingPdf(false);
+                }
+              }}
+              disabled={downloadingPdf}
+              style={{
+                width: "100%", minHeight: 52, borderRadius: 10,
+                border: "2px solid #e5e7eb", backgroundColor: "transparent",
+                color: "#374151", fontSize: 16, fontWeight: 500,
+                cursor: downloadingPdf ? "not-allowed" : "pointer", opacity: downloadingPdf ? 0.7 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              {downloadingPdf
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Download style={{ width: 16, height: 16 }} />}
+              {downloadingPdf ? "Downloading..." : "Download Quote PDF"}
+            </button>
+          )}
+
           {/* ── TRUST SECTION ── */}
           <div style={{ paddingTop: 16, paddingBottom: 32 }}>
             <div style={{ display: "flex", justifyContent: "center", gap: 48 }}>
