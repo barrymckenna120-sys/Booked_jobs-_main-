@@ -20,21 +20,24 @@ export function unlockAudio() {
   if (unlocked) return;
 
   const handler = () => {
+    if (unlocked) return;
+    unlocked = true;
     const c = getCtx();
     if (c) {
       if (c.state === "suspended") c.resume().catch(() => {});
-      // Silent buffer to fully unlock on iOS
+      // Silent buffer to fully unlock audio on iOS Safari & Chrome
       const buf = c.createBuffer(1, 1, 22050);
       const src = c.createBufferSource();
       src.buffer = buf;
       src.connect(c.destination);
       src.start(0);
     }
-    unlocked = true;
+    document.removeEventListener("pointerdown", handler, true);
     document.removeEventListener("touchstart", handler, true);
     document.removeEventListener("click", handler, true);
   };
 
+  document.addEventListener("pointerdown", handler, { capture: true, passive: true });
   document.addEventListener("touchstart", handler, { capture: true, passive: true });
   document.addEventListener("click", handler, { capture: true });
 }
