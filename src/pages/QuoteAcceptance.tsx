@@ -342,7 +342,8 @@ const QuoteAcceptance = () => {
             </div>
           </div>
 
-          {/* ── CTA SECTION ── */}
+          {/* ── CTA SECTION (hidden when accepted) ── */}
+          {!isAccepted && (
           <div style={{ paddingTop: 8, paddingBottom: 4 }}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <p style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Secure your installation date today</p>
