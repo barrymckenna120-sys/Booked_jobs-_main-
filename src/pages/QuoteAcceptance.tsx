@@ -109,22 +109,8 @@ const QuoteAcceptance = () => {
     </div>
   );
 
-  /* ── Already accepted ── */
-  if (quote.status === "Accepted" || quote.status === "Paid" || quote.status === "converted" || accepted) return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div style={{ borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center", backgroundColor: "#22c55e" }}>
-        <CheckCircle2 className="w-12 h-12 mx-auto" style={{ color: "white" }} />
-        <p style={{ fontSize: 20, fontWeight: 700, color: "white", marginTop: 12 }}>
-          {quote.status === "Paid" ? "Quote Paid — Thank You!" : "Quote Accepted"}
-        </p>
-        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 8 }}>
-          Thank you {firstName}. We've received your approval{quote.quote_number ? ` for ${quote.quote_number}` : ""}.
-        </p>
-        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 4 }}>We'll be in touch shortly to confirm your appointment.</p>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 16 }}>{biz}</p>
-      </div>
-    </div>
-  );
+  /* ── Already accepted flag ── */
+  const isAccepted = quote.status === "Accepted" || quote.status === "Paid" || quote.status === "converted" || accepted;
 
   /* ── Declined ── */
   if (quote.status === "Rejected") return (
@@ -210,6 +196,23 @@ const QuoteAcceptance = () => {
           )}
         </div>
       </div>
+
+      {/* ── ACCEPTED BANNER ── */}
+      {isAccepted && (
+        <div style={{ backgroundColor: "#22c55e", padding: "16px 20px" }}>
+          <div style={{ maxWidth: 440, margin: "0 auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <CheckCircle2 style={{ width: 22, height: 22, color: "white", flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 700, color: "white" }}>
+                {quote.status === "Paid" ? "Quote Paid — Thank You! ✓" : "Quote Accepted ✓"}
+              </p>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.9)", marginTop: 2 }}>
+                Thank you {firstName}. We've received your approval and will be in touch shortly.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 440, margin: "0 auto", padding: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -339,7 +342,8 @@ const QuoteAcceptance = () => {
             </div>
           </div>
 
-          {/* ── CTA SECTION ── */}
+          {/* ── CTA SECTION (hidden when accepted) ── */}
+          {!isAccepted && (
           <div style={{ paddingTop: 8, paddingBottom: 4 }}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <p style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Secure your installation date today</p>
@@ -436,6 +440,46 @@ const QuoteAcceptance = () => {
               We'll contact you shortly to confirm your appointment.
             </p>
           </div>
+          )}
+
+          {/* ── PDF Download (always visible) ── */}
+          {isAccepted && quote.pdf_url && (
+            <button
+              onClick={async () => {
+                setDownloadingPdf(true);
+                try {
+                  const response = await fetch(quote.pdf_url!);
+                  if (!response.ok) throw new Error("Failed");
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = (quote.quote_number || "quote") + ".pdf";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                } catch {
+                  // silent fail
+                } finally {
+                  setDownloadingPdf(false);
+                }
+              }}
+              disabled={downloadingPdf}
+              style={{
+                width: "100%", minHeight: 52, borderRadius: 10,
+                border: "2px solid #e5e7eb", backgroundColor: "transparent",
+                color: "#374151", fontSize: 16, fontWeight: 500,
+                cursor: downloadingPdf ? "not-allowed" : "pointer", opacity: downloadingPdf ? 0.7 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              {downloadingPdf
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Download style={{ width: 16, height: 16 }} />}
+              {downloadingPdf ? "Downloading..." : "Download Quote PDF"}
+            </button>
+          )}
 
           {/* ── TRUST SECTION ── */}
           <div style={{ paddingTop: 16, paddingBottom: 32 }}>
