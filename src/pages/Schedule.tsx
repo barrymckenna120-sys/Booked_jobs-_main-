@@ -255,6 +255,20 @@ const Schedule = () => {
     setAssignModal({ open: true, job });
   };
 
+  const handleRemoveFromSchedule = async (job: ScheduleJob) => {
+    const { error } = await supabase
+      .from("service_calls")
+      .update({ status: "Pending", scheduled_date: null, time_block: null, assigned_engineer: null, assigned_engineer_id: null, needs_scheduling: false } as any)
+      .eq("id", job.id);
+    if (!error) {
+      logAudit({ action_type: "job_removed_from_schedule", entity_type: "service_call", entity_id: job.id, detail: `${job.customer_name} moved to Pending` });
+      toast({ title: "Job moved to Pending" });
+      queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
+    } else {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
       {/* Header */}
