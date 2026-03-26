@@ -362,6 +362,9 @@ const CustomerDetail = () => {
         {/* Payment History */}
         {id && <PaymentHistory customerId={id} />}
 
+        {/* Quotes */}
+        {id && <CustomerQuotes customerId={id} />}
+
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
       </div>
