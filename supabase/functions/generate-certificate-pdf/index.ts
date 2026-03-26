@@ -498,14 +498,14 @@ Deno.serve(async (req) => {
     const footerPadX = 6; // min 20px ≈ 6mm padding from edges
     doc.setFillColor(...primaryRgb);
     doc.rect(margin, footerTopY, contentW, footerH, "F");
-    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, pageW / 2, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb, align: "center" });
+    addText(`${companyName}  •  RGI: ${companyRgi}  •  ${companyPhone}`, margin + 4, footerTopY + (companyAddress ? 4 : 3.5), { size: 8, color: headerTextRgb });
     if (companyAddress) {
       const fadedRgb: [number, number, number] = [
         Math.round(headerTextRgb[0] * 0.7 + primaryRgb[0] * 0.3),
         Math.round(headerTextRgb[1] * 0.7 + primaryRgb[1] * 0.3),
         Math.round(headerTextRgb[2] * 0.7 + primaryRgb[2] * 0.3),
       ];
-      addText(companyAddress.replace(/\n/g, ", "), pageW / 2, footerTopY + 8.5, { size: 7, color: fadedRgb, align: "center", maxWidth: contentW - footerPadX * 2 });
+      addText(companyAddress.replace(/\n/g, ", "), margin + 4, footerTopY + 8.5, { size: 7, color: fadedRgb, maxWidth: contentW - 8 });
     }
 
     // Signatures — add ~10mm (≈35px) gap, but clamp to available space
