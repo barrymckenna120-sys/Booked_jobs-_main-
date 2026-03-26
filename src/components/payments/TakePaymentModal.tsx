@@ -52,7 +52,18 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
   const jobTotal = job.revenue ?? 0;
   const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
-  const balanceDue = hasDeposit ? jobTotal - depositAmount : jobTotal;
+  const isDepositPaid = !!job.deposit_paid;
+
+  // Determine what the engineer should collect right now
+  // 1. Deposit job, deposit already paid → collect balance due
+  // 2. Deposit job, deposit NOT paid → collect deposit first
+  // 3. No deposit → collect full revenue
+  const collectingDeposit = hasDeposit && !isDepositPaid;
+  const balanceDue = hasDeposit && isDepositPaid
+    ? (job.balance_due ?? (jobTotal - depositAmount))
+    : hasDeposit && !isDepositPaid
+      ? depositAmount
+      : jobTotal;
   const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
