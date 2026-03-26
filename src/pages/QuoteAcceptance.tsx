@@ -109,22 +109,8 @@ const QuoteAcceptance = () => {
     </div>
   );
 
-  /* ── Already accepted ── */
-  if (quote.status === "Accepted" || quote.status === "Paid" || quote.status === "converted" || accepted) return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div style={{ borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center", backgroundColor: "#22c55e" }}>
-        <CheckCircle2 className="w-12 h-12 mx-auto" style={{ color: "white" }} />
-        <p style={{ fontSize: 20, fontWeight: 700, color: "white", marginTop: 12 }}>
-          {quote.status === "Paid" ? "Quote Paid — Thank You!" : "Quote Accepted"}
-        </p>
-        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 8 }}>
-          Thank you {firstName}. We've received your approval{quote.quote_number ? ` for ${quote.quote_number}` : ""}.
-        </p>
-        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 4 }}>We'll be in touch shortly to confirm your appointment.</p>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 16 }}>{biz}</p>
-      </div>
-    </div>
-  );
+  /* ── Already accepted flag ── */
+  const isAccepted = quote.status === "Accepted" || quote.status === "Paid" || quote.status === "converted" || accepted;
 
   /* ── Declined ── */
   if (quote.status === "Rejected") return (
