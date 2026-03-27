@@ -11,6 +11,7 @@ type Props = {
   jobs: ScheduleJob[];
   selectedEngineer: string;
   engineers: { id: string; name: string }[];
+  blockMap?: Record<string, string>;
   onCellClick: (date: Date, timeBlock: string) => void;
   onJobClick: (job: ScheduleJob) => void;
 };
