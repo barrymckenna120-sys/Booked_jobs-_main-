@@ -149,7 +149,7 @@ const BrandTab = () => {
   const [settings, setSettings] = useState<BrandSettings>({ ...DEFAULTS });
   const [existingId, setExistingId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"colours" | "fonts">("colours");
-  const [previewTab, setPreviewTab] = useState<"cert" | "quote" | "invoice">("cert");
+  const [previewTab, setPreviewTab] = useState<"cert" | "hazard" | "quote" | "invoice">("cert");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
