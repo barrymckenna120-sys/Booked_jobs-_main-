@@ -52,6 +52,11 @@ const buildBlockMap = (settingsBlocks: any[], canonicalBlocks: string[]): Record
   Object.entries(legacyAliases).forEach(([alias, idx]) => {
     if (idx < canonicalBlocks.length) map[alias] = canonicalBlocks[idx];
   });
+  // Also map old default blocks to new canonical (handles 9am–11am → 8am–11am if settings changed)
+  const oldDefaults = ["9am–11am", "11am–1pm", "2pm–5pm"];
+  oldDefaults.forEach((old, i) => {
+    if (i < canonicalBlocks.length && !map[old]) map[old] = canonicalBlocks[i];
+  });
   return map;
 };
 
