@@ -284,7 +284,14 @@ const ServiceReceipt = () => {
             >
               <FileText className="w-4 h-4" /> Generate Certificate
             </Button>
-          )}
+           )}
+           <Button
+             className="w-full h-12 text-sm font-extrabold gap-2 text-white"
+             style={{ backgroundColor: "#1e3a5f" }}
+             onClick={() => setShowHazard(true)}
+           >
+             <AlertTriangle className="w-4 h-4" /> Notification of Hazard
+           </Button>
           <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
