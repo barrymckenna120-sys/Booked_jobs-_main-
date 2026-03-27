@@ -228,19 +228,27 @@ const EngineerCertificates = () => {
             <SheetTitle className="text-lg font-extrabold">Create New Certificate</SheetTitle>
           </SheetHeader>
           <div className="space-y-3 py-4">
-            {/* Gas Installation / New Meter */}
-            <button
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
-              onClick={() => { setShowCreateSheet(false); setShowCert2(true); }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[14px] font-extrabold text-foreground">Gas Installation / New Meter</span>
-                <div className="text-[12px] text-muted-foreground">New gas connection · new meter installation · Declaration of Conformance</div>
-              </div>
-            </button>
+            {[
+              { label: "Gas Installation / New Meter", desc: "New gas connection · new meter installation", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert2(true); } },
+              { label: "Boiler Service", desc: "Annual service · safety checks · gas readings", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCertificate(true); } },
+              { label: "Notification of Hazard", desc: "Non-conformance · appliance or gas isolation", icon: <AlertTriangle className="w-5 h-5 text-destructive" />, bg: "#FEE2E2", action: () => { setShowCreateSheet(false); setShowHazard(true); } },
+              { label: "Declaration of Conformance", desc: "RGI conformance declaration for existing installations", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert2(true); } },
+              { label: "Domestic Safety / Service", desc: "Non-boiler appliances · repairs · safety checks", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert3(true); } },
+            ].map((item) => (
+              <button
+                key={item.label}
+                className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+                onClick={item.action}
+              >
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: item.bg }}>
+                  {item.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[14px] font-extrabold text-foreground">{item.label}</span>
+                  <div className="text-[12px] text-muted-foreground">{item.desc}</div>
+                </div>
+              </button>
+            ))}
           </div>
         </SheetContent>
       </Sheet>
