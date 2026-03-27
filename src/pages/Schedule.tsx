@@ -15,15 +15,47 @@ import AssignJobModal from "@/components/schedule/AssignJobModal";
 import JobSlotDrawer from "@/components/schedule/JobSlotDrawer";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
 
-const TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"] as const;
+const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
-// Normalize all time_block variants to canonical form
-const BLOCK_MAP: Record<string, string> = {
-  "9–11": "9am–11am", "9-11": "9am–11am", "morning": "9am–11am", "Morning": "9am–11am", "9am–11am": "9am–11am",
-  "11–2": "11am–1pm", "11-2": "11am–1pm", "midday": "11am–1pm", "Midday": "11am–1pm", "11am–1pm": "11am–1pm",
-  "2–5": "2pm–5pm", "2-5": "2pm–5pm", "afternoon": "2pm–5pm", "Afternoon": "2pm–5pm", "2pm–5pm": "2pm–5pm",
+const formatTimeLabel = (start: string, end: string) => {
+  const fmtHour = (t: string) => {
+    const h = parseInt(t.split(":")[0], 10);
+    const suffix = h >= 12 ? "pm" : "am";
+    const display = h > 12 ? h - 12 : h;
+    return `${display}${suffix}`;
+  };
+  return `${fmtHour(start)}–${fmtHour(end)}`;
 };
-const normalizeBlock = (b: string | null) => (b ? BLOCK_MAP[b] || b : null);
+
+const buildTimeBlocksFromSettings = (blocks: any[]): string[] => {
+  if (!blocks || blocks.length === 0) return DEFAULT_TIME_BLOCKS;
+  return blocks.map((s: any) => formatTimeLabel(s.start || "09:00", s.end || "17:00"));
+};
+
+// Build a comprehensive normalization map from settings labels to canonical time labels
+const buildBlockMap = (settingsBlocks: any[], canonicalBlocks: string[]): Record<string, string> => {
+  const map: Record<string, string> = {};
+  // Always map canonical blocks to themselves
+  canonicalBlocks.forEach(b => { map[b] = b; });
+  // Map settings labels (Morning, Midday, Afternoon) to canonical
+  if (settingsBlocks) {
+    settingsBlocks.forEach((s: any, i: number) => {
+      if (i < canonicalBlocks.length) {
+        const label = s.label || "";
+        map[label] = canonicalBlocks[i];
+        map[label.toLowerCase()] = canonicalBlocks[i];
+      }
+    });
+  }
+  // Legacy aliases
+  const legacyAliases: Record<string, number> = { "9–11": 0, "9-11": 0, "11–2": 1, "11-2": 1, "2–5": 2, "2-5": 2 };
+  Object.entries(legacyAliases).forEach(([alias, idx]) => {
+    if (idx < canonicalBlocks.length) map[alias] = canonicalBlocks[idx];
+  });
+  return map;
+};
+
+const normalizeBlock = (b: string | null, blockMap: Record<string, string>) => (b ? blockMap[b] || b : null);
 
 export type ScheduleJob = {
   id: string;
