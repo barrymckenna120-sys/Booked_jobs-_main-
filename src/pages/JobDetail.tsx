@@ -732,7 +732,7 @@ const JobDetail = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <JobCertsTab job={job} customer={customer} engineerInfo={{ name: job.assigned_engineer || "", rgi_number: null }} />
+          <JobCertsTab job={job} customer={customer} engineerInfo={{ name: job.assigned_engineer || "", rgi_number: assignedEngineerRgi }} />
         </CardContent>
       </Card>
 
