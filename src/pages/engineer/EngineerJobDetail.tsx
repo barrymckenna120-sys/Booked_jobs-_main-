@@ -331,7 +331,33 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-3 space-y-4">
+        {/* Tab bar */}
+        <div className="flex rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setActiveTab("details")}
+            className={cn(
+              "flex-1 px-3 py-2.5 text-xs font-bold transition-colors",
+              activeTab === "details" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
+            )}
+          >
+            Details
+          </button>
+          <button
+            onClick={() => setActiveTab("certs")}
+            className={cn(
+              "flex-1 px-3 py-2.5 text-xs font-bold transition-colors",
+              activeTab === "certs" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
+            )}
+          >
+            Certs
+          </button>
+        </div>
+
+        {activeTab === "certs" ? (
+          <JobCertsTab job={job} customer={customer} engineerInfo={engineerInfo} />
+        ) : (
+        <>
         {/* Quick contact actions — large tap targets */}
         <div className="grid grid-cols-3 gap-2.5">
           <button
