@@ -253,6 +253,20 @@ const EngineerCertificates = () => {
               </div>
             </button>
 
+            {/* RGI Cert 2 — Declaration of Conformance */}
+            <button
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+              onClick={() => { setShowCreateSheet(false); setShowCert2(true); }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[14px] font-extrabold text-foreground">Declaration of Conformance</span>
+                <div className="text-[12px] text-muted-foreground">RGI Cert 2 · new installations · conformance</div>
+              </div>
+            </button>
+
             {/* Completion Certificate — Coming Soon */}
             <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
               <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
