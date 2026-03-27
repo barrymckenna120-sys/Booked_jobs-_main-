@@ -30,6 +30,7 @@ const ServiceReceipt = () => {
   const [settings, setSettings] = useState<any>(null);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [showHazard, setShowHazard] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [loading, setLoading] = useState(true);
 
