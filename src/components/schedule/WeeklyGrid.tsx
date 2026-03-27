@@ -26,13 +26,14 @@ const jobTypeBadge = (type: string) => {
   }
 };
 
-// Normalize all time_block variants to canonical form for matching
-const BLOCK_MAP: Record<string, string> = {
-  "9–11": "9am–11am", "9-11": "9am–11am", "morning": "9am–11am", "Morning": "9am–11am", "9am–11am": "9am–11am",
-  "11–2": "11am–1pm", "11-2": "11am–1pm", "midday": "11am–1pm", "Midday": "11am–1pm", "11am–1pm": "11am–1pm",
-  "2–5": "2pm–5pm", "2-5": "2pm–5pm", "afternoon": "2pm–5pm", "Afternoon": "2pm–5pm", "2pm–5pm": "2pm–5pm",
+// Normalize time_block by checking if it matches any of the canonical blocks passed in
+const normalizeBlock = (b: string | null, canonicalBlocks: string[]) => {
+  if (!b) return null;
+  // Direct match
+  if (canonicalBlocks.includes(b)) return b;
+  // Otherwise return as-is (the grid will still try to match)
+  return b;
 };
-const normalizeBlock = (b: string | null) => (b ? BLOCK_MAP[b] || b : null);
 
 const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, onCellClick, onJobClick }: Props) => {
   const [messageModal, setMessageModal] = useState<{ open: boolean; jobId: string; engineerName: string; engineerAuthUserId: string | null } | null>(null);
