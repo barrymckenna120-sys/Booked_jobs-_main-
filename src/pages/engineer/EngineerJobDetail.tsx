@@ -596,28 +596,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               </div>
             </div>
             
-            {certificate?.pdf_url ? (
-              <Button
-                className="w-full h-14 text-lg font-extrabold gap-2 text-white bg-success hover:bg-success/90"
-                onClick={() => window.open(certificate.pdf_url!, "_blank")}
-              >
-                <Eye className="w-5 h-5" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
-              </Button>
-            ) : (
-              <Button
-                className="w-full h-14 text-lg font-extrabold gap-2 text-white"
-                style={{ backgroundColor: "#1e3a5f" }}
-                onClick={() => setShowCertificate(true)}
-              >
-                <FileText className="w-5 h-5" /> Generate Certificate
-              </Button>
-            )}
             <Button
               className="w-full h-14 text-lg font-extrabold gap-2 text-white"
               style={{ backgroundColor: "#1e3a5f" }}
-              onClick={() => setShowHazard(true)}
+              onClick={() => navigate(`/engineer/job/${id}/certificates`)}
             >
-              <AlertTriangle className="w-5 h-5" /> Notification of Hazard
+              <FileText className="w-5 h-5" /> Certificates
             </Button>
           </div>
         )}

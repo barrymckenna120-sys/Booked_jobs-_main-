@@ -27,6 +27,7 @@ import EngineerToday from "./pages/engineer/EngineerToday";
 import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
 import EngineerCompleted from "./pages/engineer/EngineerCompleted";
 import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
+import EngineerCertificates from "./pages/engineer/EngineerCertificates";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
