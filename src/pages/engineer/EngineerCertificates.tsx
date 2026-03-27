@@ -82,10 +82,11 @@ const EngineerCertificates = () => {
 
   const allDocs = [
     ...certificates.map(c => {
-      const isCert2 = (c.notes as any)?.cert_type === "declaration_of_conformance";
+      const certType = (c.notes as any)?.cert_type;
+      const subType = certType === "declaration_of_conformance" ? "cert2" : certType === "gas_safety_service" ? "cert3" : "cert1";
       return {
         type: "certificate" as const,
-        subType: isCert2 ? "cert2" : "cert1",
+        subType,
         id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url,
       };
     }),
