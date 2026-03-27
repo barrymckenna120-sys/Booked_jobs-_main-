@@ -9,6 +9,7 @@ import { ArrowLeft, FileText, AlertTriangle, Loader2, Eye, Download, Send, Plus,
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 import Cert2Flow from "@/components/engineer/Cert2Flow";
+import Cert3Flow from "@/components/engineer/Cert3Flow";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
@@ -27,6 +28,7 @@ const EngineerCertificates = () => {
   const [showCertificate, setShowCertificate] = useState(false);
   const [showHazard, setShowHazard] = useState(false);
   const [showCert2, setShowCert2] = useState(false);
+  const [showCert3, setShowCert3] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [settings, setSettings] = useState<any>(null);
 
@@ -80,10 +82,11 @@ const EngineerCertificates = () => {
 
   const allDocs = [
     ...certificates.map(c => {
-      const isCert2 = (c.notes as any)?.cert_type === "declaration_of_conformance";
+      const certType = (c.notes as any)?.cert_type;
+      const subType = certType === "declaration_of_conformance" ? "cert2" : certType === "gas_safety_service" ? "cert3" : "cert1";
       return {
         type: "certificate" as const,
-        subType: isCert2 ? "cert2" : "cert1",
+        subType,
         id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url,
       };
     }),
@@ -143,7 +146,7 @@ const EngineerCertificates = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-extrabold text-foreground">
-                    {doc.type === "hazard" ? "Notification of Hazard" : doc.subType === "cert2" ? "Declaration of Conformance" : "RGI Gas Certificate"}
+                    {doc.type === "hazard" ? "Notification of Hazard" : doc.subType === "cert2" ? "Declaration of Conformance" : doc.subType === "cert3" ? "Gas Safety / Service" : "RGI Gas Certificate"}
                   </div>
                   <div className="text-[11px] text-muted-foreground font-semibold">{doc.ref}</div>
                   <div className="text-[11px] text-muted-foreground">
@@ -274,6 +277,20 @@ const EngineerCertificates = () => {
               </div>
             </button>
 
+            {/* Cert 3 — Gas Safety / Service */}
+            <button
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+              onClick={() => { setShowCreateSheet(false); setShowCert3(true); }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[14px] font-extrabold text-foreground">Gas Safety / Service</span>
+                <div className="text-[12px] text-muted-foreground">Cert 3 · appliance table · safety checks</div>
+              </div>
+            </button>
+
             {/* Completion Certificate — Coming Soon */}
             <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
               <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
@@ -333,6 +350,15 @@ const EngineerCertificates = () => {
           engineerName={engineerInfo.name}
           engineerRgi={engineerInfo.rgi_number}
           onClose={() => { setShowCert2(false); fetchData(); }}
+        />
+      )}
+      {showCert3 && (
+        <Cert3Flow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCert3(false); fetchData(); }}
         />
       )}
     </div>
