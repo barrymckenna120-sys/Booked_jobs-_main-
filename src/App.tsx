@@ -27,6 +27,7 @@ import EngineerToday from "./pages/engineer/EngineerToday";
 import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
 import EngineerCompleted from "./pages/engineer/EngineerCompleted";
 import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
+import EngineerCertificates from "./pages/engineer/EngineerCertificates";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
@@ -135,6 +136,7 @@ const App = () => (
               <Route path="completed" element={<EngineerCompleted />} />
             </Route>
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
+            <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
             <Route path="/receipt/:id" element={<ServiceReceipt />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />

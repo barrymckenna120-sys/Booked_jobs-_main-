@@ -1,0 +1,310 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ArrowLeft, FileText, AlertTriangle, Loader2, Eye, Download, Send, Plus, CheckCircle2, Lock } from "lucide-react";
+import CertificateFlow from "@/components/engineer/CertificateFlow";
+import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
+
+const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
+
+const EngineerCertificates = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  const [job, setJob] = useState<any>(null);
+  const [customer, setCustomer] = useState<any>(null);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [hazards, setHazards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [showHazard, setShowHazard] = useState(false);
+  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    if (user && id) {
+      fetchData();
+      supabase.from("engineers").select("name, rgi_number").eq("auth_user_id", user.id).maybeSingle()
+        .then(({ data }) => { if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null }); });
+      supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle()
+        .then(({ data }) => { if (data) setSettings(data); });
+    }
+  }, [user, id]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [jobRes, certRes, hazRes] = await Promise.all([
+      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
+      supabase.from("certificates").select("*").eq("job_id", id),
+      supabase.from("hazard_notifications").select("*").eq("job_id", id).order("created_at", { ascending: false }),
+    ]);
+
+    if (!jobRes.data) { toast({ title: "Job not found", variant: "destructive" }); navigate("/engineer/today"); return; }
+    setJob(jobRes.data);
+    setCertificates(certRes.data || []);
+    setHazards(hazRes.data || []);
+
+    const { data: custData } = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+    if (custData) setCustomer(custData);
+    setLoading(false);
+  };
+
+  const handleResendCert = async (pdfUrl: string, customerName: string) => {
+    if (!pdfUrl) { toast({ title: "No PDF available", variant: "destructive" }); return; }
+    toast({ title: "Opening WhatsApp..." });
+    const msg = encodeURIComponent(`Hi ${customerName}, please find your Gas Safety Certificate from ${engineerInfo.name || "your engineer"}.`);
+    window.open(`https://wa.me/${customer?.phone?.replace(/[^0-9]/g, "")}?text=${msg}`, "_blank");
+  };
+
+  const handleResendHazard = async (pdfUrl: string, customerName: string) => {
+    if (!pdfUrl) { toast({ title: "No PDF available", variant: "destructive" }); return; }
+    toast({ title: "Opening WhatsApp..." });
+    const msg = encodeURIComponent(`Hi ${customerName}, please find attached your Gas Installation Notification of Hazard/Non-Conformance from ${engineerInfo.name || "your engineer"}.`);
+    window.open(`https://wa.me/${customer?.phone?.replace(/[^0-9]/g, "")}?text=${msg}`, "_blank");
+  };
+
+  if (authLoading || loading) {
+    return <div className="max-w-[430px] mx-auto min-h-screen bg-secondary flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (!job || !customer) return null;
+
+  const allDocs = [
+    ...certificates.map(c => ({ type: "certificate" as const, id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url })),
+    ...hazards.map(h => ({ type: "hazard" as const, id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const hasCert = certificates.length > 0;
+  const statusCfg: Record<string, { bg: string; color: string; label: string }> = {
+    Scheduled: { bg: "bg-primary/10", color: "text-primary", label: "Scheduled" },
+    Booked: { bg: "bg-primary/10", color: "text-primary", label: "Booked" },
+    "In Progress": { bg: "bg-warning/10", color: "text-warning", label: "In Progress" },
+    Completed: { bg: "bg-success/10", color: "text-success", label: "Completed" },
+    Cancelled: { bg: "bg-destructive/10", color: "text-destructive", label: "Cancelled" },
+  };
+  const s = statusCfg[job.status] || statusCfg.Scheduled;
+
+  return (
+    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
+        <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
+        <button onClick={() => navigate(`/engineer/job/${id}`)} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="text-xl font-extrabold text-white">Certificates</div>
+      </div>
+
+      <div className="px-4 pt-4 space-y-4">
+        {/* Job summary strip */}
+        <div className="bg-card rounded-2xl border border-border p-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-[15px] font-extrabold text-foreground">{customer.name}</div>
+              <div className="text-[12px] text-muted-foreground mt-0.5">{customer.address}</div>
+              <div className="text-[12px] text-muted-foreground mt-0.5">
+                {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "No date"}
+              </div>
+            </div>
+            <span className={`${s.bg} ${s.color} rounded-full px-3 py-1 text-xs font-bold shrink-0`}>{s.label}</span>
+          </div>
+        </div>
+
+        {/* Issued Documents */}
+        <div className="text-[13px] font-extrabold text-foreground uppercase tracking-wider">Issued Documents</div>
+
+        {allDocs.length === 0 ? (
+          <div className="text-center py-12 bg-card rounded-2xl border border-border">
+            <FileText className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
+            <div className="text-sm font-bold text-muted-foreground">No documents issued yet.</div>
+          </div>
+        ) : (
+          allDocs.map(doc => (
+            <div key={doc.id} className="bg-card rounded-2xl border border-border p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: doc.type === "hazard" ? "#FEE2E2" : "#EBF2FF" }}>
+                  {doc.type === "hazard" ? <AlertTriangle className="w-5 h-5 text-destructive" /> : <FileText className="w-5 h-5 text-primary" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-extrabold text-foreground">
+                    {doc.type === "certificate" ? "RGI Gas Certificate" : "Notification of Hazard"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground font-semibold">{doc.ref}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {new Date(doc.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    {engineerInfo.name ? ` · ${engineerInfo.name}` : ""}
+                  </div>
+                  {/* Hazard type badges */}
+                  {doc.type === "hazard" && doc.hazardTypes && (
+                    <div className="flex gap-1 mt-1">
+                      {(Array.isArray(doc.hazardTypes) ? doc.hazardTypes : []).map((t: string) => (
+                        <span key={t} className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                          {HAZARD_LABELS[t] || t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Sent status */}
+                <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${doc.sent ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                  {doc.sent ? "Sent ✓" : "Pending"}
+                </span>
+              </div>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 text-xs h-9"
+                  disabled={!doc.pdfUrl}
+                  onClick={() => doc.pdfUrl && window.open(doc.pdfUrl, "_blank")}
+                >
+                  <Eye className="w-3.5 h-3.5" /> View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 text-xs h-9"
+                  disabled={!doc.pdfUrl}
+                  onClick={() => {
+                    if (!doc.pdfUrl) return;
+                    const a = document.createElement("a");
+                    a.href = doc.pdfUrl;
+                    a.download = `${doc.ref}.pdf`;
+                    a.click();
+                  }}
+                >
+                  <Download className="w-3.5 h-3.5" /> Download
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 text-xs h-9 text-success"
+                  disabled={!doc.pdfUrl}
+                  onClick={() => doc.type === "certificate"
+                    ? handleResendCert(doc.pdfUrl!, customer.name)
+                    : handleResendHazard(doc.pdfUrl!, customer.name)
+                  }
+                >
+                  <Send className="w-3.5 h-3.5" /> Resend
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Create New Certificate */}
+        <Button
+          className="w-full h-14 text-base font-extrabold gap-2"
+          onClick={() => setShowCreateSheet(true)}
+        >
+          <Plus className="w-5 h-5" /> Create New Certificate
+        </Button>
+      </div>
+
+      {/* Create Certificate Bottom Sheet */}
+      <Sheet open={showCreateSheet} onOpenChange={setShowCreateSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh]">
+          <SheetHeader>
+            <SheetTitle className="text-lg font-extrabold">Create New Certificate</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-3 py-4">
+            {/* RGI Gas Certificate */}
+            <button
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+              onClick={() => { setShowCreateSheet(false); setShowCertificate(true); }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-extrabold text-foreground">RGI Gas Certificate</span>
+                  {hasCert && (
+                    <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                      <CheckCircle2 className="w-3 h-3" /> Already issued
+                    </span>
+                  )}
+                </div>
+                <div className="text-[12px] text-muted-foreground">Annual service · safety checks · gas readings</div>
+              </div>
+            </button>
+
+            {/* Notification of Hazard */}
+            <button
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+              onClick={() => { setShowCreateSheet(false); setShowHazard(true); }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#FEE2E2" }}>
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[14px] font-extrabold text-foreground">Notification of Hazard</span>
+                <div className="text-[12px] text-muted-foreground">Non-conformance · appliance or gas isolation</div>
+              </div>
+            </button>
+
+            {/* Completion Certificate — Coming Soon */}
+            <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
+              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-extrabold text-muted-foreground">Completion Certificate</span>
+                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Lock className="w-3 h-3" /> Coming Soon
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* New Boiler Installation — Coming Soon */}
+            <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
+              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-extrabold text-muted-foreground">New Boiler Installation</span>
+                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Lock className="w-3 h-3" /> Coming Soon
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Certificate & Hazard Flows */}
+      {showCertificate && (
+        <CertificateFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCertificate(false); fetchData(); }}
+        />
+      )}
+      {showHazard && (
+        <HazardNotificationFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowHazard(false); fetchData(); }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default EngineerCertificates;
