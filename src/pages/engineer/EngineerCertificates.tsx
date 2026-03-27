@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ArrowLeft, FileText, AlertTriangle, Loader2, Eye, Download, Send, Plus, CheckCircle2, Lock } from "lucide-react";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
+import Cert2Flow from "@/components/engineer/Cert2Flow";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
@@ -25,6 +26,7 @@ const EngineerCertificates = () => {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
   const [showHazard, setShowHazard] = useState(false);
+  const [showCert2, setShowCert2] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [settings, setSettings] = useState<any>(null);
 
@@ -77,8 +79,15 @@ const EngineerCertificates = () => {
   if (!job || !customer) return null;
 
   const allDocs = [
-    ...certificates.map(c => ({ type: "certificate" as const, id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url })),
-    ...hazards.map(h => ({ type: "hazard" as const, id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url })),
+    ...certificates.map(c => {
+      const isCert2 = (c.notes as any)?.cert_type === "declaration_of_conformance";
+      return {
+        type: "certificate" as const,
+        subType: isCert2 ? "cert2" : "cert1",
+        id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url,
+      };
+    }),
+    ...hazards.map(h => ({ type: "hazard" as const, subType: "hazard", id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const hasCert = certificates.length > 0;
@@ -134,7 +143,7 @@ const EngineerCertificates = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-extrabold text-foreground">
-                    {doc.type === "certificate" ? "RGI Gas Certificate" : "Notification of Hazard"}
+                    {doc.type === "hazard" ? "Notification of Hazard" : doc.subType === "cert2" ? "Declaration of Conformance" : "RGI Gas Certificate"}
                   </div>
                   <div className="text-[11px] text-muted-foreground font-semibold">{doc.ref}</div>
                   <div className="text-[11px] text-muted-foreground">
@@ -251,6 +260,20 @@ const EngineerCertificates = () => {
               </div>
             </button>
 
+            {/* RGI Cert 2 — Declaration of Conformance */}
+            <button
+              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+              onClick={() => { setShowCreateSheet(false); setShowCert2(true); }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[14px] font-extrabold text-foreground">Declaration of Conformance</span>
+                <div className="text-[12px] text-muted-foreground">RGI Cert 2 · new installations · conformance</div>
+              </div>
+            </button>
+
             {/* Completion Certificate — Coming Soon */}
             <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
               <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
@@ -301,6 +324,15 @@ const EngineerCertificates = () => {
           engineerName={engineerInfo.name}
           engineerRgi={engineerInfo.rgi_number}
           onClose={() => { setShowHazard(false); fetchData(); }}
+        />
+      )}
+      {showCert2 && (
+        <Cert2Flow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCert2(false); fetchData(); }}
         />
       )}
     </div>
