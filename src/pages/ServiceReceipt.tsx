@@ -311,6 +311,15 @@ const ServiceReceipt = () => {
           onClose={() => { setShowCertificate(false); loadData(); }}
         />
       )}
+      {showHazard && job && customer && (
+        <HazardNotificationFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowHazard(false); loadData(); }}
+        />
+      )}
     </div>
   );
 };
