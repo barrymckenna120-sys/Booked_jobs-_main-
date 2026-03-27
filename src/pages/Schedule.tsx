@@ -193,7 +193,7 @@ const Schedule = () => {
   const getSlotMaxJobs = (timeBlock: string): number => {
     const blocks = (settings?.job_time_blocks as any[]) || [];
     for (const block of blocks) {
-      const canonical = normalizeBlock(block.label);
+      const canonical = normalizeBlock(block.label, BLOCK_MAP);
       if (canonical === timeBlock) return block.max_jobs ?? 2;
     }
     return 2; // fallback default
