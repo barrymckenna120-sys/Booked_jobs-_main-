@@ -27,12 +27,13 @@ const jobTypeBadge = (type: string) => {
   }
 };
 
-// Normalize time_block by checking if it matches any of the canonical blocks passed in
-const normalizeBlock = (b: string | null, canonicalBlocks: string[]) => {
+// Normalize time_block using the block map from parent
+const normalizeBlock = (b: string | null, bMap?: Record<string, string>) => {
   if (!b) return null;
-  // Direct match
-  if (canonicalBlocks.includes(b)) return b;
-  // Otherwise return as-is (the grid will still try to match)
+  if (bMap && bMap[b]) return bMap[b];
+  // Strip spaces around dashes as fallback
+  const stripped = b.replace(/\s*[–-]\s*/g, '–');
+  if (bMap && bMap[stripped]) return bMap[stripped];
   return b;
 };
 
