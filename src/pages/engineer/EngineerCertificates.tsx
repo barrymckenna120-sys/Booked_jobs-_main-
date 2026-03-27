@@ -79,8 +79,15 @@ const EngineerCertificates = () => {
   if (!job || !customer) return null;
 
   const allDocs = [
-    ...certificates.map(c => ({ type: "certificate" as const, id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url })),
-    ...hazards.map(h => ({ type: "hazard" as const, id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url })),
+    ...certificates.map(c => {
+      const isCert2 = (c.notes as any)?.cert_type === "declaration_of_conformance";
+      return {
+        type: "certificate" as const,
+        subType: isCert2 ? "cert2" : "cert1",
+        id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url,
+      };
+    }),
+    ...hazards.map(h => ({ type: "hazard" as const, subType: "hazard", id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const hasCert = certificates.length > 0;
