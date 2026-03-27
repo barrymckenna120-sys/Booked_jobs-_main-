@@ -303,6 +303,7 @@ const JobDetail = () => {
   const [reassignLoading, setReassignLoading] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
   const [assignedEngineerAuth, setAssignedEngineerAuth] = useState<string | null>(null);
+  const [assignedEngineerRgi, setAssignedEngineerRgi] = useState<string | null>(null);
   const [certificate, setCertificate] = useState<{ cert_number: string; pdf_url: string | null; created_at: string } | null>(null);
 
   // Fetch assigned engineer's auth_user_id for messaging
