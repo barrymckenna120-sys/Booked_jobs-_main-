@@ -100,7 +100,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
             className="w-full h-10 font-bold gap-2 mt-2"
             onClick={() => { setEditCert(null); setShowForm(true); }}
           >
-            <FileText className="w-4 h-4" /> New Gas Installation Cert
+            <FileText className="w-4 h-4" /> New Gas Installation / New Meter
           </Button>
         </>
       )}

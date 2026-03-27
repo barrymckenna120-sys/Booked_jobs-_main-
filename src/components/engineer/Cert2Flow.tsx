@@ -287,7 +287,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
         {/* Step 1 — Details + Premises & Supply */}
         {step === 0 && (
           <div className="px-4 py-4 space-y-4">
-            <h2 className="text-lg font-extrabold text-foreground">RGI Cert 2 — Declaration of Conformance</h2>
+            <h2 className="text-lg font-extrabold text-foreground">Gas Installation / New Meter</h2>
 
             <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pre-filled from job record</p>
