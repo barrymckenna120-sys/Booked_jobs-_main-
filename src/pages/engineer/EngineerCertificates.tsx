@@ -28,6 +28,7 @@ const EngineerCertificates = () => {
   const [showCertificate, setShowCertificate] = useState(false);
   const [showHazard, setShowHazard] = useState(false);
   const [showCert2, setShowCert2] = useState(false);
+  const [showCert3, setShowCert3] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [settings, setSettings] = useState<any>(null);
 
