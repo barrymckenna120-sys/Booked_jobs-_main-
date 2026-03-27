@@ -722,11 +722,11 @@ const JobDetail = () => {
         </Card>
       )}
 
-      {/* Gas Installation Certs */}
+      {/* Gas Installation / New Meter Certs */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="w-4 h-4" /> Gas Installation Certs
+            <FileText className="w-4 h-4" /> Gas Installation / New Meter
           </CardTitle>
         </CardHeader>
         <CardContent>
