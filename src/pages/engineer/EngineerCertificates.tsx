@@ -352,6 +352,15 @@ const EngineerCertificates = () => {
           onClose={() => { setShowCert2(false); fetchData(); }}
         />
       )}
+      {showCert3 && (
+        <Cert3Flow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowCert3(false); fetchData(); }}
+        />
+      )}
     </div>
   );
 };
