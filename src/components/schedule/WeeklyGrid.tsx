@@ -37,7 +37,7 @@ const normalizeBlock = (b: string | null, bMap?: Record<string, string>) => {
   return b;
 };
 
-const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, onCellClick, onJobClick }: Props) => {
+const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, blockMap, onCellClick, onJobClick }: Props) => {
   const [messageModal, setMessageModal] = useState<{ open: boolean; jobId: string; engineerName: string; engineerAuthUserId: string | null } | null>(null);
   const [engineerAuthMap, setEngineerAuthMap] = useState<Record<string, string | null>>({});
 
