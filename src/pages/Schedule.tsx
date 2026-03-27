@@ -204,7 +204,7 @@ const Schedule = () => {
     const count = jobs.filter(
       (j) =>
         j.scheduled_date === dateStr &&
-        normalizeBlock(j.time_block) === timeBlock &&
+        normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
         j.assigned_engineer === engineerName &&
         j.status !== "Completed" &&
         j.status !== "Cancelled"
