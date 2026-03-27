@@ -392,6 +392,26 @@ function CertPreview({ s }: { s: BrandSettings }) {
   );
 }
 
+function HazardPreview({ s }: { s: BrandSettings }) {
+  return (
+    <DocShell s={s} title="RGI · Notification of Hazard" badgeText="NZ-2026-0001">
+      <SectionTitle s={s}>Company Details</SectionTitle>
+      <InfoGrid s={s} rows={[["Company", "K & N Gas Services"], ["RGI No.", "R-1899"], ["Phone", "085 123 4567"], ["Engineer", "Barry McKenna"]]} />
+      <SectionTitle s={s}>Property Details</SectionTitle>
+      <InfoGrid s={s} rows={[["Customer", "John Murphy"], ["Address", "12 Oak Drive, Dublin 15"], ["Eircode", "D15 X2Y3"], ["Gas Type", "Natural Gas"]]} />
+      <SectionTitle s={s}>Hazard Type</SectionTitle>
+      <TablePreview s={s} headers={["Code", "Classification", "Description"]}
+        rows={[
+          ["A", "Non-Conformance", "Gas left on, pending rectification"],
+          ["B", "Hazard", "Appliance isolated for safety"],
+          ["C", "Hazard", "Gas supply isolated for safety"],
+        ]} />
+      <SectionTitle s={s}>Appliance Details</SectionTitle>
+      <InfoGrid s={s} rows={[["Appliance", "Boiler"], ["Make", "Vaillant"], ["Model", "ecoTEC Plus"], ["Location", "Kitchen"]]} />
+    </DocShell>
+  );
+}
+
 function QuotePreview({ s }: { s: BrandSettings }) {
   return (
     <DocShell s={s} title="Quote" badgeText="Q-2026-0018">
