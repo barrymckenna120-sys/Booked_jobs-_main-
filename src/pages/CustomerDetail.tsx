@@ -368,6 +368,9 @@ const CustomerDetail = () => {
 
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
+
+        {/* Hazard Notices */}
+        {id && <CustomerHazardNotices customerId={id} />}
       </div>
 
       {/* Delete Customer Modal */}
