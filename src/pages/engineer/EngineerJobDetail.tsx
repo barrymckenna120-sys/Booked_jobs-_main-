@@ -630,6 +630,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             </Button>
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* Sheets */}
