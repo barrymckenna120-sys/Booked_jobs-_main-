@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import JobCertsTab from "@/components/engineer/JobCertsTab";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
@@ -720,6 +721,19 @@ const JobDetail = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Gas Installation Certs */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="w-4 h-4" /> Gas Installation Certs
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobCertsTab job={job} customer={customer} engineerInfo={{ name: job.assigned_engineer || "", rgi_number: null }} />
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader className="pb-3">

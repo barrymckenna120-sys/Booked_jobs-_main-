@@ -6,11 +6,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package } from "lucide-react";
+import { cn } from "@/lib/utils";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
 import ExtraWorkSheet from "@/components/engineer/ExtraWorkSheet";
+import JobCertsTab from "@/components/engineer/JobCertsTab";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -71,6 +73,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [replyNote, setReplyNote] = useState("");
   const [savingReply, setSavingReply] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
+  const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
 
   useEffect(() => {
     if (user && id) fetchJob();
@@ -328,7 +331,33 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-3 space-y-4">
+        {/* Tab bar */}
+        <div className="flex rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setActiveTab("details")}
+            className={cn(
+              "flex-1 px-3 py-2.5 text-xs font-bold transition-colors",
+              activeTab === "details" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
+            )}
+          >
+            Details
+          </button>
+          <button
+            onClick={() => setActiveTab("certs")}
+            className={cn(
+              "flex-1 px-3 py-2.5 text-xs font-bold transition-colors",
+              activeTab === "certs" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
+            )}
+          >
+            Certs
+          </button>
+        </div>
+
+        {activeTab === "certs" ? (
+          <JobCertsTab job={job} customer={customer} engineerInfo={engineerInfo} />
+        ) : (
+        <>
         {/* Quick contact actions — large tap targets */}
         <div className="grid grid-cols-3 gap-2.5">
           <button
@@ -600,6 +629,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               <FileText className="w-5 h-5" /> Certificates
             </Button>
           </div>
+        )}
+        </>
         )}
       </div>
 
