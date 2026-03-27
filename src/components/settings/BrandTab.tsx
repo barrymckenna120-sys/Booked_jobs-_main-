@@ -149,7 +149,7 @@ const BrandTab = () => {
   const [settings, setSettings] = useState<BrandSettings>({ ...DEFAULTS });
   const [existingId, setExistingId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"colours" | "fonts">("colours");
-  const [previewTab, setPreviewTab] = useState<"cert" | "quote" | "invoice">("cert");
+  const [previewTab, setPreviewTab] = useState<"cert" | "hazard" | "quote" | "invoice">("cert");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -291,17 +291,20 @@ const BrandTab = () => {
         {/* ── Right Panel — Live Preview ────────────── */}
         <div className="flex-1 min-w-0 border border-border rounded-lg overflow-hidden bg-muted/30">
           <div className="flex border-b border-border bg-card">
-            {([["cert", "Gas Certificate"], ["quote", "Quote"], ["invoice", "Invoice"]] as const).map(([k, label]) => (
+            {([["cert", "Gas Certificate"], ["hazard", "Hazard Notice"], ["quote", "Quote"], ["invoice", "Invoice"]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setPreviewTab(k as any)}
-                className={`px-4 py-2.5 text-sm font-semibold transition-colors ${previewTab === k ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`px-4 py-2.5 text-sm font-semibold transition-colors relative ${previewTab === k ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 {label}
+                {k === "hazard" && <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">NEW</span>}
               </button>
             ))}
           </div>
           <div className="p-6 overflow-y-auto" style={{ maxHeight: 580 }}>
             {previewTab === "cert" && <CertPreview s={s} />}
+            {previewTab === "hazard" && <HazardPreview s={s} />}
             {previewTab === "quote" && <QuotePreview s={s} />}
             {previewTab === "invoice" && <InvoicePreview s={s} />}
+            <p className="text-xs text-muted-foreground mt-4 italic">Both documents use your logo, primary colour, and company details above.</p>
           </div>
         </div>
       </div>
@@ -385,6 +388,26 @@ function CertPreview({ s }: { s: BrandSettings }) {
           ["Gas pressure (mbar)", "✅ 20 mbar"],
           ["Burner operation", "✅ PASS"],
         ]} />
+    </DocShell>
+  );
+}
+
+function HazardPreview({ s }: { s: BrandSettings }) {
+  return (
+    <DocShell s={s} title="RGI · Notification of Hazard" badgeText="NZ-2026-0001">
+      <SectionTitle s={s}>Company Details</SectionTitle>
+      <InfoGrid s={s} rows={[["Company", "K & N Gas Services"], ["RGI No.", "R-1899"], ["Phone", "085 123 4567"], ["Engineer", "Barry McKenna"]]} />
+      <SectionTitle s={s}>Property Details</SectionTitle>
+      <InfoGrid s={s} rows={[["Customer", "John Murphy"], ["Address", "12 Oak Drive, Dublin 15"], ["Eircode", "D15 X2Y3"], ["Gas Type", "Natural Gas"]]} />
+      <SectionTitle s={s}>Hazard Type</SectionTitle>
+      <TablePreview s={s} headers={["Code", "Classification", "Description"]}
+        rows={[
+          ["A", "Non-Conformance", "Gas left on, pending rectification"],
+          ["B", "Hazard", "Appliance isolated for safety"],
+          ["C", "Hazard", "Gas supply isolated for safety"],
+        ]} />
+      <SectionTitle s={s}>Appliance Details</SectionTitle>
+      <InfoGrid s={s} rows={[["Appliance", "Boiler"], ["Make", "Vaillant"], ["Model", "ecoTEC Plus"], ["Location", "Kitchen"]]} />
     </DocShell>
   );
 }

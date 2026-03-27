@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package } from "lucide-react";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
+import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
@@ -67,6 +68,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [showHazard, setShowHazard] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -610,6 +612,13 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
                 <FileText className="w-5 h-5" /> Generate Certificate
               </Button>
             )}
+            <Button
+              className="w-full h-14 text-lg font-extrabold gap-2 text-white"
+              style={{ backgroundColor: "#1e3a5f" }}
+              onClick={() => setShowHazard(true)}
+            >
+              <AlertTriangle className="w-5 h-5" /> Notification of Hazard
+            </Button>
           </div>
         )}
       </div>
@@ -661,6 +670,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           engineerName={engineerInfo.name}
           engineerRgi={engineerInfo.rgi_number}
           onClose={() => { setShowCertificate(false); fetchJob(); }}
+        />
+      )}
+      {showHazard && (
+        <HazardNotificationFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowHazard(false); fetchJob(); }}
         />
       )}
 

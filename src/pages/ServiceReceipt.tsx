@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { printReceipt } from "@/lib/printReceipt";
-import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye } from "lucide-react";
+import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
+import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 
 
 const formatDate = (d: string) =>
@@ -29,6 +30,7 @@ const ServiceReceipt = () => {
   const [settings, setSettings] = useState<any>(null);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [showHazard, setShowHazard] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [loading, setLoading] = useState(true);
 
@@ -282,7 +284,14 @@ const ServiceReceipt = () => {
             >
               <FileText className="w-4 h-4" /> Generate Certificate
             </Button>
-          )}
+           )}
+           <Button
+             className="w-full h-12 text-sm font-extrabold gap-2 text-white"
+             style={{ backgroundColor: "#1e3a5f" }}
+             onClick={() => setShowHazard(true)}
+           >
+             <AlertTriangle className="w-4 h-4" /> Notification of Hazard
+           </Button>
           <Button
             variant="outline"
             className="w-full h-12 text-sm font-bold gap-2"
@@ -300,6 +309,15 @@ const ServiceReceipt = () => {
           engineerName={engineerInfo.name}
           engineerRgi={engineerInfo.rgi_number}
           onClose={() => { setShowCertificate(false); loadData(); }}
+        />
+      )}
+      {showHazard && job && customer && (
+        <HazardNotificationFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowHazard(false); loadData(); }}
         />
       )}
     </div>
