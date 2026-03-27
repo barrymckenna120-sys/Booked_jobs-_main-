@@ -228,42 +228,7 @@ const EngineerCertificates = () => {
             <SheetTitle className="text-lg font-extrabold">Create New Certificate</SheetTitle>
           </SheetHeader>
           <div className="space-y-3 py-4">
-            {/* RGI Gas Certificate */}
-            <button
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
-              onClick={() => { setShowCreateSheet(false); setShowCertificate(true); }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-extrabold text-foreground">RGI Gas Certificate</span>
-                  {hasCert && (
-                    <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                      <CheckCircle2 className="w-3 h-3" /> Already issued
-                    </span>
-                  )}
-                </div>
-                <div className="text-[12px] text-muted-foreground">Annual service · safety checks · gas readings</div>
-              </div>
-            </button>
-
-            {/* Notification of Hazard */}
-            <button
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
-              onClick={() => { setShowCreateSheet(false); setShowHazard(true); }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#FEE2E2" }}>
-                <AlertTriangle className="w-5 h-5 text-destructive" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[14px] font-extrabold text-foreground">Notification of Hazard</span>
-                <div className="text-[12px] text-muted-foreground">Non-conformance · appliance or gas isolation</div>
-              </div>
-            </button>
-
-            {/* RGI Cert 2 — Declaration of Conformance */}
+            {/* Gas Installation / New Meter */}
             <button
               className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
               onClick={() => { setShowCreateSheet(false); setShowCert2(true); }}
@@ -272,54 +237,10 @@ const EngineerCertificates = () => {
                 <FileText className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-[14px] font-extrabold text-foreground">Declaration of Conformance</span>
-                <div className="text-[12px] text-muted-foreground">RGI Cert 2 · new installations · conformance</div>
+                <span className="text-[14px] font-extrabold text-foreground">Gas Installation / New Meter</span>
+                <div className="text-[12px] text-muted-foreground">New gas connection · new meter installation · Declaration of Conformance</div>
               </div>
             </button>
-
-            {/* Cert 3 — Gas Safety / Service */}
-            <button
-              className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
-              onClick={() => { setShowCreateSheet(false); setShowCert3(true); }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBF2FF" }}>
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[14px] font-extrabold text-foreground">Gas Safety / Service</span>
-                <div className="text-[12px] text-muted-foreground">Cert 3 · appliance table · safety checks</div>
-              </div>
-            </button>
-
-            {/* Completion Certificate — Coming Soon */}
-            <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
-              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-extrabold text-muted-foreground">Completion Certificate</span>
-                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Lock className="w-3 h-3" /> Coming Soon
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* New Boiler Installation — Coming Soon */}
-            <div className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl p-4 opacity-50 cursor-not-allowed">
-              <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-extrabold text-muted-foreground">New Boiler Installation</span>
-                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Lock className="w-3 h-3" /> Coming Soon
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </SheetContent>
       </Sheet>
