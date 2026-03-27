@@ -303,13 +303,15 @@ const JobDetail = () => {
   const [reassignLoading, setReassignLoading] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
   const [assignedEngineerAuth, setAssignedEngineerAuth] = useState<string | null>(null);
+  const [assignedEngineerRgi, setAssignedEngineerRgi] = useState<string | null>(null);
   const [certificate, setCertificate] = useState<{ cert_number: string; pdf_url: string | null; created_at: string } | null>(null);
 
   // Fetch assigned engineer's auth_user_id for messaging
   useEffect(() => {
     if (job?.assigned_engineer_id) {
-      supabase.from("engineers").select("auth_user_id").eq("id", job.assigned_engineer_id).maybeSingle().then(({ data }) => {
+      supabase.from("engineers").select("auth_user_id, rgi_number").eq("id", job.assigned_engineer_id).maybeSingle().then(({ data }) => {
         setAssignedEngineerAuth(data?.auth_user_id || null);
+        setAssignedEngineerRgi((data as any)?.rgi_number || null);
       });
     }
   }, [job?.assigned_engineer_id]);
@@ -722,15 +724,15 @@ const JobDetail = () => {
         </Card>
       )}
 
-      {/* Gas Installation Certs */}
+      {/* Gas Installation / New Meter Certs */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="w-4 h-4" /> Gas Installation Certs
+            <FileText className="w-4 h-4" /> Gas Installation / New Meter
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <JobCertsTab job={job} customer={customer} engineerInfo={{ name: job.assigned_engineer || "", rgi_number: null }} />
+          <JobCertsTab job={job} customer={customer} engineerInfo={{ name: job.assigned_engineer || "", rgi_number: assignedEngineerRgi }} />
         </CardContent>
       </Card>
 

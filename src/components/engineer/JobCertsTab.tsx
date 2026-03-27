@@ -61,7 +61,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
             style={{ backgroundColor: "#1e3a5f" }}
             onClick={() => { setEditCert(null); setShowForm(true); }}
           >
-            <FileText className="w-4 h-4" /> New Gas Installation Cert
+            <FileText className="w-4 h-4" /> New Gas Installation / New Meter
           </Button>
         </div>
       ) : (
@@ -69,7 +69,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
           {certs.map((cert) => (
             <div key={cert.id} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-foreground">Gas Installation Cert</div>
+                <div className="text-sm font-bold text-foreground">Gas Installation / New Meter</div>
                 <div className="text-xs text-muted-foreground">
                   {new Date(cert.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                 </div>
@@ -100,7 +100,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
             className="w-full h-10 font-bold gap-2 mt-2"
             onClick={() => { setEditCert(null); setShowForm(true); }}
           >
-            <FileText className="w-4 h-4" /> New Gas Installation Cert
+            <FileText className="w-4 h-4" /> New Gas Installation / New Meter
           </Button>
         </>
       )}

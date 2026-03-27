@@ -204,8 +204,8 @@ const GasInstallationCertForm: React.FC<GasInstallationCertFormProps> = ({
         <button onClick={onClose} className="flex items-center gap-1.5 text-primary-foreground/80 text-sm font-semibold mb-2">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
-        <h1 className="text-lg font-extrabold text-primary-foreground">Gas Installation Certificate</h1>
-        <p className="text-xs text-primary-foreground/60 mt-0.5">RGI Cert 2 — Declaration of Conformance</p>
+        <h1 className="text-lg font-extrabold text-primary-foreground">Gas Installation / New Meter</h1>
+        <p className="text-xs text-primary-foreground/60 mt-0.5">New gas connection · Declaration of Conformance</p>
       </div>
 
       <div className="px-4 pb-40 space-y-3">
