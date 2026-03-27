@@ -112,6 +112,11 @@ const Schedule = () => {
     enabled: !!user,
   });
 
+  const settingsBlocks = (settings?.job_time_blocks as any[]) || [];
+  const TIME_BLOCKS = buildTimeBlocksFromSettings(settingsBlocks);
+  const BLOCK_MAP = buildBlockMap(settingsBlocks, TIME_BLOCKS);
+
+
   // Fetch all jobs for the week + unallocated
   const { data: jobs = [], refetch: refetchJobs } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
