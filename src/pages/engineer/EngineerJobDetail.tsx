@@ -65,8 +65,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [showPhotos, setShowPhotos] = useState(false);
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
-  const [showCertificate, setShowCertificate] = useState(false);
-  const [showHazard, setShowHazard] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
