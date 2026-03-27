@@ -309,8 +309,9 @@ const JobDetail = () => {
   // Fetch assigned engineer's auth_user_id for messaging
   useEffect(() => {
     if (job?.assigned_engineer_id) {
-      supabase.from("engineers").select("auth_user_id").eq("id", job.assigned_engineer_id).maybeSingle().then(({ data }) => {
+      supabase.from("engineers").select("auth_user_id, rgi_number").eq("id", job.assigned_engineer_id).maybeSingle().then(({ data }) => {
         setAssignedEngineerAuth(data?.auth_user_id || null);
+        setAssignedEngineerRgi((data as any)?.rgi_number || null);
       });
     }
   }, [job?.assigned_engineer_id]);
