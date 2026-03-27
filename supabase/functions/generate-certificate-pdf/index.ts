@@ -131,7 +131,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
 
 <div class="header">
   <div class="rgi-badge">RGI<br/>Cert</div>
-  <div style="text-align:right;">
+  <div style="text-align:right;padding-right:4px;flex-shrink:0;">
     <h1>RGI Domestic Gas Certificate</h1>
     <div class="cert-num">${escapeHtml(cert.cert_number)}</div>
     <div class="date">Issued: ${new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" })}</div>
