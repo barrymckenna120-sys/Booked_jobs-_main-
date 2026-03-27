@@ -573,6 +573,96 @@ export type Database = {
         }
         Relationships: []
       }
+      hazard_notifications: {
+        Row: {
+          appliance: string | null
+          created_at: string | null
+          customer_id: string | null
+          customer_sig_url: string | null
+          engineer_sig_url: string | null
+          gas_isolated_to_premises: boolean | null
+          gas_supplier: string | null
+          gas_type: string | null
+          hazard_types: Json | null
+          id: string
+          isolation_notes: string | null
+          isolation_reasons: string | null
+          job_id: string | null
+          location: string | null
+          make: string | null
+          meter_number: string | null
+          meter_reading: string | null
+          model: string | null
+          pdf_url: string | null
+          pressure_reading: string | null
+          ref_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          appliance?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          customer_sig_url?: string | null
+          engineer_sig_url?: string | null
+          gas_isolated_to_premises?: boolean | null
+          gas_supplier?: string | null
+          gas_type?: string | null
+          hazard_types?: Json | null
+          id?: string
+          isolation_notes?: string | null
+          isolation_reasons?: string | null
+          job_id?: string | null
+          location?: string | null
+          make?: string | null
+          meter_number?: string | null
+          meter_reading?: string | null
+          model?: string | null
+          pdf_url?: string | null
+          pressure_reading?: string | null
+          ref_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          appliance?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          customer_sig_url?: string | null
+          engineer_sig_url?: string | null
+          gas_isolated_to_premises?: boolean | null
+          gas_supplier?: string | null
+          gas_type?: string | null
+          hazard_types?: Json | null
+          id?: string
+          isolation_notes?: string | null
+          isolation_reasons?: string | null
+          job_id?: string | null
+          location?: string | null
+          make?: string | null
+          meter_number?: string | null
+          meter_reading?: string | null
+          model?: string | null
+          pdf_url?: string | null
+          pressure_reading?: string | null
+          ref_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazard_notifications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hazard_notifications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_media: {
         Row: {
           customer_id: string | null
