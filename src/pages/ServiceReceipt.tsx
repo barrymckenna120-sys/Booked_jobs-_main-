@@ -7,6 +7,7 @@ import { printReceipt } from "@/lib/printReceipt";
 import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
+import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 
 
 const formatDate = (d: string) =>
