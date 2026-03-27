@@ -385,6 +385,7 @@ const Schedule = () => {
       <WeeklyGrid
         weekDays={weekDays}
         timeBlocks={TIME_BLOCKS}
+        blockMap={BLOCK_MAP}
         jobs={jobs}
         selectedEngineer={selectedEngineer}
         engineers={engineers}
