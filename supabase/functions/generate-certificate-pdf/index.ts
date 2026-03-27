@@ -126,7 +126,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   .sig-box{flex:1;text-align:center;}
   .sig-box img{max-width:200px;max-height:80px;border-bottom:1px solid #333;}
   .sig-label{font-size:11px;color:#666;margin-top:4px;}
-  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px 20px;border-radius:0 0 6px 6px;}
+  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:left;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px 16px;border-radius:0 0 6px 6px;}
 </style></head><body>
 
 <div class="header">
