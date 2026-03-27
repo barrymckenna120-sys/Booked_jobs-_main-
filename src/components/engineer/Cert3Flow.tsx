@@ -182,6 +182,23 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
       const newCertId = (insertedRow as any)?.id;
       setCertId(newCertId);
       setStep(5); // success screen
+
+      // Trigger PDF generation
+      if (newCertId) {
+        supabase.functions.invoke("generate-cert3-pdf", {
+          body: { certificate_id: newCertId },
+        }).catch((err) => console.error("PDF generation error:", err));
+
+        // Poll for PDF URL
+        const poll = setInterval(async () => {
+          const { data } = await supabase.from("certificates" as any).select("pdf_url").eq("id", newCertId).single();
+          if ((data as any)?.pdf_url) {
+            setPdfUrl((data as any).pdf_url);
+            clearInterval(poll);
+          }
+        }, 3000);
+        setTimeout(() => clearInterval(poll), 60000);
+      }
     }
   };
 
