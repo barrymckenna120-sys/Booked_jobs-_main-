@@ -11,6 +11,7 @@ import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
 import ExtraWorkSheet from "@/components/engineer/ExtraWorkSheet";
+import JobCertsTab from "@/components/engineer/JobCertsTab";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
