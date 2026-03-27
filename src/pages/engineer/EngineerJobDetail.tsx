@@ -72,6 +72,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [replyNote, setReplyNote] = useState("");
   const [savingReply, setSavingReply] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
+  const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
 
   useEffect(() => {
     if (user && id) fetchJob();
