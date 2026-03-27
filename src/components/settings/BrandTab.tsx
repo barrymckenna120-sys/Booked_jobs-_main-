@@ -291,17 +291,20 @@ const BrandTab = () => {
         {/* ── Right Panel — Live Preview ────────────── */}
         <div className="flex-1 min-w-0 border border-border rounded-lg overflow-hidden bg-muted/30">
           <div className="flex border-b border-border bg-card">
-            {([["cert", "Gas Certificate"], ["quote", "Quote"], ["invoice", "Invoice"]] as const).map(([k, label]) => (
+            {([["cert", "Gas Certificate"], ["hazard", "Hazard Notice"], ["quote", "Quote"], ["invoice", "Invoice"]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setPreviewTab(k as any)}
-                className={`px-4 py-2.5 text-sm font-semibold transition-colors ${previewTab === k ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`px-4 py-2.5 text-sm font-semibold transition-colors relative ${previewTab === k ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 {label}
+                {k === "hazard" && <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">NEW</span>}
               </button>
             ))}
           </div>
           <div className="p-6 overflow-y-auto" style={{ maxHeight: 580 }}>
             {previewTab === "cert" && <CertPreview s={s} />}
+            {previewTab === "hazard" && <HazardPreview s={s} />}
             {previewTab === "quote" && <QuotePreview s={s} />}
             {previewTab === "invoice" && <InvoicePreview s={s} />}
+            <p className="text-xs text-muted-foreground mt-4 italic">Both documents use your logo, primary colour, and company details above.</p>
           </div>
         </div>
       </div>
