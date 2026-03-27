@@ -15,6 +15,7 @@ import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2
 import CustomerHistoryPanel from "@/components/customer/CustomerHistoryPanel";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
+import CustomerHazardNotices from "@/components/customer/CustomerHazardNotices";
 import CustomerQuotes from "@/components/customer/CustomerQuotes";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
@@ -367,6 +368,9 @@ const CustomerDetail = () => {
 
         {/* Service History */}
         {id && <ServiceHistory customerId={id} />}
+
+        {/* Hazard Notices */}
+        {id && <CustomerHazardNotices customerId={id} />}
       </div>
 
       {/* Delete Customer Modal */}
