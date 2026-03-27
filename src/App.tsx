@@ -136,6 +136,7 @@ const App = () => (
               <Route path="completed" element={<EngineerCompleted />} />
             </Route>
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
+            <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
             <Route path="/receipt/:id" element={<ServiceReceipt />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
