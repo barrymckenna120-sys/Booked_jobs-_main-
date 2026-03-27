@@ -214,6 +214,18 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
     </div>
   );
 
+  const handleSendWhatsApp = async () => {
+    if (!certId) return;
+    setWhatsappStatus("sending");
+    try {
+      const { data, error } = await supabase.functions.invoke("send-certificate-whatsapp", {
+        body: { certificate_id: certId },
+      });
+      if (error || !data?.success) setWhatsappStatus("failed");
+      else setWhatsappStatus("sent");
+    } catch { setWhatsappStatus("failed"); }
+  };
+
   // ─── Success Screen ────────────
   if (step === 5) {
     return createPortal(
@@ -225,7 +237,34 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{custName}</p>
         <p className="text-sm text-muted-foreground">Cert 3 — Gas Safety / Service</p>
-        <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>Back to Job</Button>
+
+        {pdfUrl ? (
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white" style={{ backgroundColor: "#22c55e" }}>
+            <CheckCircle2 className="w-4 h-4" /> PDF Ready — View
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Generating PDF…
+          </div>
+        )}
+
+        {whatsappStatus === "idle" && pdfUrl && (
+          <Button onClick={handleSendWhatsApp} className="h-12 px-6 font-bold gap-2" style={{ backgroundColor: "#25D366" }}>
+            <MessageSquare className="w-4 h-4" /> Send via WhatsApp
+          </Button>
+        )}
+        {whatsappStatus === "sending" && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Sending to customer…</div>
+        )}
+        {whatsappStatus === "sent" && (
+          <div className="flex items-center gap-2 text-sm font-bold" style={{ color: "#22c55e" }}><MessageSquare className="w-4 h-4" /> Sent to customer via WhatsApp</div>
+        )}
+        {whatsappStatus === "failed" && (
+          <div className="flex items-center gap-2 text-sm font-bold text-destructive"><AlertTriangle className="w-4 h-4" /> WhatsApp send failed</div>
+        )}
+
+        <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>Done</Button>
       </div>,
       document.body
     );
