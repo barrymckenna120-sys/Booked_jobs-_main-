@@ -126,12 +126,12 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   .sig-box{flex:1;text-align:center;}
   .sig-box img{max-width:200px;max-height:80px;border-bottom:1px solid #333;}
   .sig-label{font-size:11px;color:#666;margin-top:4px;}
-  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:center;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px 20px;border-radius:0 0 6px 6px;}
+  .footer{border-top:2px solid ${b.primary_color};padding-top:8px;margin-top:24px;text-align:left;font-size:11px;color:${b.header_text_color};background:${b.primary_color};padding:10px 16px;border-radius:0 0 6px 6px;}
 </style></head><body>
 
 <div class="header">
   <div class="rgi-badge">RGI<br/>Cert</div>
-  <div style="text-align:right;">
+  <div style="text-align:right;padding-right:4px;flex-shrink:0;">
     <h1>RGI Domestic Gas Certificate</h1>
     <div class="cert-num">${escapeHtml(cert.cert_number)}</div>
     <div class="date">Issued: ${new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" })}</div>
@@ -143,7 +143,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   <div style="background:#f5f7fa;border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;display:flex;align-items:center;gap:30px;">
     <div style="flex:1;min-width:0;">
       <div class="field"><span class="label">Company</span><div class="value">${escapeHtml(companyName)}</div></div>
-      <div class="field" style="margin-bottom:0;"><span class="label">Address</span><div class="value" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;">${escapeHtml(companyAddress)}</div></div>
+      <div class="field" style="margin-bottom:0;"><span class="label">Address</span><div class="value" style="font-size:12px;word-wrap:break-word;overflow-wrap:break-word;max-width:220px;">${escapeHtml(companyAddress)}</div></div>
     </div>
     <div style="flex:0 0 auto;">
       <div class="field" style="margin-bottom:0;"><span class="label">Phone</span><div class="value">${escapeHtml(companyPhone)}</div></div>
