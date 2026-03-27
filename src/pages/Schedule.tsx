@@ -183,7 +183,7 @@ const Schedule = () => {
     return jobs.find(
       (j) =>
         j.scheduled_date === dateStr &&
-        normalizeBlock(j.time_block) === timeBlock &&
+        normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
         j.status !== "New" &&
         j.status !== "Contacted" &&
         (engineerName === "all" || !engineerName || j.assigned_engineer === engineerName)
