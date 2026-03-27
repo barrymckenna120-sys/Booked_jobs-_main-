@@ -612,6 +612,13 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
                 <FileText className="w-5 h-5" /> Generate Certificate
               </Button>
             )}
+            <Button
+              className="w-full h-14 text-lg font-extrabold gap-2 text-white"
+              style={{ backgroundColor: "#1e3a5f" }}
+              onClick={() => setShowHazard(true)}
+            >
+              <AlertTriangle className="w-5 h-5" /> Notification of Hazard
+            </Button>
           </div>
         )}
       </div>
