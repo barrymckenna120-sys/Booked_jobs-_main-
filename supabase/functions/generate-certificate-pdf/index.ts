@@ -143,7 +143,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
   <div style="background:#f5f7fa;border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;display:flex;align-items:center;gap:30px;">
     <div style="flex:1;min-width:0;">
       <div class="field"><span class="label">Company</span><div class="value">${escapeHtml(companyName)}</div></div>
-      <div class="field" style="margin-bottom:0;"><span class="label">Address</span><div class="value" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;">${escapeHtml(companyAddress)}</div></div>
+      <div class="field" style="margin-bottom:0;"><span class="label">Address</span><div class="value" style="font-size:12px;word-wrap:break-word;overflow-wrap:break-word;max-width:220px;">${escapeHtml(companyAddress)}</div></div>
     </div>
     <div style="flex:0 0 auto;">
       <div class="field" style="margin-bottom:0;"><span class="label">Phone</span><div class="value">${escapeHtml(companyPhone)}</div></div>
