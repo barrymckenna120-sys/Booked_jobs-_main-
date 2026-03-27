@@ -11,6 +11,7 @@ type Props = {
   jobs: ScheduleJob[];
   selectedEngineer: string;
   engineers: { id: string; name: string }[];
+  blockMap?: Record<string, string>;
   onCellClick: (date: Date, timeBlock: string) => void;
   onJobClick: (job: ScheduleJob) => void;
 };
@@ -26,15 +27,17 @@ const jobTypeBadge = (type: string) => {
   }
 };
 
-// Normalize all time_block variants to canonical form for matching
-const BLOCK_MAP: Record<string, string> = {
-  "9–11": "9am–11am", "9-11": "9am–11am", "morning": "9am–11am", "Morning": "9am–11am", "9am–11am": "9am–11am",
-  "11–2": "11am–1pm", "11-2": "11am–1pm", "midday": "11am–1pm", "Midday": "11am–1pm", "11am–1pm": "11am–1pm",
-  "2–5": "2pm–5pm", "2-5": "2pm–5pm", "afternoon": "2pm–5pm", "Afternoon": "2pm–5pm", "2pm–5pm": "2pm–5pm",
+// Normalize time_block using the block map from parent
+const normalizeBlock = (b: string | null, bMap?: Record<string, string>) => {
+  if (!b) return null;
+  if (bMap && bMap[b]) return bMap[b];
+  // Strip spaces around dashes as fallback
+  const stripped = b.replace(/\s*[–-]\s*/g, '–');
+  if (bMap && bMap[stripped]) return bMap[stripped];
+  return b;
 };
-const normalizeBlock = (b: string | null) => (b ? BLOCK_MAP[b] || b : null);
 
-const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, onCellClick, onJobClick }: Props) => {
+const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, blockMap, onCellClick, onJobClick }: Props) => {
   const [messageModal, setMessageModal] = useState<{ open: boolean; jobId: string; engineerName: string; engineerAuthUserId: string | null } | null>(null);
   const [engineerAuthMap, setEngineerAuthMap] = useState<Record<string, string | null>>({});
 
@@ -59,7 +62,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, o
     return jobs.filter(
       (j) =>
         j.scheduled_date === dateStr &&
-        normalizeBlock(j.time_block) === timeBlock &&
+        normalizeBlock(j.time_block, blockMap) === timeBlock &&
         !["New", "Contacted", "Completed", "Cancelled"].includes(j.status) &&
         (selectedEngineer === "all" || j.assigned_engineer === selectedEngineer)
     );
