@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ArrowLeft, FileText, AlertTriangle, Loader2, Eye, Download, Send, Plus, CheckCircle2, Lock } from "lucide-react";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
+import Cert2Flow from "@/components/engineer/Cert2Flow";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
