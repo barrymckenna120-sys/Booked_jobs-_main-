@@ -143,7 +143,7 @@ const EngineerCertificates = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-extrabold text-foreground">
-                    {doc.type === "certificate" ? "RGI Gas Certificate" : "Notification of Hazard"}
+                    {doc.type === "hazard" ? "Notification of Hazard" : doc.subType === "cert2" ? "Declaration of Conformance" : "RGI Gas Certificate"}
                   </div>
                   <div className="text-[11px] text-muted-foreground font-semibold">{doc.ref}</div>
                   <div className="text-[11px] text-muted-foreground">
