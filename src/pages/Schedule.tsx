@@ -379,7 +379,7 @@ const Schedule = () => {
       {/* Weekly Grid */}
       <WeeklyGrid
         weekDays={weekDays}
-        timeBlocks={TIME_BLOCKS as unknown as string[]}
+        timeBlocks={TIME_BLOCKS}
         jobs={jobs}
         selectedEngineer={selectedEngineer}
         engineers={engineers}
