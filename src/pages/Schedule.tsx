@@ -60,7 +60,14 @@ const buildBlockMap = (settingsBlocks: any[], canonicalBlocks: string[]): Record
   return map;
 };
 
-const normalizeBlock = (b: string | null, blockMap: Record<string, string>) => (b ? blockMap[b] || b : null);
+const normalizeBlock = (b: string | null, blockMap: Record<string, string>) => {
+  if (!b) return null;
+  if (blockMap[b]) return blockMap[b];
+  // Strip spaces around dashes as fallback
+  const stripped = b.replace(/\s*[–-]\s*/g, '–');
+  if (blockMap[stripped]) return blockMap[stripped];
+  return b;
+};
 
 export type ScheduleJob = {
   id: string;
