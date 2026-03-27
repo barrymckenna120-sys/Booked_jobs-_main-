@@ -107,6 +107,141 @@ export type Database = {
         }
         Relationships: []
       }
+      cert2_certificates: {
+        Row: {
+          address_premises: string | null
+          adequate_ventilation: boolean | null
+          appliance_location_correct: boolean | null
+          central_heating: boolean | null
+          cert_type: string
+          co_reading: string | null
+          co2_reading: string | null
+          coco2_ratio: string | null
+          commissioning_date: string | null
+          cooker: boolean | null
+          created_at: string
+          customer_name_premises: string | null
+          eircode_premises: string | null
+          engineer_id: string
+          fire_flueless: boolean | null
+          fire_open: boolean | null
+          fire_r_seal: boolean | null
+          flue_inspected: boolean | null
+          gas_type: string | null
+          gprn: string | null
+          hob: boolean | null
+          id: string
+          install_type: string | null
+          issue_date: string | null
+          other_appliance: string | null
+          owner_address: string | null
+          owner_eircode: string | null
+          owner_name: string | null
+          owner_tel: string | null
+          pdf_url: string | null
+          pipework_material: string | null
+          rgi_number: string | null
+          serial_number: string | null
+          service_call_id: string
+          soundness_test_pass: boolean | null
+          status: string
+          tel_premises: string | null
+        }
+        Insert: {
+          address_premises?: string | null
+          adequate_ventilation?: boolean | null
+          appliance_location_correct?: boolean | null
+          central_heating?: boolean | null
+          cert_type?: string
+          co_reading?: string | null
+          co2_reading?: string | null
+          coco2_ratio?: string | null
+          commissioning_date?: string | null
+          cooker?: boolean | null
+          created_at?: string
+          customer_name_premises?: string | null
+          eircode_premises?: string | null
+          engineer_id: string
+          fire_flueless?: boolean | null
+          fire_open?: boolean | null
+          fire_r_seal?: boolean | null
+          flue_inspected?: boolean | null
+          gas_type?: string | null
+          gprn?: string | null
+          hob?: boolean | null
+          id?: string
+          install_type?: string | null
+          issue_date?: string | null
+          other_appliance?: string | null
+          owner_address?: string | null
+          owner_eircode?: string | null
+          owner_name?: string | null
+          owner_tel?: string | null
+          pdf_url?: string | null
+          pipework_material?: string | null
+          rgi_number?: string | null
+          serial_number?: string | null
+          service_call_id: string
+          soundness_test_pass?: boolean | null
+          status?: string
+          tel_premises?: string | null
+        }
+        Update: {
+          address_premises?: string | null
+          adequate_ventilation?: boolean | null
+          appliance_location_correct?: boolean | null
+          central_heating?: boolean | null
+          cert_type?: string
+          co_reading?: string | null
+          co2_reading?: string | null
+          coco2_ratio?: string | null
+          commissioning_date?: string | null
+          cooker?: boolean | null
+          created_at?: string
+          customer_name_premises?: string | null
+          eircode_premises?: string | null
+          engineer_id?: string
+          fire_flueless?: boolean | null
+          fire_open?: boolean | null
+          fire_r_seal?: boolean | null
+          flue_inspected?: boolean | null
+          gas_type?: string | null
+          gprn?: string | null
+          hob?: boolean | null
+          id?: string
+          install_type?: string | null
+          issue_date?: string | null
+          other_appliance?: string | null
+          owner_address?: string | null
+          owner_eircode?: string | null
+          owner_name?: string | null
+          owner_tel?: string | null
+          pdf_url?: string | null
+          pipework_material?: string | null
+          rgi_number?: string | null
+          serial_number?: string | null
+          service_call_id?: string
+          soundness_test_pass?: boolean | null
+          status?: string
+          tel_premises?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cert2_certificates_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cert2_certificates_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           cert_number: string | null
