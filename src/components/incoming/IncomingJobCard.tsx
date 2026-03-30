@@ -122,7 +122,7 @@ const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
       {/* Footer */}
       <div className="flex justify-between items-center">
         <span className="text-xs text-muted-foreground">
-          📅 {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB") : "No date"} · {job.assigned_engineer || "Unassigned"}
+          📅 {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "No date"} · {job.assigned_engineer || "Unassigned"}
         </span>
         <div className="flex items-center gap-2">
           <button
