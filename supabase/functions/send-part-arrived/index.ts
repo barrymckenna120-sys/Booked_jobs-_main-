@@ -107,6 +107,17 @@ serve(async (req) => {
       result = { success: false, raw: resultText };
     }
 
+    // Log full API response to edge_function_logs for debugging
+    await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        function_name: "send-part-arrived",
+        error_message: `360Messenger HTTP ${response.status}: ${result.success ? "success" : "failed"}`,
+        payload: { api_response: result, sent_to: customer_phone, job_id, http_status: response.status },
+      }),
+    });
+
     if (logId) {
       const updateBody = result.success
         ? { status: "sent" }
