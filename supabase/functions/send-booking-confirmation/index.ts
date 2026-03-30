@@ -74,7 +74,9 @@ serve(async (req) => {
     }
 
     const firstName = customer.name.split(" ")[0];
-    const scheduledDate = job.scheduled_date || "TBC";
+    const scheduledDate = job.scheduled_date
+      ? new Date(job.scheduled_date + 'T12:00:00').toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'TBC';
     const timeSlot = job.time_block || "TBC";
     const jobType = job.job_type || "service";
     const engineerName = job.assigned_engineer || "our engineer";
