@@ -261,11 +261,13 @@ const Renewals = () => {
     return "border-l-success";
   };
 
+  const notRemindedCount = filtered.filter(c => !reminderSent[c.id] && !c.contactedRecently).length;
+
   return (
-    <div className="max-w-3xl mx-auto px-4 pb-6 space-y-0">
+    <div className="max-w-[900px] mx-auto px-4 pb-6 space-y-0">
       {/* Sticky header */}
       <div className="sticky top-0 z-20 bg-background border-b border-border pb-3 pt-6 mb-4">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-xl font-extrabold">Renewals</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -302,16 +304,36 @@ const Renewals = () => {
         </Tabs>
       </div>
 
+      {/* Desktop summary bar */}
+      {!loading && filtered.length > 0 && (
+        <div className="hidden md:flex items-center justify-between bg-muted/50 border border-border rounded-lg px-4 py-2 mb-4">
+          <p className="text-xs text-muted-foreground">
+            Showing <span className="font-bold text-foreground">{filtered.length}</span> customers · <span className="font-bold text-foreground">{notRemindedCount}</span> not yet reminded
+          </p>
+          <Button
+            onClick={() => setSendAllOpen(true)}
+            size="sm"
+            variant="outline"
+            className="gap-1.5 font-bold text-xs"
+            disabled={reminderQueue.length === 0}
+          >
+            <Send className="w-3.5 h-3.5" />
+            Remind All ({reminderQueue.length})
+          </Button>
+        </div>
+      )}
+
       {/* Card list */}
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Loading...</p>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <RefreshCw className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <div className="font-bold">No {activeTab.replace("_", " ")} renewals</div>
+        <div className="text-center py-20 text-muted-foreground">
+          <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-success/60" />
+          <div className="font-bold text-sm">All clear — nothing in this category</div>
+          <p className="text-xs mt-1">No customers are currently {activeTab === "overdue" ? "overdue" : activeTab === "due_soon" ? "due soon" : "up to date"}.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {filtered.map((c) => {
             const pill = formatDuePill(c.daysUntil, c.next_service_due);
             const isSent = reminderSent[c.id] || c.contactedRecently;
