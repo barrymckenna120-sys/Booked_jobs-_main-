@@ -2,26 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  RefreshCw, Search, AlertTriangle, Clock, CheckCircle2, Smartphone, Send,
-  PhoneOff, MessageCircle, CalendarCheck, Wallet, Archive, ArchiveRestore,
+  RefreshCw, Send, CheckCircle2, MapPin, Archive, ArchiveRestore, CalendarCheck,
 } from "lucide-react";
-import RenewalCard from "@/components/renewals/RenewalCard";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
 import { SendAllRemindersSheet, type ReminderCustomer } from "@/components/renewals/SendAllReminders";
-import RenewalsHeroStats from "@/components/renewals/RenewalsHeroStats";
-import UrgentList from "@/components/renewals/UrgentList";
-import MonthlyBreakdown from "@/components/renewals/MonthlyBreakdown";
-import SendServiceReminders from "@/components/renewals/SendServiceReminders";
-import { formatDistanceToNow, isToday, differenceInDays, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { differenceInDays } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 type Customer = {
   id: string;
@@ -40,60 +34,39 @@ type Customer = {
   is_archived: boolean;
 };
 
-const STATUS_FILTERS = ["All", "Overdue", "Due Soon", "Up to Date", "Contacted"] as const;
-type StatusFilterType = typeof STATUS_FILTERS[number];
-
-const STAGE_FILTERS = ["All Stages", "Not Contacted", "Reminded", "Confirmed", "Booked", "Paid"] as const;
-type StageFilterType = typeof STAGE_FILTERS[number];
-
-const STAGE_TO_KEY: Record<string, string> = {
-  "Not Contacted": "not_contacted",
-  "Reminded": "reminded",
-  "Confirmed": "confirmed",
-  "Booked": "booked",
-  "Paid": "paid",
-};
-
-const STAGE_ICONS: Record<string, React.ReactNode> = {
-  "All Stages": <RefreshCw className="w-3 h-3" />,
-  "Not Contacted": <PhoneOff className="w-3 h-3" />,
-  "Reminded": <MessageCircle className="w-3 h-3" />,
-  "Confirmed": <CheckCircle2 className="w-3 h-3" />,
-  "Booked": <CalendarCheck className="w-3 h-3" />,
-  "Paid": <Wallet className="w-3 h-3" />,
-};
-
-const stageFilterStyles: Record<string, { active: string; inactive: string }> = {
-  "All Stages":    { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
-  "Not Contacted": { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
-  "Reminded":      { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
-  "Confirmed":     { active: "border-[#0891B2] bg-[#CFFAFE] text-[#0891B2]", inactive: "border-border text-muted-foreground" },
-  "Booked":        { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
-  "Paid":          { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
-};
-
-const filterStyles: Record<string, { active: string; inactive: string }> = {
-  All:          { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
-  Overdue:      { active: "border-destructive bg-destructive/10 text-destructive", inactive: "border-border text-muted-foreground" },
-  "Due Soon":   { active: "border-warning bg-warning/10 text-warning", inactive: "border-border text-muted-foreground" },
-  "Up to Date": { active: "border-success bg-success/10 text-success", inactive: "border-border text-muted-foreground" },
-  Contacted:    { active: "border-primary bg-primary/10 text-primary", inactive: "border-border text-muted-foreground" },
-};
-
-const getStatus = (daysUntil: number): string => {
-  if (daysUntil < 0) return "Overdue";
-  if (daysUntil <= 30) return "Due Soon";
-  return "Up to Date";
-};
+type TabKey = "overdue" | "due_soon" | "up_to_date";
 
 const getDaysUntil = (nextDue: string | null): number => {
   if (!nextDue) return 999;
   return Math.ceil((new Date(nextDue).getTime() - Date.now()) / 86400000);
 };
 
+const getTabForDays = (days: number): TabKey => {
+  if (days < 0) return "overdue";
+  if (days <= 30) return "due_soon";
+  return "up_to_date";
+};
+
 const isContactedRecently = (lastSent: string | null): boolean => {
   if (!lastSent) return false;
   return differenceInDays(new Date(), new Date(lastSent)) <= 30;
+};
+
+const formatDuePill = (days: number, nextDue: string | null): { text: string; className: string } => {
+  if (days < 0) {
+    return { text: `${Math.abs(days)}d overdue`, className: "bg-destructive/10 text-destructive border-destructive/20" };
+  }
+  if (days <= 30) {
+    return { text: `Due in ${days}d`, className: "bg-warning/10 text-warning border-warning/20" };
+  }
+  if (nextDue) {
+    const d = new Date(nextDue);
+    return {
+      text: `Due ${d.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}`,
+      className: "bg-success/10 text-success border-success/20",
+    };
+  }
+  return { text: "—", className: "bg-muted text-muted-foreground" };
 };
 
 const Renewals = () => {
@@ -102,20 +75,12 @@ const Renewals = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string; default_service_price?: number } | null>(null);
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialFilter = urlParams.get("status") || "Overdue";
-  const [filter, setFilter] = useState<StatusFilterType>(initialFilter as StatusFilterType);
-  const [stageFilter, setStageFilter] = useState<StageFilterType>("All Stages");
-  const [search, setSearch] = useState("");
-  const [postcodeFilter, setPostcodeFilter] = useState("");
-  const [monthFilter, setMonthFilter] = useState(String(new Date().getMonth()));
+  const [activeTab, setActiveTab] = useState<TabKey>("overdue");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
   const [sendAllOpen, setSendAllOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
-  const [failedCustomerIds, setFailedCustomerIds] = useState<Set<string>>(new Set());
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -142,22 +107,6 @@ const Renewals = () => {
 
   useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
 
-  // Fetch failed renewal message logs
-  useEffect(() => {
-    if (!customers.length) return;
-    const ids = customers.map(c => c.id);
-    supabase
-      .from("message_log")
-      .select("customer_id")
-      .eq("related_type", "renewal")
-      .eq("status", "failed")
-      .in("customer_id", ids)
-      .then(({ data }) => {
-        setFailedCustomerIds(new Set((data || []).map((r: any) => r.customer_id)));
-      });
-  }, [customers]);
-
-  // Auto-refresh every 30s so counters stay current
   useEffect(() => {
     const interval = setInterval(fetchCustomers, 30000);
     return () => clearInterval(interval);
@@ -168,93 +117,34 @@ const Renewals = () => {
   const businessName = settings?.business_name || "BookedJobs";
   const servicePrice = settings?.default_service_price || 120;
 
-  // Separate active vs archived customers
   const activeCustomers = customers.filter(c => !c.is_archived);
-  const archivedCustomers = customers.filter(c => c.is_archived);
 
-  const withStatus = (showArchived ? archivedCustomers : activeCustomers).map((c) => {
+  const withStatus = activeCustomers.map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
+    const tab = getTabForDays(daysUntil);
     const stage = c.renewal_stage || "not_contacted";
-    return { ...c, daysUntil, renewalStatus: getStatus(daysUntil), contactedRecently: isContactedRecently(c.last_reminder_sent), stage };
+    const isResolved = stage === "booked" || stage === "paid";
+    return { ...c, daysUntil, tab, stage, isResolved, contactedRecently: isContactedRecently(c.last_reminder_sent) };
   });
 
-  // Customers with stage "booked" or "paid" are resolved — exclude from overdue/due-soon
-  const isResolved = (c: typeof withStatus[0]) => c.stage === "booked" || c.stage === "paid";
+  // Exclude resolved from overdue/due_soon, keep in up_to_date
+  const filterable = withStatus.filter(c => c.tab === "up_to_date" || !c.isResolved);
 
-  const selectedMonthIndex = parseInt(monthFilter);
-
-  const filtered = withStatus
-    .filter((c) => showArchived ? true : !isResolved(c))
-    .filter((c) => {
-      if (filter === "All") return true;
-      if (filter === "Contacted") return c.contactedRecently || reminderSent[c.id];
-      return c.renewalStatus === filter;
-    })
-    .filter((c) => {
-      if (stageFilter === "All Stages") return true;
-      return c.stage === STAGE_TO_KEY[stageFilter];
-    })
-    .filter((c) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
-    })
-    .filter((c) => {
-      if (!c.next_service_due) return false;
-      const dueDate = new Date(c.next_service_due + "T00:00:00");
-      return dueDate.getMonth() === selectedMonthIndex;
-    })
-    .filter((c) => {
-      if (!postcodeFilter.trim()) return true;
-      const q = postcodeFilter.trim().toLowerCase();
-      return c.eircode.toLowerCase().includes(q);
-    })
-    .sort((a, b) => a.daysUntil - b.daysUntil);
-
-  const counts = {
-    overdue: withStatus.filter((c) => c.renewalStatus === "Overdue" && !isResolved(c)).length,
-    dueSoon: withStatus.filter((c) => c.renewalStatus === "Due Soon" && !isResolved(c)).length,
-    upToDate: withStatus.filter((c) => c.renewalStatus === "Up to Date" || isResolved(c)).length,
-    contacted: withStatus.filter((c) => c.contactedRecently || reminderSent[c.id]).length,
-    needReminder: withStatus.filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date" && !isResolved(c)).length,
+  const tabCounts = {
+    overdue: filterable.filter(c => c.tab === "overdue").length,
+    due_soon: filterable.filter(c => c.tab === "due_soon").length,
+    up_to_date: filterable.filter(c => c.tab === "up_to_date").length,
   };
 
-  const stageCounts: Record<string, number> = {
-    "All Stages": withStatus.length,
-    "Not Contacted": withStatus.filter(c => c.stage === "not_contacted").length,
-    "Reminded": withStatus.filter(c => c.stage === "reminded").length,
-    "Confirmed": withStatus.filter(c => c.stage === "confirmed").length,
-    "Booked": withStatus.filter(c => c.stage === "booked").length,
-    "Paid": withStatus.filter(c => c.stage === "paid").length,
-  };
-
-  // Pipeline progress
-  const total = withStatus.length;
-  const paidCount = stageCounts["Paid"];
-  const bookedCount = stageCounts["Booked"];
-  const confirmedCount = stageCounts["Confirmed"];
-  const remindedCount = stageCounts["Reminded"];
-
-  // Hero stats - due in next 30 days (exclude resolved)
-  const dueIn30Unresolved = withStatus.filter(c => c.daysUntil <= 30 && !isResolved(c));
-  const dueIn30 = dueIn30Unresolved.length;
-  const valueAtRisk = dueIn30 * servicePrice;
-  const notContactedCount = dueIn30Unresolved.filter(c => c.stage === "not_contacted").length;
-  const remindedIn30 = dueIn30Unresolved.filter(c => c.stage === "reminded").length;
-
-  // Urgent - due this week
-  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const urgentCustomers = withStatus
-    .filter(c => {
-      if (isResolved(c)) return false;
-      if (!c.next_service_due) return false;
-      const dueDate = new Date(c.next_service_due);
-      return dueDate <= weekEnd;
-    })
+  const filtered = filterable
+    .filter(c => c.tab === activeTab)
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
-  const urgentNeedReminder = urgentCustomers.filter(c => c.stage === "not_contacted" && !reminderSent[c.id]).length;
+  // Stats for header
+  const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon")).length;
+  const totalAtRisk = (tabCounts.overdue + tabCounts.due_soon) * servicePrice;
 
+  // Build reminder message
   const buildReminderMessage = (customer: Customer) => {
     const firstName = customer.name.split(" ")[0];
     const nextDue = customer.next_service_due
@@ -297,10 +187,9 @@ const Renewals = () => {
     }
   };
 
-  const handleSendReminder = (customer: Customer | { id: string; name: string; phone: string; next_service_due: string }) => {
+  const handleSendReminder = (customer: Customer) => {
     const cleanPhone = customer.phone.replace(/\s+/g, "").replace(/^0/, "353");
-    const fullCustomer = customers.find(c => c.id === customer.id) || customer as Customer;
-    const msg = buildReminderMessage(fullCustomer);
+    const msg = buildReminderMessage(customer);
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
 
     markAsContacted(customer.id, customer.name);
@@ -316,13 +205,7 @@ const Renewals = () => {
       } as any);
     }
 
-    toast({ title: `Reminder sent to ${customer.name}` });
-  };
-
-  const handleStageChange = async (customerId: string, newStage: string) => {
-    await supabase.from("customers").update({ renewal_stage: newStage } as any).eq("id", customerId);
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, renewal_stage: newStage } : c));
-    toast({ title: `Stage updated to ${newStage.replace("_", " ")}` });
+    toast({ title: `Reminder sent to ${customer.name}`, duration: 2500 });
   };
 
   const confirmArchive = (customerId: string, customerName: string, archive: boolean) => {
@@ -331,25 +214,28 @@ const Renewals = () => {
 
   const handleArchive = async () => {
     if (!archiveConfirm) return;
-    const { id, archive } = archiveConfirm;
+    const { id, archive, name } = archiveConfirm;
     await supabase.from("customers").update({ is_archived: archive } as any).eq("id", id);
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, is_archived: archive } : c));
-    toast({ title: archive ? "Customer archived" : "Customer restored" });
+    toast({ title: archive ? `${name} archived` : `${name} restored`, duration: 2500 });
     setArchiveConfirm(null);
   };
 
-  const selectedStatus = selectedCustomer ? getStatus(getDaysUntil(selectedCustomer.next_service_due)) : "Up to Date";
+  const selectedStatus = selectedCustomer
+    ? (getDaysUntil(selectedCustomer.next_service_due) < 0 ? "Overdue" : getDaysUntil(selectedCustomer.next_service_due) <= 30 ? "Due Soon" : "Up to Date")
+    : "Up to Date";
   const selectedDays = selectedCustomer ? getDaysUntil(selectedCustomer.next_service_due) : 0;
 
-  const reminderQueue: ReminderCustomer[] = withStatus
-    .filter((c) => !c.contactedRecently && !reminderSent[c.id] && c.renewalStatus !== "Up to Date")
+  // Reminder queue for Send All — scoped to active tab
+  const reminderQueue: ReminderCustomer[] = filtered
+    .filter((c) => !c.contactedRecently && !reminderSent[c.id])
     .map((c) => ({
       id: c.id,
       name: c.name,
       phone: c.phone,
       nextDue: c.next_service_due!,
       daysUntil: c.daysUntil,
-      status: c.renewalStatus,
+      status: c.tab === "overdue" ? "Overdue" : c.tab === "due_soon" ? "Due Soon" : "Up to Date",
     }));
 
   const handleBatchReminderSent = async (customerId: string) => {
@@ -369,269 +255,127 @@ const Renewals = () => {
     } as any);
   };
 
-  const filterCounts: Record<StatusFilterType, number> = {
-    All: withStatus.length,
-    Overdue: counts.overdue,
-    "Due Soon": counts.dueSoon,
-    "Up to Date": counts.upToDate,
-    Contacted: counts.contacted,
+  const leftBorderClass = (tab: TabKey) => {
+    if (tab === "overdue") return "border-l-destructive";
+    if (tab === "due_soon") return "border-l-warning";
+    return "border-l-success";
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-xl font-extrabold flex items-center gap-2">
-            <RefreshCw className="w-5 h-5 text-primary" />
-            Renewals
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {counts.overdue} overdue · {counts.dueSoon} due soon
-          </p>
-        </div>
-        {counts.needReminder > 0 ? (
+    <div className="max-w-3xl mx-auto px-4 pb-6 space-y-0">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-20 bg-background border-b border-border pb-3 pt-6 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-extrabold">Renewals</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              €{totalAtRisk.toLocaleString()} at risk · {notContactedCount} not yet contacted
+            </p>
+          </div>
           <Button
             onClick={() => setSendAllOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5"
             size="sm"
+            className="gap-1.5 font-bold text-xs"
+            disabled={reminderQueue.length === 0}
           >
             <Send className="w-3.5 h-3.5" />
-            Send All Reminders ({counts.needReminder})
+            Remind All ({reminderQueue.length})
           </Button>
-        ) : (
-          <Button variant="outline" size="sm" disabled className="text-xs gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            All reminders sent
-          </Button>
-        )}
-      </div>
-
-      {/* Archived toggle */}
-      <Button
-        onClick={() => setShowArchived(!showArchived)}
-        variant={showArchived ? "default" : "outline"}
-        size="sm"
-        className={`gap-2 font-bold ${
-          showArchived
-            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-            : "border-2 border-primary/40 text-primary hover:bg-primary/10"
-        }`}
-      >
-        {showArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-        {showArchived ? `Viewing Archived (${archivedCustomers.length})` : `View Archived (${archivedCustomers.length})`}
-      </Button>
-
-      {/* SECTION 1: Hero Stats */}
-      <RenewalsHeroStats
-        renewalsDue={dueIn30}
-        valueAtRisk={valueAtRisk}
-        notContacted={notContactedCount}
-        reminded={remindedIn30}
-      />
-
-      {/* SECTION 2: Urgent List */}
-      <UrgentList
-        customers={urgentCustomers.map(c => ({
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          next_service_due: c.next_service_due!,
-          daysUntil: c.daysUntil,
-          renewal_stage: c.renewal_stage,
-        }))}
-        onSendReminder={(c) => handleSendReminder(c)}
-        onArchive={(c) => confirmArchive(c.id, c.name, true)}
-        onSendAll={() => setSendAllOpen(true)}
-        needReminderCount={urgentNeedReminder}
-      />
-
-      {/* SECTION 3: Monthly Breakdown */}
-      <MonthlyBreakdown
-        customers={customers.map(c => ({
-          next_service_due: c.next_service_due,
-          renewal_stage: c.renewal_stage,
-          last_service_date: c.last_service_date,
-        }))}
-        servicePrice={servicePrice}
-      />
-
-      {/* SECTION 4: Send Service Reminders */}
-      <SendServiceReminders
-        customers={activeCustomers.map(c => ({
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          eircode: c.eircode,
-          next_service_due: c.next_service_due,
-        }))}
-        userId={user?.id}
-        onRemindersSent={fetchCustomers}
-        postcodeFilter={postcodeFilter}
-        onPostcodeChange={setPostcodeFilter}
-        monthFilter={monthFilter}
-        onMonthChange={setMonthFilter}
-        filteredCount={filtered.length}
-      />
-
-      {/* Divider */}
-      <div className="border-t border-border/60 pt-4">
-        <h2 className="text-sm font-bold text-foreground mb-3">All Renewals</h2>
-      </div>
-
-      {/* Pipeline progress bar */}
-      {total > 0 && (
-        <Card className="border-border/60">
-          <CardContent className="p-4">
-            <div className="flex justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-muted-foreground">Pipeline Progress</span>
-              <span className="text-[11px] font-bold text-success">
-                {paidCount} paid · {bookedCount} booked · {confirmedCount} confirmed
-              </span>
-            </div>
-            <div className="h-3 rounded-full bg-border overflow-hidden flex">
-              {[
-                { count: paidCount,      className: "bg-success" },
-                { count: bookedCount,    className: "bg-primary" },
-                { count: confirmedCount, className: "bg-[#0891B2]" },
-                { count: remindedCount,  className: "bg-warning" },
-              ].map((s, i) =>
-                s.count > 0 ? (
-                  <div
-                    key={i}
-                    className={`${s.className} transition-all duration-300`}
-                    style={{ width: `${(s.count / total) * 100}%` }}
-                  />
-                ) : null
-              )}
-            </div>
-            <div className="flex gap-3 mt-2 flex-wrap">
-              {[
-                { label: `${paidCount} Paid`,                dotClass: "bg-success",     textClass: "text-success" },
-                { label: `${bookedCount} Booked`,            dotClass: "bg-primary",     textClass: "text-primary" },
-                { label: `${confirmedCount} Confirmed`,      dotClass: "bg-[#0891B2]",   textClass: "text-[#0891B2]" },
-                { label: `${remindedCount} Reminded`,        dotClass: "bg-warning",     textClass: "text-warning" },
-                { label: `${stageCounts["Not Contacted"]} Not Contacted`, dotClass: "bg-destructive", textClass: "text-destructive" },
-              ].map(l => (
-                <div key={l.label} className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${l.dotClass}`} />
-                  <span className={`text-[11px] font-bold ${l.textClass}`}>{l.label}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-        <Input
-          placeholder="Search customer or address..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Stage filter tabs */}
-      <div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Pipeline Stage</div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {STAGE_FILTERS.map((f) => {
-            const active = stageFilter === f;
-            const styles = stageFilterStyles[f];
-            return (
-              <button
-                key={f}
-                onClick={() => setStageFilter(f)}
-                className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border-[1.5px] transition-colors flex items-center gap-1.5 ${
-                  active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
-                }`}
-              >
-                {STAGE_ICONS[f]}
-                {f} {stageCounts[f]}
-              </button>
-            );
-          })}
         </div>
+
+        {/* Tab bar */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="mt-3">
+          <TabsList className="w-full">
+            <TabsTrigger value="overdue" className="flex-1 gap-1.5 text-xs">
+              Overdue
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{tabCounts.overdue}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="due_soon" className="flex-1 gap-1.5 text-xs">
+              Due Soon
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{tabCounts.due_soon}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="up_to_date" className="flex-1 gap-1.5 text-xs">
+              Up to Date
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{tabCounts.up_to_date}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Status filter tabs */}
-      <div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Due Status</div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {STATUS_FILTERS.map((f) => {
-            const active = filter === f;
-            const styles = filterStyles[f];
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`shrink-0 text-xs font-semibold px-3.5 py-1.5 rounded-full border-[1.5px] transition-colors ${
-                  active ? styles.active + " font-bold" : styles.inactive + " bg-card hover:bg-muted"
-                }`}
-              >
-                {f} {filterCounts[f]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* KPI row */}
-      <div className="grid grid-cols-4 gap-2.5">
-        {[
-          { icon: <AlertTriangle className="w-5 h-5 text-destructive" />, value: counts.overdue, label: "Overdue", color: "border-t-destructive", alert: true, filterTo: "Overdue" as StatusFilterType },
-          { icon: <Clock className="w-5 h-5 text-warning" />, value: counts.dueSoon, label: "Due Soon", color: "border-t-warning", filterTo: "Due Soon" as StatusFilterType },
-          { icon: <CheckCircle2 className="w-5 h-5 text-success" />, value: counts.upToDate, label: "Up to Date", color: "border-t-success", filterTo: "Up to Date" as StatusFilterType },
-          { icon: <Smartphone className="w-5 h-5 text-primary" />, value: counts.contacted, label: "Contacted", color: "border-t-primary", filterTo: "Contacted" as StatusFilterType },
-        ].map((k) => (
-          <Card
-            key={k.label}
-            className={`border-t-[3px] ${k.color} cursor-pointer hover:bg-muted/50 transition-colors`}
-            onClick={() => setFilter(k.filterTo)}
-          >
-            <CardContent className="p-3 text-center">
-              <div className="flex justify-center mb-1">{k.icon}</div>
-              <div className={`text-xl font-extrabold leading-none ${k.alert ? "text-destructive" : ""}`}>{k.value}</div>
-              <div className="text-[10px] text-muted-foreground font-medium mt-1">{k.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* List */}
+      {/* Card list */}
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Loading...</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <RefreshCw className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <div className="font-bold">
-            {postcodeFilter.trim()
-              ? "No renewals found for this area and month."
-              : `No ${filter !== "All" ? filter : ""} renewals`}
-          </div>
+          <div className="font-bold">No {activeTab.replace("_", " ")} renewals</div>
         </div>
       ) : (
-        filtered.map((c) => (
-          <RenewalCard
-            key={c.id}
-            customer={c}
-            status={c.renewalStatus}
-            stage={c.stage}
-            daysUntil={c.daysUntil}
-            reminderSent={reminderSent[c.id] || c.contactedRecently}
-            lastContacted={c.last_reminder_sent}
-            onOpen={() => setSelectedCustomer(c)}
-            onSendReminder={() => handleSendReminder(c)}
-            onBook={() => setBookCustomer(c)}
-            onStageChange={(newStage) => handleStageChange(c.id, newStage)}
-            onArchive={() => confirmArchive(c.id, c.name, !c.is_archived)}
-            isArchived={c.is_archived}
-            hasFailedSend={failedCustomerIds.has(c.id)}
-          />
-        ))
+        <div className="space-y-3">
+          {filtered.map((c) => {
+            const pill = formatDuePill(c.daysUntil, c.next_service_due);
+            const isSent = reminderSent[c.id] || c.contactedRecently;
+
+            return (
+              <div
+                key={c.id}
+                className={`bg-card border border-border border-l-4 ${leftBorderClass(c.tab)} rounded-xl p-4`}
+              >
+                {/* Top row */}
+                <div className="flex justify-between items-start mb-1">
+                  <button
+                    className="text-left flex-1 min-w-0"
+                    onClick={() => setSelectedCustomer(c)}
+                  >
+                    <span className="text-sm font-bold">{c.name}</span>
+                  </button>
+                  <Badge variant="outline" className={`shrink-0 text-[10px] font-bold ${pill.className}`}>
+                    {pill.text}
+                  </Badge>
+                </div>
+
+                {/* Address */}
+                <div className="text-xs text-muted-foreground flex items-center gap-1 mb-3">
+                  <MapPin className="w-3 h-3 shrink-0" /> {c.address}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 text-xs gap-1 h-11 sm:h-9 font-bold"
+                    variant={isSent ? "outline" : "default"}
+                    disabled={isSent}
+                    onClick={() => handleSendReminder(c)}
+                  >
+                    {isSent ? (
+                      <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</>
+                    ) : (
+                      <><Send className="w-3.5 h-3.5" /> Remind</>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 text-xs gap-1 h-11 sm:h-9 font-bold"
+                    onClick={() => setBookCustomer(c)}
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5" /> Book
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs px-2 text-muted-foreground h-11 sm:h-9"
+                    onClick={() => confirmArchive(c.id, c.name, true)}
+                    title="Archive"
+                  >
+                    <Archive className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Detail sheet */}
