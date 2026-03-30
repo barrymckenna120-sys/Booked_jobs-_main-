@@ -126,6 +126,14 @@ const Settings = () => {
                 </p>
                 <EngineerAvailabilityTab />
               </div>
+              <Separator />
+              <div>
+                <h2 className="text-lg font-extrabold text-foreground mb-1">Job Time Blocks</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Define scheduling blocks and maximum jobs per block for each time slot.
+                </p>
+                <JobTimeBlocksSection settings={settings} onSave={handleSave} saving={saving} />
+              </div>
             </div>
           )}
           {activeTab === "messaging" && <MessagingTab settings={settings} onSave={handleSave} saving={saving} />}
