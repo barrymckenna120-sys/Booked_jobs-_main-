@@ -34,6 +34,7 @@ const titleCase = (str: string) =>
 const TABS = [
   { key: "dashboard" as const, label: "Dashboard", icon: null as any },
   { key: "follow-ups" as const, label: "Follow-ups", icon: AlertTriangle },
+  { key: "parts" as const, label: "Parts", icon: Package },
 ];
 
 type TabKey = (typeof TABS)[number]["key"];
