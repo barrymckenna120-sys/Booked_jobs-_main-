@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
-  Wrench, TrendingUp, Package, GitBranch, MessageCircle,
+  Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
