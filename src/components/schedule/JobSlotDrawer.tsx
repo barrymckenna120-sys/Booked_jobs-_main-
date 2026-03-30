@@ -1,10 +1,13 @@
+import { useState, useEffect } from "react";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench } from "lucide-react";
+import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare } from "lucide-react";
 import { formatDateIE } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type Props = {
   open: boolean;
@@ -16,9 +19,37 @@ type Props = {
 };
 
 const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, onCancel }: Props) => {
+  const { toast } = useToast();
+  const [whatsappSent, setWhatsappSent] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+
+  useEffect(() => {
+    if (job) {
+      // Check current whatsapp_confirmation_sent status
+      supabase.from("service_calls").select("whatsapp_confirmation_sent").eq("id", job.id).single()
+        .then(({ data }) => setWhatsappSent(!!(data as any)?.whatsapp_confirmation_sent));
+    }
+  }, [job]);
+
   if (!job) return null;
 
   const jobRef = `BJ-${job.id.slice(0, 6).toUpperCase()}`;
+
+  const handleSendWhatsappConfirmation = async () => {
+    setSendingWhatsapp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
+        body: { service_call_id: job.id },
+      });
+      if (error) throw error;
+      setWhatsappSent(true);
+      toast({ title: "WhatsApp confirmation sent" });
+    } catch (err: any) {
+      toast({ title: "Failed to send confirmation", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setSendingWhatsapp(false);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -105,6 +136,26 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
               </div>
             </>
           )}
+
+          <Separator />
+
+          {/* WhatsApp Booking Confirmation */}
+          <div>
+            {job.assigned_engineer ? (
+              <Button
+                onClick={handleSendWhatsappConfirmation}
+                disabled={whatsappSent || sendingWhatsapp}
+                className="w-full"
+                style={{ backgroundColor: whatsappSent ? undefined : "#25D366" }}
+                variant={whatsappSent ? "outline" : "default"}
+              >
+                <MessageSquare className="w-4 h-4 mr-1" />
+                {whatsappSent ? "Confirmation Sent ✓" : sendingWhatsapp ? "Sending…" : "Send WhatsApp Confirmation"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center">Assign an engineer to enable WhatsApp confirmation</p>
+            )}
+          </div>
 
           <Separator />
 

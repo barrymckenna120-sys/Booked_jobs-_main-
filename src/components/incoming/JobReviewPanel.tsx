@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle } from "lucide-react";
+import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle, MessageSquare } from "lucide-react";
 import MediaGallery from "@/components/media/MediaGallery";
 
 type Job = {
@@ -65,6 +65,8 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   const [notes, setNotes] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -79,6 +81,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       setAssignTime(job.time_block || "");
       setNotes(job.notes || "");
       setShowAssign(false);
+      setWhatsappSent(!!(job as any).whatsapp_confirmation_sent);
     }
   }, [job]);
 
@@ -181,6 +184,22 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
         sent_by: user.email,
         status: "Sent",
       } as any);
+    }
+  };
+
+  const handleSendWhatsappConfirmation = async () => {
+    setSendingWhatsapp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
+        body: { service_call_id: job.id },
+      });
+      if (error) throw error;
+      setWhatsappSent(true);
+      toast({ title: "WhatsApp confirmation sent" });
+    } catch (err: any) {
+      toast({ title: "Failed to send confirmation", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setSendingWhatsapp(false);
     }
   };
 
@@ -346,6 +365,24 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
               </Button>
             </div>
           )}
+
+          {/* WhatsApp Booking Confirmation */}
+          <div className="pt-2">
+            {job.assigned_engineer ? (
+              <Button
+                onClick={handleSendWhatsappConfirmation}
+                disabled={whatsappSent || sendingWhatsapp}
+                className="w-full"
+                style={{ backgroundColor: whatsappSent ? undefined : "#25D366" }}
+                variant={whatsappSent ? "outline" : "default"}
+              >
+                <MessageSquare className="w-4 h-4 mr-1" />
+                {whatsappSent ? "Confirmation Sent ✓" : sendingWhatsapp ? "Sending…" : "Send WhatsApp Confirmation"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center">Assign an engineer to enable WhatsApp confirmation</p>
+            )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
