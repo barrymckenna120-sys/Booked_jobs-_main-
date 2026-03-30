@@ -1,0 +1,56 @@
+import { useState } from "react";
+import { Inbox, Receipt, RefreshCw, TrendingUp } from "lucide-react";
+import IncomingJobs from "./IncomingJobs";
+import QuotesList from "./QuotesList";
+import Renewals from "./Renewals";
+import Finance from "./Finance";
+
+const TABS = [
+  { key: "incoming", label: "Incoming", icon: Inbox },
+  { key: "quotes", label: "Quotes", icon: Receipt },
+  { key: "renewals", label: "Renewals", icon: RefreshCw },
+  { key: "sales", label: "Sales", icon: TrendingUp },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+const Pipeline = () => {
+  const [activeTab, setActiveTab] = useState<TabKey>("incoming");
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <h1 className="text-2xl font-extrabold text-foreground">Pipeline</h1>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-hide">
+        {TABS.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-colors whitespace-nowrap ${
+                active
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
+      <div>
+        {activeTab === "incoming" && <IncomingJobs embedded />}
+        {activeTab === "quotes" && <QuotesList embedded />}
+        {activeTab === "renewals" && <Renewals embedded />}
+        {activeTab === "sales" && <Finance embedded />}
+      </div>
+    </div>
+  );
+};
+
+export default Pipeline;
