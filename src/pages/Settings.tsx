@@ -4,11 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database,
+  Settings as SettingsIcon, MessageCircle, Bell, Shield,
   Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette,
 } from "lucide-react";
 import GeneralTab from "@/components/settings/GeneralTab";
-import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
 import RemindersTab from "@/components/settings/RemindersTab";
 import SecurityTab from "@/components/settings/SecurityTab";
 import DataTab from "@/components/settings/DataTab";
@@ -20,6 +19,7 @@ import BrandTab from "@/components/settings/BrandTab";
 import MessagingTab from "@/components/settings/MessagingTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import BillingTab from "@/components/settings/BillingTab";
+import JobTimeBlocksSection from "@/components/settings/JobTimeBlocksSection";
 import { Separator } from "@/components/ui/separator";
 
 const TABS = [
