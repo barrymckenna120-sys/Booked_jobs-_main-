@@ -284,7 +284,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground">Booking Preference</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span className="text-muted-foreground">Date:</span> <span className="font-semibold">{job.scheduled_date || "—"}</span></div>
+              <div><span className="text-muted-foreground">Date:</span> <span className="font-semibold">{job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</span></div>
               <div><span className="text-muted-foreground">Time:</span> <span className="font-semibold">{job.time_block || "—"}</span></div>
             </div>
           </div>
