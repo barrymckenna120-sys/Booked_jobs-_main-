@@ -179,6 +179,17 @@ const AppLayoutInner = () => {
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
           <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+          <button
+            onClick={() => guardedNavigate("/settings")}
+            className={`p-2 rounded-md transition-colors ${
+              isActive("/settings")
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
           <Button variant="ghost" size="icon" onClick={signOut}>
             <LogOut className="w-5 h-5" />
           </Button>
