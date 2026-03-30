@@ -122,7 +122,7 @@ const EngineerCertificates = () => {
               <div className="text-[15px] font-extrabold text-foreground">{customer.name}</div>
               <div className="text-[12px] text-muted-foreground mt-0.5">{customer.address}</div>
               <div className="text-[12px] text-muted-foreground mt-0.5">
-                {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "No date"}
+                {job.scheduled_date ? new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "No date"}
               </div>
             </div>
             <span className={`${s.bg} ${s.color} rounded-full px-3 py-1 text-xs font-bold shrink-0`}>{s.label}</span>

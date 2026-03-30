@@ -248,7 +248,7 @@ const Jobs = () => {
               <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
               <TableCell>
                 {j.scheduled_date
-                  ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-GB")}${j.time_block ? ` · ${j.time_block}` : ""}`
+                  ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
                   : "—"}
               </TableCell>
               <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
