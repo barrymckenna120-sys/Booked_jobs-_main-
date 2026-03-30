@@ -20,7 +20,7 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
