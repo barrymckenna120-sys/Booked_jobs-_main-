@@ -48,15 +48,10 @@ const DESKTOP_NAV = [
    ────────────────────────────────────────────── */
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Jobs", icon: ClipboardList, path: "/jobs" },
-  { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
+  { label: "Jobs", icon: CalendarCheck, path: "/jobs" },
   { label: "Customers", icon: Users, path: "/customers" },
-  { label: "Calendar", icon: CalendarDays, path: "/schedule" },
-  { label: "Finance", icon: PoundSterling, path: "/finance" },
+  { label: "Pipeline", icon: Layers, path: "/pipeline" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
-  { label: "Parts", icon: Wrench, path: "/parts" },
-  { label: "Products", icon: Package, path: "/products" },
-  { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
