@@ -17,16 +17,16 @@ const TEMPLATES = [
     key: "template_booking_confirmation",
     name: "Booking Confirmation",
     description: "Sent immediately when a job is created and 'Send confirmation' is toggled on",
-    variables: ["{{name}}", "{{date}}", "{{time_block}}", "{{engineer}}", "{{phone}}", "{{address}}"],
-    defaultBody: `Hi {{name}}, your boiler service is booked! 🔥
+    variables: ["{{first_name}}", "{{job_type}}", "{{date}}", "{{time_slot}}", "{{engineer_name}}", "{{message_footer}}"],
+    defaultBody: `Booking Confirmed ✅
+K&N Gas Services
 
-📅 {{date}}
-⏰ {{time_block}}
-👷 Engineer: {{engineer}}
+Hi {{first_name}}, your {{job_type}} has been booked for {{date}} between {{time_slot}}.
 
-We'll be in touch if anything changes. See you then!
+Your engineer {{engineer_name}} will be with you on the day. If you need to make any changes, give us a call.
 
-{{phone}}`,
+Thanks,
+{{message_footer}}`,
   },
   {
     key: "template_renewal_reminder",
