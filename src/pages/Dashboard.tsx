@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import FollowUpsPanel from "@/components/dashboard/FollowUpsPanel";
+import PartsPanel from "@/components/dashboard/PartsPanel";
 
 import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
 import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
