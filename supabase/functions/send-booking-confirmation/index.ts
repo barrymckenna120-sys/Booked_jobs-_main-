@@ -20,7 +20,7 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -126,6 +126,17 @@ ${messageFooter}`;
     const resultText = await response.text();
     let result: any;
     try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+
+    // Log full API response to edge_function_logs for debugging
+    await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+      method: "POST",
+      headers: dbHeaders,
+      body: JSON.stringify({
+        function_name: "send-booking-confirmation",
+        error_message: `360Messenger HTTP ${response.status}: ${result.success ? "success" : "failed"}`,
+        payload: { api_response: result, sent_to: customer.phone, service_call_id, http_status: response.status },
+      }),
+    });
 
     // Update message_log status
     if (logId) {
