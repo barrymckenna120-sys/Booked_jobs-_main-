@@ -17,7 +17,7 @@ const TEMPLATES = [
     key: "template_booking_confirmation",
     name: "Booking Confirmation",
     description: "Sent immediately when a job is created and 'Send confirmation' is toggled on",
-    variables: ["{{name}}", "{{date}}", "{{time_block}}", "{{engineer}}", "{{phone}}", "{{address}}"],
+    variables: ["{{first_name}}", "{{job_type}}", "{{date}}", "{{time_slot}}", "{{engineer_name}}", "{{message_footer}}"],
     defaultBody: `Booking Confirmed ✅
 K&N Gas Services
 
