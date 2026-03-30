@@ -5,9 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
-  Wrench, TrendingUp, Package, GitBranch, Menu, X,
+  Wrench, TrendingUp, Package, GitBranch, Inbox,
 } from "lucide-react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
@@ -26,17 +26,10 @@ import WhatsAppConnectionBanner from "@/components/whatsapp/WhatsAppConnectionBa
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 
 /* ──────────────────────────────────────────────
-   DESKTOP sidebar: 9 main nav items
-   Settings is in the header as a gear icon
+   DESKTOP sidebar nav — 9 items
+   Settings is a gear icon in the header
    ────────────────────────────────────────────── */
 const DESKTOP_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -45,13 +38,14 @@ const DESKTOP_NAV = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Inbox", icon: Inbox, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
 ];
 
 /* ──────────────────────────────────────────────
-   MOBILE bottom nav: 7 tabs
-   7th = "More" which opens a sheet
+   MOBILE bottom nav — horizontally scrollable
+   All tabs are primary, no hidden menus
    ────────────────────────────────────────────── */
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -60,9 +54,7 @@ const MOBILE_NAV = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-];
-
-const MORE_ITEMS = [
+  { label: "Inbox", icon: Inbox, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
   { label: "Settings", icon: Settings, path: "/settings" },
@@ -78,7 +70,6 @@ const AppLayoutInner = () => {
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
@@ -96,8 +87,18 @@ const AppLayoutInner = () => {
     refetchInterval: 30000,
   });
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { unlockAudio(); }, []);
+
+  // Auto-scroll mobile nav to show active tab
+  useEffect(() => {
+    if (!mobileNavRef.current) return;
+    const activeBtn = mobileNavRef.current.querySelector('[data-active="true"]');
+    if (activeBtn) {
+      (activeBtn as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [location.pathname]);
 
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
@@ -105,8 +106,6 @@ const AppLayoutInner = () => {
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
-
-  const isMoreActive = MORE_ITEMS.some((item) => isActive(item.path));
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
@@ -149,6 +148,11 @@ const AppLayoutInner = () => {
             >
               <item.icon className="w-5 h-5 shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
+              {item.path === "/inbox" && unreadMessages > 0 && (
+                <span className="bg-[#4A86E8] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {unreadMessages}
+                </span>
+              )}
               {item.path === "/parts" && partsCount > 0 && (
                 <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
                   {partsCount}
@@ -190,20 +194,30 @@ const AppLayoutInner = () => {
         <Outlet />
       </main>
 
-      {/* ═══════════ MOBILE BOTTOM TAB BAR — 7 items ═══════════ */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch" style={{ minHeight: 64 }}>
+      {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
+      <nav
+        ref={mobileNavRef}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto scrollbar-hide px-1"
+        style={{ minHeight: 64, WebkitOverflowScrolling: "touch" }}
+      >
         {MOBILE_NAV.map((item) => {
           const active = isActive(item.path);
           return (
             <button
               key={item.path}
+              data-active={active}
               onClick={() => guardedNavigate(item.path)}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1.5 ${
+              className={`flex flex-col items-center justify-center shrink-0 min-w-[56px] min-h-[48px] px-2 py-1.5 ${
                 active ? "text-primary font-bold" : "text-muted-foreground"
               }`}
             >
               <div className="relative">
-                <item.icon className="w-7 h-7" />
+                <item.icon className="w-6 h-6" />
+                {item.path === "/inbox" && unreadMessages > 0 && (
+                  <span className="absolute -top-1 -right-1.5 bg-[#4A86E8] text-white text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                    {unreadMessages}
+                  </span>
+                )}
                 {item.path === "/parts" && partsCount > 0 && (
                   <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
                     {partsCount}
@@ -214,52 +228,6 @@ const AppLayoutInner = () => {
             </button>
           );
         })}
-
-        {/* More ☰ button */}
-        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-          <SheetTrigger asChild>
-            <button
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1.5 ${
-                isMoreActive ? "text-primary font-bold" : "text-muted-foreground"
-              }`}
-            >
-              <Menu className="w-7 h-7" />
-              {isMoreActive && <span className="text-[10px] leading-tight mt-0.5">More</span>}
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-2xl pb-8">
-            <SheetHeader>
-              <SheetTitle className="text-left text-base font-extrabold">More</SheetTitle>
-            </SheetHeader>
-            <div className="mt-4 space-y-1">
-              {MORE_ITEMS.map((item) => {
-                const active = isActive(item.path);
-                return (
-                  <button
-                    key={item.path}
-                    onClick={() => {
-                      setMoreOpen(false);
-                      guardedNavigate(item.path);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-primary/10 text-primary font-bold"
-                        : "text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5 shrink-0" />
-                    <span>{item.label}</span>
-                    {item.path === "/parts" && partsCount > 0 && (
-                      <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center ml-auto">
-                        {partsCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </SheetContent>
-        </Sheet>
       </nav>
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}

@@ -34,6 +34,7 @@ import FinancePage from "./pages/FinancePage";
 import SalesLedger from "./pages/SalesLedger";
 import Schedule from "./pages/Schedule";
 import Pipeline from "./pages/Pipeline";
+import InboxPage from "./pages/Inbox";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
@@ -106,6 +107,7 @@ const App = () => (
               <Route path="/customers/:id" element={<CustomerDetail />} />
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/finance" element={<FinancePage />} />
+              <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
               <Route path="/products" element={<Products />} />
               <Route path="/settings" element={<Settings />} />
@@ -117,7 +119,7 @@ const App = () => (
               <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
               <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
               <Route path="/message-log" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/messages" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/messages" element={<Navigate to="/inbox" replace />} />
               <Route path="/system-logs" element={<SystemLogs />} />
 
               {/* Quote detail routes still work directly */}
