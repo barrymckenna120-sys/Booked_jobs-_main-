@@ -90,14 +90,16 @@ const AppLayoutInner = () => {
 
   useEffect(() => { unlockAudio(); }, []);
 
-  // Auto-scroll mobile nav to show active tab
+  // Auto-scroll mobile nav to show active tab only on first render
+  const hasAutoScrolled = useRef(false);
   useEffect(() => {
-    if (!mobileNavRef.current) return;
+    if (!mobileNavRef.current || hasAutoScrolled.current) return;
+    hasAutoScrolled.current = true;
     const activeBtn = mobileNavRef.current.querySelector('[data-active="true"]');
     if (activeBtn) {
-      (activeBtn as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      (activeBtn as HTMLElement).scrollIntoView({ behavior: "instant", inline: "center", block: "nearest" });
     }
-  }, [location.pathname]);
+  }, []);
 
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
