@@ -235,13 +235,12 @@ const AppLayoutInner = () => {
       </main>
 
       {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
-        <nav
-          ref={mobileNavRef}
-          aria-label="Mobile navigation"
-          className="mobile-bottom-nav-scroll max-w-full px-1"
-        >
-          <div className="mobile-bottom-nav-track flex items-stretch" style={{ minHeight: 64 }}>
+      <nav
+        ref={mobileNavRef}
+        aria-label="Mobile navigation"
+        className="mobile-bottom-nav-scroll md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="mobile-bottom-nav-track items-stretch px-1" style={{ minHeight: 64 }}>
           {MOBILE_NAV.map((item) => {
             const active = isActive(item.path);
             return (
@@ -271,8 +270,7 @@ const AppLayoutInner = () => {
             );
           })}
           </div>
-        </nav>
-      </div>
+      </nav>
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
