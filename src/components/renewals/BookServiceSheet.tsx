@@ -64,7 +64,7 @@ const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
     }
     setSaving(true);
     const matchedEng = engineers.find((e: any) => e.name === engineer);
-    const { error } = await supabase.from("service_calls").insert({
+    const { data: insertedRow, error } = await supabase.from("service_calls").insert({
       user_id: user.id,
       customer_id: customer.id,
       job_type: "Boiler Service",
@@ -75,11 +75,16 @@ const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
       assigned_engineer_id: matchedEng?.id || null,
       notes: notes || null,
       source: "Renewal",
-    } as any);
+    } as any).select('id').single();
     setSaving(false);
     if (error) {
       toast({ title: "Error creating booking", variant: "destructive" });
     } else {
+      if (insertedRow?.id) {
+        supabase.functions.invoke('send-booking-confirmation', {
+          body: { service_call_id: insertedRow.id }
+        }).catch(err => console.error('Booking confirmation failed:', err));
+      }
       // Update customer scheduled_service_date
       await supabase.from("customers").update({
         scheduled_service_date: date,

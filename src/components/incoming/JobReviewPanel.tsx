@@ -105,6 +105,9 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     } as any).eq("id", job.id);
     setAssigning(false);
     logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: job.id, detail: `Incoming job assigned to ${assignEngineer} on ${assignDate}` });
+    supabase.functions.invoke('send-booking-confirmation', {
+      body: { service_call_id: job.id }
+    }).catch(err => console.error('Booking confirmation failed:', err));
 
     const jobRef = `BJ-${job.id.slice(0, 6).toUpperCase()}`;
 
