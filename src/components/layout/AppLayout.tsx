@@ -44,8 +44,7 @@ const DESKTOP_NAV = [
 ];
 
 /* ──────────────────────────────────────────────
-   MOBILE bottom nav — horizontally scrollable
-   All tabs are primary, no hidden menus
+   MOBILE bottom nav — 10 tabs, horizontally scrollable
    ────────────────────────────────────────────── */
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -53,8 +52,11 @@ const MOBILE_NAV = [
   { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
-  { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
+  { label: "Parts", icon: Wrench, path: "/parts" },
+  { label: "Products", icon: Package, path: "/products" },
+  { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 const AppLayoutInner = () => {
