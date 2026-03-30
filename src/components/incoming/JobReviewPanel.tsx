@@ -365,6 +365,24 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
               </Button>
             </div>
           )}
+
+          {/* WhatsApp Booking Confirmation */}
+          <div className="pt-2">
+            {job.assigned_engineer ? (
+              <Button
+                onClick={handleSendWhatsappConfirmation}
+                disabled={whatsappSent || sendingWhatsapp}
+                className="w-full"
+                style={{ backgroundColor: whatsappSent ? undefined : "#25D366" }}
+                variant={whatsappSent ? "outline" : "default"}
+              >
+                <MessageSquare className="w-4 h-4 mr-1" />
+                {whatsappSent ? "Confirmation Sent ✓" : sendingWhatsapp ? "Sending…" : "Send WhatsApp Confirmation"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center">Assign an engineer to enable WhatsApp confirmation</p>
+            )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
