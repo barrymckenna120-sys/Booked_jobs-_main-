@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { CalendarDays, Plus, Loader2, AlertTriangle, Package } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { format } from "date-fns";
@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import FollowUpsPanel from "@/components/dashboard/FollowUpsPanel";
+import PartsPanel from "@/components/dashboard/PartsPanel";
 
 import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
 import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
@@ -33,6 +34,7 @@ const titleCase = (str: string) =>
 const TABS = [
   { key: "dashboard" as const, label: "Dashboard", icon: null as any },
   { key: "follow-ups" as const, label: "Follow-ups", icon: AlertTriangle },
+  { key: "parts" as const, label: "Parts", icon: Package },
 ];
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -66,6 +68,19 @@ const Dashboard = () => {
         .select("id", { count: "exact", head: true })
         .eq("follow_up_needed", true)
         .eq("follow_up_resolved", false);
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  const { data: partsCount = 0 } = useQuery({
+    queryKey: ["parts-count", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("service_calls")
+        .select("id", { count: "exact", head: true })
+        .not("parts_status", "is", null)
+        .not("parts_status", "eq", "Fitted");
       return count || 0;
     },
     enabled: !!user,
@@ -120,6 +135,11 @@ const Dashboard = () => {
                   {followUpCount}
                 </span>
               )}
+              {tab.key === "parts" && partsCount > 0 && (
+                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-amber-500 text-white">
+                  {partsCount}
+                </span>
+              )}
             </button>
           );
         })}
@@ -136,6 +156,8 @@ const Dashboard = () => {
       )}
 
       {activeTab === "follow-ups" && <FollowUpsPanel />}
+
+      {activeTab === "parts" && <PartsPanel />}
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
     </div>
