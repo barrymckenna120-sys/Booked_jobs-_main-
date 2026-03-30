@@ -21,6 +21,7 @@ interface Props {
 }
 
 const JobMessageThread = ({ jobId, perspective }: Props) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
