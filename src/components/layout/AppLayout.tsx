@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
-  Wrench, TrendingUp, Package, GitBranch, MessageCircle,
+  Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,15 +37,14 @@ const DESKTOP_NAV = [
   { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
-  { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
 ];
 
 /* ──────────────────────────────────────────────
-   MOBILE bottom nav — horizontally scrollable
-   All tabs are primary, no hidden menus
+   MOBILE bottom nav — 10 tabs, horizontally scrollable
    ────────────────────────────────────────────── */
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -53,8 +52,11 @@ const MOBILE_NAV = [
   { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
-  { label: "Finance", icon: TrendingUp, path: "/finance" },
+  { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
+  { label: "Parts", icon: Wrench, path: "/parts" },
+  { label: "Products", icon: Package, path: "/products" },
+  { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 const AppLayoutInner = () => {
@@ -205,8 +207,8 @@ const AppLayoutInner = () => {
       {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
       <nav
         ref={mobileNavRef}
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto scrollbar-hide px-1"
-        style={{ minHeight: 64, WebkitOverflowScrolling: "touch" }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto px-1"
+        style={{ minHeight: 64, WebkitOverflowScrolling: "touch", overscrollBehaviorX: "auto" }}
       >
         {MOBILE_NAV.map((item) => {
           const active = isActive(item.path);
