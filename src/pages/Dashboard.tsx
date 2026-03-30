@@ -157,6 +157,8 @@ const Dashboard = () => {
 
       {activeTab === "follow-ups" && <FollowUpsPanel />}
 
+      {activeTab === "parts" && <PartsPanel />}
+
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
     </div>
   );
