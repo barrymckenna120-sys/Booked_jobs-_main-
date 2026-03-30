@@ -9,14 +9,14 @@ import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { format } from "date-fns";
 
+import DashboardStatCards from "@/components/dashboard/DashboardStatCards";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
+import NeedsAttentionCard from "@/components/dashboard/NeedsAttentionCard";
+import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
+import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import FollowUpsPanel from "@/components/dashboard/FollowUpsPanel";
 import PartsPanel from "@/components/dashboard/PartsPanel";
-
-import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
-import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
-import MessageLogWidget from "@/components/dashboard/MessageLogWidget";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -93,7 +93,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -131,12 +131,12 @@ const Dashboard = () => {
               {tab.icon && <tab.icon className="w-4 h-4" />}
               {tab.label}
               {tab.key === "follow-ups" && followUpCount > 0 && (
-                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-amber-500 text-white">
+                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-warning text-warning-foreground">
                   {followUpCount}
                 </span>
               )}
               {tab.key === "parts" && partsCount > 0 && (
-                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-amber-500 text-white">
+                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-warning text-warning-foreground">
                   {partsCount}
                 </span>
               )}
@@ -146,13 +146,26 @@ const Dashboard = () => {
       </div>
 
       {activeTab === "dashboard" && (
-        <>
-          <TodayTimeline />
-          <TodaysRevenueCard />
-          <JobsUpdateSection />
-          <MessageLogWidget />
-          <AlertsPanel />
-        </>
+        <div className="space-y-5 sm:space-y-6">
+          {/* Row 1: Stat Cards */}
+          <DashboardStatCards />
+
+          {/* Row 2: Schedule + Needs Attention */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 sm:gap-6">
+            <div className="lg:col-span-3">
+              <TodayTimeline />
+            </div>
+            <div className="lg:col-span-2">
+              <NeedsAttentionCard />
+            </div>
+          </div>
+
+          {/* Row 3: Jobs Update + Revenue */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+            <JobsUpdateSection />
+            <TodaysRevenueCard />
+          </div>
+        </div>
       )}
 
       {activeTab === "follow-ups" && <FollowUpsPanel />}
