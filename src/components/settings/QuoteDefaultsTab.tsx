@@ -18,6 +18,7 @@ const QuoteDefaultsTab = ({ settings, onSave, saving }: Props) => {
   const [expiryDays, setExpiryDays] = useState("30");
   const [vatEnabled, setVatEnabled] = useState(false);
   const [deposit, setDeposit] = useState("0");
+  const [depositPercentage, setDepositPercentage] = useState(50);
 
   useEffect(() => {
     if (settings) {
@@ -25,6 +26,7 @@ const QuoteDefaultsTab = ({ settings, onSave, saving }: Props) => {
       setExpiryDays(String(settings.default_expiry_days ?? 30));
       setVatEnabled(settings.default_vat_enabled ?? false);
       setDeposit(String(settings.default_deposit ?? 0));
+      setDepositPercentage(settings.deposit_percentage ?? 50);
     }
   }, [settings]);
 
@@ -34,6 +36,7 @@ const QuoteDefaultsTab = ({ settings, onSave, saving }: Props) => {
       default_expiry_days: parseInt(expiryDays) || 30,
       default_vat_enabled: vatEnabled,
       default_deposit: parseFloat(deposit) || 0,
+      deposit_percentage: depositPercentage,
     });
   };
 
@@ -65,6 +68,23 @@ const QuoteDefaultsTab = ({ settings, onSave, saving }: Props) => {
               <Label className="text-xs font-semibold">Default Deposit €</Label>
               <Input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} placeholder="0.00" />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Default Deposit Percentage</Label>
+            <div className="relative w-32">
+              <Input
+                type="number"
+                value={depositPercentage}
+                onChange={(e) => setDepositPercentage(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                min={0}
+                max={100}
+                step={1}
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Applied when generating quotes and payment requests.</p>
           </div>
 
           <div className="flex items-center gap-3">

@@ -4,11 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database,
+  Settings as SettingsIcon, MessageCircle, Bell, Shield,
   Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette,
 } from "lucide-react";
 import GeneralTab from "@/components/settings/GeneralTab";
-import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
 import RemindersTab from "@/components/settings/RemindersTab";
 import SecurityTab from "@/components/settings/SecurityTab";
 import DataTab from "@/components/settings/DataTab";
@@ -20,6 +19,7 @@ import BrandTab from "@/components/settings/BrandTab";
 import MessagingTab from "@/components/settings/MessagingTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import BillingTab from "@/components/settings/BillingTab";
+import JobTimeBlocksSection from "@/components/settings/JobTimeBlocksSection";
 import { Separator } from "@/components/ui/separator";
 
 const TABS = [
@@ -125,6 +125,14 @@ const Settings = () => {
                   Set working days and manage time-off for your engineers.
                 </p>
                 <EngineerAvailabilityTab />
+              </div>
+              <Separator />
+              <div>
+                <h2 className="text-lg font-extrabold text-foreground mb-1">Job Time Blocks</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Define scheduling blocks and maximum jobs per block for each time slot.
+                </p>
+                <JobTimeBlocksSection settings={settings} onSave={handleSave} saving={saving} />
               </div>
             </div>
           )}
