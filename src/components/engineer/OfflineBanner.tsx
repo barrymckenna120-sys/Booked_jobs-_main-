@@ -6,54 +6,41 @@ type OfflineBannerProps = {
 };
 
 const OfflineBanner = ({ topOffsetClassName = "top-0" }: OfflineBannerProps) => {
-  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
+  const [isOffline, setIsOffline] = useState(false);
 
   const checkConnectivity = useCallback(async () => {
-    if (!navigator.onLine) {
-      setIsOffline(true);
-      return;
-    }
-
     try {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 5000);
 
-      await fetch(`/favicon.ico?offline-check=${Date.now()}`, {
-        method: "HEAD",
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`,
+        { method: "HEAD", cache: "no-store", signal: controller.signal }
+      );
 
       window.clearTimeout(timeoutId);
-      setIsOffline(false);
+      setIsOffline(!response.ok);
     } catch {
       setIsOffline(true);
     }
   }, []);
 
   useEffect(() => {
-    const goOffline = () => setIsOffline(true);
-    const goOnline = () => {
-      void checkConnectivity();
-    };
+    const onConnectivityChange = () => void checkConnectivity();
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void checkConnectivity();
-      }
+      if (document.visibilityState === "visible") void checkConnectivity();
     };
 
-    window.addEventListener("offline", goOffline);
-    window.addEventListener("online", goOnline);
+    window.addEventListener("online", onConnectivityChange);
+    window.addEventListener("offline", onConnectivityChange);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     void checkConnectivity();
-    const intervalId = window.setInterval(() => {
-      void checkConnectivity();
-    }, 10000);
+    const intervalId = window.setInterval(onConnectivityChange, 30000);
 
     return () => {
-      window.removeEventListener("offline", goOffline);
-      window.removeEventListener("online", goOnline);
+      window.removeEventListener("online", onConnectivityChange);
+      window.removeEventListener("offline", onConnectivityChange);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(intervalId);
     };
