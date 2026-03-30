@@ -209,37 +209,39 @@ const AppLayoutInner = () => {
       {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
       <nav
         ref={mobileNavRef}
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto px-1"
-        style={{ minHeight: 64, WebkitOverflowScrolling: "touch", overscrollBehaviorX: "auto" }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border overflow-x-auto"
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {MOBILE_NAV.map((item) => {
-          const active = isActive(item.path);
-          return (
-            <button
-              key={item.path}
-              data-active={active}
-              onClick={() => guardedNavigate(item.path)}
-              className={`flex flex-col items-center justify-center shrink-0 min-w-[56px] min-h-[48px] px-2 py-1.5 ${
-                active ? "text-primary font-bold" : "text-muted-foreground"
-              }`}
-            >
-              <div className="relative">
-                <item.icon className="w-6 h-6" />
-                {item.path === "/inbox" && unreadMessages > 0 && (
-                  <span className="absolute -top-1 -right-1.5 bg-[#4A86E8] text-white text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                    {unreadMessages}
-                  </span>
-                )}
-                {item.path === "/parts" && partsCount > 0 && (
-                  <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                    {partsCount}
-                  </span>
-                )}
-              </div>
-              {active && <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>}
-            </button>
-          );
-        })}
+        <div className="flex items-stretch px-1" style={{ minHeight: 64, width: "max-content" }}>
+          {MOBILE_NAV.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                data-active={active}
+                onClick={() => guardedNavigate(item.path)}
+                className={`flex flex-col items-center justify-center min-w-[60px] px-2.5 py-1.5 ${
+                  active ? "text-primary font-bold" : "text-muted-foreground"
+                }`}
+              >
+                <div className="relative">
+                  <item.icon className="w-5 h-5" />
+                  {item.path === "/inbox" && unreadMessages > 0 && (
+                    <span className="absolute -top-1 -right-1.5 bg-[#4A86E8] text-white text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                      {unreadMessages}
+                    </span>
+                  )}
+                  {item.path === "/parts" && partsCount > 0 && (
+                    <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
+                      {partsCount}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[9px] leading-tight mt-0.5 ${active ? "" : "opacity-70"}`}>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
