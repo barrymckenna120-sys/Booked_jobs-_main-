@@ -119,7 +119,7 @@ const App = () => (
               <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
               <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
               <Route path="/message-log" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/messages" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/messages" element={<Navigate to="/inbox" replace />} />
               <Route path="/system-logs" element={<SystemLogs />} />
 
               {/* Quote detail routes still work directly */}
