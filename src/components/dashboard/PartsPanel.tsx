@@ -146,33 +146,31 @@ const PartsPanel = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
-                  size="sm"
-                  className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  className="h-11 sm:h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm w-full sm:w-auto"
                   disabled={sendingId === job.id}
                   onClick={() => handleSendMessage(job)}
                 >
                   {sendingId === job.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <MessageCircle className="w-3.5 h-3.5" />
+                    <MessageCircle className="w-4 h-4" />
                   )}
                   Send Message
                 </Button>
 
                 {job.parts_status === "Ordered" && (
                   <Button
-                    size="sm"
                     variant="secondary"
-                    className="h-9 gap-1.5 font-bold"
+                    className="h-11 sm:h-9 gap-1.5 font-bold text-sm w-full sm:w-auto"
                     disabled={updatingId === job.id}
                     onClick={() => handleUpdateStatus(job.id, "Received")}
                   >
                     {updatingId === job.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <CheckCircle2 className="w-4 h-4" />
                     )}
                     Mark Received
                   </Button>
@@ -180,16 +178,15 @@ const PartsPanel = () => {
 
                 {job.parts_status === "Received" && (
                   <Button
-                    size="sm"
                     variant="secondary"
-                    className="h-9 gap-1.5 font-bold"
+                    className="h-11 sm:h-9 gap-1.5 font-bold text-sm w-full sm:w-auto"
                     disabled={updatingId === job.id}
                     onClick={() => handleUpdateStatus(job.id, "Fitted")}
                   >
                     {updatingId === job.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Wrench className="w-3.5 h-3.5" />
+                      <Wrench className="w-4 h-4" />
                     )}
                     Mark Fitted
                   </Button>
