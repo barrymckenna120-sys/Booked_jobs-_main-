@@ -135,6 +135,11 @@ const Dashboard = () => {
                   {followUpCount}
                 </span>
               )}
+              {tab.key === "parts" && partsCount > 0 && (
+                <span className="inline-flex items-center justify-center text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] bg-amber-500 text-white">
+                  {partsCount}
+                </span>
+              )}
             </button>
           );
         })}
