@@ -1400,7 +1400,9 @@ export type Database = {
           owner_or_tenant: string | null
           paid_at: string | null
           parts_logged_at: string | null
+          parts_notes: string | null
           parts_priority: string | null
+          parts_status: string | null
           payment_collected_by: string | null
           payment_link: string | null
           payment_method: string | null
@@ -1464,7 +1466,9 @@ export type Database = {
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
+          parts_notes?: string | null
           parts_priority?: string | null
+          parts_status?: string | null
           payment_collected_by?: string | null
           payment_link?: string | null
           payment_method?: string | null
@@ -1528,7 +1532,9 @@ export type Database = {
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
+          parts_notes?: string | null
           parts_priority?: string | null
+          parts_status?: string | null
           payment_collected_by?: string | null
           payment_link?: string | null
           payment_method?: string | null
