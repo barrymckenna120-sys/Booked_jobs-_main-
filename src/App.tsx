@@ -34,6 +34,7 @@ import FinancePage from "./pages/FinancePage";
 import SalesLedger from "./pages/SalesLedger";
 import Schedule from "./pages/Schedule";
 import Pipeline from "./pages/Pipeline";
+import InboxPage from "./pages/Inbox";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
