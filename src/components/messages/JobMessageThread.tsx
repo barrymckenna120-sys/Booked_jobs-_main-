@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { format, parseISO } from "date-fns";
 
 interface Message {
@@ -20,6 +21,7 @@ interface Props {
 }
 
 const JobMessageThread = ({ jobId, perspective }: Props) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [senderNames, setSenderNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -96,6 +98,22 @@ const JobMessageThread = ({ jobId, perspective }: Props) => {
       supabase.removeChannel(channel);
     };
   }, [jobId]);
+
+  // Mark incoming messages as read when thread is open
+  useEffect(() => {
+    if (!user || messages.length === 0) return;
+    const otherRole = perspective === "office" ? "engineer" : "office";
+    const unread = messages.filter(
+      (m) => m.sender_role === otherRole && !m.read_at
+    );
+    if (unread.length > 0) {
+      supabase
+        .from("job_messages")
+        .update({ read_at: new Date().toISOString() })
+        .in("id", unread.map((m) => m.id))
+        .then();
+    }
+  }, [messages, user, perspective]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
