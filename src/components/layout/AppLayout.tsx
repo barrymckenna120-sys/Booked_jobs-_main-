@@ -59,6 +59,8 @@ const MOBILE_NAV = [
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
+const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
+
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
   const { isEngineer, loading: roleLoading } = useUserRole(user);
@@ -90,15 +92,41 @@ const AppLayoutInner = () => {
 
   useEffect(() => { unlockAudio(); }, []);
 
-  // Auto-scroll mobile nav to show active tab only on first render
-  const hasAutoScrolled = useRef(false);
   useEffect(() => {
-    if (!mobileNavRef.current || hasAutoScrolled.current) return;
-    hasAutoScrolled.current = true;
-    const activeBtn = mobileNavRef.current.querySelector('[data-active="true"]');
-    if (activeBtn) {
-      (activeBtn as HTMLElement).scrollIntoView({ behavior: "instant", inline: "center", block: "nearest" });
-    }
+    const nav = mobileNavRef.current;
+    if (!nav) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const savedScrollLeft = window.sessionStorage.getItem(MOBILE_NAV_SCROLL_STORAGE_KEY);
+
+      if (savedScrollLeft !== null) {
+        nav.scrollLeft = Number(savedScrollLeft);
+        return;
+      }
+
+      const activeBtn = nav.querySelector('[data-active="true"]') as HTMLElement | null;
+      if (!activeBtn) return;
+
+      const centeredLeft = Math.max(0, activeBtn.offsetLeft - nav.clientWidth / 2 + activeBtn.clientWidth / 2);
+      nav.scrollTo({ left: centeredLeft, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    if (!nav) return;
+
+    const persistScroll = () => {
+      window.sessionStorage.setItem(MOBILE_NAV_SCROLL_STORAGE_KEY, String(nav.scrollLeft));
+    };
+
+    nav.addEventListener("scroll", persistScroll, { passive: true });
+
+    return () => {
+      nav.removeEventListener("scroll", persistScroll);
+    };
   }, []);
 
   if (!roleLoading && isEngineer) {
@@ -207,12 +235,13 @@ const AppLayoutInner = () => {
       </main>
 
       {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
-      <nav
-        ref={mobileNavRef}
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border overflow-x-auto"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <div className="flex items-stretch px-1" style={{ minHeight: 64, width: "max-content" }}>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
+        <nav
+          ref={mobileNavRef}
+          aria-label="Mobile navigation"
+          className="mobile-bottom-nav-scroll max-w-full px-1"
+        >
+          <div className="mobile-bottom-nav-track flex items-stretch" style={{ minHeight: 64 }}>
           {MOBILE_NAV.map((item) => {
             const active = isActive(item.path);
             return (
@@ -220,7 +249,7 @@ const AppLayoutInner = () => {
                 key={item.path}
                 data-active={active}
                 onClick={() => guardedNavigate(item.path)}
-                className={`flex flex-col items-center justify-center min-w-[60px] px-2.5 py-1.5 ${
+                className={`flex shrink-0 select-none flex-col items-center justify-center min-w-[60px] px-2.5 py-1.5 ${
                   active ? "text-primary font-bold" : "text-muted-foreground"
                 }`}
               >
@@ -241,8 +270,9 @@ const AppLayoutInner = () => {
               </button>
             );
           })}
-        </div>
-      </nav>
+          </div>
+        </nav>
+      </div>
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
