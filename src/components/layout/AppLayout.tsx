@@ -270,8 +270,7 @@ const AppLayoutInner = () => {
             );
           })}
           </div>
-        </nav>
-      </div>
+      </nav>
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
