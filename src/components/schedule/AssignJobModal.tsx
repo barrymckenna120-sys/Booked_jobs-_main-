@@ -90,12 +90,20 @@ const AssignJobModal = ({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base">{buildTitle()}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
+      <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="flex flex-row items-center gap-2 space-y-0">
+            <button
+              onClick={handleClose}
+              className="p-2 -ml-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <SheetTitle className="text-base flex-1">{buildTitle()}</SheetTitle>
+          </SheetHeader>
+
+          <div className="space-y-4 pt-4">
             {/* Job picker */}
             {!job && (
               <div className="space-y-1.5">
@@ -189,13 +197,11 @@ const AssignJobModal = ({
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button onClick={handleConfirm}>
-                Assign
-              </Button>
+              <Button onClick={handleConfirm}>Assign</Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <FormLeaveGuard
         open={showLeaveGuard}
