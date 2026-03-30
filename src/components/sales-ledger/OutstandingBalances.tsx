@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
-import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { CreditCard, ExternalLink, Loader2, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import ReminderChecklistModal from "./ReminderChecklistModal";
 
 type OutstandingJob = {
   id: string;
@@ -18,6 +19,10 @@ type OutstandingJob = {
   revenue: number | null;
   deposit_amount: number | null;
   customer_name: string;
+  receipt_number: string | null;
+  payment_status: string | null;
+  reminder_14day_sent: boolean;
+  customer_phone: string | null;
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
@@ -28,13 +33,15 @@ const OutstandingBalances = () => {
   const [jobs, setJobs] = useState<OutstandingJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [reminderModalJob, setReminderModalJob] = useState<OutstandingJob | null>(null);
+  const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     supabase
       .from("service_calls")
-      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, customer_id, customers(name)")
+      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, customers(name, phone)")
       .eq("deposit_required", true)
       .gt("deposit_amount", 0)
       .neq("payment_status", "paid")
@@ -57,6 +64,10 @@ const OutstandingBalances = () => {
                 revenue: r.revenue,
                 deposit_amount: r.deposit_amount,
                 customer_name: r.customers?.name || "Unknown",
+                receipt_number: r.receipt_number,
+                payment_status: r.payment_status,
+                reminder_14day_sent: !!r.reminder_14day_sent,
+                customer_phone: r.customers?.phone || null,
               }))
           );
         }
@@ -81,6 +92,21 @@ const OutstandingBalances = () => {
     } finally {
       setTimeout(() => setSendingId(null), 2000);
     }
+  };
+
+  const handleSendReminder = async (jobId: string) => {
+    const { data, error } = await supabase.functions.invoke("trigger-outstanding-reminder", {
+      body: { service_call_id: jobId },
+    });
+
+    if (error || !data?.success) {
+      throw new Error(data?.error || error?.message || "Failed to send reminder");
+    }
+
+    // Mark locally as sent
+    setSentReminders((prev) => new Set(prev).add(jobId));
+    setReminderModalJob(null);
+    toast({ title: "✅ Reminder sent", description: `14-day outstanding invoice reminder sent successfully.` });
   };
 
   if (loading) {
@@ -110,125 +136,171 @@ const OutstandingBalances = () => {
   const jobRefStr = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
 
   return (
-    <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: "#FDE68A" }}>
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-5 py-3"
-        style={{ background: "#FFFBEB", borderBottom: "1px solid #FDE68A" }}
-      >
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-extrabold" style={{ color: "#92400E" }}>
-            ⚠️ Outstanding Balances
-          </h2>
-          <Badge
-            className="rounded-full text-xs font-bold px-2.5 py-0.5"
-            style={{ background: "#F59E0B", color: "#fff", border: "none" }}
-          >
-            {jobs.length}
-          </Badge>
+    <>
+      <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: "#FDE68A" }}>
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 py-3"
+          style={{ background: "#FFFBEB", borderBottom: "1px solid #FDE68A" }}
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-extrabold" style={{ color: "#92400E" }}>
+              ⚠️ Outstanding Balances
+            </h2>
+            <Badge
+              className="rounded-full text-xs font-bold px-2.5 py-0.5"
+              style={{ background: "#F59E0B", color: "#fff", border: "none" }}
+            >
+              {jobs.length}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-extrabold">Job Ref</TableHead>
+                <TableHead className="font-extrabold">Date</TableHead>
+                <TableHead className="font-extrabold">Customer</TableHead>
+                <TableHead className="font-extrabold">Job Type</TableHead>
+                <TableHead className="font-extrabold">Engineer</TableHead>
+                <TableHead className="font-extrabold text-right">Job Total</TableHead>
+                <TableHead className="font-extrabold text-right">Deposit Paid</TableHead>
+                <TableHead className="font-extrabold text-right">Balance Due</TableHead>
+                <TableHead className="font-extrabold text-center">Status</TableHead>
+                <TableHead className="font-extrabold text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jobs.map((job) => {
+                const rev = job.revenue || 0;
+                const dep = job.deposit_amount || 0;
+                const bal = rev - dep;
+                const isSending = sendingId === job.id;
+                const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
+
+                return (
+                  <TableRow key={job.id}>
+                    <TableCell className="font-mono font-bold">
+                      <a href={`/jobs/${job.id}`} className="text-primary hover:underline">
+                        {jobRefStr(job.id)}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      {job.scheduled_date
+                        ? format(new Date(job.scheduled_date + "T00:00:00"), "dd/MM/yy")
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="font-semibold">{job.customer_name}</TableCell>
+                    <TableCell>{job.job_type}</TableCell>
+                    <TableCell>{job.assigned_engineer || "—"}</TableCell>
+                    <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
+                    <TableCell className="text-right font-semibold" style={{ color: "#16A34A" }}>
+                      {eur(dep)}
+                    </TableCell>
+                    <TableCell className="text-right font-bold" style={{ color: "#D97706" }}>
+                      {eur(bal)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {reminderAlreadySent ? (
+                        <Badge
+                          className="rounded-full text-xs font-bold px-2.5 py-0.5"
+                          style={{ background: "#DBEAFE", color: "#1E40AF", border: "1px solid #93C5FD" }}
+                        >
+                          Reminder Sent
+                        </Badge>
+                      ) : (
+                        <Badge
+                          className="rounded-full text-xs font-bold px-2.5 py-0.5"
+                          style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}
+                        >
+                          Balance Pending
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          className="gap-1 text-xs font-bold text-white"
+                          style={{ background: "#4A86E8" }}
+                          onClick={() => window.location.href = `/jobs/${job.id}`}
+                        >
+                          <CreditCard className="w-3.5 h-3.5" /> Take Payment
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-xs font-bold"
+                          disabled={isSending}
+                          onClick={() => handleSendLink(job)}
+                        >
+                          {isSending ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                          ) : (
+                            <><ExternalLink className="w-3.5 h-3.5" /> Send Link</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-xs font-bold"
+                          disabled={reminderAlreadySent}
+                          onClick={() => setReminderModalJob(job)}
+                          style={!reminderAlreadySent ? { borderColor: "#F59E0B", color: "#92400E" } : undefined}
+                        >
+                          <Bell className="w-3.5 h-3.5" />
+                          {reminderAlreadySent ? "Sent" : "14-Day Reminder"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+            <TableFooter>
+              <TableRow style={{ background: "#FFFBEB" }}>
+                <TableCell colSpan={5} className="text-right font-extrabold" style={{ color: "#92400E" }}>
+                  TOTALS
+                </TableCell>
+                <TableCell className="text-right font-extrabold">{eur(totals.total)}</TableCell>
+                <TableCell className="text-right font-extrabold" style={{ color: "#16A34A" }}>
+                  {eur(totals.deposit)}
+                </TableCell>
+                <TableCell className="text-right font-extrabold" style={{ color: "#D97706" }}>
+                  {eur(totals.balance)}
+                </TableCell>
+                <TableCell colSpan={2} />
+              </TableRow>
+            </TableFooter>
+          </Table>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="font-extrabold">Job Ref</TableHead>
-              <TableHead className="font-extrabold">Date</TableHead>
-              <TableHead className="font-extrabold">Customer</TableHead>
-              <TableHead className="font-extrabold">Job Type</TableHead>
-              <TableHead className="font-extrabold">Engineer</TableHead>
-              <TableHead className="font-extrabold text-right">Job Total</TableHead>
-              <TableHead className="font-extrabold text-right">Deposit Paid</TableHead>
-              <TableHead className="font-extrabold text-right">Balance Due</TableHead>
-              <TableHead className="font-extrabold text-center">Status</TableHead>
-              <TableHead className="font-extrabold text-center">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {jobs.map((job) => {
-              const rev = job.revenue || 0;
-              const dep = job.deposit_amount || 0;
-              const bal = rev - dep;
-              const isSending = sendingId === job.id;
-              return (
-                <TableRow key={job.id}>
-                  <TableCell className="font-mono font-bold">
-                    <a href={`/jobs/${job.id}`} className="text-primary hover:underline">
-                      {jobRefStr(job.id)}
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    {job.scheduled_date
-                      ? format(new Date(job.scheduled_date + "T00:00:00"), "dd/MM/yy")
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="font-semibold">{job.customer_name}</TableCell>
-                  <TableCell>{job.job_type}</TableCell>
-                  <TableCell>{job.assigned_engineer || "—"}</TableCell>
-                  <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
-                  <TableCell className="text-right font-semibold" style={{ color: "#16A34A" }}>
-                    {eur(dep)}
-                  </TableCell>
-                  <TableCell className="text-right font-bold" style={{ color: "#D97706" }}>
-                    {eur(bal)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge
-                      className="rounded-full text-xs font-bold px-2.5 py-0.5"
-                      style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}
-                    >
-                      Balance Pending
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Button
-                        size="sm"
-                        className="gap-1 text-xs font-bold text-white"
-                        style={{ background: "#4A86E8" }}
-                        onClick={() => window.location.href = `/jobs/${job.id}`}
-                      >
-                        <CreditCard className="w-3.5 h-3.5" /> Take Payment
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1 text-xs font-bold"
-                        disabled={isSending}
-                        onClick={() => handleSendLink(job)}
-                      >
-                        {isSending ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
-                        ) : (
-                          <><ExternalLink className="w-3.5 h-3.5" /> Send Link</>
-                        )}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-          <TableFooter>
-            <TableRow style={{ background: "#FFFBEB" }}>
-              <TableCell colSpan={5} className="text-right font-extrabold" style={{ color: "#92400E" }}>
-                TOTALS
-              </TableCell>
-              <TableCell className="text-right font-extrabold">{eur(totals.total)}</TableCell>
-              <TableCell className="text-right font-extrabold" style={{ color: "#16A34A" }}>
-                {eur(totals.deposit)}
-              </TableCell>
-              <TableCell className="text-right font-extrabold" style={{ color: "#D97706" }}>
-                {eur(totals.balance)}
-              </TableCell>
-              <TableCell colSpan={2} />
-            </TableRow>
-          </TableFooter>
-        </Table>
-      </div>
-    </div>
+      {/* Reminder Checklist Modal */}
+      <ReminderChecklistModal
+        open={!!reminderModalJob}
+        onClose={() => setReminderModalJob(null)}
+        job={
+          reminderModalJob
+            ? {
+                id: reminderModalJob.id,
+                customer_name: reminderModalJob.customer_name,
+                receipt_number: reminderModalJob.receipt_number,
+                scheduled_date: reminderModalJob.scheduled_date
+                  ? format(new Date(reminderModalJob.scheduled_date + "T00:00:00"), "dd/MM/yyyy")
+                  : null,
+                balance_due: (reminderModalJob.revenue || 0) - (reminderModalJob.deposit_amount || 0),
+                customer_phone: reminderModalJob.customer_phone,
+                payment_status: reminderModalJob.payment_status,
+              }
+            : null
+        }
+        onConfirm={handleSendReminder}
+      />
+    </>
   );
 };
 
