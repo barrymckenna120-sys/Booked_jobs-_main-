@@ -39,8 +39,8 @@ const OfflineBanner = ({ topOffsetClassName = "top-0" }: OfflineBannerProps) => 
     const intervalId = window.setInterval(onConnectivityChange, 30000);
 
     return () => {
-      window.removeEventListener("offline", goOffline);
-      window.removeEventListener("online", goOnline);
+      window.removeEventListener("online", onConnectivityChange);
+      window.removeEventListener("offline", onConnectivityChange);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(intervalId);
     };
