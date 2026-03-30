@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
-  Wrench, TrendingUp, Package, GitBranch, Inbox,
+  Wrench, TrendingUp, Package, GitBranch, MessageCircle,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -38,7 +38,7 @@ const DESKTOP_NAV = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Inbox", icon: Inbox, path: "/inbox" },
+  { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
 ];
@@ -54,10 +54,7 @@ const MOBILE_NAV = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Inbox", icon: Inbox, path: "/inbox" },
-  { label: "Parts", icon: Wrench, path: "/parts" },
-  { label: "Products", icon: Package, path: "/products" },
-  { label: "Settings", icon: Settings, path: "/settings" },
+  { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
 ];
 
 const AppLayoutInner = () => {
@@ -182,6 +179,17 @@ const AppLayoutInner = () => {
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
           <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+          <button
+            onClick={() => guardedNavigate("/settings")}
+            className={`p-2 rounded-md transition-colors ${
+              isActive("/settings")
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
           <Button variant="ghost" size="icon" onClick={signOut}>
             <LogOut className="w-5 h-5" />
           </Button>
