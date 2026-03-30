@@ -65,6 +65,8 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   const [notes, setNotes] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
   useEffect(() => {
     if (user) {
