@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { CalendarDays, Plus, Loader2, AlertTriangle, Package } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { format } from "date-fns";
