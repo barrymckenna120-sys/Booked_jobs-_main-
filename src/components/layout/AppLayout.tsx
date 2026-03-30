@@ -54,10 +54,7 @@ const MOBILE_NAV = [
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Inbox", icon: Inbox, path: "/inbox" },
-  { label: "Parts", icon: Wrench, path: "/parts" },
-  { label: "Products", icon: Package, path: "/products" },
-  { label: "Settings", icon: Settings, path: "/settings" },
+  { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
 ];
 
 const AppLayoutInner = () => {
