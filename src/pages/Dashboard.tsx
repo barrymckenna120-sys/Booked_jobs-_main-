@@ -73,6 +73,19 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
+  const { data: partsCount = 0 } = useQuery({
+    queryKey: ["parts-count", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("service_calls")
+        .select("id", { count: "exact", head: true })
+        .not("parts_status", "is", null)
+        .not("parts_status", "eq", "Fitted");
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
   const displayName = titleCase(profile?.display_name?.split("@")[0]?.split(" ")[0] || "there");
 
   if (authLoading) {
