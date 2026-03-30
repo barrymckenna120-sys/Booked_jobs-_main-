@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle } from "lucide-react";
+import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle, MessageSquare } from "lucide-react";
 import MediaGallery from "@/components/media/MediaGallery";
 
 type Job = {
