@@ -97,18 +97,8 @@ const AppLayoutInner = () => {
     if (!nav) return;
 
     const frame = window.requestAnimationFrame(() => {
-      const savedScrollLeft = window.sessionStorage.getItem(MOBILE_NAV_SCROLL_STORAGE_KEY);
-
-      if (savedScrollLeft !== null) {
-        nav.scrollLeft = Number(savedScrollLeft);
-        return;
-      }
-
-      const activeBtn = nav.querySelector('[data-active="true"]') as HTMLElement | null;
-      if (!activeBtn) return;
-
-      const centeredLeft = Math.max(0, activeBtn.offsetLeft - nav.clientWidth / 2 + activeBtn.clientWidth / 2);
-      nav.scrollTo({ left: centeredLeft, behavior: "auto" });
+      // Always start at 0 (Dashboard visible) — don't restore stale scroll positions
+      nav.scrollLeft = 0;
     });
 
     return () => window.cancelAnimationFrame(frame);
