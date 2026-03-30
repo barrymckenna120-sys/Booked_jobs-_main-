@@ -40,6 +40,11 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
     google_review_url: "",
   });
 
+  interface OpeningHour { day: string; enabled: boolean; start: string; end: string; }
+  const [hours, setHours] = useState<OpeningHour[]>([]);
+  const [areas, setAreas] = useState<string[]>([]);
+  const [newArea, setNewArea] = useState("");
+
   useEffect(() => {
     if (settings) {
       setForm((prev) => ({
