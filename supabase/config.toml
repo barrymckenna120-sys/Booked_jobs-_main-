@@ -7,6 +7,8 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.lock-failed-login]
     verify_jwt = false
+  [functions.renewal-reminder-14]
+    verify_jwt = false
   [functions.renewal-reminder-30]
     verify_jwt = false
   [functions.renewal-reminder-7]
