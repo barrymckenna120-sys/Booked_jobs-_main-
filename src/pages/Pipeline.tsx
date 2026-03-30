@@ -3,13 +3,11 @@ import { Inbox, Receipt, RefreshCw, TrendingUp } from "lucide-react";
 import IncomingJobs from "./IncomingJobs";
 import QuotesList from "./QuotesList";
 import Renewals from "./Renewals";
-import Finance from "./Finance";
 
 const TABS = [
   { key: "incoming", label: "Incoming", icon: Inbox },
   { key: "quotes", label: "Quotes", icon: Receipt },
   { key: "renewals", label: "Renewals", icon: RefreshCw },
-  { key: "sales", label: "Sales", icon: TrendingUp },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -42,12 +40,11 @@ const Pipeline = () => {
         })}
       </div>
 
-      {/* Content */}
-      <div>
-        {activeTab === "incoming" && <IncomingJobs embedded />}
-        {activeTab === "quotes" && <QuotesList embedded />}
-        {activeTab === "renewals" && <Renewals embedded />}
-        {activeTab === "sales" && <Finance embedded />}
+      {/* Content — each page renders its own layout */}
+      <div className="-mx-4 sm:-mx-6 -mt-6">
+        {activeTab === "incoming" && <IncomingJobs />}
+        {activeTab === "quotes" && <QuotesList />}
+        {activeTab === "renewals" && <Renewals />}
       </div>
     </div>
   );

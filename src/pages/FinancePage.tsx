@@ -1,19 +1,17 @@
 import { useState } from "react";
-import { FileText, CreditCard, Scale, BookOpen } from "lucide-react";
+import { FileText, CreditCard, BookOpen } from "lucide-react";
 import Finance from "./Finance";
 import SalesLedger from "./SalesLedger";
 
 const TABS = [
-  { key: "invoices", label: "Invoices", icon: FileText },
-  { key: "payments", label: "Payments", icon: CreditCard },
-  { key: "balances", label: "Balances", icon: Scale },
+  { key: "overview", label: "Overview", icon: CreditCard },
   { key: "sales-ledger", label: "Sales Ledger", icon: BookOpen },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
 const FinancePage = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("invoices");
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -41,11 +39,9 @@ const FinancePage = () => {
       </div>
 
       {/* Content */}
-      <div>
-        {activeTab === "invoices" && <Finance embedded />}
-        {activeTab === "payments" && <Finance embedded defaultView="payments" />}
-        {activeTab === "balances" && <Finance embedded defaultView="balances" />}
-        {activeTab === "sales-ledger" && <SalesLedger embedded />}
+      <div className="-mx-4 sm:-mx-6 -mt-6">
+        {activeTab === "overview" && <Finance />}
+        {activeTab === "sales-ledger" && <SalesLedger />}
       </div>
     </div>
   );
