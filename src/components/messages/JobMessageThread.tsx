@@ -99,6 +99,22 @@ const JobMessageThread = ({ jobId, perspective }: Props) => {
     };
   }, [jobId]);
 
+  // Mark incoming messages as read when thread is open
+  useEffect(() => {
+    if (!user || messages.length === 0) return;
+    const otherRole = perspective === "office" ? "engineer" : "office";
+    const unread = messages.filter(
+      (m) => m.sender_role === otherRole && !m.read_at
+    );
+    if (unread.length > 0) {
+      supabase
+        .from("job_messages")
+        .update({ read_at: new Date().toISOString() })
+        .in("id", unread.map((m) => m.id))
+        .then();
+    }
+  }, [messages, user, perspective]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
