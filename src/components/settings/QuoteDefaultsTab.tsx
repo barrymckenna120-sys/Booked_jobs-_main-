@@ -70,6 +70,23 @@ const QuoteDefaultsTab = ({ settings, onSave, saving }: Props) => {
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Default Deposit Percentage</Label>
+            <div className="relative w-32">
+              <Input
+                type="number"
+                value={depositPercentage}
+                onChange={(e) => setDepositPercentage(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                min={0}
+                max={100}
+                step={1}
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Applied when generating quotes and payment requests.</p>
+          </div>
+
           <div className="flex items-center gap-3">
             <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
             <Label className="text-sm">VAT enabled by default (23%)</Label>

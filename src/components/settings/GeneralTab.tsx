@@ -238,7 +238,45 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
         </CardContent>
       </Card>
 
-      <Button onClick={() => onSave({ ...form, logo_url: logoUrl })} disabled={saving} className="w-full md:w-auto">
+      {/* Opening Hours */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Opening Hours</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {hours.map((h, i) => (
+            <div key={h.day} className="flex items-center gap-3">
+              <span className="w-10 text-sm font-medium">{h.day}</span>
+              <Switch checked={h.enabled} onCheckedChange={(v) => updateHour(i, "enabled", v)} />
+              <Input type="time" value={h.start} onChange={(e) => updateHour(i, "start", e.target.value)} disabled={!h.enabled} className="w-28" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <Input type="time" value={h.end} onChange={(e) => updateHour(i, "end", e.target.value)} disabled={!h.enabled} className="w-28" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Service Areas */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Service Areas</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input value={newArea} onChange={(e) => setNewArea(e.target.value)} placeholder="Add Eircode prefix (e.g. D15)" className="flex-1" onKeyDown={(e) => e.key === "Enter" && addArea()} />
+            <Button variant="outline" size="icon" onClick={addArea}><Plus className="w-4 h-4" /></Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {areas.map((area) => (
+              <Badge key={area} variant="secondary" className="gap-1 text-sm">
+                {area}
+                <button onClick={() => setAreas((p) => p.filter((a) => a !== area))} className="hover:text-destructive">
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Used to validate incoming booking submissions</p>
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => onSave({ ...form, logo_url: logoUrl, opening_hours: hours, service_areas: areas })} disabled={saving} className="w-full md:w-auto">
         {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save General Settings
       </Button>
     </div>
