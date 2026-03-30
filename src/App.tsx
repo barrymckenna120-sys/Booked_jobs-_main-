@@ -21,7 +21,6 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import WhatsApp from "./pages/WhatsApp";
 import WhatsAppTemplates from "./pages/WhatsAppTemplates";
 import IncomingJobs from "./pages/IncomingJobs";
-import EngineerAvailability from "./pages/EngineerAvailability";
 import EngineerLayout from "./components/engineer/EngineerLayout";
 import EngineerToday from "./pages/engineer/EngineerToday";
 import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
@@ -31,10 +30,10 @@ import EngineerCertificates from "./pages/engineer/EngineerCertificates";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Finance from "./pages/Finance";
+import FinancePage from "./pages/FinancePage";
 import SalesLedger from "./pages/SalesLedger";
 import Schedule from "./pages/Schedule";
-import TeamManagement from "./pages/TeamManagement";
-import AuditLog from "./pages/AuditLog";
+import Pipeline from "./pages/Pipeline";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
@@ -52,13 +51,9 @@ import MessageLog from "./pages/MessageLog";
 import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
 import Parts from "./pages/Parts";
+
 const queryClient = new QueryClient();
 
-/**
- * Global guard: if the URL contains a recovery token (hash or query),
- * redirect to /reset-password before any other route renders.
- * Also listens for the PASSWORD_RECOVERY auth event as a fallback.
- */
 const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -106,27 +101,33 @@ const App = () => (
               <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/jobs/:id" element={<JobDetail />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/quotes" element={<QuotesList />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/customers" element={<Customers />} />
+              <Route path="/customers/:id" element={<CustomerDetail />} />
+              <Route path="/schedule" element={<Schedule />} />
+              <Route path="/finance" element={<FinancePage />} />
+              <Route path="/parts" element={<Parts />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/import" element={<ImportCustomers />} />
+
+              {/* Legacy routes — redirect to new locations */}
+              <Route path="/renewals" element={<Navigate to="/pipeline" replace />} />
+              <Route path="/incoming" element={<Navigate to="/pipeline" replace />} />
+              <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
+              <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
+              <Route path="/message-log" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/messages" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/system-logs" element={<SystemLogs />} />
+
+              {/* Quote detail routes still work directly */}
               <Route path="/quotes/new" element={<QuoteNew />} />
               <Route path="/quotes/:id" element={<QuoteDetail />} />
               <Route path="/quotes/:id/edit" element={<QuoteEdit />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/customers/:id" element={<CustomerDetail />} />
-              <Route path="/renewals" element={<Renewals />} />
+
+              {/* WhatsApp direct routes still work */}
               <Route path="/whatsapp" element={<WhatsApp />} />
               <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
-              <Route path="/incoming" element={<IncomingJobs />} />
-              
-              <Route path="/finance" element={<Finance />} />
-              <Route path="/sales-ledger" element={<SalesLedger />} />
-              <Route path="/schedule" element={<Schedule />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/import" element={<ImportCustomers />} />
-              <Route path="/system-logs" element={<SystemLogs />} />
-              <Route path="/message-log" element={<MessageLog />} />
-              <Route path="/parts" element={<Parts />} />
             </Route>
             {/* Engineer Mode */}
             <Route path="/engineer" element={<EngineerLayout />}>

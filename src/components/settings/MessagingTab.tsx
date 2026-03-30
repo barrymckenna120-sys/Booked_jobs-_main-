@@ -1,0 +1,35 @@
+import WhatsAppTab from "./WhatsAppTab";
+import QuickRepliesTab from "./QuickRepliesTab";
+import { Separator } from "@/components/ui/separator";
+
+interface Props {
+  settings: any;
+  onSave: (fields: Record<string, any>) => Promise<void>;
+  saving: boolean;
+}
+
+const MessagingTab = ({ settings, onSave, saving }: Props) => {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-extrabold text-foreground mb-1">Message Templates</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Customise the WhatsApp messages sent to your customers. Use variables to personalise each message.
+        </p>
+        <WhatsAppTab settings={settings} onSave={onSave} saving={saving} />
+      </div>
+
+      <Separator />
+
+      <div>
+        <h2 className="text-lg font-extrabold text-foreground mb-1">Quick Replies</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Preset messages your engineers can send with one tap from the job screen.
+        </p>
+        <QuickRepliesTab />
+      </div>
+    </div>
+  );
+};
+
+export default MessagingTab;
