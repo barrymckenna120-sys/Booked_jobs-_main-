@@ -187,6 +187,22 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     }
   };
 
+  const handleSendWhatsappConfirmation = async () => {
+    setSendingWhatsapp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
+        body: { service_call_id: job.id },
+      });
+      if (error) throw error;
+      setWhatsappSent(true);
+      toast({ title: "WhatsApp confirmation sent" });
+    } catch (err: any) {
+      toast({ title: "Failed to send confirmation", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setSendingWhatsapp(false);
+    }
+  };
+
   const relativeTime = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
