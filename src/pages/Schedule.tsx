@@ -251,6 +251,9 @@ const Schedule = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
+      supabase.functions.invoke('send-booking-confirmation', {
+        body: { service_call_id: jobId }
+      }).catch(err => console.error('Booking confirmation failed:', err));
       toast({ title: "Job assigned" });
       setAssignModal({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
