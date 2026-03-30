@@ -1424,6 +1424,7 @@ export type Database = {
           time_block: string | null
           updated_at: string
           user_id: string
+          whatsapp_confirmation_sent: boolean
         }
         Insert: {
           access_notes?: string | null
@@ -1487,6 +1488,7 @@ export type Database = {
           time_block?: string | null
           updated_at?: string
           user_id: string
+          whatsapp_confirmation_sent?: boolean
         }
         Update: {
           access_notes?: string | null
@@ -1550,6 +1552,7 @@ export type Database = {
           time_block?: string | null
           updated_at?: string
           user_id?: string
+          whatsapp_confirmation_sent?: boolean
         }
         Relationships: [
           {
