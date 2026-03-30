@@ -81,6 +81,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       setAssignTime(job.time_block || "");
       setNotes(job.notes || "");
       setShowAssign(false);
+      setWhatsappSent(!!(job as any).whatsapp_confirmation_sent);
     }
   }, [job]);
 
