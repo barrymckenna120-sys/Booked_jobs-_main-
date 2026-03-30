@@ -18,19 +18,14 @@ Deno.serve(async (req) => {
     );
 
     const today = new Date();
-    const rangeStart = new Date(today);
-    rangeStart.setDate(rangeStart.getDate() + 28);
-    const rangeEnd = new Date(today);
-    rangeEnd.setDate(rangeEnd.getDate() + 32);
-    const startDate = rangeStart.toISOString().split("T")[0];
-    const endDate = rangeEnd.toISOString().split("T")[0];
+    const target = new Date(today);
+    target.setDate(target.getDate() + 14);
+    const targetDate = target.toISOString().split("T")[0];
 
-    // Get customers due in 28-32 days who haven't opted out
     const { data: customers, error: custErr } = await supabase
       .from("customers")
       .select("id, name, phone, next_service_due")
-      .gte("next_service_due", startDate)
-      .lte("next_service_due", endDate)
+      .eq("next_service_due", targetDate)
       .neq("opted_out", true);
 
     if (custErr) throw custErr;
@@ -40,8 +35,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get customer IDs that already have a pending/booked/confirmed job
     const customerIds = customers.map((c) => c.id);
+
+    // Get customers that already have a pending/booked/confirmed job
     const { data: bookedJobs, error: jobErr } = await supabase
       .from("service_calls")
       .select("customer_id")
@@ -55,21 +51,21 @@ Deno.serve(async (req) => {
     // Get most recent service_call per customer for payment_status and reminder flag
     const { data: recentJobs, error: recentErr } = await supabase
       .from("service_calls")
-      .select("id, customer_id, payment_status, reminder_30day_sent, reminder_14day_sent")
+      .select("id, customer_id, payment_status, reminder_14day_sent, reminder_30day_sent")
       .in("customer_id", customerIds)
       .order("created_at", { ascending: false });
 
     if (recentErr) throw recentErr;
 
     // Build map of customer_id -> most recent service_call
-    const latestJobMap = new Map<string, { id: string; payment_status: string; reminder_30day_sent: boolean; reminder_14day_sent: boolean }>();
+    const latestJobMap = new Map<string, { id: string; payment_status: string; reminder_14day_sent: boolean; reminder_30day_sent: boolean }>();
     for (const job of recentJobs || []) {
       if (!latestJobMap.has(job.customer_id)) {
         latestJobMap.set(job.customer_id, {
           id: job.id,
           payment_status: job.payment_status || "unpaid",
-          reminder_30day_sent: job.reminder_30day_sent ?? false,
           reminder_14day_sent: job.reminder_14day_sent ?? false,
+          reminder_30day_sent: job.reminder_30day_sent ?? false,
         });
       }
     }
@@ -78,7 +74,7 @@ Deno.serve(async (req) => {
       .filter((c) => !bookedSet.has(c.id))
       .filter((c) => {
         const latest = latestJobMap.get(c.id);
-        return !latest || !latest.reminder_30day_sent;
+        return !latest || !latest.reminder_14day_sent;
       })
       .map((c) => {
         const latest = latestJobMap.get(c.id);
@@ -101,7 +97,7 @@ Deno.serve(async (req) => {
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       await sb.from('edge_function_logs').insert({
-        function_name: '30-day-reminder',
+        function_name: '14-day-reminder',
         error_message: err instanceof Error ? err.message : String(err),
         payload: null,
       });
