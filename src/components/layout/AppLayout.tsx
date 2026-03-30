@@ -220,42 +220,29 @@ const AppLayoutInner = () => {
         <Outlet />
       </main>
 
-      {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
+      {/* ═══════════ MOBILE BOTTOM NAV — 5 tabs, fixed ═══════════ */}
       <nav
-        ref={mobileNavRef}
         aria-label="Mobile navigation"
-        className="mobile-bottom-nav-scroll md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="mobile-bottom-nav-track items-stretch px-1" style={{ minHeight: 64 }}>
+        <div className="flex items-stretch justify-around px-4" style={{ height: 56 }}>
           {MOBILE_NAV.map((item) => {
             const active = isActive(item.path);
             return (
               <button
                 key={item.path}
-                data-active={active}
                 onClick={() => guardedNavigate(item.path)}
-                className={`flex shrink-0 select-none flex-col items-center justify-center min-w-[60px] px-2.5 py-1.5 ${
-                  active ? "text-primary font-bold" : "text-muted-foreground"
+                className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] transition-colors ${
+                  active ? "text-primary font-bold" : ""
                 }`}
+                style={active ? undefined : { color: "#6B7280" }}
               >
-                <div className="relative">
-                  <item.icon className="w-5 h-5" />
-                  {item.path === "/inbox" && unreadMessages > 0 && (
-                    <span className="absolute -top-1 -right-1.5 bg-[#4A86E8] text-white text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                      {unreadMessages}
-                    </span>
-                  )}
-                  {item.path === "/parts" && partsCount > 0 && (
-                    <span className="absolute -top-1 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center leading-[16px]">
-                      {partsCount}
-                    </span>
-                  )}
-                </div>
-                <span className={`text-[9px] leading-tight mt-0.5 ${active ? "" : "opacity-70"}`}>{item.label}</span>
+                <item.icon className="w-6 h-6" strokeWidth={2.5} />
+                <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>
               </button>
             );
           })}
-          </div>
+        </div>
       </nav>
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
