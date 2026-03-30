@@ -3,9 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database, Loader2, Wrench, Users, ClipboardList, MessageSquare, FileText } from "lucide-react";
+import {
+  Settings as SettingsIcon, MessageCircle, Building2, Bell, Shield, Database,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette,
+} from "lucide-react";
 import GeneralTab from "@/components/settings/GeneralTab";
-import WhatsAppTab from "@/components/settings/WhatsAppTab";
 import BusinessProfileTab from "@/components/settings/BusinessProfileTab";
 import RemindersTab from "@/components/settings/RemindersTab";
 import SecurityTab from "@/components/settings/SecurityTab";
@@ -13,24 +15,24 @@ import DataTab from "@/components/settings/DataTab";
 import EngineerAvailabilityTab from "@/components/settings/EngineerAvailabilityTab";
 import TeamManagementTab from "@/components/settings/TeamManagementTab";
 import AuditLogTab from "@/components/settings/AuditLogTab";
-import QuickRepliesTab from "@/components/settings/QuickRepliesTab";
 import QuoteDefaultsTab from "@/components/settings/QuoteDefaultsTab";
 import BrandTab from "@/components/settings/BrandTab";
-import { Palette } from "lucide-react";
+import MessagingTab from "@/components/settings/MessagingTab";
+import IntegrationsTab from "@/components/settings/IntegrationsTab";
+import BillingTab from "@/components/settings/BillingTab";
+import { Separator } from "@/components/ui/separator";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
-  { key: "engineers", label: "Engineers", icon: Wrench },
-  { key: "team", label: "Team", icon: Users },
-  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { key: "business", label: "Business", icon: Building2 },
   { key: "brand", label: "Brand", icon: Palette },
+  { key: "team", label: "Team & Users", icon: Users },
+  { key: "messaging", label: "Messaging", icon: MessageCircle },
   { key: "reminders", label: "Reminders", icon: Bell },
-  { key: "data", label: "Data", icon: Database },
-  { key: "security", label: "Security", icon: Shield },
+  { key: "quote_defaults", label: "Quote & Invoice Defaults", icon: FileText },
+  { key: "integrations", label: "Integrations", icon: Plug },
+  { key: "data_security", label: "Data & Security", icon: Shield },
+  { key: "billing", label: "Billing", icon: Receipt },
   { key: "audit", label: "Audit Log", icon: ClipboardList },
-  { key: "quick_replies", label: "Quick Replies", icon: MessageSquare },
-  { key: "quote_defaults", label: "Quote Defaults", icon: FileText },
 ];
 
 const Settings = () => {
@@ -88,7 +90,7 @@ const Settings = () => {
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar tabs (desktop) / Horizontal tabs (mobile) */}
-        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-48 shrink-0 border-b md:border-b-0 md:border-r border-border pb-2 md:pb-0 md:pr-4">
+        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-border pb-2 md:pb-0 md:pr-4">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.key;
@@ -112,17 +114,33 @@ const Settings = () => {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeTab === "general" && <GeneralTab settings={settings} onSave={handleSave} saving={saving} />}
-          {activeTab === "engineers" && <EngineerAvailabilityTab />}
-          {activeTab === "team" && <TeamManagementTab />}
-          {activeTab === "whatsapp" && <WhatsAppTab settings={settings} onSave={handleSave} saving={saving} />}
-          {activeTab === "business" && <BusinessProfileTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "brand" && <BrandTab />}
+          {activeTab === "team" && (
+            <div className="space-y-8">
+              <TeamManagementTab />
+              <Separator />
+              <div>
+                <h2 className="text-lg font-extrabold text-foreground mb-1">Engineer Availability</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Set working days and manage time-off for your engineers.
+                </p>
+                <EngineerAvailabilityTab />
+              </div>
+            </div>
+          )}
+          {activeTab === "messaging" && <MessagingTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
-          {activeTab === "data" && <DataTab />}
-          {activeTab === "security" && <SecurityTab />}
-          {activeTab === "audit" && <AuditLogTab />}
-          {activeTab === "quick_replies" && <QuickRepliesTab />}
           {activeTab === "quote_defaults" && <QuoteDefaultsTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "integrations" && <IntegrationsTab />}
+          {activeTab === "data_security" && (
+            <div className="space-y-8">
+              <DataTab />
+              <Separator />
+              <SecurityTab />
+            </div>
+          )}
+          {activeTab === "billing" && <BillingTab />}
+          {activeTab === "audit" && <AuditLogTab />}
         </div>
       </div>
     </div>

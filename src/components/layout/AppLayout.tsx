@@ -3,7 +3,10 @@ import OfflineBanner from "@/components/engineer/OfflineBanner";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LayoutDashboard, ClipboardList, Receipt, Users, RefreshCw, MessageCircle, FileText, Inbox, Settings, LogOut, ChevronDown, Wrench, TrendingUp, CalendarDays, UsersRound, ScrollText, Plus, Euro, MessageSquare, BookOpen, Terminal, Package, ScrollText as MessageLogIcon } from "lucide-react";
+import {
+  LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
+  Wrench, TrendingUp, Package, GitBranch, Menu, X,
+} from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,53 +27,44 @@ import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
-const MAIN_NAV = [
+/* ──────────────────────────────────────────────
+   DESKTOP sidebar: 9 main nav items
+   Settings is in the header as a gear icon
+   ────────────────────────────────────────────── */
+const DESKTOP_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Renewals", icon: RefreshCw, path: "/renewals" },
-  { label: "Customers", icon: Users, path: "/customers" },
-  { label: "Schedule", icon: CalendarDays, path: "/schedule" },
-  { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
-  { label: "Parts", icon: Wrench, path: "/parts" },
-  { label: "Messages", icon: MessageCircle, path: "/messages" },
-  { label: "Quotes", icon: Receipt, path: "/quotes" },
-  { label: "Products", icon: Package, path: "/products" },
+  { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
+  { label: "Customers", icon: Users, path: "/customers" },
+  { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
-  { label: "Message Log", icon: ScrollText, path: "/message-log" },
+  { label: "Parts", icon: Wrench, path: "/parts" },
+  { label: "Products", icon: Package, path: "/products" },
 ];
 
-const WHATSAPP_CHILDREN = [
-  { label: "Messages", path: "/whatsapp" },
-  { label: "Templates", path: "/whatsapp/templates" },
-];
-
-const BOTTOM_NAV = [
-  { label: "Settings", icon: Settings, path: "/settings" },
-  { label: "System Logs", icon: Terminal, path: "/system-logs" },
-];
-
-// Mobile: flatten but group WhatsApp as single item
+/* ──────────────────────────────────────────────
+   MOBILE bottom nav: 7 tabs
+   7th = "More" which opens a sheet
+   ────────────────────────────────────────────── */
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Renewals", icon: RefreshCw, path: "/renewals" },
-  { label: "Customers", icon: Users, path: "/customers" },
-  { label: "Schedule", icon: CalendarDays, path: "/schedule" },
-  { label: "Incoming", icon: Inbox, path: "/incoming" },
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
-  { label: "Parts", icon: Wrench, path: "/parts" },
-  { label: "Messages", icon: MessageSquare, path: "/messages" },
-  { label: "Quotes", icon: Euro, path: "/quotes" },
-  { label: "Products", icon: Package, path: "/products" },
+  { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
+  { label: "Customers", icon: Users, path: "/customers" },
+  { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: TrendingUp, path: "/finance" },
-  { label: "Sales Ledger", icon: BookOpen, path: "/sales-ledger" },
-  { label: "Message Log", icon: ScrollText, path: "/message-log" },
-  { label: "WhatsApp", icon: MessageCircle, path: "/whatsapp" },
+];
+
+const MORE_ITEMS = [
+  { label: "Parts", icon: Wrench, path: "/parts" },
+  { label: "Products", icon: Package, path: "/products" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
@@ -80,13 +74,11 @@ const AppLayoutInner = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
-  const [whatsappOpen, setWhatsappOpen] = useState(
-    location.pathname.startsWith("/whatsapp")
-  );
   const [showNewJob, setShowNewJob] = useState(false);
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
@@ -105,27 +97,39 @@ const AppLayoutInner = () => {
   });
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
-  // Unlock Web Audio on first user gesture (critical for iOS Safari/Chrome)
-  useEffect(() => {
-    unlockAudio();
-  }, []);
+  useEffect(() => { unlockAudio(); }, []);
 
-  // Engineers should not access admin pages — redirect to engineer app
   if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
   }
 
-  const isActive = (path: string) => location.pathname === path || (path !== "/whatsapp" && location.pathname.startsWith(path));
-  const isWhatsAppActive = location.pathname.startsWith("/whatsapp");
+  const isActive = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(path + "/");
+
+  const isMoreActive = MORE_ITEMS.some((item) => isActive(item.path));
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       <WhatsAppConnectionBanner />
-      {/* Desktop Sidebar */}
+
+      {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
-          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+          <div className="flex items-center gap-1">
+            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+            <button
+              onClick={() => guardedNavigate("/settings")}
+              className={`p-2 rounded-md transition-colors ${
+                isActive("/settings")
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         <div className="px-3 pt-3">
           <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
@@ -133,7 +137,7 @@ const AppLayoutInner = () => {
           </Button>
         </div>
         <nav className="flex-1 py-3 px-3 space-y-0.5">
-          {MAIN_NAV.map((item) => (
+          {DESKTOP_NAV.map((item) => (
             <button
               key={item.path}
               onClick={() => guardedNavigate(item.path)}
@@ -145,63 +149,11 @@ const AppLayoutInner = () => {
             >
               <item.icon className="w-5 h-5 shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
-              {item.path === "/messages" && unreadMessages > 0 && (
-                <span className="bg-[#4A86E8] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                  {unreadMessages}
-                </span>
-              )}
               {item.path === "/parts" && partsCount > 0 && (
                 <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
                   {partsCount}
                 </span>
               )}
-            </button>
-          ))}
-
-          {/* WhatsApp collapsible group */}
-          <Collapsible open={whatsappOpen} onOpenChange={setWhatsappOpen}>
-            <CollapsibleTrigger asChild>
-              <button
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                  isWhatsAppActive
-                    ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <MessageCircle className="w-5 h-5 shrink-0" />
-                <span className="flex-1 text-left">WhatsApp</span>
-                <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${whatsappOpen ? "rotate-180" : ""}`} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pl-8 space-y-0.5 pt-0.5">
-              {WHATSAPP_CHILDREN.map((child) => (
-                <button
-                  key={child.path}
-                  onClick={() => guardedNavigate(child.path)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
-                    location.pathname === child.path
-                      ? "text-primary font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {child.label}
-                </button>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-
-          {BOTTOM_NAV.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => guardedNavigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                isActive(item.path)
-                  ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <item.icon className="w-5 h-5 shrink-0" />
-              <span>{item.label}</span>
             </button>
           ))}
         </nav>
@@ -216,7 +168,7 @@ const AppLayoutInner = () => {
         </div>
       </aside>
 
-      {/* Mobile Top Bar */}
+      {/* ═══════════ MOBILE TOP BAR ═══════════ */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-30">
         <div className="flex items-center gap-2">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
@@ -232,21 +184,21 @@ const AppLayoutInner = () => {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* ═══════════ MAIN CONTENT ═══════════ */}
       <main className="flex-1 md:ml-[220px] pb-20 md:pb-0">
         <OfflineBanner topOffsetClassName="top-14 md:top-0" />
         <Outlet />
       </main>
 
-      {/* Mobile Bottom Tab Bar — WhatsApp & Templates merged into single tab */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto px-1 scrollbar-hide" style={{ minHeight: 64 }}>
+      {/* ═══════════ MOBILE BOTTOM TAB BAR — 7 items ═══════════ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch" style={{ minHeight: 64 }}>
         {MOBILE_NAV.map((item) => {
-          const active = item.path === "/whatsapp" ? isWhatsAppActive : isActive(item.path);
+          const active = isActive(item.path);
           return (
             <button
               key={item.path}
               onClick={() => guardedNavigate(item.path)}
-              className={`flex flex-col items-center justify-center shrink-0 min-w-[48px] min-h-[48px] px-2 py-1.5 ${
+              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1.5 ${
                 active ? "text-primary font-bold" : "text-muted-foreground"
               }`}
             >
@@ -262,7 +214,54 @@ const AppLayoutInner = () => {
             </button>
           );
         })}
+
+        {/* More ☰ button */}
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetTrigger asChild>
+            <button
+              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1.5 ${
+                isMoreActive ? "text-primary font-bold" : "text-muted-foreground"
+              }`}
+            >
+              <Menu className="w-7 h-7" />
+              {isMoreActive && <span className="text-[10px] leading-tight mt-0.5">More</span>}
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+            <SheetHeader>
+              <SheetTitle className="text-left text-base font-extrabold">More</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-1">
+              {MORE_ITEMS.map((item) => {
+                const active = isActive(item.path);
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      setMoreOpen(false);
+                      guardedNavigate(item.path);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-colors ${
+                      active
+                        ? "bg-primary/10 text-primary font-bold"
+                        : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5 shrink-0" />
+                    <span>{item.label}</span>
+                    {item.path === "/parts" && partsCount > 0 && (
+                      <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center ml-auto">
+                        {partsCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
       </nav>
+
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
         open={notifOpen}
