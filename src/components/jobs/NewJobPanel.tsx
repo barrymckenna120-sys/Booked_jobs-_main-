@@ -13,7 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 
@@ -605,7 +608,36 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
       <div className="flex-1 overflow-y-auto px-5 space-y-4">
         <div>
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date</Label>
-          <Input type="date" value={date} min={todayISO} onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: false })); }} className={`mt-1 ${validationBorderClass(!!errors.date)}`} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full mt-1 justify-start text-left font-normal",
+                  !date && "text-muted-foreground",
+                  validationBorderClass(!!errors.date)
+                )}
+              >
+                <CalendarDays className="mr-2 h-4 w-4" />
+                {date ? format(new Date(date + "T00:00:00"), "dd/MM/yyyy") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={date ? new Date(date + "T00:00:00") : undefined}
+                onSelect={(d) => {
+                  if (d) {
+                    setDate(format(d, "yyyy-MM-dd"));
+                    setErrors((prev) => ({ ...prev, date: false }));
+                  }
+                }}
+                disabled={(d) => d < new Date(todayISO + "T00:00:00")}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
           <ValidationMessage show={!!errors.date} />
           {date && date < todayISO && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
