@@ -1408,6 +1408,9 @@ export type Database = {
           receipt_number: string | null
           receipt_sent: boolean
           receipt_sent_at: string | null
+          reminder_14day_sent: boolean
+          reminder_2day_sent: boolean
+          reminder_30day_sent: boolean
           revenue: number | null
           review_sent: boolean
           review_sent_at: string | null
@@ -1468,6 +1471,9 @@ export type Database = {
           receipt_number?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
+          reminder_14day_sent?: boolean
+          reminder_2day_sent?: boolean
+          reminder_30day_sent?: boolean
           revenue?: number | null
           review_sent?: boolean
           review_sent_at?: string | null
@@ -1528,6 +1534,9 @@ export type Database = {
           receipt_number?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
+          reminder_14day_sent?: boolean
+          reminder_2day_sent?: boolean
+          reminder_30day_sent?: boolean
           revenue?: number | null
           review_sent?: boolean
           review_sent_at?: string | null
