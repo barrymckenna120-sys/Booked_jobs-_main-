@@ -20,23 +20,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify caller identity using getUser
+    // Verify caller identity using getClaims
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !caller) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("getClaims error:", claimsError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const callerId = claimsData.claims.sub;
+
     // Check caller has admin role
-    const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: caller.id });
+    const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: callerId });
     if (callerRole !== "admin") {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
