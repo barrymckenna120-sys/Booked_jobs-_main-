@@ -54,8 +54,30 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
         ),
       }));
       setLogoUrl(settings.logo_url || null);
+      setHours(settings.opening_hours || [
+        { day: "Mon", enabled: true, start: "08:00", end: "17:00" },
+        { day: "Tue", enabled: true, start: "08:00", end: "17:00" },
+        { day: "Wed", enabled: true, start: "08:00", end: "17:00" },
+        { day: "Thu", enabled: true, start: "08:00", end: "17:00" },
+        { day: "Fri", enabled: true, start: "08:00", end: "17:00" },
+        { day: "Sat", enabled: true, start: "09:00", end: "13:00" },
+        { day: "Sun", enabled: false, start: "09:00", end: "13:00" },
+      ]);
+      setAreas(settings.service_areas || []);
     }
   }, [settings]);
+
+  const updateHour = (idx: number, field: string, value: any) => {
+    setHours((prev) => prev.map((h, i) => (i === idx ? { ...h, [field]: value } : h)));
+  };
+
+  const addArea = () => {
+    const trimmed = newArea.trim().toUpperCase();
+    if (trimmed && !areas.includes(trimmed)) {
+      setAreas((prev) => [...prev, trimmed]);
+      setNewArea("");
+    }
+  };
 
   const set = (key: string, value: any) => setForm((p) => ({ ...p, [key]: value }));
 
