@@ -207,8 +207,8 @@ const AppLayoutInner = () => {
       {/* ═══════════ MOBILE BOTTOM NAV — horizontally scrollable ═══════════ */}
       <nav
         ref={mobileNavRef}
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto scrollbar-hide px-1"
-        style={{ minHeight: 64, WebkitOverflowScrolling: "touch" }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-stretch overflow-x-auto px-1"
+        style={{ minHeight: 64, WebkitOverflowScrolling: "touch", overscrollBehaviorX: "auto" }}
       >
         {MOBILE_NAV.map((item) => {
           const active = isActive(item.path);
