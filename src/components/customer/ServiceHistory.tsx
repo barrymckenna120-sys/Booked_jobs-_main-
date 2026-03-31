@@ -46,12 +46,12 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [certificates, setCertificates] = useState<CertificateDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [jobsRes, certsRes] = await Promise.all([
+      const [jobsRes, cert1Res, hazardRes] = await Promise.all([
         supabase
           .from("service_calls")
           .select("id, scheduled_date, job_type, assigned_engineer, revenue, status, deposit_paid, receipt_number")
@@ -59,12 +59,62 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
           .order("scheduled_date", { ascending: false, nullsFirst: false }),
         supabase
           .from("certificates")
-          .select("id, cert_number, created_at, pdf_url, job_id")
+          .select("id, cert_number, created_at, pdf_url, job_id, notes")
+          .eq("customer_id", customerId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("hazard_notifications")
+          .select("id, ref_number, created_at, pdf_url, job_id")
           .eq("customer_id", customerId)
           .order("created_at", { ascending: false }),
       ]);
-      setJobs((jobsRes.data || []) as Job[]);
-      setCertificates((certsRes.data || []) as Certificate[]);
+
+      const fetchedJobs = (jobsRes.data || []) as Job[];
+      setJobs(fetchedJobs);
+
+      // Fetch cert2 records via job IDs
+      const jobIds = fetchedJobs.map((j) => j.id);
+      let cert2Docs: CertificateDoc[] = [];
+      if (jobIds.length > 0) {
+        const { data: cert2Data } = await supabase
+          .from("cert2_certificates")
+          .select("id, cert_type, created_at, pdf_url, service_call_id")
+          .in("service_call_id", jobIds);
+        cert2Docs = (cert2Data || []).map((c: any) => ({
+          id: c.id,
+          cert_number: null,
+          created_at: c.created_at,
+          pdf_url: c.pdf_url,
+          job_id: c.service_call_id,
+          cert_type_label: c.cert_type === "declaration_of_conformance" ? "Declaration of Conformance" : "Gas Installation / New Meter",
+        }));
+      }
+
+      const cert1Docs: CertificateDoc[] = (cert1Res.data || []).map((c: any) => {
+        const certType = (c.notes as any)?.cert_type;
+        return {
+          id: c.id,
+          cert_number: c.cert_number,
+          created_at: c.created_at,
+          pdf_url: c.pdf_url,
+          job_id: c.job_id,
+          cert_type_label: certType === "gas_safety_service" ? "Domestic Safety / Service" : "Boiler Service",
+        };
+      });
+
+      const hazardDocs: CertificateDoc[] = (hazardRes.data || []).map((h: any) => ({
+        id: h.id,
+        cert_number: h.ref_number,
+        created_at: h.created_at,
+        pdf_url: h.pdf_url,
+        job_id: h.job_id,
+        cert_type_label: "Notification of Hazard",
+      }));
+
+      const allCerts = [...cert1Docs, ...cert2Docs, ...hazardDocs].sort(
+        (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
+      );
+      setCertificates(allCerts);
       setLoading(false);
     };
     fetchData();
