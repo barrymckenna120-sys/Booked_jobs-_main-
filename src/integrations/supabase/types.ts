@@ -23,6 +23,7 @@ export type Database = {
           entity_type: string
           id: string
           metadata: Json | null
+          organisation_id: string | null
           user_id: string
           user_name: string
           user_role: string
@@ -35,6 +36,7 @@ export type Database = {
           entity_type: string
           id?: string
           metadata?: Json | null
+          organisation_id?: string | null
           user_id: string
           user_name: string
           user_role: string
@@ -47,11 +49,20 @@ export type Database = {
           entity_type?: string
           id?: string
           metadata?: Json | null
+          organisation_id?: string | null
           user_id?: string
           user_name?: string
           user_role?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       brand_settings: {
         Row: {
@@ -63,6 +74,7 @@ export type Database = {
           header_text_color: string
           id: string
           organisation_id: string
+          organisation_id_ref: string | null
           primary_color: string
           secondary_color: string
           section_label_color: string
@@ -80,6 +92,7 @@ export type Database = {
           header_text_color?: string
           id?: string
           organisation_id: string
+          organisation_id_ref?: string | null
           primary_color?: string
           secondary_color?: string
           section_label_color?: string
@@ -97,6 +110,7 @@ export type Database = {
           header_text_color?: string
           id?: string
           organisation_id?: string
+          organisation_id_ref?: string | null
           primary_color?: string
           secondary_color?: string
           section_label_color?: string
@@ -105,7 +119,15 @@ export type Database = {
           table_row_color?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brand_settings_organisation_id_ref_fkey"
+            columns: ["organisation_id_ref"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       categories: {
         Row: {
@@ -154,6 +176,7 @@ export type Database = {
           id: string
           install_type: string | null
           issue_date: string | null
+          organisation_id: string | null
           other_appliance: string | null
           owner_address: string | null
           owner_eircode: string | null
@@ -193,6 +216,7 @@ export type Database = {
           id?: string
           install_type?: string | null
           issue_date?: string | null
+          organisation_id?: string | null
           other_appliance?: string | null
           owner_address?: string | null
           owner_eircode?: string | null
@@ -232,6 +256,7 @@ export type Database = {
           id?: string
           install_type?: string | null
           issue_date?: string | null
+          organisation_id?: string | null
           other_appliance?: string | null
           owner_address?: string | null
           owner_eircode?: string | null
@@ -255,6 +280,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cert2_certificates_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cert2_certificates_service_call_id_fkey"
             columns: ["service_call_id"]
             isOneToOne: false
@@ -274,6 +306,7 @@ export type Database = {
           id: string
           job_id: string | null
           notes: Json | null
+          organisation_id: string | null
           pdf_url: string | null
           readings: Json | null
         }
@@ -287,6 +320,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           notes?: Json | null
+          organisation_id?: string | null
           pdf_url?: string | null
           readings?: Json | null
         }
@@ -300,6 +334,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           notes?: Json | null
+          organisation_id?: string | null
           pdf_url?: string | null
           readings?: Json | null
         }
@@ -316,6 +351,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -394,6 +436,7 @@ export type Database = {
           notes: string | null
           opted_out: boolean | null
           opted_out_date: string | null
+          organisation_id: string | null
           phone: string
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
@@ -433,6 +476,7 @@ export type Database = {
           notes?: string | null
           opted_out?: boolean | null
           opted_out_date?: string | null
+          organisation_id?: string | null
           phone: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
@@ -472,6 +516,7 @@ export type Database = {
           notes?: string | null
           opted_out?: boolean | null
           opted_out_date?: string | null
+          organisation_id?: string | null
           phone?: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
@@ -483,7 +528,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       edge_function_logs: {
         Row: {
@@ -686,6 +739,7 @@ export type Database = {
           last_login: string | null
           name: string
           notes: string | null
+          organisation_id: string | null
           phone: string | null
           rgi_number: string | null
           role: string
@@ -703,6 +757,7 @@ export type Database = {
           last_login?: string | null
           name: string
           notes?: string | null
+          organisation_id?: string | null
           phone?: string | null
           rgi_number?: string | null
           role?: string
@@ -720,6 +775,7 @@ export type Database = {
           last_login?: string | null
           name?: string
           notes?: string | null
+          organisation_id?: string | null
           phone?: string | null
           rgi_number?: string | null
           role?: string
@@ -727,7 +783,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "engineers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hazard_notifications: {
         Row: {
@@ -749,6 +813,7 @@ export type Database = {
           meter_number: string | null
           meter_reading: string | null
           model: string | null
+          organisation_id: string | null
           pdf_url: string | null
           pressure_reading: string | null
           ref_number: string | null
@@ -773,6 +838,7 @@ export type Database = {
           meter_number?: string | null
           meter_reading?: string | null
           model?: string | null
+          organisation_id?: string | null
           pdf_url?: string | null
           pressure_reading?: string | null
           ref_number?: string | null
@@ -797,6 +863,7 @@ export type Database = {
           meter_number?: string | null
           meter_reading?: string | null
           model?: string | null
+          organisation_id?: string | null
           pdf_url?: string | null
           pressure_reading?: string | null
           ref_number?: string | null
@@ -817,6 +884,13 @@ export type Database = {
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hazard_notifications_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       job_media: {
@@ -827,6 +901,7 @@ export type Database = {
           id: string
           job_id: string | null
           notes: string | null
+          organisation_id: string | null
           public_url: string | null
           storage_bucket: string | null
           storage_path: string
@@ -841,6 +916,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           notes?: string | null
+          organisation_id?: string | null
           public_url?: string | null
           storage_bucket?: string | null
           storage_path: string
@@ -855,6 +931,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           notes?: string | null
+          organisation_id?: string | null
           public_url?: string | null
           storage_bucket?: string | null
           storage_path?: string
@@ -877,6 +954,13 @@ export type Database = {
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "job_media_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       job_messages: {
@@ -886,6 +970,7 @@ export type Database = {
           is_preset: boolean | null
           job_id: string | null
           message: string
+          organisation_id: string | null
           read_at: string | null
           recipient_id: string | null
           sender_id: string | null
@@ -897,6 +982,7 @@ export type Database = {
           is_preset?: boolean | null
           job_id?: string | null
           message: string
+          organisation_id?: string | null
           read_at?: string | null
           recipient_id?: string | null
           sender_id?: string | null
@@ -908,6 +994,7 @@ export type Database = {
           is_preset?: boolean | null
           job_id?: string | null
           message?: string
+          organisation_id?: string | null
           read_at?: string | null
           recipient_id?: string | null
           sender_id?: string | null
@@ -919,6 +1006,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_messages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -955,6 +1049,7 @@ export type Database = {
           id: string
           message_type: string | null
           organisation_id: string | null
+          organisation_id_ref: string | null
           related_id: string | null
           related_type: string | null
           sent_at: string | null
@@ -971,6 +1066,7 @@ export type Database = {
           id?: string
           message_type?: string | null
           organisation_id?: string | null
+          organisation_id_ref?: string | null
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -987,6 +1083,7 @@ export type Database = {
           id?: string
           message_type?: string | null
           organisation_id?: string | null
+          organisation_id_ref?: string | null
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -1001,6 +1098,13 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "message_log_organisation_id_ref_fkey"
+            columns: ["organisation_id_ref"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notifications: {
@@ -1012,6 +1116,7 @@ export type Database = {
           job_id: string | null
           metadata: Json | null
           notification_type: string
+          organisation_id: string | null
           recipient_user_id: string
           role: string | null
           title: string
@@ -1024,6 +1129,7 @@ export type Database = {
           job_id?: string | null
           metadata?: Json | null
           notification_type: string
+          organisation_id?: string | null
           recipient_user_id: string
           role?: string | null
           title: string
@@ -1036,6 +1142,7 @@ export type Database = {
           job_id?: string | null
           metadata?: Json | null
           notification_type?: string
+          organisation_id?: string | null
           recipient_user_id?: string
           role?: string | null
           title?: string
@@ -1046,6 +1153,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -1077,6 +1191,36 @@ export type Database = {
           rating?: number | null
           tour_type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      organisations: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          owner_user_id: string | null
+          slug: string
+          stripe_customer_id: string | null
+          subscription_status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          owner_user_id?: string | null
+          slug: string
+          stripe_customer_id?: string | null
+          subscription_status?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string | null
+          slug?: string
+          stripe_customer_id?: string | null
+          subscription_status?: string
         }
         Relationships: []
       }
@@ -1116,6 +1260,7 @@ export type Database = {
           display_name: string | null
           id: string
           onboarding_complete: boolean | null
+          organisation_id: string | null
           sound_alerts_enabled: boolean | null
           updated_at: string
           user_id: string
@@ -1125,6 +1270,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           onboarding_complete?: boolean | null
+          organisation_id?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id: string
@@ -1134,11 +1280,20 @@ export type Database = {
           display_name?: string | null
           id?: string
           onboarding_complete?: boolean | null
+          organisation_id?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quick_replies: {
         Row: {
@@ -1234,6 +1389,7 @@ export type Database = {
           job_type: string | null
           labour_cost: number | null
           notes: string | null
+          organisation_id: string | null
           paid_at: string | null
           parts_cost: number | null
           payment_link: string | null
@@ -1266,6 +1422,7 @@ export type Database = {
           job_type?: string | null
           labour_cost?: number | null
           notes?: string | null
+          organisation_id?: string | null
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -1298,6 +1455,7 @@ export type Database = {
           job_type?: string | null
           labour_cost?: number | null
           notes?: string | null
+          organisation_id?: string | null
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -1332,6 +1490,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -1418,6 +1583,7 @@ export type Database = {
           job_type: string
           needs_scheduling: boolean
           notes: string | null
+          organisation_id: string | null
           owner_or_tenant: string | null
           paid_at: string | null
           parts_logged_at: string | null
@@ -1484,6 +1650,7 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
+          organisation_id?: string | null
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
@@ -1550,6 +1717,7 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
+          organisation_id?: string | null
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
@@ -1596,6 +1764,13 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "service_calls_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       settings: {
@@ -1621,6 +1796,7 @@ export type Database = {
           message_footer: string | null
           next_invoice_number: number | null
           opening_hours: Json | null
+          organisation_id: string | null
           owner_name: string | null
           payment_reminder_days_1: number | null
           payment_reminder_days_2: number | null
@@ -1670,6 +1846,7 @@ export type Database = {
           message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
+          organisation_id?: string | null
           owner_name?: string | null
           payment_reminder_days_1?: number | null
           payment_reminder_days_2?: number | null
@@ -1719,6 +1896,7 @@ export type Database = {
           message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
+          organisation_id?: string | null
           owner_name?: string | null
           payment_reminder_days_1?: number | null
           payment_reminder_days_2?: number | null
@@ -1746,7 +1924,15 @@ export type Database = {
           website?: string | null
           whatsapp_number?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "settings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppressed_emails: {
         Row: {
@@ -1781,6 +1967,7 @@ export type Database = {
           linked_quote_id: string | null
           message_body: string
           message_type: string
+          organisation_id: string | null
           reply_received_at: string | null
           sent_at: string | null
           sent_by: string | null
@@ -1795,6 +1982,7 @@ export type Database = {
           linked_quote_id?: string | null
           message_body: string
           message_type: string
+          organisation_id?: string | null
           reply_received_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -1809,6 +1997,7 @@ export type Database = {
           linked_quote_id?: string | null
           message_body?: string
           message_type?: string
+          organisation_id?: string | null
           reply_received_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -1828,6 +2017,13 @@ export type Database = {
             columns: ["linked_quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
