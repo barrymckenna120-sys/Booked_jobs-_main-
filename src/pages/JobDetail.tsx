@@ -766,11 +766,10 @@ const JobDetail = () => {
               className="w-full h-[48px] font-bold gap-2"
               onClick={async () => {
                 setActionLoading(true);
-                await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id);
-                const startResult = await supabase.from("service_calls").select("status").eq("id", job.id).maybeSingle();
-                console.log("Status update result:", startResult);
-                if (startResult.error) {
-                  toast({ title: "Error", description: startResult.error.message, variant: "destructive" });
+                const { data: startData, error: startError } = await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id).select();
+                console.log("Status update result:", startData, startError);
+                if (startError) {
+                  toast({ title: "Error", description: startError.message, variant: "destructive" });
                 } else {
                   logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
                   toast({ title: "Job started" });
