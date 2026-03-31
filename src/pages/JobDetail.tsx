@@ -55,6 +55,7 @@ type ServiceCall = {
   paid_at: string | null;
   user_id: string;
   receipt_number: string | null;
+  completed_at: string | null;
 };
 
 type Engineer = {
@@ -376,9 +377,10 @@ const JobDetail = () => {
     setActionLoading(true);
     const { error } = await supabase
       .from("service_calls")
-      .update({ status: "Completed", notes: engineerNotes || job.notes } as any)
+      .update({ status: "Completed", completed_at: new Date().toISOString(), notes: engineerNotes || job.notes } as any)
       .eq("id", job.id);
     setActionLoading(false);
+    console.log("Mark complete result:", error);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -513,9 +515,9 @@ const JobDetail = () => {
           <p className="text-sm text-muted-foreground mt-1">
             {formatDateIE(job.scheduled_date)} · {job.time_block || "No time"} · {job.assigned_engineer || "Unassigned"}
           </p>
-          {job.status === "Completed" && (job as any).completed_at && (
+          {job.status === "Completed" && job.completed_at && (
             <p className="text-sm text-success mt-0.5 font-semibold">
-              Completed {new Date((job as any).completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date((job as any).completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
+              Completed {new Date(job.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date(job.completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
             </p>
           )}
         </div>
@@ -765,9 +767,14 @@ const JobDetail = () => {
               className="w-full h-[48px] font-bold gap-2"
               onClick={async () => {
                 setActionLoading(true);
-                await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id);
-                logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
-                toast({ title: "Job started" });
+                const { data: startData, error: startError } = await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id).select();
+                console.log("Status update result:", startData, startError);
+                if (startError) {
+                  toast({ title: "Error", description: startError.message, variant: "destructive" });
+                } else {
+                  logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
+                  toast({ title: "Job started" });
+                }
                 setActionLoading(false);
                 fetchJob();
               }}
