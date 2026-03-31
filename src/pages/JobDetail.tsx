@@ -515,9 +515,9 @@ const JobDetail = () => {
           <p className="text-sm text-muted-foreground mt-1">
             {formatDateIE(job.scheduled_date)} · {job.time_block || "No time"} · {job.assigned_engineer || "Unassigned"}
           </p>
-          {job.status === "Completed" && (job as any).completed_at && (
+          {job.status === "Completed" && job.completed_at && (
             <p className="text-sm text-success mt-0.5 font-semibold">
-              Completed {new Date((job as any).completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date((job as any).completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
+              Completed {new Date(job.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date(job.completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
             </p>
           )}
         </div>
