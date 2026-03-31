@@ -12,6 +12,7 @@ type OutstandingJob = {
   revenue: number;
   deposit_amount: number;
   customer_name: string;
+  payment_link: string | null;
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
@@ -39,7 +40,7 @@ const EngineerOutstandingBalances = () => {
 
       const { data: rows } = await supabase
         .from("service_calls")
-        .select("id, job_type, revenue, deposit_amount, deposit_paid, payment_status, customer_id, customers(name)")
+        .select("id, job_type, revenue, deposit_amount, deposit_paid, payment_status, payment_link, customer_id, customers(name)")
         .eq("assigned_engineer_id", eng.id)
         .eq("deposit_paid", true)
         .neq("payment_status", "paid")
@@ -60,6 +61,7 @@ const EngineerOutstandingBalances = () => {
               revenue: r.revenue || 0,
               deposit_amount: r.deposit_amount || 0,
               customer_name: r.customers?.name || "Unknown",
+              payment_link: r.payment_link || null,
             }))
         );
       }
@@ -147,11 +149,14 @@ const EngineerOutstandingBalances = () => {
                 size="sm"
                 variant="outline"
                 className="flex-1 gap-1.5 text-xs font-bold"
-                disabled={isSending}
+                disabled={isSending || !job.payment_link}
                 onClick={() => handleSendLink(job)}
+                title={!job.payment_link ? "No payment link set — ask the office to add one" : undefined}
               >
                 {isSending ? (
                   <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                ) : !job.payment_link ? (
+                  <>⚠️ No Link</>
                 ) : (
                   <>📲 Send Link</>
                 )}
