@@ -116,6 +116,7 @@ const Settings = () => {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeTab === "general" && <GeneralTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "products" && <Products />}
           {activeTab === "brand" && <BrandTab />}
           {activeTab === "team" && (
             <div className="space-y-8">
