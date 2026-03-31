@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Inbox, AlertTriangle, Clock, ChevronRight } from "lucide-react";
@@ -17,6 +18,28 @@ interface AttentionRow {
 const NeedsAttentionCard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Realtime: refresh when incoming jobs change
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("needs-attention-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "service_calls",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-attention", user.id] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   const { data } = useQuery({
     queryKey: ["dashboard-attention", user?.id],

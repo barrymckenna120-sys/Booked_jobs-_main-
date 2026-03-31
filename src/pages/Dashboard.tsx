@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Loader2, AlertTriangle, Package } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 import DashboardStatCards from "@/components/dashboard/DashboardStatCards";
@@ -42,10 +43,50 @@ type TabKey = (typeof TABS)[number]["key"];
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showNewJob, setShowNewJob] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
+  const mountedRef = useRef(false);
+
+  // Toast alert when a new incoming job notification arrives
+  useEffect(() => {
+    if (!user) return;
+    // Skip toasts during initial load
+    const timer = setTimeout(() => { mountedRef.current = true; }, 2000);
+
+    const channel = supabase
+      .channel("dashboard-new-job-toast")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `recipient_user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (!mountedRef.current) return;
+          const n = payload.new as any;
+          if (n.notification_type === "new_job" && n.metadata?.source === "Tally Form") {
+            const customerName = n.metadata?.customer_name || "Customer";
+            toast({
+              title: "📥 New job received",
+              description: `${customerName} — Tap to view`,
+              duration: 6000,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(timer);
+      mountedRef.current = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user, toast]);
 
   const { data: profile } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
