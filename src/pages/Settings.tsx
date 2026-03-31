@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
+  { key: "products", label: "Products", icon: Package },
   { key: "brand", label: "Brand", icon: Palette },
   { key: "team", label: "Team & Users", icon: Users },
   { key: "messaging", label: "Messaging", icon: MessageCircle },
