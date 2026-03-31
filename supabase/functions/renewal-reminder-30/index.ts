@@ -84,8 +84,8 @@ Deno.serve(async (req) => {
         const latest = latestJobMap.get(c.id);
         return {
           customer_id: c.id,
-          customer_name: c.name,
-          customer_phone: c.phone,
+          full_name: c.name,
+          mobile_number: c.phone,
           next_service_due: c.next_service_due,
           payment_status: latest?.payment_status || "unpaid",
           job_id: latest?.id || null,
