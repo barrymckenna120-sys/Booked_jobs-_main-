@@ -432,7 +432,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             </div>
             <div className="text-[13px] text-foreground">{job.access_notes}</div>
           </div>
-        )
+        )}
 
         {/* Parts Ordered banner */}
         {job.status === "parts_ordered" && (
