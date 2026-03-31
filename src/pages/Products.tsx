@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,10 +10,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, Loader2, Package } from "lucide-react";
-
-const CATEGORIES = ["Boilers", "Heat Pumps", "Heat Controls", "WiFi & App Units", "Parts", "Labour", "Materials"] as const;
-type Category = (typeof CATEGORIES)[number];
+import CategoriesTab from "@/components/products/CategoriesTab";
 
 type Product = {
   id: string;
@@ -26,6 +25,11 @@ type Product = {
   created_at: string;
 };
 
+type Category = {
+  id: string;
+  name: string;
+};
+
 const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -34,23 +38,30 @@ const Products = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", unit_price: "", active: true, category: "Parts" });
+  const [form, setForm] = useState({ name: "", description: "", unit_price: "", active: true, category: "" });
   const [saving, setSaving] = useState(false);
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data } = await supabase.from("categories").select("id, name").order("name");
+      return (data || []) as Category[];
+    },
+  });
+
+  const categoryNames = categories.map((c) => c.name);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .order("name");
+      const { data } = await supabase.from("products").select("*").order("name");
       return (data || []) as Product[];
     },
   });
 
   const filtered = products.filter((p) => {
     if (!showInactive && !p.active) return false;
-    if (categoryFilter !== "All" && (p.category || "Parts") !== categoryFilter) return false;
+    if (categoryFilter !== "All" && (p.category || "") !== categoryFilter) return false;
     if (search.trim()) {
       const s = search.toLowerCase();
       if (!p.name.toLowerCase().includes(s) && !(p.description || "").toLowerCase().includes(s)) return false;
@@ -60,13 +71,13 @@ const Products = () => {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", description: "", unit_price: "", active: true, category: "Parts" });
+    setForm({ name: "", description: "", unit_price: "", active: true, category: categoryNames[0] || "" });
     setModalOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing(p);
-    setForm({ name: p.name, description: p.description || "", unit_price: String(p.unit_price), active: p.active, category: p.category || "Parts" });
+    setForm({ name: p.name, description: p.description || "", unit_price: String(p.unit_price), active: p.active, category: p.category || "" });
     setModalOpen(true);
   };
 
@@ -81,7 +92,7 @@ const Products = () => {
       description: form.description.trim() || null,
       unit_price: parseFloat(form.unit_price) || 0,
       active: form.active,
-      category: form.category,
+      category: form.category || null,
     };
 
     if (editing) {
@@ -106,92 +117,106 @@ const Products = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-extrabold text-foreground">Products & Parts</h1>
-        <Button onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
-      </div>
+      <h1 className="text-2xl font-extrabold text-foreground mb-6">Products & Parts</h1>
 
-      {/* Category filter tabs */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {["All", ...CATEGORIES].map((cat) => (
-          <Button
-            key={cat}
-            variant={categoryFilter === cat ? "default" : "outline"}
-            size="sm"
-            className="text-xs"
-            onClick={() => setCategoryFilter(cat)}
-          >
-            {cat}
-          </Button>
-        ))}
-      </div>
+      <Tabs defaultValue="products">
+        <TabsList className="mb-4">
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+        </TabsList>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products…" className="pl-9" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch checked={showInactive} onCheckedChange={setShowInactive} id="show-inactive" />
-          <Label htmlFor="show-inactive" className="text-sm text-muted-foreground whitespace-nowrap">Show inactive</Label>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : filtered.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-8 text-center space-y-2">
-            <Package className="w-10 h-10 mx-auto text-muted-foreground/50" />
-            <p className="text-muted-foreground">No products found</p>
-            <Button variant="outline" size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> Add your first product</Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-3 font-semibold text-muted-foreground">Name</th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Description</th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Category</th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Price</th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Active</th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
-                  <tr key={p.id} className={`border-b border-border last:border-0 ${!p.active ? "opacity-50" : ""}`}>
-                    <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{p.description || "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell capitalize">{p.category || "Parts"}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-foreground">€{Number(p.unit_price).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-block w-2 h-2 rounded-full ${p.active ? "bg-success" : "bg-muted-foreground/30"}`} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        {p.active && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => softDelete(p)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <TabsContent value="products">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+            <div className="flex flex-wrap gap-1.5">
+              {["All", ...categoryNames].map((cat) => (
+                <Button
+                  key={cat}
+                  variant={categoryFilter === cat ? "default" : "outline"}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+            <Button onClick={openAdd} size="sm"><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
           </div>
-        </Card>
-      )}
 
-      {/* Add/Edit Modal */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products…" className="pl-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={showInactive} onCheckedChange={setShowInactive} id="show-inactive" />
+              <Label htmlFor="show-inactive" className="text-sm text-muted-foreground whitespace-nowrap">Show inactive</Label>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          ) : filtered.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="p-8 text-center space-y-2">
+                <Package className="w-10 h-10 mx-auto text-muted-foreground/50" />
+                <p className="text-muted-foreground">No products found</p>
+                <Button variant="outline" size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> Add your first product</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">Name</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Description</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Category</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Price</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Active</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((p) => (
+                      <tr key={p.id} className={`border-b border-border last:border-0 ${!p.active ? "opacity-50" : ""}`}>
+                        <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{p.description || "—"}</td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          {p.category ? <Badge variant="secondary" className="text-xs">{p.category}</Badge> : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">€{Number(p.unit_price).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-block w-2 h-2 rounded-full ${p.active ? "bg-success" : "bg-muted-foreground/30"}`} />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            {p.active && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => softDelete(p)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="categories">
+          <CategoriesTab />
+        </TabsContent>
+      </Tabs>
+
+      {/* Add/Edit Product Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -211,7 +236,7 @@ const Products = () => {
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                 <SelectTrigger><SelectValue placeholder="Select category…" /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categoryNames.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
