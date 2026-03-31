@@ -19,12 +19,13 @@ type Job = {
   receipt_number: string | null;
 };
 
-type Certificate = {
+type CertificateDoc = {
   id: string;
   cert_number: string | null;
   created_at: string | null;
   pdf_url: string | null;
   job_id: string | null;
+  cert_type_label: string;
 };
 
 const paymentStatus = (j: Job) => {
