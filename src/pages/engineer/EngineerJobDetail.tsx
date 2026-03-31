@@ -241,6 +241,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
       if (patch.status === "Completed") {
         logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
+        // Fire-and-forget: trigger review request via Make.com
+        supabase.functions.invoke("trigger-review-request", {
+          body: { service_call_id: job.id, customer_id: job.customer_id },
+        }).catch((err) => console.error("Review request trigger failed:", err));
         toast({ title: "Job completed" });
         navigate(`/receipt/${job.id}`);
         return;
