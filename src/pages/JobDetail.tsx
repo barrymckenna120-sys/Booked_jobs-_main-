@@ -379,6 +379,7 @@ const JobDetail = () => {
       .update({ status: "Completed", completed_at: new Date().toISOString(), notes: engineerNotes || job.notes } as any)
       .eq("id", job.id);
     setActionLoading(false);
+    console.log("Mark complete result:", error);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -766,9 +767,14 @@ const JobDetail = () => {
               onClick={async () => {
                 setActionLoading(true);
                 await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id);
-                console.log("Status update to In Progress for job:", job.id);
-                logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
-                toast({ title: "Job started" });
+                const startResult = await supabase.from("service_calls").select("status").eq("id", job.id).maybeSingle();
+                console.log("Status update result:", startResult);
+                if (startResult.error) {
+                  toast({ title: "Error", description: startResult.error.message, variant: "destructive" });
+                } else {
+                  logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
+                  toast({ title: "Job started" });
+                }
                 setActionLoading(false);
                 fetchJob();
               }}
