@@ -376,7 +376,7 @@ const JobDetail = () => {
     setActionLoading(true);
     const { error } = await supabase
       .from("service_calls")
-      .update({ status: "Completed", notes: engineerNotes || job.notes } as any)
+      .update({ status: "Completed", completed_at: new Date().toISOString(), notes: engineerNotes || job.notes } as any)
       .eq("id", job.id);
     setActionLoading(false);
     if (error) {
@@ -766,6 +766,7 @@ const JobDetail = () => {
               onClick={async () => {
                 setActionLoading(true);
                 await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id);
+                console.log("Status update to In Progress for job:", job.id);
                 logAudit({ action_type: "job_started", entity_type: "service_call", entity_id: job.id, detail: "Job started from admin detail" });
                 toast({ title: "Job started" });
                 setActionLoading(false);
