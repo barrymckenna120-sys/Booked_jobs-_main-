@@ -5,6 +5,9 @@ const corsHeaders = {
 
 const APP_URL = "https://plumb-on-call.lovable.app";
 
+const RESEND_FROM_NAME = Deno.env.get("RESEND_FROM_NAME") || "BookedJobs";
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@notify.kngasservices.bookedjobs.ie";
+
 // ── Template: Welcome ─────────────────────────────────────
 function welcomeHtml(data: { name: string; email: string; role: string; loginUrl: string }): string {
   const roleLabel = data.role === "admin" ? "Admin" : data.role === "office" ? "Office" : "Engineer";
@@ -425,7 +428,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "BookedJobs <noreply@notify.kngasservices.bookedjobs.ie>",
+        from: `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>`,
         to: [to],
         subject,
         html,
@@ -435,8 +438,37 @@ Deno.serve(async (req) => {
     const resData = await res.json();
 
     if (!res.ok) {
+      const providerMessage = typeof resData?.message === "string"
+        ? resData.message
+        : "Failed to send email.";
+
+      const isUnverifiedDomainError =
+        res.status === 403 && /domain is not verified/i.test(providerMessage);
+
       console.error("Resend API error:", resData);
-      return new Response(JSON.stringify({ error: "Failed to send email." }), {
+
+      if (isUnverifiedDomainError) {
+        console.warn("Email skipped because sender domain is not verified", {
+          from: RESEND_FROM_EMAIL,
+          to,
+          type,
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            skipped: true,
+            reason: "sender_domain_not_verified",
+            error: "Email sender domain is not verified yet.",
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      return new Response(JSON.stringify({ error: providerMessage }), {
         status: res.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
