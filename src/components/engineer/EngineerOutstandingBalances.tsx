@@ -149,11 +149,14 @@ const EngineerOutstandingBalances = () => {
                 size="sm"
                 variant="outline"
                 className="flex-1 gap-1.5 text-xs font-bold"
-                disabled={isSending}
+                disabled={isSending || !job.payment_link}
                 onClick={() => handleSendLink(job)}
+                title={!job.payment_link ? "No payment link set — ask the office to add one" : undefined}
               >
                 {isSending ? (
                   <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                ) : !job.payment_link ? (
+                  <>⚠️ No Link</>
                 ) : (
                   <>📲 Send Link</>
                 )}
