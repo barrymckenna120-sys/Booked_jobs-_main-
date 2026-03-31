@@ -55,6 +55,7 @@ type ServiceCall = {
   paid_at: string | null;
   user_id: string;
   receipt_number: string | null;
+  completed_at: string | null;
 };
 
 type Engineer = {
