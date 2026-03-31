@@ -363,7 +363,7 @@ const SalesLedger = () => {
                     const rev = row.revenue || 0;
                     const net = Math.round((rev / 1.135) * 100) / 100;
                     const vat = Math.round((rev - net) * 100) / 100;
-                    const invoiceNo = `INV-${String(idx + 1).padStart(3, "0")}`;
+                    const invoiceNo = `INV-${String(filtered.length - idx).padStart(3, "0")}`;
                     return (
                       <TableRow key={row.id}>
                         <TableCell className="font-mono font-bold">
