@@ -125,6 +125,26 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
                 <p className="font-semibold mt-0.5">{job.boiler_brand}</p>
               </div>
             )}
+            {job.boiler_error_code && (
+              <div>
+                <span className="text-xs text-muted-foreground">Error Code</span>
+                <p className="font-semibold mt-0.5">{job.boiler_error_code}</p>
+              </div>
+            )}
+            {job.boiler_working !== null && job.boiler_working !== undefined && (
+              <div>
+                <span className="text-xs text-muted-foreground">Boiler Working</span>
+                <p className={`font-semibold mt-0.5 ${job.boiler_working ? "text-success" : "text-destructive"}`}>
+                  {job.boiler_working ? "Yes" : "No"}
+                </p>
+              </div>
+            )}
+            {job.owner_or_tenant && (
+              <div>
+                <span className="text-xs text-muted-foreground">Owner / Tenant</span>
+                <p className="font-semibold mt-0.5">{job.owner_or_tenant}</p>
+              </div>
+            )}
           </div>
 
           {job.notes && (
