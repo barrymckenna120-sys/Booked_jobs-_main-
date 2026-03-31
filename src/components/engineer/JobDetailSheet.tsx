@@ -80,7 +80,34 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           />
           <InfoTile label="Last Service" value={customer.last_service_date} icon="📅" />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} icon="👷" />
+          {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} icon="⛽" />}
+          {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} icon="⚠️" />}
+          {job.boiler_working !== null && job.boiler_working !== undefined && (
+            <InfoTile label="Boiler Working" value={job.boiler_working ? "Yes" : "No"} icon={job.boiler_working ? "✅" : "❌"} />
+          )}
+          {job.owner_or_tenant && <InfoTile label="Owner / Tenant" value={job.owner_or_tenant} icon="🏠" />}
         </div>
+
+        {job.job_issue && (
+          <div className="bg-destructive/10 border-l-[3px] border-destructive rounded-r-xl p-3 mb-3.5">
+            <div className="text-[11px] font-bold text-destructive uppercase tracking-wider mb-0.5">🔴 Problem Description</div>
+            <div className="text-[13px] text-foreground leading-snug">{job.job_issue}</div>
+          </div>
+        )}
+
+        {job.extra_details && (
+          <div className="bg-secondary rounded-xl p-3 mb-3.5">
+            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">📋 Extra Details</div>
+            <div className="text-[13px] text-foreground whitespace-pre-wrap">{job.extra_details}</div>
+          </div>
+        )}
+
+        {job.access_notes && (
+          <div className="bg-primary/5 rounded-xl p-3 mb-3.5">
+            <div className="text-[11px] font-bold text-primary uppercase tracking-wider mb-0.5">🔑 Access Notes (Job)</div>
+            <div className="text-[13px] text-foreground">{job.access_notes}</div>
+          </div>
+        )}
 
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3 mb-3.5">
