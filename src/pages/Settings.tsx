@@ -5,8 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
-  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package,
 } from "lucide-react";
+import Products from "@/pages/Products";
 import GeneralTab from "@/components/settings/GeneralTab";
 import RemindersTab from "@/components/settings/RemindersTab";
 import SecurityTab from "@/components/settings/SecurityTab";
@@ -24,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
+  { key: "products", label: "Products", icon: Package },
   { key: "brand", label: "Brand", icon: Palette },
   { key: "team", label: "Team & Users", icon: Users },
   { key: "messaging", label: "Messaging", icon: MessageCircle },
@@ -114,6 +116,7 @@ const Settings = () => {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeTab === "general" && <GeneralTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "products" && <Products />}
           {activeTab === "brand" && <BrandTab />}
           {activeTab === "team" && (
             <div className="space-y-8">
