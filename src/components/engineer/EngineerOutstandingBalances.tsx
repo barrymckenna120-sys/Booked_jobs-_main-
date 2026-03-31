@@ -12,6 +12,7 @@ type OutstandingJob = {
   revenue: number;
   deposit_amount: number;
   customer_name: string;
+  payment_link: string | null;
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
