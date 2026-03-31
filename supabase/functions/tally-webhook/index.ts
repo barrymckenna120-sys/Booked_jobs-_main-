@@ -160,6 +160,10 @@ Deno.serve(async (req) => {
     }
 
     // Create service call
+    // Parse additional fields
+    const boilerErrorCode = sanitize(get('error code'), MAX_SHORT_LEN)
+    const ownerOrTenant = sanitize(get('owner or tenant'), MAX_SHORT_LEN)
+
     const { data: job, error: jobErr } = await supabase
       .from('service_calls')
       .insert({
@@ -174,6 +178,8 @@ Deno.serve(async (req) => {
         boiler_brand: boilerBrand,
         boiler_working: isWorking === 'Yes' || isWorking === true,
         boiler_issue: issue,
+        boiler_error_code: boilerErrorCode,
+        owner_or_tenant: ownerOrTenant,
         notes: notes,
         tally_submission_id: submissionId,
       })
