@@ -211,11 +211,12 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
                         <FileText className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-foreground">{cert.cert_number || "—"}</p>
+                        <p className="text-sm font-bold text-foreground">{cert.cert_type_label}</p>
                         <p className="text-xs text-muted-foreground">
+                          {cert.cert_number || "—"}
                           {cert.created_at
-                            ? new Date(cert.created_at).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
-                            : "—"}
+                            ? ` · ${new Date(cert.created_at).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}`
+                            : ""}
                           {engineer ? ` · ${engineer}` : ""}
                         </p>
                       </div>
