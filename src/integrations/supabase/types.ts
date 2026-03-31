@@ -436,7 +436,7 @@ export type Database = {
           notes: string | null
           opted_out: boolean | null
           opted_out_date: string | null
-          organisation_id: string | null
+          organisation_id: string
           phone: string
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
@@ -476,7 +476,7 @@ export type Database = {
           notes?: string | null
           opted_out?: boolean | null
           opted_out_date?: string | null
-          organisation_id?: string | null
+          organisation_id: string
           phone: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
@@ -516,7 +516,7 @@ export type Database = {
           notes?: string | null
           opted_out?: boolean | null
           opted_out_date?: string | null
-          organisation_id?: string | null
+          organisation_id?: string
           phone?: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
@@ -739,7 +739,7 @@ export type Database = {
           last_login: string | null
           name: string
           notes: string | null
-          organisation_id: string | null
+          organisation_id: string
           phone: string | null
           rgi_number: string | null
           role: string
@@ -757,7 +757,7 @@ export type Database = {
           last_login?: string | null
           name: string
           notes?: string | null
-          organisation_id?: string | null
+          organisation_id: string
           phone?: string | null
           rgi_number?: string | null
           role?: string
@@ -775,7 +775,7 @@ export type Database = {
           last_login?: string | null
           name?: string
           notes?: string | null
-          organisation_id?: string | null
+          organisation_id?: string
           phone?: string | null
           rgi_number?: string | null
           role?: string
@@ -1389,7 +1389,7 @@ export type Database = {
           job_type: string | null
           labour_cost: number | null
           notes: string | null
-          organisation_id: string | null
+          organisation_id: string
           paid_at: string | null
           parts_cost: number | null
           payment_link: string | null
@@ -1422,7 +1422,7 @@ export type Database = {
           job_type?: string | null
           labour_cost?: number | null
           notes?: string | null
-          organisation_id?: string | null
+          organisation_id: string
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -1455,7 +1455,7 @@ export type Database = {
           job_type?: string | null
           labour_cost?: number | null
           notes?: string | null
-          organisation_id?: string | null
+          organisation_id?: string
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -1583,7 +1583,7 @@ export type Database = {
           job_type: string
           needs_scheduling: boolean
           notes: string | null
-          organisation_id: string | null
+          organisation_id: string
           owner_or_tenant: string | null
           paid_at: string | null
           parts_logged_at: string | null
@@ -1650,7 +1650,7 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
-          organisation_id?: string | null
+          organisation_id: string
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
@@ -1717,7 +1717,7 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
-          organisation_id?: string | null
+          organisation_id?: string
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
@@ -1796,7 +1796,7 @@ export type Database = {
           message_footer: string | null
           next_invoice_number: number | null
           opening_hours: Json | null
-          organisation_id: string | null
+          organisation_id: string
           owner_name: string | null
           payment_reminder_days_1: number | null
           payment_reminder_days_2: number | null
@@ -1846,7 +1846,7 @@ export type Database = {
           message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
-          organisation_id?: string | null
+          organisation_id: string
           owner_name?: string | null
           payment_reminder_days_1?: number | null
           payment_reminder_days_2?: number | null
@@ -1896,7 +1896,7 @@ export type Database = {
           message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
-          organisation_id?: string | null
+          organisation_id?: string
           owner_name?: string | null
           payment_reminder_days_1?: number | null
           payment_reminder_days_2?: number | null
