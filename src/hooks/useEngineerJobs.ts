@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { addDays } from "date-fns";
-import { SERVICE_CALL_BASE_SELECT, type ServiceCall } from "@/types/service-calls";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -14,7 +13,7 @@ const TIME_ORDER: Record<string, number> = {
   "2–5": 3, "2pm–5pm": 3, "Afternoon": 3,
 };
 
-export const sortByTime = (arr: ServiceCall[]) =>
+export const sortByTime = (arr: any[]) =>
   [...arr].sort((a, b) => (TIME_ORDER[a.time_block] || 99) - (TIME_ORDER[b.time_block] || 99));
 
 const TIME_RANGES: Record<string, [number, number]> = {
@@ -23,7 +22,7 @@ const TIME_RANGES: Record<string, [number, number]> = {
   "2–5": [14, 17], "2pm–5pm": [14, 17], "Afternoon": [14, 17],
 };
 
-export const getNextJobId = (jobs: ServiceCall[]): string | null => {
+export const getNextJobId = (jobs: any[]): string | null => {
   if (jobs.length === 0) return null;
   const hour = new Date().getHours();
   const uniqueBlocks = ["9am–11am", "11am–1pm", "2pm–5pm"];
@@ -44,9 +43,9 @@ export const useEngineerJobs = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [todayJobs, setTodayJobs] = useState<ServiceCall[]>([]);
-  const [upcomingJobs, setUpcomingJobs] = useState<ServiceCall[]>([]);
-  const [completedJobs, setCompletedJobs] = useState<ServiceCall[]>([]);
+  const [todayJobs, setTodayJobs] = useState<any[]>([]);
+  const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
   const [jobPhotos, setJobPhotos] = useState<Record<string, { url: string; name: string; type?: string }[]>>({});
   const [engineerName, setEngineerName] = useState<string | null>(null);
@@ -56,7 +55,7 @@ export const useEngineerJobs = () => {
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
   const fadeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const fetchCustomers = useCallback(async (jobs: ServiceCall[]) => {
+  const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
     if (ids.length === 0) return;
     const { data } = await supabase.from("customers").select("*").in("id", ids);
@@ -69,7 +68,7 @@ export const useEngineerJobs = () => {
     }
   }, []);
 
-  const fetchJobPhotos = useCallback(async (jobs: ServiceCall[]) => {
+  const fetchJobPhotos = useCallback(async (jobs: any[]) => {
     const ids = jobs.map((j) => j.id);
     if (ids.length === 0) return;
     const { data } = await supabase.from("job_media").select("job_id, public_url, file_name, file_type").in("job_id", ids);
@@ -102,9 +101,9 @@ export const useEngineerJobs = () => {
     const engineerId = engData?.id;
 
     // Build queries — explicitly filter by assigned_engineer_id for reliability
-    let todayQuery = supabase.from("service_calls").select(SERVICE_CALL_BASE_SELECT).eq("scheduled_date", todayISO()).order("created_at");
-    let upcomingQuery = supabase.from("service_calls").select(SERVICE_CALL_BASE_SELECT).gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress"]).order("scheduled_date").limit(20);
-    let completedQuery = supabase.from("service_calls").select(SERVICE_CALL_BASE_SELECT).eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
+    let todayQuery = supabase.from("service_calls").select("*").eq("scheduled_date", todayISO()).order("created_at");
+    let upcomingQuery = supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress"]).order("scheduled_date").limit(20);
+    let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
 
     if (engineerId) {
       todayQuery = todayQuery.eq("assigned_engineer_id", engineerId);
