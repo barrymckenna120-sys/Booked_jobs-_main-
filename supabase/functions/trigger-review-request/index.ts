@@ -1,0 +1,141 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { service_call_id, customer_id } = await req.json();
+
+    if (!service_call_id || !customer_id) {
+      return new Response(
+        JSON.stringify({ error: "service_call_id and customer_id are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // 1. Check if customer has opted out
+    const { data: customer, error: custErr } = await supabase
+      .from("customers")
+      .select("name, phone, opted_out")
+      .eq("id", customer_id)
+      .maybeSingle();
+
+    if (custErr || !customer) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "customer_not_found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (customer.opted_out) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "customer_opted_out" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 2. Check if review already sent
+    const { data: job, error: jobErr } = await supabase
+      .from("service_calls")
+      .select("id, review_sent, payment_method")
+      .eq("id", service_call_id)
+      .maybeSingle();
+
+    if (jobErr || !job) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "job_not_found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (job.review_sent) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "review_already_sent" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Get Google review URL from settings
+    const { data: settings } = await supabase
+      .from("settings")
+      .select("google_review_url")
+      .limit(1)
+      .maybeSingle();
+
+    const reviewLink = settings?.google_review_url || "https://g.page/r/CV-tS_b3X22vEAE/review";
+
+    // 4. POST to Make.com webhook
+    const webhookUrl = Deno.env.get("MAKE_REVIEW_WEBHOOK_URL");
+
+    if (!webhookUrl) {
+      // Log the error but don't fail the completion flow
+      await supabase.from("edge_function_logs").insert({
+        function_name: "trigger-review-request",
+        error_message: "MAKE_REVIEW_WEBHOOK_URL not configured",
+        payload: { service_call_id, customer_id },
+      });
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "webhook_not_configured" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const webhookPayload = {
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      service_call_id: service_call_id,
+      review_link: reviewLink,
+    };
+
+    const webhookRes = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(webhookPayload),
+    });
+
+    if (!webhookRes.ok) {
+      const errBody = await webhookRes.text();
+      await supabase.from("edge_function_logs").insert({
+        function_name: "trigger-review-request",
+        error_message: `Webhook failed: ${webhookRes.status} - ${errBody}`,
+        payload: webhookPayload,
+      });
+      return new Response(
+        JSON.stringify({ error: "webhook_failed", status: webhookRes.status }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 5. Mark review as sent
+    await supabase
+      .from("service_calls")
+      .update({
+        review_sent: true,
+        review_sent_at: new Date().toISOString(),
+      })
+      .eq("id", service_call_id);
+
+    return new Response(
+      JSON.stringify({ success: true, customer_name: customer.name }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
