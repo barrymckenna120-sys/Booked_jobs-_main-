@@ -396,7 +396,43 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           />
           <InfoTile label="Last Service" value={customer.last_service_date ? new Date(customer.last_service_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : null} Icon={Calendar} />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
+          {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} Icon={Flame} />}
+          {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} Icon={AlertTriangle} />}
+          {job.boiler_working !== null && job.boiler_working !== undefined && (
+            <InfoTile label="Boiler Working" value={job.boiler_working ? "Yes" : "No"} Icon={job.boiler_working ? CheckCircle2 : XCircle} />
+          )}
+          {job.owner_or_tenant && <InfoTile label="Owner / Tenant" value={job.owner_or_tenant} Icon={Key} />}
         </div>
+
+        {/* Job Issue / Problem Description */}
+        {job.job_issue && (
+          <div className="bg-destructive/10 border-l-[3px] border-destructive rounded-r-xl p-3">
+            <div className="text-[11px] font-bold text-destructive uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> Problem Description
+            </div>
+            <div className="text-[13px] text-foreground leading-snug">{job.job_issue}</div>
+          </div>
+        )}
+
+        {/* Extra Details */}
+        {job.extra_details && (
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <FileText className="w-3 h-3" /> Extra Details
+            </div>
+            <div className="text-[13px] text-foreground whitespace-pre-wrap">{job.extra_details}</div>
+          </div>
+        )}
+
+        {/* Job-level Access Notes */}
+        {job.access_notes && (
+          <div className="bg-primary/5 rounded-xl border border-primary/10 p-3">
+            <div className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Key className="w-3 h-3" /> Access Notes (Job)
+            </div>
+            <div className="text-[13px] text-foreground">{job.access_notes}</div>
+          </div>
+        )}
 
         {/* Parts Ordered banner */}
         {job.status === "parts_ordered" && (
