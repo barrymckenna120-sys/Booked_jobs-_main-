@@ -89,6 +89,7 @@ export type ScheduleJob = {
   boiler_error_code?: string | null;
   boiler_working?: boolean | null;
   owner_or_tenant?: string | null;
+  created_at: string;
 };
 
 const Schedule = () => {
