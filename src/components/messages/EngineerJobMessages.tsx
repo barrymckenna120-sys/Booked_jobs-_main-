@@ -2,15 +2,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Send } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import JobMessageThread from "./JobMessageThread";
 
 const PRESETS = [
   "On my way",
   "Running late – 30 mins",
-  "Running late – 1 hour",
   "Arrived on site",
-  "Job complete",
+  "✅ Job complete",
 ];
 
 interface Props {
@@ -74,12 +73,16 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
 
   return (
     <div className="mt-3 bg-muted/30 rounded-xl p-3 space-y-2">
-      <div className="text-xs font-bold text-muted-foreground/70 uppercase tracking-wider mb-1">Messages</div>
+      {/* Section heading matching Service History / Notes style */}
+      <div className="flex items-center gap-2 pb-2 border-b" style={{ borderColor: "#eaecf0" }}>
+        <MessageCircle className="w-4 h-4" style={{ color: "#4A86E8" }} />
+        <span className="text-[15px] font-bold" style={{ color: "#1a1a2e" }}>Messages</span>
+      </div>
 
       <JobMessageThread jobId={jobId} perspective="engineer" />
 
       {/* Preset chips */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="flex gap-1.5 overflow-x-auto flex-nowrap pb-1 scrollbar-hide">
         {PRESETS.map((p) => (
           <button
             key={p}
@@ -87,11 +90,16 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
               setMessage(p);
               setIsPreset(true);
             }}
-            className={`text-[11px] px-2.5 py-1 rounded-full border whitespace-nowrap shrink-0 transition-colors ${
-              message === p
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-muted-foreground border-border"
-            }`}
+            className="whitespace-nowrap shrink-0 transition-colors"
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              padding: "7px 14px",
+              borderRadius: "20px",
+              border: message === p ? "1.5px solid hsl(var(--primary))" : "1.5px solid #1e3a5f",
+              color: message === p ? "hsl(var(--primary-foreground))" : "#1e3a5f",
+              backgroundColor: message === p ? "hsl(var(--primary))" : "#f0f4f9",
+            }}
           >
             {p}
           </button>
@@ -99,7 +107,15 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
       </div>
 
       {/* Input row */}
-      <div className="flex gap-2 items-end">
+      <div
+        className="flex items-center gap-2 bg-white transition-colors focus-within:border-[#1e3a5f]"
+        style={{
+          border: "2px solid rgba(30,58,95,0.15)",
+          borderRadius: "28px",
+          boxShadow: "0 2px 8px rgba(30,58,95,0.08)",
+          padding: "6px 6px 6px 16px",
+        }}
+      >
         <input
           type="text"
           value={message}
@@ -107,14 +123,14 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
             setMessage(e.target.value);
             setIsPreset(false);
           }}
-          placeholder="Type a message…"
-          className="flex-1 rounded-xl border border-border bg-card px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          placeholder="Send a message to office…"
+          className="flex-1 bg-transparent text-sm focus:outline-none"
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
         />
         <button
           onClick={handleSend}
           disabled={sending || !message.trim()}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground disabled:opacity-40 shrink-0"
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-primary text-primary-foreground disabled:opacity-40 shrink-0"
         >
           <Send className="w-4 h-4" />
         </button>

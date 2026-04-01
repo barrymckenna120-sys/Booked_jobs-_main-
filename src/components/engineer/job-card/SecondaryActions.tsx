@@ -50,7 +50,13 @@ const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWo
             onChange={handleFileSelected}
           />
           {isActive && (
-            <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={onExtraWork}>
+          <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs h-11"
+              style={{ color: "#e8760a", backgroundColor: "#fff8f0", borderColor: "#f5c07a" }}
+              onClick={onExtraWork}
+            >
               <Plus className="w-3.5 h-3.5" /> Extra Work
             </Button>
           )}
