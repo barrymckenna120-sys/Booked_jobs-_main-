@@ -59,6 +59,16 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
           job_id: jobId,
           role: "engineer",
         } as any);
+
+        // Send FCM push notification
+        supabase.functions.invoke("send-push-notification", {
+          body: {
+            recipient_user_id: engineerAuthUserId,
+            title: `Message from ${senderName}`,
+            body: message.trim(),
+            job_id: jobId,
+          },
+        }).catch(() => {/* non-critical */});
       }
 
       setMessage("");
