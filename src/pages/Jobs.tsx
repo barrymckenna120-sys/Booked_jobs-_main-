@@ -24,6 +24,7 @@ type Job = {
   assigned_engineer: string | null;
   has_quote: boolean;
   payment_method: string | null;
+  payment_status: string | null;
   receipt_number: string | null;
   receipt_sent: boolean;
   revenue: number | null;
@@ -31,7 +32,9 @@ type Job = {
   source: string | null;
   notes: string | null;
   created_at: string;
+  completed_at: string | null;
   customer_name?: string;
+  customer_address?: string;
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
@@ -106,7 +109,7 @@ const Jobs = () => {
         setJobQuotesMap(jqMap);
       }
 
-      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown" })) as Job[]);
+      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "" })) as Job[]);
     }
     setLoading(false);
   };
@@ -123,6 +126,7 @@ const Jobs = () => {
 
   const INCOMPLETE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed", "parts_ordered"];
   const ACTIVE_STATUSES = ["Pending", "Scheduled", "Booked", "En Route", "On Site", "In Progress", "no_show", "parts_needed", "parts_ordered", "Awaiting Deposit", "Cancelled"];
+  const IN_PROGRESS_STATUSES = ["En Route", "On Site", "In Progress"];
 
   // Separate incoming jobs from the rest
   const incomingJobs = jobs.filter(j => j.status === "incoming");
@@ -161,16 +165,25 @@ const Jobs = () => {
     });
   };
 
-  // Split non-incoming into active & completed
-  const allCompleted = nonIncomingJobs.filter(j => j.status === "Completed");
-  const activeFiltered = applySorting(applyFilters(nonIncomingJobs.filter(j => j.status !== "Completed")), "asc");
-  const completedFiltered = applySorting(applyFilters(allCompleted), "desc");
+  const today = new Date().toISOString().slice(0, 10);
 
-  const activeTotalPages = Math.ceil(activeFiltered.length / PAGE_SIZE);
-  const activePaginated = activeFiltered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  // Priority groups
+  const inProgressJobs = applyFilters(nonIncomingJobs.filter(j => IN_PROGRESS_STATUSES.includes(j.status)));
+  const completedTodayJobs = applyFilters(nonIncomingJobs.filter(j =>
+    j.status === "Completed" && (j as any).completed_at && (j as any).completed_at.slice(0, 10) === today
+  )).sort((a, b) => ((b as any).completed_at || "").localeCompare((a as any).completed_at || ""));
+  const upcomingJobs = applySorting(applyFilters(nonIncomingJobs.filter(j =>
+    j.status !== "Completed" && !IN_PROGRESS_STATUSES.includes(j.status) && j.scheduled_date && j.scheduled_date > today
+  )), "asc");
+  const pendingJobs = applySorting(applyFilters(nonIncomingJobs.filter(j =>
+    !IN_PROGRESS_STATUSES.includes(j.status) && j.status !== "Completed" && (!j.scheduled_date || j.scheduled_date <= today) && j.status !== "incoming"
+  )), "desc");
+  const completedOlderJobs = applySorting(applyFilters(nonIncomingJobs.filter(j =>
+    j.status === "Completed" && (!(j as any).completed_at || (j as any).completed_at.slice(0, 10) !== today)
+  )), "desc");
 
-  const completedTotalPages = Math.ceil(completedFiltered.length / PAGE_SIZE);
-  const completedPaginated = completedFiltered.slice(completedPage * PAGE_SIZE, (completedPage + 1) * PAGE_SIZE);
+  const completedTotalPages = Math.ceil(completedOlderJobs.length / PAGE_SIZE);
+  const completedPaginated = completedOlderJobs.slice(completedPage * PAGE_SIZE, (completedPage + 1) * PAGE_SIZE);
 
   const jobTypeBadge = (type: string) => {
     const styles: Record<string, string> = {
@@ -204,10 +217,24 @@ const Jobs = () => {
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
+  const paymentStatusBadge = (j: Job) => {
+    if (j.payment_status === "paid" || j.payment_method === "cash" || j.payment_method === "card") {
+      return <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">Paid</span>;
+    }
+    if (j.payment_method === "invoice") {
+      return <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Invoice Sent</span>;
+    }
+    if (j.status === "Completed" || IN_PROGRESS_STATUSES.includes(j.status)) {
+      return <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Unpaid</span>;
+    }
+    return <span className="text-muted-foreground">—</span>;
+  };
+
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
+  const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
   const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const renderJobsTable = (rows: Job[]) => (
+  const renderJobsTable = (rows: Job[], rowBorderClass?: string) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -222,9 +249,8 @@ const Jobs = () => {
           <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
             <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
           </TableHead>
-          <TableHead className="hidden md:table-cell">Source</TableHead>
-          <TableHead className="hidden md:table-cell">Quote</TableHead>
           <TableHead>Payment</TableHead>
+          <TableHead className="hidden md:table-cell">Source</TableHead>
           <TableHead className="w-[100px]">Receipt</TableHead>
         </TableRow>
       </TableHeader>
@@ -232,10 +258,15 @@ const Jobs = () => {
         {rows.map((j) => {
           const canTakePayment = ["Completed", "In Progress"].includes(j.status);
           const hasReceipt = !!j.receipt_number;
+          const partsClass = (j.status === "parts_needed" || j.status === "parts_ordered") ? "border-l-4 border-l-amber-500" : "";
+          const borderClass = rowBorderClass || partsClass;
           return (
-            <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${(j.status === "parts_needed" || j.status === "parts_ordered") ? "border-l-4 border-l-amber-500" : ""}`} onClick={() => navigate(`/jobs/${j.id}`)}>
+            <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${borderClass}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
+                {j.customer_address && (
+                  <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
+                )}
                 {j.follow_up_needed && (
                   <div className="mt-1 space-y-0.5">
                     <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Follow-up</span>
@@ -247,9 +278,11 @@ const Jobs = () => {
               </TableCell>
               <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
               <TableCell>
-                {j.scheduled_date
-                  ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
-                  : "—"}
+                {j.completed_at && j.status === "Completed" ? (
+                  <span className="text-xs text-muted-foreground">Completed at {fmtTime(j.completed_at)}</span>
+                ) : j.scheduled_date ? (
+                  `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
+                ) : "—"}
               </TableCell>
               <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
               <TableCell>
@@ -257,15 +290,16 @@ const Jobs = () => {
                   {statusBadge(j.status)}
                   {(j.status === "parts_needed" || j.status === "parts_ordered") && (j as any).parts_priority && (
                     <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      (j as any).parts_priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]"
-                      : (j as any).parts_priority === "low" ? "bg-[#DCFCE7] text-[#16A34A]"
-                      : "bg-[#FEF3C7] text-[#D97706]"
+                      (j as any).parts_priority === "urgent" ? "bg-destructive/10 text-destructive"
+                      : (j as any).parts_priority === "low" ? "bg-emerald-500/10 text-emerald-600"
+                      : "bg-warning/10 text-warning"
                     }`}>
                       {(j as any).parts_priority === "urgent" ? "🔴" : (j as any).parts_priority === "low" ? "🟢" : "🟡"}
                     </span>
                   )}
                 </div>
               </TableCell>
+              <TableCell>{paymentStatusBadge(j)}</TableCell>
               <TableCell className="hidden md:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
@@ -273,39 +307,6 @@ const Jobs = () => {
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">Tally</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
-                )}
-              </TableCell>
-              <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                {j.has_quote ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => {
-                            const quoteId = jobQuotesMap[j.id];
-                            if (quoteId) navigate(`/quotes/${quoteId}`, { state: { returnTo: "/jobs" } });
-                          }}
-                          className="hover:bg-primary/10 rounded p-1 transition-colors"
-                        >
-                          <ClipboardList className="w-4 h-4 text-primary" />
-                        </button>
-                      </TooltipTrigger>
-                      {!jobQuotesMap[j.id] && (
-                        <TooltipContent><p>No quote found</p></TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : "—"}
-              </TableCell>
-              <TableCell>
-                {j.payment_method === "cash" ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
-                ) : j.payment_method === "card" ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600"><CreditCard className="w-3.5 h-3.5" />Card</span>
-                ) : j.payment_method === "invoice" ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600"><FileText className="w-3.5 h-3.5" />Invoice</span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
@@ -485,41 +486,74 @@ const Jobs = () => {
         </Select>
       </div>
 
-      {/* ── ACTIVE & UPCOMING JOBS ── */}
-      <div>
-        <h2 className="text-lg font-bold text-foreground mb-2">Active & Upcoming</h2>
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-8 text-center text-muted-foreground">Loading...</div>
-            ) : activePaginated.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">No active jobs found.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                {renderJobsTable(activePaginated)}
-              </div>
-            )}
-            {activeTotalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, activeFiltered.length)} of {activeFiltered.length}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" disabled={page >= activeTotalPages - 1} onClick={() => setPage(p => p + 1)}>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── IN PROGRESS ── */}
+      {!loading && inProgressJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            🔧 In Progress
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-warning/10 text-warning">{inProgressJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(inProgressJobs, "border-l-4 border-l-warning")}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* ── COMPLETED JOBS ── */}
-      {allCompleted.length > 0 && (
+      {/* ── COMPLETED TODAY ── */}
+      {!loading && completedTodayJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            ✅ Completed Today
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">{completedTodayJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(completedTodayJobs, "border-l-4 border-l-success")}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── UPCOMING ── */}
+      {!loading && upcomingJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            📅 Upcoming
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">{upcomingJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(upcomingJobs)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── PENDING / UNSCHEDULED ── */}
+      {!loading && pendingJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            ⏳ Pending / Unscheduled
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">{pendingJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(pendingJobs)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {loading && (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">Loading...</CardContent>
+        </Card>
+      )}
+
+      {/* ── COMPLETED (OLDER) ── */}
+      {completedOlderJobs.length > 0 && (
         <div>
           <Button
             variant="outline"
@@ -527,7 +561,7 @@ const Jobs = () => {
             onClick={() => { setShowCompleted(s => !s); setCompletedPage(0); }}
           >
             <ChevronDown className={`w-4 h-4 transition-transform ${showCompleted ? "rotate-180" : ""}`} />
-            {showCompleted ? "Hide" : "Show"} Completed ({allCompleted.length})
+            {showCompleted ? "Hide" : "Show"} Completed ({completedOlderJobs.length})
           </Button>
           {showCompleted && completedPaginated.length > 0 && (
             <Card className="mt-2">
@@ -538,7 +572,7 @@ const Jobs = () => {
                 {completedTotalPages > 1 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                     <p className="text-sm text-muted-foreground">
-                      {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedFiltered.length)} of {completedFiltered.length}
+                      {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedOlderJobs.length)} of {completedOlderJobs.length}
                     </p>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" disabled={completedPage === 0} onClick={() => setCompletedPage(p => p - 1)}>
