@@ -3,6 +3,27 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
+/** Auto-link engineer record to auth account on first login */
+const linkEngineerAuthId = async (user: User) => {
+  if (!user.email) return;
+  try {
+    const { data } = await supabase
+      .from("engineers")
+      .select("id, auth_user_id")
+      .eq("email", user.email)
+      .is("auth_user_id", null)
+      .maybeSingle();
+    if (data) {
+      await supabase
+        .from("engineers")
+        .update({ auth_user_id: user.id } as any)
+        .eq("id", data.id);
+    }
+  } catch {
+    // Non-critical — silently ignore
+  }
+};
+
 export const useAuth = (redirectTo = "/auth") => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
