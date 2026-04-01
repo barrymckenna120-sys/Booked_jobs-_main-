@@ -47,44 +47,6 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
     );
   }
 
-  if (step === "invoice_confirm") {
-    return (
-      <EngineerSheet onClose={() => setStep("select")}>
-        <div className="px-5 py-6 space-y-4">
-          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
-            <FileText className="w-5 h-5 text-warning" /> Invoice Later?
-          </div>
-          <p className="text-sm text-muted-foreground">
-            This job will be marked as unpaid and invoiced later. Please make sure the office has been notified.
-          </p>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>Go Back</Button>
-            <Button className="flex-1" onClick={() => onDone("invoice")}>Confirm</Button>
-          </div>
-        </div>
-      </EngineerSheet>
-    );
-  }
-
-  if (step === "zero_warning") {
-    return (
-      <EngineerSheet onClose={() => setStep("select")}>
-        <div className="px-5 py-6 space-y-4">
-          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
-            <AlertTriangle className="w-5 h-5 text-warning" /> No Amount Set
-          </div>
-          <p className="text-sm text-muted-foreground">
-            No amount is set on this job. Are you sure you want to send an invoice?
-          </p>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>Go Back</Button>
-            <Button className="flex-1" onClick={() => setStep("invoice_confirm")}>Continue Anyway</Button>
-          </div>
-        </div>
-      </EngineerSheet>
-    );
-  }
-
   return (
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
