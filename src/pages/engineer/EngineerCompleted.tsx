@@ -1,9 +1,10 @@
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { useOutletContext } from "react-router-dom";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
-import { useEngineerJobs } from "@/hooks/useEngineerJobs";
+import type { EngineerJobsState } from "@/hooks/useEngineerJobs";
 
 const EngineerCompleted = () => {
-  const { completedJobs, customers, loading, updateJob, jobPhotos } = useEngineerJobs();
+  const { completedJobs, customers, loading, updateJob, jobPhotos } = useOutletContext<EngineerJobsState>();
 
   return (
     <>
