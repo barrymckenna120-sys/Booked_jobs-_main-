@@ -192,7 +192,9 @@ const Schedule = () => {
   const unallocatedJobs = jobs.filter(
     (j) => {
       const s = j.status?.toLowerCase();
-      return s !== "completed" && s !== "cancelled" && s !== "booked" && s !== "pending" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer);
+      if (s === "completed" || s === "cancelled" || s === "booked") return false;
+      // Show if missing assignment fields OR status is Pending (unassigned jobs from quotes etc.)
+      return !j.assigned_engineer_id || !j.assigned_engineer || !j.scheduled_date || !j.time_block;
     }
   );
 
