@@ -98,7 +98,7 @@ const Dashboard = () => {
         // Invalidate all dashboard-related queries
         queryClient.invalidateQueries({ predicate: (query) => {
           const key = query.queryKey[0] as string;
-          return key?.startsWith("dashboard-") || key === "jobs-update" || key === "follow-up-count" || key === "parts-count" || key === "needs-attention" || key === "todays-revenue";
+          return key?.startsWith("dashboard-") || ["jobs-update", "follow-up-count", "parts-count", "revenue-card", "follow-ups", "parts-panel"].includes(key);
         }});
       })
       .subscribe();
