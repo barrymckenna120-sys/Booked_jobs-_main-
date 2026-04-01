@@ -1598,6 +1598,7 @@ export type Database = {
           payment_link: string | null
           payment_method: string | null
           payment_status: string | null
+          quote_id: string | null
           receipt_number: string | null
           receipt_sent: boolean
           receipt_sent_at: string | null
@@ -1669,6 +1670,7 @@ export type Database = {
           payment_link?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          quote_id?: string | null
           receipt_number?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
@@ -1740,6 +1742,7 @@ export type Database = {
           payment_link?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          quote_id?: string | null
           receipt_number?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
@@ -1781,6 +1784,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_calls_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
