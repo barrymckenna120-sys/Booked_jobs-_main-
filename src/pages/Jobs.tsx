@@ -132,6 +132,39 @@ const Jobs = () => {
   const incomingJobs = jobs.filter(j => j.status === "incoming");
   const nonIncomingJobs = jobs.filter(j => j.status !== "incoming");
 
+  const applyFilters = (list: Job[]) =>
+    list.filter(j => {
+      let matchStatus: boolean;
+      if (statusFilter === "all") {
+        matchStatus = true;
+      } else if (statusFilter === "follow_up") {
+        matchStatus = j.follow_up_needed === true && !j.follow_up_resolved;
+      } else if (statusFilter === "incomplete,cancelled") {
+        matchStatus = INCOMPLETE_STATUSES.includes(j.status) || j.status === "Cancelled";
+      } else if (statusFilter === "incomplete") {
+        matchStatus = INCOMPLETE_STATUSES.includes(j.status);
+      } else if (statusFilter === "parts") {
+        matchStatus = j.status === "parts_needed" || j.status === "parts_ordered";
+      } else {
+        matchStatus = j.status === statusFilter;
+      }
+      const matchType = typeFilter === "all" || j.job_type === typeFilter;
+      const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
+      const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
+      return matchStatus && matchType && matchSearch && matchPayment;
+    });
+
+  const applySorting = (list: Job[], overrideDir?: "asc" | "desc") => {
+    const dir = overrideDir ? (overrideDir === "asc" ? 1 : -1) : (sortDir === "asc" ? 1 : -1);
+    return [...list].sort((a, b) => {
+      if (sortCol === "customer_name") return dir * (a.customer_name || "").localeCompare(b.customer_name || "");
+      if (sortCol === "status") return dir * a.status.localeCompare(b.status);
+      const da = a.scheduled_date || "";
+      const db = b.scheduled_date || "";
+      return dir * da.localeCompare(db);
+    });
+  };
+
   const today = new Date().toISOString().slice(0, 10);
 
   // Priority groups
