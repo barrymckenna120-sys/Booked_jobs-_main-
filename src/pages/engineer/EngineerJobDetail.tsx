@@ -150,6 +150,43 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
   };
 
+  const handlePaymentDone = async (method: string) => {
+    if (!completeData || !job) return;
+    setShowPayment(false);
+
+    if (method === "invoice") {
+      // For invoice: update job, then call edge function to create invoice + send WhatsApp
+      setInvoiceLoading(true);
+      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+
+      try {
+        const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
+          body: { job_id: job.id },
+        });
+
+        if (fnErr) {
+          console.error("Invoice creation error:", fnErr);
+          toast({ title: "Job completed but invoice failed", description: "The office will follow up.", variant: "destructive" });
+        } else if (result?.success) {
+          setInvoiceSuccess({ customerName: result.customer_name || customer?.name || "Customer" });
+        } else {
+          toast({ title: "Job completed but invoice failed", description: result?.error || "Unknown error", variant: "destructive" });
+        }
+      } catch (err) {
+        console.error("Invoice error:", err);
+        toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
+      }
+
+      setInvoiceLoading(false);
+      setCompleteData(null);
+      return;
+    }
+
+    // Cash or Card — normal flow
+    updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+    setCompleteData(null);
+  };
+
   const updateJob = async (patch: Record<string, any>) => {
     if (!job) return;
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
