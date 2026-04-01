@@ -47,3 +47,7 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.mark-reminder-sent]
     verify_jwt = false
+  [functions.get-outstanding-invoices]
+    verify_jwt = false
+  [functions.mark-invoice-reminder-sent]
+    verify_jwt = false
