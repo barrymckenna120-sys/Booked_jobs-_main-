@@ -109,7 +109,7 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
 
       {/* Invoice confirmation modal */}
       <Dialog open={showInvoiceConfirm} onOpenChange={setShowInvoiceConfirm}>
-        <DialogContent className="sm:max-w-[380px]">
+        <DialogContent className="sm:max-w-[380px] z-[600]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-warning" /> Invoice Later?
