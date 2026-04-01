@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Loader2, AlertTriangle, Package } from "lucide-react";
@@ -44,6 +44,7 @@ const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showNewJob, setShowNewJob] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
@@ -87,6 +88,22 @@ const Dashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [user, toast]);
+
+  // Realtime: refresh dashboard when any service_call changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("dashboard-jobs-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
+        // Invalidate all dashboard-related queries
+        queryClient.invalidateQueries({ predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.startsWith("dashboard-") || ["jobs-update", "follow-up-count", "parts-count", "revenue-card", "follow-ups", "parts-panel"].includes(key);
+        }});
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   const { data: profile } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
