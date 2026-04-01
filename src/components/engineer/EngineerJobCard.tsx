@@ -96,8 +96,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
-            <div className="text-xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job.id)}</div>
-            <div className="text-lg font-bold text-gray-900 leading-tight">{customer.name}</div>
+            <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job.id)}</div>
+            <div className="text-xl font-bold text-gray-900 leading-tight">{customer.name}</div>
           </div>
         <StatusBadge status={job.status} />
         </div>
@@ -115,7 +115,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         )}
 
         {/* Address */}
-        <div className="text-[13px] text-muted-foreground/70 mb-3 flex items-center gap-1.5">
+        <div className="text-base font-bold text-gray-900 mb-3 flex items-center gap-1.5">
           <MapPin className="w-3.5 h-3.5 shrink-0" /> {[customer.address, job.area_code || customer.area_code, customer.eircode].filter(Boolean).join(", ")}
         </div>
 
