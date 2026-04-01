@@ -89,6 +89,23 @@ const Dashboard = () => {
     };
   }, [user, toast]);
 
+  // Realtime: refresh dashboard when any service_call changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("dashboard-jobs-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stat-cards"] });
+        queryClient.invalidateQueries({ queryKey: ["today-timeline"] });
+        queryClient.invalidateQueries({ queryKey: ["needs-attention"] });
+        queryClient.invalidateQueries({ queryKey: ["todays-revenue"] });
+        queryClient.invalidateQueries({ queryKey: ["jobs-update"] });
+        queryClient.invalidateQueries({ queryKey: ["follow-up-count"] });
+        queryClient.invalidateQueries({ queryKey: ["parts-count"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+
   const { data: profile } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
     queryFn: async () => {
