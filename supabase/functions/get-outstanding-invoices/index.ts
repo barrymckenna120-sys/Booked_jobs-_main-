@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
         invoice_reminder_count: j.invoice_reminder_count || 0,
       }));
 
-    return new Response(JSON.stringify(results), {
+    return new Response(JSON.stringify({ data: results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
