@@ -131,7 +131,7 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
 
       {/* Zero amount warning for invoice */}
       <Dialog open={showZeroWarning} onOpenChange={setShowZeroWarning}>
-        <DialogContent className="sm:max-w-[380px]">
+        <DialogContent className="sm:max-w-[380px] z-[600]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-warning" /> No Amount Set
