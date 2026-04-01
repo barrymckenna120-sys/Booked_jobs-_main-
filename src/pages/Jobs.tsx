@@ -283,7 +283,7 @@ const Jobs = () => {
                         <button
                           onClick={() => {
                             const quoteId = jobQuotesMap[j.id];
-                            if (quoteId) navigate(`/quotes/${quoteId}`);
+                            if (quoteId) navigate(`/quotes/${quoteId}`, { state: { returnTo: "/jobs" } });
                           }}
                           className="hover:bg-primary/10 rounded p-1 transition-colors"
                         >
