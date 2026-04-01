@@ -210,8 +210,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
-      dbPatch.paid_at = new Date().toISOString();
       dbPatch.payment_collected_by = user?.id || null;
+      if (paymentMethod === "invoice") {
+        dbPatch.payment_status = "unpaid";
+      } else {
+        dbPatch.paid_at = new Date().toISOString();
+      }
     }
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
