@@ -8,9 +8,8 @@ import JobMessageThread from "./JobMessageThread";
 const PRESETS = [
   "On my way",
   "Running late – 30 mins",
-  "Running late – 1 hour",
   "Arrived on site",
-  "Job complete",
+  "✅ Job complete",
 ];
 
 interface Props {
