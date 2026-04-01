@@ -1,7 +1,6 @@
 import { useState } from "react";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Banknote, CreditCard, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -17,29 +16,82 @@ const METHODS = [
   { value: "invoice", label: "Invoice", icon: FileText, description: "Send invoice to customer" },
 ] as const;
 
+type Step = "select" | "no_payment" | "invoice_confirm" | "zero_warning";
+
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
-  const [showNoPayment, setShowNoPayment] = useState(false);
-  const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
-  const [showZeroWarning, setShowZeroWarning] = useState(false);
+  const [step, setStep] = useState<Step>("select");
 
   const amount = job?.revenue || job?.balance_due || 0;
 
   const handleConfirm = () => {
     if (!selected) {
-      setShowNoPayment(true);
+      setStep("no_payment");
       return;
     }
     if (selected === "invoice") {
       if (!amount || Number(amount) === 0) {
-        setShowZeroWarning(true);
+        setStep("zero_warning");
         return;
       }
-      setShowInvoiceConfirm(true);
+      setStep("invoice_confirm");
       return;
     }
     onDone(selected);
   };
+
+  // Sub-screens rendered inline (no Dialog portals that fight z-index)
+  if (step === "no_payment") {
+    return (
+      <EngineerSheet onClose={() => setStep("select")}>
+        <div className="px-5 py-6 space-y-4">
+          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
+            <AlertTriangle className="w-5 h-5 text-warning" /> Payment Type Required
+          </div>
+          <p className="text-sm text-muted-foreground">Please select Cash or Card before completing this job.</p>
+          <Button className="w-full" onClick={() => setStep("select")}>Go Back</Button>
+        </div>
+      </EngineerSheet>
+    );
+  }
+
+  if (step === "invoice_confirm") {
+    return (
+      <EngineerSheet onClose={() => setStep("select")}>
+        <div className="px-5 py-6 space-y-4">
+          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
+            <FileText className="w-5 h-5 text-warning" /> Invoice Later?
+          </div>
+          <p className="text-sm text-muted-foreground">
+            This job will be marked as unpaid and invoiced later. Please make sure the office has been notified.
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>Go Back</Button>
+            <Button className="flex-1" onClick={() => onDone("invoice")}>Confirm</Button>
+          </div>
+        </div>
+      </EngineerSheet>
+    );
+  }
+
+  if (step === "zero_warning") {
+    return (
+      <EngineerSheet onClose={() => setStep("select")}>
+        <div className="px-5 py-6 space-y-4">
+          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
+            <AlertTriangle className="w-5 h-5 text-warning" /> No Amount Set
+          </div>
+          <p className="text-sm text-muted-foreground">
+            No amount is set on this job. Are you sure you want to send an invoice?
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>Go Back</Button>
+            <Button className="flex-1" onClick={() => setStep("invoice_confirm")}>Continue Anyway</Button>
+          </div>
+        </div>
+      </EngineerSheet>
+    );
+  }
 
   return (
     <EngineerSheet onClose={onClose}>
@@ -91,65 +143,6 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
           Cancel
         </button>
       </div>
-
-      {/* No payment selected modal */}
-      <Dialog open={showNoPayment} onOpenChange={setShowNoPayment}>
-        <DialogContent className="sm:max-w-[380px] z-[600]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-warning" /> Payment Type Required
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Please select Cash or Card before completing this job.</p>
-          <Button className="w-full mt-2" onClick={() => setShowNoPayment(false)}>
-            Go Back
-          </Button>
-        </DialogContent>
-      </Dialog>
-
-      {/* Invoice confirmation modal */}
-      <Dialog open={showInvoiceConfirm} onOpenChange={setShowInvoiceConfirm}>
-        <DialogContent className="sm:max-w-[380px] z-[600]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-warning" /> Invoice Later?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This job will be marked as unpaid and invoiced later. Please make sure the office has been notified.
-          </p>
-          <div className="flex gap-3 mt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setShowInvoiceConfirm(false)}>
-              Go Back
-            </Button>
-            <Button className="flex-1" onClick={() => { setShowInvoiceConfirm(false); onDone("invoice"); }}>
-              Confirm
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Zero amount warning for invoice */}
-      <Dialog open={showZeroWarning} onOpenChange={setShowZeroWarning}>
-        <DialogContent className="sm:max-w-[380px] z-[600]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-warning" /> No Amount Set
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            No amount is set on this job. Are you sure you want to send an invoice?
-          </p>
-          <div className="flex gap-3 mt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setShowZeroWarning(false)}>
-              Go Back
-            </Button>
-            <Button className="flex-1" onClick={() => { setShowZeroWarning(false); setShowInvoiceConfirm(true); }}>
-              Continue Anyway
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </EngineerSheet>
   );
 };
