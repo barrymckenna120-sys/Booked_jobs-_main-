@@ -24,6 +24,7 @@ type Job = {
   assigned_engineer: string | null;
   has_quote: boolean;
   payment_method: string | null;
+  payment_status: string | null;
   receipt_number: string | null;
   receipt_sent: boolean;
   revenue: number | null;
@@ -31,7 +32,9 @@ type Job = {
   source: string | null;
   notes: string | null;
   created_at: string;
+  completed_at: string | null;
   customer_name?: string;
+  customer_address?: string;
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
