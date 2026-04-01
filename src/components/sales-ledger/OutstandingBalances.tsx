@@ -207,6 +207,20 @@ const OutstandingBalances = () => {
                       {eur(bal)}
                     </TableCell>
                     <TableCell className="text-center">
+                      {(() => {
+                        if (!job.invoiced_at) return "—";
+                        const days = Math.floor((Date.now() - new Date(job.invoiced_at).getTime()) / 86400000);
+                        const bg = days >= 15 ? "#FEE2E2" : days >= 7 ? "#FEF3C7" : "#DCFCE7";
+                        const color = days >= 15 ? "#DC2626" : days >= 7 ? "#D97706" : "#16A34A";
+                        const border = days >= 15 ? "#FCA5A5" : days >= 7 ? "#FDE68A" : "#BBF7D0";
+                        return (
+                          <Badge className="rounded-full text-xs font-bold px-2.5 py-0.5" style={{ background: bg, color, border: `1px solid ${border}` }}>
+                            {days}d
+                          </Badge>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-center">
                       {reminderAlreadySent ? (
                         <Badge
                           className="rounded-full text-xs font-bold px-2.5 py-0.5"
