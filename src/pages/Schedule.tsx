@@ -167,6 +167,7 @@ const Schedule = () => {
         boiler_error_code: j.boiler_error_code || null,
         boiler_working: j.boiler_working ?? null,
         owner_or_tenant: j.owner_or_tenant || null,
+        created_at: j.created_at,
       })) as ScheduleJob[];
     },
     enabled: !!user,

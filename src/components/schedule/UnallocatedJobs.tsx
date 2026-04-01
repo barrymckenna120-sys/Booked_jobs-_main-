@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CalendarDays, Clock, X } from "lucide-react";
+import { CalendarDays, Clock, X, ArrowUpDown } from "lucide-react";
+import { format, isToday, differenceInHours } from "date-fns";
 
 type Props = {
   jobs: ScheduleJob[];
@@ -30,8 +32,43 @@ const urgencyBadge = (type: string) => {
   return null;
 };
 
+const formatTimestamp = (dateStr: string) => {
+  const date = new Date(dateStr);
+  if (isToday(date)) {
+    return `Today ${format(date, "HH:mm")}`;
+  }
+  return format(date, "d MMM");
+};
+
+const isNew = (dateStr: string) => {
+  return differenceInHours(new Date(), new Date(dateStr)) < 24;
+};
+
+const JOB_TYPE_OPTIONS = [
+  { value: "all", label: "All Types" },
+  { value: "Boiler Service", label: "Service" },
+  { value: "Repair", label: "Repair" },
+  { value: "Emergency", label: "Emergency" },
+  { value: "Installation", label: "Installation" },
+  { value: "Boiler Replacement", label: "Boiler Replacement" },
+];
+
 const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
   const [confirmJob, setConfirmJob] = useState<ScheduleJob | null>(null);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [filterType, setFilterType] = useState("all");
+
+  const filteredAndSorted = useMemo(() => {
+    let result = [...jobs];
+    if (filterType !== "all") {
+      result = result.filter((j) => j.job_type === filterType);
+    }
+    result.sort((a, b) => {
+      const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return sortOrder === "newest" ? diff : -diff;
+    });
+    return result;
+  }, [jobs, sortOrder, filterType]);
 
   if (jobs.length === 0) {
     return (
@@ -41,8 +78,37 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
 
   return (
     <>
+      {/* Sort / Filter bar */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
+          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "newest" | "oldest")}>
+            <SelectTrigger className="h-8 w-[140px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="h-8 w-[170px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {JOB_TYPE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {filteredAndSorted.length} of {jobs.length} jobs
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {jobs.map((job) => (
+        {filteredAndSorted.map((job) => (
           <div
             key={job.id}
             className={`relative flex items-center justify-between gap-2 rounded-md border p-3 bg-card ${
@@ -65,6 +131,9 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
                 <span className="text-xs font-mono text-muted-foreground">BJ-{job.id.slice(0, 6).toUpperCase()}</span>
                 {jobTypeBadge(job.job_type)}
                 {urgencyBadge(job.job_type)}
+                {isNew(job.created_at) && (
+                  <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/20 text-[10px]">New</Badge>
+                )}
               </div>
               {onJobClick ? (
                 <button
@@ -79,11 +148,15 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="text-xs text-muted-foreground truncate">{job.customer_address}</p>
               </div>
-              {/* Preferred time indicator */}
-              <div className="flex items-center gap-1 mt-1">
-                <Clock className="w-3 h-3 text-muted-foreground" />
-                <span className="text-[10px] font-medium text-muted-foreground">
-                  {job.time_block || "Any Time – Office to Confirm"}
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {job.time_block || "Any Time – Office to Confirm"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-muted-foreground/70">
+                  {formatTimestamp(job.created_at)}
                 </span>
               </div>
             </div>
@@ -94,6 +167,10 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
           </div>
         ))}
       </div>
+
+      {filteredAndSorted.length === 0 && jobs.length > 0 && (
+        <p className="text-sm text-muted-foreground py-2">No jobs match the selected filter.</p>
+      )}
 
       <AlertDialog open={!!confirmJob} onOpenChange={(open) => { if (!open) setConfirmJob(null); }}>
         <AlertDialogContent>
