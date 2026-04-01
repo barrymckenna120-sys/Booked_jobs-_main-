@@ -234,7 +234,7 @@ const Jobs = () => {
   const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
   const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const renderJobsTable = (rows: Job[]) => (
+  const renderJobsTable = (rows: Job[], rowBorderClass?: string) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -249,9 +249,8 @@ const Jobs = () => {
           <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
             <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
           </TableHead>
-          <TableHead className="hidden md:table-cell">Source</TableHead>
-          <TableHead className="hidden md:table-cell">Quote</TableHead>
           <TableHead>Payment</TableHead>
+          <TableHead className="hidden md:table-cell">Source</TableHead>
           <TableHead className="w-[100px]">Receipt</TableHead>
         </TableRow>
       </TableHeader>
@@ -259,10 +258,15 @@ const Jobs = () => {
         {rows.map((j) => {
           const canTakePayment = ["Completed", "In Progress"].includes(j.status);
           const hasReceipt = !!j.receipt_number;
+          const partsClass = (j.status === "parts_needed" || j.status === "parts_ordered") ? "border-l-4 border-l-amber-500" : "";
+          const borderClass = rowBorderClass || partsClass;
           return (
-            <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${(j.status === "parts_needed" || j.status === "parts_ordered") ? "border-l-4 border-l-amber-500" : ""}`} onClick={() => navigate(`/jobs/${j.id}`)}>
+            <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${borderClass}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
+                {j.customer_address && (
+                  <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
+                )}
                 {j.follow_up_needed && (
                   <div className="mt-1 space-y-0.5">
                     <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Follow-up</span>
@@ -274,9 +278,11 @@ const Jobs = () => {
               </TableCell>
               <TableCell>{jobTypeBadge(j.job_type)}</TableCell>
               <TableCell>
-                {j.scheduled_date
-                  ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
-                  : "—"}
+                {j.completed_at && j.status === "Completed" ? (
+                  <span className="text-xs text-muted-foreground">Completed at {fmtTime(j.completed_at)}</span>
+                ) : j.scheduled_date ? (
+                  `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
+                ) : "—"}
               </TableCell>
               <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
               <TableCell>
@@ -284,15 +290,16 @@ const Jobs = () => {
                   {statusBadge(j.status)}
                   {(j.status === "parts_needed" || j.status === "parts_ordered") && (j as any).parts_priority && (
                     <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      (j as any).parts_priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]"
-                      : (j as any).parts_priority === "low" ? "bg-[#DCFCE7] text-[#16A34A]"
-                      : "bg-[#FEF3C7] text-[#D97706]"
+                      (j as any).parts_priority === "urgent" ? "bg-destructive/10 text-destructive"
+                      : (j as any).parts_priority === "low" ? "bg-emerald-500/10 text-emerald-600"
+                      : "bg-warning/10 text-warning"
                     }`}>
                       {(j as any).parts_priority === "urgent" ? "🔴" : (j as any).parts_priority === "low" ? "🟢" : "🟡"}
                     </span>
                   )}
                 </div>
               </TableCell>
+              <TableCell>{paymentStatusBadge(j)}</TableCell>
               <TableCell className="hidden md:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
@@ -300,39 +307,6 @@ const Jobs = () => {
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">Tally</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
-                )}
-              </TableCell>
-              <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                {j.has_quote ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => {
-                            const quoteId = jobQuotesMap[j.id];
-                            if (quoteId) navigate(`/quotes/${quoteId}`, { state: { returnTo: "/jobs" } });
-                          }}
-                          className="hover:bg-primary/10 rounded p-1 transition-colors"
-                        >
-                          <ClipboardList className="w-4 h-4 text-primary" />
-                        </button>
-                      </TooltipTrigger>
-                      {!jobQuotesMap[j.id] && (
-                        <TooltipContent><p>No quote found</p></TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : "—"}
-              </TableCell>
-              <TableCell>
-                {j.payment_method === "cash" ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600"><Banknote className="w-3.5 h-3.5" />Cash</span>
-                ) : j.payment_method === "card" ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600"><CreditCard className="w-3.5 h-3.5" />Card</span>
-                ) : j.payment_method === "invoice" ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600"><FileText className="w-3.5 h-3.5" />Invoice</span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
