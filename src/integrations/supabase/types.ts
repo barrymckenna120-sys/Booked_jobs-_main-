@@ -1578,6 +1578,7 @@ export type Database = {
           has_quote: boolean
           id: string
           incoming_status: string | null
+          invoice_number: string | null
           invoice_reminder_2_sent_at: string | null
           invoice_reminder_count: number
           invoice_reminder_sent_at: string | null
@@ -1648,6 +1649,7 @@ export type Database = {
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          invoice_number?: string | null
           invoice_reminder_2_sent_at?: string | null
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
@@ -1718,6 +1720,7 @@ export type Database = {
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          invoice_number?: string | null
           invoice_reminder_2_sent_at?: string | null
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
@@ -2084,6 +2087,7 @@ export type Database = {
         Returns: number
       }
       expire_overdue_quotes: { Args: never; Returns: undefined }
+      generate_invoice_number: { Args: never; Returns: string }
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
