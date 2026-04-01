@@ -421,8 +421,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilled
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Area Code</Label>
-            <Input value={areaCode} onChange={(e) => setAreaCode(e.target.value)} placeholder="e.g. D15" className="mt-1" />
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Area</Label>
+            <Input value={areaCode} onChange={(e) => setAreaCode(e.target.value)} placeholder="e.g. Kilmainham, Dublin 8" className="mt-1" />
           </div>
           <div>
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Owner or Tenant</Label>
