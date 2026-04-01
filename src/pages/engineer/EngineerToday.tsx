@@ -29,21 +29,6 @@ const EngineerToday = () => {
 
   return (
     <>
-      {/* Stat blocks */}
-      <div className="flex gap-4">
-        {([
-          { count: todayActive.length, label: "Scheduled", Icon: ClipboardList, borderColor: "border-t-primary", iconColor: "text-primary" },
-          { count: todayCompleted.length, label: "Completed", Icon: CheckCircle2, borderColor: "border-t-success", iconColor: "text-success" },
-          { count: todayCancelled.length, label: "Cancelled", Icon: XCircle, borderColor: "border-t-destructive", iconColor: "text-destructive" },
-        ] as const).map((stat) => (
-          <div key={stat.label} className={`flex-1 bg-card rounded-2xl border border-border/60 ${stat.borderColor} border-t-4 p-5 text-center shadow-sm`}>
-            <stat.Icon className={`w-5 h-5 mx-auto mb-2 ${stat.iconColor}`} />
-            <div className="text-3xl font-black tracking-tighter leading-none mb-1.5">{stat.count}</div>
-            <div className="text-[11px] font-semibold text-muted-foreground/70 leading-snug">{stat.label}</div>
-          </div>
-        ))}
-      </div>
-
       {/* In progress banner */}
       {todayInProgress.length > 0 && (() => {
         const ProgressIcon = IN_PROGRESS_ICON[todayInProgress[0].status] || Wrench;
@@ -61,10 +46,8 @@ const EngineerToday = () => {
           </div>
         );
       })()}
-      {/* Outstanding Balances */}
-      <EngineerOutstandingBalances />
 
-      {/* Heading */}
+      {/* Today's Jobs — primary focus */}
       <div className="flex justify-between items-center">
         <div className="text-lg font-extrabold text-foreground">Today's Jobs</div>
         <span className="bg-primary/10 text-primary rounded-full px-3.5 py-1 text-xs font-bold">{todayActive.length} left</span>
