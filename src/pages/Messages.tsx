@@ -204,7 +204,22 @@ const Messages = () => {
           {conversations.map((c, i) => (
             <button
               key={c.job_id || `direct-${c.recipient_id}-${i}`}
-              onClick={() => {
+              onClick={async () => {
+                // Mark all unread messages in this conversation as read
+                if (c.unread_count > 0 && c.job_id) {
+                  const { data: unreadMsgs } = await supabase
+                    .from("job_messages")
+                    .select("id")
+                    .eq("job_id", c.job_id)
+                    .eq("sender_role", "engineer")
+                    .is("read_at", null);
+                  if (unreadMsgs && unreadMsgs.length > 0) {
+                    await supabase
+                      .from("job_messages")
+                      .update({ read_at: new Date().toISOString() })
+                      .in("id", unreadMsgs.map((m) => m.id));
+                  }
+                }
                 if (c.is_direct && c.recipient_id) {
                   setActiveThread({ recipientAuthId: c.recipient_id, engineerName: c.engineer_name });
                 } else if (c.job_id) {
