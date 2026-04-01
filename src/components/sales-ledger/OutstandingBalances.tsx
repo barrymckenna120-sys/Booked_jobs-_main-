@@ -41,11 +41,11 @@ const OutstandingBalances = () => {
     setLoading(true);
     supabase
       .from("service_calls")
-      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, customers(name, phone)")
-      .eq("deposit_required", true)
-      .gt("deposit_amount", 0)
+      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, customers(name, phone)")
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
+      .not("invoiced_at", "is", null)
+      .not("completed_at", "is", null)
       .order("scheduled_date", { ascending: false })
       .then(({ data: rows }) => {
         if (rows) {
