@@ -512,41 +512,74 @@ const Jobs = () => {
         </Select>
       </div>
 
-      {/* ── ACTIVE & UPCOMING JOBS ── */}
-      <div>
-        <h2 className="text-lg font-bold text-foreground mb-2">Active & Upcoming</h2>
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-8 text-center text-muted-foreground">Loading...</div>
-            ) : activePaginated.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">No active jobs found.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                {renderJobsTable(activePaginated)}
-              </div>
-            )}
-            {activeTotalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, activeFiltered.length)} of {activeFiltered.length}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" disabled={page >= activeTotalPages - 1} onClick={() => setPage(p => p + 1)}>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── IN PROGRESS ── */}
+      {!loading && inProgressJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            🔧 In Progress
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-warning/10 text-warning">{inProgressJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(inProgressJobs, "border-l-4 border-l-warning")}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* ── COMPLETED JOBS ── */}
-      {allCompleted.length > 0 && (
+      {/* ── COMPLETED TODAY ── */}
+      {!loading && completedTodayJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            ✅ Completed Today
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">{completedTodayJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(completedTodayJobs, "border-l-4 border-l-success")}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── UPCOMING ── */}
+      {!loading && upcomingJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            📅 Upcoming
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">{upcomingJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(upcomingJobs)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── PENDING / UNSCHEDULED ── */}
+      {!loading && pendingJobs.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            ⏳ Pending / Unscheduled
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">{pendingJobs.length}</span>
+          </h2>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">{renderJobsTable(pendingJobs)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {loading && (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">Loading...</CardContent>
+        </Card>
+      )}
+
+      {/* ── COMPLETED (OLDER) ── */}
+      {completedOlderJobs.length > 0 && (
         <div>
           <Button
             variant="outline"
@@ -554,7 +587,7 @@ const Jobs = () => {
             onClick={() => { setShowCompleted(s => !s); setCompletedPage(0); }}
           >
             <ChevronDown className={`w-4 h-4 transition-transform ${showCompleted ? "rotate-180" : ""}`} />
-            {showCompleted ? "Hide" : "Show"} Completed ({allCompleted.length})
+            {showCompleted ? "Hide" : "Show"} Completed ({completedOlderJobs.length})
           </Button>
           {showCompleted && completedPaginated.length > 0 && (
             <Card className="mt-2">
@@ -565,7 +598,7 @@ const Jobs = () => {
                 {completedTotalPages > 1 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                     <p className="text-sm text-muted-foreground">
-                      {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedFiltered.length)} of {completedFiltered.length}
+                      {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedOlderJobs.length)} of {completedOlderJobs.length}
                     </p>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" disabled={completedPage === 0} onClick={() => setCompletedPage(p => p - 1)}>
