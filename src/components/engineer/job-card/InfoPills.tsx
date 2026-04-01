@@ -1,5 +1,5 @@
-import { Clock, Wrench, Flame, CreditCard, Hourglass, CalendarDays } from "lucide-react";
-import { format } from "date-fns";
+import { Wrench, Flame, CreditCard, Hourglass, CalendarDays } from "lucide-react";
+import { format, isValid, parseISO } from "date-fns";
 
 const TIME_LABELS: Record<string, string> = {
   "9–11": "9am–11am",
@@ -15,12 +15,22 @@ interface InfoPillsProps {
   scheduledDate?: string | null;
 }
 
+const formatScheduledDate = (scheduledDate?: string | null) => {
+  if (!scheduledDate) return null;
+
+  const normalizedDate = scheduledDate.trim();
+  if (!normalizedDate) return null;
+
+  const parsedDate = parseISO(
+    normalizedDate.includes("T") ? normalizedDate : `${normalizedDate}T00:00:00`
+  );
+
+  return isValid(parsedDate) ? format(parsedDate, "EEE d MMM") : normalizedDate;
+};
+
 const InfoPills = ({ timeBlock, jobType, boilerBrand, depositPaid, scheduledDate }: InfoPillsProps) => {
   const timeLabel = TIME_LABELS[timeBlock || ""] || timeBlock || "—";
-
-  const formattedDate = scheduledDate
-    ? format(new Date(scheduledDate + "T00:00:00"), "EEE d MMM")
-    : null;
+  const formattedDate = formatScheduledDate(scheduledDate);
 
   return (
     <div className="flex flex-wrap gap-2 mb-3">
