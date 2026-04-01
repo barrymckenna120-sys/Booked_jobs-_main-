@@ -112,7 +112,7 @@ const Jobs = () => {
         setJobQuotesMap(jqMap);
       }
 
-      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "" })) as Job[]);
+      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[]);
     }
     setLoading(false);
   };
