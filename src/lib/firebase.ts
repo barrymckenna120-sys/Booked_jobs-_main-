@@ -16,7 +16,7 @@ export const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
 
 // VAPID key from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
-const VAPID_KEY = "BKagOny0KF_2pCJQ3m….rlkA";  // Replace with your actual VAPID key
+const VAPID_KEY = "BPm23DsuB3fW2QHE69XzfQ7q4vKZ79oa8RxoURY-EAk5QbFZt-TyuyajpagU9Z4y1Pyybjv6rj15QbDiimKSS-o";
 
 /**
  * Request notification permission and get FCM token.
