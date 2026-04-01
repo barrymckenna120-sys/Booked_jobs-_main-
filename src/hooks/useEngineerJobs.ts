@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { addDays } from "date-fns";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -101,7 +100,12 @@ export const useEngineerJobs = () => {
     const engineerId = engData?.id;
 
     // Build queries — explicitly filter by assigned_engineer_id for reliability
-    let todayQuery = supabase.from("service_calls").select("*").eq("scheduled_date", todayISO()).order("created_at");
+    let todayQuery = supabase
+      .from("service_calls")
+      .select("*")
+      .eq("scheduled_date", todayISO())
+      .neq("status", "Completed")
+      .order("created_at");
     let upcomingQuery = supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress"]).order("scheduled_date").limit(20);
     let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
 
@@ -194,26 +198,27 @@ export const useEngineerJobs = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      const updatedJob = { ...[...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId), ...dbPatch };
-      const isNowDone = ["Completed", "Cancelled", "no_show"].includes(dbPatch.status);
+      const existingJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId) || { id: jobId };
+      const updatedJob = { ...existingJob, ...dbPatch };
+      const nextStatus = dbPatch.status ?? existingJob.status;
       const inPlaceUpdater = (prev: any[]) => prev.map((j) => (j.id === jobId ? updatedJob : j));
+      const removeJob = (prev: any[]) => prev.filter((j) => j.id !== jobId);
+      const upsertCompletedJob = (prev: any[]) => [updatedJob, ...prev.filter((j) => j.id !== jobId)];
 
-      // Always update todayJobs in-place so derived todayActive/todayCompleted/todayCancelled work correctly
-      setTodayJobs(inPlaceUpdater);
-
-      if (isNowDone) {
-        // Remove from upcoming (it shouldn't appear there anymore)
-        setUpcomingJobs(prev => prev.filter(j => j.id !== jobId));
-        // Add to completedJobs if not already there
-        if (dbPatch.status === "Completed") {
-          setCompletedJobs(prev => {
-            if (prev.some(j => j.id === jobId)) return inPlaceUpdater(prev);
-            return [updatedJob, ...prev];
-          });
-        }
+      if (nextStatus === "Completed") {
+        setTodayJobs(removeJob);
+        setUpcomingJobs(removeJob);
+        setCompletedJobs(upsertCompletedJob);
       } else {
-        setUpcomingJobs(inPlaceUpdater);
-        setCompletedJobs(inPlaceUpdater);
+        setTodayJobs(inPlaceUpdater);
+
+        if (["Cancelled", "no_show"].includes(nextStatus)) {
+          setUpcomingJobs(removeJob);
+        } else {
+          setUpcomingJobs(inPlaceUpdater);
+        }
+
+        setCompletedJobs(removeJob);
       }
 
       if (patch.status === "Completed") {
@@ -365,3 +370,5 @@ export const useEngineerJobs = () => {
     updateJob, fetchAll, fadingJobIds,
   };
 };
+
+export type EngineerJobsState = ReturnType<typeof useEngineerJobs>;

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
-import { supabase } from "@/integrations/supabase/client";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -33,7 +32,8 @@ const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
-  const { authLoading, todayActive, todayCompleted, upcomingJobs, engineerName } = useEngineerJobs();
+  const engineerJobs = useEngineerJobs();
+  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
@@ -57,7 +57,7 @@ const EngineerLayout = () => {
   const navItems = [
     { key: "today", label: "Today", icon: Clock, count: todayActive.length, path: "/engineer/today" },
     { key: "upcoming", label: "Upcoming", icon: CalendarDays, count: upcomingJobs.length, path: "/engineer/upcoming" },
-    { key: "completed", label: "Completed", icon: CheckCircle2, count: todayCompleted.length, path: "/engineer/completed" },
+    { key: "completed", label: "Completed", icon: CheckCircle2, count: completedJobs.length, path: "/engineer/completed" },
   ];
 
   return (
@@ -99,7 +99,7 @@ const EngineerLayout = () => {
 
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">
-        <Outlet />
+        <Outlet context={engineerJobs} />
       </div>
 
       {/* Bottom Navigation */}

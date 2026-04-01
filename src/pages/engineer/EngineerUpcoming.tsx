@@ -1,10 +1,11 @@
 import { Loader2, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
+import { useOutletContext } from "react-router-dom";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
-import { useEngineerJobs } from "@/hooks/useEngineerJobs";
+import type { EngineerJobsState } from "@/hooks/useEngineerJobs";
 
 const EngineerUpcoming = () => {
-  const { upcomingJobs, customers, loading, updateJob } = useEngineerJobs();
+  const { upcomingJobs, customers, loading, updateJob } = useOutletContext<EngineerJobsState>();
 
   // Group by date
   const grouped: Record<string, any[]> = {};

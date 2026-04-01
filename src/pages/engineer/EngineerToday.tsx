@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import EngineerOutstandingBalances from "@/components/engineer/EngineerOutstandingBalances";
-import { useEngineerJobs, getNextJobId } from "@/hooks/useEngineerJobs";
+import { getNextJobId, type EngineerJobsState } from "@/hooks/useEngineerJobs";
 import type { LucideIcon } from "lucide-react";
 
 const SectionDivider = ({ label }: { label: string }) => (
@@ -22,7 +22,11 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 const EngineerToday = () => {
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const navigate = useNavigate();
-  const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos, fadingJobIds } = useEngineerJobs();
+  const { todayActive, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
+  const todayKey = new Date().toISOString().split("T")[0];
+  const completedTodayCount = completedJobs.filter((job: any) =>
+    job.scheduled_date === todayKey || job.completed_at?.slice(0, 10) === todayKey
+  ).length;
 
   const nextJobId = getNextJobId(todayActive);
   const sortedActive = nextJobId
@@ -59,7 +63,7 @@ const EngineerToday = () => {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
-          {todayActive.length === 0 && todayCompleted.length === 0 && todayCancelled.length === 0 && (
+          {todayActive.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">No jobs scheduled today</div>
@@ -70,26 +74,17 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {todayActive.length === 0 && todayCompleted.length > 0 && (
+          {todayActive.length === 0 && completedTodayCount > 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <PartyPopper className="w-12 h-12 mx-auto mb-3 text-success" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">All jobs completed for today.</div>
-              <div className="text-sm text-muted-foreground/70">{todayCompleted.length} job{todayCompleted.length > 1 ? "s" : ""} completed today.</div>
+              <div className="text-sm text-muted-foreground/70">{completedTodayCount} job{completedTodayCount > 1 ? "s" : ""} completed today.</div>
             </div>
           )}
 
           {sortedActive.map((job: any) => (
             <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} isNextJob={job.id === nextJobId} />
           ))}
-
-          {todayCompleted.length > 0 && (
-            <>
-              <SectionDivider label="COMPLETED" />
-              {todayCompleted.map((job: any) => (
-                <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} photos={jobPhotos[job.id] || []} />
-              ))}
-            </>
-          )}
 
           {todayCancelled.length > 0 && (
             <>
@@ -113,7 +108,7 @@ const EngineerToday = () => {
       <div className="flex gap-4">
         {([
           { count: todayActive.length, label: "Scheduled", Icon: ClipboardList, borderColor: "border-t-primary", iconColor: "text-primary" },
-          { count: todayCompleted.length, label: "Completed", Icon: CheckCircle2, borderColor: "border-t-success", iconColor: "text-success" },
+          { count: completedTodayCount, label: "Completed", Icon: CheckCircle2, borderColor: "border-t-success", iconColor: "text-success" },
           { count: todayCancelled.length, label: "Cancelled", Icon: XCircle, borderColor: "border-t-destructive", iconColor: "text-destructive" },
         ] as const).map((stat) => (
           <div key={stat.label} className={`flex-1 bg-card rounded-2xl border border-border/60 ${stat.borderColor} border-t-4 p-5 text-center shadow-sm`}>
