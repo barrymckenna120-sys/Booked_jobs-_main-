@@ -143,7 +143,7 @@ const Schedule = () => {
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
         .select("*, customers!inner(name, address, boiler_make_model)")
-        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,status.in.(incoming,accepted)`)
+        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null,status.eq.Pending,status.in.(incoming,accepted)`)
         .not("status", "in", "(Completed,Cancelled)");
 
       return (scheduledJobs || []).map((j: any) => ({
@@ -192,7 +192,9 @@ const Schedule = () => {
   const unallocatedJobs = jobs.filter(
     (j) => {
       const s = j.status?.toLowerCase();
-      return s !== "completed" && s !== "cancelled" && s !== "booked" && s !== "pending" && (!j.scheduled_date || !j.time_block || !j.assigned_engineer);
+      if (s === "completed" || s === "cancelled" || s === "booked") return false;
+      // Show if missing assignment fields OR status is Pending (unassigned jobs from quotes etc.)
+      return !j.assigned_engineer_id || !j.assigned_engineer || !j.scheduled_date || !j.time_block;
     }
   );
 
