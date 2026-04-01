@@ -42,6 +42,7 @@ type Job = {
 };
 
 const Jobs = () => {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
