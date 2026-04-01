@@ -172,15 +172,18 @@ export const useEngineerJobs = () => {
       dbPatch.cancelled_by = user?.id || null;
     }
 
-    // Set completed_at and generate receipt number on completion
+    // Set completed_at and generate receipt/invoice number on completion
     if (patch.status === "Completed") {
       dbPatch.completed_at = new Date().toISOString();
-      if (paymentMethod === "invoice") {
-        dbPatch.invoiced_at = new Date().toISOString();
-      }
       try {
         const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
         const ownerId = job?.user_id;
+        if (paymentMethod === "invoice") {
+          dbPatch.invoiced_at = new Date().toISOString();
+          // Generate invoice number
+          const { data: invoiceNum } = await supabase.rpc("generate_invoice_number");
+          if (invoiceNum) dbPatch.invoice_number = invoiceNum;
+        }
         if (ownerId) {
           const { data: receiptNum } = await supabase.rpc("generate_receipt_number", { p_user_id: ownerId });
           if (receiptNum) dbPatch.receipt_number = receiptNum;
