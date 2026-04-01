@@ -217,7 +217,21 @@ const Jobs = () => {
     return <span className={styles[status] || "badge-scheduled"}>{label}</span>;
   };
 
+  const paymentStatusBadge = (j: Job) => {
+    if (j.payment_status === "paid" || j.payment_method === "cash" || j.payment_method === "card") {
+      return <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">Paid</span>;
+    }
+    if (j.payment_method === "invoice") {
+      return <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Invoice Sent</span>;
+    }
+    if (j.status === "Completed" || IN_PROGRESS_STATUSES.includes(j.status)) {
+      return <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Unpaid</span>;
+    }
+    return <span className="text-muted-foreground">—</span>;
+  };
+
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
+  const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
   const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const renderJobsTable = (rows: Job[]) => (
