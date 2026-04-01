@@ -194,10 +194,23 @@ export const useEngineerJobs = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      const updater = (prev: any[]) => prev.map((j) => (j.id === jobId ? { ...j, ...dbPatch } : j));
-      setTodayJobs(updater);
-      setUpcomingJobs(updater);
-      setCompletedJobs(updater);
+      const updatedJob = { ...[...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId), ...dbPatch };
+      const isNowDone = ["Completed", "Cancelled", "no_show"].includes(dbPatch.status);
+
+      if (isNowDone) {
+        // Remove from active lists and add to completed
+        setTodayJobs(prev => prev.filter(j => j.id !== jobId));
+        setUpcomingJobs(prev => prev.filter(j => j.id !== jobId));
+        if (dbPatch.status === "Completed") {
+          setCompletedJobs(prev => [updatedJob, ...prev.filter(j => j.id !== jobId)]);
+        }
+      } else {
+        // In-place update for non-terminal status changes
+        const updater = (prev: any[]) => prev.map((j) => (j.id === jobId ? updatedJob : j));
+        setTodayJobs(updater);
+        setUpcomingJobs(updater);
+        setCompletedJobs(updater);
+      }
 
       if (patch.status === "Completed") {
         // Save selected tags to service_call_tags
