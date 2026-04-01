@@ -69,6 +69,7 @@ const OutstandingBalances = () => {
                 payment_status: r.payment_status,
                 reminder_14day_sent: !!r.reminder_14day_sent,
                 customer_phone: r.customers?.phone || null,
+                invoiced_at: r.invoiced_at || null,
               }))
           );
         }
