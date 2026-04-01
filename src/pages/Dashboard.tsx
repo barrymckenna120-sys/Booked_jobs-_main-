@@ -105,6 +105,7 @@ const Dashboard = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   const { data: profile } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
