@@ -722,9 +722,42 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           job={job}
           customer={customer}
           onClose={() => setShowComplete(false)}
-          onDone={(data: any) => { updateJob({ status: "Completed", ...data }); setShowComplete(false); }}
+          onDone={(data: any) => { setCompleteData(data); setShowComplete(false); setShowPayment(true); }}
         />
       )}
+      {showPayment && (
+        <PaymentSheet
+          job={job}
+          customer={customer}
+          onClose={() => { setShowPayment(false); setCompleteData(null); }}
+          onDone={handlePaymentDone}
+        />
+      )}
+
+      {/* Invoice loading overlay */}
+      {invoiceLoading && (
+        <div className="fixed inset-0 z-[700] bg-background/80 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="text-sm font-bold text-foreground">Creating invoice & sending to customer…</div>
+        </div>
+      )}
+
+      {/* Invoice success dialog */}
+      <Dialog open={!!invoiceSuccess} onOpenChange={() => { setInvoiceSuccess(null); navigate("/engineer/today"); }}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-success">
+              <CheckCircle2 className="w-5 h-5" /> Job Complete
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-foreground">
+            Invoice sent to <span className="font-bold">{invoiceSuccess?.customerName}</span>
+          </p>
+          <Button className="w-full mt-2" onClick={() => { setInvoiceSuccess(null); navigate("/engineer/today"); }}>
+            Done
+          </Button>
+        </DialogContent>
+      </Dialog>
       {showCancel && (
         <CancelSheet
           job={job}
