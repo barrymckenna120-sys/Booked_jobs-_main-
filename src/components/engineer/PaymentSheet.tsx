@@ -94,7 +94,7 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
 
       {/* No payment selected modal */}
       <Dialog open={showNoPayment} onOpenChange={setShowNoPayment}>
-        <DialogContent className="sm:max-w-[380px]">
+        <DialogContent className="sm:max-w-[380px] z-[600]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-warning" /> Payment Type Required
