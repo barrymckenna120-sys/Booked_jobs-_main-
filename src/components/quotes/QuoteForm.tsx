@@ -456,16 +456,10 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
 
       {/* Action Buttons */}
       <div className="flex flex-col gap-2 pb-8">
-        <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => handleSave(false)} disabled={saving}>
-            {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-            <Save className="w-4 h-4 mr-1" /> Save Draft
-          </Button>
-          <Button className="flex-1" onClick={() => handleSave(true)} disabled={saving}>
-            {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-            <Send className="w-4 h-4 mr-1" /> Send Now
-          </Button>
-        </div>
+        <Button variant="outline" className="w-full" onClick={() => handleSave(false)} disabled={saving}>
+          {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+          <Save className="w-4 h-4 mr-1" /> Save Draft
+        </Button>
         <Button className="w-full py-5 text-base bg-[#25D366] hover:bg-[#1da851] text-white" onClick={() => handleSave(true, true)} disabled={saving}>
           {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
           <MessageCircle className="w-4 h-4 mr-2" /> Send & WhatsApp
