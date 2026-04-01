@@ -56,7 +56,7 @@ export const useAuth = (redirectTo = "/auth") => {
       setLoading(false);
       initialCheckDone.current = true;
       if (session?.user) {
-        linkEngineerAuthId(session.user);
+        linkEngineerAndCaptureFcm(session.user);
       }
       if (!session?.user && redirectTo) {
         navigate(redirectTo, { replace: true });
