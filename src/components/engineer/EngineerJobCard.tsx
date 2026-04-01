@@ -96,8 +96,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
-            <div className="text-xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job.id)}</div>
-            <div className="text-lg font-bold text-gray-900 leading-tight">{customer.name}</div>
+            <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job.id)}</div>
+            <div className="text-xl font-bold text-gray-900 leading-tight">{customer.name}</div>
           </div>
         <StatusBadge status={job.status} />
         </div>
