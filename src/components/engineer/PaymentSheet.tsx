@@ -16,27 +16,19 @@ const METHODS = [
   { value: "invoice", label: "Invoice", icon: FileText, description: "Send invoice to customer" },
 ] as const;
 
-type Step = "select" | "no_payment" | "invoice_confirm" | "zero_warning";
+type Step = "select" | "no_payment";
 
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("select");
 
-  const amount = job?.revenue || job?.balance_due || 0;
-
   const handleConfirm = () => {
+    console.log("Confirm & Complete tapped, selected:", selected);
     if (!selected) {
       setStep("no_payment");
       return;
     }
-    if (selected === "invoice") {
-      if (!amount || Number(amount) === 0) {
-        setStep("zero_warning");
-        return;
-      }
-      setStep("invoice_confirm");
-      return;
-    }
+    // Execute directly for all methods including invoice — no intermediate dialogs
     onDone(selected);
   };
 
@@ -50,44 +42,6 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
           </div>
           <p className="text-sm text-muted-foreground">Please select Cash or Card before completing this job.</p>
           <Button className="w-full" onClick={() => setStep("select")}>Go Back</Button>
-        </div>
-      </EngineerSheet>
-    );
-  }
-
-  if (step === "invoice_confirm") {
-    return (
-      <EngineerSheet onClose={() => setStep("select")}>
-        <div className="px-5 py-6 space-y-4">
-          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
-            <FileText className="w-5 h-5 text-warning" /> Invoice Later?
-          </div>
-          <p className="text-sm text-muted-foreground">
-            This job will be marked as unpaid and invoiced later. Please make sure the office has been notified.
-          </p>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>Go Back</Button>
-            <Button className="flex-1" onClick={() => onDone("invoice")}>Confirm</Button>
-          </div>
-        </div>
-      </EngineerSheet>
-    );
-  }
-
-  if (step === "zero_warning") {
-    return (
-      <EngineerSheet onClose={() => setStep("select")}>
-        <div className="px-5 py-6 space-y-4">
-          <div className="flex items-center gap-2 text-lg font-extrabold text-foreground">
-            <AlertTriangle className="w-5 h-5 text-warning" /> No Amount Set
-          </div>
-          <p className="text-sm text-muted-foreground">
-            No amount is set on this job. Are you sure you want to send an invoice?
-          </p>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setStep("select")}>Go Back</Button>
-            <Button className="flex-1" onClick={() => setStep("invoice_confirm")}>Continue Anyway</Button>
-          </div>
         </div>
       </EngineerSheet>
     );
