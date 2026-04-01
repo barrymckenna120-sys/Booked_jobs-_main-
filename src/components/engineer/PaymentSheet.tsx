@@ -25,18 +25,12 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const amount = job?.revenue || job?.balance_due || 0;
 
   const handleConfirm = () => {
+    console.log("Confirm & Complete tapped, selected:", selected);
     if (!selected) {
       setStep("no_payment");
       return;
     }
-    if (selected === "invoice") {
-      if (!amount || Number(amount) === 0) {
-        setStep("zero_warning");
-        return;
-      }
-      setStep("invoice_confirm");
-      return;
-    }
+    // Execute directly for all methods including invoice — no intermediate dialogs
     onDone(selected);
   };
 
