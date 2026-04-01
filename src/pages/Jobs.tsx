@@ -36,6 +36,7 @@ type Job = {
   completed_at: string | null;
   customer_name?: string;
   customer_address?: string;
+  customer_phone?: string;
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
