@@ -126,7 +126,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </a>
         )}
 
-        <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} />
+        <InfoPills timeBlock={job.time_block} jobType={job.job_type} boilerBrand={job.boiler_brand} depositPaid={job.deposit_paid} scheduledDate={job.scheduled_date} />
 
         {/* Saved Tags */}
         {jobTags.length > 0 && (
