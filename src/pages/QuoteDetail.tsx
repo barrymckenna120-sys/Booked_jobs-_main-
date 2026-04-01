@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,8 @@ const QuoteDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as any)?.returnTo as string | undefined;
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const queryClient = useQueryClient();
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -148,7 +150,7 @@ const QuoteDetail = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/quotes")}><ArrowLeft className="w-5 h-5" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => returnTo ? navigate(returnTo) : navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1">
           <h1 className="text-2xl font-extrabold text-foreground">{q.quote_number || `Q-${q.id.slice(0, 4).toUpperCase()}`}</h1>
         </div>
