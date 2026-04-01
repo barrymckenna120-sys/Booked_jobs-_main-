@@ -15,6 +15,9 @@ export const useAuth = (redirectTo = "/auth") => {
       setUser(session?.user ?? null);
       setLoading(false);
       initialCheckDone.current = true;
+      if (session?.user) {
+        linkEngineerAuthId(session.user);
+      }
       if (!session?.user && redirectTo) {
         navigate(redirectTo, { replace: true });
       }
