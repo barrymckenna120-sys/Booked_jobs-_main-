@@ -103,6 +103,12 @@ Deno.serve(async (req) => {
     // ── jsPDF rendering ──
     const { default: jsPDF } = await import("https://esm.sh/jspdf@2.5.2");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setProperties({
+      title: `RGI Gas Installation Certificate – ${customer?.name || "Customer"} – ${cert.cert_number || ""}`,
+      subject: "RGI Gas Installation Certificate",
+      author: companyName,
+      creator: "BookedJobs",
+    });
     const pageW = 210;
     const margin = 15;
     const contentW = pageW - margin * 2;
