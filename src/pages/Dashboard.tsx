@@ -95,13 +95,11 @@ const Dashboard = () => {
     const channel = supabase
       .channel("dashboard-jobs-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["dashboard-stat-cards"] });
-        queryClient.invalidateQueries({ queryKey: ["today-timeline"] });
-        queryClient.invalidateQueries({ queryKey: ["needs-attention"] });
-        queryClient.invalidateQueries({ queryKey: ["todays-revenue"] });
-        queryClient.invalidateQueries({ queryKey: ["jobs-update"] });
-        queryClient.invalidateQueries({ queryKey: ["follow-up-count"] });
-        queryClient.invalidateQueries({ queryKey: ["parts-count"] });
+        // Invalidate all dashboard-related queries
+        queryClient.invalidateQueries({ predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.startsWith("dashboard-") || key === "jobs-update" || key === "follow-up-count" || key === "parts-count" || key === "needs-attention" || key === "todays-revenue";
+        }});
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
