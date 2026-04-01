@@ -68,6 +68,18 @@ const Jobs = () => {
     if (user) fetchJobs();
   }, [user]);
 
+  // Realtime: auto-refresh when any service_call changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("jobs-list-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
+        fetchJobs();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter]);
 
   const fetchJobs = async () => {
