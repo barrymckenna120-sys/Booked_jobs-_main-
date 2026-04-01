@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
+import PaymentSheet from "@/components/engineer/PaymentSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
 import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
@@ -74,6 +75,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [savingReply, setSavingReply] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
+  const [showPayment, setShowPayment] = useState(false);
+  const [completeData, setCompleteData] = useState<any>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
 
   useEffect(() => {
     if (user && id) fetchJob();
@@ -145,6 +150,43 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
   };
 
+  const handlePaymentDone = async (method: string) => {
+    if (!completeData || !job) return;
+    setShowPayment(false);
+
+    if (method === "invoice") {
+      // For invoice: update job, then call edge function to create invoice + send WhatsApp
+      setInvoiceLoading(true);
+      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+
+      try {
+        const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
+          body: { job_id: job.id },
+        });
+
+        if (fnErr) {
+          console.error("Invoice creation error:", fnErr);
+          toast({ title: "Job completed but invoice failed", description: "The office will follow up.", variant: "destructive" });
+        } else if (result?.success) {
+          setInvoiceSuccess({ customerName: result.customer_name || customer?.name || "Customer" });
+        } else {
+          toast({ title: "Job completed but invoice failed", description: result?.error || "Unknown error", variant: "destructive" });
+        }
+      } catch (err) {
+        console.error("Invoice error:", err);
+        toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
+      }
+
+      setInvoiceLoading(false);
+      setCompleteData(null);
+      return;
+    }
+
+    // Cash or Card — normal flow
+    updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+    setCompleteData(null);
+  };
+
   const updateJob = async (patch: Record<string, any>) => {
     if (!job) return;
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
@@ -168,8 +210,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
-      dbPatch.paid_at = new Date().toISOString();
       dbPatch.payment_collected_by = user?.id || null;
+      if (paymentMethod === "invoice") {
+        dbPatch.payment_status = "unpaid";
+      } else {
+        dbPatch.paid_at = new Date().toISOString();
+      }
     }
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
@@ -245,6 +291,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         supabase.functions.invoke("trigger-review-request", {
           body: { service_call_id: job.id, customer_id: job.customer_id },
         }).catch((err) => console.error("Review request trigger failed:", err));
+        // For invoice payments, don't navigate — the invoice flow handles success
+        if (paymentMethod === "invoice") {
+          return;
+        }
         toast({ title: "Job completed" });
         navigate(`/receipt/${job.id}`);
         return;
@@ -680,9 +730,42 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           job={job}
           customer={customer}
           onClose={() => setShowComplete(false)}
-          onDone={(data: any) => { updateJob({ status: "Completed", ...data }); setShowComplete(false); }}
+          onDone={(data: any) => { setCompleteData(data); setShowComplete(false); setShowPayment(true); }}
         />
       )}
+      {showPayment && (
+        <PaymentSheet
+          job={job}
+          customer={customer}
+          onClose={() => { setShowPayment(false); setCompleteData(null); }}
+          onDone={handlePaymentDone}
+        />
+      )}
+
+      {/* Invoice loading overlay */}
+      {invoiceLoading && (
+        <div className="fixed inset-0 z-[700] bg-background/80 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="text-sm font-bold text-foreground">Creating invoice & sending to customer…</div>
+        </div>
+      )}
+
+      {/* Invoice success dialog */}
+      <Dialog open={!!invoiceSuccess} onOpenChange={() => { setInvoiceSuccess(null); navigate("/engineer/today"); }}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-success">
+              <CheckCircle2 className="w-5 h-5" /> Job Complete
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-foreground">
+            Invoice sent to <span className="font-bold">{invoiceSuccess?.customerName}</span>
+          </p>
+          <Button className="w-full mt-2" onClick={() => { setInvoiceSuccess(null); navigate("/engineer/today"); }}>
+            Done
+          </Button>
+        </DialogContent>
+      </Dialog>
       {showCancel && (
         <CancelSheet
           job={job}
