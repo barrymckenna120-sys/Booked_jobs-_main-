@@ -23,7 +23,7 @@ const jobTypeBadge = (type: string) => {
     case "Emergency":
       return <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] px-1.5 py-0">Emergency</Badge>;
     default:
-      return <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5 py-0">Service</Badge>;
+      return <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5 py-0">{type || "Service"}</Badge>;
   }
 };
 
