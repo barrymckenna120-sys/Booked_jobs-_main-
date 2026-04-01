@@ -16,13 +16,11 @@ const METHODS = [
   { value: "invoice", label: "Invoice", icon: FileText, description: "Send invoice to customer" },
 ] as const;
 
-type Step = "select" | "no_payment" | "invoice_confirm" | "zero_warning";
+type Step = "select" | "no_payment";
 
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("select");
-
-  const amount = job?.revenue || job?.balance_due || 0;
 
   const handleConfirm = () => {
     console.log("Confirm & Complete tapped, selected:", selected);
