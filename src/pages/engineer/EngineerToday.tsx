@@ -106,6 +106,24 @@ const EngineerToday = () => {
           )}
         </>
       )}
+
+      {/* Job Stats */}
+      <div className="flex gap-4">
+        {([
+          { count: todayActive.length, label: "Scheduled", Icon: ClipboardList, borderColor: "border-t-primary", iconColor: "text-primary" },
+          { count: todayCompleted.length, label: "Completed", Icon: CheckCircle2, borderColor: "border-t-success", iconColor: "text-success" },
+          { count: todayCancelled.length, label: "Cancelled", Icon: XCircle, borderColor: "border-t-destructive", iconColor: "text-destructive" },
+        ] as const).map((stat) => (
+          <div key={stat.label} className={`flex-1 bg-card rounded-2xl border border-border/60 ${stat.borderColor} border-t-4 p-5 text-center shadow-sm`}>
+            <stat.Icon className={`w-5 h-5 mx-auto mb-2 ${stat.iconColor}`} />
+            <div className="text-3xl font-black tracking-tighter leading-none mb-1.5">{stat.count}</div>
+            <div className="text-[11px] font-semibold text-muted-foreground/70 leading-snug">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Outstanding Balances — slim banner */}
+      <EngineerOutstandingBalances />
     </>
   );
 };
