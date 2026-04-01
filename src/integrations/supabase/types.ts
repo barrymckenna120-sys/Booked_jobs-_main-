@@ -1578,6 +1578,9 @@ export type Database = {
           has_quote: boolean
           id: string
           incoming_status: string | null
+          invoice_reminder_2_sent_at: string | null
+          invoice_reminder_count: number
+          invoice_reminder_sent_at: string | null
           invoiced_at: string | null
           job_issue: string | null
           job_type: string
@@ -1645,6 +1648,9 @@ export type Database = {
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          invoice_reminder_2_sent_at?: string | null
+          invoice_reminder_count?: number
+          invoice_reminder_sent_at?: string | null
           invoiced_at?: string | null
           job_issue?: string | null
           job_type?: string
@@ -1712,6 +1718,9 @@ export type Database = {
           has_quote?: boolean
           id?: string
           incoming_status?: string | null
+          invoice_reminder_2_sent_at?: string | null
+          invoice_reminder_count?: number
+          invoice_reminder_sent_at?: string | null
           invoiced_at?: string | null
           job_issue?: string | null
           job_type?: string
