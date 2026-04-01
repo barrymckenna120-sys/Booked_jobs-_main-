@@ -23,6 +23,7 @@ type OutstandingJob = {
   payment_status: string | null;
   reminder_14day_sent: boolean;
   customer_phone: string | null;
+  invoiced_at: string | null;
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
