@@ -196,20 +196,24 @@ export const useEngineerJobs = () => {
     } else {
       const updatedJob = { ...[...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId), ...dbPatch };
       const isNowDone = ["Completed", "Cancelled", "no_show"].includes(dbPatch.status);
+      const inPlaceUpdater = (prev: any[]) => prev.map((j) => (j.id === jobId ? updatedJob : j));
+
+      // Always update todayJobs in-place so derived todayActive/todayCompleted/todayCancelled work correctly
+      setTodayJobs(inPlaceUpdater);
 
       if (isNowDone) {
-        // Remove from active lists and add to completed
-        setTodayJobs(prev => prev.filter(j => j.id !== jobId));
+        // Remove from upcoming (it shouldn't appear there anymore)
         setUpcomingJobs(prev => prev.filter(j => j.id !== jobId));
+        // Add to completedJobs if not already there
         if (dbPatch.status === "Completed") {
-          setCompletedJobs(prev => [updatedJob, ...prev.filter(j => j.id !== jobId)]);
+          setCompletedJobs(prev => {
+            if (prev.some(j => j.id === jobId)) return inPlaceUpdater(prev);
+            return [updatedJob, ...prev];
+          });
         }
       } else {
-        // In-place update for non-terminal status changes
-        const updater = (prev: any[]) => prev.map((j) => (j.id === jobId ? updatedJob : j));
-        setTodayJobs(updater);
-        setUpcomingJobs(updater);
-        setCompletedJobs(updater);
+        setUpcomingJobs(inPlaceUpdater);
+        setCompletedJobs(inPlaceUpdater);
       }
 
       if (patch.status === "Completed") {
