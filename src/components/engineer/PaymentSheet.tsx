@@ -21,6 +21,9 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [showNoPayment, setShowNoPayment] = useState(false);
   const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
+  const [showZeroWarning, setShowZeroWarning] = useState(false);
+
+  const amount = job?.revenue || job?.balance_due || 0;
 
   const handleConfirm = () => {
     if (!selected) {
@@ -28,6 +31,10 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
       return;
     }
     if (selected === "invoice") {
+      if (!amount || Number(amount) === 0) {
+        setShowZeroWarning(true);
+        return;
+      }
       setShowInvoiceConfirm(true);
       return;
     }
