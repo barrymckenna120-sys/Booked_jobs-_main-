@@ -171,6 +171,7 @@ const OutstandingBalances = () => {
                 <TableHead className="font-extrabold text-right">Job Total</TableHead>
                 <TableHead className="font-extrabold text-right">Deposit Paid</TableHead>
                 <TableHead className="font-extrabold text-right">Balance Due</TableHead>
+                <TableHead className="font-extrabold text-center">Outstanding</TableHead>
                 <TableHead className="font-extrabold text-center">Status</TableHead>
                 <TableHead className="font-extrabold text-center">Actions</TableHead>
               </TableRow>
