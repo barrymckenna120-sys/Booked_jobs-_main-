@@ -242,7 +242,32 @@ export const useEngineerJobs = () => {
             console.error("Failed to save job tags:", e);
           }
         }
-        toast({ title: "Job completed ✔" });
+
+        // Send WhatsApp invoice notification for invoice payments
+        if (paymentMethod === "invoice") {
+          try {
+            const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+            const cust = customers[job?.customer_id];
+            const firstName = cust?.name?.split(" ")[0] || "Customer";
+            const amount = job?.revenue || job?.balance_due || 0;
+            const invoiceRef = dbPatch.invoice_number || "N/A";
+            const jobType = job?.job_type || "service";
+
+            await supabase.functions.invoke("send-certificate-whatsapp", {
+              body: {
+                phone: cust?.phone,
+                customer_name: firstName,
+                message: `Hi ${firstName}, your invoice for ${jobType} is €${Number(amount).toFixed(2)}. Invoice ref: ${invoiceRef}. Payment is due within 14 days. Thank you, K&N Gas Services.`,
+              },
+            });
+          } catch (e) {
+            console.error("Failed to send invoice WhatsApp:", e);
+          }
+          const cust = customers[[...todayJobs, ...upcomingJobs].find(j => j.id === jobId)?.customer_id];
+          toast({ title: `Job Complete — Invoice Sent to ${cust?.name || "Customer"}` });
+        } else {
+          toast({ title: "Job completed ✔" });
+        }
         navigate(`/receipt/${jobId}`);
       } else if (patch.status === "Cancelled") {
         toast({ title: "Job cancelled" });
