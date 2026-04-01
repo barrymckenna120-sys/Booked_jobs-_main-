@@ -237,7 +237,14 @@ const AppLayoutInner = () => {
                 }`}
                 style={active ? undefined : { color: "#6B7280" }}
               >
-                <item.icon className="w-6 h-6" strokeWidth={2.5} />
+                <div className="relative">
+                  <item.icon className="w-6 h-6" strokeWidth={2.5} />
+                  {item.path === "/inbox" && unreadMessages > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[9px] font-extrabold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                      {unreadMessages > 99 ? "99+" : unreadMessages}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] leading-tight mt-0.5">{item.label}</span>
               </button>
             );
