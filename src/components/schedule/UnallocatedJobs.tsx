@@ -32,16 +32,29 @@ const urgencyBadge = (type: string) => {
   return null;
 };
 
-const formatTimestamp = (dateStr: string) => {
-  const date = new Date(dateStr);
-  if (isToday(date)) {
-    return `Today ${format(date, "HH:mm")}`;
+const formatTimestamp = (dateStr: string | null | undefined) => {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    if (isToday(date)) {
+      return `Today ${format(date, "HH:mm")}`;
+    }
+    return format(date, "d MMM");
+  } catch {
+    return "";
   }
-  return format(date, "d MMM");
 };
 
-const isNew = (dateStr: string) => {
-  return differenceInHours(new Date(), new Date(dateStr)) < 24;
+const isNew = (dateStr: string | null | undefined) => {
+  if (!dateStr) return false;
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
+    return differenceInHours(new Date(), date) < 24;
+  } catch {
+    return false;
+  }
 };
 
 const JOB_TYPE_OPTIONS = [
