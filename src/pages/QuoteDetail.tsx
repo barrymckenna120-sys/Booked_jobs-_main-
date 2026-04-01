@@ -30,6 +30,8 @@ const QuoteDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as any)?.returnTo as string | undefined;
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const queryClient = useQueryClient();
   const [generatingPdf, setGeneratingPdf] = useState(false);
