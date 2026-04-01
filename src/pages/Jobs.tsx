@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp,
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PAGE_SIZE = 15;
 
@@ -41,6 +42,7 @@ type Job = {
 };
 
 const Jobs = () => {
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -342,6 +344,101 @@ const Jobs = () => {
     </Table>
   );
 
+  const getEngineerInitials = (name: string | null) => {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const getJobBorderClass = (j: Job) => {
+    if (IN_PROGRESS_STATUSES.includes(j.status)) return "border-l-4 border-l-warning";
+    if (j.status === "Completed" && j.completed_at && j.completed_at.slice(0, 10) === today) return "border-l-4 border-l-success";
+    if (j.status === "Cancelled") return "border-l-4 border-l-destructive";
+    return "";
+  };
+
+  const renderJobCard = (j: Job) => (
+    <div
+      key={j.id}
+      onClick={() => navigate(`/jobs/${j.id}`)}
+      className={`bg-card rounded-xl border border-border/60 p-4 space-y-2.5 active:bg-muted/50 transition-colors ${getJobBorderClass(j)}`}
+    >
+      {/* Row 1: Customer + Status */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-foreground truncate">{j.customer_name}</p>
+          {j.customer_address && (
+            <p className="text-xs text-muted-foreground truncate">{j.customer_address}</p>
+          )}
+        </div>
+        {statusBadge(j.status)}
+      </div>
+
+      {/* Row 2: Type + Date */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {jobTypeBadge(j.job_type)}
+        <span className="text-xs text-muted-foreground">
+          {j.completed_at && j.status === "Completed"
+            ? `Completed at ${fmtTime(j.completed_at)}`
+            : j.scheduled_date
+            ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
+            : "Unscheduled"}
+        </span>
+      </div>
+
+      {/* Row 3: Engineer + Payment */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-bold text-primary">{getEngineerInitials(j.assigned_engineer)}</span>
+          </div>
+          <span className="text-xs text-foreground truncate">{j.assigned_engineer || "Unassigned"}</span>
+        </div>
+        {paymentStatusBadge(j)}
+      </div>
+
+      {/* Row 4: Job ref + Source + View */}
+      <div className="flex items-center justify-between gap-2 pt-0.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground font-mono">BJ-{j.id.slice(0, 4).toUpperCase()}</span>
+          {j.source === "Quote" ? (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
+          ) : j.source === "Tally" ? (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600">Tally</span>
+          ) : (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Manual</span>
+          )}
+        </div>
+        <button
+          className="text-xs font-bold text-primary"
+          onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${j.id}`); }}
+        >
+          View →
+        </button>
+      </div>
+
+      {j.follow_up_needed && (
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Follow-up</span>
+          {j.follow_up_detail && <span className="text-[10px] text-muted-foreground truncate">{j.follow_up_detail}</span>}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMobileCards = (rows: Job[]) => (
+    <div className="space-y-3">
+      {rows.map(renderJobCard)}
+    </div>
+  );
+
+  const renderJobsList = (rows: Job[], rowBorderClass?: string) => {
+    if (isMobile) return renderMobileCards(rows);
+    return <Card><CardContent className="p-0"><div className="overflow-x-auto">{renderJobsTable(rows, rowBorderClass)}</div></CardContent></Card>;
+  };
+
+  // Revenue total for today
+  const todayRevenue = [...completedTodayJobs, ...inProgressJobs].reduce((sum, j) => sum + (j.revenue || 0), 0);
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
@@ -486,6 +583,32 @@ const Jobs = () => {
         </Select>
       </div>
 
+      {/* ── MOBILE: Counter chips + Date header ── */}
+      {isMobile && !loading && (
+        <>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+            {[
+              { label: "In Progress", count: inProgressJobs.length, colors: "bg-warning/10 text-warning border-warning/30" },
+              { label: "Completed", count: completedTodayJobs.length, colors: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
+              { label: "Upcoming", count: upcomingJobs.length, colors: "bg-primary/10 text-primary border-primary/20" },
+              { label: "Pending", count: pendingJobs.length, colors: "bg-muted text-muted-foreground border-border" },
+            ].map(chip => (
+              <span key={chip.label} className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${chip.colors}`}>
+                {chip.label} <span className="font-black">{chip.count}</span>
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-foreground">
+              {new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" })}
+            </span>
+            {todayRevenue > 0 && (
+              <span className="text-sm font-bold text-emerald-600">{eur(todayRevenue)}</span>
+            )}
+          </div>
+        </>
+      )}
+
       {/* ── IN PROGRESS ── */}
       {!loading && inProgressJobs.length > 0 && (
         <div>
@@ -493,11 +616,7 @@ const Jobs = () => {
             🔧 In Progress
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-warning/10 text-warning">{inProgressJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(inProgressJobs, "border-l-4 border-l-warning")}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(inProgressJobs, "border-l-4 border-l-warning")}
         </div>
       )}
 
@@ -508,11 +627,7 @@ const Jobs = () => {
             ✅ Completed Today
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">{completedTodayJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(completedTodayJobs, "border-l-4 border-l-success")}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(completedTodayJobs, "border-l-4 border-l-success")}
         </div>
       )}
 
@@ -523,11 +638,7 @@ const Jobs = () => {
             📅 Upcoming
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">{upcomingJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(upcomingJobs)}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(upcomingJobs)}
         </div>
       )}
 
@@ -538,11 +649,7 @@ const Jobs = () => {
             ⏳ Pending / Unscheduled
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">{pendingJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(pendingJobs)}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(pendingJobs)}
         </div>
       )}
 
@@ -564,28 +671,34 @@ const Jobs = () => {
             {showCompleted ? "Hide" : "Show"} Completed ({completedOlderJobs.length})
           </Button>
           {showCompleted && completedPaginated.length > 0 && (
-            <Card className="mt-2">
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  {renderJobsTable(completedPaginated)}
-                </div>
-                {completedTotalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                    <p className="text-sm text-muted-foreground">
-                      {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedOlderJobs.length)} of {completedOlderJobs.length}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" disabled={completedPage === 0} onClick={() => setCompletedPage(p => p - 1)}>
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" disabled={completedPage >= completedTotalPages - 1} onClick={() => setCompletedPage(p => p + 1)}>
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
+            <div className="mt-2">
+              {isMobile ? (
+                renderMobileCards(completedPaginated)
+              ) : (
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      {renderJobsTable(completedPaginated)}
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+              {completedTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border mt-2">
+                  <p className="text-sm text-muted-foreground">
+                    {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedOlderJobs.length)} of {completedOlderJobs.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={completedPage === 0} onClick={() => setCompletedPage(p => p - 1)}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={completedPage >= completedTotalPages - 1} onClick={() => setCompletedPage(p => p + 1)}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
