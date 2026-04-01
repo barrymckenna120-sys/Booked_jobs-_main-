@@ -405,6 +405,18 @@ const Jobs = () => {
         {paymentStatusBadge(j)}
       </div>
 
+      {/* Contact links */}
+      {j.customer_phone && (
+        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+          <a href={`tel:${j.customer_phone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+            <Phone className="w-4 h-4" /> Call
+          </a>
+          <a href={`https://wa.me/${formatWhatsApp(j.customer_phone)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+            <MessageCircle className="w-4 h-4" /> WhatsApp
+          </a>
+        </div>
+      )}
+
       {/* Row 4: Job ref + Source + View */}
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex items-center gap-2">
