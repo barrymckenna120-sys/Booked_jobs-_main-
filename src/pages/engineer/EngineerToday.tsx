@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
@@ -19,6 +20,7 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 };
 
 const EngineerToday = () => {
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const navigate = useNavigate();
   const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos, fadingJobIds } = useEngineerJobs();
 
