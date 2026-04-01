@@ -2,22 +2,41 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { getFcmToken } from "@/lib/firebase";
 
-/** Auto-link engineer record to auth account on first login */
-const linkEngineerAuthId = async (user: User) => {
+/** Auto-link engineer record to auth account on first login, then store FCM token */
+const linkEngineerAndCaptureFcm = async (user: User) => {
   if (!user.email) return;
   try {
-    const { data } = await supabase
+    // Step 1: auto-link auth_user_id if missing
+    const { data: unlinked } = await supabase
       .from("engineers")
       .select("id, auth_user_id")
       .eq("email", user.email)
       .is("auth_user_id", null)
       .maybeSingle();
-    if (data) {
+    if (unlinked) {
       await supabase
         .from("engineers")
         .update({ auth_user_id: user.id } as any)
-        .eq("id", data.id);
+        .eq("id", unlinked.id);
+    }
+
+    // Step 2: capture FCM token for the engineer
+    const { data: engineer } = await supabase
+      .from("engineers")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (engineer) {
+      const fcmToken = await getFcmToken();
+      if (fcmToken) {
+        await supabase
+          .from("engineers")
+          .update({ fcm_token: fcmToken } as any)
+          .eq("id", engineer.id);
+      }
     }
   } catch {
     // Non-critical — silently ignore
