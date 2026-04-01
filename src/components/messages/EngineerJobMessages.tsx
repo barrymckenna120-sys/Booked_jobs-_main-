@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Send } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import JobMessageThread from "./JobMessageThread";
 
 const PRESETS = [
