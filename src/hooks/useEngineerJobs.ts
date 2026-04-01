@@ -155,8 +155,15 @@ export const useEngineerJobs = () => {
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
-      dbPatch.paid_at = new Date().toISOString();
-      dbPatch.payment_collected_by = user?.id || null;
+      if (paymentMethod === "invoice") {
+        // Invoice = unpaid, no paid_at
+        dbPatch.payment_status = "unpaid";
+      } else {
+        dbPatch.paid_at = new Date().toISOString();
+        dbPatch.payment_collected_by = user?.id || null;
+        dbPatch.payment_status = "paid";
+        dbPatch.balance_due = 0;
+      }
     }
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
