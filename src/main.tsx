@@ -8,3 +8,10 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>
 );
+
+// Register Firebase messaging service worker for background push notifications
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/firebase-messaging-sw.js").catch((err) => {
+    console.warn("Firebase SW registration failed:", err);
+  });
+}
