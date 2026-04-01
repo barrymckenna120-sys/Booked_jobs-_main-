@@ -21,6 +21,9 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [showNoPayment, setShowNoPayment] = useState(false);
   const [showInvoiceConfirm, setShowInvoiceConfirm] = useState(false);
+  const [showZeroWarning, setShowZeroWarning] = useState(false);
+
+  const amount = job?.revenue || job?.balance_due || 0;
 
   const handleConfirm = () => {
     if (!selected) {
@@ -28,6 +31,10 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
       return;
     }
     if (selected === "invoice") {
+      if (!amount || Number(amount) === 0) {
+        setShowZeroWarning(true);
+        return;
+      }
       setShowInvoiceConfirm(true);
       return;
     }
@@ -117,6 +124,28 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
             </Button>
             <Button className="flex-1" onClick={() => { setShowInvoiceConfirm(false); onDone("invoice"); }}>
               Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zero amount warning for invoice */}
+      <Dialog open={showZeroWarning} onOpenChange={setShowZeroWarning}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning" /> No Amount Set
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            No amount is set on this job. Are you sure you want to send an invoice?
+          </p>
+          <div className="flex gap-3 mt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowZeroWarning(false)}>
+              Go Back
+            </Button>
+            <Button className="flex-1" onClick={() => { setShowZeroWarning(false); setShowInvoiceConfirm(true); }}>
+              Continue Anyway
             </Button>
           </div>
         </DialogContent>
