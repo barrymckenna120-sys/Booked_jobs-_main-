@@ -291,6 +291,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         supabase.functions.invoke("trigger-review-request", {
           body: { service_call_id: job.id, customer_id: job.customer_id },
         }).catch((err) => console.error("Review request trigger failed:", err));
+        // For invoice payments, don't navigate — the invoice flow handles success
+        if (paymentMethod === "invoice") {
+          return;
+        }
         toast({ title: "Job completed" });
         navigate(`/receipt/${job.id}`);
         return;
