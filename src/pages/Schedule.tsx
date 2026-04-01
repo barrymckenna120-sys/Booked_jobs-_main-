@@ -89,6 +89,7 @@ export type ScheduleJob = {
   boiler_error_code?: string | null;
   boiler_working?: boolean | null;
   owner_or_tenant?: string | null;
+  created_at: string;
 };
 
 const Schedule = () => {
@@ -166,6 +167,7 @@ const Schedule = () => {
         boiler_error_code: j.boiler_error_code || null,
         boiler_working: j.boiler_working ?? null,
         owner_or_tenant: j.owner_or_tenant || null,
+        created_at: j.created_at,
       })) as ScheduleJob[];
     },
     enabled: !!user,
