@@ -893,6 +893,133 @@ export type Database = {
           },
         ]
       }
+      invoice_line_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          line_total: number | null
+          qty: number
+          sort_order: number | null
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          line_total?: number | null
+          qty?: number
+          sort_order?: number | null
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          line_total?: number | null
+          qty?: number
+          sort_order?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          balance_due: number | null
+          created_at: string
+          customer_id: string
+          deposit_paid: number | null
+          id: string
+          invoice_number: string | null
+          job_id: string | null
+          organisation_id: string
+          pdf_url: string | null
+          quote_id: string | null
+          sent_at: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+          vat_enabled: boolean | null
+        }
+        Insert: {
+          balance_due?: number | null
+          created_at?: string
+          customer_id: string
+          deposit_paid?: number | null
+          id?: string
+          invoice_number?: string | null
+          job_id?: string | null
+          organisation_id?: string
+          pdf_url?: string | null
+          quote_id?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+          vat_enabled?: boolean | null
+        }
+        Update: {
+          balance_due?: number | null
+          created_at?: string
+          customer_id?: string
+          deposit_paid?: number | null
+          id?: string
+          invoice_number?: string | null
+          job_id?: string | null
+          organisation_id?: string
+          pdf_url?: string | null
+          quote_id?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+          vat_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_media: {
         Row: {
           customer_id: string | null
