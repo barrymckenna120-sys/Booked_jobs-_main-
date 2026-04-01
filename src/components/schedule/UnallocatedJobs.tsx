@@ -188,9 +188,9 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
       <AlertDialog open={!!confirmJob} onOpenChange={(open) => { if (!open) setConfirmJob(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove from schedule?</AlertDialogTitle>
+            <AlertDialogTitle>Archive this job?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will move <span className="font-semibold text-foreground">{confirmJob?.customer_name}</span> (BJ-{confirmJob?.id.slice(0, 6).toUpperCase()}) to Pending status. You can reassign it later from the Jobs page.
+              <span className="font-semibold text-foreground">{confirmJob?.customer_name}</span> (BJ-{confirmJob?.id.slice(0, 6).toUpperCase()}) will be hidden from the schedule. You can still find it on the Jobs page using the Archived filter.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -199,7 +199,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => { if (confirmJob && onRemove) { onRemove(confirmJob); setConfirmJob(null); } }}
             >
-              Remove
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -320,11 +320,11 @@ const Schedule = () => {
   const handleRemoveFromSchedule = async (job: ScheduleJob) => {
     const { error } = await supabase
       .from("service_calls")
-      .update({ status: "Pending", scheduled_date: null, time_block: null, assigned_engineer: null, assigned_engineer_id: null, needs_scheduling: false } as any)
+      .update({ status: "archived" } as any)
       .eq("id", job.id);
     if (!error) {
-      logAudit({ action_type: "job_removed_from_schedule", entity_type: "service_call", entity_id: job.id, detail: `${job.customer_name} moved to Pending` });
-      toast({ title: "Job moved to Pending" });
+      logAudit({ action_type: "job_archived", entity_type: "service_call", entity_id: job.id, detail: `${job.customer_name} archived from schedule` });
+      toast({ title: "Job archived", description: "You can find it in the Jobs page under Archived filter." });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
     } else {
       toast({ title: "Error", description: error.message, variant: "destructive" });
