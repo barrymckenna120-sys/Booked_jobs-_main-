@@ -583,6 +583,32 @@ const Jobs = () => {
         </Select>
       </div>
 
+      {/* ── MOBILE: Counter chips + Date header ── */}
+      {isMobile && !loading && (
+        <>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+            {[
+              { label: "In Progress", count: inProgressJobs.length, colors: "bg-warning/10 text-warning border-warning/30" },
+              { label: "Completed", count: completedTodayJobs.length, colors: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
+              { label: "Upcoming", count: upcomingJobs.length, colors: "bg-primary/10 text-primary border-primary/20" },
+              { label: "Pending", count: pendingJobs.length, colors: "bg-muted text-muted-foreground border-border" },
+            ].map(chip => (
+              <span key={chip.label} className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${chip.colors}`}>
+                {chip.label} <span className="font-black">{chip.count}</span>
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-foreground">
+              {new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" })}
+            </span>
+            {todayRevenue > 0 && (
+              <span className="text-sm font-bold text-emerald-600">{eur(todayRevenue)}</span>
+            )}
+          </div>
+        </>
+      )}
+
       {/* ── IN PROGRESS ── */}
       {!loading && inProgressJobs.length > 0 && (
         <div>
@@ -590,11 +616,7 @@ const Jobs = () => {
             🔧 In Progress
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-warning/10 text-warning">{inProgressJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(inProgressJobs, "border-l-4 border-l-warning")}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(inProgressJobs, "border-l-4 border-l-warning")}
         </div>
       )}
 
@@ -605,11 +627,7 @@ const Jobs = () => {
             ✅ Completed Today
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">{completedTodayJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(completedTodayJobs, "border-l-4 border-l-success")}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(completedTodayJobs, "border-l-4 border-l-success")}
         </div>
       )}
 
@@ -620,11 +638,7 @@ const Jobs = () => {
             📅 Upcoming
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">{upcomingJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(upcomingJobs)}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(upcomingJobs)}
         </div>
       )}
 
@@ -635,11 +649,7 @@ const Jobs = () => {
             ⏳ Pending / Unscheduled
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">{pendingJobs.length}</span>
           </h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">{renderJobsTable(pendingJobs)}</div>
-            </CardContent>
-          </Card>
+          {renderJobsList(pendingJobs)}
         </div>
       )}
 
@@ -661,28 +671,34 @@ const Jobs = () => {
             {showCompleted ? "Hide" : "Show"} Completed ({completedOlderJobs.length})
           </Button>
           {showCompleted && completedPaginated.length > 0 && (
-            <Card className="mt-2">
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  {renderJobsTable(completedPaginated)}
-                </div>
-                {completedTotalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                    <p className="text-sm text-muted-foreground">
-                      {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedOlderJobs.length)} of {completedOlderJobs.length}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" disabled={completedPage === 0} onClick={() => setCompletedPage(p => p - 1)}>
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" disabled={completedPage >= completedTotalPages - 1} onClick={() => setCompletedPage(p => p + 1)}>
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
+            <div className="mt-2">
+              {isMobile ? (
+                renderMobileCards(completedPaginated)
+              ) : (
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      {renderJobsTable(completedPaginated)}
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+              {completedTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border mt-2">
+                  <p className="text-sm text-muted-foreground">
+                    {completedPage * PAGE_SIZE + 1}–{Math.min((completedPage + 1) * PAGE_SIZE, completedOlderJobs.length)} of {completedOlderJobs.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={completedPage === 0} onClick={() => setCompletedPage(p => p - 1)}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={completedPage >= completedTotalPages - 1} onClick={() => setCompletedPage(p => p + 1)}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
