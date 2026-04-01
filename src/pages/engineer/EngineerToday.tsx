@@ -20,6 +20,7 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 };
 
 const EngineerToday = () => {
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const navigate = useNavigate();
   const { todayActive, todayCompleted, todayCancelled, todayInProgress, customers, loading, updateJob, jobPhotos, fadingJobIds } = useEngineerJobs();
 
