@@ -628,7 +628,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowPhotos(true)}>
               <Camera className="w-5 h-5" /> Photo
             </Button>
-            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowExtraWork(true)}>
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" style={{ color: "#e8760a", backgroundColor: "#fff8f0", borderColor: "#f5c07a" }} onClick={() => setShowExtraWork(true)}>
               <Plus className="w-5 h-5" /> Extra Work
             </Button>
           </div>
