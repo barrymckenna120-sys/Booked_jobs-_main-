@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown, Phone, MessageCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
@@ -36,6 +36,7 @@ type Job = {
   completed_at: string | null;
   customer_name?: string;
   customer_address?: string;
+  customer_phone?: string;
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
@@ -111,7 +112,7 @@ const Jobs = () => {
         setJobQuotesMap(jqMap);
       }
 
-      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "" })) as Job[]);
+      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[]);
     }
     setLoading(false);
   };
@@ -349,6 +350,14 @@ const Jobs = () => {
     return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
   };
 
+  const formatWhatsApp = (phone: string | undefined) => {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('0')) return '353' + digits.slice(1);
+    if (digits.startsWith('353')) return digits;
+    return '353' + digits;
+  };
+
   const getJobBorderClass = (j: Job) => {
     if (IN_PROGRESS_STATUSES.includes(j.status)) return "border-l-4 border-l-warning";
     if (j.status === "Completed" && j.completed_at && j.completed_at.slice(0, 10) === today) return "border-l-4 border-l-success";
@@ -395,6 +404,18 @@ const Jobs = () => {
         </div>
         {paymentStatusBadge(j)}
       </div>
+
+      {/* Contact links */}
+      {j.customer_phone && (
+        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+          <a href={`tel:${j.customer_phone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+            <Phone className="w-4 h-4" /> Call
+          </a>
+          <a href={`https://wa.me/${formatWhatsApp(j.customer_phone)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+            <MessageCircle className="w-4 h-4" /> WhatsApp
+          </a>
+        </div>
+      )}
 
       {/* Row 4: Job ref + Source + View */}
       <div className="flex items-center justify-between gap-2 pt-0.5">
