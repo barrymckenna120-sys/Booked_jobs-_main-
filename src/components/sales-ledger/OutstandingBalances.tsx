@@ -23,6 +23,7 @@ type OutstandingJob = {
   payment_status: string | null;
   reminder_14day_sent: boolean;
   customer_phone: string | null;
+  invoiced_at: string | null;
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
@@ -68,6 +69,7 @@ const OutstandingBalances = () => {
                 payment_status: r.payment_status,
                 reminder_14day_sent: !!r.reminder_14day_sent,
                 customer_phone: r.customers?.phone || null,
+                invoiced_at: r.invoiced_at || null,
               }))
           );
         }
@@ -169,6 +171,7 @@ const OutstandingBalances = () => {
                 <TableHead className="font-extrabold text-right">Job Total</TableHead>
                 <TableHead className="font-extrabold text-right">Deposit Paid</TableHead>
                 <TableHead className="font-extrabold text-right">Balance Due</TableHead>
+                <TableHead className="font-extrabold text-center">Outstanding</TableHead>
                 <TableHead className="font-extrabold text-center">Status</TableHead>
                 <TableHead className="font-extrabold text-center">Actions</TableHead>
               </TableRow>
@@ -202,6 +205,20 @@ const OutstandingBalances = () => {
                     </TableCell>
                     <TableCell className="text-right font-bold" style={{ color: "#D97706" }}>
                       {eur(bal)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(() => {
+                        if (!job.invoiced_at) return "—";
+                        const days = Math.floor((Date.now() - new Date(job.invoiced_at).getTime()) / 86400000);
+                        const bg = days >= 15 ? "#FEE2E2" : days >= 7 ? "#FEF3C7" : "#DCFCE7";
+                        const color = days >= 15 ? "#DC2626" : days >= 7 ? "#D97706" : "#16A34A";
+                        const border = days >= 15 ? "#FCA5A5" : days >= 7 ? "#FDE68A" : "#BBF7D0";
+                        return (
+                          <Badge className="rounded-full text-xs font-bold px-2.5 py-0.5" style={{ background: bg, color, border: `1px solid ${border}` }}>
+                            {days}d
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-center">
                       {reminderAlreadySent ? (
