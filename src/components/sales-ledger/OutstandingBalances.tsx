@@ -139,6 +139,17 @@ const OutstandingBalances = () => {
 
   const jobRefStr = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
 
+  const getOutstandingDays = (invoiced_at: string | null) => {
+    if (!invoiced_at) return { days: 0, bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0" };
+    const days = Math.floor((Date.now() - new Date(invoiced_at).getTime()) / 86400000);
+    return {
+      days,
+      bg: days >= 15 ? "#FEE2E2" : days >= 7 ? "#FEF3C7" : "#DCFCE7",
+      color: days >= 15 ? "#DC2626" : days >= 7 ? "#D97706" : "#16A34A",
+      border: days >= 15 ? "#FCA5A5" : days >= 7 ? "#FDE68A" : "#BBF7D0",
+    };
+  };
+
   return (
     <>
       <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: "#FDE68A" }}>
