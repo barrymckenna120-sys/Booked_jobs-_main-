@@ -104,6 +104,7 @@ const Schedule = () => {
   const [detailDrawer, setDetailDrawer] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
   const [unallocatedOpen, setUnallocatedOpen] = useState(true);
   const [cancelModal, setCancelModal] = useState<{ open: boolean; job?: ScheduleJob }>({ open: false });
+  const [hiddenUnallocatedJobIds, setHiddenUnallocatedJobIds] = useState<string[]>([]);
 
   const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(allWeekDays[0], "d")}–${format(allWeekDays[4], "d MMM yyyy")}`;
@@ -132,9 +133,8 @@ const Schedule = () => {
   const TIME_BLOCKS = buildTimeBlocksFromSettings(settingsBlocks);
   const BLOCK_MAP = buildBlockMap(settingsBlocks, TIME_BLOCKS);
 
-
   // Fetch all jobs for the week + unallocated
-  const { data: jobs = [], refetch: refetchJobs } = useQuery({
+  const { data: jobs = [] } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
     queryFn: async () => {
       const weekEnd = format(addDays(weekStart, 6), "yyyy-MM-dd");
@@ -145,7 +145,7 @@ const Schedule = () => {
         .from("service_calls")
         .select("*, customers!inner(name, address, boiler_make_model)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null,status.eq.Pending,status.in.(incoming,accepted)`)
-        .not("status", "in", "(Completed,Cancelled)");
+        .not("status", "in", "(Completed,Cancelled,archived)");
 
       return (scheduledJobs || []).map((j: any) => ({
         id: j.id,
@@ -176,7 +176,7 @@ const Schedule = () => {
   // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days
   const hasJobOnDay = (day: Date) => {
     const dateStr = format(day, "yyyy-MM-dd");
-    return jobs.some((j) => j.scheduled_date === dateStr && j.status !== "Completed" && j.status !== "Cancelled");
+    return jobs.some((j) => j.scheduled_date === dateStr && j.status !== "Completed" && j.status !== "Cancelled" && j.status !== "archived");
   };
   const weekDays = allWeekDays.filter((day, i) => i < 5 || hasJobOnDay(day));
 
@@ -194,8 +194,8 @@ const Schedule = () => {
   const unallocatedJobs = jobs.filter(
     (j) => {
       const s = j.status?.toLowerCase();
-      if (s === "completed" || s === "cancelled" || s === "booked") return false;
-      // Show if missing assignment fields OR status is Pending (unassigned jobs from quotes etc.)
+      if (hiddenUnallocatedJobIds.includes(j.id)) return false;
+      if (s === "completed" || s === "cancelled" || s === "booked" || s === "archived") return false;
       return !j.assigned_engineer_id || !j.assigned_engineer || !j.scheduled_date || !j.time_block;
     }
   );
@@ -318,11 +318,15 @@ const Schedule = () => {
   };
 
   const handleRemoveFromSchedule = async (job: ScheduleJob) => {
-    const { error } = await supabase
+    const { data: archivedJob, error } = await supabase
       .from("service_calls")
       .update({ status: "archived" } as any)
-      .eq("id", job.id);
-    if (!error) {
+      .eq("id", job.id)
+      .select("id")
+      .single();
+
+    if (!error && archivedJob) {
+      setHiddenUnallocatedJobIds((currentIds) => currentIds.includes(job.id) ? currentIds : [...currentIds, job.id]);
       queryClient.setQueryData(
         ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
         (currentJobs: ScheduleJob[] | undefined) => currentJobs?.filter((currentJob) => currentJob.id !== job.id) ?? []
@@ -330,7 +334,7 @@ const Schedule = () => {
       logAudit({ action_type: "job_archived", entity_type: "service_call", entity_id: job.id, detail: `${job.customer_name} archived from schedule` });
       toast({ title: "Job archived", description: "You can find it in the Jobs page under Archived filter." });
     } else {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: error?.message || "Failed to archive job", variant: "destructive" });
     }
   };
 
