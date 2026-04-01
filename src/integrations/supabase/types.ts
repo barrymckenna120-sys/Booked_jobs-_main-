@@ -734,6 +734,7 @@ export type Database = {
           blocked_reason: string | null
           created_at: string
           email: string | null
+          fcm_token: string | null
           id: string
           is_available: boolean
           last_login: string | null
@@ -752,6 +753,7 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          fcm_token?: string | null
           id?: string
           is_available?: boolean
           last_login?: string | null
@@ -770,6 +772,7 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          fcm_token?: string | null
           id?: string
           is_available?: boolean
           last_login?: string | null
