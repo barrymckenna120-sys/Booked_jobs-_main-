@@ -75,6 +75,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [savingReply, setSavingReply] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
+  const [showPayment, setShowPayment] = useState(false);
+  const [completeData, setCompleteData] = useState<any>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
 
   useEffect(() => {
     if (user && id) fetchJob();
