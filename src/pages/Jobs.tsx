@@ -403,7 +403,7 @@ const Jobs = () => {
                           className="h-8 text-xs font-bold gap-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/quotes/${quote.id}`);
+                            navigate(`/quotes/${quote.id}`, { state: { returnTo: "/jobs" } });
                           }}
                         >
                           <Eye className="w-3.5 h-3.5" /> View Quote
