@@ -323,9 +323,12 @@ const Schedule = () => {
       .update({ status: "archived" } as any)
       .eq("id", job.id);
     if (!error) {
+      queryClient.setQueryData(
+        ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
+        (currentJobs: ScheduleJob[] | undefined) => currentJobs?.filter((currentJob) => currentJob.id !== job.id) ?? []
+      );
       logAudit({ action_type: "job_archived", entity_type: "service_call", entity_id: job.id, detail: `${job.customer_name} archived from schedule` });
       toast({ title: "Job archived", description: "You can find it in the Jobs page under Archived filter." });
-      queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
     } else {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
