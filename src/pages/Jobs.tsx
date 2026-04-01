@@ -344,6 +344,101 @@ const Jobs = () => {
     </Table>
   );
 
+  const getEngineerInitials = (name: string | null) => {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const getJobBorderClass = (j: Job) => {
+    if (IN_PROGRESS_STATUSES.includes(j.status)) return "border-l-4 border-l-warning";
+    if (j.status === "Completed" && j.completed_at && j.completed_at.slice(0, 10) === today) return "border-l-4 border-l-success";
+    if (j.status === "Cancelled") return "border-l-4 border-l-destructive";
+    return "";
+  };
+
+  const renderJobCard = (j: Job) => (
+    <div
+      key={j.id}
+      onClick={() => navigate(`/jobs/${j.id}`)}
+      className={`bg-card rounded-xl border border-border/60 p-4 space-y-2.5 active:bg-muted/50 transition-colors ${getJobBorderClass(j)}`}
+    >
+      {/* Row 1: Customer + Status */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-foreground truncate">{j.customer_name}</p>
+          {j.customer_address && (
+            <p className="text-xs text-muted-foreground truncate">{j.customer_address}</p>
+          )}
+        </div>
+        {statusBadge(j.status)}
+      </div>
+
+      {/* Row 2: Type + Date */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {jobTypeBadge(j.job_type)}
+        <span className="text-xs text-muted-foreground">
+          {j.completed_at && j.status === "Completed"
+            ? `Completed at ${fmtTime(j.completed_at)}`
+            : j.scheduled_date
+            ? `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
+            : "Unscheduled"}
+        </span>
+      </div>
+
+      {/* Row 3: Engineer + Payment */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-bold text-primary">{getEngineerInitials(j.assigned_engineer)}</span>
+          </div>
+          <span className="text-xs text-foreground truncate">{j.assigned_engineer || "Unassigned"}</span>
+        </div>
+        {paymentStatusBadge(j)}
+      </div>
+
+      {/* Row 4: Job ref + Source + View */}
+      <div className="flex items-center justify-between gap-2 pt-0.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground font-mono">BJ-{j.id.slice(0, 4).toUpperCase()}</span>
+          {j.source === "Quote" ? (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
+          ) : j.source === "Tally" ? (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600">Tally</span>
+          ) : (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Manual</span>
+          )}
+        </div>
+        <button
+          className="text-xs font-bold text-primary"
+          onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${j.id}`); }}
+        >
+          View →
+        </button>
+      </div>
+
+      {j.follow_up_needed && (
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600">Follow-up</span>
+          {j.follow_up_detail && <span className="text-[10px] text-muted-foreground truncate">{j.follow_up_detail}</span>}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMobileCards = (rows: Job[]) => (
+    <div className="space-y-3">
+      {rows.map(renderJobCard)}
+    </div>
+  );
+
+  const renderJobsList = (rows: Job[], rowBorderClass?: string) => {
+    if (isMobile) return renderMobileCards(rows);
+    return <Card><CardContent className="p-0"><div className="overflow-x-auto">{renderJobsTable(rows, rowBorderClass)}</div></CardContent></Card>;
+  };
+
+  // Revenue total for today
+  const todayRevenue = [...completedTodayJobs, ...inProgressJobs].reduce((sum, j) => sum + (j.revenue || 0), 0);
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
