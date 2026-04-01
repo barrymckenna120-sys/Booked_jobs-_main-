@@ -9,6 +9,7 @@ import {
 import { CreditCard, ExternalLink, Loader2, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import ReminderChecklistModal from "./ReminderChecklistModal";
 
 type OutstandingJob = {
