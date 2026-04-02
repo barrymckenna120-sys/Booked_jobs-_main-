@@ -195,6 +195,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         console.error("handlePaymentDone cash/card flow error:", err);
         toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
       }
+    }
     setCompleteData(null);
   };
 
