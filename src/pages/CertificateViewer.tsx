@@ -15,8 +15,9 @@ const CertificateViewer = () => {
     const cleanNumber = certNumber.replace(/\.pdf$/i, "");
 
     supabase.rpc("get_cert_pdf", { p_cert_number: cleanNumber }).then(({ data }) => {
-      if (data?.pdf_url) {
-        setPdfUrl(data.pdf_url);
+      const result = data as unknown as { pdf_url: string | null } | null;
+      if (result?.pdf_url) {
+        setPdfUrl(result.pdf_url);
       } else {
         setError(true);
       }
