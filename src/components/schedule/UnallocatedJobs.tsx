@@ -190,7 +190,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Archive this job?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-semibold text-foreground">{confirmJob?.customer_name}</span> (BJ-{confirmJob?.id.slice(0, 6).toUpperCase()}) will be hidden from the schedule. You can still find it on the Jobs page using the Archived filter.
+              <span className="font-semibold text-foreground">{confirmJob?.customer_name}</span> ({confirmJob?.job_reference || `KN-${confirmJob?.id.slice(0, 6).toUpperCase()}`}) will be hidden from the schedule. You can still find it on the Jobs page using the Archived filter.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

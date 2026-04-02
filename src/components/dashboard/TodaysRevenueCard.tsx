@@ -106,7 +106,7 @@ const TodaysRevenueCard = () => {
         id: j.id,
         revenue: j.revenue,
         customer_name: customerMap[j.customer_id] || "Unknown",
-        job_ref: "BJ-" + j.id.substring(0, 6).toUpperCase(),
+        job_ref: (j as any).job_reference || "KN-" + j.id.substring(0, 6).toUpperCase(),
       }));
 
       return { byType, grandTotal, unpaid, cardTotal, cashTotal, unpaidList };

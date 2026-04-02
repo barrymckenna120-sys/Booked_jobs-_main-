@@ -131,7 +131,7 @@ const AssignJobModal = ({
             {job && (
               <div className="rounded-md border border-border p-3 bg-muted/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-muted-foreground">BJ-{job.id.slice(0, 6).toUpperCase()}</span>
+                  <span className="text-xs font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                   <Badge className={
                     job.job_type === "Emergency"
                       ? "bg-destructive/10 text-destructive border-destructive/20 text-[10px]"

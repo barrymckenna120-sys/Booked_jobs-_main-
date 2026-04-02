@@ -447,7 +447,7 @@ const Schedule = () => {
       <CancelJobModal
         open={cancelModal.open}
         onOpenChange={(open) => setCancelModal({ ...cancelModal, open })}
-        jobRef={cancelModal.job ? `BJ-${cancelModal.job.id.slice(0, 6).toUpperCase()}` : ""}
+        jobRef={cancelModal.job ? (cancelModal.job.job_reference || `KN-${cancelModal.job.id.slice(0, 6).toUpperCase()}`) : ""}
         depositPaid={cancelModal.job?.deposit_paid}
         onConfirm={handleCancel}
       />

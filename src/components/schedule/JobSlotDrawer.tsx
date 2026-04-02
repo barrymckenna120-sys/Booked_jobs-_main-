@@ -33,7 +33,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
 
   if (!job) return null;
 
-  const jobRef = `BJ-${job.id.slice(0, 6).toUpperCase()}`;
+  const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
 
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
