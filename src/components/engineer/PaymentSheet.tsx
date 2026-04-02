@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Banknote, CreditCard, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   job: any;
   customer: any;
   onClose: () => void;
-  onDone: (method: string) => void;
+  onDone: (method: string, confirmedAmount: number) => void;
 }
 
 const METHODS = [
@@ -16,23 +19,55 @@ const METHODS = [
   { value: "invoice", label: "Invoice", icon: FileText, description: "Send invoice to customer" },
 ] as const;
 
+const DEFAULT_PRICES: Record<string, string> = {
+  "Boiler Service": "default_service_price",
+  "Emergency": "default_emergency_price",
+  "Repair": "default_repair_price",
+};
+
 type Step = "select" | "no_payment";
 
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("select");
+  const [amount, setAmount] = useState<string>("");
+
+  // Pre-fill amount from revenue or settings default
+  useEffect(() => {
+    const rev = job?.revenue;
+    if (rev && Number(rev) > 0) {
+      setAmount(String(Number(rev)));
+      return;
+    }
+
+    // Fetch default price from settings
+    const settingsCol = DEFAULT_PRICES[job?.job_type];
+    if (!settingsCol) {
+      setAmount("");
+      return;
+    }
+
+    supabase
+      .from("settings")
+      .select(settingsCol)
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        const val = data?.[settingsCol as keyof typeof data];
+        if (val && Number(val) > 0) {
+          setAmount(String(Number(val)));
+        }
+      });
+  }, [job?.revenue, job?.job_type]);
 
   const handleConfirm = () => {
-    console.log("Confirm & Complete tapped, selected:", selected);
     if (!selected) {
       setStep("no_payment");
       return;
     }
-    // Execute directly for all methods including invoice — no intermediate dialogs
-    onDone(selected);
+    onDone(selected, parseFloat(amount) || 0);
   };
 
-  // Sub-screens rendered inline (no Dialog portals that fight z-index)
   if (step === "no_payment") {
     return (
       <EngineerSheet onClose={() => setStep("select")}>
@@ -58,6 +93,22 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
         </div>
       </div>
       <div className="px-5 pt-4 space-y-3">
+        {/* Editable Job Total */}
+        <div className="space-y-1.5">
+          <Label htmlFor="job-total" className="text-sm font-bold text-foreground">Job Total (€)</Label>
+          <Input
+            id="job-total"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="text-lg font-bold h-12"
+          />
+          <p className="text-[11px] text-muted-foreground">Pre-filled from job price or default. Edit if needed.</p>
+        </div>
+
         {METHODS.map((m) => {
           const Icon = m.icon;
           const isSelected = selected === m.value;
