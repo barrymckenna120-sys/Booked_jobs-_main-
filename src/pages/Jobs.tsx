@@ -574,6 +574,14 @@ const Jobs = () => {
             className="pl-9"
           />
         </div>
+        <div className="relative w-full sm:w-[160px]">
+          <Input
+            placeholder="Job ref e.g. 123"
+            value={refSearch}
+            onChange={(e) => setRefSearch(e.target.value)}
+            className="text-sm"
+          />
+        </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent className="bg-popover z-50">
