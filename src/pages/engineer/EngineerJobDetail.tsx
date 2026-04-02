@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import PaymentSheet from "@/components/engineer/PaymentSheet";
@@ -553,7 +553,44 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         <div className="grid grid-cols-2 gap-2.5">
           <InfoTile label="Job Type" value={job.job_type} Icon={Wrench} />
           <InfoTile label="Time Slot" value={timeLabel} Icon={Clock} />
-          <InfoTile label="Boiler" value={customer.boiler_make_model || job.boiler_brand} Icon={Flame} full />
+
+          {/* Contact */}
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Phone className="w-3 h-3" />Mobile
+            </div>
+            <a href={`tel:${customer.phone}`} className="text-[13px] font-bold text-primary underline leading-snug">
+              {customer.phone || "—"}
+            </a>
+          </div>
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Mail className="w-3 h-3" />Email
+            </div>
+            {customer.email ? (
+              <a href={`mailto:${customer.email}`} className="text-[13px] font-bold text-primary underline leading-snug break-all">
+                {customer.email}
+              </a>
+            ) : (
+              <div className="text-[13px] font-bold text-foreground leading-snug">—</div>
+            )}
+          </div>
+
+          {/* Address */}
+          <InfoTile label="Full Address" value={customer.address} Icon={MapPin} full />
+          <InfoTile label="Area Code" value={customer.area_code} Icon={MapPinned} />
+          <InfoTile label="Eircode" value={customer.eircode} Icon={MapPin} />
+
+          {/* Boiler */}
+          <InfoTile label="Boiler Brand" value={job.boiler_brand} Icon={Flame} />
+          <InfoTile label="Boiler Model" value={customer.boiler_make_model} Icon={Flame} />
+          {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} Icon={Flame} />}
+          {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} Icon={AlertTriangle} />}
+          {job.boiler_working !== null && job.boiler_working !== undefined && (
+            <InfoTile label="Boiler Working" value={job.boiler_working ? "Yes" : "No"} Icon={job.boiler_working ? CheckCircle2 : XCircle} />
+          )}
+
+          {/* Other */}
           <InfoTile
             label="Payment"
             value={job.deposit_paid ? `Paid — €${job.deposit_amount || 0}` : `€${job.deposit_amount || 0} pending`}
@@ -562,11 +599,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           />
           <InfoTile label="Last Service" value={customer.last_service_date ? new Date(customer.last_service_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : null} Icon={Calendar} />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
-          {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} Icon={Flame} />}
-          {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} Icon={AlertTriangle} />}
-          {job.boiler_working !== null && job.boiler_working !== undefined && (
-            <InfoTile label="Boiler Working" value={job.boiler_working ? "Yes" : "No"} Icon={job.boiler_working ? CheckCircle2 : XCircle} />
-          )}
           {job.owner_or_tenant && <InfoTile label="Owner / Tenant" value={job.owner_or_tenant} Icon={Key} />}
         </div>
 
