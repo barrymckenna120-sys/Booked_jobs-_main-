@@ -120,6 +120,16 @@ const Renewals = () => {
 
   const activeCustomers = customers.filter(c => !c.is_archived);
 
+  const areaCodes = useMemo(() => {
+    const codes = new Set<string>();
+    activeCustomers.forEach(c => { if (c.area_code) codes.add(c.area_code); });
+    return Array.from(codes).sort();
+  }, [activeCustomers]);
+
+  const toggleArea = (code: string) => {
+    setSelectedAreas(prev => prev.includes(code) ? prev.filter(a => a !== code) : [...prev, code]);
+  };
+
   const withStatus = activeCustomers.map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
     const tab = getTabForDays(daysUntil);
@@ -131,14 +141,17 @@ const Renewals = () => {
   // Exclude resolved from overdue/due_soon, keep in up_to_date
   const filterable = withStatus.filter(c => c.tab === "up_to_date" || !c.isResolved);
 
+  const matchesArea = (c: typeof withStatus[0]) =>
+    selectedAreas.length === 0 || (c.area_code != null && selectedAreas.includes(c.area_code));
+
   const tabCounts = {
-    overdue: filterable.filter(c => c.tab === "overdue").length,
-    due_soon: filterable.filter(c => c.tab === "due_soon").length,
-    up_to_date: filterable.filter(c => c.tab === "up_to_date").length,
+    overdue: filterable.filter(c => c.tab === "overdue" && matchesArea(c)).length,
+    due_soon: filterable.filter(c => c.tab === "due_soon" && matchesArea(c)).length,
+    up_to_date: filterable.filter(c => c.tab === "up_to_date" && matchesArea(c)).length,
   };
 
   const filtered = filterable
-    .filter(c => c.tab === activeTab)
+    .filter(c => c.tab === activeTab && matchesArea(c))
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
   // Stats for header
