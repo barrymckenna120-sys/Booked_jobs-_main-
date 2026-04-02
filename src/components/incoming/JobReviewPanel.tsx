@@ -45,6 +45,8 @@ type Customer = {
   email: string | null;
   address: string;
   eircode: string;
+  area_code: string | null;
+  access_notes: string | null;
   boiler_make_model: string | null;
 };
 
@@ -88,13 +90,18 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
 
   if (!job || !customer) return null;
 
+  const customerEmail = customer.email || job.email;
+  const customerAreaCode = customer.area_code || job.area_code;
+  const customerAccessNotes = customer.access_notes && customer.access_notes !== job.access_notes
+    ? customer.access_notes
+    : null;
+
   const handleAssign = async () => {
     if (!assignEngineer || !assignDate) {
       toast({ title: "Select an engineer and date", variant: "destructive" });
       return;
     }
     setAssigning(true);
-    // Find engineer ID for RBAC
     const matchedEng = engineers.find((e: any) => e.name === assignEngineer);
     await supabase.from("service_calls").update({
       assigned_engineer: assignEngineer,
@@ -115,7 +122,6 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
 
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
 
-    // Send Job Assigned email to engineer
     const engRecord = engineers.find((e: any) => e.name === assignEngineer);
     if (engRecord?.email) {
       supabase.functions.invoke("send-email", {
@@ -136,13 +142,12 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       }).catch(() => {});
     }
 
-    // Send Appointment Confirmation email to customer
-    if (customer.email) {
+    if (customerEmail) {
       supabase.functions.invoke("send-email", {
         body: {
           type: "appointment_confirmation",
           data: {
-            customerEmail: customer.email,
+            customerEmail,
             customerName: customer.name,
             date: assignDate,
             time: assignTime || "",
@@ -191,7 +196,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
+      const { error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
         body: { service_call_id: job.id },
       });
       if (error) throw error;
@@ -227,27 +232,49 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
         </SheetHeader>
 
         <div className="space-y-5 mt-4">
-          {/* Customer Info */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground">Customer Info</h4>
-            <div className="grid grid-cols-1 gap-1.5 text-sm">
-              <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> <a href={`tel:${customer.phone}`} className="text-primary font-medium">{customer.phone}</a></div>
-              {customer.email && <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-muted-foreground" /> {customer.email}</div>}
-              <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-muted-foreground" /> {customer.address} · {customer.eircode}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                <a href={`tel:${customer.phone}`} className="text-primary font-medium underline">{customer.phone}</a>
+              </div>
+              <div className="flex items-center gap-2 break-all">
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                {customerEmail ? (
+                  <a href={`mailto:${customerEmail}`} className="text-primary font-medium underline">{customerEmail}</a>
+                ) : (
+                  <span className="font-medium">—</span>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-muted-foreground">Full Address:</span> <span className="font-semibold">{customer.address || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Area Code:</span> <span className="font-semibold">{customerAreaCode || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode || "—"}</span>
+              </div>
             </div>
           </div>
 
-          {/* Boiler Details */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground">Boiler Details</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div><span className="text-muted-foreground">Brand:</span> <span className="font-semibold">{job.boiler_brand || "—"}</span></div>
               <div><span className="text-muted-foreground">Model:</span> <span className="font-semibold">{customer.boiler_make_model || "—"}</span></div>
+              {job.boiler_type && <div><span className="text-muted-foreground">Type:</span> <span className="font-semibold">{job.boiler_type}</span></div>}
+              {job.boiler_error_code && <div><span className="text-muted-foreground">Error Code:</span> <span className="font-semibold">{job.boiler_error_code}</span></div>}
               <div>
                 <span className="text-muted-foreground">Working:</span>{" "}
-                {job.boiler_working === false
-                  ? <span className="text-destructive font-bold">✗ No</span>
-                  : <span className="text-success font-bold">✓ Yes</span>}
+                {job.boiler_working === false ? (
+                  <span className="text-destructive font-bold">✗ No</span>
+                ) : job.boiler_working === true ? (
+                  <span className="text-success font-bold">✓ Yes</span>
+                ) : (
+                  <span className="font-semibold">—</span>
+                )}
               </div>
             </div>
             {job.boiler_working === false && job.boiler_issue && (
@@ -258,7 +285,6 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             )}
           </div>
 
-          {/* Media */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
               <Camera className="w-3.5 h-3.5" /> Photos & Videos
@@ -266,22 +292,17 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             <MediaGallery jobId={job.id} />
           </div>
 
-          {/* Additional Job Details */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground">Additional Details</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              {job.email && <div className="col-span-2"><span className="text-muted-foreground">Email:</span> <span className="font-semibold">{job.email}</span></div>}
               {job.job_issue && <div className="col-span-2"><span className="text-muted-foreground">Job Issue:</span> <span className="font-semibold">{job.job_issue}</span></div>}
+              {job.access_notes && <div className="col-span-2"><span className="text-muted-foreground">Job Access Notes:</span> <span className="font-semibold">{job.access_notes}</span></div>}
+              {customerAccessNotes && <div className="col-span-2"><span className="text-muted-foreground">Customer Access Notes:</span> <span className="font-semibold">{customerAccessNotes}</span></div>}
               {job.extra_details && <div className="col-span-2"><span className="text-muted-foreground">Extra Details:</span> <span className="font-semibold">{job.extra_details}</span></div>}
-              {job.boiler_type && <div><span className="text-muted-foreground">Boiler Type:</span> <span className="font-semibold">{job.boiler_type}</span></div>}
-              {job.boiler_error_code && <div><span className="text-muted-foreground">Error Code:</span> <span className="font-semibold">{job.boiler_error_code}</span></div>}
-              {job.area_code && <div><span className="text-muted-foreground">Area Code:</span> <span className="font-semibold">{job.area_code}</span></div>}
               {job.owner_or_tenant && <div><span className="text-muted-foreground">Owner/Tenant:</span> <span className="font-semibold">{job.owner_or_tenant}</span></div>}
-              {job.access_notes && <div className="col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{job.access_notes}</span></div>}
             </div>
           </div>
 
-          {/* Booking Preference */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase text-muted-foreground">Booking Preference</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -290,7 +311,6 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             </div>
           </div>
 
-          {/* Engineer Notes */}
           <div className="space-y-1.5">
             <Label className="text-xs font-bold uppercase text-muted-foreground">Engineer Notes</Label>
             <textarea
@@ -301,7 +321,6 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             />
           </div>
 
-          {/* Assign Section */}
           {showAssign && (
             <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
               <div className="space-y-1.5">
@@ -338,7 +357,6 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             </div>
           )}
 
-          {/* Actions */}
           {job.incoming_status === "Pending" && (
             <div className="flex gap-2 pt-2">
               <Button onClick={() => setShowAssign(true)} disabled={showAssign}>
@@ -367,7 +385,6 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             </div>
           )}
 
-          {/* WhatsApp Booking Confirmation */}
           <div className="pt-2">
             {job.assigned_engineer ? (
               <Button
