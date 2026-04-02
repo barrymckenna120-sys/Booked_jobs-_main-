@@ -9,7 +9,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  RefreshCw, Send, CheckCircle2, MapPin, Archive, ArchiveRestore, CalendarCheck,
+  RefreshCw, Send, CheckCircle2, MapPin, Archive, ArchiveRestore, CalendarCheck, MessageSquare, Loader2,
 } from "lucide-react";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";
@@ -83,6 +83,8 @@ const Renewals = () => {
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [bulkWhatsAppConfirm, setBulkWhatsAppConfirm] = useState(false);
+  const [bulkSending, setBulkSending] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -278,6 +280,54 @@ const Renewals = () => {
 
   const notRemindedCount = filtered.filter(c => !reminderSent[c.id] && !c.contactedRecently).length;
 
+  const showBulkWhatsApp = selectedAreas.includes("D18");
+
+  const handleBulkWhatsApp = async () => {
+    setBulkSending(true);
+    try {
+      const payload = filtered
+        .filter(c => !c.contactedRecently && !reminderSent[c.id])
+        .map(c => ({
+          customer_id: c.id,
+          customer_name: c.name,
+          customer_phone: c.phone,
+          next_service_due: c.next_service_due,
+        }));
+
+      if (payload.length === 0) {
+        toast({ title: "No customers to send to", duration: 2500 });
+        setBulkWhatsAppConfirm(false);
+        setBulkSending(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("send-dublin18-bulk", {
+        body: { customers: payload },
+      });
+
+      if (error) throw error;
+
+      const sentCount = data?.sent || 0;
+      const skippedCount = data?.skipped || 0;
+
+      toast({
+        title: `Sent to ${sentCount} customers, ${skippedCount} skipped`,
+        duration: 4000,
+      });
+
+      // Mark sent customers in local state
+      payload.forEach(c => {
+        setReminderSent(prev => ({ ...prev, [c.customer_id]: true }));
+      });
+
+      fetchCustomers();
+    } catch (err: any) {
+      toast({ title: "Error sending bulk WhatsApp", description: err.message, variant: "destructive" });
+    }
+    setBulkSending(false);
+    setBulkWhatsAppConfirm(false);
+  };
+
   return (
     <div className="max-w-[900px] mx-auto px-4 pb-6 space-y-0">
       {/* Sticky header */}
@@ -289,15 +339,28 @@ const Renewals = () => {
               €{totalAtRisk.toLocaleString()} at risk · {notContactedCount} not yet contacted
             </p>
           </div>
-          <Button
-            onClick={() => setSendAllOpen(true)}
-            size="sm"
-            className="gap-1.5 font-bold text-xs"
-            disabled={reminderQueue.length === 0}
-          >
-            <Send className="w-3.5 h-3.5" />
-            Remind All ({reminderQueue.length})
-          </Button>
+          <div className="flex items-center gap-2">
+            {showBulkWhatsApp && (
+              <Button
+                onClick={() => setBulkWhatsAppConfirm(true)}
+                size="sm"
+                className="gap-1.5 font-bold text-xs bg-[#25D366] hover:bg-[#20bd5a] text-white"
+                disabled={bulkSending || reminderQueue.length === 0}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Send All via WhatsApp
+              </Button>
+            )}
+            <Button
+              onClick={() => setSendAllOpen(true)}
+              size="sm"
+              className="gap-1.5 font-bold text-xs"
+              disabled={reminderQueue.length === 0}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Remind All ({reminderQueue.length})
+            </Button>
+          </div>
         </div>
 
         {/* Tab bar */}
@@ -490,6 +553,33 @@ const Renewals = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleArchive}>
               {archiveConfirm?.archive ? "Archive" : "Restore"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Bulk WhatsApp Confirmation Dialog */}
+      <AlertDialog open={bulkWhatsAppConfirm} onOpenChange={setBulkWhatsAppConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send WhatsApp to D18 Customers?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send WhatsApp to all D18 customers due for service? This cannot be undone.
+              {reminderQueue.length > 0 && (
+                <span className="block mt-2 font-semibold text-foreground">
+                  {reminderQueue.length} customer{reminderQueue.length !== 1 ? "s" : ""} will receive a message.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkWhatsApp}
+              disabled={bulkSending}
+              className="bg-[#25D366] hover:bg-[#20bd5a] text-white"
+            >
+              {bulkSending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageSquare className="w-4 h-4 mr-1" />}
+              {bulkSending ? "Sending..." : "Confirm & Send"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
