@@ -137,7 +137,7 @@ const OutstandingBalances = () => {
     { total: 0, deposit: 0, balance: 0 }
   );
 
-  const jobRefStr = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
+  const jobRefStr = (job: any) => job?.job_reference || "KN-" + (job?.id || "").substring(0, 6).toUpperCase();
 
   const getOutstandingDays = (invoiced_at: string | null) => {
     if (!invoiced_at) return { days: 0, bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0" };

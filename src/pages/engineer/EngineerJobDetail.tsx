@@ -36,7 +36,7 @@ const TIME_LABELS: Record<string, string> = {
   "2–5":  "2–5pm",
 };
 
-const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
+const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
 const InfoTile = ({ label, value, Icon, full }: { label: string; value: string | null; Icon?: LucideIcon; full?: boolean }) => (
   <div className={`bg-secondary rounded-xl border border-border p-3 ${full ? "col-span-2" : ""}`}>
