@@ -51,6 +51,7 @@ import QuoteDetail from "./pages/QuoteDetail";
 import MessageLog from "./pages/MessageLog";
 import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
+import CertificateViewer from "./pages/CertificateViewer";
 import Parts from "./pages/Parts";
 
 const queryClient = new QueryClient();
@@ -145,6 +146,7 @@ const App = () => (
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
             <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
+            <Route path="/cert/:certNumber" element={<CertificateViewer />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
