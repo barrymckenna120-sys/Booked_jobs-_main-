@@ -82,11 +82,14 @@ export const useEngineerJobs = () => {
     }
   }, []);
 
+  const hasFetchedOnce = useRef(false);
+
   const fetchAll = useCallback(async () => {
     if (!user) return;
     // Skip network requests when offline to avoid error modals/toasts
     if (!navigator.onLine) return;
-    setLoading(true);
+    // Only show loading spinner on the very first fetch to avoid scroll resets
+    if (!hasFetchedOnce.current) setLoading(true);
 
     // First resolve the engineer record for this auth user
     const { data: engData } = await supabase
@@ -127,6 +130,7 @@ export const useEngineerJobs = () => {
     setCompletedJobs(completedRes.data || []);
     await fetchCustomers(allJobs);
     await fetchJobPhotos(allJobs);
+    hasFetchedOnce.current = true;
     setLoading(false);
   }, [user, fetchCustomers, fetchJobPhotos]);
 
