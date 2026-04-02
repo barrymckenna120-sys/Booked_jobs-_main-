@@ -256,7 +256,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
+      console.error("updateJob: service_calls update failed:", error.message, error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      return false;
     } else {
       // Save selected tags on completion
       if (patch.status === "Completed" && selectedTags && selectedTags.length > 0) {
