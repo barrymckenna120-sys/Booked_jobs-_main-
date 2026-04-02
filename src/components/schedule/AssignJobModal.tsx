@@ -115,7 +115,7 @@ const AssignJobModal = ({
                   <SelectContent className="bg-popover z-50">
                     {unallocatedJobs.map((j) => (
                       <SelectItem key={j.id} value={j.id}>
-                        <span className="font-mono text-muted-foreground mr-1">BJ-{j.id.slice(0, 6).toUpperCase()}</span>
+                        <span className="font-mono text-muted-foreground mr-1">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</span>
                         {j.customer_name} – {j.job_type}
                       </SelectItem>
                     ))}
