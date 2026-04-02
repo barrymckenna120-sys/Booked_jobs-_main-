@@ -340,6 +340,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         } catch (e) {
           console.error("Error syncing customer profile:", e);
         }
+      }
 
       if (patch.status === "Completed") {
         logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
