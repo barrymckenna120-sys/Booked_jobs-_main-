@@ -32,15 +32,35 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-type PaidJob = {
+type LedgerJob = {
   id: string;
-  receipt_number: string;
-  paid_at: string;
+  receipt_number: string | null;
+  paid_at: string | null;
+  completed_at: string | null;
   job_type: string;
   assigned_engineer: string | null;
   payment_method: string | null;
+  payment_status: string | null;
   revenue: number | null;
+  balance_due: number | null;
+  deposit_paid: boolean;
+  deposit_amount: number | null;
   customer_name: string;
+  invoice_number: string | null;
+};
+
+type PaymentBadge = "paid" | "part_paid" | "unpaid";
+
+const getPaymentBadge = (row: LedgerJob): PaymentBadge => {
+  if (row.payment_status === "paid" || row.paid_at) return "paid";
+  if (row.deposit_paid && (row.balance_due ?? 0) > 0) return "part_paid";
+  return "unpaid";
+};
+
+const badgeConfig: Record<PaymentBadge, { label: string; bg: string; color: string; border: string }> = {
+  paid: { label: "Paid", bg: "#ECFDF5", color: "#065F46", border: "#A7F3D0" },
+  part_paid: { label: "Part Paid", bg: "#FFFBEB", color: "#92400E", border: "#FDE68A" },
+  unpaid: { label: "Unpaid", bg: "#FEF2F2", color: "#991B1B", border: "#FECACA" },
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
@@ -52,14 +72,14 @@ const SalesLedger = () => {
   const [search, setSearch] = useState("");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [engineerFilter, setEngineerFilter] = useState("all");
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
-  const [data, setData] = useState<PaidJob[]>([]);
+  const [data, setData] = useState<LedgerJob[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { start, end } = getDateRange(viewMode, anchor);
 
-  // Fetch engineers
   useEffect(() => {
     if (!user) return;
     supabase
@@ -71,7 +91,6 @@ const SalesLedger = () => {
       });
   }, [user]);
 
-  // Fetch paid jobs
   useEffect(() => {
     if (!user) return;
     setLoading(true);
@@ -80,12 +99,11 @@ const SalesLedger = () => {
 
     supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, job_type, assigned_engineer, payment_method, revenue, customer_id, customers(name)")
-      .not("paid_at", "is", null)
-      .not("receipt_number", "is", null)
-      .gte("paid_at", startStr)
-      .lte("paid_at", endStr + "T23:59:59")
-      .order("paid_at", { ascending: false })
+      .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .eq("status", "Completed")
+      .gte("completed_at", startStr)
+      .lte("completed_at", endStr + "T23:59:59")
+      .order("completed_at", { ascending: false })
       .then(({ data: rows }) => {
         if (rows) {
           setData(
@@ -93,11 +111,17 @@ const SalesLedger = () => {
               id: r.id,
               receipt_number: r.receipt_number,
               paid_at: r.paid_at,
+              completed_at: r.completed_at,
               job_type: r.job_type,
               assigned_engineer: r.assigned_engineer,
               payment_method: r.payment_method,
+              payment_status: r.payment_status,
               revenue: r.revenue,
+              balance_due: r.balance_due,
+              deposit_paid: r.deposit_paid,
+              deposit_amount: r.deposit_amount,
               customer_name: r.customers?.name || "Unknown",
+              invoice_number: r.invoice_number,
             }))
           );
         }
@@ -112,9 +136,13 @@ const SalesLedger = () => {
       if (jobTypeFilter !== "all" && row.job_type !== jobTypeFilter) return false;
       if (paymentFilter !== "all" && row.payment_method !== paymentFilter) return false;
       if (engineerFilter !== "all" && row.assigned_engineer !== engineerFilter) return false;
+      if (statusFilter !== "all") {
+        const badge = getPaymentBadge(row);
+        if (statusFilter !== badge) return false;
+      }
       return true;
     });
-  }, [data, search, jobTypeFilter, paymentFilter, engineerFilter]);
+  }, [data, search, jobTypeFilter, paymentFilter, engineerFilter, statusFilter]);
 
   const totals = useMemo(() => {
     let totalInc = 0;
@@ -135,22 +163,25 @@ const SalesLedger = () => {
     };
   }, [filtered]);
 
-  const buildCsvContent = (rows: PaidJob[]) => {
-    const headers = ["Receipt No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Total inc VAT", "Net", "VAT"];
+  const buildCsvContent = (rows: LedgerJob[]) => {
+    const headers = ["Receipt No", "Invoice No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Status", "Total inc VAT", "Net", "VAT"];
     let totalInc = 0, totalNet = 0, totalVat = 0;
     const csvRows = rows.map((r) => {
       const rev = r.revenue || 0;
       const net = Math.round((rev / 1.135) * 100) / 100;
       const vat = Math.round((rev - net) * 100) / 100;
       totalInc += rev; totalNet += net; totalVat += vat;
+      const badge = getPaymentBadge(r);
       return [
-        r.receipt_number,
-        r.paid_at ? format(new Date(r.paid_at), "dd/MM/yy") : "",
+        r.receipt_number || "",
+        r.invoice_number || "",
+        r.completed_at ? format(new Date(r.completed_at), "dd/MM/yy") : "",
         r.customer_name, r.job_type, r.assigned_engineer || "",
-        r.payment_method || "", rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
+        r.payment_method || "", badgeConfig[badge].label,
+        rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
       ];
     });
-    csvRows.push(["", "", "", "", "", "TOTALS", totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2)]);
+    csvRows.push(["", "", "", "", "", "", "", "TOTALS", totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2)]);
     return [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
   };
 
@@ -179,19 +210,22 @@ const SalesLedger = () => {
     const endStr = format(customEnd, "yyyy-MM-dd");
     const { data: rows } = await supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, job_type, assigned_engineer, payment_method, revenue, customer_id, customers(name)")
-      .not("paid_at", "is", null)
-      .not("receipt_number", "is", null)
-      .gte("paid_at", startStr)
-      .lte("paid_at", endStr + "T23:59:59")
-      .order("paid_at", { ascending: false });
+      .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .eq("status", "Completed")
+      .gte("completed_at", startStr)
+      .lte("completed_at", endStr + "T23:59:59")
+      .order("completed_at", { ascending: false });
     setCustomExporting(false);
     if (!rows || rows.length === 0) return;
     const mapped = rows.map((r: any) => ({
       id: r.id, receipt_number: r.receipt_number, paid_at: r.paid_at,
+      completed_at: r.completed_at,
       job_type: r.job_type, assigned_engineer: r.assigned_engineer,
-      payment_method: r.payment_method, revenue: r.revenue,
+      payment_method: r.payment_method, payment_status: r.payment_status,
+      revenue: r.revenue, balance_due: r.balance_due,
+      deposit_paid: r.deposit_paid, deposit_amount: r.deposit_amount,
       customer_name: r.customers?.name || "Unknown",
+      invoice_number: r.invoice_number,
     }));
     downloadCsv(buildCsvContent(mapped), `sales-ledger-${startStr}-to-${endStr}.csv`);
   };
@@ -240,10 +274,21 @@ const SalesLedger = () => {
             <SelectValue placeholder="Payment Method" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Payments</SelectItem>
+            <SelectItem value="all">All Methods</SelectItem>
             <SelectItem value="cash">Cash</SelectItem>
             <SelectItem value="card">Card</SelectItem>
             <SelectItem value="invoice">Invoice</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Payment Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="part_paid">Part Paid</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
           </SelectContent>
         </Select>
         <Select value={engineerFilter} onValueChange={setEngineerFilter}>
@@ -269,7 +314,6 @@ const SalesLedger = () => {
         <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2">
           <CardTitle className="text-lg font-extrabold">Sales Ledger</CardTitle>
           <div className="flex items-center gap-2">
-            {/* Custom Date Range Export */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-1.5 font-bold text-xs">
@@ -319,7 +363,6 @@ const SalesLedger = () => {
                 </div>
               </PopoverContent>
             </Popover>
-            {/* Current period export */}
             <Button
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold"
@@ -337,7 +380,7 @@ const SalesLedger = () => {
             </div>
           ) : filtered.length === 0 ? (
             <p className="text-center text-muted-foreground py-16 text-sm">
-              No payments recorded for this period.
+              No completed jobs for this period.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -359,18 +402,23 @@ const SalesLedger = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((row, idx) => {
+                  {filtered.map((row) => {
                     const rev = row.revenue || 0;
                     const net = Math.round((rev / 1.135) * 100) / 100;
                     const vat = Math.round((rev - net) * 100) / 100;
-                    const invoiceNo = `INV-${String(filtered.length - idx).padStart(3, "0")}`;
+                    const badge = getPaymentBadge(row);
+                    const cfg = badgeConfig[badge];
                     return (
                       <TableRow key={row.id}>
                         <TableCell className="font-mono font-bold">
-                          <a href={`/jobs/${row.id}`} className="text-primary hover:underline">{row.receipt_number}</a>
+                          {row.receipt_number ? (
+                            <a href={`/jobs/${row.id}`} className="text-primary hover:underline">{row.receipt_number}</a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
-                        <TableCell className="font-mono text-muted-foreground">{invoiceNo}</TableCell>
-                        <TableCell>{row.paid_at ? format(new Date(row.paid_at), "dd/MM/yy") : "—"}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground">{row.invoice_number || "—"}</TableCell>
+                        <TableCell>{row.completed_at ? format(new Date(row.completed_at), "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
                         <TableCell>{row.assigned_engineer || "—"}</TableCell>
@@ -381,20 +429,24 @@ const SalesLedger = () => {
                         <TableCell className="text-center">
                           <span
                             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold"
-                            style={{ background: "#ECFDF5", color: "#065F46", border: "1px solid #A7F3D0" }}
+                            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
                           >
-                            Fully Paid
+                            {cfg.label}
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
-                          <a
-                            href={`/receipt/${row.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline text-xs font-semibold"
-                          >
-                            View
-                          </a>
+                          {row.receipt_number ? (
+                            <a
+                              href={`/receipt/${row.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline text-xs font-semibold"
+                            >
+                              View
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
