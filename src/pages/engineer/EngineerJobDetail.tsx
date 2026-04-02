@@ -155,11 +155,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     setShowPayment(false);
 
     if (method === "invoice") {
-      // For invoice: update job, then call edge function to create invoice + send WhatsApp
       setInvoiceLoading(true);
-      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
-
       try {
+        const jobUpdateSuccess = await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+        if (!jobUpdateSuccess) {
+          console.error("handlePaymentDone: updateJob failed for invoice flow, aborting edge function call");
+          toast({ title: "Failed to complete job", description: "Please try again or contact the office.", variant: "destructive" });
+          setInvoiceLoading(false);
+          setCompleteData(null);
+          return;
+        }
+
+        console.log("handlePaymentDone: updateJob succeeded, calling create-job-invoice edge function");
         const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
           body: { job_id: job.id },
         });
@@ -170,10 +177,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         } else if (result?.success) {
           setInvoiceSuccess({ customerName: result.customer_name || customer?.name || "Customer" });
         } else {
+          console.error("Invoice edge function returned failure:", result);
           toast({ title: "Job completed but invoice failed", description: result?.error || "Unknown error", variant: "destructive" });
         }
       } catch (err) {
-        console.error("Invoice error:", err);
+        console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
       }
 
@@ -183,7 +191,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
 
     // Cash or Card — normal flow
-    updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+    try {
+      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+    } catch (err) {
+      console.error("handlePaymentDone cash/card flow error:", err);
+      toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
+    }
     setCompleteData(null);
   };
 
