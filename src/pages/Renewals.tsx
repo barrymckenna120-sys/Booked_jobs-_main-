@@ -556,6 +556,33 @@ const Renewals = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Bulk WhatsApp Confirmation Dialog */}
+      <AlertDialog open={bulkWhatsAppConfirm} onOpenChange={setBulkWhatsAppConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send WhatsApp to D18 Customers?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send WhatsApp to all D18 customers due for service? This cannot be undone.
+              {reminderQueue.length > 0 && (
+                <span className="block mt-2 font-semibold text-foreground">
+                  {reminderQueue.length} customer{reminderQueue.length !== 1 ? "s" : ""} will receive a message.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkWhatsApp}
+              disabled={bulkSending}
+              className="bg-[#25D366] hover:bg-[#20bd5a] text-white"
+            >
+              {bulkSending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageSquare className="w-4 h-4 mr-1" />}
+              {bulkSending ? "Sending..." : "Confirm & Send"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
