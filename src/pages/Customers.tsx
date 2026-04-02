@@ -150,7 +150,7 @@ const Customers = () => {
     }
 
     const matchesStatus = statusFilter === "all" || computedStatus === statusFilter;
-    const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
+    const matchesArea = areaFilters.length === 0 || areaFilters.includes(c.area_code || "No Area");
     const matchesTags = tagCustomerIds === null || tagCustomerIds.has(c.id);
     return matchesSearch && matchesStatus && matchesArea && matchesTags;
   });
