@@ -24,6 +24,7 @@ type Customer = {
   email: string | null;
   address: string;
   eircode: string;
+  area_code: string | null;
   last_service_date: string | null;
   next_service_due: string | null;
   assigned_engineer: string | null;
