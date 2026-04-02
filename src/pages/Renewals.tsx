@@ -83,6 +83,8 @@ const Renewals = () => {
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [bulkWhatsAppConfirm, setBulkWhatsAppConfirm] = useState(false);
+  const [bulkSending, setBulkSending] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
