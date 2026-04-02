@@ -29,6 +29,7 @@ const Customers = () => {
   const [areaFilter, setAreaFilter] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCustomerIds, setTagCustomerIds] = useState<Set<string> | null>(null);
+  const [refCustomerIds, setRefCustomerIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
@@ -38,6 +39,27 @@ const Customers = () => {
   }, [user]);
 
   useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter, selectedTags]);
+
+  // When search looks like a job ref, look up the linked customer
+  useEffect(() => {
+    const raw = search.trim().replace(/^kn-/i, "");
+    if (/^\d+$/.test(raw) && raw.length > 0) {
+      const ref = "KN-" + raw.padStart(3, "0");
+      supabase
+        .from("service_calls")
+        .select("customer_id")
+        .eq("job_reference", ref)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setRefCustomerIds(new Set(data.map((j) => j.customer_id)));
+          } else {
+            setRefCustomerIds(new Set());
+          }
+        });
+    } else {
+      setRefCustomerIds(null);
+    }
+  }, [search]);
 
   // Fetch customer IDs matching selected tags
   useEffect(() => {
