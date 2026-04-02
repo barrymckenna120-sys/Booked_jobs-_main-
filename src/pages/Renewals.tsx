@@ -361,6 +361,7 @@ const Renewals = () => {
               Remind All ({reminderQueue.length})
             </Button>
           </div>
+        </div>
 
         {/* Tab bar */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="mt-3">
