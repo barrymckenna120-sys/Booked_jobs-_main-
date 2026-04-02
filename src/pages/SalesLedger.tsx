@@ -21,9 +21,9 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { BookOpen, CalendarIcon, Download, Loader2, Search } from "lucide-react";
+import { BookOpen, CalendarIcon, Download, Loader2, Mail, Search } from "lucide-react";
 import OutstandingBalances from "@/components/sales-ledger/OutstandingBalances";
-import { format } from "date-fns";
+import { format, subMonths } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -31,6 +31,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 type LedgerJob = {
   id: string;
