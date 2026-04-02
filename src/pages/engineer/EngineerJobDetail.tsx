@@ -259,7 +259,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.job_tags = (selectedTags && selectedTags.length > 0) ? selectedTags : [];
     }
 
-    console.log("updateJob dbPatch:", JSON.stringify(dbPatch, null, 2));
+    console.log("updateJob: selectedTags=", selectedTags, "officeNote=", officeNote, "job_tags in dbPatch=", dbPatch.job_tags, "notes in dbPatch=", dbPatch.notes);
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
