@@ -59,7 +59,7 @@ const TodaysRevenueCard = () => {
     queryFn: async () => {
       const { data: rows } = await supabase
         .from("service_calls")
-        .select("id, job_type, revenue, payment_method, status, customer_id")
+        .select("id, job_type, revenue, payment_method, status, customer_id, job_reference")
         .gte("scheduled_date", start)
         .lte("scheduled_date", end)
         .eq("status", "Completed");
