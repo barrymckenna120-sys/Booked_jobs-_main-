@@ -51,6 +51,7 @@ import QuoteDetail from "./pages/QuoteDetail";
 import MessageLog from "./pages/MessageLog";
 import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
+import CertificateViewer from "./pages/CertificateViewer";
 import Parts from "./pages/Parts";
 
 const queryClient = new QueryClient();
