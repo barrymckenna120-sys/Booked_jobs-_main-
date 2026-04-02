@@ -254,18 +254,63 @@ async function sendDepositPaymentWhatsApp(
       return;
     }
 
-    // Get payment_link from the new service_call (the RPC copies it over)
-    const jobRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}&select=payment_link&limit=1`,
-      { headers }
-    );
-    const jobData = await jobRes.json();
-    const paymentLink = Array.isArray(jobData) ? jobData[0]?.payment_link : null;
-
-    if (!paymentLink) {
-      console.log("No payment link on service call — skipping deposit WhatsApp");
+    // Generate Stripe Payment Link dynamically
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      console.log("No STRIPE_SECRET_KEY — skipping deposit WhatsApp");
       return;
     }
+
+    const amountCents = Math.round(depositAmount * 100);
+
+    // Step 1: Create a Stripe Price
+    const priceRes = await fetch("https://api.stripe.com/v1/prices", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${stripeKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        "unit_amount": amountCents.toString(),
+        "currency": "eur",
+        "product_data[name]": "Deposit - Job Booking",
+      }),
+    });
+    const priceData = await priceRes.json();
+    if (!priceData.id) {
+      console.error("Stripe price creation failed:", JSON.stringify(priceData));
+      return;
+    }
+
+    // Step 2: Create a Stripe Payment Link
+    const linkRes = await fetch("https://api.stripe.com/v1/payment_links", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${stripeKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        "line_items[0][price]": priceData.id,
+        "line_items[0][quantity]": "1",
+        "metadata[service_call_id]": serviceCallId,
+        "metadata[customer_id]": quote.customer_id || "",
+      }),
+    });
+    const linkData = await linkRes.json();
+    if (!linkData.url) {
+      console.error("Stripe payment link creation failed:", JSON.stringify(linkData));
+      return;
+    }
+
+    const paymentLink = linkData.url;
+    console.log("Stripe payment link generated:", paymentLink);
+
+    // Save payment link back to service_calls
+    await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ payment_link: paymentLink }),
+    });
 
     const apiKey = Deno.env.get("THREESIXTY_API_KEY") || Deno.env.get("MESSENGER_API_KEY");
     if (!apiKey) {
