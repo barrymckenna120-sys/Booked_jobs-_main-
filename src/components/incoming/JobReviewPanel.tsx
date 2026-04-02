@@ -35,6 +35,7 @@ type Job = {
   area_code: string | null;
   owner_or_tenant: string | null;
   access_notes: string | null;
+  job_reference?: string | null;
 };
 
 type Customer = {

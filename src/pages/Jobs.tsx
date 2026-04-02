@@ -40,6 +40,7 @@ type Job = {
   follow_up_needed?: boolean;
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
+  job_reference?: string | null;
 };
 
 const Jobs = () => {
