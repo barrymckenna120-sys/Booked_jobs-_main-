@@ -21,9 +21,9 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { BookOpen, CalendarIcon, Download, Loader2, Search } from "lucide-react";
+import { BookOpen, CalendarIcon, Download, Loader2, Mail, Search } from "lucide-react";
 import OutstandingBalances from "@/components/sales-ledger/OutstandingBalances";
-import { format } from "date-fns";
+import { format, subMonths } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -31,6 +31,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 type LedgerJob = {
   id: string;
@@ -371,6 +379,7 @@ const SalesLedger = () => {
             >
               <Download className="w-4 h-4" /> Export CSV
             </Button>
+            <AccountantExportButton />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -469,5 +478,59 @@ const SalesLedger = () => {
     </div>
   );
 };
+
+function AccountantExportButton() {
+  const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const prev = subMonths(new Date(), 1);
+  const [month, setMonth] = useState(format(prev, "yyyy-MM"));
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-accountant-export", {
+        body: { month },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        const [y, m] = month.split("-");
+        const label = format(new Date(Number(y), Number(m) - 1), "MMMM yyyy");
+        toast.success(`Export for ${label} sent to accountant.`);
+        setOpen(false);
+      } else {
+        throw new Error("unexpected response");
+      }
+    } catch {
+      toast.error("Export failed — please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <>
+      <Button size="sm" variant="outline" className="gap-1.5 font-bold" onClick={() => setOpen(true)}>
+        <Mail className="w-4 h-4" /> Email to Accountant
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Email Export to Accountant</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="text-sm font-medium text-foreground">Month</label>
+            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSend} disabled={sending} className="w-full">
+              {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Send Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export default SalesLedger;
