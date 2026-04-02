@@ -230,6 +230,11 @@ export const useEngineerJobs = () => {
         setCompletedJobs(removeJob);
       }
 
+      // Restore scroll position after React state updates to prevent iOS jump
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
+      });
+
       if (patch.status === "Completed") {
         try {
           const { data: existing } = await supabase
