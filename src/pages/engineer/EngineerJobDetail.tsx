@@ -150,19 +150,21 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
   };
 
-  const handlePaymentDone = async (method: string) => {
+  const handlePaymentDone = async (method: string, confirmedAmount: number) => {
     if (!completeData || !job) return;
     setShowPayment(false);
+
+    // Always include confirmedRevenue so updateJob writes it to service_calls.revenue
+    const patchWithRevenue = { ...completeData, paymentMethod: method, confirmedRevenue: confirmedAmount };
 
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
-        const jobUpdateSuccess = await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+        const jobUpdateSuccess = await updateJob({ status: "Completed", ...patchWithRevenue });
         if (!jobUpdateSuccess) {
           console.error("handlePaymentDone: updateJob failed for invoice flow, aborting edge function call");
           toast({ title: "Failed to complete job", description: "Please try again or contact the office.", variant: "destructive" });
           setInvoiceLoading(false);
-          setCompleteData(null);
           return;
         }
 
@@ -172,31 +174,27 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         });
 
         if (fnErr) {
-          console.error("Invoice creation error:", fnErr);
-          toast({ title: "Job completed but invoice failed", description: "The office will follow up.", variant: "destructive" });
-        } else if (result?.success) {
-          setInvoiceSuccess({ customerName: result.customer_name || customer?.name || "Customer" });
+          console.error("create-job-invoice error:", fnErr);
+          toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
         } else {
-          console.error("Invoice edge function returned failure:", result);
-          toast({ title: "Job completed but invoice failed", description: result?.error || "Unknown error", variant: "destructive" });
+          const invoiceNumber = result?.invoice_number || null;
+          if (invoiceNumber) {
+            await supabase.from("service_calls").update({ invoice_number: invoiceNumber }).eq("id", job.id);
+          }
+          toast({ title: "Job completed & invoice created" });
         }
       } catch (err) {
         console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
       }
-
       setInvoiceLoading(false);
-      setCompleteData(null);
-      return;
-    }
-
-    // Cash or Card — normal flow
-    try {
-      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
-    } catch (err) {
-      console.error("handlePaymentDone cash/card flow error:", err);
-      toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
-    }
+    } else {
+      try {
+        await updateJob({ status: "Completed", ...patchWithRevenue });
+      } catch (err) {
+        console.error("handlePaymentDone cash/card flow error:", err);
+        toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
+      }
     setCompleteData(null);
   };
 
