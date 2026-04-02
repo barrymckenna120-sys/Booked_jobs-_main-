@@ -64,7 +64,8 @@ const Customers = () => {
       const { data: jobs } = await supabase
         .from("service_calls")
         .select("customer_id")
-        .in("id", jobIds);
+        .in("id", jobIds)
+        .eq("status", "Completed");
       if (jobs) {
         setTagCustomerIds(new Set(jobs.map((j) => j.customer_id)));
       } else {
