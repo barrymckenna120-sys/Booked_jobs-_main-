@@ -138,7 +138,7 @@ const Customers = () => {
     // Compute dynamic status from next_service_due
     let computedStatus = "Up to Date";
     if (c.next_service_due) {
-      const due = parseISO(c.next_service_due);
+      const due = parseISO(c.next_service_due + "T00:00:00");
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const in30 = addDays(today, 30);
