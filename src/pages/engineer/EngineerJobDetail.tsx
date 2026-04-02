@@ -388,6 +388,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       }
       toast({ title: patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
       fetchJob();
+      return true;
     }
   };
 
