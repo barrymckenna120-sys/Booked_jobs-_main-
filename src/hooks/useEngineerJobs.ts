@@ -139,6 +139,9 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>) => {
+    // Save scroll position before any state changes to prevent iOS jump
+    const scrollY = window.scrollY;
+
     if (!navigator.onLine) {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
