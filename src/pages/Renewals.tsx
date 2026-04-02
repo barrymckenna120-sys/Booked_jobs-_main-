@@ -81,6 +81,7 @@ const Renewals = () => {
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
