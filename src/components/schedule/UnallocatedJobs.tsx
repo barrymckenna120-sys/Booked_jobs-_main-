@@ -141,7 +141,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
 
             <div className="min-w-0 flex-1 pr-4">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-mono text-muted-foreground">BJ-{job.id.slice(0, 6).toUpperCase()}</span>
+                <span className="text-xs font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                 {jobTypeBadge(job.job_type)}
                 {urgencyBadge(job.job_type)}
                 {isNew(job.created_at) && (
