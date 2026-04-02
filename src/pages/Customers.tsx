@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, ChevronLeft, ChevronRight, MapPin, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import AddCustomerSheet from "@/components/customer/AddCustomerSheet";
+import { extractRefDigits } from "@/lib/jobRefSearch";
 
 const PAGE_SIZE = 15;
 
