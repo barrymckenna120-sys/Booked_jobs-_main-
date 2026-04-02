@@ -144,6 +144,7 @@ export const useEngineerJobs = () => {
       return;
     }
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
+    const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -183,6 +184,7 @@ export const useEngineerJobs = () => {
     // Set completed_at and generate receipt/invoice number on completion
     if (patch.status === "Completed") {
       dbPatch.completed_at = new Date().toISOString();
+      dbPatch.job_tags = completionSelectedTags;
       try {
         const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
         const ownerId = job?.user_id;
@@ -226,9 +228,32 @@ export const useEngineerJobs = () => {
       }
 
       if (patch.status === "Completed") {
-        // Save selected tags to service_call_tags
-        if (selectedTags && selectedTags.length > 0) {
-          try {
+        try {
+          const { data: existing } = await supabase
+            .from("service_call_tags")
+            .select("id, tag_id")
+            .eq("service_call_id", jobId);
+
+          const existingRows = existing || [];
+          const existingIds = new Set(existingRows.map((row: any) => row.tag_id));
+
+          const tagRows = completionSelectedTags.length > 0
+            ? (await supabase
+                .from("job_tags")
+                .select("id, name")
+                .in("name", completionSelectedTags)).data || []
+            : [];
+
+          const selectedIds = new Set(tagRows.map((row: any) => row.id));
+          const linkIdsToDelete = existingRows
+            .filter((row: any) => !selectedIds.has(row.tag_id))
+            .map((row: any) => row.id);
+
+          if (linkIdsToDelete.length > 0) {
+            await supabase.from("service_call_tags").delete().in("id", linkIdsToDelete);
+          }
+
+          if (tagRows.length > 0) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("id")
@@ -237,34 +262,20 @@ export const useEngineerJobs = () => {
 
             const profileId = profile?.id || null;
 
-            const { data: tagRows } = await supabase
-              .from("job_tags")
-              .select("id, name")
-              .in("name", selectedTags);
+            const inserts = tagRows
+              .filter((row: any) => !existingIds.has(row.id))
+              .map((row: any) => ({
+                service_call_id: jobId,
+                tag_id: row.id,
+                added_by: profileId,
+              }));
 
-            if (tagRows && tagRows.length > 0) {
-              const { data: existing } = await supabase
-                .from("service_call_tags")
-                .select("tag_id")
-                .eq("service_call_id", jobId);
-
-              const existingIds = new Set((existing || []).map((e: any) => e.tag_id));
-
-              const inserts = tagRows
-                .filter((t: any) => !existingIds.has(t.id))
-                .map((t: any) => ({
-                  service_call_id: jobId,
-                  tag_id: t.id,
-                  added_by: profileId,
-                }));
-
-              if (inserts.length > 0) {
-                await supabase.from("service_call_tags").insert(inserts as any);
-              }
+            if (inserts.length > 0) {
+              await supabase.from("service_call_tags").insert(inserts as any);
             }
-          } catch (e) {
-            console.error("Failed to save job tags:", e);
           }
+        } catch (e) {
+          console.error("Failed to save job tags:", e);
         }
 
         // Create invoice, generate PDF, send WhatsApp for invoice payments
