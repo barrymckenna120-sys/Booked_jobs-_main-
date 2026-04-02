@@ -569,12 +569,12 @@ const Renewals = () => {
       <AlertDialog open={bulkWhatsAppConfirm} onOpenChange={setBulkWhatsAppConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Send WhatsApp to D18 Customers?</AlertDialogTitle>
+            <AlertDialogTitle>Send WhatsApp to {bulkAreaLabel} Customers?</AlertDialogTitle>
             <AlertDialogDescription>
-              Send WhatsApp to all D18 customers due for service? This cannot be undone.
+              Send WhatsApp to all customers in {bulkAreaLabel} due for service? This cannot be undone.
               {reminderQueue.length > 0 && (
                 <span className="block mt-2 font-semibold text-foreground">
-                  {reminderQueue.length} customer{reminderQueue.length !== 1 ? "s" : ""} will receive a message.
+                  Total: {reminderQueue.length} customer{reminderQueue.length !== 1 ? "s" : ""}.
                 </span>
               )}
             </AlertDialogDescription>
