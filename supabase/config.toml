@@ -57,3 +57,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.stripe-boiler-payment-confirm]
     verify_jwt = false
+  [functions.get-upcoming-service-calls]
+    verify_jwt = false
