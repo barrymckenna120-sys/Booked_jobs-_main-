@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: "noreply@notify.kngasservices.bookedjobs.ie",
+        from: "onboarding@resend.dev",
         to: [ACCOUNTANT_EMAIL],
         subject: `BookedJobs — Invoice Export ${label} (${jobs.length} invoices)`,
         text: `Please find attached the invoice export for ${label}. ${jobs.length} invoices totalling ${eur(totalRev)} inc VAT. Net: ${eur(totalNet)} | VAT: ${eur(totalVat)}.`,
