@@ -130,6 +130,7 @@ export const useEngineerJobs = () => {
     setCompletedJobs(completedRes.data || []);
     await fetchCustomers(allJobs);
     await fetchJobPhotos(allJobs);
+    hasFetchedOnce.current = true;
     setLoading(false);
   }, [user, fetchCustomers, fetchJobPhotos]);
 
