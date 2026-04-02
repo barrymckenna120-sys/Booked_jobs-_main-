@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { format, parseISO } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -148,18 +149,48 @@ const CustomerDetail = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
+  const formatDisplayDate = (val: string | null) => {
+    if (!val) return "";
+    try { return format(parseISO(val + "T00:00:00"), "dd/MM/yyyy"); } catch { return val; }
+  };
+
   // Generic field for non-validated fields
-  const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-      <Input
-        id={field}
-        type={type}
-        value={type === "date" ? formatDateForInput(value) : (value ?? "")}
-        onChange={(e) => handleChange(field, e.target.value || (type === "date" ? null : ""))}
-      />
-    </div>
-  );
+  const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => {
+    const dateRef = useRef<HTMLInputElement>(null);
+    if (type === "date") {
+      return (
+        <div className="space-y-1.5">
+          <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+          <div className="relative">
+            <div
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background cursor-pointer items-center"
+              onClick={() => dateRef.current?.showPicker?.()}
+            >
+              {value ? formatDisplayDate(value) : <span className="text-muted-foreground">Select date</span>}
+            </div>
+            <input
+              ref={dateRef}
+              type="date"
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              value={formatDateForInput(value)}
+              onChange={(e) => handleChange(field, e.target.value || null)}
+            />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+        <Input
+          id={field}
+          type={type}
+          value={value ?? ""}
+          onChange={(e) => handleChange(field, e.target.value || "")}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
