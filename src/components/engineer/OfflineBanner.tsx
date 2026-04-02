@@ -6,38 +6,63 @@ type OfflineBannerProps = {
   topOffsetClassName?: string;
 };
 
+const OFFLINE_DELAY_MS = 15000; // Only show after 15s continuously offline
+const RESTORE_DELAY_MS = 3000; // Auto-dismiss 3s after restore
+
 const OfflineBanner = ({ topOffsetClassName = "top-0" }: OfflineBannerProps) => {
-  const [isOffline, setIsOffline] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const offlineSinceRef = useRef<number | null>(null);
+  const showTimerRef = useRef<number | null>(null);
+  const restoreTimerRef = useRef<number | null>(null);
+
+  const clearTimers = useCallback(() => {
+    if (showTimerRef.current) { window.clearTimeout(showTimerRef.current); showTimerRef.current = null; }
+    if (restoreTimerRef.current) { window.clearTimeout(restoreTimerRef.current); restoreTimerRef.current = null; }
+  }, []);
+
+  const markOffline = useCallback(() => {
+    if (offlineSinceRef.current) return; // already tracking
+    offlineSinceRef.current = Date.now();
+    if (restoreTimerRef.current) { window.clearTimeout(restoreTimerRef.current); restoreTimerRef.current = null; }
+    showTimerRef.current = window.setTimeout(() => {
+      if (offlineSinceRef.current) {
+        setShowBanner(true);
+        setDismissed(false);
+      }
+    }, OFFLINE_DELAY_MS);
+  }, []);
+
+  const markOnline = useCallback(() => {
+    offlineSinceRef.current = null;
+    if (showTimerRef.current) { window.clearTimeout(showTimerRef.current); showTimerRef.current = null; }
+    if (showBanner) {
+      restoreTimerRef.current = window.setTimeout(() => {
+        setShowBanner(false);
+      }, RESTORE_DELAY_MS);
+    } else {
+      setShowBanner(false);
+    }
+  }, [showBanner]);
 
   const checkConnectivity = useCallback(async () => {
     try {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 5000);
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`,
         { method: "HEAD", cache: "no-store", signal: controller.signal }
       );
-
       window.clearTimeout(timeoutId);
-      const offline = !response.ok;
-      setIsOffline(offline);
-      if (!offline) setDismissed(false);
+      if (response.ok) { markOnline(); } else { markOffline(); }
     } catch {
-      setIsOffline(true);
+      markOffline();
     }
-  }, []);
+  }, [markOnline, markOffline]);
 
   useEffect(() => {
-    const handleOffline = () => {
-      setIsOffline(true);
-      setDismissed(false);
-    };
-    const handleOnline = () => {
-      setIsOffline(false);
-      void checkConnectivity();
-    };
+    const handleOffline = () => markOffline();
+    const handleOnline = () => void checkConnectivity();
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") void checkConnectivity();
     };
@@ -54,8 +79,9 @@ const OfflineBanner = ({ topOffsetClassName = "top-0" }: OfflineBannerProps) => 
       window.removeEventListener("offline", handleOffline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(intervalId);
+      clearTimers();
     };
-  }, [checkConnectivity]);
+  }, [checkConnectivity, clearTimers]);
 
   const show = isOffline && !dismissed;
 
