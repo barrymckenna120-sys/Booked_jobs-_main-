@@ -53,3 +53,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-deposit-reminder]
     verify_jwt = false
+  [functions.tally-boiler-rebook]
+    verify_jwt = false
