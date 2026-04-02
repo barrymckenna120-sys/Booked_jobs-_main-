@@ -139,6 +139,9 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>) => {
+    // Save scroll position before any state changes to prevent iOS jump
+    const scrollY = window.scrollY;
+
     if (!navigator.onLine) {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
@@ -226,6 +229,11 @@ export const useEngineerJobs = () => {
 
         setCompletedJobs(removeJob);
       }
+
+      // Restore scroll position after React state updates to prevent iOS jump
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
+      });
 
       if (patch.status === "Completed") {
         try {
