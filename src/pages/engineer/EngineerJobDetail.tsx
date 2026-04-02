@@ -286,6 +286,61 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         }
       }
 
+      // Sync completion data to customer record
+      if (patch.status === "Completed") {
+        try {
+          const completedDate = new Date();
+          const dd = String(completedDate.getDate()).padStart(2, "0");
+          const mm = String(completedDate.getMonth() + 1).padStart(2, "0");
+          const yyyy = completedDate.getFullYear();
+          const dateStr = `${dd}/${mm}/${yyyy}`;
+
+          let noteEntry = "";
+          if (notesUpdate && notesUpdate.trim()) {
+            noteEntry = `${dateStr} - Work done: ${notesUpdate.trim()}`;
+          }
+
+          // Fetch tags that were just saved
+          if (selectedTags && selectedTags.length > 0) {
+            if (noteEntry) {
+              noteEntry += `. Tags: ${selectedTags.join(", ")}`;
+            } else {
+              noteEntry = `${dateStr} - Tags: ${selectedTags.join(", ")}`;
+            }
+          }
+
+          const customerUpdate: Record<string, any> = {
+            last_service_date: completedDate.toISOString().slice(0, 10),
+            last_service_engineer: job.assigned_engineer || null,
+          };
+
+          if (noteEntry) {
+            const { data: custData } = await supabase
+              .from("customers")
+              .select("notes")
+              .eq("id", job.customer_id)
+              .maybeSingle();
+
+            const existing = custData?.notes;
+            customerUpdate.notes = existing && existing.trim()
+              ? `${existing}\n${noteEntry}`
+              : noteEntry;
+          }
+
+          const { error: custErr } = await supabase
+            .from("customers")
+            .update(customerUpdate)
+            .eq("id", job.customer_id);
+
+          if (custErr) {
+            console.error("Failed to sync customer profile:", custErr.message);
+          } else {
+            console.log("Customer profile synced after job completion");
+          }
+        } catch (e) {
+          console.error("Error syncing customer profile:", e);
+        }
+
       if (patch.status === "Completed") {
         logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: job.id, detail: "Completed by engineer" });
         // Fire-and-forget: trigger review request via Make.com
