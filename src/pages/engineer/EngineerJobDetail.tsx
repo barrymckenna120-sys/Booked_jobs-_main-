@@ -252,6 +252,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           }
         } catch {}
       }
+      // Always write confirmed revenue on completion
+      if (confirmedRevenue !== undefined && confirmedRevenue !== null) {
+        dbPatch.revenue = confirmedRevenue;
+      }
     }
 
     // Save selected tags to job_tags column — always set on completion
