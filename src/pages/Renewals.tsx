@@ -280,7 +280,8 @@ const Renewals = () => {
 
   const notRemindedCount = filtered.filter(c => !reminderSent[c.id] && !c.contactedRecently).length;
 
-  const showBulkWhatsApp = selectedAreas.includes("D18");
+  const showBulkWhatsApp = selectedAreas.length > 0;
+  const bulkAreaLabel = selectedAreas.join(", ");
 
   const handleBulkWhatsApp = async () => {
     setBulkSending(true);
@@ -292,6 +293,7 @@ const Renewals = () => {
           customer_name: c.name,
           customer_phone: c.phone,
           next_service_due: c.next_service_due,
+          area_code: c.area_code || "Unknown",
         }));
 
       if (payload.length === 0) {
@@ -301,21 +303,27 @@ const Renewals = () => {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("send-dublin18-bulk", {
-        body: { customers: payload },
+      const { data, error } = await supabase.functions.invoke("send-area-bulk-whatsapp", {
+        body: { area_codes: selectedAreas, customers: payload },
       });
 
       if (error) throw error;
 
       const sentCount = data?.sent || 0;
       const skippedCount = data?.skipped || 0;
+      const byArea = data?.by_area || {};
+
+      // Build area breakdown string
+      const areaBreakdown = Object.entries(byArea)
+        .filter(([, v]: [string, any]) => v.sent > 0)
+        .map(([code, v]: [string, any]) => `${code}: ${v.sent}`)
+        .join(", ");
 
       toast({
-        title: `Sent to ${sentCount} customers, ${skippedCount} skipped`,
-        duration: 4000,
+        title: `Sent to ${sentCount} customers${areaBreakdown ? ` — ${areaBreakdown}` : ""}. ${skippedCount} skipped.`,
+        duration: 5000,
       });
 
-      // Mark sent customers in local state
       payload.forEach(c => {
         setReminderSent(prev => ({ ...prev, [c.customer_id]: true }));
       });
@@ -348,7 +356,7 @@ const Renewals = () => {
                 disabled={bulkSending || reminderQueue.length === 0}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                Send All via WhatsApp
+                Send All — {bulkAreaLabel} via WhatsApp
               </Button>
             )}
             <Button
@@ -561,12 +569,12 @@ const Renewals = () => {
       <AlertDialog open={bulkWhatsAppConfirm} onOpenChange={setBulkWhatsAppConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Send WhatsApp to D18 Customers?</AlertDialogTitle>
+            <AlertDialogTitle>Send WhatsApp to {bulkAreaLabel} Customers?</AlertDialogTitle>
             <AlertDialogDescription>
-              Send WhatsApp to all D18 customers due for service? This cannot be undone.
+              Send WhatsApp to all customers in {bulkAreaLabel} due for service? This cannot be undone.
               {reminderQueue.length > 0 && (
                 <span className="block mt-2 font-semibold text-foreground">
-                  {reminderQueue.length} customer{reminderQueue.length !== 1 ? "s" : ""} will receive a message.
+                  Total: {reminderQueue.length} customer{reminderQueue.length !== 1 ? "s" : ""}.
                 </span>
               )}
             </AlertDialogDescription>
