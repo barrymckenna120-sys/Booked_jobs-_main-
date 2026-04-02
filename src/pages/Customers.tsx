@@ -28,7 +28,7 @@ const Customers = () => {
   const [search, setSearch] = useState("");
   const initialStatus = searchParams.get("status") || "all";
   const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [areaFilter, setAreaFilter] = useState<string | null>(null);
+  const [areaFilters, setAreaFilters] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCustomerIds, setTagCustomerIds] = useState<Set<string> | null>(null);
   const [refCustomerIds, setRefCustomerIds] = useState<Set<string> | null>(null);
