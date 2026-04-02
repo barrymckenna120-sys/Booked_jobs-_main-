@@ -29,6 +29,7 @@ const Customers = () => {
   const [areaFilter, setAreaFilter] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCustomerIds, setTagCustomerIds] = useState<Set<string> | null>(null);
+  const [refCustomerIds, setRefCustomerIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
@@ -38,6 +39,27 @@ const Customers = () => {
   }, [user]);
 
   useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter, selectedTags]);
+
+  // When search looks like a job ref, look up the linked customer
+  useEffect(() => {
+    const raw = search.trim().replace(/^kn-/i, "");
+    if (/^\d+$/.test(raw) && raw.length > 0) {
+      const ref = "KN-" + raw.padStart(3, "0");
+      supabase
+        .from("service_calls")
+        .select("customer_id")
+        .eq("job_reference", ref)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setRefCustomerIds(new Set(data.map((j) => j.customer_id)));
+          } else {
+            setRefCustomerIds(new Set());
+          }
+        });
+    } else {
+      setRefCustomerIds(null);
+    }
+  }, [search]);
 
   // Fetch customer IDs matching selected tags
   useEffect(() => {
@@ -107,7 +129,9 @@ const Customers = () => {
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
-    const matchesSearch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
+    const textMatch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
+    const refMatch = refCustomerIds !== null && refCustomerIds.has(c.id);
+    const matchesSearch = refCustomerIds !== null ? refMatch : textMatch;
     const matchesStatus = statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
     const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
     const matchesTags = tagCustomerIds === null || tagCustomerIds.has(c.id);
