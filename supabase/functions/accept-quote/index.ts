@@ -50,7 +50,7 @@ serve(async (req) => {
 
       // Get updated quote info for WhatsApp alert
       const updatedRes = await fetch(
-        `${supabaseUrl}/rest/v1/quotes?id=eq.${quoteId}&select=converted_job_id,user_id,quote_number,total_amount,deposit,deposit_amount,customer_id,customers(name)`,
+        `${supabaseUrl}/rest/v1/quotes?id=eq.${quoteId}&select=converted_job_id,user_id,quote_number,total_amount,deposit,deposit_amount,customer_id,payment_link,customers(name,phone,opted_out)`,
         { headers }
       );
       const updatedQuotes = await updatedRes.json();
@@ -64,6 +64,11 @@ serve(async (req) => {
 
         // Send WhatsApp office alert (best-effort)
         await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote.user_id, customerName, quoteRef, totalAmount, depositAmount);
+
+        // Send deposit payment request to customer (fire-and-forget)
+        sendDepositPaymentWhatsApp(
+          supabaseUrl, headers, updatedQuote, customerName
+        ).catch((e) => console.error("Deposit WhatsApp send failed:", e));
 
         return new Response(
           JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: quoteId, job_id: updatedQuote.converted_job_id }),
@@ -90,7 +95,7 @@ serve(async (req) => {
     const digits = customer_mobile_number.replace(/\D/g, "");
 
     const searchRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,quote_number,deposit,deposit_amount,customers!inner(phone,name)`,
+      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,quote_number,deposit,deposit_amount,payment_link,customers!inner(phone,name,opted_out)`,
       { headers }
     );
 
@@ -132,7 +137,7 @@ serve(async (req) => {
     await rpcRes.text();
 
     const updatedQuoteRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?id=eq.${match.id}&select=converted_job_id,user_id`,
+      `${supabaseUrl}/rest/v1/quotes?id=eq.${match.id}&select=converted_job_id,user_id,deposit,deposit_amount,payment_link`,
       { headers }
     );
     const updatedQuotes2 = await updatedQuoteRes.json();
@@ -143,6 +148,19 @@ serve(async (req) => {
     const depositAmount = Number(match.deposit || match.deposit_amount || 0).toFixed(2);
 
     await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote2?.user_id, customerName, quoteRef, totalAmount, depositAmount);
+
+    // Send deposit payment request to customer (fire-and-forget)
+    const mergedQuoteData = {
+      ...match,
+      converted_job_id: updatedQuote2?.converted_job_id,
+      user_id: updatedQuote2?.user_id,
+      payment_link: updatedQuote2?.payment_link || match.payment_link,
+      deposit: updatedQuote2?.deposit || match.deposit,
+      deposit_amount: updatedQuote2?.deposit_amount || match.deposit_amount,
+    };
+    sendDepositPaymentWhatsApp(
+      supabaseUrl, headers, mergedQuoteData, customerName
+    ).catch((e) => console.error("Deposit WhatsApp send failed (mode 2):", e));
 
     return new Response(
       JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: match.id, job_id: updatedQuote2?.converted_job_id }),
@@ -194,5 +212,125 @@ async function sendWhatsAppAlert(
     }
   } catch (e) {
     console.error("WhatsApp alert failed:", e);
+  }
+}
+
+async function sendDepositPaymentWhatsApp(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  quote: any,
+  customerName: string
+) {
+  try {
+    const depositAmount = Number(quote.deposit || quote.deposit_amount || 0);
+    if (depositAmount <= 0) {
+      console.log("No deposit amount — skipping deposit WhatsApp");
+      return;
+    }
+
+    const serviceCallId = quote.converted_job_id;
+    if (!serviceCallId) {
+      console.log("No converted_job_id — skipping deposit WhatsApp");
+      return;
+    }
+
+    // Check customer opted_out
+    const customerOptedOut = quote.customers?.opted_out === true;
+    if (customerOptedOut) {
+      console.log("Customer opted out — skipping deposit WhatsApp");
+      return;
+    }
+
+    const customerPhone = quote.customers?.phone;
+    if (!customerPhone) {
+      console.log("No customer phone — skipping deposit WhatsApp");
+      return;
+    }
+
+    // Get payment_link from the new service_call (the RPC copies it over)
+    const jobRes = await fetch(
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}&select=payment_link&limit=1`,
+      { headers }
+    );
+    const jobData = await jobRes.json();
+    const paymentLink = Array.isArray(jobData) ? jobData[0]?.payment_link : null;
+
+    if (!paymentLink) {
+      console.log("No payment link on service call — skipping deposit WhatsApp");
+      return;
+    }
+
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY") || Deno.env.get("MESSENGER_API_KEY");
+    if (!apiKey) {
+      console.log("No WhatsApp API key — skipping deposit WhatsApp");
+      return;
+    }
+
+    const message = `Hi ${customerName},\n\nThank you for approving your quote with K & N Gas Services.\n\nTo confirm your booking and secure the parts for your job, a 50% deposit of €${depositAmount.toFixed(2)} is required.\n\nPay securely here: ${paymentLink}\n\nIf you have any questions please reply to this message.\n\nK & N Gas Services ☎ 087 3686252`;
+
+    const cleanNumber = customerPhone.replace(/^\+/, "");
+    const formData = new FormData();
+    formData.append("phonenumber", cleanNumber);
+    formData.append("text", message);
+
+    // Log pending to message_log
+    const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+      method: "POST",
+      headers: { ...headers, "Prefer": "return=representation" },
+      body: JSON.stringify({
+        customer_id: quote.customer_id || null,
+        message_type: "payment_link",
+        channel: "whatsapp",
+        direction: "outbound",
+        content: message,
+        status: "pending",
+        related_id: serviceCallId,
+        related_type: "service_call",
+        sent_by: "system",
+        sent_at: new Date().toISOString(),
+      }),
+    });
+    const logRows = await logRes.json();
+    const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
+
+    const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}` },
+      body: formData,
+    });
+
+    const resultText = await res.text();
+    let result: any;
+    try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+
+    // Update message_log status
+    if (logId) {
+      const updateBody = result.success
+        ? { status: "sent" }
+        : { status: "failed", error_message: `360Messenger HTTP ${res.status}: ${resultText.substring(0, 500)}` };
+
+      await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(updateBody),
+      });
+    }
+
+    // Log to edge_function_logs if failed
+    if (!result.success) {
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          function_name: "accept-quote",
+          error_message: `Deposit WhatsApp failed. HTTP ${res.status}: ${resultText.substring(0, 300)}`,
+          payload: { sent_to: cleanNumber, service_call_id: serviceCallId, customer_id: quote.customer_id },
+        }),
+      });
+    }
+
+    console.log("Deposit WhatsApp send result:", result.success ? "sent" : "failed");
+  } catch (e) {
+    console.error("sendDepositPaymentWhatsApp error:", e);
   }
 }
