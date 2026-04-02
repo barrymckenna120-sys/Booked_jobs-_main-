@@ -366,7 +366,7 @@ const JobDetail = () => {
 
     const { data: custData } = await supabase
       .from("customers")
-      .select("id, name, phone, email, address, eircode, access_notes")
+      .select("id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model")
       .eq("id", jobData.customer_id)
       .maybeSingle();
 
