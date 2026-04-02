@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 
 const PAGE_SIZE = 15;
 
@@ -168,7 +169,8 @@ const Jobs = () => {
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
-      const matchRef = !refSearch || (j.job_reference || "").toLowerCase().includes("kn-" + refSearch.replace(/^kn-/i, "").padStart(3, "0"));
+      const refDigits = refSearch ? extractRefDigits(refSearch) : null;
+      const matchRef = !refSearch || (refDigits ? matchesJobRef(j.job_reference, refDigits) : false);
       return matchStatus && matchType && matchSearch && matchPayment && matchRef;
     });
 
