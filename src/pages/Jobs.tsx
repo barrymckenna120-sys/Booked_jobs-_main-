@@ -82,7 +82,7 @@ const Jobs = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter]);
+  useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter, refSearch]);
 
   const fetchJobs = async () => {
     setLoading(true);
