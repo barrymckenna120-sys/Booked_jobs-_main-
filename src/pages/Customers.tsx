@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { addDays, isAfter, isBefore, isToday, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -133,7 +134,22 @@ const Customers = () => {
     const textMatch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
     const refMatch = refCustomerIds !== null && refCustomerIds.has(c.id);
     const matchesSearch = refCustomerIds !== null ? refMatch : textMatch;
-    const matchesStatus = statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
+
+    // Compute dynamic status from next_service_due
+    let computedStatus = "Up to Date";
+    if (c.next_service_due) {
+      const due = parseISO(c.next_service_due);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const in30 = addDays(today, 30);
+      if (isBefore(due, today) && !isToday(due)) {
+        computedStatus = "Overdue";
+      } else if ((isToday(due) || isAfter(due, today)) && (isBefore(due, in30) || due.getTime() === in30.getTime())) {
+        computedStatus = "Due Soon";
+      }
+    }
+
+    const matchesStatus = statusFilter === "all" || computedStatus === statusFilter;
     const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
     const matchesTags = tagCustomerIds === null || tagCustomerIds.has(c.id);
     return matchesSearch && matchesStatus && matchesArea && matchesTags;
@@ -259,7 +275,17 @@ const Customers = () => {
                       <TableCell className="hidden md:table-cell">{c.address}</TableCell>
                       <TableCell className="hidden md:table-cell">{c.eircode}</TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground">{c.area_code || "—"}</TableCell>
-                      <TableCell>{statusBadge(c.service_status || "Up to Date")}</TableCell>
+                      <TableCell>{(() => {
+                        let s = "Up to Date";
+                        if (c.next_service_due) {
+                          const due = parseISO(c.next_service_due);
+                          const today = new Date(); today.setHours(0,0,0,0);
+                          const in30 = addDays(today, 30);
+                          if (isBefore(due, today) && !isToday(due)) s = "Overdue";
+                          else if ((isToday(due) || isAfter(due, today)) && (isBefore(due, in30) || due.getTime() === in30.getTime())) s = "Due Soon";
+                        }
+                        return statusBadge(s);
+                      })()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
