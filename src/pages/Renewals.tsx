@@ -114,11 +114,6 @@ const Renewals = () => {
     return () => clearInterval(interval);
   }, [fetchCustomers]);
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-
-  const businessName = settings?.business_name || "BookedJobs";
-  const servicePrice = settings?.default_service_price || 120;
-
   const activeCustomers = customers.filter(c => !c.is_archived);
 
   const areaCodes = useMemo(() => {
@@ -126,6 +121,11 @@ const Renewals = () => {
     activeCustomers.forEach(c => { if (c.area_code) codes.add(c.area_code); });
     return Array.from(codes).sort();
   }, [activeCustomers]);
+
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+  const businessName = settings?.business_name || "BookedJobs";
+  const servicePrice = settings?.default_service_price || 120;
 
   const toggleArea = (code: string) => {
     setSelectedAreas(prev => prev.includes(code) ? prev.filter(a => a !== code) : [...prev, code]);
