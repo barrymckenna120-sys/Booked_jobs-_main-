@@ -47,7 +47,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
         <div className="text-xl font-extrabold text-foreground">＋ Extra Work</div>
-        <div className="text-[13px] text-muted-foreground mt-0.5">{getJobRef(job.id)} · {customer.name}</div>
+        <div className="text-[13px] text-muted-foreground mt-0.5">{getJobRef(job)} · {customer.name}</div>
       </div>
       <div className="px-5 pt-4 space-y-4">
         <div className="space-y-1.5">
