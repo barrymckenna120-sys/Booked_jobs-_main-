@@ -83,7 +83,7 @@ const OfflineBanner = ({ topOffsetClassName = "top-0" }: OfflineBannerProps) => 
     };
   }, [checkConnectivity, clearTimers]);
 
-  const show = isOffline && !dismissed;
+  const show = showBanner && !dismissed;
 
   return (
     <div
