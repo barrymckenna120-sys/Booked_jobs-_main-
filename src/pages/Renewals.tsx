@@ -155,7 +155,7 @@ const Renewals = () => {
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
   // Stats for header
-  const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon")).length;
+  const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon") && matchesArea(c)).length;
   const totalAtRisk = (tabCounts.overdue + tabCounts.due_soon) * servicePrice;
 
   // Build reminder message
