@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
+const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
 interface Props {
   job: any;
@@ -38,7 +38,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Extra work submitted", description: `${getJobRef(job.id)}-Q · €${amount}` });
+      toast({ title: "Extra work submitted", description: `${getJobRef(job)}-Q · €${amount}` });
       onClose();
     }
   };
@@ -47,7 +47,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     <EngineerSheet onClose={onClose}>
       <div className="px-5 py-3 border-b border-border">
         <div className="text-xl font-extrabold text-foreground">＋ Extra Work</div>
-        <div className="text-[13px] text-muted-foreground mt-0.5">{getJobRef(job.id)} · {customer.name}</div>
+        <div className="text-[13px] text-muted-foreground mt-0.5">{getJobRef(job)} · {customer.name}</div>
       </div>
       <div className="px-5 pt-4 space-y-4">
         <div className="space-y-1.5">
@@ -59,7 +59,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
           <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 180" />
         </div>
         <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-xs text-muted-foreground">
-          This creates a quote linked to <strong>{getJobRef(job.id)}</strong> with status <strong>Pending Approval</strong>. Office will review before sending.
+          This creates a quote linked to <strong>{getJobRef(job)}</strong> with status <strong>Pending Approval</strong>. Office will review before sending.
         </div>
         <Button
           className="w-full h-12 text-base font-extrabold"

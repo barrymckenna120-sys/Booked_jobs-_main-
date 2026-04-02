@@ -18,7 +18,7 @@ const TIME_LABELS: Record<string, string> = {
   "2–5":  "2–5pm",
 };
 
-const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
+const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
 const InfoTile = ({ label, value, icon, full }: { label: string; value: string | null; icon?: string; full?: boolean }) => (
   <div className={`bg-secondary rounded-xl border border-border p-3 ${full ? "col-span-2" : ""}`}>
@@ -58,7 +58,7 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
       <div className="px-5 py-3 border-b border-border">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-[11px] font-bold text-muted-foreground tracking-wider mb-0.5">{getJobRef(job.id)}</div>
+            <div className="text-[11px] font-bold text-muted-foreground tracking-wider mb-0.5">{getJobRef(job)}</div>
             <div className="text-xl font-extrabold text-foreground">{customer.name}</div>
             <div className="text-[13px] text-muted-foreground mt-0.5">📍 {customer.address} · {customer.eircode}</div>
           </div>

@@ -36,7 +36,7 @@ const TIME_LABELS: Record<string, string> = {
   "2–5":  "2–5pm",
 };
 
-const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
+const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
 const InfoTile = ({ label, value, Icon, full }: { label: string; value: string | null; Icon?: LucideIcon; full?: boolean }) => (
   <div className={`bg-secondary rounded-xl border border-border p-3 ${full ? "col-span-2" : ""}`}>
@@ -368,7 +368,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         </button>
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-[11px] font-bold text-white/60 tracking-wider">{getJobRef(job.id)}</div>
+            <div className="text-[11px] font-bold text-white/60 tracking-wider">{getJobRef(job)}</div>
             <div className="text-2xl font-extrabold text-white leading-tight">{customer.name}</div>
             <div className="text-[13px] text-white/70 mt-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" /> {customer.address}

@@ -115,7 +115,7 @@ const AssignJobModal = ({
                   <SelectContent className="bg-popover z-50">
                     {unallocatedJobs.map((j) => (
                       <SelectItem key={j.id} value={j.id}>
-                        <span className="font-mono text-muted-foreground mr-1">BJ-{j.id.slice(0, 6).toUpperCase()}</span>
+                        <span className="font-mono text-muted-foreground mr-1">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</span>
                         {j.customer_name} – {j.job_type}
                       </SelectItem>
                     ))}
@@ -131,7 +131,7 @@ const AssignJobModal = ({
             {job && (
               <div className="rounded-md border border-border p-3 bg-muted/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-muted-foreground">BJ-{job.id.slice(0, 6).toUpperCase()}</span>
+                  <span className="text-xs font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                   <Badge className={
                     job.job_type === "Emergency"
                       ? "bg-destructive/10 text-destructive border-destructive/20 text-[10px]"

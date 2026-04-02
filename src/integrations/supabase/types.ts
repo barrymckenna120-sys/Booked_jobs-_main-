@@ -1714,6 +1714,7 @@ export type Database = {
           invoice_reminder_sent_at: string | null
           invoiced_at: string | null
           job_issue: string | null
+          job_reference: string | null
           job_type: string
           needs_scheduling: boolean
           notes: string | null
@@ -1786,6 +1787,7 @@ export type Database = {
           invoice_reminder_sent_at?: string | null
           invoiced_at?: string | null
           job_issue?: string | null
+          job_reference?: string | null
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
@@ -1858,6 +1860,7 @@ export type Database = {
           invoice_reminder_sent_at?: string | null
           invoiced_at?: string | null
           job_issue?: string | null
+          job_reference?: string | null
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null

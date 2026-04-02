@@ -35,6 +35,7 @@ type Job = {
   area_code: string | null;
   owner_or_tenant: string | null;
   access_notes: string | null;
+  job_reference?: string | null;
 };
 
 type Customer = {
@@ -112,7 +113,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       body: { service_call_id: job.id }
     }).catch(err => console.error('Booking confirmation failed:', err));
 
-    const jobRef = `BJ-${job.id.slice(0, 6).toUpperCase()}`;
+    const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
 
     // Send Job Assigned email to engineer
     const engRecord = engineers.find((e: any) => e.name === assignEngineer);

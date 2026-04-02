@@ -900,7 +900,7 @@ const JobDetail = () => {
       <CancelJobModal
         open={cancelOpen}
         onOpenChange={setCancelOpen}
-        jobRef={`BJ-${job.id.slice(0, 6).toUpperCase()}`}
+        jobRef={(job as any).job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}
         depositPaid={job.deposit_paid}
         onConfirm={handleCancel}
       />

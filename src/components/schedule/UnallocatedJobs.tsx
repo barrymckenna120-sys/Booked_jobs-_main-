@@ -141,7 +141,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
 
             <div className="min-w-0 flex-1 pr-4">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-mono text-muted-foreground">BJ-{job.id.slice(0, 6).toUpperCase()}</span>
+                <span className="text-xs font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                 {jobTypeBadge(job.job_type)}
                 {urgencyBadge(job.job_type)}
                 {isNew(job.created_at) && (
@@ -190,7 +190,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Archive this job?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-semibold text-foreground">{confirmJob?.customer_name}</span> (BJ-{confirmJob?.id.slice(0, 6).toUpperCase()}) will be hidden from the schedule. You can still find it on the Jobs page using the Archived filter.
+              <span className="font-semibold text-foreground">{confirmJob?.customer_name}</span> ({confirmJob?.job_reference || `KN-${confirmJob?.id.slice(0, 6).toUpperCase()}`}) will be hidden from the schedule. You can still find it on the Jobs page using the Archived filter.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

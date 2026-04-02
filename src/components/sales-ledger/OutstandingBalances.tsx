@@ -137,7 +137,7 @@ const OutstandingBalances = () => {
     { total: 0, deposit: 0, balance: 0 }
   );
 
-  const jobRefStr = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
+  const jobRefStr = (job: any) => job?.job_reference || "KN-" + (job?.id || "").substring(0, 6).toUpperCase();
 
   const getOutstandingDays = (invoiced_at: string | null) => {
     if (!invoiced_at) return { days: 0, bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0" };
@@ -191,7 +191,7 @@ const OutstandingBalances = () => {
                   <div className="flex items-start justify-between mb-1">
                     <div>
                       <a href={`/jobs/${job.id}`} className="font-mono font-bold text-sm text-primary hover:underline">
-                        {jobRefStr(job.id)}
+                        {jobRefStr(job)}
                       </a>
                       <span className="text-xs text-muted-foreground ml-2">
                         {job.scheduled_date ? format(new Date(job.scheduled_date + "T00:00:00"), "dd/MM/yy") : "—"}
@@ -287,7 +287,7 @@ const OutstandingBalances = () => {
                     <TableRow key={job.id}>
                       <TableCell className="font-mono font-bold">
                         <a href={`/jobs/${job.id}`} className="text-primary hover:underline">
-                          {jobRefStr(job.id)}
+                          {jobRefStr(job)}
                         </a>
                       </TableCell>
                       <TableCell>

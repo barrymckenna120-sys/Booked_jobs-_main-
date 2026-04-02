@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 
-const getJobRef = (id: string) => `BJ-${id.slice(0, 6).toUpperCase()}`;
+const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
 interface EngineerJobCardProps {
   job: any;
@@ -96,7 +96,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
-            <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job.id)}</div>
+            <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job)}</div>
             <div className="text-xl font-bold text-gray-900 leading-tight">{customer.name}</div>
           </div>
         <StatusBadge status={job.status} />

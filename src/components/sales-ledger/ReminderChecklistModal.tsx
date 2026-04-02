@@ -25,7 +25,7 @@ type Props = {
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
-const jobRef = (id: string) => "BJ-" + id.substring(0, 6).toUpperCase();
+const jobRef = (job: any) => job?.job_reference || "KN-" + (job?.id || "").substring(0, 6).toUpperCase();
 
 const CHECKLIST_ITEMS = [
   { key: "invoice_date", label: "Invoice date is correct on this job" },
@@ -85,7 +85,7 @@ const ReminderChecklistModal = ({ open, onClose, job, onConfirm }: Props) => {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Job Ref</span>
-            <span className="font-mono font-bold text-foreground">{jobRef(job.id)}</span>
+            <span className="font-mono font-bold text-foreground">{jobRef(job)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Invoice #</span>
