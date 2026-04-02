@@ -356,7 +356,7 @@ const Renewals = () => {
                 disabled={bulkSending || reminderQueue.length === 0}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                Send All via WhatsApp
+                Send All — {bulkAreaLabel} via WhatsApp
               </Button>
             )}
             <Button
