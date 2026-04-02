@@ -188,23 +188,26 @@ const Customers = () => {
       {areaCounts.length > 0 && (
         <Card className="shadow-sm border-border/60">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide">Customers by Area Code</p>
-              {areaFilter && (
-                <button onClick={() => setAreaFilter(null)} className="text-xs text-primary hover:underline">Clear filter</button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {areaCounts.map(([code, count]) => (
-                <button
-                  key={code}
-                  onClick={() => setAreaFilter(areaFilter === code ? null : code)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${areaFilter === code ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
-                >
-                  <MapPin className="w-3 h-3" /> {code} <span className={`font-extrabold ${areaFilter === code ? "text-primary-foreground" : "text-foreground"}`}>{count}</span>
-                </button>
-              ))}
-            </div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide">Customers by Area Code</p>
+                {areaFilters.length > 0 && (
+                  <button onClick={() => setAreaFilters([])} className="text-xs text-primary hover:underline">Clear</button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {areaCounts.map(([code, count]) => {
+                  const isActive = areaFilters.includes(code);
+                  return (
+                    <button
+                      key={code}
+                      onClick={() => setAreaFilters((prev) => isActive ? prev.filter((a) => a !== code) : [...prev, code])}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
+                    >
+                      <MapPin className="w-3 h-3" /> {code} <span className={`font-extrabold ${isActive ? "text-primary-foreground" : "text-foreground"}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
           </CardContent>
         </Card>
       )}
