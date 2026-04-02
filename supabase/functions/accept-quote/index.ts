@@ -353,7 +353,7 @@ async function sendDepositPaymentWhatsApp(
 
     const resultText = await res.text();
     let result: any;
-    try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+    try { result = JSON.parse(resultText); } catch (_e) { result = { success: false, raw: resultText }; }
 
     // Update message_log status
     if (logId) {
