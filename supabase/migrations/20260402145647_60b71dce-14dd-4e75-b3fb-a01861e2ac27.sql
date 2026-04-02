@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN job_tags text[] NOT NULL DEFAULT '{}';
