@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import type { EngineerJobsState } from "@/hooks/useEngineerJobs";
 
 const EngineerCompleted = () => {
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const { completedJobs, customers, loading, updateJob, jobPhotos } = useOutletContext<EngineerJobsState>();
 
   return (

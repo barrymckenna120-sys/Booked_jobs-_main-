@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Loader2, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { useOutletContext } from "react-router-dom";
@@ -5,6 +6,7 @@ import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import type { EngineerJobsState } from "@/hooks/useEngineerJobs";
 
 const EngineerUpcoming = () => {
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const { upcomingJobs, customers, loading, updateJob } = useOutletContext<EngineerJobsState>();
 
   // Group by date
