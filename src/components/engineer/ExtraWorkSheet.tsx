@@ -38,7 +38,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Extra work submitted", description: `${getJobRef(job.id)}-Q · €${amount}` });
+      toast({ title: "Extra work submitted", description: `${getJobRef(job)}-Q · €${amount}` });
       onClose();
     }
   };
