@@ -287,7 +287,7 @@ const OutstandingBalances = () => {
                     <TableRow key={job.id}>
                       <TableCell className="font-mono font-bold">
                         <a href={`/jobs/${job.id}`} className="text-primary hover:underline">
-                          {jobRefStr(job.id)}
+                          {jobRefStr(job)}
                         </a>
                       </TableCell>
                       <TableCell>

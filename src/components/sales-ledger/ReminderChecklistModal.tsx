@@ -85,7 +85,7 @@ const ReminderChecklistModal = ({ open, onClose, job, onConfirm }: Props) => {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Job Ref</span>
-            <span className="font-mono font-bold text-foreground">{jobRef(job.id)}</span>
+            <span className="font-mono font-bold text-foreground">{jobRef(job)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Invoice #</span>

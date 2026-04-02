@@ -85,7 +85,7 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
   const getJobRef = (n: AppNotification) => {
     const meta = n.metadata as Record<string, unknown>;
     if (meta?.job_ref) return meta.job_ref as string;
-    const match = n.title.match(/BJ-[A-Z0-9]+|— [A-Z0-9-]+/);
+    const match = n.title.match(/KN-[0-9]+|BJ-[A-Z0-9]+|— [A-Z0-9-]+/);
     if (match) return match[0].replace("— ", "");
     return null;
   };
