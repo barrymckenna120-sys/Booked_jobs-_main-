@@ -222,6 +222,13 @@ async function sendDepositPaymentWhatsApp(
   customerName: string
 ) {
   try {
+    console.log("sendDepositPaymentWhatsApp called:", JSON.stringify({
+      depositAmount: quote.deposit || quote.deposit_amount,
+      convertedJobId: quote.converted_job_id,
+      customerPhone: quote.customers?.phone,
+      customerOptedOut: quote.customers?.opted_out,
+      paymentLinkOnQuote: quote.payment_link,
+    }));
     const depositAmount = Number(quote.deposit || quote.deposit_amount || 0);
     if (depositAmount <= 0) {
       console.log("No deposit amount — skipping deposit WhatsApp");
