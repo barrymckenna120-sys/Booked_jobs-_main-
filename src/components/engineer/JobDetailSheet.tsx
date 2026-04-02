@@ -58,7 +58,7 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
       <div className="px-5 py-3 border-b border-border">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-[11px] font-bold text-muted-foreground tracking-wider mb-0.5">{getJobRef(job.id)}</div>
+            <div className="text-[11px] font-bold text-muted-foreground tracking-wider mb-0.5">{getJobRef(job)}</div>
             <div className="text-xl font-extrabold text-foreground">{customer.name}</div>
             <div className="text-[13px] text-muted-foreground mt-0.5">📍 {customer.address} · {customer.eircode}</div>
           </div>

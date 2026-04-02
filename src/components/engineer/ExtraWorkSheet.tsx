@@ -59,7 +59,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
           <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 180" />
         </div>
         <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-xs text-muted-foreground">
-          This creates a quote linked to <strong>{getJobRef(job.id)}</strong> with status <strong>Pending Approval</strong>. Office will review before sending.
+          This creates a quote linked to <strong>{getJobRef(job)}</strong> with status <strong>Pending Approval</strong>. Office will review before sending.
         </div>
         <Button
           className="w-full h-12 text-base font-extrabold"

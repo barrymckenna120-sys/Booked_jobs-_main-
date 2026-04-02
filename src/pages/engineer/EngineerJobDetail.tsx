@@ -368,7 +368,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         </button>
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-[11px] font-bold text-white/60 tracking-wider">{getJobRef(job.id)}</div>
+            <div className="text-[11px] font-bold text-white/60 tracking-wider">{getJobRef(job)}</div>
             <div className="text-2xl font-extrabold text-white leading-tight">{customer.name}</div>
             <div className="text-[13px] text-white/70 mt-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" /> {customer.address}
