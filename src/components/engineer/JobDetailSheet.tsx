@@ -72,7 +72,40 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
         <div className="grid grid-cols-2 gap-2.5 mb-3.5">
           <InfoTile label="Job Type" value={job.job_type} icon="🔧" />
           <InfoTile label="Time Slot" value={TIME_LABELS[job.time_block] || job.time_block} icon="⏰" />
-          <InfoTile label="Boiler" value={customer.boiler_make_model || job.boiler_brand} icon="♨️" full />
+
+          {/* Contact */}
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">📱 Mobile</div>
+            <a href={`tel:${customer.phone}`} className="text-[13px] font-bold text-primary underline leading-snug">
+              {customer.phone || "—"}
+            </a>
+          </div>
+          <div className="bg-secondary rounded-xl border border-border p-3">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">✉️ Email</div>
+            {customer.email ? (
+              <a href={`mailto:${customer.email}`} className="text-[13px] font-bold text-primary underline leading-snug break-all">
+                {customer.email}
+              </a>
+            ) : (
+              <div className="text-[13px] font-bold text-foreground leading-snug">—</div>
+            )}
+          </div>
+
+          {/* Address */}
+          <InfoTile label="Full Address" value={customer.address} icon="📍" full />
+          <InfoTile label="Area Code" value={customer.area_code} icon="🗺️" />
+          <InfoTile label="Eircode" value={customer.eircode} icon="📮" />
+
+          {/* Boiler */}
+          <InfoTile label="Boiler Brand" value={job.boiler_brand} icon="🔥" />
+          <InfoTile label="Boiler Model" value={customer.boiler_make_model} icon="♨️" />
+          {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} icon="⛽" />}
+          {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} icon="⚠️" />}
+          {job.boiler_working !== null && job.boiler_working !== undefined && (
+            <InfoTile label="Boiler Working" value={job.boiler_working ? "Yes" : "No"} icon={job.boiler_working ? "✅" : "❌"} />
+          )}
+
+          {/* Other */}
           <InfoTile
             label="Payment"
             value={job.deposit_paid ? `💳 Paid — €${job.deposit_amount || 0}` : `⏳ €${job.deposit_amount || 0} pending`}
@@ -80,11 +113,6 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           />
           <InfoTile label="Last Service" value={customer.last_service_date} icon="📅" />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} icon="👷" />
-          {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} icon="⛽" />}
-          {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} icon="⚠️" />}
-          {job.boiler_working !== null && job.boiler_working !== undefined && (
-            <InfoTile label="Boiler Working" value={job.boiler_working ? "Yes" : "No"} icon={job.boiler_working ? "✅" : "❌"} />
-          )}
           {job.owner_or_tenant && <InfoTile label="Owner / Tenant" value={job.owner_or_tenant} icon="🏠" />}
         </div>
 

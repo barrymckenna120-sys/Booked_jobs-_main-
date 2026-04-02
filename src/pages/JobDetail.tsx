@@ -536,7 +536,19 @@ const JobDetail = () => {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div><span className="text-muted-foreground">Customer:</span> <span className="font-semibold">{customer.name}</span></div>
-            <div><span className="text-muted-foreground">Phone:</span> <span className="font-semibold">{customer.phone}</span></div>
+            <div>
+              <span className="text-muted-foreground">Phone:</span>{" "}
+              <a href={`tel:${customer.phone}`} className="font-semibold text-primary underline">{customer.phone}</a>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Email:</span>{" "}
+              {customer.email ? (
+                <a href={`mailto:${customer.email}`} className="font-semibold text-primary underline">{customer.email}</a>
+              ) : (
+                <span className="font-semibold">—</span>
+              )}
+            </div>
+            <div><span className="text-muted-foreground">Area Code:</span> <span className="font-semibold">{customer.area_code || "—"}</span></div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Address:</span> <span className="font-semibold">{customer.address}</span></div>
             <div><span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode}</span></div>
             <div className="flex items-center gap-2">
@@ -565,8 +577,21 @@ const JobDetail = () => {
               {reassignLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
             </div>
             <div><span className="text-muted-foreground">Time Block:</span> <span className="font-semibold">{job.time_block || "—"}</span></div>
+            {/* Boiler fields */}
+            {job.boiler_brand && (
+              <div><span className="text-muted-foreground">Boiler Brand:</span> <span className="font-semibold">{job.boiler_brand}</span></div>
+            )}
+            {customer.boiler_make_model && (
+              <div><span className="text-muted-foreground">Boiler Model:</span> <span className="font-semibold">{customer.boiler_make_model}</span></div>
+            )}
+            {(job as any).job_issue && (
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Job Issue:</span> <span className="font-semibold">{(job as any).job_issue}</span></div>
+            )}
             {customer.access_notes && (
               <div className="sm:col-span-2"><span className="text-muted-foreground">Access Notes:</span> <span className="font-semibold">{customer.access_notes}</span></div>
+            )}
+            {(job as any).access_notes && (
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Job Access Notes:</span> <span className="font-semibold">{(job as any).access_notes}</span></div>
             )}
             {job.notes && (
               <div className="sm:col-span-2">
