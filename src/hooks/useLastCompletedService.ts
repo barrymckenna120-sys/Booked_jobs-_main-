@@ -20,10 +20,10 @@ export const useLastCompletedService = (customerId: string | undefined, excludeJ
     queryFn: async () => {
       let query = supabase
         .from("service_calls")
-        .select("scheduled_date, assigned_engineer_id, assigned_engineer")
+        .select("scheduled_date, completed_at, assigned_engineer_id, assigned_engineer")
         .eq("customer_id", customerId!)
         .eq("status", "Completed")
-        .order("scheduled_date", { ascending: false })
+        .order("completed_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(1);
 
@@ -45,14 +45,18 @@ export const useLastCompletedService = (customerId: string | undefined, excludeJ
         if (eng?.name) engineerName = eng.name;
       }
 
-      const dateStr = data.scheduled_date
-        ? format(parseISO(data.scheduled_date), "dd/MM/yyyy")
+      const rawDate = data.completed_at
+        ? data.completed_at.slice(0, 10)
+        : data.scheduled_date;
+
+      const dateStr = rawDate
+        ? format(parseISO(rawDate + "T00:00:00"), "dd/MM/yyyy")
         : "—";
 
       return {
         date: dateStr,
         engineerName,
-        raw_date: data.scheduled_date,
+        raw_date: rawDate,
       };
     },
   });
