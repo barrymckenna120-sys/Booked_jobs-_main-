@@ -55,3 +55,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.tally-boiler-rebook]
     verify_jwt = false
+  [functions.stripe-boiler-payment-confirm]
+    verify_jwt = false
