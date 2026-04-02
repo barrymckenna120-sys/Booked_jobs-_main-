@@ -20,7 +20,7 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 };
 
 const EngineerToday = () => {
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const navigate = useNavigate();
   const { todayActive, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
   const todayKey = new Date().toISOString().split("T")[0];
