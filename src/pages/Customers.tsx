@@ -275,7 +275,17 @@ const Customers = () => {
                       <TableCell className="hidden md:table-cell">{c.address}</TableCell>
                       <TableCell className="hidden md:table-cell">{c.eircode}</TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground">{c.area_code || "—"}</TableCell>
-                      <TableCell>{statusBadge(c.service_status || "Up to Date")}</TableCell>
+                      <TableCell>{(() => {
+                        let s = "Up to Date";
+                        if (c.next_service_due) {
+                          const due = parseISO(c.next_service_due);
+                          const today = new Date(); today.setHours(0,0,0,0);
+                          const in30 = addDays(today, 30);
+                          if (isBefore(due, today) && !isToday(due)) s = "Overdue";
+                          else if ((isToday(due) || isAfter(due, today)) && (isBefore(due, in30) || due.getTime() === in30.getTime())) s = "Due Soon";
+                        }
+                        return statusBadge(s);
+                      })()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
