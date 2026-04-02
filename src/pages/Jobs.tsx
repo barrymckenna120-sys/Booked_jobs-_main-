@@ -55,6 +55,7 @@ const Jobs = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [search, setSearch] = useState("");
+  const [refSearch, setRefSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get("payment") || "all");
   const [page, setPage] = useState(0);
