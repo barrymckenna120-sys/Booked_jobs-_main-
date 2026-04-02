@@ -280,6 +280,54 @@ const Renewals = () => {
 
   const notRemindedCount = filtered.filter(c => !reminderSent[c.id] && !c.contactedRecently).length;
 
+  const showBulkWhatsApp = selectedAreas.includes("D18");
+
+  const handleBulkWhatsApp = async () => {
+    setBulkSending(true);
+    try {
+      const payload = filtered
+        .filter(c => !c.contactedRecently && !reminderSent[c.id])
+        .map(c => ({
+          customer_id: c.id,
+          customer_name: c.name,
+          customer_phone: c.phone,
+          next_service_due: c.next_service_due,
+        }));
+
+      if (payload.length === 0) {
+        toast({ title: "No customers to send to", duration: 2500 });
+        setBulkWhatsAppConfirm(false);
+        setBulkSending(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("send-dublin18-bulk", {
+        body: { customers: payload },
+      });
+
+      if (error) throw error;
+
+      const sentCount = data?.sent || 0;
+      const skippedCount = data?.skipped || 0;
+
+      toast({
+        title: `Sent to ${sentCount} customers, ${skippedCount} skipped`,
+        duration: 4000,
+      });
+
+      // Mark sent customers in local state
+      payload.forEach(c => {
+        setReminderSent(prev => ({ ...prev, [c.customer_id]: true }));
+      });
+
+      fetchCustomers();
+    } catch (err: any) {
+      toast({ title: "Error sending bulk WhatsApp", description: err.message, variant: "destructive" });
+    }
+    setBulkSending(false);
+    setBulkWhatsAppConfirm(false);
+  };
+
   return (
     <div className="max-w-[900px] mx-auto px-4 pb-6 space-y-0">
       {/* Sticky header */}
