@@ -129,7 +129,9 @@ const Customers = () => {
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
-    const matchesSearch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
+    const textMatch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
+    const refMatch = refCustomerIds !== null && refCustomerIds.has(c.id);
+    const matchesSearch = refCustomerIds !== null ? refMatch : textMatch;
     const matchesStatus = statusFilter === "all" || (c.service_status || "Up to Date") === statusFilter;
     const matchesArea = !areaFilter || (c.area_code || "No Area") === areaFilter;
     const matchesTags = tagCustomerIds === null || tagCustomerIds.has(c.id);
