@@ -169,7 +169,8 @@ const Jobs = () => {
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
-      const matchRef = !refSearch || (j.job_reference || "").toLowerCase().includes("kn-" + refSearch.replace(/^kn-/i, "").padStart(3, "0"));
+      const refDigits = refSearch ? extractRefDigits(refSearch) : null;
+      const matchRef = !refSearch || (refDigits ? matchesJobRef(j.job_reference, refDigits) : false);
       return matchStatus && matchType && matchSearch && matchPayment && matchRef;
     });
 

@@ -43,9 +43,9 @@ const Customers = () => {
 
   // When search looks like a job ref, look up the linked customer
   useEffect(() => {
-    const raw = search.trim().replace(/^kn-/i, "");
-    if (/^\d+$/.test(raw) && raw.length > 0) {
-      const ref = "KN-" + raw.padStart(3, "0");
+    const digits = extractRefDigits(search.trim());
+    if (digits) {
+      const ref = "KN-" + digits.padStart(3, "0");
       supabase
         .from("service_calls")
         .select("customer_id")
