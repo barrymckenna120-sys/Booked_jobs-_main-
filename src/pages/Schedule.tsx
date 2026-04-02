@@ -74,6 +74,11 @@ export type ScheduleJob = {
   customer_id: string;
   customer_name: string;
   customer_address: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  customer_eircode: string | null;
+  customer_area_code: string | null;
+  customer_access_notes: string | null;
   job_type: string;
   status: string;
   scheduled_date: string | null;
@@ -84,11 +89,14 @@ export type ScheduleJob = {
   deposit_paid: boolean;
   notes: string | null;
   boiler_brand: string | null;
+  boiler_model: string | null;
   user_id: string;
   parts_priority?: string | null;
   boiler_error_code?: string | null;
   boiler_working?: boolean | null;
   owner_or_tenant?: string | null;
+  job_issue?: string | null;
+  access_notes?: string | null;
   created_at: string;
   job_reference?: string | null;
 };
@@ -144,7 +152,7 @@ const Schedule = () => {
       // Get scheduled jobs for the week + unallocated jobs
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
-        .select("*, customers!inner(name, address, boiler_make_model)")
+        .select("*, customers!inner(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null,status.eq.Pending,status.in.(incoming,accepted)`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
@@ -153,6 +161,11 @@ const Schedule = () => {
         customer_id: j.customer_id,
         customer_name: j.customers?.name || "Unknown",
         customer_address: j.customers?.address || "",
+        customer_phone: j.customers?.phone || null,
+        customer_email: j.customers?.email || j.email || null,
+        customer_eircode: j.customers?.eircode || null,
+        customer_area_code: j.customers?.area_code || j.area_code || null,
+        customer_access_notes: j.customers?.access_notes || null,
         job_type: j.job_type,
         status: j.status,
         scheduled_date: j.scheduled_date,
@@ -162,13 +175,17 @@ const Schedule = () => {
         revenue: j.revenue,
         deposit_paid: j.deposit_paid,
         notes: j.notes,
-        boiler_brand: j.customers?.boiler_make_model || null,
+        boiler_brand: j.boiler_brand || null,
+        boiler_model: j.customers?.boiler_make_model || null,
         user_id: j.user_id,
         parts_priority: j.parts_priority || null,
         boiler_error_code: j.boiler_error_code || null,
         boiler_working: j.boiler_working ?? null,
         owner_or_tenant: j.owner_or_tenant || null,
+        job_issue: j.job_issue || null,
+        access_notes: j.access_notes || null,
         created_at: j.created_at,
+        job_reference: j.job_reference || null,
       })) as ScheduleJob[];
     },
     enabled: !!user,

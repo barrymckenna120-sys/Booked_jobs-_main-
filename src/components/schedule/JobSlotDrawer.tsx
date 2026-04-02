@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare } from "lucide-react";
+import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare, Phone, Mail } from "lucide-react";
 import { formatDateIE } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +25,6 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
 
   useEffect(() => {
     if (job) {
-      // Check current whatsapp_confirmation_sent status
       supabase.from("service_calls").select("whatsapp_confirmation_sent").eq("id", job.id).single()
         .then(({ data }) => setWhatsappSent(!!(data as any)?.whatsapp_confirmation_sent));
     }
@@ -34,11 +33,14 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
   if (!job) return null;
 
   const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
+  const customerAccessNotes = job.customer_access_notes && job.customer_access_notes !== job.access_notes
+    ? job.customer_access_notes
+    : null;
 
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
+      const { error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
         body: { service_call_id: job.id },
       });
       if (error) throw error;
@@ -53,7 +55,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <span className="font-mono text-muted-foreground text-sm">{jobRef}</span>
@@ -61,19 +63,58 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
         </SheetHeader>
 
         <div className="space-y-4 mt-4">
-          {/* Customer Info */}
-          <div>
-            <h3 className="text-lg font-bold">{job.customer_name}</h3>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-              <MapPin className="w-3.5 h-3.5" />
-              {job.customer_address}
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-lg font-bold">{job.customer_name}</h3>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                <MapPin className="w-3.5 h-3.5" />
+                {job.customer_address || "—"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> Mobile</span>
+                <div className="mt-0.5">
+                  {job.customer_phone ? (
+                    <a href={`tel:${job.customer_phone}`} className="font-semibold text-primary underline">
+                      {job.customer_phone}
+                    </a>
+                  ) : (
+                    <span className="font-semibold">—</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> Email</span>
+                <div className="mt-0.5 break-all">
+                  {job.customer_email ? (
+                    <a href={`mailto:${job.customer_email}`} className="font-semibold text-primary underline">
+                      {job.customer_email}
+                    </a>
+                  ) : (
+                    <span className="font-semibold">—</span>
+                  )}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-xs text-muted-foreground">Full Address</span>
+                <p className="font-semibold mt-0.5">{job.customer_address || "—"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Area Code</span>
+                <p className="font-semibold mt-0.5">{job.customer_area_code || "—"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Eircode</span>
+                <p className="font-semibold mt-0.5">{job.customer_eircode || "—"}</p>
+              </div>
             </div>
           </div>
 
           <Separator />
 
-          {/* Job Details */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div>
               <span className="text-xs text-muted-foreground">Job Type</span>
               <div className="mt-0.5">
@@ -90,7 +131,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Status</span>
-              <p className={`font-semibold mt-0.5 ${job.status === "parts_needed" ? "text-amber-600" : job.status === "parts_ordered" ? "text-blue-600" : job.status === "parts_arrived" ? "text-[#7C3AED]" : ""}`}>
+              <p className={`font-semibold mt-0.5 ${job.status === "parts_needed" ? "text-warning" : job.status === "parts_ordered" ? "text-primary" : ""}`}>
                 {job.status === "parts_needed" ? "Parts Needed" : job.status === "parts_ordered" ? "Parts Ordered" : job.status === "parts_arrived" ? "Awaiting Booking" : job.status === "no_show" ? "No Show" : job.status}
               </p>
             </div>
@@ -111,7 +152,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Revenue</span>
-              <p className="font-semibold mt-0.5">{job.revenue ? `€${job.revenue}` : "—"}</p>
+              <p className="font-semibold mt-0.5">{job.revenue !== null && job.revenue !== undefined ? `€${job.revenue}` : "—"}</p>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Payment</span>
@@ -119,12 +160,14 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
                 {job.deposit_paid ? "Paid" : "Unpaid"}
               </p>
             </div>
-            {job.boiler_brand && (
-              <div>
-                <span className="text-xs text-muted-foreground">Boiler</span>
-                <p className="font-semibold mt-0.5">{job.boiler_brand}</p>
-              </div>
-            )}
+            <div>
+              <span className="text-xs text-muted-foreground">Boiler Brand</span>
+              <p className="font-semibold mt-0.5">{job.boiler_brand || "—"}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Boiler Model</span>
+              <p className="font-semibold mt-0.5">{job.boiler_model || "—"}</p>
+            </div>
             {job.boiler_error_code && (
               <div>
                 <span className="text-xs text-muted-foreground">Error Code</span>
@@ -145,6 +188,24 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
                 <p className="font-semibold mt-0.5">{job.owner_or_tenant}</p>
               </div>
             )}
+            {job.job_issue && (
+              <div className="sm:col-span-2">
+                <span className="text-xs text-muted-foreground">Job Issue</span>
+                <p className="font-semibold mt-0.5">{job.job_issue}</p>
+              </div>
+            )}
+            {job.access_notes && (
+              <div className="sm:col-span-2">
+                <span className="text-xs text-muted-foreground">Job Access Notes</span>
+                <p className="font-semibold mt-0.5">{job.access_notes}</p>
+              </div>
+            )}
+            {customerAccessNotes && (
+              <div className="sm:col-span-2">
+                <span className="text-xs text-muted-foreground">Customer Access Notes</span>
+                <p className="font-semibold mt-0.5">{customerAccessNotes}</p>
+              </div>
+            )}
           </div>
 
           {job.notes && (
@@ -159,7 +220,6 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
 
           <Separator />
 
-          {/* WhatsApp Booking Confirmation */}
           <div>
             {job.assigned_engineer ? (
               <Button
@@ -179,7 +239,6 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
 
           <Separator />
 
-          {/* Actions */}
           <div className="space-y-2">
             <Button className="w-full" onClick={() => onMarkComplete(job.id)}>
               <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Complete
