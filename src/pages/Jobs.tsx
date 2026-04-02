@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 
 const PAGE_SIZE = 15;
 
