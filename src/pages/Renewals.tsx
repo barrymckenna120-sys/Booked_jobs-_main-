@@ -339,16 +339,28 @@ const Renewals = () => {
               €{totalAtRisk.toLocaleString()} at risk · {notContactedCount} not yet contacted
             </p>
           </div>
-          <Button
-            onClick={() => setSendAllOpen(true)}
-            size="sm"
-            className="gap-1.5 font-bold text-xs"
-            disabled={reminderQueue.length === 0}
-          >
-            <Send className="w-3.5 h-3.5" />
-            Remind All ({reminderQueue.length})
-          </Button>
-        </div>
+          <div className="flex items-center gap-2">
+            {showBulkWhatsApp && (
+              <Button
+                onClick={() => setBulkWhatsAppConfirm(true)}
+                size="sm"
+                className="gap-1.5 font-bold text-xs bg-[#25D366] hover:bg-[#20bd5a] text-white"
+                disabled={bulkSending || reminderQueue.length === 0}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Send All via WhatsApp
+              </Button>
+            )}
+            <Button
+              onClick={() => setSendAllOpen(true)}
+              size="sm"
+              className="gap-1.5 font-bold text-xs"
+              disabled={reminderQueue.length === 0}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Remind All ({reminderQueue.length})
+            </Button>
+          </div>
 
         {/* Tab bar */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="mt-3">
