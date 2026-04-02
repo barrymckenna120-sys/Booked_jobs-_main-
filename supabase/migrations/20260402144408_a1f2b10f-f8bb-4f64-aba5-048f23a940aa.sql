@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.update_customer_last_service() CASCADE;

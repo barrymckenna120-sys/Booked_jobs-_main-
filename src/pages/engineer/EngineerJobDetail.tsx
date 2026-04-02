@@ -155,11 +155,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     setShowPayment(false);
 
     if (method === "invoice") {
-      // For invoice: update job, then call edge function to create invoice + send WhatsApp
       setInvoiceLoading(true);
-      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
-
       try {
+        const jobUpdateSuccess = await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+        if (!jobUpdateSuccess) {
+          console.error("handlePaymentDone: updateJob failed for invoice flow, aborting edge function call");
+          toast({ title: "Failed to complete job", description: "Please try again or contact the office.", variant: "destructive" });
+          setInvoiceLoading(false);
+          setCompleteData(null);
+          return;
+        }
+
+        console.log("handlePaymentDone: updateJob succeeded, calling create-job-invoice edge function");
         const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
           body: { job_id: job.id },
         });
@@ -170,10 +177,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         } else if (result?.success) {
           setInvoiceSuccess({ customerName: result.customer_name || customer?.name || "Customer" });
         } else {
+          console.error("Invoice edge function returned failure:", result);
           toast({ title: "Job completed but invoice failed", description: result?.error || "Unknown error", variant: "destructive" });
         }
       } catch (err) {
-        console.error("Invoice error:", err);
+        console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
       }
 
@@ -183,12 +191,17 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
 
     // Cash or Card — normal flow
-    updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+    try {
+      await updateJob({ status: "Completed", ...completeData, paymentMethod: method });
+    } catch (err) {
+      console.error("handlePaymentDone cash/card flow error:", err);
+      toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
+    }
     setCompleteData(null);
   };
 
-  const updateJob = async (patch: Record<string, any>) => {
-    if (!job) return;
+  const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
+    if (!job) return false;
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
 
     let notesUpdate = rest.notes;
@@ -243,7 +256,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
+      console.error("updateJob: service_calls update failed:", error.message, error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      return false;
     } else {
       // Save selected tags on completion
       if (patch.status === "Completed" && selectedTags && selectedTags.length > 0) {
@@ -359,13 +374,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         supabase.functions.invoke("trigger-review-request", {
           body: { service_call_id: job.id, customer_id: job.customer_id },
         }).catch((err) => console.error("Review request trigger failed:", err));
-        // For invoice payments, don't navigate — the invoice flow handles success
         if (paymentMethod === "invoice") {
-          return;
+          return true;
         }
         toast({ title: "Job completed" });
         navigate(`/receipt/${job.id}`);
-        return;
+        return true;
       } else if (patch.status === "Cancelled") {
         logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
       } else if (patch.status === "In Progress") {
@@ -373,6 +387,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       }
       toast({ title: patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
       fetchJob();
+      return true;
     }
   };
 
