@@ -315,32 +315,45 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           const yyyy = completedDate.getFullYear();
           const dateStr = `${dd}/${mm}/${yyyy}`;
 
-          // Log what we're reading from the job
-          console.log("=== Customer Profile Sync Debug ===");
-          console.log("Job notes (notesUpdate):", notesUpdate);
-          console.log("Selected tags:", selectedTags);
-          console.log("Job assigned_engineer:", job.assigned_engineer);
-          console.log("Customer ID:", job.customer_id);
+          const engName = engineerInfo.name || job.assigned_engineer || "Engineer";
 
-          let noteEntry = "";
-          if (notesUpdate && notesUpdate.trim()) {
-            noteEntry = `${dateStr} - Work done: ${notesUpdate.trim()}`;
+          // Calculate next_service_due from nextService dropdown
+          let nextServiceDate: string | null = null;
+          if (nextService) {
+            const nsd = new Date(completedDate);
+            if (nextService === "6 months") nsd.setMonth(nsd.getMonth() + 6);
+            else if (nextService === "12 months") nsd.setMonth(nsd.getMonth() + 12);
+            else if (nextService === "18 months") nsd.setMonth(nsd.getMonth() + 18);
+            else if (nextService === "2 years") nsd.setFullYear(nsd.getFullYear() + 2);
+            nextServiceDate = nsd.toISOString().slice(0, 10);
           }
 
+          // Build note entry: "02/04/2026 - Barry McKenna: Work done text"
+          let noteEntry = "";
+          if (workDone && workDone.trim()) {
+            noteEntry = `${dateStr} - ${engName}: ${workDone.trim()}`;
+          }
           if (selectedTags && selectedTags.length > 0) {
             if (noteEntry) {
               noteEntry += `. Tags: ${selectedTags.join(", ")}`;
             } else {
-              noteEntry = `${dateStr} - Tags: ${selectedTags.join(", ")}`;
+              noteEntry = `${dateStr} - ${engName}: Tags: ${selectedTags.join(", ")}`;
             }
           }
-
-          console.log("Note entry to append:", noteEntry);
 
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: job.assigned_engineer || null,
           };
+
+          if (nextServiceDate) {
+            customerUpdate.next_service_due = nextServiceDate;
+          }
+
+          // Reflect job tags on customer (under_warranty)
+          if (selectedTags) {
+            customerUpdate.under_warranty = selectedTags.includes("Under Warranty");
+          }
 
           if (noteEntry) {
             const { data: custData } = await supabase
@@ -350,13 +363,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               .maybeSingle();
 
             const existing = custData?.notes;
-            console.log("Existing customer notes:", existing);
             customerUpdate.notes = existing && existing.trim()
               ? `${existing}\n${noteEntry}`
               : noteEntry;
           }
-
-          console.log("Final customer update payload:", customerUpdate);
 
           const { error: custErr } = await supabase
             .from("customers")
@@ -365,8 +375,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
           if (custErr) {
             console.error("Failed to sync customer profile:", custErr.message);
-          } else {
-            console.log("✅ Customer profile synced after job completion");
           }
         } catch (e) {
           console.error("Error syncing customer profile:", e);
