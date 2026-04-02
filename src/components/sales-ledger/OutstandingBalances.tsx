@@ -55,9 +55,9 @@ const OutstandingBalances = () => {
           setJobs(
             rows
               .filter((r: any) => {
+                const bal = r.balance_due ?? null;
                 const rev = r.revenue || 0;
-                const dep = r.deposit_amount || 0;
-                return rev > dep && dep > 0;
+                return (bal !== null && bal > 0) || rev > 0;
               })
               .map((r: any) => ({
                 id: r.id,

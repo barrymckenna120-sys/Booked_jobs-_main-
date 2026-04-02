@@ -215,6 +215,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         dbPatch.payment_status = "unpaid";
       } else {
         dbPatch.paid_at = new Date().toISOString();
+        dbPatch.payment_status = "paid";
       }
     }
     if (cancelReason) {
