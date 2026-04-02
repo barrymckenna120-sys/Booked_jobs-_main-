@@ -59,3 +59,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.get-upcoming-service-calls]
     verify_jwt = false
+  [functions.generate-accountant-export]
+    verify_jwt = false
