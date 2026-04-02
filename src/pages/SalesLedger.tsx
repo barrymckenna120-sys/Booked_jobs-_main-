@@ -379,6 +379,7 @@ const SalesLedger = () => {
             >
               <Download className="w-4 h-4" /> Export CSV
             </Button>
+            <AccountantExportButton />
           </div>
         </CardHeader>
         <CardContent className="p-0">
