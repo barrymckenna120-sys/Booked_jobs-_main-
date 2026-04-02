@@ -316,6 +316,36 @@ const Renewals = () => {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Area code chips */}
+        {areaCodes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {areaCodes.map(code => {
+              const isActive = selectedAreas.includes(code);
+              return (
+                <button
+                  key={code}
+                  onClick={() => toggleArea(code)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                  }`}
+                >
+                  {code}
+                </button>
+              );
+            })}
+            {selectedAreas.length > 0 && (
+              <button
+                onClick={() => setSelectedAreas([])}
+                className="px-2.5 py-1 rounded-full text-[11px] font-bold border border-border text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Desktop summary bar */}
