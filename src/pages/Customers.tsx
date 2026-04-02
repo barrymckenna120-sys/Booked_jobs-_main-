@@ -40,7 +40,7 @@ const Customers = () => {
     if (user) fetchCustomers();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilter, selectedTags]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilters, selectedTags]);
 
   // When search looks like a job ref, look up the linked customer
   useEffect(() => {
