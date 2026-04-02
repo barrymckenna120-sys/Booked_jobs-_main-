@@ -9,7 +9,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  RefreshCw, Send, CheckCircle2, MapPin, Archive, ArchiveRestore, CalendarCheck,
+  RefreshCw, Send, CheckCircle2, MapPin, Archive, ArchiveRestore, CalendarCheck, MessageSquare, Loader2,
 } from "lucide-react";
 import RenewalDetailSheet from "@/components/renewals/RenewalDetailSheet";
 import BookServiceSheet from "@/components/renewals/BookServiceSheet";

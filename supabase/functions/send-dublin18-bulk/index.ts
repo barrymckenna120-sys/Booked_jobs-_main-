@@ -141,19 +141,28 @@ K & N Gas Services`;
         });
         await logRes.text(); // consume body
 
-        // Log to whatsapp_messages (same pattern as other functions)
-        await fetch(`${supabaseUrl}/rest/v1/whatsapp_messages`, {
-          method: "POST",
-          headers: dbHeaders,
-          body: JSON.stringify({
-            user_id: custRecord ? undefined : undefined, // we don't have user_id in this context; use service-role insert
-            customer_id,
-            message_type: "Service Reminder",
-            message_body: message,
-            sent_by: "system",
-            status: result.success ? "Sent" : "Failed",
-          }),
-        });
+        // Log to whatsapp_messages — lookup the customer's owner user_id
+        const ownerRes = await fetch(
+          `${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&select=user_id`,
+          { headers: dbHeaders }
+        );
+        const ownerRows = await ownerRes.json();
+        const ownerUserId = Array.isArray(ownerRows) && ownerRows[0]?.user_id ? ownerRows[0].user_id : null;
+
+        if (ownerUserId) {
+          await fetch(`${supabaseUrl}/rest/v1/whatsapp_messages`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              user_id: ownerUserId,
+              customer_id,
+              message_type: "Service Reminder",
+              message_body: message,
+              sent_by: "system",
+              status: result.success ? "Sent" : "Failed",
+            }),
+          });
+        }
 
         if (result.success) {
           sent++;
