@@ -254,10 +254,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       }
     }
 
-    // Save selected tags to job_tags column
-    if (patch.status === "Completed" && selectedTags && selectedTags.length > 0) {
-      dbPatch.job_tags = selectedTags;
+    // Save selected tags to job_tags column — always set on completion
+    if (patch.status === "Completed") {
+      dbPatch.job_tags = (selectedTags && selectedTags.length > 0) ? selectedTags : [];
     }
+
+    console.log("updateJob: selectedTags=", selectedTags, "officeNote=", officeNote, "job_tags in dbPatch=", dbPatch.job_tags, "notes in dbPatch=", dbPatch.notes);
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
