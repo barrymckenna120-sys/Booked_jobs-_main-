@@ -200,8 +200,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     setCompleteData(null);
   };
 
-  const updateJob = async (patch: Record<string, any>) => {
-    if (!job) return;
+  const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
+    if (!job) return false;
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
 
     let notesUpdate = rest.notes;
