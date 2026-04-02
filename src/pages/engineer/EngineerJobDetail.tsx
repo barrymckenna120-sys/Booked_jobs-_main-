@@ -203,6 +203,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
     if (!job) return false;
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
+    const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -256,10 +257,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     // Save selected tags to job_tags column — always set on completion
     if (patch.status === "Completed") {
-      dbPatch.job_tags = (selectedTags && selectedTags.length > 0) ? selectedTags : [];
+      dbPatch.job_tags = completionSelectedTags;
     }
-
-    console.log("updateJob: selectedTags=", selectedTags, "officeNote=", officeNote, "job_tags in dbPatch=", dbPatch.job_tags, "notes in dbPatch=", dbPatch.notes);
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
     if (error) {
@@ -268,34 +267,46 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       return false;
     } else {
       // Save selected tags on completion
-      if (patch.status === "Completed" && selectedTags && selectedTags.length > 0) {
+      if (patch.status === "Completed") {
         try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("user_id", user!.id)
-            .maybeSingle();
+          const { data: existing } = await supabase
+            .from("service_call_tags")
+            .select("id, tag_id")
+            .eq("service_call_id", job.id);
 
-          const profileId = profile?.id || null;
+          const existingRows = existing || [];
+          const existingIds = new Set(existingRows.map((row: any) => row.tag_id));
 
-          const { data: tagRows } = await supabase
-            .from("job_tags")
-            .select("id, name")
-            .in("name", selectedTags);
+          const tagRows = completionSelectedTags.length > 0
+            ? (await supabase
+                .from("job_tags")
+                .select("id, name")
+                .in("name", completionSelectedTags)).data || []
+            : [];
 
-          if (tagRows && tagRows.length > 0) {
-            const { data: existing } = await supabase
-              .from("service_call_tags")
-              .select("tag_id")
-              .eq("service_call_id", job.id);
+          const selectedIds = new Set(tagRows.map((row: any) => row.id));
+          const linkIdsToDelete = existingRows
+            .filter((row: any) => !selectedIds.has(row.tag_id))
+            .map((row: any) => row.id);
 
-            const existingIds = new Set((existing || []).map((e: any) => e.tag_id));
+          if (linkIdsToDelete.length > 0) {
+            await supabase.from("service_call_tags").delete().in("id", linkIdsToDelete);
+          }
+
+          if (tagRows.length > 0) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("user_id", user!.id)
+              .maybeSingle();
+
+            const profileId = profile?.id || null;
 
             const inserts = tagRows
-              .filter((t: any) => !existingIds.has(t.id))
-              .map((t: any) => ({
+              .filter((row: any) => !existingIds.has(row.id))
+              .map((row: any) => ({
                 service_call_id: job.id,
-                tag_id: t.id,
+                tag_id: row.id,
                 added_by: profileId,
               }));
 
@@ -335,11 +346,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           if (workDone && workDone.trim()) {
             noteEntry = `${dateStr} - ${engName}: ${workDone.trim()}`;
           }
-          if (selectedTags && selectedTags.length > 0) {
+          if (completionSelectedTags.length > 0) {
             if (noteEntry) {
-              noteEntry += `. Tags: ${selectedTags.join(", ")}`;
+              noteEntry += `. Tags: ${completionSelectedTags.join(", ")}`;
             } else {
-              noteEntry = `${dateStr} - ${engName}: Tags: ${selectedTags.join(", ")}`;
+              noteEntry = `${dateStr} - ${engName}: Tags: ${completionSelectedTags.join(", ")}`;
             }
           }
 
@@ -353,8 +364,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           }
 
           // Reflect job tags on customer (under_warranty)
-          if (selectedTags) {
-            customerUpdate.under_warranty = selectedTags.includes("Under Warranty");
+          if (patch.status === "Completed") {
+            customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
           }
 
           if (noteEntry) {
