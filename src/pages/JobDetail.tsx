@@ -69,7 +69,9 @@ type Customer = {
   email: string | null;
   address: string;
   eircode: string;
+  area_code: string | null;
   access_notes: string | null;
+  boiler_make_model: string | null;
 };
 
 const jobTypeBadge = (type: string) => {
