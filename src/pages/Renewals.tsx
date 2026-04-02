@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ type Customer = {
   email: string | null;
   address: string;
   eircode: string;
+  area_code: string | null;
   last_service_date: string | null;
   next_service_due: string | null;
   assigned_engineer: string | null;
@@ -81,6 +82,7 @@ const Renewals = () => {
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
   const [sendAllOpen, setSendAllOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; archive: boolean } | null>(null);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
 
   const fetchCustomers = useCallback(async () => {
     if (!user) return;
@@ -112,12 +114,22 @@ const Renewals = () => {
     return () => clearInterval(interval);
   }, [fetchCustomers]);
 
+  const activeCustomers = customers.filter(c => !c.is_archived);
+
+  const areaCodes = useMemo(() => {
+    const codes = new Set<string>();
+    activeCustomers.forEach(c => { if (c.area_code) codes.add(c.area_code); });
+    return Array.from(codes).sort();
+  }, [activeCustomers]);
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   const businessName = settings?.business_name || "BookedJobs";
   const servicePrice = settings?.default_service_price || 120;
 
-  const activeCustomers = customers.filter(c => !c.is_archived);
+  const toggleArea = (code: string) => {
+    setSelectedAreas(prev => prev.includes(code) ? prev.filter(a => a !== code) : [...prev, code]);
+  };
 
   const withStatus = activeCustomers.map((c) => {
     const daysUntil = getDaysUntil(c.next_service_due);
@@ -130,18 +142,21 @@ const Renewals = () => {
   // Exclude resolved from overdue/due_soon, keep in up_to_date
   const filterable = withStatus.filter(c => c.tab === "up_to_date" || !c.isResolved);
 
+  const matchesArea = (c: typeof withStatus[0]) =>
+    selectedAreas.length === 0 || (c.area_code != null && selectedAreas.includes(c.area_code));
+
   const tabCounts = {
-    overdue: filterable.filter(c => c.tab === "overdue").length,
-    due_soon: filterable.filter(c => c.tab === "due_soon").length,
-    up_to_date: filterable.filter(c => c.tab === "up_to_date").length,
+    overdue: filterable.filter(c => c.tab === "overdue" && matchesArea(c)).length,
+    due_soon: filterable.filter(c => c.tab === "due_soon" && matchesArea(c)).length,
+    up_to_date: filterable.filter(c => c.tab === "up_to_date" && matchesArea(c)).length,
   };
 
   const filtered = filterable
-    .filter(c => c.tab === activeTab)
+    .filter(c => c.tab === activeTab && matchesArea(c))
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
   // Stats for header
-  const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon")).length;
+  const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon") && matchesArea(c)).length;
   const totalAtRisk = (tabCounts.overdue + tabCounts.due_soon) * servicePrice;
 
   // Build reminder message
@@ -302,6 +317,36 @@ const Renewals = () => {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Area code chips */}
+        {areaCodes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {areaCodes.map(code => {
+              const isActive = selectedAreas.includes(code);
+              return (
+                <button
+                  key={code}
+                  onClick={() => toggleArea(code)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                  }`}
+                >
+                  {code}
+                </button>
+              );
+            })}
+            {selectedAreas.length > 0 && (
+              <button
+                onClick={() => setSelectedAreas([])}
+                className="px-2.5 py-1 rounded-full text-[11px] font-bold border border-border text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Desktop summary bar */}
