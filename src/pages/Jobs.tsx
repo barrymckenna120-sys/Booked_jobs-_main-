@@ -55,6 +55,7 @@ const Jobs = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [search, setSearch] = useState("");
+  const [refSearch, setRefSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get("payment") || "all");
   const [page, setPage] = useState(0);
@@ -81,7 +82,7 @@ const Jobs = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter]);
+  useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter, refSearch]);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -167,7 +168,8 @@ const Jobs = () => {
       const matchType = typeFilter === "all" || j.job_type === typeFilter;
       const matchSearch = !search || (j.customer_name || "").toLowerCase().includes(search.toLowerCase());
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
-      return matchStatus && matchType && matchSearch && matchPayment;
+      const matchRef = !refSearch || (j.job_reference || "").toLowerCase().includes("kn-" + refSearch.replace(/^kn-/i, "").padStart(3, "0"));
+      return matchStatus && matchType && matchSearch && matchPayment && matchRef;
     });
 
   const applySorting = (list: Job[], overrideDir?: "asc" | "desc") => {
@@ -570,6 +572,14 @@ const Jobs = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
+          />
+        </div>
+        <div className="relative w-full sm:w-[160px]">
+          <Input
+            placeholder="Job ref e.g. 123"
+            value={refSearch}
+            onChange={(e) => setRefSearch(e.target.value)}
+            className="text-sm"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
