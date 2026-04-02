@@ -280,7 +280,8 @@ const Renewals = () => {
 
   const notRemindedCount = filtered.filter(c => !reminderSent[c.id] && !c.contactedRecently).length;
 
-  const showBulkWhatsApp = selectedAreas.includes("D18");
+  const showBulkWhatsApp = selectedAreas.length > 0;
+  const bulkAreaLabel = selectedAreas.join(", ");
 
   const handleBulkWhatsApp = async () => {
     setBulkSending(true);
@@ -292,6 +293,7 @@ const Renewals = () => {
           customer_name: c.name,
           customer_phone: c.phone,
           next_service_due: c.next_service_due,
+          area_code: c.area_code || "Unknown",
         }));
 
       if (payload.length === 0) {
@@ -301,21 +303,27 @@ const Renewals = () => {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("send-dublin18-bulk", {
-        body: { customers: payload },
+      const { data, error } = await supabase.functions.invoke("send-area-bulk-whatsapp", {
+        body: { area_codes: selectedAreas, customers: payload },
       });
 
       if (error) throw error;
 
       const sentCount = data?.sent || 0;
       const skippedCount = data?.skipped || 0;
+      const byArea = data?.by_area || {};
+
+      // Build area breakdown string
+      const areaBreakdown = Object.entries(byArea)
+        .filter(([, v]: [string, any]) => v.sent > 0)
+        .map(([code, v]: [string, any]) => `${code}: ${v.sent}`)
+        .join(", ");
 
       toast({
-        title: `Sent to ${sentCount} customers, ${skippedCount} skipped`,
-        duration: 4000,
+        title: `Sent to ${sentCount} customers${areaBreakdown ? ` — ${areaBreakdown}` : ""}. ${skippedCount} skipped.`,
+        duration: 5000,
       });
 
-      // Mark sent customers in local state
       payload.forEach(c => {
         setReminderSent(prev => ({ ...prev, [c.customer_id]: true }));
       });
