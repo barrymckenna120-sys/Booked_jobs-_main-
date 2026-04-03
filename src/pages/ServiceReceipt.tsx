@@ -103,7 +103,7 @@ const ServiceReceipt = () => {
 
   const handleDownloadPdf = () => {
     const data = getReceiptData();
-    printReceipt(data);
+    printReceipt({ ...data, jobReference: job.job_reference || undefined });
   };
 
   const formatPhoneForWhatsApp = (phone: string): string => {
