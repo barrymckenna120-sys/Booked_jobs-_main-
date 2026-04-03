@@ -146,7 +146,7 @@ export const useEngineerJobs = () => {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
     }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
@@ -188,6 +188,11 @@ export const useEngineerJobs = () => {
     if (patch.status === "Completed") {
       dbPatch.completed_at = new Date().toISOString();
       dbPatch.job_tags = completionSelectedTags;
+      // Map completion job type selector to DB column
+      if (selectedJobType) {
+        const jobTypeMap: Record<string, string> = { Service: "Boiler Service", Repair: "Repair", Install: "Install" };
+        dbPatch.job_type = jobTypeMap[selectedJobType] || selectedJobType;
+      }
       try {
         const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
         const ownerId = job?.user_id;

@@ -239,7 +239,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
                   setShowTakePayment(true);
                 }}
               >
-                <CreditCard className="w-4 h-4" /> Take Payment
+                <CreditCard className="w-4 h-4" /> Take Payment{job.revenue ? ` — €${Number(job.revenue).toFixed(2)}` : ""}
               </Button>
             )}
           </div>
