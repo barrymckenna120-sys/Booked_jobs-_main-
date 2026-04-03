@@ -50,6 +50,7 @@ const addMonths = (d: string, months: number) => {
 
 const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: TakePaymentModalProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
   const jobTotal = job.revenue ?? 0;
   const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
