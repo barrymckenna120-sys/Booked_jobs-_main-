@@ -360,7 +360,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
               disabled={!method}
               onClick={handleGenerate}
             >
-              Generate & Send Receipt
+              {method === "invoice" ? "Send Payment Link" : "Generate & Send Receipt"}
             </Button>
           </div>
         )}
