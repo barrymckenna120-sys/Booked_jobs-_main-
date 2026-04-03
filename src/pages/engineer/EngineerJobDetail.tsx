@@ -201,7 +201,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
     if (!job) return false;
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
@@ -261,6 +261,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // Save selected tags to job_tags column — always set on completion
     if (patch.status === "Completed") {
       dbPatch.job_tags = completionSelectedTags;
+      // Map completion job type to DB job_type
+      if (selectedJobType) {
+        const jobTypeMap: Record<string, string> = { Service: "Boiler Service", Repair: "Repair", Install: "Install" };
+        dbPatch.job_type = jobTypeMap[selectedJobType] || selectedJobType;
+      }
     }
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
@@ -360,6 +365,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: job.assigned_engineer || null,
+            service_status: "Active",
+            renewal_stage: "not_contacted",
           };
 
           if (nextServiceDate) {

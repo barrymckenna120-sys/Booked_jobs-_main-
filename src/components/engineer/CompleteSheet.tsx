@@ -184,7 +184,7 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
           disabled={!workDone.trim()}
-          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags })}
+          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags, selectedJobType })}
         >
           <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>
