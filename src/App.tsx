@@ -143,6 +143,7 @@ const App = () => (
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
             <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
             <Route path="/receipt/:id" element={<ServiceReceipt />} />
+            <Route path="/invoice/:id" element={<InvoicePreview />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
