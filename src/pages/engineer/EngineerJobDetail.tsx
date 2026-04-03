@@ -201,7 +201,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
     if (!job) return false;
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
