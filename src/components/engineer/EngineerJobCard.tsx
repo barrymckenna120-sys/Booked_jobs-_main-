@@ -50,9 +50,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showNoShow, setShowNoShow] = useState(false);
   const [showPartsNeeded, setShowPartsNeeded] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
   const [showTakePayment, setShowTakePayment] = useState(false);
-  const [completeData, setCompleteData] = useState<any>(null);
   const [showMessageOffice, setShowMessageOffice] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
