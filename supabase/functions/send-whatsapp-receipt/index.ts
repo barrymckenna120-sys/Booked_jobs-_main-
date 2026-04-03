@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch job
+    // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id")
@@ -78,27 +78,33 @@ Deno.serve(async (req) => {
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})\n\nThanks,\n${footer}`;
 
-    // Send via 360Messenger (uses FormData, not JSON)
+    // Strip leading + from phone for 360 Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
+
+    // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
     formData.append("phone_number", cleanNumber);
     formData.append("text", message);
 
-    // Log to message_log
-    const { data: logRows } = await supabase.from("message_log").insert({
-      channel: "whatsapp",
-      message_type: "receipt",
-      customer_id: job.customer_id,
-      related_id: job_id,
-      related_type: "service_call",
-      content: message,
-      sent_by: "system",
-      status: "pending",
-      direction: "outbound",
-    }).select("id");
+    // Log to message_log before sending
+    const { data: logRows } = await supabase
+      .from("message_log")
+      .insert({
+        channel: "whatsapp",
+        message_type: "receipt",
+        customer_id: job.customer_id,
+        related_id: job_id,
+        related_type: "service_call",
+        content: message,
+        sent_by: "system",
+        status: "pending",
+        direction: "outbound",
+      })
+      .select("id");
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
+    // Send via 360 Messenger
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
       headers: { Authorization: `Bearer ${messengerKey}` },
@@ -107,9 +113,13 @@ Deno.serve(async (req) => {
 
     const resultText = await response.text();
     let result: Record<string, unknown>;
-    try { result = JSON.parse(resultText); } catch (_e) { result = { success: false }; }
+    try {
+      result = JSON.parse(resultText);
+    } catch (_e) {
+      result = { success: false };
+    }
 
-    // Update message log status
+    // Update message_log with outcome
     if (logId) {
       const updateBody = (result as any).success
         ? { status: "sent", sent_at: new Date().toISOString() }
@@ -118,6 +128,7 @@ Deno.serve(async (req) => {
       await supabase.from("message_log").update(updateBody).eq("id", logId);
     }
 
+    // Log failure to edge_function_logs
     if (!(result as any).success) {
       await supabase.from("edge_function_logs").insert({
         function_name: "send-whatsapp-receipt",
@@ -135,6 +146,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (err) {
     console.error("send-whatsapp-receipt error:", err);
     return new Response(JSON.stringify({ error: (err as Error).message || "Internal server error" }), {
