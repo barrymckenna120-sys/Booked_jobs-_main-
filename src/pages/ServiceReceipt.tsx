@@ -201,6 +201,12 @@ const ServiceReceipt = () => {
               <span className="ml-1.5 font-bold text-foreground">{data.issueDate}</span>
             </div>
           </div>
+          {job.job_reference && (
+            <div className="px-5 pb-3 text-xs">
+              <span className="text-muted-foreground">Job Ref</span>
+              <span className="ml-1.5 font-bold text-foreground">{job.job_reference}</span>
+            </div>
+          )}
 
           {/* Service card */}
           <div className="mx-5 bg-[hsl(220,14%,96%)] rounded-xl p-4 mb-3">
