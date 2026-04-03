@@ -261,6 +261,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // Save selected tags to job_tags column — always set on completion
     if (patch.status === "Completed") {
       dbPatch.job_tags = completionSelectedTags;
+      // Map completion job type to DB job_type
+      if (selectedJobType) {
+        const jobTypeMap: Record<string, string> = { Service: "Boiler Service", Repair: "Repair", Install: "Install" };
+        dbPatch.job_type = jobTypeMap[selectedJobType] || selectedJobType;
+      }
     }
 
     const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
