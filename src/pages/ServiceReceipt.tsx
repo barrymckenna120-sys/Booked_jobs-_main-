@@ -169,6 +169,13 @@ const ServiceReceipt = () => {
   return (
     <div className="min-h-screen bg-[hsl(220,14%,96%)]">
       <div className="max-w-[430px] mx-auto px-4 py-6">
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
         {/* Receipt card */}
         <div className="bg-background rounded-2xl border border-border shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-hidden">
           {/* Business header */}
