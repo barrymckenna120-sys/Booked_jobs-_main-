@@ -413,11 +413,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         supabase.functions.invoke("trigger-review-request", {
           body: { service_call_id: job.id, customer_id: job.customer_id },
         }).catch((err) => console.error("Review request trigger failed:", err));
-        if (paymentMethod === "invoice") {
-          return true;
-        }
         toast({ title: "Job completed" });
-        navigate(`/receipt/${job.id}`);
+        navigate(-1);
         return true;
       } else if (patch.status === "Cancelled") {
         logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
