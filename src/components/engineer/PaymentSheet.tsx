@@ -3,7 +3,7 @@ import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Banknote, CheckCircle2 } from "lucide-react";
+import { Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
@@ -19,8 +19,15 @@ const DEFAULT_PRICES: Record<string, string> = {
   "Repair": "default_repair_price",
 };
 
+const METHODS = [
+  { key: "cash", label: "Cash", icon: Banknote, emoji: "💵" },
+  { key: "card", label: "Card", icon: CreditCard, emoji: "💳" },
+  { key: "invoice", label: "Invoice", icon: FileText, emoji: "📄" },
+];
+
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [amount, setAmount] = useState<string>("");
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     const rev = job?.revenue;
@@ -49,7 +56,8 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   }, [job?.revenue, job?.job_type]);
 
   const handleConfirm = () => {
-    onDone("cash", parseFloat(amount) || 0);
+    if (!selected) return;
+    onDone(selected, parseFloat(amount) || 0);
   };
 
   return (
@@ -59,10 +67,10 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
           <Banknote className="w-5 h-5 text-success" /> Confirm Job Total
         </div>
         <div className="text-[13px] text-muted-foreground mt-0.5">
-          {customer.name} · Confirm the amount for this job
+          {customer.name} · Confirm the amount and payment method
         </div>
       </div>
-      <div className="px-5 pt-4 space-y-3">
+      <div className="px-5 pt-4 space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="job-total" className="text-sm font-bold text-foreground">Job Total (€)</Label>
           <Input
@@ -78,8 +86,33 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
           <p className="text-[11px] text-muted-foreground">Pre-filled from job price or default. Edit if needed.</p>
         </div>
 
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Method</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {METHODS.map((m) => {
+              const isSelected = selected === m.key;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setSelected(m.key)}
+                  className={`min-h-[56px] rounded-xl border-2 flex flex-col items-center justify-center gap-1 text-sm font-bold transition-all ${
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary shadow-sm"
+                      : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  <span className="text-lg">{m.emoji}</span>
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <Button
-          className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2 mt-2"
+          className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
+          disabled={!selected}
           onClick={handleConfirm}
         >
           <CheckCircle2 className="w-5 h-5" /> Confirm & Complete
