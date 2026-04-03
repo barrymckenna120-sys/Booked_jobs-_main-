@@ -107,11 +107,41 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
   const handleGenerate = async () => {
     if (!method || !validate()) return;
+
+    // Invoice flow — send payment link, no receipt
+    if (method === "invoice") {
+      setStep(2);
+      setProcStep(0);
+      try {
+        const updatePayload: Record<string, any> = {
+          payment_method: "invoice",
+          payment_status: "unpaid",
+          invoiced_at: new Date().toISOString(),
+          revenue: parseFloat(amount) || 0,
+        };
+        await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
+        setProcStep(1);
+
+        await supabase.functions.invoke("send-payment-link", { body: { job_id: job.id } });
+        setProcStep(2);
+
+        toast({ title: "Payment link sent via WhatsApp" });
+        setTimeout(() => {
+          onPaymentComplete?.("");
+          onClose();
+        }, 600);
+      } catch (e: any) {
+        toast({ title: "Error", description: e.message, variant: "destructive" });
+        setStep(1);
+      }
+      return;
+    }
+
+    // Cash / Card flow — generate receipt
     setStep(2);
     setProcStep(0);
 
     try {
-      // Step 2a: Generate receipt number
       const { data: rn } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
       const receiptNum = rn || "KG-000";
       setReceiptNumber(receiptNum);
@@ -144,29 +174,30 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setProcStep(1);
       setProcStep(2);
 
-      // Save to service_calls with correct payment state
       const updatePayload: Record<string, any> = {
         receipt_number: receiptNum,
         payment_method: method,
         paid_at: new Date().toISOString(),
+        revenue: parseFloat(amount) || 0,
       };
 
       if (collectingDeposit) {
-        // Collecting the deposit — mark deposit as paid, status stays pending for balance
         updatePayload.deposit_paid = true;
         updatePayload.payment_status = "partial";
       } else if (hasDeposit && isDepositPaid) {
-        // Collecting the remaining balance — job is fully paid
         updatePayload.payment_status = "paid";
         updatePayload.balance_due = 0;
       } else {
-        // No deposit job — full payment
         updatePayload.payment_status = "paid";
       }
 
       await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
 
-      // Auto advance
+      // Fire WhatsApp receipt (non-blocking)
+      supabase.functions.invoke("send-whatsapp-receipt", { body: { job_id: job.id } }).then(({ error }) => {
+        if (!error) toast({ title: "Receipt sent to customer via WhatsApp" });
+      });
+
       setTimeout(() => setStep(3), 600);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
