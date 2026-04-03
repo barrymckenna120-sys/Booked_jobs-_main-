@@ -118,11 +118,10 @@ const InvoicePreview = () => {
         body: { job_id: job.id },
       });
       if (error) throw error;
-      toast({ title: "Payment link sent via WhatsApp" });
+      setSent(true);
     } catch (e: any) {
       toast({
-        title: "Failed to send payment link",
-        description: e.message || "Please try again",
+        title: "Failed to send — please try again",
         variant: "destructive",
       });
     }
