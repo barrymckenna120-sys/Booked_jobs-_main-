@@ -33,6 +33,8 @@ const ServiceReceipt = () => {
   const [showHazard, setShowHazard] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [loading, setLoading] = useState(true);
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
 
   useEffect(() => {
     if (user && id) loadData();
@@ -124,34 +126,41 @@ const ServiceReceipt = () => {
       return;
     }
 
-    const data = getReceiptData();
-    const formattedPhone = formatPhoneForWhatsApp(phone);
-    const messageText = `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`;
+    setWhatsappSending(true);
+    try {
+      const data = getReceiptData();
+      const formattedPhone = formatPhoneForWhatsApp(phone);
+      const messageText = `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`;
 
-    // Log to message_log
-    const { data: logRow } = await supabase.from("message_log").insert({
-      customer_id: customer?.id || null,
-      message_type: "receipt",
-      channel: "whatsapp",
-      direction: "outbound",
-      content: messageText,
-      status: "sent",
-      related_id: id,
-      related_type: "job",
-      sent_by: user?.id || "system",
-      sent_at: new Date().toISOString(),
-    } as any).select("id").single();
+      await supabase.from("message_log").insert({
+        customer_id: customer?.id || null,
+        message_type: "receipt",
+        channel: "whatsapp",
+        direction: "outbound",
+        content: messageText,
+        status: "sent",
+        related_id: id,
+        related_type: "job",
+        sent_by: user?.id || "system",
+        sent_at: new Date().toISOString(),
+      } as any).select("id").single();
 
-    const message = encodeURIComponent(messageText);
-    window.open(`https://wa.me/${formattedPhone}?text=${message}`, "_blank");
+      const message = encodeURIComponent(messageText);
+      window.open(`https://wa.me/${formattedPhone}?text=${message}`, "_blank");
 
-    // Mark receipt as sent
-    await supabase
-      .from("service_calls")
-      .update({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any)
-      .eq("id", id);
+      await supabase
+        .from("service_calls")
+        .update({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any)
+        .eq("id", id);
 
-    toast({ title: "Receipt sent via WhatsApp" });
+      setWhatsappSent(true);
+    } catch (e: any) {
+      toast({
+        title: "Failed to send — please try again",
+        variant: "destructive",
+      });
+    }
+    setWhatsappSending(false);
   };
 
   if (loading) {
@@ -278,9 +287,15 @@ const ServiceReceipt = () => {
           <Button
             className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleSendWhatsApp}
+            disabled={whatsappSending || whatsappSent}
           >
-            <Send className="w-4 h-4" />
-            Send via WhatsApp
+            {whatsappSending ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
+            ) : whatsappSent ? (
+              <>✅ Sent to {customer?.name} via WhatsApp</>
+            ) : (
+              <><Send className="w-4 h-4" /> Send via WhatsApp</>
+            )}
           </Button>
           {certificate?.pdf_url ? (
             <Button

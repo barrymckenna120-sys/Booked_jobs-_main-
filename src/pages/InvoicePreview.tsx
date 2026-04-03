@@ -29,6 +29,7 @@ const InvoicePreview = () => {
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     if (user && id) loadData();
@@ -117,11 +118,10 @@ const InvoicePreview = () => {
         body: { job_id: job.id },
       });
       if (error) throw error;
-      toast({ title: "Payment link sent via WhatsApp" });
+      setSent(true);
     } catch (e: any) {
       toast({
-        title: "Failed to send payment link",
-        description: e.message || "Please try again",
+        title: "Failed to send — please try again",
         variant: "destructive",
       });
     }
@@ -265,10 +265,15 @@ const InvoicePreview = () => {
           <Button
             className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleSendPaymentLink}
-            disabled={sending}
+            disabled={sending || sent}
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Send Payment Link via WhatsApp
+            {sending ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
+            ) : sent ? (
+              <>✅ Sent to {customer?.name} via WhatsApp</>
+            ) : (
+              <><Send className="w-4 h-4" /> Send Payment Link via WhatsApp</>
+            )}
           </Button>
           <Button
             variant="outline"
