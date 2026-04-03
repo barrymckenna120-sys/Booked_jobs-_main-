@@ -191,6 +191,16 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     } else {
       try {
         await updateJob({ status: "Completed", ...patchWithRevenue });
+        // Send WhatsApp receipt for cash/card payments
+        supabase.functions.invoke("send-whatsapp-receipt", {
+          body: { job_id: job.id },
+        }).then(({ error }) => {
+          if (error) {
+            console.error("send-whatsapp-receipt error:", error);
+          } else {
+            toast({ title: "Receipt sent to customer via WhatsApp" });
+          }
+        });
       } catch (err) {
         console.error("handlePaymentDone cash/card flow error:", err);
         toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
