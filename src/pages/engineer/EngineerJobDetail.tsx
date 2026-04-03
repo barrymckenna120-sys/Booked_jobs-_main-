@@ -365,6 +365,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: job.assigned_engineer || null,
+            service_status: "Active",
+            renewal_stage: "not_contacted",
           };
 
           if (nextServiceDate) {
