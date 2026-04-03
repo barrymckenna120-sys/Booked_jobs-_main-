@@ -250,8 +250,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
-      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any) => { setCompleteData(data); setShowComplete(false); setShowPayment(true); }} />}
-      {showPayment && <PaymentSheet job={job} customer={customer} onClose={() => { setShowPayment(false); setCompleteData(null); }} onDone={(method: string) => { onUpdate(job.id, { status: "Completed", ...completeData, paymentMethod: method }); setShowPayment(false); setCompleteData(null); }} />}
+      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any) => { onUpdate(job.id, { status: "Completed", ...data }); setShowComplete(false); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
