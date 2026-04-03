@@ -76,7 +76,7 @@ const ServiceReceipt = () => {
   };
 
   const getReceiptData = () => {
-    const businessName = settings?.business_name || "Karl's Gas";
+    const businessName = settings?.business_name || "KN Gas Services";
     const businessPhone = settings?.business_phone || "087 686 252";
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
     const paymentMethodLabel = job.payment_method === "cash" ? "Cash" : job.payment_method === "card" ? "Card" : "Invoice";
@@ -201,6 +201,12 @@ const ServiceReceipt = () => {
               <span className="ml-1.5 font-bold text-foreground">{data.issueDate}</span>
             </div>
           </div>
+          {job.job_reference && (
+            <div className="px-5 pb-3 text-xs">
+              <span className="text-muted-foreground">Job Ref</span>
+              <span className="ml-1.5 font-bold text-foreground">{job.job_reference}</span>
+            </div>
+          )}
 
           {/* Service card */}
           <div className="mx-5 bg-[hsl(220,14%,96%)] rounded-xl p-4 mb-3">
