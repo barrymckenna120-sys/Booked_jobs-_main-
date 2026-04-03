@@ -294,10 +294,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
             {/* Payment method */}
             <div>
               <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">Payment Method</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {[
                   { value: "card" as const, label: "Card", icon: CreditCard },
                   { value: "cash" as const, label: "Cash", icon: Banknote },
+                  { value: "invoice" as const, label: "Invoice", icon: FileText },
                 ].map((m) => {
                   const Icon = m.icon;
                   const selected = method === m.value;
@@ -305,16 +306,16 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
                     <button
                       key={m.value}
                       onClick={() => setMethod(m.value)}
-                      className={`flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 transition-all ${
+                      className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
                         selected
                           ? "border-[hsl(217,91%,60%)] bg-[hsl(217,91%,60%)]/5 ring-1 ring-[hsl(217,91%,60%)]/20"
                           : "border-[hsl(220,13%,91%)] hover:border-[hsl(217,91%,60%)]/30"
                       }`}
                     >
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                         selected ? "bg-[hsl(217,91%,60%)] text-white" : "bg-[hsl(220,14%,96%)] text-[hsl(220,9%,46%)]"
                       }`}>
-                        <Icon className="w-6 h-6" />
+                        <Icon className="w-5 h-5" />
                       </div>
                       <span className={`text-sm font-bold ${selected ? "text-[hsl(217,91%,60%)]" : "text-[hsl(222,47%,11%)]"}`}>
                         {m.label}
