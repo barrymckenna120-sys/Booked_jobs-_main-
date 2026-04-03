@@ -195,12 +195,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
       await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
 
-      // Fire WhatsApp receipt (non-blocking)
-      supabase.functions.invoke("send-whatsapp-receipt", { body: { job_id: job.id } }).then(({ error }) => {
-        if (!error) toast({ title: "Receipt sent to customer via WhatsApp" });
-      });
-
-      setTimeout(() => setStep(3), 600);
+      // Navigate to receipt preview screen
+      setTimeout(() => {
+        onPaymentComplete?.(receiptNum);
+        onClose();
+        navigate(`/receipt/${job.id}`);
+      }, 600);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
       setStep(1);
