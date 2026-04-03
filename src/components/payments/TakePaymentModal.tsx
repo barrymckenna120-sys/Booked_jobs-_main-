@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  CreditCard, Banknote, Loader2, CheckCircle2, Send, Download, AlertTriangle,
+  CreditCard, Banknote, FileText, Loader2, CheckCircle2, Send, Download, AlertTriangle,
 } from "lucide-react";
 
 interface TakePaymentModalProps {
