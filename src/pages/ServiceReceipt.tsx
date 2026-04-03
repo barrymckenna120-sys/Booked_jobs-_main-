@@ -76,7 +76,7 @@ const ServiceReceipt = () => {
   };
 
   const getReceiptData = () => {
-    const businessName = settings?.business_name || "Karl's Gas";
+    const businessName = settings?.business_name || "KN Gas Services";
     const businessPhone = settings?.business_phone || "087 686 252";
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
     const paymentMethodLabel = job.payment_method === "cash" ? "Cash" : job.payment_method === "card" ? "Card" : "Invoice";
