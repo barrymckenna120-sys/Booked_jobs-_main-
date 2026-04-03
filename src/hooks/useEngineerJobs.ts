@@ -146,7 +146,7 @@ export const useEngineerJobs = () => {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
     }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
@@ -188,6 +188,11 @@ export const useEngineerJobs = () => {
     if (patch.status === "Completed") {
       dbPatch.completed_at = new Date().toISOString();
       dbPatch.job_tags = completionSelectedTags;
+      // Map completion job type selector to DB column
+      if (selectedJobType) {
+        const jobTypeMap: Record<string, string> = { Service: "Boiler Service", Repair: "Repair", Install: "Install" };
+        dbPatch.job_type = jobTypeMap[selectedJobType] || selectedJobType;
+      }
       try {
         const job = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
         const ownerId = job?.user_id;
@@ -284,6 +289,64 @@ export const useEngineerJobs = () => {
           }
         } catch (e) {
           console.error("Failed to save job tags:", e);
+        }
+
+        // Sync completion data to customer record
+        try {
+          const completedDate = new Date();
+          const theJob = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+          const engName = engineerName || theJob?.assigned_engineer || "Engineer";
+
+          let nextServiceDate: string | null = null;
+          if (nextService) {
+            const nsd = new Date(completedDate);
+            if (nextService === "6 months") nsd.setMonth(nsd.getMonth() + 6);
+            else if (nextService === "12 months") nsd.setMonth(nsd.getMonth() + 12);
+            else if (nextService === "18 months") nsd.setMonth(nsd.getMonth() + 18);
+            else if (nextService === "2 years") nsd.setFullYear(nsd.getFullYear() + 2);
+            nextServiceDate = nsd.toISOString().slice(0, 10);
+          }
+
+          const customerUpdate: Record<string, any> = {
+            last_service_date: completedDate.toISOString().slice(0, 10),
+            last_service_engineer: theJob?.assigned_engineer || null,
+            service_status: "Active",
+            renewal_stage: "not_contacted",
+          };
+          if (nextServiceDate) customerUpdate.next_service_due = nextServiceDate;
+          customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
+
+          // Append note entry
+          const dd = String(completedDate.getDate()).padStart(2, "0");
+          const mm = String(completedDate.getMonth() + 1).padStart(2, "0");
+          const yyyy = completedDate.getFullYear();
+          const dateStr = `${dd}/${mm}/${yyyy}`;
+          let noteEntry = "";
+          if (workDone && workDone.trim()) {
+            noteEntry = `${dateStr} - ${engName}: ${workDone.trim()}`;
+          }
+          if (completionSelectedTags.length > 0) {
+            noteEntry = noteEntry
+              ? `${noteEntry}. Tags: ${completionSelectedTags.join(", ")}`
+              : `${dateStr} - ${engName}: Tags: ${completionSelectedTags.join(", ")}`;
+          }
+          if (noteEntry && theJob?.customer_id) {
+            const { data: custData } = await supabase
+              .from("customers")
+              .select("notes")
+              .eq("id", theJob.customer_id)
+              .maybeSingle();
+            const existing = custData?.notes;
+            customerUpdate.notes = existing && existing.trim()
+              ? `${existing}\n${noteEntry}`
+              : noteEntry;
+          }
+
+          if (theJob?.customer_id) {
+            await supabase.from("customers").update(customerUpdate).eq("id", theJob.customer_id);
+          }
+        } catch (e) {
+          console.error("Failed to sync customer profile:", e);
         }
 
         // Create invoice, generate PDF, send WhatsApp for invoice payments
