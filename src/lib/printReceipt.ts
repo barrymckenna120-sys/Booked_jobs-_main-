@@ -18,6 +18,7 @@ export interface ReceiptPrintData {
   businessAddress?: string;
   rgiNumber?: string;
   engineerName?: string;
+  jobReference?: string;
 }
 
 export const printReceipt = (data: ReceiptPrintData) => {
