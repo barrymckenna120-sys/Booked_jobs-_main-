@@ -67,7 +67,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [method, setMethod] = useState<"card" | "cash" | null>(null);
+  const [method, setMethod] = useState<"card" | "cash" | "invoice" | null>(null);
   const [amount, setAmount] = useState(defaultAmount);
   const [amountError, setAmountError] = useState("");
   const [settings, setSettings] = useState<any>(null);
