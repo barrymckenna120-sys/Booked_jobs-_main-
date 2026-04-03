@@ -13,19 +13,11 @@ interface Props {
   onDone: (method: string, confirmedAmount: number) => void;
 }
 
-const METHODS = [
-  { value: "cash", label: "Cash", icon: Banknote, description: "Customer paid cash on site" },
-  { value: "card", label: "Card", icon: CreditCard, description: "Customer paid by card on site" },
-  { value: "invoice", label: "Invoice", icon: FileText, description: "Send invoice to customer" },
-] as const;
-
 const DEFAULT_PRICES: Record<string, string> = {
   "Boiler Service": "default_service_price",
   "Emergency": "default_emergency_price",
   "Repair": "default_repair_price",
 };
-
-type Step = "select" | "no_payment";
 
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
