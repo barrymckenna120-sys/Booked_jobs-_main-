@@ -73,6 +73,7 @@ export const printReceipt = (data: ReceiptPrintData) => {
   <hr class="divider"/>
 
   <div class="row"><span class="label">Receipt No.</span><span class="value">${esc(data.receiptNumber)}</span></div>
+  ${data.jobReference ? `<div class="row"><span class="label">Job Ref</span><span class="value">${esc(data.jobReference)}</span></div>` : ''}
   <div class="row"><span class="label">Issue Date</span><span class="value">${esc(data.issueDate)}</span></div>
 
   <hr class="divider"/>
