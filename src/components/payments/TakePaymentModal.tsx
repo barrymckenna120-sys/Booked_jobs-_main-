@@ -110,7 +110,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   const handleGenerate = async () => {
     if (!method || !validate()) return;
 
-    // Invoice flow — send payment link, no receipt
+    // Invoice flow — save payment record, then navigate to invoice preview
     if (method === "invoice") {
       setStep(2);
       setProcStep(0);
@@ -122,15 +122,13 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
           revenue: parseFloat(amount) || 0,
         };
         await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
-        setProcStep(1);
-
-        await supabase.functions.invoke("send-payment-link", { body: { job_id: job.id } });
         setProcStep(2);
 
-        toast({ title: "Payment link sent via WhatsApp" });
+        // Navigate to invoice preview screen
         setTimeout(() => {
           onPaymentComplete?.("");
           onClose();
+          navigate(`/invoice/${job.id}`);
         }, 600);
       } catch (e: any) {
         toast({ title: "Error", description: e.message, variant: "destructive" });

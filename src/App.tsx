@@ -40,6 +40,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
 import ServiceReceipt from "./pages/ServiceReceipt";
+import InvoicePreview from "./pages/InvoicePreview";
 import Messages from "./pages/Messages";
 import SystemLogs from "./pages/SystemLogs";
 import InstallAppBanner from "./components/pwa/InstallAppBanner";
@@ -142,6 +143,7 @@ const App = () => (
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
             <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
             <Route path="/receipt/:id" element={<ServiceReceipt />} />
+            <Route path="/invoice/:id" element={<InvoicePreview />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />

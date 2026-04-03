@@ -183,6 +183,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           }
           toast({ title: "Job completed & invoice created" });
         }
+        // Navigate to invoice preview screen
+        navigate(`/invoice/${job.id}`);
       } catch (err) {
         console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
