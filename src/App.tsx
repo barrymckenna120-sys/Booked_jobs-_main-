@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
+import OfficeRoute from "./components/shared/OfficeRoute";
 import Jobs from "./pages/Jobs";
 import JobDetail from "./pages/JobDetail";
 import Customers from "./pages/Customers";
