@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
+import OfficeRoute from "./components/shared/OfficeRoute";
 import Jobs from "./pages/Jobs";
 import JobDetail from "./pages/JobDetail";
 import Customers from "./pages/Customers";
@@ -112,7 +113,7 @@ const App = () => (
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
               <Route path="/products" element={<Products />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
               <Route path="/settings/import" element={<ImportCustomers />} />
 
               {/* Legacy routes — redirect to new locations */}
