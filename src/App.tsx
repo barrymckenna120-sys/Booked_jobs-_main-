@@ -113,7 +113,7 @@ const App = () => (
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
               <Route path="/products" element={<Products />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
               <Route path="/settings/import" element={<ImportCustomers />} />
 
               {/* Legacy routes — redirect to new locations */}
