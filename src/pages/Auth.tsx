@@ -6,36 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
 import { logAudit } from "@/lib/auditLog";
-
-const resolveRedirect = async (userId: string): Promise<string> => {
-  try {
-    const { data } = await supabase.rpc("get_user_role", { _user_id: userId });
-    return data === "engineer" ? "/engineer/today" : "/dashboard";
-  } catch {
-    return "/dashboard";
-  }
-};
 
 const Auth = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  // Failed attempt tracking
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [errorModalOpen, setErrorModalOpen] = useState(false);
   const [errorTitle, setErrorTitle] = useState("");
@@ -80,28 +66,12 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        setFailedAttempts(0);
-        navigate("/dashboard");
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: displayName },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-        toast({
-          title: "Check your email",
-          description: "We've sent you a confirmation link to verify your account.",
-        });
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      setFailedAttempts(0);
+      navigate("/dashboard");
     } catch (error: any) {
-      if (isLogin && error.message?.toLowerCase().includes("invalid")) {
+      if (error.message?.toLowerCase().includes("invalid")) {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
 
@@ -110,7 +80,6 @@ const Auth = () => {
           setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
           setIsBlocked(true);
           setErrorModalOpen(true);
-          // Persist lockout server-side (fire-and-forget)
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
           }).catch(() => {});
@@ -170,7 +139,6 @@ const Auth = () => {
     }
   };
 
-  // Forgot password view
   if (isForgotPassword) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -241,24 +209,10 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
-          <CardDescription>
-            {isLogin ? "Sign in to your account" : "Create a new account"}
-          </CardDescription>
+          <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                  required={!isLogin}
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -293,48 +247,21 @@ const Auth = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {isLogin && (
-                <button
-                  type="button"
-                  onClick={() => setIsForgotPassword(true)}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Forgot your password?
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(true)}
+                className="text-xs text-primary hover:underline"
+              >
+                Forgot your password?
+              </button>
             </div>
-            {!isLogin && (
-              <div className="flex items-start space-x-2">
-                <Checkbox
-                  id="terms"
-                  checked={agreedToTerms}
-                  onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                />
-                <label htmlFor="terms" className="text-sm leading-snug text-muted-foreground">
-                  I agree to the{" "}
-                  <Link to="/terms-and-conditions" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>
-                  {" "}and{" "}
-                  <Link to="/data-processing-agreement" target="_blank" className="text-primary hover:underline">Data Processing Agreement</Link>
-                </label>
-              </div>
-            )}
-            <Button type="submit" className="w-full" disabled={loading || (!isLogin && !agreedToTerms) || isBlocked}>
-              {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
+            <Button type="submit" className="w-full" disabled={loading || isBlocked}>
+              {loading ? "Loading..." : "Sign In"}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:underline"
-            >
-              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-            </button>
-          </div>
         </CardContent>
       </Card>
 
-      {/* Error Modal for failed login attempts */}
       <Dialog open={errorModalOpen} onOpenChange={(v) => { if (!v) closeErrorModal(); }}>
         <DialogContent className="sm:max-w-[380px]">
           <DialogHeader>
