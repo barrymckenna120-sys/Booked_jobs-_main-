@@ -352,65 +352,22 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             nextServiceDate = nsd.toISOString().slice(0, 10);
           }
 
-          // Build note entry: "02/04/2026 - Barry McKenna: Work done text"
-          let noteEntry = "";
-          if (workDone && workDone.trim()) {
-            noteEntry = `${dateStr} - ${engName}: ${workDone.trim()}`;
-          }
-          if (completionSelectedTags.length > 0) {
-            if (noteEntry) {
-              noteEntry += `. Tags: ${completionSelectedTags.join(", ")}`;
-            } else {
-              noteEntry = `${dateStr} - ${engName}: Tags: ${completionSelectedTags.join(", ")}`;
-            }
-          }
-
-          const customerUpdate: Record<string, any> = {
-            last_service_date: completedDate.toISOString().slice(0, 10),
-            last_service_engineer: job.assigned_engineer || null,
-            service_status: "Up to Date",
-            renewal_stage: "not_contacted",
-          };
-
-          if (nextServiceDate) {
-            customerUpdate.next_service_due = nextServiceDate;
-          }
-
-          // Reflect job tags on customer (under_warranty + job_tag/job_tag_date)
-          if (patch.status === "Completed") {
-            customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
-            // Write the first matching tag and its date to customer record
-            const TAG_WITH_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
-            const matchedTag = completionSelectedTags.find((t: string) => TAG_WITH_DATE.includes(t));
-            if (matchedTag && tagDate) {
-              customerUpdate.job_tag = matchedTag;
-              customerUpdate.job_tag_date = tagDate;
-            }
-          }
-
-          if (noteEntry) {
+          // Append engineer notes with parts + office note (never write to customer_notes)
+          const engNoteParts: string[] = [];
+          if (parts && parts.trim()) engNoteParts.push(`Parts: ${parts.trim()}`);
+          if (officeNote && officeNote.trim()) engNoteParts.push(`Office note: ${officeNote.trim()}`);
+          if (engNoteParts.length > 0) {
             const { data: custData } = await supabase
               .from("customers")
-              .select("notes, engineer_notes")
+              .select("engineer_notes")
               .eq("id", job.customer_id)
               .maybeSingle();
 
-            const existing = custData?.notes;
-            customerUpdate.notes = existing && existing.trim()
-              ? `${existing}\n${noteEntry}`
-              : noteEntry;
-
-            // Append engineer notes with parts + office note
-            const engNoteParts: string[] = [];
-            if (parts && parts.trim()) engNoteParts.push(`Parts: ${parts.trim()}`);
-            if (officeNote && officeNote.trim()) engNoteParts.push(`Office note: ${officeNote.trim()}`);
-            if (engNoteParts.length > 0) {
-              const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
-              const existingEng = custData?.engineer_notes;
-              customerUpdate.engineer_notes = existingEng && existingEng.trim()
-                ? `${existingEng}\n${engNoteEntry}`
-                : engNoteEntry;
-            }
+            const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
+            const existingEng = custData?.engineer_notes;
+            customerUpdate.engineer_notes = existingEng && existingEng.trim()
+              ? `${existingEng}\n${engNoteEntry}`
+              : engNoteEntry;
           }
 
           const { error: custErr } = await supabase
