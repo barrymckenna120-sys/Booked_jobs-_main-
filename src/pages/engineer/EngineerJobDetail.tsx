@@ -375,10 +375,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             customerUpdate.job_tag_date = jobTagDate;
           }
 
-          // Append engineer notes with parts + office note
+          // Append engineer notes with parts + office note + tags
           const engNoteParts: string[] = [];
           if (parts && parts.trim()) engNoteParts.push(`Parts: ${parts.trim()}`);
           if (officeNote && officeNote.trim()) engNoteParts.push(`Office note: ${officeNote.trim()}`);
+          if (completionSelectedTags.length > 0) {
+            let tagStr = `Tags: ${completionSelectedTags.join(", ")}`;
+            if (jobTagDate) {
+              const [y, m, d] = jobTagDate.split("-");
+              tagStr += ` (${d}/${m}/${y})`;
+            }
+            engNoteParts.push(tagStr);
+          }
           if (engNoteParts.length > 0) {
             const { data: custData } = await supabase
               .from("customers")
