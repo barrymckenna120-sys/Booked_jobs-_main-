@@ -88,8 +88,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       line_total: li.line_total,
     }));
 
-    // Match the exact pattern used by the office quote creation flow
-    const { error } = await supabase.from("quotes").insert([{
+    const payload = {
       user_id: job.user_id,
       customer_id: job.customer_id,
       job_id: job.id,
@@ -97,7 +96,13 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       total_amount: subtotal,
       status: "Pending Approval",
       line_items: cleanItems,
-    }] as any);
+    };
+
+    console.log("[ExtraWork] cleanItems:", JSON.stringify(cleanItems));
+    console.log("[ExtraWork] subtotal:", subtotal);
+    console.log("[ExtraWork] full payload:", JSON.stringify(payload));
+
+    const { error } = await supabase.from("quotes").insert([payload] as any);
 
     setSaving(false);
     if (error) {
