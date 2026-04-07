@@ -391,7 +391,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           if (noteEntry) {
             const { data: custData } = await supabase
               .from("customers")
-              .select("notes")
+              .select("notes, engineer_notes")
               .eq("id", job.customer_id)
               .maybeSingle();
 
@@ -399,6 +399,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             customerUpdate.notes = existing && existing.trim()
               ? `${existing}\n${noteEntry}`
               : noteEntry;
+
+            // Append engineer notes with parts + office note
+            const engNoteParts: string[] = [];
+            if (parts && parts.trim()) engNoteParts.push(`Parts: ${parts.trim()}`);
+            if (officeNote && officeNote.trim()) engNoteParts.push(`Office note: ${officeNote.trim()}`);
+            if (engNoteParts.length > 0) {
+              const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
+              const existingEng = custData?.engineer_notes;
+              customerUpdate.engineer_notes = existingEng && existingEng.trim()
+                ? `${existingEng}\n${engNoteEntry}`
+                : engNoteEntry;
+            }
           }
 
           const { error: custErr } = await supabase
