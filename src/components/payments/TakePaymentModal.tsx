@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -121,7 +122,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
           invoiced_at: new Date().toISOString(),
           revenue: parseFloat(amount) || 0,
         };
-        await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
+        await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
         setProcStep(2);
 
         // Navigate to invoice preview screen
@@ -191,7 +192,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         updatePayload.payment_status = "paid";
       }
 
-      await supabase.from("service_calls").update(updatePayload as any).eq("id", job.id);
+      await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
 
       // Navigate to receipt preview screen
       setTimeout(() => {

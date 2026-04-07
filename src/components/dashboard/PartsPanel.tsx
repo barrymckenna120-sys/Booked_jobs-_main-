@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { Package, CheckCircle2, MessageCircle, Loader2, Wrench } from "lucide-react";
 
 const PartsPanel = () => {
@@ -56,7 +57,7 @@ const PartsPanel = () => {
     setUpdatingId(jobId);
     const { error } = await supabase
       .from("service_calls")
-      .update({ parts_status: newStatus } as any)
+      .update(sanitizeServiceCallUpdatePayload({ parts_status: newStatus } as any))
       .eq("id", jobId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });

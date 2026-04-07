@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { AlertTriangle, CheckCircle2, MessageCircle, Loader2 } from "lucide-react";
 
 const FollowUpsPanel = () => {
@@ -62,10 +63,10 @@ const FollowUpsPanel = () => {
     setResolvingId(jobId);
     const { error } = await supabase
       .from("service_calls")
-      .update({
+      .update(sanitizeServiceCallUpdatePayload({
         follow_up_resolved: true,
         follow_up_resolved_at: new Date().toISOString(),
-      } as any)
+      } as any))
       .eq("id", jobId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });

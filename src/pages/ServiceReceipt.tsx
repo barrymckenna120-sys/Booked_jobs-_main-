@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { printReceipt } from "@/lib/printReceipt";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, AlertTriangle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
@@ -150,7 +151,7 @@ const ServiceReceipt = () => {
 
       await supabase
         .from("service_calls")
-        .update({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any)
+        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any))
         .eq("id", id);
 
       setWhatsappSent(true);
