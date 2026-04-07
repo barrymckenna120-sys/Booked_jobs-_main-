@@ -368,7 +368,26 @@ const CustomerDetail = () => {
               </Select>
             </div>
             <PlainField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} />
-            <PlainField label="Customer Since" field="customer_since" type="date" value={form.customer_since} />
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Customer Since</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.customer_since && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.customer_since ? formatDisplayDate(form.customer_since) : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.customer_since ? parseISO(form.customer_since + "T00:00:00") : undefined}
+                    onSelect={(date) => handleChange("customer_since", date ? format(date, "yyyy-MM-dd") : null)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardContent>
         </Card>
 
