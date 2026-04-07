@@ -316,7 +316,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [boilerType, setBoilerType] = useState(prefilledCustomer?.boiler_type || "");
   const [boilerErrorCode, setBoilerErrorCode] = useState("");
   const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
-  const [ownerOrTenant, setOwnerOrTenant] = useState("");
+  const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
 
