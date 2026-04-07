@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, CalendarDays, CheckCircle2, Clock } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import { format, addDays } from "date-fns";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 const TIME_ORDER: Record<string, number> = { "9–11": 1, "11–2": 2, "2–5": 3 };
 
@@ -99,8 +100,8 @@ const EngineerApp = () => {
     if (user) fetchAll();
   }, [user, fetchAll]);
 
-  const updateJob = async (jobId: string, patch: Record<string, any>) => {
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, tagDate, ...rest } = patch;
+  const updateJob = async (jobId: string, patch: Record<string, any>, _options?: { jobTagDate?: string | null }) => {
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -110,12 +111,7 @@ const EngineerApp = () => {
       notesUpdate = `Cancelled: ${cancelReason}${cancelNote ? `\nNote: ${cancelNote}` : ""}`;
     }
 
-    const dbPatch: Record<string, any> = { ...rest };
-    delete dbPatch.tagDate;
-    delete dbPatch.selectedTags;
-    delete dbPatch.selectedJobType;
-    delete dbPatch.paymentMethod;
-    delete dbPatch.confirmedRevenue;
+    const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
@@ -124,7 +120,8 @@ const EngineerApp = () => {
       dbPatch.cancelled_by = user?.id || null;
     }
 
-    const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", jobId);
+    const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
+    const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });

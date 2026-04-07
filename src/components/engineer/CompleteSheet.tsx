@@ -27,7 +27,7 @@ interface Props {
   job: any;
   customer: any;
   onClose: () => void;
-  onDone: (data: any) => void;
+  onDone: (data: any, jobTagDate: string | null) => void;
 }
 
 const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
@@ -63,7 +63,7 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [followUpNote, setFollowUpNote] = useState("");
   const [officeNote, setOfficeNote] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagDate, setTagDate] = useState<string | null>(null);
+  const [jobTagDate, setJobTagDate] = useState<string | null>(null);
 
   const TAGS_NEEDING_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
   const showTagDatePicker = selectedTags.some((t) => TAGS_NEEDING_DATE.includes(t));
@@ -72,7 +72,7 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
     setSelectedTags((prev) => {
       const next = prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name];
       if (!next.some((t) => TAGS_NEEDING_DATE.includes(t))) {
-        setTagDate(null);
+        setJobTagDate(null);
       }
       return next;
     });
@@ -191,8 +191,8 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
                   <Label className="text-[11px] font-medium text-muted-foreground mb-1 block">Tag date *</Label>
                   <Input
                     type="date"
-                    value={tagDate || ""}
-                    onChange={(e) => setTagDate(e.target.value || null)}
+                    value={jobTagDate || ""}
+                    onChange={(e) => setJobTagDate(e.target.value || null)}
                     className="w-full"
                   />
                 </div>
@@ -203,8 +203,8 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
 
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
-          disabled={!workDone.trim() || (showTagDatePicker && !tagDate)}
-          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags, selectedJobType, tagDate })}
+          disabled={!workDone.trim() || (showTagDatePicker && !jobTagDate)}
+          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags, selectedJobType }, jobTagDate)}
         >
           <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>

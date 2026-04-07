@@ -34,7 +34,7 @@ const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6)
 interface EngineerJobCardProps {
   job: any;
   customer: any;
-  onUpdate: (jobId: string, patch: Record<string, any>) => void;
+  onUpdate: (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => void;
   isNextJob?: boolean;
   photos?: { url: string; name: string }[];
 }
@@ -248,7 +248,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
-      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any) => { onUpdate(job.id, { status: "Completed", ...data }); setShowComplete(false); }} />}
+      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any, jobTagDate: string | null) => { onUpdate(job.id, { status: "Completed", ...data }, { jobTagDate }); setShowComplete(false); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}

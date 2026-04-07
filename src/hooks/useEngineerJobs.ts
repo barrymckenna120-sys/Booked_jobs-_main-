@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -150,7 +151,7 @@ export const useEngineerJobs = () => {
     if (user) fetchAll();
   }, [user, fetchAll]);
 
-  const updateJob = async (jobId: string, patch: Record<string, any>) => {
+  const updateJob = async (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => {
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 
@@ -158,7 +159,7 @@ export const useEngineerJobs = () => {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
     }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, tagDate, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
@@ -175,12 +176,8 @@ export const useEngineerJobs = () => {
       notesUpdate = `Cancelled: ${cancelReason}${cancelNote ? `\nNote: ${cancelNote}` : ""}`;
     }
 
-    const dbPatch: Record<string, any> = { ...rest };
-    delete dbPatch.tagDate;
-    delete dbPatch.selectedTags;
-    delete dbPatch.selectedJobType;
-    delete dbPatch.paymentMethod;
-    delete dbPatch.confirmedRevenue;
+    const jobTagDate = options?.jobTagDate ?? null;
+    const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
@@ -224,14 +221,15 @@ export const useEngineerJobs = () => {
       } catch {}
     }
 
-    const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", jobId);
+    const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
+    const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       const existingJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId) || { id: jobId };
-      const updatedJob = { ...existingJob, ...dbPatch };
-      const nextStatus = dbPatch.status ?? existingJob.status;
+      const updatedJob = { ...existingJob, ...safeDbPatch };
+      const nextStatus = safeDbPatch.status ?? existingJob.status;
       const inPlaceUpdater = (prev: any[]) => prev.map((j) => (j.id === jobId ? updatedJob : j));
       const removeJob = (prev: any[]) => prev.filter((j) => j.id !== jobId);
       const upsertCompletedJob = (prev: any[]) => [updatedJob, ...prev.filter((j) => j.id !== jobId)];
@@ -332,6 +330,12 @@ export const useEngineerJobs = () => {
           };
           if (nextServiceDate) customerUpdate.next_service_due = nextServiceDate;
           customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
+          const TAG_WITH_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
+          const matchedTag = completionSelectedTags.find((t: string) => TAG_WITH_DATE.includes(t));
+          if (matchedTag && jobTagDate) {
+            customerUpdate.job_tag = matchedTag;
+            customerUpdate.job_tag_date = jobTagDate;
+          }
 
           // Append note entry
           const dd = String(completedDate.getDate()).padStart(2, "0");
