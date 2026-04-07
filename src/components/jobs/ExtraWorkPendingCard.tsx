@@ -5,7 +5,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Wrench } from "lucide-react";
+import { Loader2, Wrench, Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
 
 type LineItem = {
   description: string;
@@ -34,6 +34,12 @@ type OriginalQuote = {
   deposit: number | null;
 };
 
+const METHODS = [
+  { key: "cash", label: "Cash", icon: Banknote, emoji: "💵" },
+  { key: "card", label: "Card", icon: CreditCard, emoji: "💳" },
+  { key: "invoice", label: "Send Payment Link", icon: FileText, emoji: "📄" },
+];
+
 interface Props {
   jobId: string;
   onQuoteChange: () => void;
@@ -46,6 +52,8 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
   const [originalQuote, setOriginalQuote] = useState<OriginalQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [selectingMethodForId, setSelectingMethodForId] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -83,29 +91,30 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
     setLoading(false);
   };
 
-  const handleApprove = async (pq: PendingQuote, balanceDue: number) => {
+  const handleApprove = async (pq: PendingQuote, newTotal: number, method: string) => {
     setApprovingId(pq.id);
     try {
-      // Step 1: Update quote status to Accepted and set total_amount to balance due
+      // Step 1: Update quote status to Accepted with full combined total
       const { error: updateError } = await supabase
         .from("quotes")
         .update({
           status: "Accepted",
           accepted_at: new Date().toISOString(),
-          total_amount: balanceDue,
-          balance_due: balanceDue,
+          total_amount: newTotal,
+          balance_due: newTotal,
         })
         .eq("id", pq.id);
 
       if (updateError) throw new Error(`Failed to update quote: ${updateError.message}`);
 
-      // Step 2: Call accept-quote edge function to generate Stripe payment link
-      const { data: acceptData, error: acceptError } = await supabase.functions.invoke("accept-quote", {
-        body: { quote_id: pq.id },
-      });
-
-      if (acceptError) throw new Error(`Accept quote failed: ${acceptError.message}`);
-      if (acceptData && !acceptData.success) throw new Error(acceptData.error || "Accept quote returned an error");
+      // Step 2: If Send Payment Link, call accept-quote for Stripe link first
+      if (method === "invoice") {
+        const { data: acceptData, error: acceptError } = await supabase.functions.invoke("accept-quote", {
+          body: { quote_id: pq.id },
+        });
+        if (acceptError) throw new Error(`Accept quote failed: ${acceptError.message}`);
+        if (acceptData && !acceptData.success) throw new Error(acceptData.error || "Accept quote returned an error");
+      }
 
       // Step 3: Get customer info for WhatsApp send
       const { data: customer } = await supabase
@@ -121,13 +130,13 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
         .maybeSingle() as any;
 
       if (customer?.phone) {
-        const { data: whatsappData, error: whatsappError } = await supabase.functions.invoke("send-quote-whatsapp", {
+        await supabase.functions.invoke("send-quote-whatsapp", {
           body: {
             quote_id: pq.id,
             customer_name: customer.name,
             mobile_number: customer.phone,
             job_description: pq.description || "Extra Work",
-            quote_amount: balanceDue,
+            quote_amount: newTotal,
             deposit_amount: 0,
             business_phone: settings?.business_phone || "",
             business_name: settings?.business_name || "",
@@ -137,14 +146,11 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
             sent_by_user_id: user?.id || pq.user_id,
           },
         });
-
-        if (whatsappError) {
-          console.error("WhatsApp send error:", whatsappError);
-          // Non-blocking — quote is already approved
-        }
       }
 
       toast.success("Invoice resent successfully");
+      setSelectingMethodForId(null);
+      setSelectedMethod(null);
       onQuoteChange();
       await fetchData();
     } catch (err: any) {
@@ -170,6 +176,7 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
         const balanceDue = newTotal - depositPaid;
         const items: LineItem[] = Array.isArray(pq.line_items) ? pq.line_items : [];
         const isApproving = approvingId === pq.id;
+        const isSelectingMethod = selectingMethodForId === pq.id;
 
         return (
           <Card key={pq.id} className="border-l-4 border-amber-500">
@@ -234,22 +241,73 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
                 </div>
               </div>
 
-              {/* Approve button — office/admin only */}
+              {/* Approve button or payment method selector — office/admin only */}
               {isOfficeOrAdmin && (
-                <Button
-                  className="w-full h-12 text-base font-extrabold gap-2"
-                  disabled={isApproving}
-                  onClick={() => handleApprove(pq, balanceDue)}
-                >
-                  {isApproving ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Processing…
-                    </>
+                <>
+                  {!isSelectingMethod ? (
+                    <Button
+                      className="w-full h-12 text-base font-extrabold gap-2"
+                      disabled={isApproving}
+                      onClick={() => {
+                        setSelectingMethodForId(pq.id);
+                        setSelectedMethod(null);
+                      }}
+                    >
+                      ✅ Approve & Resend Invoice
+                    </Button>
                   ) : (
-                    "✅ Approve & Resend Invoice"
+                    <div className="space-y-3 border-t border-border pt-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Method</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {METHODS.map((m) => {
+                          const isSelected = selectedMethod === m.key;
+                          return (
+                            <button
+                              key={m.key}
+                              type="button"
+                              onClick={() => setSelectedMethod(m.key)}
+                              className={`min-h-[56px] rounded-xl border-2 flex flex-col items-center justify-center gap-1 text-sm font-bold transition-all ${
+                                isSelected
+                                  ? "border-primary bg-primary/10 text-primary shadow-sm"
+                                  : "border-border bg-secondary text-muted-foreground hover:border-primary/40"
+                              }`}
+                            >
+                              <span className="text-lg">{m.emoji}</span>
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        className="w-full h-12 text-base font-extrabold gap-2"
+                        disabled={!selectedMethod || isApproving}
+                        onClick={() => selectedMethod && handleApprove(pq, newTotal, selectedMethod)}
+                      >
+                        {isApproving ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Processing…
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-5 h-5" />
+                            Confirm & Send
+                          </>
+                        )}
+                      </Button>
+                      <button
+                        onClick={() => {
+                          setSelectingMethodForId(null);
+                          setSelectedMethod(null);
+                        }}
+                        className="w-full text-center text-muted-foreground text-sm font-semibold py-1"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   )}
-                </Button>
+                </>
               )}
             </CardContent>
           </Card>
