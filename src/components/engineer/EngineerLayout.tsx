@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
@@ -26,6 +26,23 @@ const formatDateHeading = (d: Date) => {
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${days[d.getDay()]} · ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+const DebugPayloadBanner = () => {
+  const [payload, setPayload] = useState<string | null>(null);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const val = (window as any).__lastServiceCallPayload;
+      if (val) setPayload(val);
+    }, 500);
+    return () => clearInterval(iv);
+  }, []);
+  if (!payload) return null;
+  return (
+    <div style={{ position: "fixed", bottom: 68, left: 0, right: 0, maxHeight: 120, overflow: "auto", background: "rgba(220,0,0,0.95)", color: "#fff", fontSize: 10, fontFamily: "monospace", padding: 6, zIndex: 9999, wordBreak: "break-all" }}>
+      <strong>DEBUG service_calls payload:</strong><br />{payload}
+    </div>
+  );
 };
 
 const EngineerLayout = () => {
@@ -101,6 +118,9 @@ const EngineerLayout = () => {
       <div className="px-4 py-6 space-y-6">
         <Outlet context={engineerJobs} />
       </div>
+
+      {/* DEBUG BANNER — TEMPORARY */}
+      <DebugPayloadBanner />
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50" style={{ minHeight: 64 }}>
