@@ -81,6 +81,9 @@ const Parts = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
+                        {job.job_reference && (
+                          <p className="text-xs font-bold text-primary">{job.job_reference}</p>
+                        )}
                         <p className="font-bold text-foreground truncate">{job.customers?.name || "Unknown"}</p>
                         <p className="text-sm text-muted-foreground mt-0.5 truncate">{extractPartText(job.notes)}</p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
