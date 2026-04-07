@@ -176,6 +176,11 @@ export const useEngineerJobs = () => {
     }
 
     const dbPatch: Record<string, any> = { ...rest };
+    delete dbPatch.tagDate;
+    delete dbPatch.selectedTags;
+    delete dbPatch.selectedJobType;
+    delete dbPatch.paymentMethod;
+    delete dbPatch.confirmedRevenue;
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
