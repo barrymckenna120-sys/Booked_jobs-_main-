@@ -329,6 +329,12 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
             <h2 className="text-lg font-extrabold text-foreground">Appliance & Safety Checks</h2>
 
             <ToggleGroup label="Appliance Installed" options={["Central Heating", "Other"]} value={applianceInstalled} onChange={setApplianceInstalled} />
+            {applianceInstalled === "Other" && (
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Please specify appliance</Label>
+                <Input value={otherAppliance} onChange={(e) => setOtherAppliance(e.target.value)} placeholder="e.g. Gas fire, Cooker" className="h-11" />
+              </div>
+            )}
             <ToggleGroup label="Flue Type" options={["Open", "R.Seal"]} value={flueType} onChange={setFlueType} />
             <ToggleGroup label="Pipework Material" options={["Copper", "CSST", "Other"]} value={pipeworkMaterial} onChange={setPipeworkMaterial} />
 
