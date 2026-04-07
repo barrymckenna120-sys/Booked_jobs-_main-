@@ -134,7 +134,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -316,7 +316,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [boilerType, setBoilerType] = useState(prefilledCustomer?.boiler_type || "");
   const [boilerErrorCode, setBoilerErrorCode] = useState("");
   const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
-  const [ownerOrTenant, setOwnerOrTenant] = useState("");
+  const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
 

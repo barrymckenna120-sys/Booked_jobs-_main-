@@ -437,6 +437,7 @@ export type Database = {
           opted_out: boolean | null
           opted_out_date: string | null
           organisation_id: string
+          owner_or_tenant: string | null
           phone: string
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
@@ -477,6 +478,7 @@ export type Database = {
           opted_out?: boolean | null
           opted_out_date?: string | null
           organisation_id?: string
+          owner_or_tenant?: string | null
           phone: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
@@ -517,6 +519,7 @@ export type Database = {
           opted_out?: boolean | null
           opted_out_date?: string | null
           organisation_id?: string
+          owner_or_tenant?: string | null
           phone?: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
