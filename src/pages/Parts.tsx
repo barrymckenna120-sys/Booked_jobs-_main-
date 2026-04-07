@@ -30,7 +30,7 @@ const Parts = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, status, notes, parts_priority, parts_logged_at, assigned_engineer, scheduled_date, follow_up_detail, customers(name, address, phone)")
+        .select("id, job_reference, status, notes, parts_priority, parts_logged_at, assigned_engineer, scheduled_date, follow_up_detail, customers(name, address, phone)")
         .in("status", ["parts_needed", "parts_ordered"])
         .order("parts_logged_at", { ascending: false });
       return data || [];
@@ -81,6 +81,9 @@ const Parts = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
+                        {job.job_reference && (
+                          <p className="text-xs font-bold text-primary">{job.job_reference}</p>
+                        )}
                         <p className="font-bold text-foreground truncate">{job.customers?.name || "Unknown"}</p>
                         <p className="text-sm text-muted-foreground mt-0.5 truncate">{extractPartText(job.notes)}</p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
@@ -119,6 +122,9 @@ const Parts = () => {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
+                      {job.job_reference && (
+                        <p className="text-xs font-bold text-primary">{job.job_reference}</p>
+                      )}
                       <p className="font-bold text-foreground truncate">{job.customers?.name || "Unknown"}</p>
                       <p className="text-sm text-muted-foreground mt-0.5 truncate">{extractPartText(job.notes)}</p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
