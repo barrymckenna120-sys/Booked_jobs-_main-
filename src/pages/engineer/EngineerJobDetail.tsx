@@ -388,6 +388,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               : engNoteEntry;
           }
 
+          const { error: custErr } = await supabase
             .from("customers")
             .update(customerUpdate)
             .eq("id", job.customer_id);
