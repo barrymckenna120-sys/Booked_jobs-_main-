@@ -1530,6 +1530,7 @@ export type Database = {
           job_id: string
           job_type: string | null
           labour_cost: number | null
+          line_items: Json
           notes: string | null
           organisation_id: string
           paid_at: string | null
@@ -1563,6 +1564,7 @@ export type Database = {
           job_id: string
           job_type?: string | null
           labour_cost?: number | null
+          line_items?: Json
           notes?: string | null
           organisation_id?: string
           paid_at?: string | null
@@ -1596,6 +1598,7 @@ export type Database = {
           job_id?: string
           job_type?: string | null
           labour_cost?: number | null
+          line_items?: Json
           notes?: string | null
           organisation_id?: string
           paid_at?: string | null

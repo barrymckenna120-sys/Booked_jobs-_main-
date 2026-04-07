@@ -1,0 +1,1 @@
+ALTER TABLE public.quotes ADD COLUMN line_items jsonb NOT NULL DEFAULT '[]'::jsonb;
