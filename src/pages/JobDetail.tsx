@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import QuotePanel from "@/components/jobs/QuotePanel";
+import ExtraWorkPendingCard from "@/components/jobs/ExtraWorkPendingCard";
 import MediaGallery from "@/components/media/MediaGallery";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
 import NoShowSheet from "@/components/engineer/NoShowSheet";
