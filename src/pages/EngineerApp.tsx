@@ -100,7 +100,7 @@ const EngineerApp = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>) => {
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, tagDate, ...rest } = patch;
 
     let notesUpdate = rest.notes;
     if (workDone) {
