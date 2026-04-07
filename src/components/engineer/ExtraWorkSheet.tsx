@@ -78,6 +78,20 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     if (!isValid) return;
     setSaving(true);
 
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("user_id", user?.id ?? "")
+      .maybeSingle();
+
+    const orgId = profile?.organisation_id;
+    if (!orgId) {
+      toast({ title: "Error", description: "Could not determine organisation.", variant: "destructive" });
+      setSaving(false);
+      return;
+    }
+
     const cleanItems = lineItems.map((li) => ({
       description: li.description.trim(),
       quantity: li.quantity,
@@ -89,6 +103,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       job_id: job.id,
       customer_id: job.customer_id,
       user_id: job.user_id,
+      organisation_id: orgId,
       description: "Extra work",
       total_amount: subtotal,
       status: "Pending Approval",
