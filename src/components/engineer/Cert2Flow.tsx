@@ -171,6 +171,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
       notes: {
         cert_type: "declaration_of_conformance",
         gprn,
+        work_carried_out: workCarriedOut === "Other" ? workCarriedOutOther.trim() : workCarriedOut,
         gas_type: gasType,
         appliance_installed: applianceInstalled === "Other" ? otherAppliance.trim() : applianceInstalled,
         flue_type: flueType,
