@@ -65,11 +65,19 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [followUpNote, setFollowUpNote] = useState("");
   const [officeNote, setOfficeNote] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagDate, setTagDate] = useState<string | null>(null);
+
+  const TAGS_NEEDING_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
+  const showTagDatePicker = selectedTags.some((t) => TAGS_NEEDING_DATE.includes(t));
 
   const toggleTag = (name: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
-    );
+    setSelectedTags((prev) => {
+      const next = prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name];
+      if (!next.some((t) => TAGS_NEEDING_DATE.includes(t))) {
+        setTagDate(null);
+      }
+      return next;
+    });
   };
 
   return (
