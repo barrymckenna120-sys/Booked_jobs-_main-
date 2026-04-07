@@ -323,6 +323,31 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
               </div>
               <ToggleGroup label="Gas Type" options={["Nat Gas", "LP Gas"]} value={gasType} onChange={setGasType} />
             </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Work Carried Out</p>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Type of Work</Label>
+                <Select value={workCarriedOut} onValueChange={setWorkCarriedOut}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select work type" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[950]">
+                    <SelectItem value="New Gas Connection">New Gas Connection</SelectItem>
+                    <SelectItem value="New Meter Installation">New Meter Installation</SelectItem>
+                    <SelectItem value="Meter Replacement">Meter Replacement</SelectItem>
+                    <SelectItem value="Gas Pipe Extension">Gas Pipe Extension</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {workCarriedOut === "Other" && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Please specify</Label>
+                  <Input value={workCarriedOutOther} onChange={(e) => setWorkCarriedOutOther(e.target.value)} placeholder="Describe the work carried out" className="h-11" />
+                </div>
+              )}
+            </div>
           </div>
         )}
 
