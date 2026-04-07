@@ -337,30 +337,33 @@ export const useEngineerJobs = () => {
             customerUpdate.job_tag_date = jobTagDate;
           }
 
-          // Append note entry
+          // Append engineer notes (parts, office note, tags)
           const dd = String(completedDate.getDate()).padStart(2, "0");
           const mm = String(completedDate.getMonth() + 1).padStart(2, "0");
           const yyyy = completedDate.getFullYear();
           const dateStr = `${dd}/${mm}/${yyyy}`;
-          let noteEntry = "";
-          if (workDone && workDone.trim()) {
-            noteEntry = `${dateStr} - ${engName}: ${workDone.trim()}`;
-          }
+          const engNoteParts: string[] = [];
+          if (parts && (parts as string).trim()) engNoteParts.push(`Parts: ${(parts as string).trim()}`);
+          if (officeNote && (officeNote as string).trim()) engNoteParts.push(`Office note: ${(officeNote as string).trim()}`);
           if (completionSelectedTags.length > 0) {
-            noteEntry = noteEntry
-              ? `${noteEntry}. Tags: ${completionSelectedTags.join(", ")}`
-              : `${dateStr} - ${engName}: Tags: ${completionSelectedTags.join(", ")}`;
+            let tagStr = `Tags: ${completionSelectedTags.join(", ")}`;
+            if (jobTagDate) {
+              const [y, m, d] = jobTagDate.split("-");
+              tagStr += ` (${d}/${m}/${y})`;
+            }
+            engNoteParts.push(tagStr);
           }
-          if (noteEntry && theJob?.customer_id) {
+          if (engNoteParts.length > 0 && theJob?.customer_id) {
             const { data: custData } = await supabase
               .from("customers")
-              .select("notes")
+              .select("engineer_notes")
               .eq("id", theJob.customer_id)
               .maybeSingle();
-            const existing = custData?.notes;
-            customerUpdate.notes = existing && existing.trim()
-              ? `${existing}\n${noteEntry}`
-              : noteEntry;
+            const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
+            const existingEng = custData?.engineer_notes;
+            customerUpdate.engineer_notes = existingEng && existingEng.trim()
+              ? `${existingEng}\n${engNoteEntry}`
+              : engNoteEntry;
           }
 
           if (theJob?.customer_id) {
