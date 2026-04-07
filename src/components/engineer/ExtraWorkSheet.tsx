@@ -78,11 +78,8 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     if (!isValid) return;
     setSaving(true);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
-      .single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
 
     const cleanItems = lineItems.map((li) => ({
       description: li.description.trim(),
@@ -91,16 +88,16 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       line_total: li.line_total,
     }));
 
-    const { error } = await supabase.from("quotes").insert({
-      job_id: job.id,
-      customer_id: job.customer_id,
+    // Match the exact pattern used by the office quote creation flow
+    const { error } = await supabase.from("quotes").insert([{
       user_id: job.user_id,
-      organisation_id: profile?.organisation_id,
+      customer_id: job.customer_id,
+      job_id: job.id,
       description: "Extra work",
       total_amount: subtotal,
       status: "Pending Approval",
       line_items: cleanItems,
-    } as any);
+    }] as any);
 
     setSaving(false);
     if (error) {
