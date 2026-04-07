@@ -350,7 +350,44 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             nextServiceDate = nsd.toISOString().slice(0, 10);
           }
 
-          const { error: custErr } = await supabase
+          const customerUpdate: Record<string, any> = {
+            last_service_date: completedDate.toISOString().slice(0, 10),
+            last_service_engineer: job.assigned_engineer || null,
+            service_status: "Up to Date",
+            renewal_stage: "not_contacted",
+          };
+
+          if (nextServiceDate) {
+            customerUpdate.next_service_due = nextServiceDate;
+          }
+
+          // Reflect job tags on customer
+          customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
+          const TAG_WITH_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
+          const matchedTag = completionSelectedTags.find((t: string) => TAG_WITH_DATE.includes(t));
+          if (matchedTag && tagDate) {
+            customerUpdate.job_tag = matchedTag;
+            customerUpdate.job_tag_date = tagDate;
+          }
+
+          // Append engineer notes with parts + office note
+          const engNoteParts: string[] = [];
+          if (parts && parts.trim()) engNoteParts.push(`Parts: ${parts.trim()}`);
+          if (officeNote && officeNote.trim()) engNoteParts.push(`Office note: ${officeNote.trim()}`);
+          if (engNoteParts.length > 0) {
+            const { data: custData } = await supabase
+              .from("customers")
+              .select("engineer_notes")
+              .eq("id", job.customer_id)
+              .maybeSingle();
+
+            const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
+            const existingEng = custData?.engineer_notes;
+            customerUpdate.engineer_notes = existingEng && existingEng.trim()
+              ? `${existingEng}\n${engNoteEntry}`
+              : engNoteEntry;
+          }
+
             .from("customers")
             .update(customerUpdate)
             .eq("id", job.customer_id);
