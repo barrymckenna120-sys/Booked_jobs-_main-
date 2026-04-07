@@ -425,7 +425,13 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
           <Button variant="outline" onClick={step === 0 ? onClose : () => setStep(step - 1)} className="flex-1 h-12 font-bold gap-1">
             <ArrowLeft className="w-4 h-4" /> {step === 0 ? "Cancel" : "Back"}
           </Button>
-          <Button onClick={() => setStep(step + 1)} className="flex-1 h-12 font-bold gap-1" style={{ backgroundColor: ACCENT }}>
+          <Button onClick={() => {
+            if (step === 1 && applianceInstalled === "Other" && !otherAppliance.trim()) {
+              toast({ title: "Please specify the appliance type", variant: "destructive" });
+              return;
+            }
+            setStep(step + 1);
+          }} className="flex-1 h-12 font-bold gap-1" style={{ backgroundColor: ACCENT }}>
             Next <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
