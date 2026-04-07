@@ -124,6 +124,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
 
   // Step 2 — Appliance + Safety Checks
   const [applianceInstalled, setApplianceInstalled] = useState("Central Heating");
+  const [otherAppliance, setOtherAppliance] = useState("");
   const [flueType, setFlueType] = useState("Open");
   const [pipeworkMaterial, setPipeworkMaterial] = useState("Copper");
   const [safetyChecks, setSafetyChecks] = useState({
