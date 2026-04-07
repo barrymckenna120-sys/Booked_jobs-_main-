@@ -79,9 +79,9 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     setSaving(true);
 
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('organisation_id')
-      .eq('id', (await supabase.auth.getUser()).data.user.id)
+      .from("profiles")
+      .select("organisation_id")
+      .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
       .single();
 
     const cleanItems = lineItems.map((li) => ({
@@ -101,15 +101,6 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       status: "Pending Approval",
       line_items: cleanItems,
     } as any);
-
-    setSaving(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Extra work submitted", description: `${getJobRef(job)} · €${subtotal.toFixed(2)}` });
-      onClose();
-    }
-  };
 
     setSaving(false);
     if (error) {
