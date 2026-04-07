@@ -96,6 +96,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       total_amount: subtotal,
       status: "Pending Approval",
       line_items: cleanItems,
+      job_type: "Extra Work",
     };
 
     console.log("[ExtraWork] cleanItems:", JSON.stringify(cleanItems));
