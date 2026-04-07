@@ -14,6 +14,7 @@ import UnallocatedJobs from "@/components/schedule/UnallocatedJobs";
 import AssignJobModal from "@/components/schedule/AssignJobModal";
 import JobSlotDrawer from "@/components/schedule/JobSlotDrawer";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
@@ -267,14 +268,14 @@ const Schedule = () => {
 
     const { error } = await supabase
       .from("service_calls")
-      .update({
+      .update(sanitizeServiceCallUpdatePayload({
         scheduled_date: format(date, "yyyy-MM-dd"),
         time_block: timeBlock,
         assigned_engineer: engineerName,
         assigned_engineer_id: matchedEngineer?.id || null,
         status: "Booked",
         needs_scheduling: false,
-      } as any)
+      } as any))
       .eq("id", jobId);
 
     if (error) {
@@ -291,7 +292,7 @@ const Schedule = () => {
   };
 
   const handleMarkComplete = async (jobId: string) => {
-    const { error } = await supabase.from("service_calls").update({ status: "Completed" }).eq("id", jobId);
+    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ status: "Completed" })).eq("id", jobId);
     if (!error) {
       logAudit({ action_type: "job_completed", entity_type: "service_call", entity_id: jobId, detail: "Job marked complete from schedule" });
       toast({ title: "Job completed" });
@@ -303,13 +304,13 @@ const Schedule = () => {
   const handleCancel = async (reason: string, note: string) => {
     const jobId = cancelModal.job?.id;
     if (!jobId) return;
-    const { error } = await supabase.from("service_calls").update({
+    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({
       status: "Cancelled",
       cancellation_reason: reason,
       cancellation_note: note || null,
       cancelled_at: new Date().toISOString(),
       cancelled_by: user?.id || null,
-    } as any).eq("id", jobId);
+    } as any)).eq("id", jobId);
     if (!error) {
       logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: jobId, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
       toast({ title: "Job cancelled" });
@@ -340,7 +341,7 @@ const Schedule = () => {
   const handleRemoveFromSchedule = async (job: ScheduleJob) => {
     const { data: archivedJob, error } = await supabase
       .from("service_calls")
-      .update({ status: "archived" } as any)
+      .update(sanitizeServiceCallUpdatePayload({ status: "archived" } as any))
       .eq("id", job.id)
       .select("id")
       .single();

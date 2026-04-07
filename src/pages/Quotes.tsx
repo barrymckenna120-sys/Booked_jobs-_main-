@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import {
   FileText, Plus, Clock, CheckCircle2, CreditCard, Send, Edit2, User,
   Loader2, X, MessageCircle, Bell, ArrowLeft, Calendar as CalendarIcon, Save
@@ -246,7 +247,7 @@ const Quotes = () => {
       scUpdate.assigned_engineer = eng?.name || null;
       scUpdate.assigned_engineer_id = editForm.engineerId;
     }
-    await supabase.from("service_calls").update(scUpdate).eq("id", selected.job_id);
+    await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(scUpdate)).eq("id", selected.job_id);
 
     setEditSaving(false);
     if (quoteErr) {
@@ -502,7 +503,7 @@ const Quotes = () => {
       status: "Draft",
     }] as any).select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!inner(id, job_type, assigned_engineer, scheduled_date, time_block)").single();
 
-    await supabase.from("service_calls").update({ has_quote: true } as any).eq("id", formJobId);
+    await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ has_quote: true } as any)).eq("id", formJobId);
     setSaving(false);
 
     if (error) {
@@ -604,13 +605,13 @@ const Quotes = () => {
     setScheduleSaving(true);
     const eng = engineers.find((e: any) => e.id === scheduleEngineer);
     const dateStr = format(scheduleDate!, "yyyy-MM-dd");
-    const { error } = await supabase.from("service_calls").update({
+    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({
       scheduled_date: dateStr,
       time_block: scheduleTime,
       assigned_engineer: eng?.name || null,
       assigned_engineer_id: scheduleEngineer,
       status: "Scheduled",
-    } as any).eq("id", selected.job_id);
+    } as any)).eq("id", selected.job_id);
     if (error) {
       toast({ title: "Error scheduling", description: error.message, variant: "destructive" });
     } else {

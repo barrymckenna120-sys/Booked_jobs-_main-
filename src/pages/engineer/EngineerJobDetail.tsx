@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import PaymentSheet from "@/components/engineer/PaymentSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
@@ -77,6 +78,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
   const [showPayment, setShowPayment] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
+  const [completeJobTagDate, setCompleteJobTagDate] = useState<string | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
 
@@ -160,7 +162,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
-        const jobUpdateSuccess = await updateJob({ status: "Completed", ...patchWithRevenue });
+        const jobUpdateSuccess = await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         if (!jobUpdateSuccess) {
           console.error("handlePaymentDone: updateJob failed for invoice flow, aborting edge function call");
           toast({ title: "Failed to complete job", description: "Please try again or contact the office.", variant: "destructive" });
@@ -179,7 +181,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         } else {
           const invoiceNumber = result?.invoice_number || null;
           if (invoiceNumber) {
-            await supabase.from("service_calls").update({ invoice_number: invoiceNumber }).eq("id", job.id);
+            await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
           }
           toast({ title: "Job completed & invoice created" });
         }
@@ -192,7 +194,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       setInvoiceLoading(false);
     } else {
       try {
-        await updateJob({ status: "Completed", ...patchWithRevenue });
+        await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Navigation to receipt screen is handled by updateJob on completion
       } catch (err) {
         console.error("handlePaymentDone cash/card flow error:", err);
@@ -200,11 +202,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       }
     }
     setCompleteData(null);
+    setCompleteJobTagDate(null);
   };
 
-  const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
+  const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
     if (!job) return false;
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, tagDate, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
@@ -222,12 +225,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       notesUpdate = `Cancelled: ${cancelReason}${cancelNote ? `\nNote: ${cancelNote}` : ""}`;
     }
 
-    const dbPatch: Record<string, any> = { ...rest };
-    delete dbPatch.tagDate;
-    delete dbPatch.selectedTags;
-    delete dbPatch.selectedJobType;
-    delete dbPatch.paymentMethod;
-    delete dbPatch.confirmedRevenue;
+    const jobTagDate = options?.jobTagDate ?? null;
+    const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
@@ -276,7 +275,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       }
     }
 
-    const { error } = await supabase.from("service_calls").update(dbPatch).eq("id", job.id);
+    const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
+    const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
       console.error("updateJob: service_calls update failed:", error.message, error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -370,9 +370,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
           const TAG_WITH_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
           const matchedTag = completionSelectedTags.find((t: string) => TAG_WITH_DATE.includes(t));
-          if (matchedTag && tagDate) {
+          if (matchedTag && jobTagDate) {
             customerUpdate.job_tag = matchedTag;
-            customerUpdate.job_tag_date = tagDate;
+            customerUpdate.job_tag_date = jobTagDate;
           }
 
           // Append engineer notes with parts + office note
@@ -435,7 +435,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
     const { error } = await supabase
       .from("service_calls")
-      .update(patch as any)
+      .update(sanitizeServiceCallUpdatePayload(patch as any))
       .eq("id", job.id);
     setActionLoading(false);
     if (error) {
@@ -880,14 +880,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           job={job}
           customer={customer}
           onClose={() => setShowComplete(false)}
-          onDone={(data: any) => { setCompleteData(data); setShowComplete(false); setShowPayment(true); }}
+          onDone={(data: any, jobTagDate: string | null) => { setCompleteData(data); setCompleteJobTagDate(jobTagDate); setShowComplete(false); setShowPayment(true); }}
         />
       )}
       {showPayment && (
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowPayment(false); setCompleteData(null); }}
+          onClose={() => { setShowPayment(false); setCompleteData(null); setCompleteJobTagDate(null); }}
           onDone={handlePaymentDone}
         />
       )}

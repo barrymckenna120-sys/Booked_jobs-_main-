@@ -13,6 +13,7 @@ import SendQuoteModal from "./SendQuoteModal";
 import PaymentLinkForm from "./PaymentLinkForm";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 type Quote = {
   id: string;
@@ -129,7 +130,7 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
     } else {
       result = await supabase.from("quotes").insert([payload] as any).select().maybeSingle();
       // Update has_quote flag
-      await supabase.from("service_calls").update({ has_quote: true } as any).eq("id", jobId);
+      await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ has_quote: true } as any)).eq("id", jobId);
     }
 
     setSaving(false);

@@ -6,6 +6,7 @@ import { Inbox, Eye, CheckCircle2, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import IncomingJobCard from "@/components/incoming/IncomingJobCard";
 import JobReviewPanel from "@/components/incoming/JobReviewPanel";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 type IncomingJob = {
   id: string;
@@ -132,7 +133,7 @@ const IncomingJobs = () => {
 
     const { error } = await supabase
       .from("service_calls")
-      .update({ incoming_status: newStatus })
+      .update(sanitizeServiceCallUpdatePayload({ incoming_status: newStatus }))
       .eq("id", jobId);
 
     if (error) {

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 type Props = {
   open: boolean;
@@ -65,7 +66,7 @@ const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, 
       // Update job status to parts_arrived
       await supabase
         .from("service_calls")
-        .update({ status: "parts_arrived" } as any)
+        .update(sanitizeServiceCallUpdatePayload({ status: "parts_arrived" } as any))
         .eq("id", jobId);
 
       toast({ title: `WhatsApp sent to ${customerName} ✅`, duration: 4000 });

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { formatDateIE } from "@/lib/utils";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -175,7 +176,7 @@ const PartsNeededSection = ({ job, customerId, notes, onStatusChange, onPartsArr
 
       await supabase
         .from("service_calls")
-        .update({ status: "parts_ordered" } as any)
+        .update(sanitizeServiceCallUpdatePayload({ status: "parts_ordered" } as any))
         .eq("id", job.id);
 
       // Log a note
@@ -380,7 +381,7 @@ const JobDetail = () => {
     setActionLoading(true);
     const { error } = await supabase
       .from("service_calls")
-      .update({ status: "Completed", completed_at: new Date().toISOString(), notes: engineerNotes || job.notes } as any)
+      .update(sanitizeServiceCallUpdatePayload({ status: "Completed", completed_at: new Date().toISOString(), notes: engineerNotes || job.notes } as any))
       .eq("id", job.id);
     setActionLoading(false);
     console.log("Mark complete result:", error);
@@ -403,7 +404,7 @@ const JobDetail = () => {
     }
     const { error } = await supabase
       .from("service_calls")
-      .update(patch as any)
+      .update(sanitizeServiceCallUpdatePayload(patch as any))
       .eq("id", job.id);
     setActionLoading(false);
     if (error) {
@@ -420,13 +421,13 @@ const JobDetail = () => {
     if (!job) return;
     const { error } = await supabase
       .from("service_calls")
-      .update({
+      .update(sanitizeServiceCallUpdatePayload({
         status: "Cancelled",
         cancellation_reason: reason,
         cancellation_note: note || null,
         cancelled_at: new Date().toISOString(),
         cancelled_by: user?.id || null,
-      } as any)
+      } as any))
       .eq("id", job.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -445,10 +446,10 @@ const JobDetail = () => {
     setReassignLoading(true);
     const { error } = await supabase
       .from("service_calls")
-      .update({
+      .update(sanitizeServiceCallUpdatePayload({
         assigned_engineer_id: engineerId,
         assigned_engineer: engineer.name,
-      } as any)
+      } as any))
       .eq("id", job.id);
     setReassignLoading(false);
     if (error) {
@@ -798,7 +799,7 @@ const JobDetail = () => {
               className="w-full h-[48px] font-bold gap-2"
               onClick={async () => {
                 setActionLoading(true);
-                const { data: startData, error: startError } = await supabase.from("service_calls").update({ status: "In Progress" } as any).eq("id", job.id).select();
+                const { data: startData, error: startError } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ status: "In Progress" } as any)).eq("id", job.id).select();
                 console.log("Status update result:", startData, startError);
                 if (startError) {
                   toast({ title: "Error", description: startError.message, variant: "destructive" });
@@ -941,7 +942,7 @@ const JobDetail = () => {
         loading={actionLoading}
         onConfirm={async (reason, notes) => {
           setActionLoading(true);
-          await supabase.from("service_calls").update({ status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` } as any).eq("id", job.id);
+          await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` } as any)).eq("id", job.id);
           logAudit({ action_type: "job_no_show", entity_type: "service_call", entity_id: job.id, detail: `No show: ${reason}`, metadata: { reason, notes } });
           toast({ title: "Job marked as No Show" });
           setActionLoading(false);
@@ -955,7 +956,7 @@ const JobDetail = () => {
         loading={actionLoading}
         onConfirm={async (notes) => {
           setActionLoading(true);
-          await supabase.from("service_calls").update({ status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" } as any).eq("id", job.id);
+          await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" } as any)).eq("id", job.id);
           logAudit({ action_type: "job_parts_needed", entity_type: "service_call", entity_id: job.id, detail: "Parts needed", metadata: { notes } });
           toast({ title: "Job marked as Parts Needed" });
           setActionLoading(false);

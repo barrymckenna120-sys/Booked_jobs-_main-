@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle, MessageSquare } from "lucide-react";
 import MediaGallery from "@/components/media/MediaGallery";
+import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 
 type Job = {
   id: string;
@@ -103,7 +104,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     }
     setAssigning(true);
     const matchedEng = engineers.find((e: any) => e.name === assignEngineer);
-    await supabase.from("service_calls").update({
+    await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({
       assigned_engineer: assignEngineer,
       assigned_engineer_id: matchedEng?.id || null,
       scheduled_date: assignDate,
@@ -113,7 +114,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
       reviewed_by: user?.email,
       reviewed_at: new Date().toISOString(),
       notes: notes || null,
-    } as any).eq("id", job.id);
+    } as any)).eq("id", job.id);
     setAssigning(false);
     logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: job.id, detail: `Incoming job assigned to ${assignEngineer} on ${assignDate}` });
     supabase.functions.invoke('send-booking-confirmation', {
@@ -165,11 +166,11 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   };
 
   const handleReject = async () => {
-    await supabase.from("service_calls").update({
+    await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({
       incoming_status: "Rejected",
       reviewed_by: user?.email,
       reviewed_at: new Date().toISOString(),
-    } as any).eq("id", job.id);
+    } as any)).eq("id", job.id);
     logAudit({ action_type: "job_rejected", entity_type: "service_call", entity_id: job.id, detail: "Incoming job rejected" });
     toast({ title: "Job rejected" });
     onUpdated();
