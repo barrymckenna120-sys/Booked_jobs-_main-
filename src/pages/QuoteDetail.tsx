@@ -194,7 +194,7 @@ const QuoteDetail = () => {
       </Card>
 
       {/* Line Items */}
-      {lineItems.length > 0 && (
+      {displayLineItems.length > 0 && (
         <Card className="mb-4">
           <CardContent className="p-0">
             <table className="w-full text-sm">
@@ -208,7 +208,7 @@ const QuoteDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((li: any, i: number) => (
+                {displayLineItems.map((li: any, i: number) => (
                   <tr key={li.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-2.5 font-medium">{li.description}</td>
