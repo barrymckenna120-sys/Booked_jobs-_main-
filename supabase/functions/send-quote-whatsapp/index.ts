@@ -62,7 +62,7 @@ serve(async (req) => {
     const refNumber = quote_number || `Q-${quote_id.substring(0, 4).toUpperCase()}`;
     const deposit = Number(deposit_amount || 0);
 
-    const acceptUrl = `https://karlsgas.bookedjobs.ie/quote/${refNumber}`;
+    const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${refNumber}`;
 
     let message = `Hi ${firstName},
 
