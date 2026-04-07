@@ -134,7 +134,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, address, eircode, boiler_make_model")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -304,18 +304,18 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
 };
 
 /* ── STEP 2: Job Details ───────────────────────────────── */
-const StepJob = ({ prefilledType, prefilledBoiler, onNext, onBack }: { prefilledType?: string; prefilledBoiler?: string; onNext: (j: any) => void; onBack: () => void }) => {
+const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, onBack }: { prefilledType?: string; prefilledBoiler?: string; prefilledCustomer?: any; onNext: (j: any) => void; onBack: () => void }) => {
   const { user } = useAuth();
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState(prefilledBoiler || "");
   const [jobTypeError, setJobTypeError] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(prefilledCustomer?.email || "");
   const [jobIssue, setJobIssue] = useState("");
   const [extraDetails, setExtraDetails] = useState("");
-  const [boilerType, setBoilerType] = useState("");
+  const [boilerType, setBoilerType] = useState(prefilledCustomer?.boiler_type || "");
   const [boilerErrorCode, setBoilerErrorCode] = useState("");
-  const [areaCode, setAreaCode] = useState("");
+  const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
   const [ownerOrTenant, setOwnerOrTenant] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
@@ -1121,7 +1121,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 0 ? (
             <StepCustomer prefilledCustomer={prefilledCustomer} onNext={handleCustomer} />
           ) : step === 1 ? (
-            <StepJob prefilledType={prefilledJobType} prefilledBoiler={jobData.customer?.boiler_make_model || jobData.customer?.boilerType || ""} onNext={handleJob} onBack={() => setStep(0)} />
+            <StepJob prefilledType={prefilledJobType} prefilledBoiler={jobData.customer?.boiler_make_model || jobData.customer?.boilerType || ""} prefilledCustomer={jobData.customer} onNext={handleJob} onBack={() => setStep(0)} />
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
