@@ -137,9 +137,23 @@ const QuoteDetail = () => {
 
   const q: any = quote;
   const customer: any = q.customers;
-  const subtotal = lineItems.reduce((s: number, li: any) => s + Number(li.line_total || 0), 0);
+
+  // Use quote_line_items table rows if available, otherwise fall back to JSONB line_items column
+  const displayLineItems = lineItems.length > 0
+    ? lineItems
+    : (Array.isArray(q.line_items) ? q.line_items.map((li: any, i: number) => ({
+        id: `json-${i}`,
+        description: li.description,
+        qty: li.quantity ?? li.qty ?? 1,
+        unit_price: li.unit_price,
+        line_total: li.line_total ?? (li.quantity ?? li.qty ?? 1) * li.unit_price,
+        sort_order: i,
+      })) : []);
+
+  const subtotal = displayLineItems.reduce((s: number, li: any) => s + Number(li.line_total || 0), 0);
+  const effectiveTotal = subtotal > 0 ? subtotal : Number(q.total_amount || 0);
   const discountVal = Number(q.discount || 0);
-  const afterDiscount = Math.max(subtotal - discountVal, 0);
+  const afterDiscount = Math.max(effectiveTotal - discountVal, 0);
   const vatAmt = q.vat_enabled ? afterDiscount * 0.23 : 0;
   const total = Math.max(afterDiscount + vatAmt, 0);
   const depositVal = Number(q.deposit || 0);
