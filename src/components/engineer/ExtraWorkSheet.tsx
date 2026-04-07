@@ -78,19 +78,11 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
     if (!isValid) return;
     setSaving(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user?.id ?? "")
-      .maybeSingle();
-
-    const orgId = profile?.organisation_id;
-    if (!orgId) {
-      toast({ title: "Error", description: "Could not determine organisation.", variant: "destructive" });
-      setSaving(false);
-      return;
-    }
+      .from('profiles')
+      .select('organisation_id')
+      .eq('id', (await supabase.auth.getUser()).data.user.id)
+      .single();
 
     const cleanItems = lineItems.map((li) => ({
       description: li.description.trim(),
@@ -103,12 +95,21 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
       job_id: job.id,
       customer_id: job.customer_id,
       user_id: job.user_id,
-      organisation_id: orgId,
+      organisation_id: profile?.organisation_id,
       description: "Extra work",
       total_amount: subtotal,
       status: "Pending Approval",
       line_items: cleanItems,
     } as any);
+
+    setSaving(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Extra work submitted", description: `${getJobRef(job)} · €${subtotal.toFixed(2)}` });
+      onClose();
+    }
+  };
 
     setSaving(false);
     if (error) {
