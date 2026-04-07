@@ -14,6 +14,7 @@ const SERVICE_CALL_UI_ONLY_KEYS = [
   "officeNote",
   "cancelReason",
   "cancelNote",
+  "job_tags",
 ];
 
 // DEBUG: global store for last raw payload (temporary)
