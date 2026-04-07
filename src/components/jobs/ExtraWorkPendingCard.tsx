@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wrench } from "lucide-react";
@@ -19,6 +19,13 @@ type PendingQuote = {
   total_amount: number;
   line_items: LineItem[];
   created_at: string;
+  customer_id: string;
+  user_id: string;
+  quote_number: string | null;
+  description: string;
+  deposit_amount: number | null;
+  deposit: number | null;
+  pdf_url: string | null;
 };
 
 type OriginalQuote = {
@@ -35,10 +42,10 @@ interface Props {
 const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
   const { user } = useAuth();
   const { role } = useUserRole(user);
-  const { toast } = useToast();
   const [pendingQuotes, setPendingQuotes] = useState<PendingQuote[]>([]);
   const [originalQuote, setOriginalQuote] = useState<OriginalQuote | null>(null);
   const [loading, setLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -47,14 +54,12 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
   const fetchData = async () => {
     setLoading(true);
 
-    // Fetch pending approval quotes with line_items
     const { data: pending } = await supabase
       .from("quotes")
-      .select("id, total_amount, line_items, created_at")
+      .select("id, total_amount, line_items, created_at, customer_id, user_id, quote_number, description, deposit_amount, deposit, pdf_url")
       .eq("job_id", jobId)
       .eq("status", "Pending Approval");
 
-    // Filter to only those with non-empty line_items arrays
     const extraWorkQuotes = (pending || []).filter((q: any) => {
       const items = q.line_items;
       return Array.isArray(items) && items.length > 0;
@@ -62,7 +67,6 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
 
     setPendingQuotes(extraWorkQuotes);
 
-    // Fetch original approved/accepted/converted quote
     if (extraWorkQuotes.length > 0) {
       const { data: orig } = await supabase
         .from("quotes")
@@ -79,6 +83,78 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
     setLoading(false);
   };
 
+  const handleApprove = async (pq: PendingQuote, balanceDue: number) => {
+    setApprovingId(pq.id);
+    try {
+      // Step 1: Update quote status to Accepted and set total_amount to balance due
+      const { error: updateError } = await supabase
+        .from("quotes")
+        .update({
+          status: "Accepted",
+          accepted_at: new Date().toISOString(),
+          total_amount: balanceDue,
+          balance_due: balanceDue,
+        })
+        .eq("id", pq.id);
+
+      if (updateError) throw new Error(`Failed to update quote: ${updateError.message}`);
+
+      // Step 2: Call accept-quote edge function to generate Stripe payment link
+      const { data: acceptData, error: acceptError } = await supabase.functions.invoke("accept-quote", {
+        body: { quote_id: pq.id },
+      });
+
+      if (acceptError) throw new Error(`Accept quote failed: ${acceptError.message}`);
+      if (acceptData && !acceptData.success) throw new Error(acceptData.error || "Accept quote returned an error");
+
+      // Step 3: Get customer info for WhatsApp send
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("name, phone")
+        .eq("id", pq.customer_id)
+        .maybeSingle();
+
+      const { data: settings } = await supabase
+        .from("settings" as any)
+        .select("business_phone, business_name")
+        .eq("user_id", pq.user_id)
+        .maybeSingle() as any;
+
+      if (customer?.phone) {
+        const { data: whatsappData, error: whatsappError } = await supabase.functions.invoke("send-quote-whatsapp", {
+          body: {
+            quote_id: pq.id,
+            customer_name: customer.name,
+            mobile_number: customer.phone,
+            job_description: pq.description || "Extra Work",
+            quote_amount: balanceDue,
+            deposit_amount: 0,
+            business_phone: settings?.business_phone || "",
+            business_name: settings?.business_name || "",
+            pdf_url: pq.pdf_url || "",
+            quote_number: pq.quote_number || "",
+            customer_id: pq.customer_id,
+            sent_by_user_id: user?.id || pq.user_id,
+          },
+        });
+
+        if (whatsappError) {
+          console.error("WhatsApp send error:", whatsappError);
+          // Non-blocking — quote is already approved
+        }
+      }
+
+      toast.success("Invoice resent successfully");
+      onQuoteChange();
+      await fetchData();
+    } catch (err: any) {
+      console.error("Approve error:", err);
+      toast.error("Approval failed", { description: err.message || "Something went wrong" });
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
   if (loading) return null;
   if (pendingQuotes.length === 0) return null;
 
@@ -93,6 +169,7 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
         const newTotal = originalTotal + extraSubtotal;
         const balanceDue = newTotal - depositPaid;
         const items: LineItem[] = Array.isArray(pq.line_items) ? pq.line_items : [];
+        const isApproving = approvingId === pq.id;
 
         return (
           <Card key={pq.id} className="border-l-4 border-amber-500">
@@ -161,11 +238,17 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
               {isOfficeOrAdmin && (
                 <Button
                   className="w-full h-12 text-base font-extrabold gap-2"
-                  onClick={() => {
-                    toast({ title: "Coming soon", description: "Approve & resend invoice will be wired in the next update." });
-                  }}
+                  disabled={isApproving}
+                  onClick={() => handleApprove(pq, balanceDue)}
                 >
-                  ✅ Approve & Resend Invoice
+                  {isApproving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Processing…
+                    </>
+                  ) : (
+                    "✅ Approve & Resend Invoice"
+                  )}
                 </Button>
               )}
             </CardContent>
