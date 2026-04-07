@@ -185,6 +185,7 @@ const Schedule = () => {
         owner_or_tenant: j.owner_or_tenant || null,
         job_issue: j.job_issue || null,
         access_notes: j.access_notes || null,
+        extra_details: j.extra_details || null,
         created_at: j.created_at,
         job_reference: j.job_reference || null,
       })) as ScheduleJob[];
