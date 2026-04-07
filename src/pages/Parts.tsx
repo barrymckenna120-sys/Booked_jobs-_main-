@@ -30,7 +30,7 @@ const Parts = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, status, notes, parts_priority, parts_logged_at, assigned_engineer, scheduled_date, follow_up_detail, customers(name, address, phone)")
+        .select("id, job_reference, status, notes, parts_priority, parts_logged_at, assigned_engineer, scheduled_date, follow_up_detail, customers(name, address, phone)")
         .in("status", ["parts_needed", "parts_ordered"])
         .order("parts_logged_at", { ascending: false });
       return data || [];
