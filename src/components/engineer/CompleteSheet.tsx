@@ -189,11 +189,15 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
               {showTagDatePicker && (
                 <div className="pt-2">
                   <Label className="text-[11px] font-medium text-muted-foreground mb-1 block">Tag date *</Label>
-                  <Input
+                  <input
                     type="date"
-                    value={jobTagDate || ""}
-                    onChange={(e) => setJobTagDate(e.target.value || null)}
-                    className="w-full"
+                    value={jobTagDate ?? ""}
+                    min={format(new Date(), "yyyy-MM-dd")}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setJobTagDate(val || null);
+                    }}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                 </div>
               )}
