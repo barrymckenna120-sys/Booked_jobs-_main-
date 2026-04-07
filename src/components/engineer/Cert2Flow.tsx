@@ -124,6 +124,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
 
   // Step 2 — Appliance + Safety Checks
   const [applianceInstalled, setApplianceInstalled] = useState("Central Heating");
+  const [otherAppliance, setOtherAppliance] = useState("");
   const [flueType, setFlueType] = useState("Open");
   const [pipeworkMaterial, setPipeworkMaterial] = useState("Copper");
   const [safetyChecks, setSafetyChecks] = useState({
@@ -168,7 +169,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
         cert_type: "declaration_of_conformance",
         gprn,
         gas_type: gasType,
-        appliance_installed: applianceInstalled,
+        appliance_installed: applianceInstalled === "Other" ? otherAppliance.trim() : applianceInstalled,
         flue_type: flueType,
         pipework_material: pipeworkMaterial,
         trainee_number: traineeNumber,
@@ -328,6 +329,12 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
             <h2 className="text-lg font-extrabold text-foreground">Appliance & Safety Checks</h2>
 
             <ToggleGroup label="Appliance Installed" options={["Central Heating", "Other"]} value={applianceInstalled} onChange={setApplianceInstalled} />
+            {applianceInstalled === "Other" && (
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Please specify appliance</Label>
+                <Input value={otherAppliance} onChange={(e) => setOtherAppliance(e.target.value)} placeholder="e.g. Gas fire, Cooker" className="h-11" />
+              </div>
+            )}
             <ToggleGroup label="Flue Type" options={["Open", "R.Seal"]} value={flueType} onChange={setFlueType} />
             <ToggleGroup label="Pipework Material" options={["Copper", "CSST", "Other"]} value={pipeworkMaterial} onChange={setPipeworkMaterial} />
 
@@ -418,7 +425,13 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
           <Button variant="outline" onClick={step === 0 ? onClose : () => setStep(step - 1)} className="flex-1 h-12 font-bold gap-1">
             <ArrowLeft className="w-4 h-4" /> {step === 0 ? "Cancel" : "Back"}
           </Button>
-          <Button onClick={() => setStep(step + 1)} className="flex-1 h-12 font-bold gap-1" style={{ backgroundColor: ACCENT }}>
+          <Button onClick={() => {
+            if (step === 1 && applianceInstalled === "Other" && !otherAppliance.trim()) {
+              toast({ title: "Please specify the appliance type", variant: "destructive" });
+              return;
+            }
+            setStep(step + 1);
+          }} className="flex-1 h-12 font-bold gap-1" style={{ backgroundColor: ACCENT }}>
             Next <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
