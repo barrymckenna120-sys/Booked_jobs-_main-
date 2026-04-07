@@ -97,6 +97,7 @@ export type ScheduleJob = {
   owner_or_tenant?: string | null;
   job_issue?: string | null;
   access_notes?: string | null;
+  extra_details?: string | null;
   created_at: string;
   job_reference?: string | null;
 };
