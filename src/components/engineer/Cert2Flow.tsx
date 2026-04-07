@@ -169,7 +169,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
         cert_type: "declaration_of_conformance",
         gprn,
         gas_type: gasType,
-        appliance_installed: applianceInstalled,
+        appliance_installed: applianceInstalled === "Other" ? otherAppliance.trim() : applianceInstalled,
         flue_type: flueType,
         pipework_material: pipeworkMaterial,
         trainee_number: traineeNumber,
