@@ -339,8 +339,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           const yyyy = completedDate.getFullYear();
           const dateStr = `${dd}/${mm}/${yyyy}`;
 
-          const engName = engineerInfo.name || job.assigned_engineer || "Engineer";
-
           // Calculate next_service_due from nextService dropdown
           let nextServiceDate: string | null = null;
           if (nextService) {
@@ -350,24 +348,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             else if (nextService === "18 months") nsd.setMonth(nsd.getMonth() + 18);
             else if (nextService === "2 years") nsd.setFullYear(nsd.getFullYear() + 2);
             nextServiceDate = nsd.toISOString().slice(0, 10);
-          }
-
-          // Append engineer notes with parts + office note (never write to customer_notes)
-          const engNoteParts: string[] = [];
-          if (parts && parts.trim()) engNoteParts.push(`Parts: ${parts.trim()}`);
-          if (officeNote && officeNote.trim()) engNoteParts.push(`Office note: ${officeNote.trim()}`);
-          if (engNoteParts.length > 0) {
-            const { data: custData } = await supabase
-              .from("customers")
-              .select("engineer_notes")
-              .eq("id", job.customer_id)
-              .maybeSingle();
-
-            const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
-            const existingEng = custData?.engineer_notes;
-            customerUpdate.engineer_notes = existingEng && existingEng.trim()
-              ? `${existingEng}\n${engNoteEntry}`
-              : engNoteEntry;
           }
 
           const { error: custErr } = await supabase
