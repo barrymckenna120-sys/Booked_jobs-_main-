@@ -454,6 +454,14 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
             <ArrowLeft className="w-4 h-4" /> {step === 0 ? "Cancel" : "Back"}
           </Button>
           <Button onClick={() => {
+            if (step === 0 && !workCarriedOut) {
+              toast({ title: "Please select the type of work carried out", variant: "destructive" });
+              return;
+            }
+            if (step === 0 && workCarriedOut === "Other" && !workCarriedOutOther.trim()) {
+              toast({ title: "Please specify the work carried out", variant: "destructive" });
+              return;
+            }
             if (step === 1 && applianceInstalled === "Other" && !otherAppliance.trim()) {
               toast({ title: "Please specify the appliance type", variant: "destructive" });
               return;
