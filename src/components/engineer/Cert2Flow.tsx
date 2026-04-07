@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,8 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
 
   // Step 1 — Pre-filled details (read-only) + Premises & Supply
   const [gprn, setGprn] = useState("");
+  const [workCarriedOut, setWorkCarriedOut] = useState("");
+  const [workCarriedOutOther, setWorkCarriedOutOther] = useState("");
   const [gasType, setGasType] = useState("Nat Gas");
 
   // Step 2 — Appliance + Safety Checks
@@ -168,6 +171,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
       notes: {
         cert_type: "declaration_of_conformance",
         gprn,
+        work_carried_out: workCarriedOut === "Other" ? workCarriedOutOther.trim() : workCarriedOut,
         gas_type: gasType,
         appliance_installed: applianceInstalled === "Other" ? otherAppliance.trim() : applianceInstalled,
         flue_type: flueType,
@@ -320,6 +324,31 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
               </div>
               <ToggleGroup label="Gas Type" options={["Nat Gas", "LP Gas"]} value={gasType} onChange={setGasType} />
             </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Work Carried Out</p>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Type of Work</Label>
+                <Select value={workCarriedOut} onValueChange={setWorkCarriedOut}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select work type" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[950]">
+                    <SelectItem value="New Gas Connection">New Gas Connection</SelectItem>
+                    <SelectItem value="New Meter Installation">New Meter Installation</SelectItem>
+                    <SelectItem value="Meter Replacement">Meter Replacement</SelectItem>
+                    <SelectItem value="Gas Pipe Extension">Gas Pipe Extension</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {workCarriedOut === "Other" && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Please specify</Label>
+                  <Input value={workCarriedOutOther} onChange={(e) => setWorkCarriedOutOther(e.target.value)} placeholder="Describe the work carried out" className="h-11" />
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -426,6 +455,14 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
             <ArrowLeft className="w-4 h-4" /> {step === 0 ? "Cancel" : "Back"}
           </Button>
           <Button onClick={() => {
+            if (step === 0 && !workCarriedOut) {
+              toast({ title: "Please select the type of work carried out", variant: "destructive" });
+              return;
+            }
+            if (step === 0 && workCarriedOut === "Other" && !workCarriedOutOther.trim()) {
+              toast({ title: "Please specify the work carried out", variant: "destructive" });
+              return;
+            }
             if (step === 1 && applianceInstalled === "Other" && !otherAppliance.trim()) {
               toast({ title: "Please specify the appliance type", variant: "destructive" });
               return;
