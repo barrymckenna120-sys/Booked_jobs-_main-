@@ -108,11 +108,14 @@ const PartsPanel = () => {
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>
-                  <button
-                    className="font-bold text-foreground hover:text-primary transition-colors text-left"
-                    onClick={() => navigate(`/jobs/${job.id}`)}
-                  >
-                    {customer?.name || "Unknown"}
+                   {job.job_reference && (
+                     <p className="text-xs font-bold text-primary">{job.job_reference}</p>
+                   )}
+                   <button
+                     className="font-bold text-foreground hover:text-primary transition-colors text-left"
+                     onClick={() => navigate(`/jobs/${job.id}`)}
+                   >
+                     {customer?.name || "Unknown"}
                   </button>
                   <p className="text-sm text-muted-foreground">{customer?.phone || "—"}</p>
                   <button
