@@ -204,7 +204,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const updateJob = async (patch: Record<string, any>): Promise<boolean> => {
     if (!job) return false;
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, tagDate, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
     let notesUpdate = rest.notes;
@@ -376,9 +376,16 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             customerUpdate.next_service_due = nextServiceDate;
           }
 
-          // Reflect job tags on customer (under_warranty)
+          // Reflect job tags on customer (under_warranty + job_tag/job_tag_date)
           if (patch.status === "Completed") {
             customerUpdate.under_warranty = completionSelectedTags.includes("Under Warranty");
+            // Write the first matching tag and its date to customer record
+            const TAG_WITH_DATE = ["New Boiler Fitted", "New Boiler Soon", "Under Warranty"];
+            const matchedTag = completionSelectedTags.find((t: string) => TAG_WITH_DATE.includes(t));
+            if (matchedTag && tagDate) {
+              customerUpdate.job_tag = matchedTag;
+              customerUpdate.job_tag_date = tagDate;
+            }
           }
 
           if (noteEntry) {

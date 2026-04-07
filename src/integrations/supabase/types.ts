@@ -425,6 +425,8 @@ export type Database = {
           engineer_notes: string | null
           id: string
           is_archived: boolean
+          job_tag: string | null
+          job_tag_date: string | null
           last_message_sent_at: string | null
           last_message_type: string | null
           last_reminder_response: string | null
@@ -466,6 +468,8 @@ export type Database = {
           engineer_notes?: string | null
           id?: string
           is_archived?: boolean
+          job_tag?: string | null
+          job_tag_date?: string | null
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
@@ -507,6 +511,8 @@ export type Database = {
           engineer_notes?: string | null
           id?: string
           is_archived?: boolean
+          job_tag?: string | null
+          job_tag_date?: string | null
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null

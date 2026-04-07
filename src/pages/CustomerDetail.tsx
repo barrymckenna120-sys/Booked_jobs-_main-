@@ -407,6 +407,19 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Notes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Job Tag Badge */}
+            {form.job_tag && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs font-bold bg-primary/10 text-primary">
+                  {form.job_tag}
+                </Badge>
+                {form.job_tag_date && (
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {format(parseISO(form.job_tag_date + "T00:00:00"), "dd/MM/yyyy")}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Access Notes</Label>
               <textarea
