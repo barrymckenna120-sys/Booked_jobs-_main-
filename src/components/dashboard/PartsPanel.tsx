@@ -22,7 +22,7 @@ const PartsPanel = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, customer_id, status, parts_notes, parts_status, completed_at, scheduled_date, assigned_engineer, parts_priority, parts_logged_at, follow_up_detail, customers(name, phone, address)")
+        .select("id, customer_id, status, job_reference, parts_notes, parts_status, completed_at, scheduled_date, assigned_engineer, parts_priority, parts_logged_at, follow_up_detail, customers(name, phone, address)")
         .not("parts_status", "is", null)
         .not("parts_status", "eq", "Fitted")
         .order("created_at", { ascending: false });
