@@ -7,10 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, CalendarIcon } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CheckCircle2 } from "lucide-react";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const TAG_OPTIONS = [
@@ -191,23 +189,12 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
               {showTagDatePicker && (
                 <div className="pt-2">
                   <Label className="text-[11px] font-medium text-muted-foreground mb-1 block">Tag date *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !tagDate && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {tagDate ? format(parseISO(tagDate + "T00:00:00"), "dd/MM/yyyy") : "Select date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[600]" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={tagDate ? parseISO(tagDate + "T00:00:00") : undefined}
-                        onSelect={(d) => setTagDate(d ? format(d, "yyyy-MM-dd") : null)}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Input
+                    type="date"
+                    value={tagDate || ""}
+                    onChange={(e) => setTagDate(e.target.value || null)}
+                    className="w-full"
+                  />
                 </div>
               )}
             </div>
