@@ -12,7 +12,10 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import CustomerHistoryPanel from "@/components/customer/CustomerHistoryPanel";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import ServiceHistory from "@/components/customer/ServiceHistory";
@@ -278,7 +281,26 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <PlainField label="Installation Date" field="boiler_installation_date" type="date" value={form.boiler_installation_date} />
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Installation Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.boiler_installation_date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.boiler_installation_date ? formatDisplayDate(form.boiler_installation_date) : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.boiler_installation_date ? parseISO(form.boiler_installation_date + "T00:00:00") : undefined}
+                    onSelect={(date) => handleChange("boiler_installation_date", date ? format(date, "yyyy-MM-dd") : null)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Under Warranty</Label>
               <Select value={form.under_warranty === true ? "Yes" : form.under_warranty === false ? "No" : ""} onValueChange={(v) => handleChange("under_warranty", v === "Yes")}>
@@ -346,7 +368,26 @@ const CustomerDetail = () => {
               </Select>
             </div>
             <PlainField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} />
-            <PlainField label="Customer Since" field="customer_since" type="date" value={form.customer_since} />
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Customer Since</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.customer_since && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.customer_since ? formatDisplayDate(form.customer_since) : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.customer_since ? parseISO(form.customer_since + "T00:00:00") : undefined}
+                    onSelect={(date) => handleChange("customer_since", date ? format(date, "yyyy-MM-dd") : null)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardContent>
         </Card>
 
