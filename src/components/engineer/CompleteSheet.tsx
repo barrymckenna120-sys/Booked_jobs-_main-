@@ -188,14 +188,36 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
                   );
                 })}
               </div>
+              {showTagDatePicker && (
+                <div className="pt-2">
+                  <Label className="text-[11px] font-medium text-muted-foreground mb-1 block">Tag date *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !tagDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {tagDate ? format(parseISO(tagDate + "T00:00:00"), "dd/MM/yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[600]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={tagDate ? parseISO(tagDate + "T00:00:00") : undefined}
+                        onSelect={(d) => setTagDate(d ? format(d, "yyyy-MM-dd") : null)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
-          disabled={!workDone.trim()}
-          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags, selectedJobType })}
+          disabled={!workDone.trim() || (showTagDatePicker && !tagDate)}
+          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags, selectedJobType, tagDate })}
         >
           <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>
