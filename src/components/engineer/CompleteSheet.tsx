@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2 } from "lucide-react";
-import { format } from "date-fns";
+import { CheckCircle2, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const TAG_OPTIONS = [
   { name: "New Boiler Fitted", colour: "#4A86E8" },
