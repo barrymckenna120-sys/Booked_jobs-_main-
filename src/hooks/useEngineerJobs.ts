@@ -102,6 +102,11 @@ export const useEngineerJobs = () => {
 
     const engineerId = engData?.id;
 
+    console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
+    console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
+    console.log("[DEBUG] Upcoming query filters: scheduled_date >", todayISO(), '| statuses: ["Scheduled","Booked","En Route","On Site","In Progress","parts_needed","parts_ordered","parts_arrived"] | engineer_id =', engineerId || "NOT FILTERED");
+    console.log("[DEBUG] Completed query: status = Completed, limit 30 | engineer_id =", engineerId || "NOT FILTERED");
+
     // Build queries — explicitly filter by assigned_engineer_id for reliability
     let todayQuery = supabase
       .from("service_calls")
@@ -123,6 +128,13 @@ export const useEngineerJobs = () => {
       upcomingQuery,
       completedQuery,
     ]);
+
+    console.log("[DEBUG] Today jobs returned:", (todayRes.data || []).length, (todayRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
+    console.log("[DEBUG] Upcoming jobs returned:", (upcomingRes.data || []).length, (upcomingRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
+    console.log("[DEBUG] Completed jobs returned:", (completedRes.data || []).length, (completedRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
+    if (todayRes.error) console.error("[DEBUG] Today query error:", todayRes.error);
+    if (upcomingRes.error) console.error("[DEBUG] Upcoming query error:", upcomingRes.error);
+    if (completedRes.error) console.error("[DEBUG] Completed query error:", completedRes.error);
 
     const allJobs = [...(todayRes.data || []), ...(upcomingRes.data || []), ...(completedRes.data || [])];
     setTodayJobs(todayRes.data || []);
