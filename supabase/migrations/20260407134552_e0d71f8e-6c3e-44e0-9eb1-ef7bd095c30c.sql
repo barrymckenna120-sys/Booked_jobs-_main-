@@ -1,0 +1,1 @@
+ALTER TABLE public.cert2_certificates ADD COLUMN work_carried_out text NULL;

@@ -190,6 +190,7 @@ export type Database = {
           soundness_test_pass: boolean | null
           status: string
           tel_premises: string | null
+          work_carried_out: string | null
         }
         Insert: {
           address_premises?: string | null
@@ -230,6 +231,7 @@ export type Database = {
           soundness_test_pass?: boolean | null
           status?: string
           tel_premises?: string | null
+          work_carried_out?: string | null
         }
         Update: {
           address_premises?: string | null
@@ -270,6 +272,7 @@ export type Database = {
           soundness_test_pass?: boolean | null
           status?: string
           tel_premises?: string | null
+          work_carried_out?: string | null
         }
         Relationships: [
           {
