@@ -28,6 +28,23 @@ const formatDateHeading = (d: Date) => {
   return `${days[d.getDay()]} · ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 };
 
+const DebugPayloadBanner = () => {
+  const [payload, setPayload] = useState<string | null>(null);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const val = (window as any).__lastServiceCallPayload;
+      if (val) setPayload(val);
+    }, 500);
+    return () => clearInterval(iv);
+  }, []);
+  if (!payload) return null;
+  return (
+    <div style={{ position: "fixed", bottom: 68, left: 0, right: 0, maxHeight: 120, overflow: "auto", background: "rgba(220,0,0,0.95)", color: "#fff", fontSize: 10, fontFamily: "monospace", padding: 6, zIndex: 9999, wordBreak: "break-all" }}>
+      <strong>DEBUG service_calls payload:</strong><br />{payload}
+    </div>
+  );
+};
+
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
