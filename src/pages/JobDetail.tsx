@@ -787,6 +787,9 @@ const JobDetail = () => {
         <QuotePanel jobId={job.id} customerId={customer.id} customer={customer} onQuoteChange={fetchJob} />
       )}
 
+      {/* Extra Work Pending Approval */}
+      <ExtraWorkPendingCard jobId={job.id} onQuoteChange={fetchJob} />
+
       {/* Job Status Actions */}
       {job.status === "Scheduled" && (
         <Card>
