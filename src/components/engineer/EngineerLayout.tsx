@@ -103,8 +103,8 @@ const EngineerLayout = () => {
         <Outlet context={engineerJobs} />
       </div>
 
-      {/* DEBUG BANNER — TEMPORARY */}
-      <DebugPayloadBanner />
+
+
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50" style={{ minHeight: 64 }}>
