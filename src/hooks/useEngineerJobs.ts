@@ -107,7 +107,7 @@ export const useEngineerJobs = () => {
       .from("service_calls")
       .select("*")
       .eq("scheduled_date", todayISO())
-      .not("status", "in", '("Completed","parts_needed","parts_ordered")')
+      .neq("status", "Completed")
       .order("created_at");
     let upcomingQuery = supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress"]).order("scheduled_date").limit(20);
     let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
