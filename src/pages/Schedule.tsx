@@ -97,6 +97,7 @@ export type ScheduleJob = {
   owner_or_tenant?: string | null;
   job_issue?: string | null;
   access_notes?: string | null;
+  extra_details?: string | null;
   created_at: string;
   job_reference?: string | null;
 };
@@ -184,6 +185,7 @@ const Schedule = () => {
         owner_or_tenant: j.owner_or_tenant || null,
         job_issue: j.job_issue || null,
         access_notes: j.access_notes || null,
+        extra_details: j.extra_details || null,
         created_at: j.created_at,
         job_reference: j.job_reference || null,
       })) as ScheduleJob[];

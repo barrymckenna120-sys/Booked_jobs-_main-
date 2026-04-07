@@ -206,6 +206,12 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
                 <p className="font-semibold mt-0.5">{customerAccessNotes}</p>
               </div>
             )}
+            {job.extra_details && (
+              <div className="sm:col-span-2">
+                <span className="text-xs text-muted-foreground">Extra Details on Issue</span>
+                <p className="font-semibold mt-0.5">{job.extra_details}</p>
+              </div>
+            )}
           </div>
 
           {job.notes && (
