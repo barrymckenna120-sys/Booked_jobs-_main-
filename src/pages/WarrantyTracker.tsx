@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Shield, ArrowUpDown, X, MessageSquare, CalendarPlus, Phone } from "lucide-react";
+import { Shield, ArrowUpDown, X, MessageSquare, CalendarPlus, Phone, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 interface BoilerBrand {
@@ -136,6 +137,7 @@ const WarrantyTracker = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const distinctBrands = useMemo(() => {
     const set = new Set(brands.filter((b) => b.is_default).map((b) => b.brand_name));
@@ -266,6 +268,16 @@ const WarrantyTracker = () => {
       }
     }
 
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.phone.toLowerCase().includes(q) ||
+        c.address.toLowerCase().includes(q)
+      );
+    }
+
     if (sortBy === "expiry") {
       result.sort((a, b) => a.daysLeft - b.daysLeft);
     } else if (sortBy === "name") {
@@ -275,7 +287,7 @@ const WarrantyTracker = () => {
     }
 
     return result;
-  }, [customers, activeTab, brandFilter, periodFilter, sortBy]);
+  }, [customers, activeTab, brandFilter, periodFilter, sortBy, searchQuery]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -517,6 +529,17 @@ const WarrantyTracker = () => {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search name, phone, address..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {/* Select all + count */}
