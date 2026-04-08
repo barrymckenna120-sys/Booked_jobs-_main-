@@ -234,7 +234,7 @@ const WarrantyTracker = () => {
       } else if (period.value === "expired") {
         result = result.filter((c) => c.daysLeft < 0);
       } else if (period.value !== "all") {
-        result = result.filter((c) => c.daysLeft <= period.maxDays);
+        result = result.filter((c) => c.daysLeft >= 0 && c.daysLeft <= period.maxDays);
       }
     }
 
@@ -256,6 +256,35 @@ const WarrantyTracker = () => {
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [filtered]);
+
+  const summaryStats = useMemo(() => {
+    const now = new Date();
+    now.setHours(12, 0, 0, 0);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixWeeksAgo = new Date(now);
+    sixWeeksAgo.setDate(sixWeeksAgo.getDate() - 42);
+
+    let last30 = 0, last6w = 0, expired = 0, three = 0, six = 0;
+    customers.forEach((c) => {
+      if (c.boiler_installation_date) {
+        const inst = parseDateSafe(c.boiler_installation_date);
+        if (inst >= thirtyDaysAgo) last30++;
+        if (inst >= sixWeeksAgo) last6w++;
+      }
+      if (c.daysLeft < 0) expired++;
+      if (c.daysLeft >= 0 && c.daysLeft <= 90) three++;
+      if (c.daysLeft >= 0 && c.daysLeft <= 180) six++;
+    });
+    return [
+      { emoji: "🆕", label: "Last 30 Days", count: last30, filter: "new_install", bg: "bg-blue-50 text-blue-700 border-blue-200" },
+      { emoji: "📅", label: "Last 6 Weeks", count: last6w, filter: "new_install", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+      { emoji: "🔴", label: "Expired", count: expired, filter: "expired", bg: "bg-red-50 text-red-700 border-red-200" },
+      { emoji: "🟠", label: "3 Months", count: three, filter: "3m", bg: "bg-orange-50 text-orange-700 border-orange-200" },
+      { emoji: "🟡", label: "6 Months", count: six, filter: "6m", bg: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+      { emoji: "📊", label: "Total", count: customers.length, filter: "all", bg: "bg-gray-50 text-gray-700 border-gray-200" },
+    ];
+  }, [customers]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -376,6 +405,20 @@ const WarrantyTracker = () => {
       <div className="flex items-center gap-2 mb-2">
         <Shield className="w-6 h-6 text-primary" />
         <h1 className="text-xl font-bold">Warranty Tracker</h1>
+      </div>
+
+      {/* Summary stat cards */}
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+        {summaryStats.map((s) => (
+          <button
+            key={s.label}
+            onClick={() => setPeriodFilter(s.filter)}
+            className={`flex-shrink-0 rounded-lg border px-4 py-3 text-center min-w-[100px] transition-shadow hover:shadow-md ${s.bg} ${periodFilter === s.filter ? "ring-2 ring-primary" : ""}`}
+          >
+            <p className="text-2xl font-bold">{s.count}</p>
+            <p className="text-xs font-medium mt-0.5">{s.emoji} {s.label}</p>
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-3">
