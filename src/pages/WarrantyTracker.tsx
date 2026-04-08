@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Shield, ArrowUpDown, X } from "lucide-react";
+import { Shield, ArrowUpDown, X, MessageSquare, CalendarPlus, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 interface BoilerBrand {
@@ -31,6 +31,7 @@ interface CustomerWarranty {
   last_service_date: string | null;
   notes: string | null;
   warranty_reminder_log: any[];
+  renewal_stage: string;
   brand: string;
   warrantyYears: number;
   expiryDate: Date;
@@ -70,17 +71,20 @@ function formatDaysLeft(days: number): string {
   return `${days}d left`;
 }
 
-function daysLeftBg(days: number): string {
-  if (days <= 30) return "bg-red-100 text-red-700";
-  if (days <= 90) return "bg-amber-100 text-amber-700";
-  if (days <= 365) return "bg-yellow-100 text-yellow-700";
-  return "bg-green-100 text-green-700";
+function daysLeftBadgeStyle(days: number): string {
+  if (days < 0) return "bg-destructive/10 text-destructive border-destructive/20";
+  if (days <= 90) return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-green-100 text-green-700 border-green-200";
+}
+
+function progressColor(days: number): string {
+  if (days < 0) return "[&>div]:bg-destructive";
+  if (days <= 90) return "[&>div]:bg-amber-500";
+  return "[&>div]:bg-primary";
 }
 
 function resolveWarrantyYears(makeModel: string, brands: BoilerBrand[]): { brand: string; warrantyYears: number } {
   const mm = makeModel.trim().toLowerCase();
-
-  // Try model-level match first (is_default = false)
   const modelRows = brands.filter((b) => !b.is_default && b.model_name);
   for (const row of modelRows) {
     const fullName = `${row.brand_name} ${row.model_name}`.toLowerCase();
@@ -88,18 +92,13 @@ function resolveWarrantyYears(makeModel: string, brands: BoilerBrand[]): { brand
       return { brand: row.brand_name, warrantyYears: row.warranty_years };
     }
   }
-
-  // Try brand-level default match
   const defaultRows = brands.filter((b) => b.is_default);
-  // Sort by name length descending so "Worcester Bosch" matches before "Worcester"
   defaultRows.sort((a, b) => b.brand_name.length - a.brand_name.length);
   for (const row of defaultRows) {
     if (mm.startsWith(row.brand_name.toLowerCase()) || mm.includes(row.brand_name.toLowerCase())) {
       return { brand: row.brand_name, warrantyYears: row.warranty_years };
     }
   }
-
-  // Fallback
   return { brand: "Unknown", warrantyYears: 10 };
 }
 
@@ -121,6 +120,8 @@ const SORT_OPTIONS = [
   { label: "Brand", value: "brand" },
 ];
 
+type StageTab = "not_contacted" | "reminded" | "signed_up";
+
 const WarrantyTracker = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -128,8 +129,9 @@ const WarrantyTracker = () => {
   const [customers, setCustomers] = useState<CustomerWarranty[]>([]);
   const [loading, setLoading] = useState(true);
   const [brandFilter, setBrandFilter] = useState("all");
-  const [periodFilter, setPeriodFilter] = useState("3m");
+  const [periodFilter, setPeriodFilter] = useState("all");
   const [sortBy, setSortBy] = useState("expiry");
+  const [activeTab, setActiveTab] = useState<StageTab>("not_contacted");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
@@ -162,7 +164,6 @@ const WarrantyTracker = () => {
           const makeModel = (c.boiler_make_model || "").trim();
           if (!makeModel && !c.boiler_brand) return null;
 
-          // Use boiler_brand directly if available, otherwise fall back to parsing
           let brand: string;
           let warrantyYears: number;
           if (c.boiler_brand) {
@@ -198,6 +199,7 @@ const WarrantyTracker = () => {
             last_service_date: c.last_service_date,
             notes: c.notes,
             warranty_reminder_log: reminderLog,
+            renewal_stage: c.renewal_stage || "not_contacted",
             brand,
             warrantyYears,
             expiryDate,
@@ -214,8 +216,33 @@ const WarrantyTracker = () => {
     fetchData();
   }, []);
 
+  // Tab counts from all customers (unfiltered)
+  const tabCounts = useMemo(() => {
+    let notContacted = 0;
+    let reminded = 0;
+    let signedUp = 0;
+    customers.forEach((c) => {
+      const stage = (c.renewal_stage || "not_contacted").toLowerCase().replace(/\s+/g, "_");
+      if (stage === "not_contacted") notContacted++;
+      else if (stage === "reminded") reminded++;
+      else signedUp++; // booked_in, confirmed, paid
+    });
+    return { notContacted, reminded, signedUp };
+  }, [customers]);
+
+  // Subtitle stats
+  const notContactedCount = tabCounts.notContacted;
+  const potential = notContactedCount * 150;
+
+  // Filter by tab first, then by brand/period
   const filtered = useMemo(() => {
-    let result = [...customers];
+    // Stage filter from tab
+    let result = customers.filter((c) => {
+      const stage = (c.renewal_stage || "not_contacted").toLowerCase().replace(/\s+/g, "_");
+      if (activeTab === "not_contacted") return stage === "not_contacted";
+      if (activeTab === "reminded") return stage === "reminded";
+      return ["booked_in", "confirmed", "paid"].includes(stage);
+    });
 
     if (brandFilter !== "all") {
       result = result.filter((c) => c.brand === brandFilter);
@@ -247,44 +274,7 @@ const WarrantyTracker = () => {
     }
 
     return result;
-  }, [customers, brandFilter, periodFilter, sortBy]);
-
-  const brandBreakdown = useMemo(() => {
-    const map: Record<string, number> = {};
-    filtered.forEach((c) => {
-      map[c.brand] = (map[c.brand] || 0) + 1;
-    });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [filtered]);
-
-  const summaryStats = useMemo(() => {
-    const now = new Date();
-    now.setHours(12, 0, 0, 0);
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const sixWeeksAgo = new Date(now);
-    sixWeeksAgo.setDate(sixWeeksAgo.getDate() - 42);
-
-    let last30 = 0, last6w = 0, expired = 0, three = 0, six = 0;
-    customers.forEach((c) => {
-      if (c.boiler_installation_date) {
-        const inst = parseDateSafe(c.boiler_installation_date);
-        if (inst >= thirtyDaysAgo) last30++;
-        if (inst >= sixWeeksAgo) last6w++;
-      }
-      if (c.daysLeft < 0) expired++;
-      if (c.daysLeft >= 0 && c.daysLeft <= 90) three++;
-      if (c.daysLeft >= 0 && c.daysLeft <= 180) six++;
-    });
-    return [
-      { emoji: "🆕", label: "Last 30 Days", count: last30, filter: "new_install", bg: "bg-blue-50 text-blue-700 border-blue-200" },
-      { emoji: "📅", label: "Last 6 Weeks", count: last6w, filter: "new_install", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-      { emoji: "🔴", label: "Expired", count: expired, filter: "expired", bg: "bg-red-50 text-red-700 border-red-200" },
-      { emoji: "🟠", label: "3 Months", count: three, filter: "3m", bg: "bg-orange-50 text-orange-700 border-orange-200" },
-      { emoji: "🟡", label: "6 Months", count: six, filter: "6m", bg: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-      { emoji: "📊", label: "Total", count: customers.length, filter: "all", bg: "bg-gray-50 text-gray-700 border-gray-200" },
-    ];
-  }, [customers]);
+  }, [customers, activeTab, brandFilter, periodFilter, sortBy]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -338,7 +328,7 @@ const WarrantyTracker = () => {
         const newEntry = { sent_at: new Date().toISOString(), sent_by: displayName };
         const updatedLog = [...c.warranty_reminder_log, newEntry];
         const updates: Record<string, any> = { warranty_reminder_log: updatedLog };
-        const currentStage = (c as any).renewal_stage || "not_contacted";
+        const currentStage = c.renewal_stage || "not_contacted";
         if ((STAGE_ORDER[currentStage] ?? 0) < (STAGE_ORDER["reminded"] ?? 1)) {
           updates.renewal_stage = "reminded";
         }
@@ -386,10 +376,31 @@ const WarrantyTracker = () => {
       const elapsed = totalDays - daysLeft;
       const percentUsed = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
       const reminderLog = Array.isArray(c2.warranty_reminder_log) ? c2.warranty_reminder_log : [];
-      return { ...c2, brand: brand2, warrantyYears: warrantyYears2, expiryDate, daysLeft, percentUsed, warranty_reminder_log: reminderLog } as CustomerWarranty;
+      return { ...c2, brand: brand2, warrantyYears: warrantyYears2, expiryDate, daysLeft, percentUsed, warranty_reminder_log: reminderLog, renewal_stage: c2.renewal_stage || "not_contacted" } as CustomerWarranty;
     }).filter(Boolean) as CustomerWarranty[];
     setCustomers(mapped2);
     setLoading(false);
+  };
+
+  const handleSendSingle = async (c: CustomerWarranty) => {
+    const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Office";
+    try {
+      const { error } = await supabase.functions.invoke("send-warranty-whatsapp", {
+        body: { phone: c.phone, message: buildWarrantyMessage(c), customer_id: c.id, customer_name: c.name },
+      });
+      if (error) throw error;
+      const newEntry = { sent_at: new Date().toISOString(), sent_by: displayName };
+      const updatedLog = [...c.warranty_reminder_log, newEntry];
+      const updates: Record<string, any> = { warranty_reminder_log: updatedLog };
+      const currentStage = c.renewal_stage || "not_contacted";
+      if ((STAGE_ORDER[currentStage] ?? 0) < (STAGE_ORDER["reminded"] ?? 1)) {
+        updates.renewal_stage = "reminded";
+      }
+      await supabase.from("customers").update(updates as any).eq("id", c.id);
+      toast.success(`WhatsApp sent to ${c.name}`);
+    } catch {
+      toast.error(`Failed to send to ${c.name}`);
+    }
   };
 
   if (loading) {
@@ -400,27 +411,61 @@ const WarrantyTracker = () => {
     );
   }
 
+  const tabs: { key: StageTab; label: string; count: number }[] = [
+    { key: "not_contacted", label: "Not Contacted", count: tabCounts.notContacted },
+    { key: "reminded", label: "Reminded", count: tabCounts.reminded },
+    { key: "signed_up", label: "Signed Up", count: tabCounts.signedUp },
+  ];
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Shield className="w-6 h-6 text-primary" />
-        <h1 className="text-xl font-bold">Warranty Tracker</h1>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Shield className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-bold text-foreground">Warranty Tracker</h1>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            €{potential.toLocaleString()} potential · {notContactedCount} not yet contacted
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="bg-green-600 hover:bg-green-700 text-white shrink-0"
+          onClick={() => {
+            if (filtered.length === 0) return;
+            setSelected(new Set(filtered.map((c) => c.id)));
+            setShowConfirm(true);
+          }}
+        >
+          Send All ({filtered.length})
+        </Button>
       </div>
 
-      {/* Summary stat cards */}
-      <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
-        {summaryStats.map((s) => (
-          <button
-            key={s.label}
-            onClick={() => setPeriodFilter(s.filter)}
-            className={`flex-shrink-0 rounded-lg border px-4 py-3 text-center min-w-[100px] transition-shadow hover:shadow-md ${s.bg} ${periodFilter === s.filter ? "ring-2 ring-primary" : ""}`}
-          >
-            <p className="text-2xl font-bold">{s.count}</p>
-            <p className="text-xs font-medium mt-0.5">{s.emoji} {s.label}</p>
-          </button>
-        ))}
+      {/* Tabs */}
+      <div className="border-b border-border">
+        <div className="flex gap-6">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => { setActiveTab(t.key); setSelected(new Set()); }}
+              className={`pb-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === t.key
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t.label} ({t.count})
+              {activeTab === t.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={brandFilter} onValueChange={setBrandFilter}>
           <SelectTrigger className="w-[180px]">
@@ -458,43 +503,28 @@ const WarrantyTracker = () => {
         </Select>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" className="text-sm">
-          {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
-        </Badge>
-        {brandBreakdown.map(([brand, count]) => (
-          <Badge
-            key={brand}
-            variant="outline"
-            className="cursor-pointer hover:bg-accent"
-            onClick={() => setBrandFilter(brandFilter === brand ? "all" : brand)}
-          >
-            {brand} {count}
-          </Badge>
-        ))}
-      </div>
+      {/* Select all + count */}
+      {filtered.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={toggleAll}
+            disabled={sending}
+          />
+          <span className="text-sm text-muted-foreground cursor-pointer" onClick={toggleAll}>
+            {allSelected ? "Deselect All" : "Select All"} · {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
 
+      {/* Customer list */}
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No customers match these filters.</p>
       ) : (
         <div className="grid gap-3">
-          {/* Select All toggle */}
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={toggleAll}
-              disabled={sending}
-            />
-            <span className="text-sm text-muted-foreground cursor-pointer" onClick={toggleAll}>
-              {allSelected ? "Deselect All" : "Select All"}
-            </span>
-          </div>
-
           {filtered.map((c) => {
-            const lastReminder = c.warranty_reminder_log.length > 0
-              ? c.warranty_reminder_log[c.warranty_reminder_log.length - 1]
-              : null;
             const isChecked = selected.has(c.id);
+            const boilerDisplay = [c.boiler_brand, c.boiler_model].filter(Boolean).join(" ") || c.boiler_make_model || c.brand;
 
             return (
               <Card
@@ -510,52 +540,53 @@ const WarrantyTracker = () => {
                       disabled={sending}
                     />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {/* Top row: name + badge */}
                     <div className="flex justify-between items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold truncate">{c.name}</p>
-                          <Badge className={daysLeftBg(c.daysLeft) + " text-xs"}>
-                            {formatDaysLeft(c.daysLeft)}
-                          </Badge>
-                          {lastReminder && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              💬 {parseDateSafe(lastReminder.sent_at.split("T")[0]).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
-                            </span>
-                          )}
-                        </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate">{c.name}</p>
                         <p className="text-sm text-muted-foreground truncate">{c.address}</p>
-                        <p className="text-sm text-muted-foreground">{c.phone}</p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3" /> {c.phone}
+                        </p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-medium">{c.brand}</p>
-                        <p className="text-xs text-muted-foreground">{c.warrantyYears}yr warranty</p>
-                      </div>
+                      <Badge className={`${daysLeftBadgeStyle(c.daysLeft)} text-xs shrink-0 border`}>
+                        {formatDaysLeft(c.daysLeft)}
+                      </Badge>
                     </div>
 
-                    <div className="mt-3 space-y-1.5">
+                    {/* Boiler info */}
+                    <p className="text-sm text-muted-foreground">{boilerDisplay}</p>
+
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <Progress value={c.percentUsed} className={`h-2 ${progressColor(c.daysLeft)}`} />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{c.boiler_make_model}</span>
                         <span>Expires {formatDateIE(c.expiryDate)}</span>
-                      </div>
-                      <Progress value={c.percentUsed} className="h-2" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Installed {formatDateIE(parseDateSafe(c.boiler_installation_date!))}</span>
                         <span>{c.percentUsed}% used</span>
                       </div>
                     </div>
 
-                    {periodFilter === "new_install" && (
+                    {/* Action buttons */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button
-                        className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/warranty/${c.id}`);
-                        }}
+                        size="sm"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => handleSendSingle(c)}
                       >
-                        📱 Send Warranty Info
+                        <MessageSquare className="w-4 h-4 mr-1" />
+                        Send WhatsApp
                       </Button>
-                    )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => navigate(`/jobs/new?customer=${c.id}`)}
+                      >
+                        <CalendarPlus className="w-4 h-4 mr-1" />
+                        Book Service
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -609,7 +640,6 @@ const WarrantyTracker = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Bottom padding when sticky bar is visible */}
       {(selected.size > 0 || sending) && <div className="h-20" />}
     </div>
   );
