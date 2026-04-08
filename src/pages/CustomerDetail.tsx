@@ -395,28 +395,34 @@ const CustomerDetail = () => {
                 const years = Array.from({ length: currentYear - 2000 + 1 }, (_, i) => currentYear - i);
                 const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
                 const days = Array.from({ length: 31 }, (_, i) => i + 1);
-                const existing = form.boiler_installation_date ? form.boiler_installation_date.split("-") : [null, null, null];
-                const selYear = existing[0] || "";
-                const selMonth = existing[1] ? String(parseInt(existing[1])) : "";
-                const selDay = existing[2] ? String(parseInt(existing[2])) : "";
 
-                const buildDate = (y: string, m: string, d: string) => {
-                  if (!y || !m) return null;
-                  const dd = d || "1";
-                  return `${y}-${dd.length === 1 ? "0" : ""}${dd.length === 1 ? dd : dd}-${m.length === 1 ? "0" : ""}${m.length === 1 ? m : m}`;
-                };
-                // Correct: YYYY-MM-DD
-                const buildDateCorrect = (y: string, m: string, d: string) => {
-                  if (!y || !m) return null;
-                  const dayVal = d || "1";
-                  const monthStr = m.padStart(2, "0");
-                  const dayStr = String(dayVal).padStart(2, "0");
-                  return `${y}-${monthStr}-${dayStr}`;
+                // Parse existing YYYY-MM-DD value into individual parts
+                let selYear = "";
+                let selMonth = "";
+                let selDay = "";
+                if (form.boiler_installation_date) {
+                  const parts = form.boiler_installation_date.split("-");
+                  if (parts.length === 3) {
+                    selYear = parts[0];
+                    selMonth = String(parseInt(parts[1], 10));
+                    selDay = String(parseInt(parts[2], 10));
+                  }
+                }
+
+                const buildDateFromParts = (y: string, m: string, d: string) => {
+                  if (!y || !m || !d) return null;
+                  const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                  console.log("[CustomerDetail] buildDateFromParts:", dateStr);
+                  return dateStr;
                 };
 
                 return (
                   <div className="flex gap-2">
-                    <Select value={selDay} onValueChange={(v) => handleChange("boiler_installation_date", buildDateCorrect(selYear, selMonth, v))}>
+                    <Select value={selDay} onValueChange={(v) => {
+                      const result = buildDateFromParts(selYear, selMonth, v);
+                      if (result) handleChange("boiler_installation_date", result);
+                      else handleChange("boiler_installation_date", `__partial__:${selYear || ""}:${selMonth || ""}:${v}`);
+                    }}>
                       <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
                       <SelectContent>
                         {days.map((d) => (
@@ -424,7 +430,11 @@ const CustomerDetail = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Select value={selMonth} onValueChange={(v) => handleChange("boiler_installation_date", buildDateCorrect(selYear, v, selDay))}>
+                    <Select value={selMonth} onValueChange={(v) => {
+                      const result = buildDateFromParts(selYear, v, selDay);
+                      if (result) handleChange("boiler_installation_date", result);
+                      else handleChange("boiler_installation_date", `__partial__:${selYear || ""}:${v}:${selDay || ""}`);
+                    }}>
                       <SelectTrigger className="flex-1"><SelectValue placeholder="Month" /></SelectTrigger>
                       <SelectContent>
                         {months.map((m, i) => (
@@ -432,7 +442,11 @@ const CustomerDetail = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Select value={selYear} onValueChange={(v) => handleChange("boiler_installation_date", buildDateCorrect(v, selMonth || "1", selDay))}>
+                    <Select value={selYear} onValueChange={(v) => {
+                      const result = buildDateFromParts(v, selMonth, selDay);
+                      if (result) handleChange("boiler_installation_date", result);
+                      else handleChange("boiler_installation_date", `__partial__:${v}:${selMonth || ""}:${selDay || ""}`);
+                    }}>
                       <SelectTrigger className="w-[90px]"><SelectValue placeholder="Year" /></SelectTrigger>
                       <SelectContent>
                         {years.map((y) => (
