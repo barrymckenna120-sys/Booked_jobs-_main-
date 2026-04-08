@@ -209,6 +209,7 @@ const WarrantyTracker = () => {
         })
         .filter(Boolean) as CustomerWarranty[];
 
+      console.log(`Warranty data loaded — ${customersRes.data?.length ?? 0} customers found, ${mapped.length} matched to a brand.`);
       setCustomers(mapped);
       setLoading(false);
     };
