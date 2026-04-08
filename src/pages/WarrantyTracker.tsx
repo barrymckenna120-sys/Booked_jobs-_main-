@@ -200,7 +200,15 @@ const WarrantyTracker = () => {
 
     const period = TIME_PERIODS.find((p) => p.value === periodFilter);
     if (period) {
-      if (period.value === "expired") {
+      if (period.value === "new_install") {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setHours(12, 0, 0, 0);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        result = result.filter((c) => {
+          const installDate = parseDateSafe(c.boiler_installation_date!);
+          return installDate >= thirtyDaysAgo;
+        });
+      } else if (period.value === "expired") {
         result = result.filter((c) => c.daysLeft < 0);
       } else if (period.value !== "all") {
         result = result.filter((c) => c.daysLeft <= period.maxDays);
