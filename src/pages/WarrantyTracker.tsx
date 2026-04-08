@@ -130,6 +130,10 @@ const WarrantyTracker = () => {
   const [brandFilter, setBrandFilter] = useState("all");
   const [periodFilter, setPeriodFilter] = useState("3m");
   const [sortBy, setSortBy] = useState("expiry");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
 
   const distinctBrands = useMemo(() => {
     const set = new Set(brands.filter((b) => b.is_default).map((b) => b.brand_name));
