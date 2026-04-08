@@ -55,6 +55,8 @@ import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
 import CertificateViewer from "./pages/CertificateViewer";
 import Parts from "./pages/Parts";
+import WarrantyTracker from "./pages/WarrantyTracker";
+import WarrantyDetail from "./pages/WarrantyDetail";
 
 const queryClient = new QueryClient();
 
