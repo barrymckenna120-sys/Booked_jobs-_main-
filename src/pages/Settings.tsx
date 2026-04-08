@@ -20,6 +20,7 @@ import BrandTab from "@/components/settings/BrandTab";
 import MessagingTab from "@/components/settings/MessagingTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import BillingTab from "@/components/settings/BillingTab";
+import BoilerBrandsTab from "@/components/settings/BoilerBrandsTab";
 import JobTimeBlocksSection from "@/components/settings/JobTimeBlocksSection";
 import { Separator } from "@/components/ui/separator";
 
