@@ -139,6 +139,8 @@ const CustomerDetail = () => {
     const brand = (updates.boiler_brand || "").trim();
     const model = (updates.boiler_model || "").trim();
     updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+    // Debug log for boiler_installation_date
+    console.log("[CustomerDetail] boiler_installation_date being saved:", updates.boiler_installation_date);
     const { error } = await supabase.from("customers").update(updates).eq("id", id);
     setSaving(false);
     if (error) {
