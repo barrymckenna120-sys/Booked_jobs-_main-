@@ -74,6 +74,9 @@ const CustomerDetail = () => {
       supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle().then(({ data }) => {
         if (data) setSettings(data);
       });
+      supabase.from("boiler_brands").select("brand_name, model_name, is_default").then(({ data }) => {
+        if (data) setBoilerBrands(data as BoilerBrandRow[]);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, id]);
