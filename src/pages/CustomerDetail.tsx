@@ -400,12 +400,18 @@ const CustomerDetail = () => {
                 const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
                 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
-                // Parse existing YYYY-MM-DD value into individual parts
+                // Parse existing YYYY-MM-DD or __partial__:Y:M:D value into individual parts
                 let selYear = "";
                 let selMonth = "";
                 let selDay = "";
-                if (form.boiler_installation_date) {
-                  const parts = form.boiler_installation_date.split("-");
+                const rawVal = form.boiler_installation_date || "";
+                if (rawVal.startsWith("__partial__:")) {
+                  const pp = rawVal.split(":");
+                  selYear = pp[1] || "";
+                  selMonth = pp[2] || "";
+                  selDay = pp[3] || "";
+                } else if (rawVal) {
+                  const parts = rawVal.split("-");
                   if (parts.length === 3) {
                     selYear = parts[0];
                     selMonth = String(parseInt(parts[1], 10));
