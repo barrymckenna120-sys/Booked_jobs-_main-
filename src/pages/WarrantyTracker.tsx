@@ -22,6 +22,8 @@ interface CustomerWarranty {
   phone: string;
   address: string;
   boiler_make_model: string | null;
+  boiler_brand: string | null;
+  boiler_model: string | null;
   boiler_installation_date: string | null;
   last_service_date: string | null;
   notes: string | null;
