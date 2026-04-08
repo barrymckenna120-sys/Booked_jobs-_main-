@@ -257,6 +257,112 @@ const WarrantyTracker = () => {
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [filtered]);
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id));
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((c) => c.id)));
+    }
+  };
+
+  function formatMonthYear(date: Date): string {
+    return date.toLocaleDateString("en-IE", { month: "long", year: "numeric" });
+  }
+
+  function buildWarrantyMessage(c: CustomerWarranty): string {
+    const firstName = c.name.split(/\s+/)[0];
+    const makeModel = c.boiler_make_model || "boiler";
+    const installDate = parseDateSafe(c.boiler_installation_date!);
+    return `Hi ${firstName}, this is Nicole from K&N Gas Services.\n\nWe are getting in touch to let you know your ${makeModel} boiler, installed in ${formatMonthYear(installDate)}, is currently covered under the manufacturer's warranty until ${formatMonthYear(c.expiryDate)}.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nWe would love to take care of that for you. Reply to this message or call us to book your annual service.\n\nK&N Gas Services\n📞 087 3685252`;
+  }
+
+  const STAGE_ORDER: Record<string, number> = { not_contacted: 0, reminded: 1, confirmed: 2, booked_in: 3, paid: 4 };
+
+  const handleBulkSend = async () => {
+    setShowConfirm(false);
+    const targets = filtered.filter((c) => selected.has(c.id));
+    if (targets.length === 0) return;
+    setSending(true);
+    setSendProgress({ current: 0, total: targets.length });
+    let success = 0;
+    const failed: string[] = [];
+    const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Office";
+
+    for (let i = 0; i < targets.length; i++) {
+      const c = targets[i];
+      setSendProgress({ current: i + 1, total: targets.length });
+      try {
+        const { error } = await supabase.functions.invoke("send-warranty-whatsapp", {
+          body: { phone: c.phone, message: buildWarrantyMessage(c), customer_id: c.id, customer_name: c.name },
+        });
+        if (error) throw error;
+
+        const newEntry = { sent_at: new Date().toISOString(), sent_by: displayName };
+        const updatedLog = [...c.warranty_reminder_log, newEntry];
+        const updates: Record<string, any> = { warranty_reminder_log: updatedLog };
+        const currentStage = (c as any).renewal_stage || "not_contacted";
+        if ((STAGE_ORDER[currentStage] ?? 0) < (STAGE_ORDER["reminded"] ?? 1)) {
+          updates.renewal_stage = "reminded";
+        }
+        await supabase.from("customers").update(updates as any).eq("id", c.id);
+        success++;
+      } catch (_err) {
+        failed.push(c.name);
+      }
+      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 500));
+    }
+
+    setSending(false);
+    setSelected(new Set());
+    toast(failed.length === 0
+      ? `✅ ${success} sent successfully`
+      : `✅ ${success} sent successfully, ${failed.length} failed: ${failed.join(", ")}`);
+
+    // Refresh data
+    setLoading(true);
+    const [brandsRes, customersRes] = await Promise.all([
+      supabase.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default"),
+      supabase.from("customers")
+        .select("id, name, phone, address, boiler_make_model, boiler_brand, boiler_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log, renewal_stage")
+        .not("boiler_installation_date", "is", null),
+    ]);
+    const brandsData = (brandsRes.data || []) as BoilerBrand[];
+    setBrands(brandsData);
+    const today2 = new Date(); today2.setHours(12, 0, 0, 0);
+    const mapped2: CustomerWarranty[] = (customersRes.data || []).map((c2: any) => {
+      const makeModel = (c2.boiler_make_model || "").trim();
+      if (!makeModel && !c2.boiler_brand) return null;
+      let brand2: string; let warrantyYears2: number;
+      if (c2.boiler_brand) {
+        const r = resolveWarrantyYears(c2.boiler_brand + " " + (c2.boiler_model || ""), brandsData);
+        brand2 = c2.boiler_brand; warrantyYears2 = r.warrantyYears;
+      } else {
+        const r = resolveWarrantyYears(makeModel, brandsData);
+        brand2 = r.brand; warrantyYears2 = r.warrantyYears;
+      }
+      const installDate = parseDateSafe(c2.boiler_installation_date);
+      const expiryDate = new Date(installDate);
+      expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears2);
+      const daysLeft = Math.floor((expiryDate.getTime() - today2.getTime()) / (1000 * 60 * 60 * 24));
+      const totalDays = warrantyYears2 * 365;
+      const elapsed = totalDays - daysLeft;
+      const percentUsed = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
+      const reminderLog = Array.isArray(c2.warranty_reminder_log) ? c2.warranty_reminder_log : [];
+      return { ...c2, brand: brand2, warrantyYears: warrantyYears2, expiryDate, daysLeft, percentUsed, warranty_reminder_log: reminderLog } as CustomerWarranty;
+    }).filter(Boolean) as CustomerWarranty[];
+    setCustomers(mapped2);
+    setLoading(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
