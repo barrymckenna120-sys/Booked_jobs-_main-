@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
-  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
 } from "lucide-react";
 import Products from "@/pages/Products";
 import GeneralTab from "@/components/settings/GeneralTab";
