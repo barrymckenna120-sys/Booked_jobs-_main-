@@ -185,6 +185,8 @@ const WarrantyTracker = () => {
             phone: c.phone,
             address: c.address,
             boiler_make_model: c.boiler_make_model,
+            boiler_brand: c.boiler_brand,
+            boiler_model: c.boiler_model,
             boiler_installation_date: c.boiler_installation_date,
             last_service_date: c.last_service_date,
             notes: c.notes,
