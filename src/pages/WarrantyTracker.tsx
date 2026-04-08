@@ -209,6 +209,7 @@ const WarrantyTracker = () => {
         })
         .filter(Boolean) as CustomerWarranty[];
 
+      console.log(`Warranty data loaded — ${customersRes.data?.length ?? 0} customers found, ${mapped.length} matched to a brand.`);
       setCustomers(mapped);
       setLoading(false);
     };
@@ -407,6 +408,21 @@ const WarrantyTracker = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (customers.length === 0) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="flex items-center gap-2 mb-6">
+          <Shield className="w-6 h-6 text-primary" />
+          <h1 className="text-xl font-bold text-foreground">Warranty Tracker</h1>
+        </div>
+        <Card className="p-8 text-center">
+          <p className="text-lg font-medium text-foreground mb-2">No customers found</p>
+          <p className="text-sm text-muted-foreground">Make sure customers have a boiler installation date entered.</p>
+        </Card>
       </div>
     );
   }
