@@ -435,67 +435,139 @@ const WarrantyTracker = () => {
         <p className="text-muted-foreground text-center py-10">No customers match these filters.</p>
       ) : (
         <div className="grid gap-3">
+          {/* Select All toggle */}
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleAll}
+              disabled={sending}
+            />
+            <span className="text-sm text-muted-foreground cursor-pointer" onClick={toggleAll}>
+              {allSelected ? "Deselect All" : "Select All"}
+            </span>
+          </div>
+
           {filtered.map((c) => {
             const lastReminder = c.warranty_reminder_log.length > 0
               ? c.warranty_reminder_log[c.warranty_reminder_log.length - 1]
               : null;
+            const isChecked = selected.has(c.id);
 
             return (
               <Card
                 key={c.id}
-                className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${isChecked ? "ring-2 ring-primary" : ""}`}
                 onClick={() => navigate(`/warranty/${c.id}`)}
               >
-                <div className="flex justify-between items-start gap-2">
+                <div className="flex items-start gap-3">
+                  <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={() => toggleSelect(c.id)}
+                      disabled={sending}
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold truncate">{c.name}</p>
-                      <Badge className={daysLeftBg(c.daysLeft) + " text-xs"}>
-                        {formatDaysLeft(c.daysLeft)}
-                      </Badge>
-                      {lastReminder && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          💬 {parseDateSafe(lastReminder.sent_at.split("T")[0]).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
-                        </span>
-                      )}
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold truncate">{c.name}</p>
+                          <Badge className={daysLeftBg(c.daysLeft) + " text-xs"}>
+                            {formatDaysLeft(c.daysLeft)}
+                          </Badge>
+                          {lastReminder && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              💬 {parseDateSafe(lastReminder.sent_at.split("T")[0]).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">{c.address}</p>
+                        <p className="text-sm text-muted-foreground">{c.phone}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-medium">{c.brand}</p>
+                        <p className="text-xs text-muted-foreground">{c.warrantyYears}yr warranty</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{c.address}</p>
-                    <p className="text-sm text-muted-foreground">{c.phone}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs font-medium">{c.brand}</p>
-                    <p className="text-xs text-muted-foreground">{c.warrantyYears}yr warranty</p>
+
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{c.boiler_make_model}</span>
+                        <span>Expires {formatDateIE(c.expiryDate)}</span>
+                      </div>
+                      <Progress value={c.percentUsed} className="h-2" />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Installed {formatDateIE(parseDateSafe(c.boiler_installation_date!))}</span>
+                        <span>{c.percentUsed}% used</span>
+                      </div>
+                    </div>
+
+                    {periodFilter === "new_install" && (
+                      <Button
+                        className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/warranty/${c.id}`);
+                        }}
+                      >
+                        📱 Send Warranty Info
+                      </Button>
+                    )}
                   </div>
                 </div>
-
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{c.boiler_make_model}</span>
-                    <span>Expires {formatDateIE(c.expiryDate)}</span>
-                  </div>
-                  <Progress value={c.percentUsed} className="h-2" />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Installed {formatDateIE(parseDateSafe(c.boiler_installation_date!))}</span>
-                    <span>{c.percentUsed}% used</span>
-                  </div>
-                </div>
-
-                {periodFilter === "new_install" && (
-                  <Button
-                    className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/warranty/${c.id}`);
-                    }}
-                  >
-                    📱 Send Warranty Info
-                  </Button>
-                )}
               </Card>
             );
           })}
         </div>
       )}
+
+      {/* Sticky action bar */}
+      {selected.size > 0 && !sending && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg p-4 flex items-center justify-between gap-3 z-50">
+          <span className="text-sm font-medium">{selected.size} customer{selected.size !== 1 ? "s" : ""} selected</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelected(new Set())}>
+              <X className="w-4 h-4 mr-1" /> Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => setShowConfirm(true)}
+            >
+              📱 Send Warranty WhatsApp to {selected.size}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Sending progress bar */}
+      {sending && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg p-4 z-50 text-center">
+          <div className="animate-spin inline-block w-4 h-4 border-2 border-primary border-t-transparent rounded-full mr-2 align-middle" />
+          <span className="text-sm font-medium">Sending {sendProgress.current} of {sendProgress.total}...</span>
+        </div>
+      )}
+
+      {/* Confirmation dialog */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send warranty WhatsApp?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send warranty WhatsApp to {selected.size} customer{selected.size !== 1 ? "s" : ""}? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-green-600 hover:bg-green-700 text-white" onClick={handleBulkSend}>
+              Send to {selected.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bottom padding when sticky bar is visible */}
+      {(selected.size > 0 || sending) && <div className="h-20" />}
     </div>
   );
 };
