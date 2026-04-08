@@ -139,6 +139,10 @@ const CustomerDetail = () => {
     const brand = (updates.boiler_brand || "").trim();
     const model = (updates.boiler_model || "").trim();
     updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+    // Clean partial boiler_installation_date (incomplete dropdown selection)
+    if (updates.boiler_installation_date && updates.boiler_installation_date.startsWith("__partial__")) {
+      updates.boiler_installation_date = null;
+    }
     // Debug log for boiler_installation_date
     console.log("[CustomerDetail] boiler_installation_date being saved:", updates.boiler_installation_date);
     const { error } = await supabase.from("customers").update(updates).eq("id", id);
