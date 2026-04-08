@@ -168,7 +168,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
             <p className="text-xs text-muted-foreground">
               {formatTimestamp(m.timestamp)}
               {" · "}
-              {m.sent_by || "System"}
+              {safeSentBy(m.sent_by)}
             </p>
             {m.content && (
               <p className="text-xs text-muted-foreground line-clamp-2">
