@@ -469,6 +469,7 @@ const CustomerDetail = () => {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Up to Date">Up to Date</SelectItem>
+                  <SelectItem value="Serviced">Serviced</SelectItem>
                   <SelectItem value="Due Soon">Due Soon</SelectItem>
                   <SelectItem value="Overdue">Overdue</SelectItem>
                 </SelectContent>
