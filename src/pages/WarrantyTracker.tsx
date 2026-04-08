@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -98,6 +99,7 @@ function resolveWarrantyYears(makeModel: string, brands: BoilerBrand[]): { brand
 }
 
 const TIME_PERIODS = [
+  { label: "New Install (Last 30 Days)", value: "new_install", maxDays: Infinity },
   { label: "All Customers", value: "all", maxDays: Infinity },
   { label: "Expired", value: "expired", maxDays: -1 },
   { label: "Expiring in 1 Month", value: "1m", maxDays: 30 },
@@ -199,7 +201,15 @@ const WarrantyTracker = () => {
 
     const period = TIME_PERIODS.find((p) => p.value === periodFilter);
     if (period) {
-      if (period.value === "expired") {
+      if (period.value === "new_install") {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setHours(12, 0, 0, 0);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        result = result.filter((c) => {
+          const installDate = parseDateSafe(c.boiler_installation_date!);
+          return installDate >= thirtyDaysAgo;
+        });
+      } else if (period.value === "expired") {
         result = result.filter((c) => c.daysLeft < 0);
       } else if (period.value !== "all") {
         result = result.filter((c) => c.daysLeft <= period.maxDays);
@@ -341,6 +351,18 @@ const WarrantyTracker = () => {
                     <span>{c.percentUsed}% used</span>
                   </div>
                 </div>
+
+                {periodFilter === "new_install" && (
+                  <Button
+                    className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/warranty/${c.id}`);
+                    }}
+                  >
+                    📱 Send Warranty Info
+                  </Button>
+                )}
               </Card>
             );
           })}
