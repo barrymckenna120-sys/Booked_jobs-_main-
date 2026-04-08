@@ -41,6 +41,14 @@ function friendlyType(raw: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function safeSentBy(raw: string | null): string {
+  if (!raw) return "System";
+  if (UUID_RE.test(raw)) return "System";
+  return raw;
+}
+
 const statusIcon: Record<string, string> = {
   sent: "📤",
   Sent: "📤",
