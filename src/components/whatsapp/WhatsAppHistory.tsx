@@ -41,6 +41,14 @@ function friendlyType(raw: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function safeSentBy(raw: string | null): string {
+  if (!raw) return "System";
+  if (UUID_RE.test(raw)) return "System";
+  return raw;
+}
+
 const statusIcon: Record<string, string> = {
   sent: "📤",
   Sent: "📤",
@@ -107,16 +115,19 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         .filter((m) => m.timestamp)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-      // Deduplicate by content+timestamp proximity (within 2 seconds)
+      // Deduplicate: same message_type within 60s → keep message_log entry
       const deduped: UnifiedMessage[] = [];
       for (const msg of merged) {
-        const isDup = deduped.some(
+        const dupIdx = deduped.findIndex(
           (existing) =>
             existing.message_type === msg.message_type &&
-            Math.abs(new Date(existing.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 2000 &&
-            existing.content?.slice(0, 40) === msg.content?.slice(0, 40)
+            Math.abs(new Date(existing.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000
         );
-        if (!isDup) deduped.push(msg);
+        if (dupIdx === -1) {
+          deduped.push(msg);
+        } else if (msg.source === "log" && deduped[dupIdx].source === "whatsapp") {
+          deduped[dupIdx] = msg;
+        }
       }
 
       setMessages(deduped);
@@ -157,7 +168,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
             <p className="text-xs text-muted-foreground">
               {formatTimestamp(m.timestamp)}
               {" · "}
-              {m.sent_by || "System"}
+              {safeSentBy(m.sent_by)}
             </p>
             {m.content && (
               <p className="text-xs text-muted-foreground line-clamp-2">
