@@ -171,7 +171,7 @@ const CustomerDetail = () => {
 
   const formatDisplayDate = (val: string | null) => {
     if (!val) return "";
-    try { return format(parseISO(val + "T00:00:00"), "dd/MM/yyyy"); } catch { return val; }
+    try { return new Date(val + "T12:00:00").toLocaleDateString("en-IE"); } catch { return val; }
   };
 
   // Generic field for non-validated fields
