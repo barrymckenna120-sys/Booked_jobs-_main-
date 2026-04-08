@@ -140,7 +140,7 @@ const WarrantyTracker = () => {
         supabase.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default"),
         supabase
           .from("customers")
-          .select("id, name, phone, address, boiler_make_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
+          .select("id, name, phone, address, boiler_make_model, boiler_brand, boiler_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
           .not("boiler_installation_date", "is", null),
       ]);
 
