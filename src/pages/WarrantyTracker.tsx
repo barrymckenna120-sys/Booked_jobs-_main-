@@ -98,6 +98,7 @@ function resolveWarrantyYears(makeModel: string, brands: BoilerBrand[]): { brand
 }
 
 const TIME_PERIODS = [
+  { label: "New Install (Last 30 Days)", value: "new_install", maxDays: Infinity },
   { label: "All Customers", value: "all", maxDays: Infinity },
   { label: "Expired", value: "expired", maxDays: -1 },
   { label: "Expiring in 1 Month", value: "1m", maxDays: 30 },
