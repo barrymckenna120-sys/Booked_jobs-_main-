@@ -412,6 +412,21 @@ const WarrantyTracker = () => {
     );
   }
 
+  if (customers.length === 0) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="flex items-center gap-2 mb-6">
+          <Shield className="w-6 h-6 text-primary" />
+          <h1 className="text-xl font-bold text-foreground">Warranty Tracker</h1>
+        </div>
+        <Card className="p-8 text-center">
+          <p className="text-lg font-medium text-foreground mb-2">No customers found</p>
+          <p className="text-sm text-muted-foreground">Make sure customers have a boiler installation date entered.</p>
+        </Card>
+      </div>
+    );
+  }
+
   const tabs: { key: StageTab; label: string; count: number }[] = [
     { key: "not_contacted", label: "Not Contacted", count: tabCounts.notContacted },
     { key: "reminded", label: "Reminded", count: tabCounts.reminded },
