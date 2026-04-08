@@ -1,16 +1,21 @@
 import { useState } from "react";
-import { Inbox, Receipt, RefreshCw, TrendingUp } from "lucide-react";
+import { Inbox, Receipt, RefreshCw, Shield } from "lucide-react";
 import IncomingJobs from "./IncomingJobs";
 import QuotesList from "./QuotesList";
 import Renewals from "./Renewals";
+import WarrantyTracker from "./WarrantyTracker";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
-const TABS = [
+const BASE_TABS = [
   { key: "incoming", label: "Incoming", icon: Inbox },
   { key: "quotes", label: "Quotes", icon: Receipt },
   { key: "renewals", label: "Renewals", icon: RefreshCw },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+const WARRANTY_TAB = { key: "warranty" as const, label: "Warranty", icon: Shield };
+
+type TabKey = "incoming" | "quotes" | "renewals" | "warranty";
 
 const Pipeline = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("incoming");
