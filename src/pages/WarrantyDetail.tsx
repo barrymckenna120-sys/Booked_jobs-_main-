@@ -6,10 +6,16 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, Phone, CalendarDays, MessageSquare, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface BoilerBrand {
+  brand_name: string;
+  model_name: string | null;
+  warranty_years: number;
+  is_default: boolean;
+}
 
 function parseDateSafe(dateStr: string): Date {
   return new Date(dateStr + "T12:00:00");
@@ -47,6 +53,28 @@ function formatDaysLeft(days: number): string {
   return `${days}d left`;
 }
 
+function resolveWarrantyYears(makeModel: string, brands: BoilerBrand[]): { brand: string; warrantyYears: number } {
+  const mm = makeModel.trim().toLowerCase();
+
+  const modelRows = brands.filter((b) => !b.is_default && b.model_name);
+  for (const row of modelRows) {
+    const fullName = `${row.brand_name} ${row.model_name}`.toLowerCase();
+    if (mm.includes(fullName) || mm.startsWith(fullName)) {
+      return { brand: row.brand_name, warrantyYears: row.warranty_years };
+    }
+  }
+
+  const defaultRows = brands.filter((b) => b.is_default);
+  defaultRows.sort((a, b) => b.brand_name.length - a.brand_name.length);
+  for (const row of defaultRows) {
+    if (mm.startsWith(row.brand_name.toLowerCase()) || mm.includes(row.brand_name.toLowerCase())) {
+      return { brand: row.brand_name, warrantyYears: row.warranty_years };
+    }
+  }
+
+  return { brand: "Unknown", warrantyYears: 10 };
+}
+
 const WarrantyDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -54,32 +82,31 @@ const WarrantyDetail = () => {
   const { engineerName } = useUserRole(user);
   const { toast } = useToast();
   const [customer, setCustomer] = useState<any>(null);
-  const [brand, setBrand] = useState<any>(null);
+  const [resolvedBrand, setResolvedBrand] = useState<{ brand: string; warrantyYears: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
 
   const fetchCustomer = async () => {
     if (!id) return;
-    const { data: c } = await supabase
-      .from("customers")
-      .select("id, name, phone, address, boiler_make_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
-      .eq("id", id)
-      .maybeSingle();
+    const [custRes, brandsRes] = await Promise.all([
+      supabase
+        .from("customers")
+        .select("id, name, phone, address, boiler_make_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
+        .eq("id", id)
+        .maybeSingle(),
+      supabase.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default"),
+    ]);
 
+    const c = custRes.data;
     if (!c) { setLoading(false); return; }
 
     const makeModel = (c.boiler_make_model || "").trim();
-    const firstWord = makeModel.split(/\s+/)[0]?.toLowerCase() || "";
-    const firstTwo = makeModel.split(/\s+/).slice(0, 2).join(" ").toLowerCase();
-
-    const { data: brands } = await supabase.from("boiler_brands").select("brand_name, warranty_years");
-    const brandsData = brands || [];
-    let match = brandsData.find((b: any) => b.brand_name.toLowerCase() === firstWord);
-    if (!match) match = brandsData.find((b: any) => b.brand_name.toLowerCase() === firstTwo);
+    const brandsData = (brandsRes.data || []) as BoilerBrand[];
+    const resolved = makeModel ? resolveWarrantyYears(makeModel, brandsData) : { brand: "Unknown", warrantyYears: 10 };
 
     setCustomer(c);
-    setBrand(match || null);
+    setResolvedBrand(resolved);
     setLoading(false);
   };
 
@@ -93,7 +120,7 @@ const WarrantyDetail = () => {
     );
   }
 
-  if (!customer || !brand) {
+  if (!customer || !resolvedBrand) {
     return (
       <div className="p-6 text-center">
         <p className="text-muted-foreground">Customer or brand data not found.</p>
@@ -106,11 +133,11 @@ const WarrantyDetail = () => {
 
   const installDate = parseDateSafe(customer.boiler_installation_date);
   const expiryDate = new Date(installDate);
-  expiryDate.setFullYear(expiryDate.getFullYear() + brand.warranty_years);
+  expiryDate.setFullYear(expiryDate.getFullYear() + resolvedBrand.warrantyYears);
   const today = new Date();
   today.setHours(12, 0, 0, 0);
   const daysLeft = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const totalDays = brand.warranty_years * 365;
+  const totalDays = resolvedBrand.warrantyYears * 365;
   const elapsed = totalDays - daysLeft;
   const percentUsed = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
   const isExpiredOrCritical = daysLeft <= 30;
@@ -175,7 +202,7 @@ const WarrantyDetail = () => {
             <span>{percentUsed}% used</span>
           </div>
         </div>
-        <p className="text-xs mt-2 opacity-70">{brand.warranty_years} year warranty</p>
+        <p className="text-xs mt-2 opacity-70">{resolvedBrand.warrantyYears} year warranty</p>
       </Card>
 
       {/* Boiler Details */}
@@ -183,11 +210,11 @@ const WarrantyDetail = () => {
         <h2 className="font-semibold mb-3">Boiler Details</h2>
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <span className="text-muted-foreground">Brand</span>
-          <span>{brand.brand_name}</span>
+          <span>{resolvedBrand.brand}</span>
           <span className="text-muted-foreground">Model</span>
           <span>{makeModel}</span>
           <span className="text-muted-foreground">Warranty Period</span>
-          <span>{brand.warranty_years} years</span>
+          <span>{resolvedBrand.warrantyYears} years</span>
           <span className="text-muted-foreground">Install Date</span>
           <span>{formatDateIE(installDate)}</span>
           <span className="text-muted-foreground">Expiry Date</span>

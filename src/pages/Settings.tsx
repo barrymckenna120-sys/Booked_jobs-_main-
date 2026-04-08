@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
-  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
 } from "lucide-react";
 import Products from "@/pages/Products";
 import GeneralTab from "@/components/settings/GeneralTab";
@@ -20,6 +20,7 @@ import BrandTab from "@/components/settings/BrandTab";
 import MessagingTab from "@/components/settings/MessagingTab";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import BillingTab from "@/components/settings/BillingTab";
+import BoilerBrandsTab from "@/components/settings/BoilerBrandsTab";
 import JobTimeBlocksSection from "@/components/settings/JobTimeBlocksSection";
 import { Separator } from "@/components/ui/separator";
 
@@ -34,6 +35,7 @@ const TABS = [
   { key: "integrations", label: "Integrations", icon: Plug },
   { key: "data_security", label: "Data & Security", icon: Shield },
   { key: "billing", label: "Billing", icon: Receipt },
+  { key: "boiler_brands", label: "Boiler Brands", icon: Flame },
   { key: "audit", label: "Audit Log", icon: ClipboardList },
 ];
 
@@ -151,6 +153,7 @@ const Settings = () => {
             </div>
           )}
           {activeTab === "billing" && <BillingTab />}
+          {activeTab === "boiler_brands" && <BoilerBrandsTab />}
           {activeTab === "audit" && <AuditLogTab />}
         </div>
       </div>
