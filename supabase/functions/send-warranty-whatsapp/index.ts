@@ -75,6 +75,27 @@ serve(async (req) => {
       throw new Error(`360Messenger error (${response.status}): ${result}`);
     }
 
+    // Auto-advance renewal_stage to "reminded" if currently "not_contacted"
+    if (customer_id && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&renewal_stage=eq.not_contacted`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              Prefer: "return=minimal",
+            },
+            body: JSON.stringify({ renewal_stage: "reminded" }),
+          }
+        );
+      } catch (_stageErr) {
+        // Non-critical
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, result }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

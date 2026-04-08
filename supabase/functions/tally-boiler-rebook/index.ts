@@ -101,13 +101,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update customer next_service_due
+    // Update customer next_service_due and advance renewal_stage to "booked_in"
+    const customerUpdate: Record<string, string> = { renewal_stage: "booked_in" };
     if (preferred_date) {
-      await supabase
-        .from("customers")
-        .update({ next_service_due: preferred_date })
-        .eq("id", customer.id);
+      customerUpdate.next_service_due = preferred_date;
     }
+    await supabase
+      .from("customers")
+      .update(customerUpdate)
+      .eq("id", customer.id);
 
     return new Response(
       JSON.stringify({
