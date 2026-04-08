@@ -137,6 +137,7 @@ const WarrantyTracker = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const distinctBrands = useMemo(() => {
     const set = new Set(brands.filter((b) => b.is_default).map((b) => b.brand_name));
