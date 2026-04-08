@@ -334,11 +334,22 @@ const CustomerDetail = () => {
 
                 if (modelManual || (!hasModels)) {
                   return (
-                    <Input
-                      value={currentModel}
-                      onChange={(e) => handleChange("boiler_model", e.target.value)}
-                      placeholder="Enter model name"
-                    />
+                    <div>
+                      <Input
+                        value={currentModel}
+                        onChange={(e) => handleChange("boiler_model", e.target.value)}
+                        placeholder="Enter model name"
+                      />
+                      {modelManual && hasModels && (
+                        <button
+                          type="button"
+                          className="mt-1 text-xs text-primary hover:underline"
+                          onClick={() => { setModelManual(false); handleChange("boiler_model", ""); }}
+                        >
+                          ← Back to list
+                        </button>
+                      )}
+                    </div>
                   );
                 }
 
