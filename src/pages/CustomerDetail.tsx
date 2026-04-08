@@ -135,6 +135,10 @@ const CustomerDetail = () => {
     // Ensure required fields are never null
     if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
     if (!updates.address && updates.address !== undefined) updates.address = "";
+    // Sync boiler_make_model from brand + model
+    const brand = (updates.boiler_brand || "").trim();
+    const model = (updates.boiler_model || "").trim();
+    updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
     const { error } = await supabase.from("customers").update(updates).eq("id", id);
     setSaving(false);
     if (error) {
