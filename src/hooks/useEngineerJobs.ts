@@ -325,7 +325,7 @@ export const useEngineerJobs = () => {
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: theJob?.assigned_engineer || null,
-            service_status: "Active",
+            service_status: "Serviced",
             renewal_stage: "not_contacted",
           };
           if (nextServiceDate) customerUpdate.next_service_due = nextServiceDate;
