@@ -3,15 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, Phone, MessageSquare, ArrowUpDown } from "lucide-react";
+import { Shield, ArrowUpDown } from "lucide-react";
 
 interface BoilerBrand {
   brand_name: string;
+  model_name: string | null;
   warranty_years: number;
+  is_default: boolean;
 }
 
 interface CustomerWarranty {
@@ -24,7 +25,6 @@ interface CustomerWarranty {
   last_service_date: string | null;
   notes: string | null;
   warranty_reminder_log: any[];
-  // computed
   brand: string;
   warrantyYears: number;
   expiryDate: Date;
@@ -38,10 +38,6 @@ function parseDateSafe(dateStr: string): Date {
 
 function formatDateIE(date: Date): string {
   return date.toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" });
-}
-
-function formatMonthYear(date: Date): string {
-  return date.toLocaleDateString("en-IE", { month: "long", year: "numeric" });
 }
 
 function formatDaysLeft(days: number): string {
@@ -68,18 +64,37 @@ function formatDaysLeft(days: number): string {
   return `${days}d left`;
 }
 
-function daysLeftColor(days: number): string {
-  if (days <= 30) return "text-red-600";
-  if (days <= 90) return "text-amber-600";
-  if (days <= 365) return "text-yellow-600";
-  return "text-green-600";
-}
-
 function daysLeftBg(days: number): string {
   if (days <= 30) return "bg-red-100 text-red-700";
   if (days <= 90) return "bg-amber-100 text-amber-700";
   if (days <= 365) return "bg-yellow-100 text-yellow-700";
   return "bg-green-100 text-green-700";
+}
+
+function resolveWarrantyYears(makeModel: string, brands: BoilerBrand[]): { brand: string; warrantyYears: number } {
+  const mm = makeModel.trim().toLowerCase();
+
+  // Try model-level match first (is_default = false)
+  const modelRows = brands.filter((b) => !b.is_default && b.model_name);
+  for (const row of modelRows) {
+    const fullName = `${row.brand_name} ${row.model_name}`.toLowerCase();
+    if (mm.includes(fullName) || mm.startsWith(fullName)) {
+      return { brand: row.brand_name, warrantyYears: row.warranty_years };
+    }
+  }
+
+  // Try brand-level default match
+  const defaultRows = brands.filter((b) => b.is_default);
+  // Sort by name length descending so "Worcester Bosch" matches before "Worcester"
+  defaultRows.sort((a, b) => b.brand_name.length - a.brand_name.length);
+  for (const row of defaultRows) {
+    if (mm.startsWith(row.brand_name.toLowerCase()) || mm.includes(row.brand_name.toLowerCase())) {
+      return { brand: row.brand_name, warrantyYears: row.warranty_years };
+    }
+  }
+
+  // Fallback
+  return { brand: "Unknown", warrantyYears: 10 };
 }
 
 const TIME_PERIODS = [
@@ -109,11 +124,16 @@ const WarrantyTracker = () => {
   const [periodFilter, setPeriodFilter] = useState("3m");
   const [sortBy, setSortBy] = useState("expiry");
 
+  const distinctBrands = useMemo(() => {
+    const set = new Set(brands.filter((b) => b.is_default).map((b) => b.brand_name));
+    return Array.from(set).sort();
+  }, [brands]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       const [brandsRes, customersRes] = await Promise.all([
-        supabase.from("boiler_brands").select("brand_name, warranty_years"),
+        supabase.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default"),
         supabase
           .from("customers")
           .select("id, name, phone, address, boiler_make_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
@@ -129,27 +149,16 @@ const WarrantyTracker = () => {
       const mapped: CustomerWarranty[] = (customersRes.data || [])
         .map((c: any) => {
           const makeModel = (c.boiler_make_model || "").trim();
-          const firstWord = makeModel.split(/\s+/)[0]?.toLowerCase() || "";
+          if (!makeModel) return null;
 
-          // Match brand: try first word, then first two words for "Worcester Bosch"
-          let matchedBrand = brandsData.find(
-            (b) => b.brand_name.toLowerCase() === firstWord
-          );
-          if (!matchedBrand) {
-            const firstTwo = makeModel.split(/\s+/).slice(0, 2).join(" ").toLowerCase();
-            matchedBrand = brandsData.find(
-              (b) => b.brand_name.toLowerCase() === firstTwo
-            );
-          }
-
-          if (!matchedBrand) return null;
+          const { brand, warrantyYears } = resolveWarrantyYears(makeModel, brandsData);
 
           const installDate = parseDateSafe(c.boiler_installation_date);
           const expiryDate = new Date(installDate);
-          expiryDate.setFullYear(expiryDate.getFullYear() + matchedBrand.warranty_years);
+          expiryDate.setFullYear(expiryDate.getFullYear() + warrantyYears);
 
           const daysLeft = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          const totalDays = matchedBrand.warranty_years * 365;
+          const totalDays = warrantyYears * 365;
           const elapsed = totalDays - daysLeft;
           const percentUsed = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
 
@@ -165,8 +174,8 @@ const WarrantyTracker = () => {
             last_service_date: c.last_service_date,
             notes: c.notes,
             warranty_reminder_log: reminderLog,
-            brand: matchedBrand.brand_name,
-            warrantyYears: matchedBrand.warranty_years,
+            brand,
+            warrantyYears,
             expiryDate,
             daysLeft,
             percentUsed,
@@ -184,12 +193,10 @@ const WarrantyTracker = () => {
   const filtered = useMemo(() => {
     let result = [...customers];
 
-    // Brand filter
     if (brandFilter !== "all") {
       result = result.filter((c) => c.brand === brandFilter);
     }
 
-    // Time period filter
     const period = TIME_PERIODS.find((p) => p.value === periodFilter);
     if (period) {
       if (period.value === "expired") {
@@ -199,7 +206,6 @@ const WarrantyTracker = () => {
       }
     }
 
-    // Sort
     if (sortBy === "expiry") {
       result.sort((a, b) => a.daysLeft - b.daysLeft);
     } else if (sortBy === "name") {
@@ -211,7 +217,6 @@ const WarrantyTracker = () => {
     return result;
   }, [customers, brandFilter, periodFilter, sortBy]);
 
-  // Brand breakdown
   const brandBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.forEach((c) => {
@@ -235,7 +240,6 @@ const WarrantyTracker = () => {
         <h1 className="text-xl font-bold">Warranty Tracker</h1>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={brandFilter} onValueChange={setBrandFilter}>
           <SelectTrigger className="w-[180px]">
@@ -243,10 +247,8 @@ const WarrantyTracker = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Brands</SelectItem>
-            {brands.map((b) => (
-              <SelectItem key={b.brand_name} value={b.brand_name}>
-                {b.brand_name}
-              </SelectItem>
+            {distinctBrands.map((b) => (
+              <SelectItem key={b} value={b}>{b}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -257,9 +259,7 @@ const WarrantyTracker = () => {
           </SelectTrigger>
           <SelectContent>
             {TIME_PERIODS.map((p) => (
-              <SelectItem key={p.value} value={p.value}>
-                {p.label}
-              </SelectItem>
+              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -271,15 +271,12 @@ const WarrantyTracker = () => {
           </SelectTrigger>
           <SelectContent>
             {SORT_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Summary bar */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary" className="text-sm">
           {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
@@ -296,7 +293,6 @@ const WarrantyTracker = () => {
         ))}
       </div>
 
-      {/* Customer cards */}
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No customers match these filters.</p>
       ) : (
