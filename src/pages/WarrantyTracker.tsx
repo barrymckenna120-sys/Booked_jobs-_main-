@@ -560,7 +560,7 @@ const WarrantyTracker = () => {
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No customers match these filters.</p>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-3 px-1">
           {filtered.map((c) => {
             const isChecked = selected.has(c.id);
             const boilerDisplay = [c.boiler_brand, c.boiler_model].filter(Boolean).join(" ") || c.boiler_make_model || c.brand;
