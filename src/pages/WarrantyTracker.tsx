@@ -407,6 +407,20 @@ const WarrantyTracker = () => {
         <h1 className="text-xl font-bold">Warranty Tracker</h1>
       </div>
 
+      {/* Summary stat cards */}
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+        {summaryStats.map((s) => (
+          <button
+            key={s.label}
+            onClick={() => setPeriodFilter(s.filter)}
+            className={`flex-shrink-0 rounded-lg border px-4 py-3 text-center min-w-[100px] transition-shadow hover:shadow-md ${s.bg} ${periodFilter === s.filter ? "ring-2 ring-primary" : ""}`}
+          >
+            <p className="text-2xl font-bold">{s.count}</p>
+            <p className="text-xs font-medium mt-0.5">{s.emoji} {s.label}</p>
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <Select value={brandFilter} onValueChange={setBrandFilter}>
           <SelectTrigger className="w-[180px]">
