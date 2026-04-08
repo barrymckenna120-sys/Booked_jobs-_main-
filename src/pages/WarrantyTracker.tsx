@@ -351,6 +351,18 @@ const WarrantyTracker = () => {
                     <span>{c.percentUsed}% used</span>
                   </div>
                 </div>
+
+                {periodFilter === "new_install" && (
+                  <Button
+                    className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/warranty/${c.id}`);
+                    }}
+                  >
+                    📱 Send Warranty Info
+                  </Button>
+                )}
               </Card>
             );
           })}
