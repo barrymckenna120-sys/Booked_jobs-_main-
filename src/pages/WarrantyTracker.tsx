@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Shield, ArrowUpDown, X, MessageSquare, CalendarPlus, Phone } from "lucide-react";
+import { Shield, ArrowUpDown, X, MessageSquare, CalendarPlus, Phone, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 interface BoilerBrand {
