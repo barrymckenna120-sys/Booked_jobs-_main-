@@ -34,7 +34,7 @@ serve(async (req) => {
     }
 
     const formData = new FormData();
-    formData.append("phone_number", normalised);
+    formData.append("phonenumber", normalised);
     formData.append("text", message);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
