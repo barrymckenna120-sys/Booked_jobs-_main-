@@ -295,7 +295,76 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Boiler Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <PlainField label="Boiler Make / Model" field="boiler_make_model" value={form.boiler_make_model} />
+            {/* Boiler Brand dropdown */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Boiler Brand</Label>
+              <Select
+                value={form.boiler_brand || ""}
+                onValueChange={(v) => {
+                  handleChange("boiler_brand", v);
+                  // Reset model when brand changes
+                  handleChange("boiler_model", "");
+                  setModelManual(false);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set(boilerBrands.filter(b => b.is_default).map(b => b.brand_name))).sort().map(b => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Boiler Model dropdown / free text */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Boiler Model</Label>
+              {(() => {
+                const selectedBrand = form.boiler_brand || "";
+                const models = boilerBrands
+                  .filter(b => !b.is_default && b.model_name && b.brand_name === selectedBrand)
+                  .map(b => b.model_name!)
+                  .sort();
+                const hasModels = models.length > 0;
+                const currentModel = form.boiler_model || "";
+                const isKnownModel = models.includes(currentModel);
+
+                if (!selectedBrand) {
+                  return <Input disabled placeholder="Select a brand first" />;
+                }
+
+                if (modelManual || (!hasModels)) {
+                  return (
+                    <Input
+                      value={currentModel}
+                      onChange={(e) => handleChange("boiler_model", e.target.value)}
+                      placeholder="Enter model name"
+                    />
+                  );
+                }
+
+                return (
+                  <Select
+                    value={isKnownModel ? currentModel : (currentModel ? "__other__" : "")}
+                    onValueChange={(v) => {
+                      if (v === "__other__") {
+                        setModelManual(true);
+                        handleChange("boiler_model", "");
+                      } else {
+                        handleChange("boiler_model", v);
+                      }
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select model" /></SelectTrigger>
+                    <SelectContent>
+                      {models.map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                      <SelectItem value="__other__">Other (type manually)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                );
+              })()}
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
