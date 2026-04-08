@@ -293,23 +293,59 @@ const CustomerDetail = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Installation Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.boiler_installation_date && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {form.boiler_installation_date ? formatDisplayDate(form.boiler_installation_date) : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={form.boiler_installation_date ? parseISO(form.boiler_installation_date + "T00:00:00") : undefined}
-                    onSelect={(date) => handleChange("boiler_installation_date", date ? format(date, "yyyy-MM-dd") : null)}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              {(() => {
+                const currentYear = new Date().getFullYear();
+                const years = Array.from({ length: currentYear - 2000 + 1 }, (_, i) => currentYear - i);
+                const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+                const days = Array.from({ length: 31 }, (_, i) => i + 1);
+                const existing = form.boiler_installation_date ? form.boiler_installation_date.split("-") : [null, null, null];
+                const selYear = existing[0] || "";
+                const selMonth = existing[1] ? String(parseInt(existing[1])) : "";
+                const selDay = existing[2] ? String(parseInt(existing[2])) : "";
+
+                const buildDate = (y: string, m: string, d: string) => {
+                  if (!y || !m) return null;
+                  const dd = d || "1";
+                  return `${y}-${dd.length === 1 ? "0" : ""}${dd.length === 1 ? dd : dd}-${m.length === 1 ? "0" : ""}${m.length === 1 ? m : m}`;
+                };
+                // Correct: YYYY-MM-DD
+                const buildDateCorrect = (y: string, m: string, d: string) => {
+                  if (!y || !m) return null;
+                  const dayVal = d || "1";
+                  const monthStr = m.padStart(2, "0");
+                  const dayStr = String(dayVal).padStart(2, "0");
+                  return `${y}-${monthStr}-${dayStr}`;
+                };
+
+                return (
+                  <div className="flex gap-2">
+                    <Select value={selDay} onValueChange={(v) => handleChange("boiler_installation_date", buildDateCorrect(selYear, selMonth, v))}>
+                      <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
+                      <SelectContent>
+                        {days.map((d) => (
+                          <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={selMonth} onValueChange={(v) => handleChange("boiler_installation_date", buildDateCorrect(selYear, v, selDay))}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Month" /></SelectTrigger>
+                      <SelectContent>
+                        {months.map((m, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={selYear} onValueChange={(v) => handleChange("boiler_installation_date", buildDateCorrect(v, selMonth || "1", selDay))}>
+                      <SelectTrigger className="w-[90px]"><SelectValue placeholder="Year" /></SelectTrigger>
+                      <SelectContent>
+                        {years.map((y) => (
+                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Under Warranty</Label>
