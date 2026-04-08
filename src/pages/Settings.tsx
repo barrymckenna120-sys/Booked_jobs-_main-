@@ -35,6 +35,7 @@ const TABS = [
   { key: "integrations", label: "Integrations", icon: Plug },
   { key: "data_security", label: "Data & Security", icon: Shield },
   { key: "billing", label: "Billing", icon: Receipt },
+  { key: "boiler_brands", label: "Boiler Brands", icon: Flame },
   { key: "audit", label: "Audit Log", icon: ClipboardList },
 ];
 
