@@ -153,9 +153,20 @@ const WarrantyTracker = () => {
       const mapped: CustomerWarranty[] = (customersRes.data || [])
         .map((c: any) => {
           const makeModel = (c.boiler_make_model || "").trim();
-          if (!makeModel) return null;
+          if (!makeModel && !c.boiler_brand) return null;
 
-          const { brand, warrantyYears } = resolveWarrantyYears(makeModel, brandsData);
+          // Use boiler_brand directly if available, otherwise fall back to parsing
+          let brand: string;
+          let warrantyYears: number;
+          if (c.boiler_brand) {
+            const resolved = resolveWarrantyYears(c.boiler_brand + " " + (c.boiler_model || ""), brandsData);
+            brand = c.boiler_brand;
+            warrantyYears = resolved.warrantyYears;
+          } else {
+            const resolved = resolveWarrantyYears(makeModel, brandsData);
+            brand = resolved.brand;
+            warrantyYears = resolved.warrantyYears;
+          }
 
           const installDate = parseDateSafe(c.boiler_installation_date);
           const expiryDate = new Date(installDate);
