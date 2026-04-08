@@ -162,12 +162,19 @@ K & N Gas Services`;
           sent++;
           byArea[areaKey].sent++;
 
-          // Mark renewal_stage = reminded
-          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}`, {
+          // Advance renewal_stage to "reminded" only if currently "not_contacted"
+          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&renewal_stage=eq.not_contacted`, {
             method: "PATCH",
             headers: dbHeaders,
             body: JSON.stringify({
               renewal_stage: "reminded",
+            }),
+          });
+          // Always update reminder tracking fields
+          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}`, {
+            method: "PATCH",
+            headers: dbHeaders,
+            body: JSON.stringify({
               last_reminder_sent: new Date().toISOString(),
               reminder_30_days_sent: true,
             }),
