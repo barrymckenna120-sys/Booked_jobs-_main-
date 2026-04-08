@@ -37,6 +37,7 @@ const DESKTOP_NAV = [
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
   { label: "Customers", icon: Users, path: "/customers" },
+  { label: "Warranty", icon: Shield, path: "/warranty" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
