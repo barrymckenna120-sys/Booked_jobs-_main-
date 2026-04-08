@@ -114,6 +114,8 @@ const App = () => (
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
+              <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
+              <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
               <Route path="/products" element={<Products />} />
               <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
               <Route path="/settings/import" element={<ImportCustomers />} />
