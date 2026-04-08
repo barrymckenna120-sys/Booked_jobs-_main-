@@ -22,6 +22,8 @@ interface CustomerWarranty {
   phone: string;
   address: string;
   boiler_make_model: string | null;
+  boiler_brand: string | null;
+  boiler_model: string | null;
   boiler_installation_date: string | null;
   last_service_date: string | null;
   notes: string | null;
@@ -138,7 +140,7 @@ const WarrantyTracker = () => {
         supabase.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default"),
         supabase
           .from("customers")
-          .select("id, name, phone, address, boiler_make_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
+          .select("id, name, phone, address, boiler_make_model, boiler_brand, boiler_model, boiler_installation_date, last_service_date, notes, warranty_reminder_log")
           .not("boiler_installation_date", "is", null),
       ]);
 
@@ -151,9 +153,20 @@ const WarrantyTracker = () => {
       const mapped: CustomerWarranty[] = (customersRes.data || [])
         .map((c: any) => {
           const makeModel = (c.boiler_make_model || "").trim();
-          if (!makeModel) return null;
+          if (!makeModel && !c.boiler_brand) return null;
 
-          const { brand, warrantyYears } = resolveWarrantyYears(makeModel, brandsData);
+          // Use boiler_brand directly if available, otherwise fall back to parsing
+          let brand: string;
+          let warrantyYears: number;
+          if (c.boiler_brand) {
+            const resolved = resolveWarrantyYears(c.boiler_brand + " " + (c.boiler_model || ""), brandsData);
+            brand = c.boiler_brand;
+            warrantyYears = resolved.warrantyYears;
+          } else {
+            const resolved = resolveWarrantyYears(makeModel, brandsData);
+            brand = resolved.brand;
+            warrantyYears = resolved.warrantyYears;
+          }
 
           const installDate = parseDateSafe(c.boiler_installation_date);
           const expiryDate = new Date(installDate);
@@ -172,6 +185,8 @@ const WarrantyTracker = () => {
             phone: c.phone,
             address: c.address,
             boiler_make_model: c.boiler_make_model,
+            boiler_brand: c.boiler_brand,
+            boiler_model: c.boiler_model,
             boiler_installation_date: c.boiler_installation_date,
             last_service_date: c.last_service_date,
             notes: c.notes,

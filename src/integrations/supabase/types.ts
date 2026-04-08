@@ -455,8 +455,10 @@ export type Database = {
           area_code: string | null
           assigned_engineer: string | null
           boiler_age: number | null
+          boiler_brand: string | null
           boiler_installation_date: string | null
           boiler_make_model: string | null
+          boiler_model: string | null
           boiler_type: string | null
           created_at: string
           customer_since: string | null
@@ -499,8 +501,10 @@ export type Database = {
           area_code?: string | null
           assigned_engineer?: string | null
           boiler_age?: number | null
+          boiler_brand?: string | null
           boiler_installation_date?: string | null
           boiler_make_model?: string | null
+          boiler_model?: string | null
           boiler_type?: string | null
           created_at?: string
           customer_since?: string | null
@@ -543,8 +547,10 @@ export type Database = {
           area_code?: string | null
           assigned_engineer?: string | null
           boiler_age?: number | null
+          boiler_brand?: string | null
           boiler_installation_date?: string | null
           boiler_make_model?: string | null
+          boiler_model?: string | null
           boiler_type?: string | null
           created_at?: string
           customer_since?: string | null
