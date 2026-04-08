@@ -268,6 +268,16 @@ const WarrantyTracker = () => {
       }
     }
 
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.phone.toLowerCase().includes(q) ||
+        c.address.toLowerCase().includes(q)
+      );
+    }
+
     if (sortBy === "expiry") {
       result.sort((a, b) => a.daysLeft - b.daysLeft);
     } else if (sortBy === "name") {
@@ -277,7 +287,7 @@ const WarrantyTracker = () => {
     }
 
     return result;
-  }, [customers, activeTab, brandFilter, periodFilter, sortBy]);
+  }, [customers, activeTab, brandFilter, periodFilter, sortBy, searchQuery]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
