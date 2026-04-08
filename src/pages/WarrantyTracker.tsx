@@ -234,7 +234,7 @@ const WarrantyTracker = () => {
       } else if (period.value === "expired") {
         result = result.filter((c) => c.daysLeft < 0);
       } else if (period.value !== "all") {
-        result = result.filter((c) => c.daysLeft <= period.maxDays);
+        result = result.filter((c) => c.daysLeft >= 0 && c.daysLeft <= period.maxDays);
       }
     }
 
