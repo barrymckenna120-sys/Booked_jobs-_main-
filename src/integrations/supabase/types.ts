@@ -64,6 +64,38 @@ export type Database = {
           },
         ]
       }
+      boiler_brands: {
+        Row: {
+          brand_name: string
+          created_at: string
+          id: string
+          organisation_id: string | null
+          warranty_years: number
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          id?: string
+          organisation_id?: string | null
+          warranty_years: number
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string | null
+          warranty_years?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boiler_brands_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_settings: {
         Row: {
           accent_color: string
@@ -453,6 +485,7 @@ export type Database = {
           under_warranty: boolean | null
           updated_at: string
           user_id: string
+          warranty_reminder_log: Json | null
         }
         Insert: {
           access_notes?: string | null
@@ -496,6 +529,7 @@ export type Database = {
           under_warranty?: boolean | null
           updated_at?: string
           user_id: string
+          warranty_reminder_log?: Json | null
         }
         Update: {
           access_notes?: string | null
@@ -539,6 +573,7 @@ export type Database = {
           under_warranty?: boolean | null
           updated_at?: string
           user_id?: string
+          warranty_reminder_log?: Json | null
         }
         Relationships: [
           {
