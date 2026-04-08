@@ -33,6 +33,12 @@ import {
 
 const formatDateForInput = (val: string | null) => val || "";
 
+interface BoilerBrandRow {
+  brand_name: string;
+  model_name: string | null;
+  is_default: boolean;
+}
+
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
@@ -49,6 +55,8 @@ const CustomerDetail = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [boilerBrands, setBoilerBrands] = useState<BoilerBrandRow[]>([]);
+  const [modelManual, setModelManual] = useState(false);
 
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
