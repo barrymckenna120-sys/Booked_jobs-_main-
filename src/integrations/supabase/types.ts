@@ -69,6 +69,8 @@ export type Database = {
           brand_name: string
           created_at: string
           id: string
+          is_default: boolean
+          model_name: string | null
           organisation_id: string | null
           warranty_years: number
         }
@@ -76,6 +78,8 @@ export type Database = {
           brand_name: string
           created_at?: string
           id?: string
+          is_default?: boolean
+          model_name?: string | null
           organisation_id?: string | null
           warranty_years: number
         }
@@ -83,6 +87,8 @@ export type Database = {
           brand_name?: string
           created_at?: string
           id?: string
+          is_default?: boolean
+          model_name?: string | null
           organisation_id?: string | null
           warranty_years?: number
         }
