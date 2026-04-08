@@ -153,6 +153,7 @@ const Settings = () => {
             </div>
           )}
           {activeTab === "billing" && <BillingTab />}
+          {activeTab === "boiler_brands" && <BoilerBrandsTab />}
           {activeTab === "audit" && <AuditLogTab />}
         </div>
       </div>
