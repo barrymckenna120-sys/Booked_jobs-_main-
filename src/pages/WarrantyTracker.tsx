@@ -493,10 +493,10 @@ const WarrantyTracker = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      {/* Filters — two side by side on mobile, sort dropdown on desktop only */}
+      <div className="flex gap-2">
         <Select value={brandFilter} onValueChange={setBrandFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="flex-1 min-w-0">
             <SelectValue placeholder="Brand" />
           </SelectTrigger>
           <SelectContent>
@@ -508,7 +508,7 @@ const WarrantyTracker = () => {
         </Select>
 
         <Select value={periodFilter} onValueChange={setPeriodFilter}>
-          <SelectTrigger className="w-[220px]">
+          <SelectTrigger className="flex-1 min-w-0">
             <SelectValue placeholder="Time Period" />
           </SelectTrigger>
           <SelectContent>
@@ -519,7 +519,7 @@ const WarrantyTracker = () => {
         </Select>
 
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="hidden md:inline-flex w-[160px]">
             <ArrowUpDown className="w-4 h-4 mr-1" />
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
@@ -550,7 +550,7 @@ const WarrantyTracker = () => {
             onCheckedChange={toggleAll}
             disabled={sending}
           />
-          <span className="text-sm text-muted-foreground cursor-pointer" onClick={toggleAll}>
+          <span className="text-xs text-muted-foreground cursor-pointer" onClick={toggleAll}>
             {allSelected ? "Deselect All" : "Select All"} · {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -560,7 +560,7 @@ const WarrantyTracker = () => {
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No customers match these filters.</p>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-3 px-1">
           {filtered.map((c) => {
             const isChecked = selected.has(c.id);
             const boilerDisplay = [c.boiler_brand, c.boiler_model].filter(Boolean).join(" ") || c.boiler_make_model || c.brand;
