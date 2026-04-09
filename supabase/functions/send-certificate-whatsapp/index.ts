@@ -181,6 +181,24 @@ serve(async (req) => {
       });
     }
 
+    // Log customer_activity on success
+    if (result.success && cert.customer_id && cert.job_id) {
+      const certLabel = cert.cert_number ? `Certificate sent — ${cert.cert_number}` : "Certificate sent — Boiler Service";
+      const orgId = job?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          organisation_id: orgId,
+          customer_id: cert.customer_id,
+          service_call_id: cert.job_id,
+          event_type: "certificate_sent",
+          event_label: certLabel,
+          created_by: callingProfileId,
+        }),
+      });
+    }
+
     // On failure: log error + create notification
     if (!result.success) {
       const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}`;
