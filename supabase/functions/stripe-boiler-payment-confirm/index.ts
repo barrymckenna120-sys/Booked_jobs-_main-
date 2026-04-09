@@ -131,6 +131,28 @@ Deno.serve(async (req) => {
 
     console.log(`Payment confirmed for job ${jobId}, customer ${customerId}, amount €${amountPaid}`);
 
+    // Log payment_received activity
+    try {
+      const { data: scRow } = await supabase
+        .from("service_calls")
+        .select("organisation_id, customer_id")
+        .eq("id", jobId)
+        .single();
+      if (scRow) {
+        const amountStr = amountPaid !== null ? String(amountPaid) : "0";
+        await supabase.from("customer_activity").insert({
+          organisation_id: scRow.organisation_id,
+          customer_id: scRow.customer_id,
+          service_call_id: jobId,
+          event_type: "payment_received",
+          event_label: `Payment received — €${amountStr} — Card`,
+          created_by: null,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to log payment activity:", e);
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

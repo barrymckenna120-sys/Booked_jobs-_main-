@@ -194,6 +194,29 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
       await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
 
+      // Log payment_received activity when fully paid
+      if (updatePayload.payment_status === "paid") {
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle() : { data: null };
+          const { data: scRow } = await supabase.from("service_calls").select("organisation_id, customer_id").eq("id", job.id).single();
+          const methodLabel = method === "cash" ? "Cash" : "Card";
+          const amountStr = Number(parseFloat(amount) || 0).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          if (scRow) {
+            await supabase.from("customer_activity").insert({
+              organisation_id: scRow.organisation_id,
+              customer_id: scRow.customer_id,
+              service_call_id: job.id,
+              event_type: "payment_received",
+              event_label: `Payment received — €${amountStr} — ${methodLabel}`,
+              created_by: profile?.id || null,
+            } as any);
+          }
+        } catch (e) {
+          console.error("Failed to log payment activity:", e);
+        }
+      }
+
       // Navigate to receipt preview screen
       setTimeout(() => {
         onPaymentComplete?.(receiptNum);
