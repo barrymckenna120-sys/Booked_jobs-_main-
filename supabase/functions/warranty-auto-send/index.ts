@@ -35,19 +35,8 @@ serve(async (req) => {
   const summary = { day14_sent: 0, day28_sent: 0, day14_failed: 0, day28_failed: 0 };
 
   try {
-    // Parse request body for test_mode
-    let testMode = false;
-    let testCustomerId = "";
-    try {
-      const body = await req.json();
-      testMode = body.test_mode === true;
-      testCustomerId = body.test_customer_id || "";
-    } catch (_parseErr) {
-      // No body or invalid JSON — normal production run
-    }
-
     // Query eligible customers via PostgREST
-    const queryParams = new URLSearchParams({
+    const day14Query = new URLSearchParams({
       select: "id,name,phone,boiler_brand,boiler_model,boiler_installation_date,warranty_reminder_log,renewal_stage",
       organisation_id: `eq.${ORG_ID}`,
       boiler_brand: "not.is.null",
@@ -56,13 +45,8 @@ serve(async (req) => {
       phone: "not.is.null",
     });
 
-    // In test mode, filter to single customer
-    if (testMode && testCustomerId) {
-      queryParams.set("id", `eq.${testCustomerId}`);
-    }
-
     const day14Response = await fetch(
-      `${SUPABASE_URL}/rest/v1/customers?${queryParams.toString()}`,
+      `${SUPABASE_URL}/rest/v1/customers?${day14Query.toString()}`,
       { headers }
     );
     const day14All = await day14Response.json();
@@ -77,8 +61,8 @@ serve(async (req) => {
     day28Date.setDate(day28Date.getDate() - 28);
     const day28Str = day28Date.toISOString().split("T")[0];
 
-    // Filter day 14 customers (skip in test mode)
-    const day14Customers = testMode ? [] : (day14All || []).filter((c: Record<string, unknown>) => {
+    // Filter day 14 customers
+    const day14Customers = (day14All || []).filter((c: Record<string, unknown>) => {
       if (c.boiler_installation_date !== day14Str) return false;
       const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
       return !log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day14");
@@ -125,23 +109,15 @@ serve(async (req) => {
       await delay(500);
     }
 
-    // Step 2 — Day 28 customers (in test mode, use all fetched customers)
-    const day28Customers = testMode
-      ? (day14All || []).filter((c: Record<string, unknown>) => {
-          const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
-          if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
-          const stage = (c.renewal_stage as string) || "";
-          if (["Booked In", "Confirmed", "Paid"].includes(stage)) return false;
-          return true;
-        })
-      : (day14All || []).filter((c: Record<string, unknown>) => {
-          if (c.boiler_installation_date !== day28Str) return false;
-          const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
-          if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
-          const stage = (c.renewal_stage as string) || "";
-          if (["Booked In", "Confirmed", "Paid"].includes(stage)) return false;
-          return true;
-        });
+    // Step 2 — Day 28 customers
+    const day28Customers = (day14All || []).filter((c: Record<string, unknown>) => {
+      if (c.boiler_installation_date !== day28Str) return false;
+      const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
+      if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
+      const stage = (c.renewal_stage as string) || "";
+      if (["Booked In", "Confirmed", "Paid"].includes(stage)) return false;
+      return true;
+    });
 
     for (const customer of day28Customers) {
       try {
