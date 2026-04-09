@@ -154,12 +154,17 @@ const WarrantyDetail = () => {
   const handleSendWhatsApp = async () => {
     setSending(true);
     try {
+      const installDateFormatted = installDate.toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" });
       const { error } = await supabase.functions.invoke("send-warranty-whatsapp", {
         body: {
           phone: customer.phone,
-          message: whatsappMessage,
           customer_id: customer.id,
           customer_name: customer.name,
+          first_name: firstName,
+          boiler_brand: customer.boiler_brand || resolvedBrand.brand || "",
+          boiler_model: customer.boiler_model || "",
+          install_date_formatted: installDateFormatted,
+          message_type: "warranty_day14",
         },
       });
       if (error) throw error;
