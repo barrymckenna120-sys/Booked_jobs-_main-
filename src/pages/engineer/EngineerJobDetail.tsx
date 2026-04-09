@@ -282,6 +282,25 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     } else {
+      // Log payment_received activity when payment is recorded as paid
+      if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
+        try {
+          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
+          const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
+          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
+          const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          await supabase.from("customer_activity").insert({
+            organisation_id: job.organisation_id,
+            customer_id: job.customer_id,
+            service_call_id: job.id,
+            event_type: "payment_received",
+            event_label: `Payment received — €${amountStr} — ${methodLabel}`,
+            created_by: profile?.id || null,
+          } as any);
+        } catch (e) {
+          console.error("Failed to log payment activity:", e);
+        }
+      }
       // Save selected tags on completion
       if (patch.status === "Completed") {
         try {

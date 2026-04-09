@@ -227,6 +227,26 @@ export const useEngineerJobs = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Log payment_received activity when payment is recorded as paid
+      if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
+        try {
+          const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
+          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
+          const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
+          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
+          const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          await supabase.from("customer_activity").insert({
+            organisation_id: theJob?.organisation_id,
+            customer_id: theJob?.customer_id,
+            service_call_id: jobId,
+            event_type: "payment_received",
+            event_label: `Payment received — €${amountStr} — ${methodLabel}`,
+            created_by: profile?.id || null,
+          } as any);
+        } catch (e) {
+          console.error("Failed to log payment activity:", e);
+        }
+      }
       const existingJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId) || { id: jobId };
       const updatedJob = { ...existingJob, ...safeDbPatch };
       const nextStatus = safeDbPatch.status ?? existingJob.status;
