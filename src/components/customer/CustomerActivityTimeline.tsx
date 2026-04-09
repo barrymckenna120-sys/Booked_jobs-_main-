@@ -35,6 +35,7 @@ const PILL_CONFIG: Record<string, { label: string; className: string }> = {
   job_booked: { label: "Job Booked", className: "bg-purple-100 text-purple-700" },
   job_completed: { label: "Job Completed", className: "bg-green-100 text-green-700" },
   payment_received: { label: "Payment Received", className: "bg-emerald-100 text-emerald-700" },
+  certificate_sent: { label: "Certificate Sent", className: "bg-blue-100 text-blue-700" },
 };
 
 const CustomerActivityTimeline = ({ customerId }: Props) => {
