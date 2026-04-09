@@ -199,16 +199,19 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         try {
           const { data: { user: authUser } } = await supabase.auth.getUser();
           const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle() : { data: null };
+          const { data: scRow } = await supabase.from("service_calls").select("organisation_id, customer_id").eq("id", job.id).single();
           const methodLabel = method === "cash" ? "Cash" : "Card";
           const amountStr = Number(parseFloat(amount) || 0).toLocaleString("en-IE", { maximumFractionDigits: 0 });
-          await supabase.from("customer_activity").insert({
-            organisation_id: job.organisation_id,
-            customer_id: job.customer_id,
-            service_call_id: job.id,
-            event_type: "payment_received",
-            event_label: `Payment received — €${amountStr} — ${methodLabel}`,
-            created_by: profile?.id || null,
-          } as any);
+          if (scRow) {
+            await supabase.from("customer_activity").insert({
+              organisation_id: scRow.organisation_id,
+              customer_id: scRow.customer_id,
+              service_call_id: job.id,
+              event_type: "payment_received",
+              event_label: `Payment received — €${amountStr} — ${methodLabel}`,
+              created_by: profile?.id || null,
+            } as any);
+          }
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
