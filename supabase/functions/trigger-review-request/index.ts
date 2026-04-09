@@ -119,7 +119,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. Mark review as sent
+    // 5. Log customer activity
+    const { data: custFull } = await supabase
+      .from("customers")
+      .select("organisation_id")
+      .eq("id", customer_id)
+      .maybeSingle();
+
+    if (custFull?.organisation_id) {
+      await supabase.from("customer_activity").insert({
+        organisation_id: custFull.organisation_id,
+        customer_id,
+        event_type: "whatsapp_sent",
+        event_label: "WhatsApp sent — Review Request",
+        created_by: null,
+      });
+    }
+
+    // 6. Mark review as sent
     await supabase
       .from("service_calls")
       .update({
