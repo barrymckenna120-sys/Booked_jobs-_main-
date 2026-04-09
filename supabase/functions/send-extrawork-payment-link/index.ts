@@ -13,9 +13,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("MESSENGER_API_KEY");
+    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
 
-    if (!messengerKey) throw new Error("MESSENGER_API_KEY is not configured");
+    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
@@ -87,7 +87,7 @@ K & N Gas Services ☎ 087 3686252`;
     // Send via 360Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
-    formData.append("phone_number", cleanNumber);
+    formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
     // Log to message_log
