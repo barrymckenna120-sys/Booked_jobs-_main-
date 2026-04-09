@@ -32,6 +32,7 @@ const PILL_CONFIG: Record<string, { label: string; className: string }> = {
   note_inbound_call: { label: "Inbound Call", className: "bg-blue-100 text-blue-700" },
   note_outbound_call: { label: "Outbound Call", className: "bg-green-100 text-green-700" },
   note_general: { label: "Note", className: "bg-muted text-muted-foreground" },
+  job_booked: { label: "Job Booked", className: "bg-purple-100 text-purple-700" },
 };
 
 const CustomerActivityTimeline = ({ customerId }: Props) => {
