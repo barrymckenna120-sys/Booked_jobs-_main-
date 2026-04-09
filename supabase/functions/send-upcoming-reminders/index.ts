@@ -41,6 +41,7 @@ serve(async (req) => {
         status,
         customer_id,
         user_id,
+        organisation_id,
         customers ( name, phone )
       `)
       .eq("scheduled_date", targetStr)
