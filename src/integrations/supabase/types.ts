@@ -1995,6 +1995,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          accountant_email: string | null
           business_address: string | null
           business_email: string | null
           business_name: string
@@ -2045,6 +2046,7 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          accountant_email?: string | null
           business_address?: string | null
           business_email?: string | null
           business_name?: string
@@ -2095,6 +2097,7 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          accountant_email?: string | null
           business_address?: string | null
           business_email?: string | null
           business_name?: string
