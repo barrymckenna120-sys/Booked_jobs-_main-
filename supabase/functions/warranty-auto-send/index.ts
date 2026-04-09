@@ -35,14 +35,7 @@ serve(async (req) => {
   const summary = { day14_sent: 0, day28_sent: 0, day14_failed: 0, day28_failed: 0 };
 
   try {
-    // Step 1 — Day 14 customers
-    const day14Res = await fetch(
-      `${SUPABASE_URL}/rest/v1/rpc/get_warranty_day14_customers`,
-      { method: "POST", headers, body: JSON.stringify({ org_id: ORG_ID }) }
-    );
-
-    // Fallback: use direct query via PostgREST
-    // Query customers where boiler_installation_date = today - 14 days
+    // Query eligible customers via PostgREST
     const day14Query = new URLSearchParams({
       select: "id,name,phone,boiler_brand,boiler_model,boiler_installation_date,warranty_reminder_log,renewal_stage",
       organisation_id: `eq.${ORG_ID}`,
