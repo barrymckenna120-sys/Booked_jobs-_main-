@@ -152,6 +152,7 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   const updateJob = async (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => {
+    console.log('[DEBUG] updateJob called, status:', patch.status, 'paymentMethod:', patch.paymentMethod, 'caller stack:', new Error().stack?.split('\n').slice(1, 4).join(' | '));
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 
