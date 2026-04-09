@@ -185,14 +185,34 @@ Deno.serve(async (req) => {
     const csvBase64 = btoa(unescape(encodeURIComponent(csvContent)));
     const htmlBase64 = btoa(unescape(encodeURIComponent(htmlContent)));
 
+    // Derive first name from email for greeting
+    const emailLocal = accountantEmail.split("@")[0] || "";
+    const isCleanName = /^[a-zA-Z]+$/.test(emailLocal);
+    const greeting = isCleanName
+      ? emailLocal.charAt(0).toUpperCase() + emailLocal.slice(1).toLowerCase()
+      : "there";
+
+    const emailSubject = `K & N Gas Services — Sales Ledger ${label}`;
+    const emailBody = `Hi ${greeting},
+
+Please find attached a copy of our sales ledger for ${label} for K & N Gas Services.
+
+The report includes all paid invoices for the period along with totals for your records.
+
+If you have any questions please don't hesitate to get in touch.
+
+Kind regards,
+K & N Gas Services
+087 3686252`;
+
     const emailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: "onboarding@resend.dev",
         to: [accountantEmail],
-        subject: `BookedJobs — Invoice Export ${label} (${jobs.length} invoices)`,
-        text: `Please find attached the invoice export for ${label}. ${jobs.length} invoices totalling ${eur(totalRev)} inc VAT. Net: ${eur(totalNet)} | VAT: ${eur(totalVat)}.`,
+        subject: emailSubject,
+        text: emailBody,
         attachments: [
           { filename: `invoices-${yyyy_mm}.csv`, content: csvBase64, type: "text/csv" },
           { filename: `invoices-${yyyy_mm}.html`, content: htmlBase64, type: "text/html" },
