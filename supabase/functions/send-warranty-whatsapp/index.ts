@@ -11,21 +11,41 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, customer_id, customer_name } = await req.json();
+    const {
+      phone,
+      customer_id,
+      customer_name,
+      first_name,
+      boiler_brand,
+      boiler_model,
+      install_date_formatted,
+      message_type,
+    } = await req.json();
 
-    if (!phone || !message) {
+    if (!phone || !customer_id || !message_type) {
       return new Response(
-        JSON.stringify({ error: "Missing phone or message" }),
+        JSON.stringify({ error: "Missing required fields (phone, customer_id, message_type)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Normalise phone to E.164 — strip leading + for 360Messenger
-    let normalised = phone.trim().replace(/\s+/g, "");
-    if (normalised.startsWith("+")) {
-      normalised = normalised.slice(1);
-    } else if (normalised.startsWith("0")) {
-      normalised = "353" + normalised.slice(1);
+    // Derive phone formats
+    const messengerPhone = phone.replace("+", "");
+    const tallyPhone = "0" + phone.slice(4);
+
+    const tallyUrl = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;
+
+    // Build message based on type
+    let message: string;
+    if (message_type === "warranty_day14") {
+      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here: 👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
+    } else if (message_type === "warranty_day28") {
+      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe messaged you two weeks ago about your new ${boiler_brand} ${boiler_model} boiler warranty. We just wanted to follow up — booking your annual service is the best way to keep your warranty valid and your boiler running safely.\n\nBook here: 👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Invalid message_type. Must be warranty_day14 or warranty_day28" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const MESSENGER_API_KEY = Deno.env.get("MESSENGER_API_KEY");
@@ -33,23 +53,23 @@ serve(async (req) => {
       throw new Error("MESSENGER_API_KEY not set");
     }
 
+    // Send via 360Messenger
     const formData = new FormData();
-    formData.append("phonenumber", normalised);
+    formData.append("phonenumber", messengerPhone);
     formData.append("text", message);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${MESSENGER_API_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${MESSENGER_API_KEY}` },
       body: formData,
     });
 
     const result = await response.text();
 
-    // Log to edge_function_logs for diagnostics
+    // Log to edge_function_logs
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/edge_function_logs`, {
@@ -63,11 +83,11 @@ serve(async (req) => {
           body: JSON.stringify({
             function_name: "send-warranty-whatsapp",
             error_message: response.ok ? "OK" : `HTTP ${response.status}: ${result}`,
-            payload: { phone: normalised, customer_id, customer_name, status: response.status },
+            payload: { customer_id, message_type, phone: messengerPhone, status: response.status },
           }),
         });
       } catch (_logErr) {
-        // Non-critical logging failure
+        // Non-critical
       }
     }
 
@@ -75,23 +95,59 @@ serve(async (req) => {
       throw new Error(`360Messenger error (${response.status}): ${result}`);
     }
 
-    // Auto-advance renewal_stage to "reminded" if currently "not_contacted"
-    if (customer_id && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    // Post-send: update customer record
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
-        await fetch(
-          `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&renewal_stage=eq.not_contacted`,
+        // Fetch current warranty_reminder_log
+        const custRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&select=warranty_reminder_log,renewal_stage`,
           {
-            method: "PATCH",
             headers: {
-              "Content-Type": "application/json",
               apikey: SUPABASE_SERVICE_ROLE_KEY,
               Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              Prefer: "return=minimal",
             },
-            body: JSON.stringify({ renewal_stage: "reminded" }),
           }
         );
-      } catch (_stageErr) {
+        const custData = await custRes.json();
+        const customer = custData?.[0];
+
+        if (customer) {
+          const currentLog = Array.isArray(customer.warranty_reminder_log)
+            ? customer.warranty_reminder_log
+            : [];
+          currentLog.push({
+            sent_at: new Date().toISOString(),
+            sent_by: "Auto",
+            message_type,
+          });
+
+          const updatePayload: Record<string, unknown> = {
+            warranty_reminder_log: currentLog,
+          };
+
+          // Advance stage if day14 and currently not_contacted
+          if (
+            message_type === "warranty_day14" &&
+            customer.renewal_stage === "not_contacted"
+          ) {
+            updatePayload.renewal_stage = "reminded";
+          }
+
+          await fetch(
+            `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: SUPABASE_SERVICE_ROLE_KEY,
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                Prefer: "return=minimal",
+              },
+              body: JSON.stringify(updatePayload),
+            }
+          );
+        }
+      } catch (_updateErr) {
         // Non-critical
       }
     }
@@ -100,7 +156,6 @@ serve(async (req) => {
       JSON.stringify({ success: true, result }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
   } catch (_e) {
     return new Response(
       JSON.stringify({ error: (_e as Error).message }),
