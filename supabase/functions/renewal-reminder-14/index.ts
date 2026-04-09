@@ -79,8 +79,15 @@ Deno.serve(async (req) => {
       .map((c) => {
         const latest = latestJobMap.get(c.id);
         // Build Tally booking URL
-        const digits = (c.phone || "").replace(/\D/g, "");
-        const localPhone = digits.startsWith("353") ? "0" + digits.slice(3) : digits;
+        let digits = (c.phone || "").replace(/\D/g, "");
+        if (digits.startsWith("353") && digits.length === 12) {
+          // already full international
+        } else if (digits.startsWith("0") && digits.length === 10) {
+          digits = "353" + digits.slice(1);
+        } else if (digits.length === 9) {
+          digits = "353" + digits;
+        }
+        const localPhone = "0" + digits.slice(3);
         const tally_url = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
         return {
           customer_id: c.id,

@@ -29,16 +29,18 @@ serve(async (req) => {
       );
     }
 
-    // Strip all non-numeric characters
-    const digits = phone.replace(/\D/g, "");
+    // Strip all non-numeric characters and normalise to full international
+    let digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("353") && digits.length === 12) {
+      // already full international
+    } else if (digits.startsWith("0") && digits.length === 10) {
+      digits = "353" + digits.slice(1);
+    } else if (digits.length === 9) {
+      digits = "353" + digits;
+    }
 
-    // For Tally — convert to Irish local format
-    const tallyPhone = digits.startsWith("353")
-      ? "0" + digits.slice(3)
-      : digits;
-
-    // For 360Messenger — just the digits
-    const messengerPhone = digits;
+    const messengerPhone = digits; // 353XXXXXXXXX
+    const tallyPhone = "0" + digits.slice(3); // 0XXXXXXXXX
 
     const tallyUrl = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;
 
