@@ -125,15 +125,23 @@ serve(async (req) => {
       await delay(500);
     }
 
-    // Step 2 — Day 28 customers
-    const day28Customers = (day14All || []).filter((c: Record<string, unknown>) => {
-      if (c.boiler_installation_date !== day28Str) return false;
-      const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
-      if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
-      const stage = (c.renewal_stage as string) || "";
-      if (["Booked In", "Confirmed", "Paid"].includes(stage)) return false;
-      return true;
-    });
+    // Step 2 — Day 28 customers (in test mode, use all fetched customers)
+    const day28Customers = testMode
+      ? (day14All || []).filter((c: Record<string, unknown>) => {
+          const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
+          if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
+          const stage = (c.renewal_stage as string) || "";
+          if (["Booked In", "Confirmed", "Paid"].includes(stage)) return false;
+          return true;
+        })
+      : (day14All || []).filter((c: Record<string, unknown>) => {
+          if (c.boiler_installation_date !== day28Str) return false;
+          const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
+          if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
+          const stage = (c.renewal_stage as string) || "";
+          if (["Booked In", "Confirmed", "Paid"].includes(stage)) return false;
+          return true;
+        });
 
     for (const customer of day28Customers) {
       try {
