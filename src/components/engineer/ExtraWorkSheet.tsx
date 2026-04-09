@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, Banknote, CreditCard, FileText } from "lucide-react";
 
 const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
@@ -22,16 +22,25 @@ type Product = {
   unit_price: number;
 };
 
+type PaymentMethod = "cash" | "card" | "invoice" | null;
+
 interface Props {
   job: any;
   customer: any;
   onClose: () => void;
 }
 
+const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: typeof Banknote; desc: string }[] = [
+  { value: "cash", label: "Cash", icon: Banknote, desc: "Customer paying on site with cash" },
+  { value: "card", label: "Card", icon: CreditCard, desc: "Customer paying on site by card" },
+  { value: "invoice", label: "Invoice", icon: FileText, desc: "Customer not on site, send payment link" },
+];
+
 const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", quantity: 1, unit_price: 0, line_total: 0 },
   ]);
@@ -72,7 +81,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
 
   const isValid = lineItems.length > 0 && lineItems.every(
     (li) => li.description.trim() && li.quantity >= 1 && li.unit_price > 0
-  );
+  ) && paymentMethod !== null;
 
   const handleSubmit = async () => {
     if (!isValid) return;
@@ -101,17 +110,82 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
 
     console.log("[ExtraWork] cleanItems:", JSON.stringify(cleanItems));
     console.log("[ExtraWork] subtotal:", subtotal);
+    console.log("[ExtraWork] paymentMethod:", paymentMethod);
     console.log("[ExtraWork] full payload:", JSON.stringify(payload));
 
-    const { error } = await supabase.from("quotes").insert([payload] as any);
+    const { data: quoteData, error } = await supabase.from("quotes").insert([payload] as any).select("id").single();
+
+    if (error) {
+      setSaving(false);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    const quoteId = quoteData?.id;
+
+    // Handle cash or card — update service_calls revenue
+    if (paymentMethod === "cash" || paymentMethod === "card") {
+      const currentRevenue = job.revenue || 0;
+      const currentBalance = job.balance_due || 0;
+      const newRevenue = Math.round((currentRevenue + subtotal) * 100) / 100;
+      const newBalance = Math.round((currentBalance + subtotal) * 100) / 100;
+
+      const { error: updateErr } = await supabase
+        .from("service_calls")
+        .update({ revenue: newRevenue, balance_due: newBalance } as any)
+        .eq("id", job.id);
+
+      if (updateErr) {
+        console.error("[ExtraWork] Failed to update service_calls:", updateErr.message);
+      }
+
+      setSaving(false);
+      toast({
+        title: "Extra work added",
+        description: `${getJobRef(job)} · €${subtotal.toFixed(2)} collected on site`,
+      });
+      onClose();
+      return;
+    }
+
+    // Handle invoice — send payment link via WhatsApp
+    if (paymentMethod === "invoice" && quoteId) {
+      try {
+        const { data: fnData, error: fnError } = await supabase.functions.invoke("send-extrawork-payment-link", {
+          body: {
+            quote_id: quoteId,
+            service_call_id: job.id,
+            customer_id: job.customer_id,
+            total_amount: subtotal,
+            line_items: cleanItems,
+          },
+        });
+
+        if (fnError) {
+          console.error("[ExtraWork] Edge function error:", fnError);
+          toast({
+            title: "Extra work saved",
+            description: "Quote created but WhatsApp send failed. Office can resend.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Extra work quote sent",
+            description: `Sent to ${customer.name} via WhatsApp`,
+          });
+        }
+      } catch (err) {
+        console.error("[ExtraWork] invoke error:", err);
+        toast({
+          title: "Extra work saved",
+          description: "Quote created but WhatsApp send failed.",
+          variant: "destructive",
+        });
+      }
+    }
 
     setSaving(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Extra work submitted", description: `${getJobRef(job)} · €${subtotal.toFixed(2)}` });
-      onClose();
-    }
+    onClose();
   };
 
   return (
@@ -151,9 +225,43 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
           <span className="text-lg font-extrabold">€{subtotal.toFixed(2)}</span>
         </div>
 
+        {/* Payment Method Selector */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            How is this being paid?
+          </Label>
+          <div className="grid grid-cols-3 gap-2">
+            {PAYMENT_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const selected = paymentMethod === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(opt.value)}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center ${
+                    selected
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs font-bold">{opt.label}</span>
+                  <span className="text-[10px] leading-tight opacity-70">{opt.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-xs text-muted-foreground">
-          This creates a quote linked to <strong>{getJobRef(job)}</strong> with status{" "}
-          <strong>Pending Approval</strong>. Office will review before sending.
+          {paymentMethod === "invoice" ? (
+            <>This will send a payment link to <strong>{customer.name}</strong> via WhatsApp for <strong>€{subtotal.toFixed(2)}</strong>.</>
+          ) : paymentMethod ? (
+            <>Extra work of <strong>€{subtotal.toFixed(2)}</strong> will be added to <strong>{getJobRef(job)}</strong> and collected on site.</>
+          ) : (
+            <>Select a payment method to continue.</>
+          )}
         </div>
 
         <Button
@@ -161,7 +269,11 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
           disabled={!isValid || saving}
           onClick={handleSubmit}
         >
-          {saving ? "Submitting…" : "Submit Extra Work"}
+          {saving
+            ? "Submitting…"
+            : paymentMethod === "invoice"
+            ? "Send Payment Link"
+            : "Submit Extra Work"}
         </Button>
         <button
           onClick={onClose}
@@ -208,7 +320,6 @@ function LineItemRow({
     setShowDropdown(false);
   };
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
@@ -221,7 +332,6 @@ function LineItemRow({
 
   return (
     <div className="border border-border rounded-xl p-3 space-y-3 relative">
-      {/* Remove button */}
       {onRemove && (
         <button
           onClick={onRemove}
@@ -232,7 +342,6 @@ function LineItemRow({
         </button>
       )}
 
-      {/* Description / Product search */}
       <div className="space-y-1.5" ref={wrapRef}>
         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Item {index + 1}
@@ -270,7 +379,6 @@ function LineItemRow({
         )}
       </div>
 
-      {/* Qty / Unit Price / Total */}
       <div className="grid grid-cols-3 gap-2">
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">Qty</Label>
