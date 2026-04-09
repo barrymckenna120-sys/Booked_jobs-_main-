@@ -60,7 +60,7 @@ serve(async (req) => {
 
       // Check opted_out status
       const custRes = await fetch(
-        `${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&select=opted_out,user_id`,
+        `${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&select=opted_out,user_id,organisation_id`,
         { headers: dbHeaders }
       );
       const custRows = await custRes.json();
@@ -167,7 +167,7 @@ K & N Gas Services`;
             await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
               method: "POST", headers: dbHeaders,
               body: JSON.stringify({
-                organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+                organisation_id: custRecord?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
                 customer_id,
                 event_type: "whatsapp_sent",
                 event_label: "WhatsApp sent — Renewal Reminder",
