@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         status: "Pending Payment",
         scheduled_date: preferred_date || null,
         time_block: preferred_time || null,
-        source: "Tally Rebooking",
+        source: source === "renewal_tally" ? "Renewal Tally Rebooking" : "Tally Rebooking",
       })
       .select("id")
       .single();
@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update customer next_service_due and advance renewal_stage to "booked_in"
-    const customerUpdate: Record<string, string> = { renewal_stage: "booked_in" };
+    // Update customer next_service_due and advance renewal_stage
+    const customerUpdate: Record<string, string> = { renewal_stage: source === "renewal_tally" ? "Booked In" : "booked_in" };
     if (preferred_date) {
       customerUpdate.next_service_due = preferred_date;
     }
