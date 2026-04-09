@@ -65,3 +65,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.warranty-auto-send]
     verify_jwt = false
+  [functions.job-reminder-2day]
+    verify_jwt = false
