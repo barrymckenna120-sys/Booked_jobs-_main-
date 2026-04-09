@@ -283,6 +283,23 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           }}
         />
       )}
+      {showCompletionPayment && pendingCompletionData && (
+        <PaymentSheet
+          job={job}
+          customer={customer}
+          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); }}
+          onDone={(method: string, confirmedAmount: number) => {
+            setShowCompletionPayment(false);
+            onUpdate(job.id, {
+              status: "Completed",
+              ...pendingCompletionData.data,
+              paymentMethod: method,
+              revenue: confirmedAmount,
+            }, { jobTagDate: pendingCompletionData.jobTagDate });
+            setPendingCompletionData(null);
+          }}
+        />
+      )
       <MessageOfficeModal
         open={showMessageOffice}
         onOpenChange={setShowMessageOffice}
