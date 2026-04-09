@@ -160,7 +160,7 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
                   </div>
                 </div>
               </div>
-            )})
+            })}
           </div>
         )}
       </CardContent>
