@@ -153,6 +153,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const handlePaymentDone = async (method: string, confirmedAmount: number) => {
+    console.log('[DEBUG] EngineerJobDetail PaymentSheet onDone fired, method:', method, 'amount:', confirmedAmount);
     if (!completeData || !job) return;
     setShowPayment(false);
 
