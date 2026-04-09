@@ -662,6 +662,36 @@ export type Database = {
           },
         ]
       }
+      debug_logs: {
+        Row: {
+          created_at: string | null
+          engineer_id: string | null
+          event: string
+          id: string
+          job_id: string | null
+          payload: Json | null
+          stack: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          engineer_id?: string | null
+          event: string
+          id?: string
+          job_id?: string | null
+          payload?: Json | null
+          stack?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          engineer_id?: string | null
+          event?: string
+          id?: string
+          job_id?: string | null
+          payload?: Json | null
+          stack?: string | null
+        }
+        Relationships: []
+      }
       edge_function_logs: {
         Row: {
           created_at: string
