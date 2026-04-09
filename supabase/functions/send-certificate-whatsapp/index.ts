@@ -60,14 +60,35 @@ serve(async (req) => {
       });
     }
 
-    // Fetch job to get user_id for settings lookup
+    // Fetch job to get user_id and organisation_id for settings lookup
     const jobRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${cert.job_id}&select=user_id`,
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${cert.job_id}&select=user_id,organisation_id`,
       { headers }
     );
     const jobs = await jobRes.json();
     const job = Array.isArray(jobs) ? jobs[0] : null;
     const userId = job?.user_id;
+
+    // Extract calling user from JWT for activity logging
+    let callingProfileId: string | null = null;
+    const authHeader = req.headers.get("authorization");
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const callingUserId = payload.sub;
+        if (callingUserId) {
+          const profileRes = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?user_id=eq.${callingUserId}&select=id&limit=1`,
+            { headers }
+          );
+          const profiles = await profileRes.json();
+          if (Array.isArray(profiles) && profiles[0]) {
+            callingProfileId = profiles[0].id;
+          }
+        }
+      } catch { /* ignore JWT parse errors */ }
+    }
 
     // Fetch settings: message_footer + template_certificate
     let messageFooter = "K&N Gas Services";
@@ -157,6 +178,24 @@ serve(async (req) => {
         method: "PATCH",
         headers,
         body: JSON.stringify(updateBody),
+      });
+    }
+
+    // Log customer_activity on success
+    if (result.success && cert.customer_id && cert.job_id) {
+      const certLabel = cert.cert_number ? `Certificate sent — ${cert.cert_number}` : "Certificate sent — Boiler Service";
+      const orgId = job?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          organisation_id: orgId,
+          customer_id: cert.customer_id,
+          service_call_id: cert.job_id,
+          event_type: "certificate_sent",
+          event_label: certLabel,
+          created_by: callingProfileId,
+        }),
       });
     }
 
