@@ -22,16 +22,16 @@ interface Props {
 
 type ActivityType = "note_inbound_call" | "note_outbound_call" | "note_general";
 
-const TYPE_OPTIONS: { value: ActivityType; label: string; icon: string }[] = [
-  { value: "note_inbound_call", label: "Inbound Call", icon: "📞" },
-  { value: "note_outbound_call", label: "Outbound Call", icon: "📤" },
-  { value: "note_general", label: "Note", icon: "📝" },
+const TYPE_OPTIONS: { value: ActivityType; label: string }[] = [
+  { value: "note_inbound_call", label: "Inbound Call" },
+  { value: "note_outbound_call", label: "Outbound Call" },
+  { value: "note_general", label: "Note" },
 ];
 
-const ICON_MAP: Record<string, string> = {
-  note_inbound_call: "📞",
-  note_outbound_call: "📤",
-  note_general: "📝",
+const PILL_CONFIG: Record<string, { label: string; className: string }> = {
+  note_inbound_call: { label: "Inbound Call", className: "bg-blue-100 text-blue-700" },
+  note_outbound_call: { label: "Outbound Call", className: "bg-green-100 text-green-700" },
+  note_general: { label: "Note", className: "bg-muted text-muted-foreground" },
 };
 
 const CustomerActivityTimeline = ({ customerId }: Props) => {
@@ -140,11 +140,15 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
           <p className="text-sm text-muted-foreground text-center py-4">No activity logged yet</p>
         ) : (
           <div className="space-y-2">
-            {activities.map((a) => (
+            {activities.map((a) => {
+              const pill = PILL_CONFIG[a.event_type] || PILL_CONFIG.note_general;
+              return (
               <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm">
-                <span className="text-lg shrink-0 mt-0.5">{ICON_MAP[a.event_type] || "📝"}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-foreground text-[13px]">{a.event_label}</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${pill.className}`}>{pill.label}</span>
+                  </div>
+                  <p className="text-foreground text-[13px] mt-1">{a.event_label}</p>
                   <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
                     <span>{formatTimestamp(a.created_at)}</span>
                     {a.created_by && profileMap[a.created_by] && (
@@ -156,7 +160,7 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
                   </div>
                 </div>
               </div>
-            ))}
+            )})
           </div>
         )}
       </CardContent>
@@ -176,14 +180,13 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
                     key={opt.value}
                     type="button"
                     onClick={() => setSelectedType(opt.value)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={`flex-1 flex items-center justify-center rounded-lg border px-3 py-2.5 text-xs font-medium transition-colors ${
                       selectedType === opt.value
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border bg-card text-muted-foreground hover:bg-accent"
                     }`}
                   >
-                    <span>{opt.icon}</span>
-                    <span className="text-xs">{opt.label}</span>
+                    {opt.label}
                   </button>
                 ))}
               </div>
