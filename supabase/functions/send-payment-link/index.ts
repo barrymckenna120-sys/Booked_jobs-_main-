@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     // Fetch job + customer
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id")
+      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id, organisation_id")
       .eq("id", service_call_id)
       .single();
 
