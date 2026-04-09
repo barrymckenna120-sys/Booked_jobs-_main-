@@ -427,6 +427,11 @@ export const useEngineerJobs = () => {
           }
         } else {
           toast({ title: "Job completed ✔" });
+          supabase.functions.invoke('send-whatsapp-receipt', {
+            body: { job_id: jobId }
+          }).catch((err) => {
+            console.warn('[WhatsApp] Receipt send failed:', err);
+          });
         }
         navigate(`/receipt/${jobId}`);
       } else if (patch.status === "Cancelled") {
