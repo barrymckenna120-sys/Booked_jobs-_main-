@@ -143,23 +143,24 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
             {activities.map((a) => {
               const pill = PILL_CONFIG[a.event_type] || PILL_CONFIG.note_general;
               return (
-              <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${pill.className}`}>{pill.label}</span>
-                  </div>
-                  <p className="text-foreground text-[13px] mt-1">{a.event_label}</p>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                    <span>{formatTimestamp(a.created_at)}</span>
-                    {a.created_by && profileMap[a.created_by] && (
-                      <>
-                        <span>·</span>
-                        <span>{profileMap[a.created_by]}</span>
-                      </>
-                    )}
+                <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${pill.className}`}>{pill.label}</span>
+                    </div>
+                    <p className="text-foreground text-[13px] mt-1">{a.event_label}</p>
+                    <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                      <span>{formatTimestamp(a.created_at)}</span>
+                      {a.created_by && profileMap[a.created_by] && (
+                        <>
+                          <span>·</span>
+                          <span>{profileMap[a.created_by]}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              );
             })}
           </div>
         )}
