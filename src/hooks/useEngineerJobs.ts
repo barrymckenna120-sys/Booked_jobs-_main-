@@ -151,8 +151,24 @@ export const useEngineerJobs = () => {
     if (user) fetchAll();
   }, [user, fetchAll]);
 
+  const debugLog = async (event: string, payload?: Record<string, any>, stack?: string) => {
+    try {
+      await supabase.from('debug_logs').insert({
+        engineer_id: user?.id ?? null,
+        job_id: payload?.job_id ?? null,
+        event,
+        payload: payload ?? {},
+        stack: stack ?? null,
+      });
+    } catch (e) {
+      console.warn('[debugLog] insert failed', e);
+    }
+  };
+
   const updateJob = async (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => {
-    console.log('[DEBUG] updateJob called, status:', patch.status, 'paymentMethod:', patch.paymentMethod, 'caller stack:', new Error().stack?.split('\n').slice(1, 4).join(' | '));
+    const callerStack = new Error().stack?.split('\n').slice(1, 4).join(' | ') || '';
+    console.log('[DEBUG] updateJob called, status:', patch.status, 'paymentMethod:', patch.paymentMethod, 'caller stack:', callerStack);
+    debugLog('updateJob_called', { job_id: jobId, status: patch.status, paymentMethod: patch.paymentMethod }, callerStack);
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 

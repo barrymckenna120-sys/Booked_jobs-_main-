@@ -251,7 +251,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
-      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any, jobTagDate: string | null) => { console.log('[DEBUG] CompleteSheet onDone fired, opening PaymentSheet'); setPendingCompletionData({ data, jobTagDate }); setShowComplete(false); console.log('[DEBUG] setShowCompletionPayment true'); setShowCompletionPayment(true); }} />}
+      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any, jobTagDate: string | null) => { console.log('[DEBUG] CompleteSheet onDone fired, opening PaymentSheet'); supabase.from('debug_logs').insert({ engineer_id: null, job_id: job.id, event: 'completeSheet_onDone_fired', payload: { job_id: job.id } }); setPendingCompletionData({ data, jobTagDate }); setShowComplete(false); console.log('[DEBUG] setShowCompletionPayment true'); supabase.from('debug_logs').insert({ engineer_id: null, job_id: job.id, event: 'setShowCompletionPayment_true', payload: { job_id: job.id } }); setShowCompletionPayment(true); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
@@ -290,6 +290,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); }}
           onDone={(method: string, confirmedAmount: number) => {
             console.log('[DEBUG] PaymentSheet onDone fired, method:', method, 'amount:', confirmedAmount);
+            supabase.from('debug_logs').insert({ engineer_id: null, job_id: job.id, event: 'paymentSheet_onDone_fired', payload: { job_id: job.id, method, confirmedAmount } });
             setShowCompletionPayment(false);
             onUpdate(job.id, {
               status: "Completed",
