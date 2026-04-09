@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -29,18 +29,25 @@ serve(async (req) => {
       );
     }
 
-    // Derive phone formats
-    const messengerPhone = phone.replace("+", "");
-    const tallyPhone = "0" + phone.slice(4);
+    // Strip all non-numeric characters
+    const digits = phone.replace(/\D/g, "");
+
+    // For Tally — convert to Irish local format
+    const tallyPhone = digits.startsWith("353")
+      ? "0" + digits.slice(3)
+      : digits;
+
+    // For 360Messenger — just the digits
+    const messengerPhone = digits;
 
     const tallyUrl = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;
 
     // Build message based on type
     let message: string;
     if (message_type === "warranty_day14") {
-      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here: 👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
+      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here:\n👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
     } else if (message_type === "warranty_day28") {
-      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe messaged you two weeks ago about your new ${boiler_brand} ${boiler_model} boiler warranty. We just wanted to follow up — booking your annual service is the best way to keep your warranty valid and your boiler running safely.\n\nBook here: 👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
+      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe messaged you two weeks ago about your new ${boiler_brand} ${boiler_model} boiler warranty. We just wanted to follow up — booking your annual service is the best way to keep your warranty valid and your boiler running safely.\n\nBook here:\n👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid message_type. Must be warranty_day14 or warranty_day28" }),
@@ -83,7 +90,7 @@ serve(async (req) => {
           body: JSON.stringify({
             function_name: "send-warranty-whatsapp",
             error_message: response.ok ? "OK" : `HTTP ${response.status}: ${result}`,
-            payload: { customer_id, message_type, phone: messengerPhone, status: response.status },
+            payload: { customer_id, message_type, phone: messengerPhone, tally_phone: tallyPhone },
           }),
         });
       } catch (_logErr) {
@@ -98,7 +105,7 @@ serve(async (req) => {
     // Post-send: update customer record
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
-        // Fetch current warranty_reminder_log
+        // Fetch current warranty_reminder_log and renewal_stage
         const custRes = await fetch(
           `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&select=warranty_reminder_log,renewal_stage`,
           {
