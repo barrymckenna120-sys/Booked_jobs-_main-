@@ -16,7 +16,7 @@ function getMonthRange(monthStr?: string): { start: string; end: string; label: 
     month = now.getMonth() + 1;
   }
   const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0); // last day of month
+  const endDate = new Date(year, month, 0);
   const start = `${year}-${String(month).padStart(2, "0")}-01`;
   const end = `${year}-${String(month).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}T23:59:59`;
   const label = startDate.toLocaleString("en-IE", { month: "long", year: "numeric" });
@@ -51,6 +51,38 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Read accountant email from settings table
+    let accountantEmail: string | null = null;
+
+    if (body.user_id) {
+      const { data: settingsRow } = await supabase
+        .from("settings")
+        .select("accountant_email")
+        .eq("user_id", body.user_id)
+        .maybeSingle();
+      accountantEmail = settingsRow?.accountant_email || null;
+    }
+
+    if (!accountantEmail && body.organisation_id) {
+      const { data: settingsRows } = await supabase
+        .from("settings")
+        .select("accountant_email")
+        .not("accountant_email", "is", null)
+        .limit(1);
+      if (settingsRows?.length) {
+        accountantEmail = settingsRows[0].accountant_email || null;
+      }
+    }
+
+    // Fall back to secret if not configured in settings
+    if (!accountantEmail) {
+      accountantEmail = Deno.env.get("ACCOUNTANT_EMAIL") || null;
+    }
+
+    if (!accountantEmail) {
+      throw new Error("Accountant email not configured in settings. Go to Settings → Finance & Reporting to add it.");
+    }
 
     let query = supabase
       .from("service_calls")
@@ -148,9 +180,7 @@ Deno.serve(async (req) => {
 
     // --- Send via Resend ---
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    const ACCOUNTANT_EMAIL = Deno.env.get("ACCOUNTANT_EMAIL");
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not configured");
-    if (!ACCOUNTANT_EMAIL) throw new Error("ACCOUNTANT_EMAIL not configured");
 
     const csvBase64 = btoa(unescape(encodeURIComponent(csvContent)));
     const htmlBase64 = btoa(unescape(encodeURIComponent(htmlContent)));
@@ -160,7 +190,7 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: "onboarding@resend.dev",
-        to: [ACCOUNTANT_EMAIL],
+        to: [accountantEmail],
         subject: `BookedJobs — Invoice Export ${label} (${jobs.length} invoices)`,
         text: `Please find attached the invoice export for ${label}. ${jobs.length} invoices totalling ${eur(totalRev)} inc VAT. Net: ${eur(totalNet)} | VAT: ${eur(totalVat)}.`,
         attachments: [
