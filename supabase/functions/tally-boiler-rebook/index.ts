@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { phone, preferred_date, preferred_time, organisation_id } = await req.json();
+    const { phone, preferred_date, preferred_time, organisation_id, source } = await req.json();
 
     if (!phone || !organisation_id) {
       return new Response(JSON.stringify({ error: "phone and organisation_id are required" }), {
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         status: "Pending Payment",
         scheduled_date: preferred_date || null,
         time_block: preferred_time || null,
-        source: "Tally Rebooking",
+        source: source === "renewal_tally" ? "Renewal Tally Rebooking" : "Tally Rebooking",
       })
       .select("id")
       .single();
@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update customer next_service_due and advance renewal_stage to "booked_in"
-    const customerUpdate: Record<string, string> = { renewal_stage: "booked_in" };
+    // Update customer next_service_due and advance renewal_stage
+    const customerUpdate: Record<string, string> = { renewal_stage: source === "renewal_tally" ? "Booked In" : "booked_in" };
     if (preferred_date) {
       customerUpdate.next_service_due = preferred_date;
     }

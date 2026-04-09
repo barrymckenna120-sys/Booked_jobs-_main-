@@ -82,6 +82,10 @@ Deno.serve(async (req) => {
       })
       .map((c) => {
         const latest = latestJobMap.get(c.id);
+        // Build Tally booking URL
+        const digits = (c.phone || "").replace(/\D/g, "");
+        const localPhone = digits.startsWith("353") ? "0" + digits.slice(3) : digits;
+        const tally_url = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
         return {
           customer_id: c.id,
           full_name: c.name,
@@ -91,6 +95,7 @@ Deno.serve(async (req) => {
           job_id: latest?.id || null,
           reminder_30day_sent: latest?.reminder_30day_sent ?? false,
           reminder_14day_sent: latest?.reminder_14day_sent ?? false,
+          tally_url,
         };
       });
 
