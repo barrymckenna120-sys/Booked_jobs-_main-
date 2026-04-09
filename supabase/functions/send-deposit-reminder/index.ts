@@ -95,6 +95,16 @@ Deno.serve(async (req) => {
 
       if (result.success) {
         reminded++;
+        // Log customer activity
+        try {
+          await supabase.from("customer_activity").insert({
+            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            customer_id: job.customer_id,
+            service_call_id: job.id,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Deposit Reminder",
+          });
+        } catch { /* non-critical */ }
       } else {
         skipped++;
         await supabase.from("edge_function_logs").insert({

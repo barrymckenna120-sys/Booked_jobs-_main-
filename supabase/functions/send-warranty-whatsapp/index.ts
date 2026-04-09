@@ -104,6 +104,28 @@ serve(async (req) => {
       throw new Error(`360Messenger error (${response.status}): ${result}`);
     }
 
+    // Log customer activity
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const label = message_type === "warranty_day14" ? "Warranty Reminder (14-day)" : "Warranty Reminder (28-day)";
+        await fetch(`${SUPABASE_URL}/rest/v1/customer_activity`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            customer_id,
+            event_type: "whatsapp_sent",
+            event_label: `WhatsApp sent — ${label}`,
+          }),
+        });
+      } catch { /* non-critical */ }
+    }
+
     // Post-send: update customer record
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {

@@ -174,6 +174,23 @@ ${messageFooter}`;
       });
     }
 
+    // Log customer activity on success
+    try {
+      const orgRes = await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id`, { headers: dbHeaders });
+      const orgRows = await orgRes.json();
+      const orgId = (Array.isArray(orgRows) && orgRows[0]?.organisation_id) || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+        method: "POST", headers: dbHeaders,
+        body: JSON.stringify({
+          organisation_id: orgId,
+          customer_id: job.customer_id,
+          service_call_id: service_call_id,
+          event_type: "whatsapp_sent",
+          event_label: "WhatsApp sent — Booking Confirmation",
+        }),
+      });
+    } catch { /* non-critical */ }
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
