@@ -166,9 +166,7 @@ export const useEngineerJobs = () => {
   };
 
   const updateJob = async (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => {
-    const callerStack = new Error().stack?.split('\n').slice(1, 4).join(' | ') || '';
-    console.log('[DEBUG] updateJob called, status:', patch.status, 'paymentMethod:', patch.paymentMethod, 'caller stack:', callerStack);
-    debugLog('updateJob_called', { job_id: jobId, status: patch.status, paymentMethod: patch.paymentMethod }, callerStack);
+    // debug logging removed — debugLog helper kept for future use
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 

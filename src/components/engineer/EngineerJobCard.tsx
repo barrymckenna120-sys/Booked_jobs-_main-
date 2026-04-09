@@ -289,8 +289,6 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           customer={customer}
           onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); }}
           onDone={(method: string, confirmedAmount: number) => {
-            console.log('[DEBUG] PaymentSheet onDone fired, method:', method, 'amount:', confirmedAmount);
-            supabase.from('debug_logs').insert({ engineer_id: null, job_id: job.id, event: 'paymentSheet_onDone_fired', payload: { job_id: job.id, method, confirmedAmount } });
             setShowCompletionPayment(false);
             onUpdate(job.id, {
               status: "Completed",
