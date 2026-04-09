@@ -299,7 +299,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             setPendingCompletionData(null);
           }}
         />
-      )
+      )}
       <MessageOfficeModal
         open={showMessageOffice}
         onOpenChange={setShowMessageOffice}
