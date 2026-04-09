@@ -113,9 +113,11 @@ const ServiceReceipt = () => {
     if (whatsappSending) return;
     setWhatsappSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-whatsapp-receipt', {
+      console.log('[WhatsApp] Invoking send-whatsapp-receipt for job:', id);
+      const { data, error } = await supabase.functions.invoke('send-whatsapp-receipt', {
         body: { job_id: id }
       });
+      console.log('[WhatsApp] Response:', data, 'Error:', error);
       if (error) throw error;
       setWhatsappSent(true);
       toast({ title: 'Receipt sent via WhatsApp ✔' });
