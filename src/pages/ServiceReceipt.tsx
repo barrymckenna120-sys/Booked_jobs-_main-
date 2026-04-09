@@ -109,59 +109,22 @@ const ServiceReceipt = () => {
     printReceipt({ ...data, jobReference: job.job_reference || undefined });
   };
 
-  const formatPhoneForWhatsApp = (phone: string): string => {
-    let cleaned = phone.replace(/[\s\-()]/g, "");
-    if (cleaned.startsWith("0")) cleaned = "353" + cleaned.slice(1);
-    if (!cleaned.startsWith("+") && !cleaned.startsWith("353")) cleaned = "353" + cleaned;
-    return cleaned.replace("+", "");
-  };
-
   const handleSendWhatsApp = async () => {
-    const phone = customer?.phone?.trim();
-    if (!phone) {
-      toast({
-        title: "No phone number on file for this customer — receipt cannot be sent via WhatsApp.",
-        variant: "destructive",
-        className: "bg-amber-500 text-white border-amber-600",
-      });
-      return;
-    }
-
+    if (whatsappSending) return;
     setWhatsappSending(true);
     try {
-      const data = getReceiptData();
-      const formattedPhone = formatPhoneForWhatsApp(phone);
-      const messageText = `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`;
-
-      await supabase.from("message_log").insert({
-        customer_id: customer?.id || null,
-        message_type: "receipt",
-        channel: "whatsapp",
-        direction: "outbound",
-        content: messageText,
-        status: "sent",
-        related_id: id,
-        related_type: "job",
-        sent_by: user?.id || "system",
-        sent_at: new Date().toISOString(),
-      } as any).select("id").single();
-
-      const message = encodeURIComponent(messageText);
-      window.open(`https://wa.me/${formattedPhone}?text=${message}`, "_blank");
-
-      await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any))
-        .eq("id", id);
-
-      setWhatsappSent(true);
-    } catch (e: any) {
-      toast({
-        title: "Failed to send — please try again",
-        variant: "destructive",
+      const { error } = await supabase.functions.invoke('send-whatsapp-receipt', {
+        body: { job_id: id }
       });
+      if (error) throw error;
+      setWhatsappSent(true);
+      toast({ title: 'Receipt sent via WhatsApp ✔' });
+    } catch (err) {
+      console.error('[WhatsApp] Receipt send failed:', err);
+      toast({ title: 'Failed to send WhatsApp', description: 'Please try again', variant: 'destructive' });
+    } finally {
+      setWhatsappSending(false);
     }
-    setWhatsappSending(false);
   };
 
   if (loading) {
