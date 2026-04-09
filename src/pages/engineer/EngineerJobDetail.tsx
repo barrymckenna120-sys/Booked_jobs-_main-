@@ -153,8 +153,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const handlePaymentDone = async (method: string, confirmedAmount: number) => {
-    console.log('[DEBUG] EngineerJobDetail PaymentSheet onDone fired, method:', method, 'amount:', confirmedAmount);
-    supabase.from('debug_logs').insert({ engineer_id: user?.id ?? null, job_id: id, event: 'detail_paymentSheet_onDone_fired', payload: { job_id: id, method, confirmedAmount } });
+    // debug logging removed
     if (!completeData || !job) return;
     setShowPayment(false);
 
