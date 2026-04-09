@@ -403,6 +403,71 @@ export type Database = {
           },
         ]
       }
+      customer_activity: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          customer_id: string
+          event_data: Json | null
+          event_label: string
+          event_type: string
+          id: string
+          organisation_id: string
+          service_call_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          customer_id: string
+          event_data?: Json | null
+          event_label: string
+          event_type: string
+          id?: string
+          organisation_id: string
+          service_call_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string
+          event_data?: Json | null
+          event_label?: string
+          event_type?: string
+          id?: string
+          organisation_id?: string
+          service_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_activity_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_activity_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_activity_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_activity_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_call_notes: {
         Row: {
           created_at: string | null
