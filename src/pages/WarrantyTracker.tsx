@@ -333,8 +333,10 @@ const WarrantyTracker = () => {
       const c = targets[i];
       setSendProgress({ current: i + 1, total: targets.length });
       try {
+        const firstName = c.name.split(/\s+/)[0];
+        const installDateFormatted = c.boiler_installation_date ? new Date(c.boiler_installation_date).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" }) : "";
         const { error } = await supabase.functions.invoke("send-warranty-whatsapp", {
-          body: { phone: c.phone, message: buildWarrantyMessage(c), customer_id: c.id, customer_name: c.name },
+          body: { phone: c.phone, customer_id: c.id, customer_name: c.name, first_name: firstName, boiler_brand: c.boiler_brand || c.brand || "", boiler_model: c.boiler_model || "", install_date_formatted: installDateFormatted, message_type: "warranty_day14" },
         });
         if (error) throw error;
 
@@ -398,8 +400,10 @@ const WarrantyTracker = () => {
   const handleSendSingle = async (c: CustomerWarranty) => {
     const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Office";
     try {
+      const firstName = c.name.split(/\s+/)[0];
+      const installDateFormatted = c.boiler_installation_date ? new Date(c.boiler_installation_date).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" }) : "";
       const { error } = await supabase.functions.invoke("send-warranty-whatsapp", {
-        body: { phone: c.phone, message: buildWarrantyMessage(c), customer_id: c.id, customer_name: c.name },
+        body: { phone: c.phone, customer_id: c.id, customer_name: c.name, first_name: firstName, boiler_brand: c.boiler_brand || c.brand || "", boiler_model: c.boiler_model || "", install_date_formatted: installDateFormatted, message_type: "warranty_day14" },
       });
       if (error) throw error;
       const newEntry = { sent_at: new Date().toISOString(), sent_by: displayName };
