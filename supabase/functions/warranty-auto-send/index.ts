@@ -35,8 +35,19 @@ serve(async (req) => {
   const summary = { day14_sent: 0, day28_sent: 0, day14_failed: 0, day28_failed: 0 };
 
   try {
+    // Parse request body for test_mode
+    let testMode = false;
+    let testCustomerId = "";
+    try {
+      const body = await req.json();
+      testMode = body.test_mode === true;
+      testCustomerId = body.test_customer_id || "";
+    } catch (_parseErr) {
+      // No body or invalid JSON — normal production run
+    }
+
     // Query eligible customers via PostgREST
-    const day14Query = new URLSearchParams({
+    const queryParams = new URLSearchParams({
       select: "id,name,phone,boiler_brand,boiler_model,boiler_installation_date,warranty_reminder_log,renewal_stage",
       organisation_id: `eq.${ORG_ID}`,
       boiler_brand: "not.is.null",
@@ -45,8 +56,13 @@ serve(async (req) => {
       phone: "not.is.null",
     });
 
+    // In test mode, filter to single customer
+    if (testMode && testCustomerId) {
+      queryParams.set("id", `eq.${testCustomerId}`);
+    }
+
     const day14Response = await fetch(
-      `${SUPABASE_URL}/rest/v1/customers?${day14Query.toString()}`,
+      `${SUPABASE_URL}/rest/v1/customers?${queryParams.toString()}`,
       { headers }
     );
     const day14All = await day14Response.json();
@@ -61,8 +77,8 @@ serve(async (req) => {
     day28Date.setDate(day28Date.getDate() - 28);
     const day28Str = day28Date.toISOString().split("T")[0];
 
-    // Filter day 14 customers
-    const day14Customers = (day14All || []).filter((c: Record<string, unknown>) => {
+    // Filter day 14 customers (skip in test mode)
+    const day14Customers = testMode ? [] : (day14All || []).filter((c: Record<string, unknown>) => {
       if (c.boiler_installation_date !== day14Str) return false;
       const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
       return !log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day14");
