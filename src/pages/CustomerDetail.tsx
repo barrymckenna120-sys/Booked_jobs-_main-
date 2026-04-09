@@ -22,6 +22,7 @@ import ServiceHistory from "@/components/customer/ServiceHistory";
 import CustomerHazardNotices from "@/components/customer/CustomerHazardNotices";
 import CustomerQuotes from "@/components/customer/CustomerQuotes";
 import PaymentHistory from "@/components/customer/PaymentHistory";
+import CustomerActivityTimeline from "@/components/customer/CustomerActivityTimeline";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
@@ -634,6 +635,9 @@ const CustomerDetail = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Activity Timeline */}
+        {id && <CustomerActivityTimeline customerId={id} />}
 
         {/* WhatsApp History */}
         {id && (
