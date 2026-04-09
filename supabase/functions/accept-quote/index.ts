@@ -381,6 +381,22 @@ async function sendDepositPaymentWhatsApp(
       });
     }
 
+    // Log customer activity on success
+    if (result.success && quote.customer_id) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+          method: "POST", headers,
+          body: JSON.stringify({
+            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            customer_id: quote.customer_id,
+            service_call_id: serviceCallId,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Deposit Payment Request",
+          }),
+        });
+      } catch { /* non-critical */ }
+    }
+
     console.log("Deposit WhatsApp send result:", result.success ? "sent" : "failed");
   } catch (e) {
     console.error("sendDepositPaymentWhatsApp error:", e);

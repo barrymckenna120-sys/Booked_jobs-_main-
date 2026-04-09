@@ -148,6 +148,21 @@ ${acceptUrl}`;
         headers: dbHeaders,
         body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
       });
+
+      // Log customer activity
+      if (customer_id) {
+        try {
+          await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+            method: "POST", headers: dbHeaders,
+            body: JSON.stringify({
+              organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+              customer_id,
+              event_type: "whatsapp_sent",
+              event_label: "WhatsApp sent — Quote",
+            }),
+          });
+        } catch { /* non-critical */ }
+      }
     } else {
       const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}`;
 

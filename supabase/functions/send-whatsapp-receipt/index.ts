@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id")
+      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id")
       .eq("id", job_id)
       .single();
 
@@ -141,6 +141,17 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Log customer activity
+    try {
+      await supabase.from("customer_activity").insert({
+        organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+        customer_id: job.customer_id,
+        service_call_id: job_id,
+        event_type: "whatsapp_sent",
+        event_label: "WhatsApp sent — Receipt",
+      });
+    } catch { /* non-critical */ }
 
     return new Response(JSON.stringify({ success: true, customer_name: customer.name }), {
       status: 200,

@@ -41,6 +41,7 @@ serve(async (req) => {
         status,
         customer_id,
         user_id,
+        organisation_id,
         customers ( name, phone )
       `)
       .eq("scheduled_date", targetStr)
@@ -155,6 +156,19 @@ ${messageFooter}`;
         if (result.success) {
           sent++;
           results.push({ job_id: job.id, customer_name: customerName, status: "sent" });
+          // Log customer activity
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+              method: "POST", headers: dbHeaders,
+              body: JSON.stringify({
+                organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+                customer_id: job.customer_id,
+                service_call_id: job.id,
+                event_type: "whatsapp_sent",
+                event_label: "WhatsApp sent — Appointment Reminder",
+              }),
+            });
+          } catch { /* non-critical */ }
         } else {
           failed++;
           const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 300)}`;
