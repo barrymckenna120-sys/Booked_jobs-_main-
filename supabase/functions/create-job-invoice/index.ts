@@ -443,6 +443,19 @@ Deno.serve(async (req) => {
 
         whatsappSent = !!result.success;
 
+        // Log customer activity on success
+        if (result.success) {
+          try {
+            await sb.from("customer_activity").insert({
+              organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+              customer_id: job.customer_id,
+              service_call_id: job_id,
+              event_type: "whatsapp_sent",
+              event_label: "WhatsApp sent — Invoice",
+            });
+          } catch { /* non-critical */ }
+        }
+
         if (!result.success) {
           await sb.from("edge_function_logs").insert({
             function_name: "create-job-invoice",
