@@ -109,34 +109,29 @@ const ServiceReceipt = () => {
     printReceipt({ ...data, jobReference: job.job_reference || undefined });
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     if (whatsappSending || whatsappSent) return;
 
-    const phone = customer?.phone?.replace(/[^0-9]/g, "") || "";
-    if (!phone) {
-      toast({ title: "No phone number", description: "Customer has no phone number on file", variant: "destructive" });
-      return;
+    if (!job?.id) return;
+
+    setWhatsappSending(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
+        body: { job_id: job.id },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
+
+      setWhatsappSent(true);
+      toast({ title: `Receipt sent to ${data.customer_name || customer?.name} via WhatsApp ✔` });
+    } catch (err: any) {
+      console.error("send-whatsapp-receipt error:", err);
+      toast({ title: "WhatsApp failed", description: err.message || "Could not send receipt", variant: "destructive" });
+    } finally {
+      setWhatsappSending(false);
     }
-
-    const businessName = settings?.business_name || "K&N Gas Services";
-    const footer = settings?.message_footer || businessName;
-    const jobRef = job?.job_reference || `KN-${(id || "").slice(0, 6).toUpperCase()}`;
-    const amount = job?.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
-    const paymentMethod = job?.payment_method === "card" ? "Card" : job?.payment_method === "invoice" ? "Invoice" : "Cash";
-    const receiptNum = job?.receipt_number || "";
-    const date = new Date(job?.completed_at || Date.now()).toLocaleDateString("en-IE", {
-      day: "numeric", month: "long", year: "numeric",
-    });
-
-    const message = `Hi ${customer?.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job?.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})\n\nThanks,\n${footer}`;
-
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-
-    // Use window.location.href instead of window.open() to bypass iOS PWA popup blocker
-    window.location.href = waUrl;
-
-    setWhatsappSent(true);
-    toast({ title: `Opening WhatsApp for ${customer?.name} ✔` });
   };
 
   if (loading) {
