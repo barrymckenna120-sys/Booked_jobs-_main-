@@ -559,6 +559,7 @@ export type Database = {
           updated_at: string
           user_id: string
           warranty_reminder_log: Json | null
+          warranty_years: number | null
         }
         Insert: {
           access_notes?: string | null
@@ -605,6 +606,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           warranty_reminder_log?: Json | null
+          warranty_years?: number | null
         }
         Update: {
           access_notes?: string | null
@@ -651,6 +653,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           warranty_reminder_log?: Json | null
+          warranty_years?: number | null
         }
         Relationships: [
           {
