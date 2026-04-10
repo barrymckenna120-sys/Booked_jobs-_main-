@@ -302,86 +302,23 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Boiler Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Boiler Brand dropdown */}
+            {/* Boiler Brand — free text */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Brand</Label>
-              <Select
-                value={form.boiler_brand || ""}
-                onValueChange={(v) => {
-                  handleChange("boiler_brand", v);
-                  // Reset model when brand changes
-                  handleChange("boiler_model", "");
-                  setModelManual(false);
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
-                <SelectContent>
-                  {Array.from(new Set(boilerBrands.filter(b => b.is_default).map(b => b.brand_name))).sort().map(b => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                value={form.boiler_brand ?? ""}
+                onChange={(e) => handleChange("boiler_brand", e.target.value)}
+                placeholder="e.g. Ideal, Worcester, Vaillant"
+              />
             </div>
-            {/* Boiler Model dropdown / free text */}
+            {/* Boiler Model — free text */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Model</Label>
-              {(() => {
-                const selectedBrand = form.boiler_brand || "";
-                const models = boilerBrands
-                  .filter(b => !b.is_default && b.model_name && b.brand_name === selectedBrand)
-                  .map(b => b.model_name!)
-                  .sort();
-                const hasModels = models.length > 0;
-                const currentModel = form.boiler_model || "";
-                const isKnownModel = models.includes(currentModel);
-
-                if (!selectedBrand) {
-                  return <Input disabled placeholder="Select a brand first" />;
-                }
-
-                if (modelManual || (!hasModels)) {
-                  return (
-                    <div>
-                      <Input
-                        value={currentModel}
-                        onChange={(e) => handleChange("boiler_model", e.target.value)}
-                        placeholder="Enter model name"
-                      />
-                      {modelManual && hasModels && (
-                        <button
-                          type="button"
-                          className="mt-1 text-xs text-primary hover:underline"
-                          onClick={() => { setModelManual(false); handleChange("boiler_model", ""); }}
-                        >
-                          ← Back to list
-                        </button>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <Select
-                    value={isKnownModel ? currentModel : (currentModel ? "__other__" : "")}
-                    onValueChange={(v) => {
-                      if (v === "__other__") {
-                        setModelManual(true);
-                        handleChange("boiler_model", "");
-                      } else {
-                        handleChange("boiler_model", v);
-                      }
-                    }}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select model" /></SelectTrigger>
-                    <SelectContent>
-                      {models.map(m => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                      <SelectItem value="__other__">Other (type manually)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                );
-              })()}
+              <Input
+                value={form.boiler_model ?? ""}
+                onChange={(e) => handleChange("boiler_model", e.target.value)}
+                placeholder="e.g. Logic Max 30"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
@@ -468,16 +405,6 @@ const CustomerDetail = () => {
                   </div>
                 );
               })()}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Under Warranty</Label>
-              <Select value={form.under_warranty === true ? "Yes" : form.under_warranty === false ? "No" : ""} onValueChange={(v) => handleChange("under_warranty", v === "Yes")}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Yes">Yes</SelectItem>
-                  <SelectItem value="No">No</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             {/* Warranty Years */}
             <div className="space-y-1.5">
