@@ -479,6 +479,76 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
+            {/* Warranty Years */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Warranty Years</Label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                placeholder="e.g. 5, 7, 10"
+                value={form.warranty_years ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  handleChange("warranty_years", v === "" ? null : parseInt(v, 10));
+                }}
+              />
+            </div>
+            {/* Warranty Expiry — calculated display */}
+            {(() => {
+              const installRaw = form.boiler_installation_date;
+              const wYears = form.warranty_years;
+              const hasInstall = installRaw && !installRaw.startsWith("__partial__");
+              let expiryDate: Date | null = null;
+              if (hasInstall && wYears != null) {
+                expiryDate = new Date(installRaw + "T12:00:00");
+                expiryDate.setFullYear(expiryDate.getFullYear() + wYears);
+              }
+              const expiryStr = expiryDate
+                ? expiryDate.toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })
+                : "—";
+
+              let statusLabel = "—";
+              let statusClass = "bg-muted text-muted-foreground";
+              if (expiryDate) {
+                const now = new Date();
+                now.setHours(0, 0, 0, 0);
+                const diff = (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+                if (expiryDate < now) {
+                  statusLabel = "Expired";
+                  statusClass = "bg-red-100 text-red-700";
+                } else if (diff <= 90) {
+                  statusLabel = "Expiring Soon";
+                  statusClass = "bg-amber-100 text-amber-700";
+                } else {
+                  statusLabel = "Under Warranty";
+                  statusClass = "bg-green-100 text-green-700";
+                }
+              }
+
+              return (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Warranty Expiry</Label>
+                    <div className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-foreground items-center">
+                      {expiryStr}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Warranty Status</Label>
+                    <div className="flex h-10 w-full items-center">
+                      {statusLabel === "—" ? (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      ) : (
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass}`}>
+                          {statusLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
 
