@@ -75,6 +75,7 @@ const ServiceReceipt = () => {
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
     setCertificate(certRes.data || null);
+    if (jobRes.data.receipt_sent) setWhatsappSent(true);
     setLoading(false);
   };
 
