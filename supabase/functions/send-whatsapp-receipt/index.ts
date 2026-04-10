@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id")
+      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, receipt_pdf_url")
       .eq("id", job_id)
       .single();
 
@@ -76,7 +76,9 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})\n\nThanks,\n${footer}`;
+    const pdfLine = job.receipt_pdf_url ? `\n\n📄 Download your receipt: ${job.receipt_pdf_url}` : "";
+
+    const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${pdfLine}\n\nThanks,\n${footer}`;
 
     // Strip leading + from phone for 360 Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
