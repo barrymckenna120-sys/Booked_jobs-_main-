@@ -70,8 +70,10 @@ Deno.serve(async (req) => {
     let authUserId: string;
 
     if (existingUser) {
+      console.log("Existing user found:", existingUser.id);
       authUserId = existingUser.id;
     } else {
+      console.log("No existing user, creating new auth user");
       // Generate a cryptographically random password
       const randomBytes = new Uint8Array(24);
       crypto.getRandomValues(randomBytes);
