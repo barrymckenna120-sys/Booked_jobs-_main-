@@ -134,12 +134,14 @@ const ServiceReceipt = () => {
 
   const handleSendWhatsApp = async () => {
     if (whatsappSending || whatsappSent) return;
-
     if (!job?.id) return;
 
     setWhatsappSending(true);
 
     try {
+      // Generate PDF first so the WhatsApp message includes the download link
+      await generateReceiptPdf();
+
       const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
         body: { job_id: job.id },
       });

@@ -24,7 +24,7 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
     const fetchReceipts = async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, receipt_number, scheduled_date, revenue, payment_method, paid_at, assigned_engineer")
+        .select("id, receipt_number, scheduled_date, revenue, payment_method, paid_at, assigned_engineer, receipt_pdf_url")
         .eq("customer_id", customerId)
         .not("receipt_number", "is", null)
         .order("paid_at", { ascending: false, nullsFirst: false });
