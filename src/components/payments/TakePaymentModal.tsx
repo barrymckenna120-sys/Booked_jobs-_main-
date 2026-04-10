@@ -81,6 +81,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   const [receiptData, setReceiptData] = useState<any>(null);
   const [pdfUrl, setPdfUrl] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
 
   useEffect(() => {
     if (open) {
