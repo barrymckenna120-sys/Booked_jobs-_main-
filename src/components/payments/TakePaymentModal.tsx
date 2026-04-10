@@ -476,12 +476,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
             <div className="space-y-2.5">
               <Button
-                className="w-full h-12 text-sm font-extrabold gap-2 bg-[hsl(217,91%,60%)] hover:bg-[hsl(217,91%,50%)] text-white"
-                disabled={!hasPhone}
+                className={`w-full h-12 text-sm font-extrabold gap-2 ${whatsappSent ? "bg-success hover:bg-success text-white" : "bg-[hsl(217,91%,60%)] hover:bg-[hsl(217,91%,50%)] text-white"}`}
+                disabled={!hasPhone || whatsappSending || whatsappSent}
                 onClick={handleWhatsApp}
                 title={!hasPhone ? "No phone number on file" : undefined}
               >
-                <Send className="w-4 h-4" /> Send via WhatsApp
+                {whatsappSending ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</> : whatsappSent ? <><CheckCircle2 className="w-4 h-4" /> Receipt Sent</> : <><Send className="w-4 h-4" /> Send via WhatsApp</>}
               </Button>
               <Button
                 variant="outline"
