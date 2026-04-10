@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
 
     // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
-    formData.append("phone_number", cleanNumber);
+    formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
     // Log to message_log before sending
