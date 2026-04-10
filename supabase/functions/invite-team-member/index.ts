@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: `BookedJobs <noreply@notify.kngasservices.bookedjobs.ie>`,
+              from: `BookedJobs <noreply@bookedjobs.ie>`,
               to: [email],
               subject: `Welcome to BookedJobs — You're in, ${(name || "").split(" ")[0]}!`,
               html: `<!DOCTYPE html><html><body style="font-family:'DM Sans',Arial,sans-serif;background:#F0F4FF;padding:40px 16px;">
