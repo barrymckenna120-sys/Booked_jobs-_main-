@@ -57,9 +57,9 @@ serve(async (req) => {
       );
     }
 
-    const MESSENGER_API_KEY = Deno.env.get("MESSENGER_API_KEY");
-    if (!MESSENGER_API_KEY) {
-      throw new Error("MESSENGER_API_KEY not set");
+    const THREESIXTY_API_KEY = Deno.env.get("THREESIXTY_API_KEY");
+    if (!THREESIXTY_API_KEY) {
+      throw new Error("THREESIXTY_API_KEY not set");
     }
 
     // Send via 360Messenger
@@ -69,7 +69,7 @@ serve(async (req) => {
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
-      headers: { Authorization: `Bearer ${MESSENGER_API_KEY}` },
+      headers: { Authorization: `Bearer ${THREESIXTY_API_KEY}` },
       body: formData,
     });
 
