@@ -101,6 +101,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Clear any existing engineer linked to this auth user (unique constraint)
+    const { error: clearError } = await supabaseAdmin
+      .from("engineers")
+      .update({ auth_user_id: null })
+      .eq("auth_user_id", authUserId)
+      .neq("id", engineer_id);
+
+    if (clearError) {
+      console.error("Failed to clear old auth link:", clearError);
+    }
+
     // Link the auth user to the engineer record
     const { error: updateError } = await supabaseAdmin
       .from("engineers")
