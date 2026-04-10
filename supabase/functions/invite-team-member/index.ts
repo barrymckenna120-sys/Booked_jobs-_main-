@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
       const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
         type: "recovery",
         email,
+        options: { redirectTo: "https://kngasservices.bookedjobs.ie/auth" },
       });
       console.log("generateLink result (existing):", JSON.stringify({ data: linkData, error: resetError }));
       if (resetError) {
@@ -153,6 +154,7 @@ Deno.serve(async (req) => {
       const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
         type: "recovery",
         email,
+        options: { redirectTo: "https://kngasservices.bookedjobs.ie/auth" },
       });
       console.log("generateLink response:", JSON.stringify({ data: linkData, error: resetError }));
       if (resetError) {
