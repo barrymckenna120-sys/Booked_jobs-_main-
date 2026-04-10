@@ -104,9 +104,32 @@ const ServiceReceipt = () => {
     };
   };
 
-  const handleDownloadPdf = () => {
-    const data = getReceiptData();
-    printReceipt({ ...data, jobReference: job.job_reference || undefined });
+  const generateReceiptPdf = async (): Promise<string | null> => {
+    // If we already have a URL, return it
+    if (job.receipt_pdf_url) return job.receipt_pdf_url;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
+        body: { job_id: job.id },
+      });
+      if (error || !data?.pdf_url) return null;
+      // Update local state so we don't re-generate
+      setJob((prev: any) => prev ? { ...prev, receipt_pdf_url: data.pdf_url } : prev);
+      return data.pdf_url;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    const url = await generateReceiptPdf();
+    if (url) {
+      window.open(url, "_blank");
+    } else {
+      // Fallback to print-based receipt
+      const data = getReceiptData();
+      printReceipt({ ...data, jobReference: job.job_reference || undefined });
+    }
   };
 
   const handleSendWhatsApp = async () => {
