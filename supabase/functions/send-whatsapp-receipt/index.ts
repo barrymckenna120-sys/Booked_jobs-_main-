@@ -145,10 +145,12 @@ Deno.serve(async (req) => {
       result = { success: false };
     }
 
+    const sentAt = new Date().toISOString();
+
     // Update message_log with outcome
     if (logId) {
       const updateBody = (result as any).success
-        ? { status: "sent", sent_at: new Date().toISOString() }
+        ? { status: "sent", sent_at: sentAt }
         : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
 
       await supabase.from("message_log").update(updateBody).eq("id", logId);
@@ -166,6 +168,18 @@ Deno.serve(async (req) => {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const { error: receiptStatusError } = await supabase
+      .from("service_calls")
+      .update({
+        receipt_sent: true,
+        receipt_sent_at: sentAt,
+      })
+      .eq("id", job_id);
+
+    if (receiptStatusError) {
+      console.error("Failed to update receipt sent status:", receiptStatusError);
     }
 
     // Log customer activity

@@ -245,13 +245,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
 
-      await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() }))
-        .eq("id", job.id);
-
       setWhatsappSent(true);
-      toast({ title: `Receipt sent to ${data.customer_name || customer.name} via WhatsApp ✔` });
     } catch (err: any) {
       console.error("send-whatsapp-receipt error:", err);
       toast({ title: "WhatsApp send failed — please try again", variant: "destructive" });
