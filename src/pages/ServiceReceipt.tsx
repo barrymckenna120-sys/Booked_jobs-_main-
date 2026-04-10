@@ -149,11 +149,17 @@ const ServiceReceipt = () => {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
 
+      // Mark receipt as sent on the job record
+      await supabase
+        .from("service_calls")
+        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() }))
+        .eq("id", job.id);
+
       setWhatsappSent(true);
       toast({ title: `Receipt sent to ${data.customer_name || customer?.name} via WhatsApp ✔` });
     } catch (err: any) {
       console.error("send-whatsapp-receipt error:", err);
-      toast({ title: "WhatsApp failed", description: err.message || "Could not send receipt", variant: "destructive" });
+      toast({ title: "WhatsApp send failed — please try again", variant: "destructive" });
     } finally {
       setWhatsappSending(false);
     }
