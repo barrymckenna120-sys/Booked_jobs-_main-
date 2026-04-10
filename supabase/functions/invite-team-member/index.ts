@@ -180,6 +180,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Log to audit_log
+    const callerName = caller.user_metadata?.display_name || caller.email || "Admin";
+    await supabaseAdmin.from("audit_log").insert({
+      user_id: caller.id,
+      user_name: callerName,
+      user_role: callerRole || "admin",
+      action_type: "team_member_invited",
+      entity_type: "engineer",
+      entity_id: engineer_id,
+      detail: `Invited ${name || email} (${role}) to the team`,
+      metadata: { email, role, existing_user: !!existingUser },
+    });
+
     return new Response(
       JSON.stringify({ success: true, auth_user_id: authUserId, existing: !!existingUser }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
