@@ -57,6 +57,7 @@ import CertificateViewer from "./pages/CertificateViewer";
 import Parts from "./pages/Parts";
 import WarrantyTracker from "./pages/WarrantyTracker";
 import WarrantyDetail from "./pages/WarrantyDetail";
+import PublicReceipt from "./pages/PublicReceipt";
 
 const queryClient = new QueryClient();
 
@@ -154,6 +155,7 @@ const App = () => (
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
             <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
             <Route path="/cert/:certNumber" element={<CertificateViewer />} />
+            <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
