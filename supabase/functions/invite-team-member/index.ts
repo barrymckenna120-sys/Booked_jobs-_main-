@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
         type: "recovery",
         email,
       });
+      console.log("generateLink response:", JSON.stringify({ data: linkData, error: resetError }));
       if (resetError) {
         console.error("Password reset link generation failed:", resetError);
       }
