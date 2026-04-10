@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
     );
 
     // Check if user already exists with this email
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    console.log("listUsers result:", JSON.stringify({ count: existingUsers?.users?.length, error: listError }));
     const existingUser = existingUsers?.users?.find(
       (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
