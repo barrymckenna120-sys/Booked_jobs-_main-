@@ -287,14 +287,14 @@ const ServiceReceipt = () => {
             Download PDF Receipt
           </Button>
           <Button
-            className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            className={`w-full h-12 text-sm font-extrabold gap-2 ${whatsappSent ? "bg-success hover:bg-success/90 text-white" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
             onClick={handleSendWhatsApp}
             disabled={whatsappSending || whatsappSent}
           >
             {whatsappSending ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
             ) : whatsappSent ? (
-              <>✅ Sent to {customer?.name} via WhatsApp</>
+              <><CheckCircle2 className="w-4 h-4" /> Receipt Sent</>
             ) : (
               <><Send className="w-4 h-4" /> Send via WhatsApp</>
             )}
