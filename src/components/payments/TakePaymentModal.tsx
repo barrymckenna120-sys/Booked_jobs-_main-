@@ -234,8 +234,6 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     }
   };
 
-  const [whatsappSending, setWhatsappSending] = useState(false);
-  const [whatsappSent, setWhatsappSent] = useState(false);
 
   const handleWhatsApp = async () => {
     if (!job?.id || whatsappSending || whatsappSent) return;
