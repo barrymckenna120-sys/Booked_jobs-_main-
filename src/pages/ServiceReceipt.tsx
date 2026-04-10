@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { printReceipt } from "@/lib/printReceipt";
-import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, AlertTriangle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
@@ -18,6 +16,16 @@ const addMonths = (d: string, months: number) => {
   const date = new Date(d + "T00:00:00");
   date.setMonth(date.getMonth() + months);
   return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const openExternalUrl = (url: string) => {
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 };
 
 const ServiceReceipt = () => {
@@ -125,11 +133,9 @@ const ServiceReceipt = () => {
   const handleDownloadPdf = async () => {
     const url = await generateReceiptPdf();
     if (url) {
-      window.open(url, "_blank");
+      openExternalUrl(url);
     } else {
-      // Fallback to print-based receipt
-      const data = getReceiptData();
-      printReceipt({ ...data, jobReference: job.job_reference || undefined });
+      toast({ title: "Could not generate receipt PDF", variant: "destructive" });
     }
   };
 
@@ -140,9 +146,6 @@ const ServiceReceipt = () => {
     setWhatsappSending(true);
 
     try {
-      // Generate PDF first so the WhatsApp message includes the download link
-      await generateReceiptPdf();
-
       const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
         body: { job_id: job.id },
       });
@@ -150,14 +153,8 @@ const ServiceReceipt = () => {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
 
-      // Mark receipt as sent on the job record
-      await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() }))
-        .eq("id", job.id);
-
       setWhatsappSent(true);
-      toast({ title: `Receipt sent to ${data.customer_name || customer?.name} via WhatsApp ✔` });
+      setJob((prev: any) => prev ? { ...prev, receipt_sent: true, receipt_sent_at: new Date().toISOString() } : prev);
     } catch (err: any) {
       console.error("send-whatsapp-receipt error:", err);
       toast({ title: "WhatsApp send failed — please try again", variant: "destructive" });
@@ -301,11 +298,10 @@ const ServiceReceipt = () => {
             )}
           </Button>
           {certificate?.pdf_url ? (
-            <Button
-              className="w-full h-12 text-sm font-extrabold gap-2 text-white bg-success hover:bg-success/90"
-              onClick={() => window.open(certificate.pdf_url!, "_blank")}
-            >
-              <Eye className="w-4 h-4" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+            <Button asChild className="w-full h-12 text-sm font-extrabold gap-2 text-white bg-success hover:bg-success/90">
+              <a href={certificate.pdf_url} target="_blank" rel="noopener noreferrer">
+                <Eye className="w-4 h-4" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+              </a>
             </Button>
           ) : (
             <Button
