@@ -1892,6 +1892,7 @@ export type Database = {
           payment_status: string | null
           quote_id: string | null
           receipt_number: string | null
+          receipt_pdf_url: string | null
           receipt_sent: boolean
           receipt_sent_at: string | null
           reminder_14day_sent: boolean
@@ -1966,6 +1967,7 @@ export type Database = {
           payment_status?: string | null
           quote_id?: string | null
           receipt_number?: string | null
+          receipt_pdf_url?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
           reminder_14day_sent?: boolean
@@ -2040,6 +2042,7 @@ export type Database = {
           payment_status?: string | null
           quote_id?: string | null
           receipt_number?: string | null
+          receipt_pdf_url?: string | null
           receipt_sent?: boolean
           receipt_sent_at?: string | null
           reminder_14day_sent?: boolean
