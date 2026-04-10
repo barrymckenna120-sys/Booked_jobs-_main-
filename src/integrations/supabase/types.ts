@@ -2406,6 +2406,7 @@ export type Database = {
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_quote_by_number: { Args: { p_quote_number: string }; Returns: Json }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
+      get_receipt_public: { Args: { p_receipt_number: string }; Returns: Json }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       mark_quote_viewed: { Args: { p_quote_id: string }; Returns: undefined }
       move_to_dlq: {

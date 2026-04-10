@@ -100,9 +100,9 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const pdfLine = receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "";
+    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://kalrsgas.lovable.app/r/${receiptNum}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
 
-    const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${pdfLine}\n\nThanks,\n${footer}`;
+    const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
     // Strip leading + from phone for 360 Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
