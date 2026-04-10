@@ -232,16 +232,32 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     }
   };
 
-  const handleWhatsApp = () => {
-    if (!customer.phone || !receiptData) return;
-    const phone = customer.phone.replace(/[^0-9]/g, "");
-    const msg = encodeURIComponent(
-      `Hi ${customer.name},\n\nThank you for choosing ${receiptData.businessName}. Here is your payment receipt:\n\n` +
-      `📋 Receipt: ${receiptData.receiptNumber}\n🔧 Service: ${receiptData.serviceType}\n` +
-      `💰 Amount: ${receiptData.amountPaid}\n📅 Date: ${receiptData.serviceDate}\n👷 Engineer: ${receiptData.engineerName}\n\n` +
-      `📄 Download: ${pdfUrl}\n\nNext service due: ${receiptData.nextServiceDue}`
-    );
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
+
+  const handleWhatsApp = async () => {
+    if (!job?.id || whatsappSending || whatsappSent) return;
+    setWhatsappSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
+        body: { job_id: job.id },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
+
+      await supabase
+        .from("service_calls")
+        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() }))
+        .eq("id", job.id);
+
+      setWhatsappSent(true);
+      toast({ title: `Receipt sent to ${data.customer_name || customer.name} via WhatsApp ✔` });
+    } catch (err: any) {
+      console.error("send-whatsapp-receipt error:", err);
+      toast({ title: "WhatsApp send failed — please try again", variant: "destructive" });
+    } finally {
+      setWhatsappSending(false);
+    }
   };
 
   const handleDownload = () => {
