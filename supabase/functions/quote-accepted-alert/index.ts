@@ -55,7 +55,7 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ success: true, sent: false, reason: "No WhatsApp API key" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
