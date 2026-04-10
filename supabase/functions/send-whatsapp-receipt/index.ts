@@ -42,6 +42,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Generate receipt PDF if not already generated
+    let receiptPdfUrl = job.receipt_pdf_url;
+    if (!receiptPdfUrl) {
+      try {
+        const pdfRes = await fetch(
+          `${supabaseUrl}/functions/v1/generate-receipt-pdf`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ job_id }),
+          }
+        );
+        const pdfData = await pdfRes.json();
+        if (pdfData?.pdf_url) {
+          receiptPdfUrl = pdfData.pdf_url;
+        }
+      } catch (_e) {
+        console.error("Failed to generate receipt PDF:", _e);
+      }
+    }
+
     // Fetch customer
     const { data: customer } = await supabase
       .from("customers")
@@ -76,7 +100,7 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const pdfLine = job.receipt_pdf_url ? `\n\n📄 Download your receipt: ${job.receipt_pdf_url}` : "";
+    const pdfLine = receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "";
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${pdfLine}\n\nThanks,\n${footer}`;
 
