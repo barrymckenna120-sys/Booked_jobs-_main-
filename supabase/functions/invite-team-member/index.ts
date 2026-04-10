@@ -35,7 +35,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: { user: caller } } = await supabaseUser.auth.getUser();
+    const { data: { user: caller }, error: getUserError } = await supabaseUser.auth.getUser();
+    console.log("getUser result:", JSON.stringify({ user: caller?.id, error: getUserError }));
     if (!caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -44,7 +45,8 @@ Deno.serve(async (req) => {
     }
 
     // Verify the caller has admin or office role (not engineer)
-    const { data: callerRole } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    const { data: callerRole, error: roleError } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    console.log("role check result:", JSON.stringify({ role: callerRole, error: roleError }));
     if (callerRole === 'engineer') {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
@@ -59,7 +61,8 @@ Deno.serve(async (req) => {
     );
 
     // Check if user already exists with this email
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    console.log("listUsers result:", JSON.stringify({ count: existingUsers?.users?.length, error: listError }));
     const existingUser = existingUsers?.users?.find(
       (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
