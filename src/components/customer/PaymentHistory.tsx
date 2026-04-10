@@ -13,6 +13,7 @@ type ReceiptJob = {
   payment_method: string | null;
   paid_at: string | null;
   assigned_engineer: string | null;
+  receipt_pdf_url: string | null;
 };
 
 const PaymentHistory = ({ customerId }: { customerId: string }) => {
@@ -37,22 +38,20 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
   const handleDownload = async (job: ReceiptJob) => {
     setDownloading(job.id);
     try {
-      // Look for the receipt PDF in job-media storage
-      const { data: media } = await supabase
-        .from("job_media")
-        .select("public_url, storage_path")
-        .eq("job_id", job.id)
-        .ilike("file_name", "%receipt%")
-        .limit(1)
-        .maybeSingle();
+      // Use permanent public URL if available
+      if (job.receipt_pdf_url) {
+        window.open(job.receipt_pdf_url, "_blank");
+        setDownloading(null);
+        return;
+      }
 
-      if (media?.storage_path) {
-        const { data: urlData } = await supabase.storage
-          .from("job-media")
-          .createSignedUrl(media.storage_path, 300);
-        if (urlData?.signedUrl) window.open(urlData.signedUrl, "_blank");
-      } else if (media?.public_url) {
-        window.open(media.public_url, "_blank");
+      // Try generating the PDF on-demand
+      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
+        body: { job_id: job.id },
+      });
+
+      if (!error && data?.pdf_url) {
+        window.open(data.pdf_url, "_blank");
       } else {
         // Fallback: navigate to receipt page
         window.open(`/receipt/${job.id}`, "_blank");
