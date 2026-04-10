@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
     }
 
     // Verify the caller has admin or office role (not engineer)
-    const { data: callerRole } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    const { data: callerRole, error: roleError } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    console.log("role check result:", JSON.stringify({ role: callerRole, error: roleError }));
     if (callerRole === 'engineer') {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
