@@ -133,11 +133,18 @@ Deno.serve(async (req) => {
 </div></body></html>`,
             }),
           });
-          const resData = await res.json();
+          console.log("Resend response status:", res.status);
+          const resBody = await res.text();
+          console.log("Resend response body:", resBody);
           if (!res.ok) {
-            console.error("Resend welcome email failed:", resData);
+            console.error("Resend welcome email failed:", resBody);
           } else {
-            console.log("Welcome email sent:", resData.id);
+            try {
+              const resData = JSON.parse(resBody);
+              console.log("Welcome email sent:", resData.id);
+            } catch (_) {
+              console.log("Welcome email sent (non-JSON response)");
+            }
           }
         } catch (emailErr) {
           console.error("Welcome email send error:", emailErr);
