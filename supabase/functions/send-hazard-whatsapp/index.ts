@@ -124,7 +124,7 @@ serve(async (req) => {
       if (logId) {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH", headers,
-          body: JSON.stringify({ status: "failed", error_message: "MESSENGER_API_KEY not configured" }),
+          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
         });
       }
       return new Response(JSON.stringify({ success: false, error: "WhatsApp API key not configured" }), {

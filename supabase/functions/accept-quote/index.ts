@@ -194,7 +194,7 @@ async function sendWhatsAppAlert(
     const officeNumber = Array.isArray(settingsData) ? (settingsData[0]?.whatsapp_number || settingsData[0]?.business_phone) : null;
 
     if (officeNumber) {
-      const apiKey = Deno.env.get("MESSENGER_API_KEY");
+      const apiKey = Deno.env.get("THREESIXTY_API_KEY");
       if (apiKey) {
         const alertMsg = `✅ Quote Accepted\n\nCustomer: ${customerName}\nQuote: ${quoteRef}\nTotal: €${totalAmount}\nDeposit: €${depositAmount}\n\nJob has been created — open BookedJobs to schedule.`;
 
@@ -312,7 +312,7 @@ async function sendDepositPaymentWhatsApp(
       body: JSON.stringify({ payment_link: paymentLink }),
     });
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY") || Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
       console.log("No WhatsApp API key — skipping deposit WhatsApp");
       return;
