@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     // Check caller has admin role
     const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: callerId });
-    if (callerRole !== "admin") {
+    if (callerRole !== "admin" && callerRole !== "office") {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
