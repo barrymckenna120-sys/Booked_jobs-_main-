@@ -75,6 +75,7 @@ const ServiceReceipt = () => {
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
     setCertificate(certRes.data || null);
+    if (jobRes.data.receipt_sent) setWhatsappSent(true);
     setLoading(false);
   };
 
@@ -149,11 +150,17 @@ const ServiceReceipt = () => {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
 
+      // Mark receipt as sent on the job record
+      await supabase
+        .from("service_calls")
+        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() }))
+        .eq("id", job.id);
+
       setWhatsappSent(true);
       toast({ title: `Receipt sent to ${data.customer_name || customer?.name} via WhatsApp ✔` });
     } catch (err: any) {
       console.error("send-whatsapp-receipt error:", err);
-      toast({ title: "WhatsApp failed", description: err.message || "Could not send receipt", variant: "destructive" });
+      toast({ title: "WhatsApp send failed — please try again", variant: "destructive" });
     } finally {
       setWhatsappSending(false);
     }
@@ -281,14 +288,14 @@ const ServiceReceipt = () => {
             Download PDF Receipt
           </Button>
           <Button
-            className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            className={`w-full h-12 text-sm font-extrabold gap-2 ${whatsappSent ? "bg-success hover:bg-success/90 text-white" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
             onClick={handleSendWhatsApp}
             disabled={whatsappSending || whatsappSent}
           >
             {whatsappSending ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
             ) : whatsappSent ? (
-              <>✅ Sent to {customer?.name} via WhatsApp</>
+              <><CheckCircle2 className="w-4 h-4" /> Receipt Sent</>
             ) : (
               <><Send className="w-4 h-4" /> Send via WhatsApp</>
             )}
