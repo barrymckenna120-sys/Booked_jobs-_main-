@@ -154,8 +154,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const handlePaymentDone = async (method: string, confirmedAmount: number) => {
-    // debug logging removed
-    if (!completeData || !job) return;
+    console.log("[handlePaymentDone] method:", method, "amount:", confirmedAmount, "jobId:", job?.id);
+    if (!completeData || !job) { console.log("[handlePaymentDone] early return: no completeData or job"); return; }
     setShowPayment(false);
 
     // Always include confirmedRevenue so updateJob writes it to service_calls.revenue
@@ -185,7 +185,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
-    if (!job) return false;
+    console.log("[updateJob:detail] called with patch.status:", patch.status, "paymentMethod:", patch.paymentMethod, "jobId:", job?.id);
+    if (!job) { console.log("[updateJob:detail] early return: no job"); return false; }
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
