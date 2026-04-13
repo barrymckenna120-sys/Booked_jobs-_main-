@@ -87,14 +87,40 @@ const Renewals = () => {
   const [bulkSending, setBulkSending] = useState(false);
 
   const fetchCustomers = useCallback(async (background = false) => {
-    if (!user) return;
+    console.log("[Renewals] fetchCustomers start", {
+      background,
+      user,
+      organisationId: undefined,
+    });
+
+    if (!user) {
+      console.log("[Renewals] fetchCustomers aborted - no user", {
+        background,
+        user,
+        organisationId: undefined,
+      });
+      setLoading(false);
+      return;
+    }
+
     if (!background) setLoading(true);
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("customers")
         .select("*")
         .not("next_service_due", "is", null)
         .order("next_service_due", { ascending: true });
+
+      console.log("[Renewals] fetchCustomers result", {
+        data,
+        error,
+        rowCount: data?.length ?? 0,
+        background,
+      });
+
+      if (error) throw error;
+
       setCustomers((data || []) as Customer[]);
     } catch (err) {
       console.error("Failed to fetch customers:", err);
@@ -113,12 +139,22 @@ const Renewals = () => {
     if (data) setSettings(data);
   }, [user]);
 
-  useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    fetchCustomers();
+    fetchSettings();
+  }, [authLoading, user, fetchCustomers, fetchSettings]);
 
   useEffect(() => {
+    if (!user) return;
     const interval = setInterval(() => fetchCustomers(true), 30000);
     return () => clearInterval(interval);
-  }, [fetchCustomers]);
+  }, [user, fetchCustomers]);
 
   const activeCustomers = customers.filter(c => !c.is_archived);
 
