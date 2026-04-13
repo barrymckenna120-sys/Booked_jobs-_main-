@@ -161,10 +161,13 @@ const Renewals = () => {
 
   const activeCustomers = customers.filter(c => !c.is_archived);
 
+  const normalizeArea = (code: string | null | undefined): string =>
+    code ? code.trim().toUpperCase() : "NO AREA";
+
   const areaCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     activeCustomers.forEach(c => {
-      const code = c.area_code || "No Area";
+      const code = normalizeArea(c.area_code);
       counts[code] = (counts[code] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -191,7 +194,7 @@ const Renewals = () => {
   const filterable = withStatus.filter(c => c.tab === "up_to_date" || !c.isResolved);
 
   const matchesArea = (c: typeof withStatus[0]) =>
-    selectedAreas.length === 0 || selectedAreas.includes(c.area_code || "No Area");
+    selectedAreas.length === 0 || selectedAreas.includes(normalizeArea(c.area_code));
 
   const tabCounts = {
     overdue: filterable.filter(c => c.tab === "overdue" && matchesArea(c)).length,
@@ -469,7 +472,8 @@ const Renewals = () => {
       {/* DEBUG banner — remove after fix */}
       <div className="bg-muted border border-border rounded-md px-3 py-2 mb-3 text-xs font-mono">
         <span className="font-bold mr-2">DEBUG</span>
-        Customers loaded: {customers.length} · Loading: {String(loading)} · Error: {fetchError || "none"}
+        Customers loaded: {customers.length} · Filtered: {filtered.length} · Loading: {String(loading)} · Error: {fetchError || "none"}
+        {selectedAreas.length > 0 && <> · Areas: {selectedAreas.join(", ")}</>}
       </div>
 
       {!loading && filtered.length > 0 && (
