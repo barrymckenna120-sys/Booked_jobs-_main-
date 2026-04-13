@@ -316,9 +316,17 @@ const ImportCustomers = () => {
           if (error) throw error;
           updated++;
         } else {
+          const nextServiceDue = new Date();
+          nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
           const { error } = await supabase
             .from("customers")
-            .insert([{ ...cleaned, user_id: user.id } as any]);
+            .insert([{
+              ...cleaned,
+              user_id: user.id,
+              next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
+              renewal_stage: cleaned.renewal_stage || "none",
+              service_status: cleaned.service_status || "active",
+            } as any]);
           if (error) throw error;
           imported++;
         }

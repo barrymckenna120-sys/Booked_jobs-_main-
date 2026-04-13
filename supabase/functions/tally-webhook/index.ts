@@ -136,6 +136,8 @@ Deno.serve(async (req) => {
         boiler_make_model: boilerModel,
       }).eq('id', customerId)
     } else {
+      const nextServiceDue = new Date()
+      nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1)
       const { data: newCustomer, error: insertErr } = await supabase
         .from('customers')
         .insert({
@@ -145,6 +147,9 @@ Deno.serve(async (req) => {
           eircode: eircode || 'TBC',
           area_code: areaCode,
           boiler_make_model: boilerModel,
+          next_service_due: nextServiceDue.toISOString().split('T')[0],
+          renewal_stage: 'none',
+          service_status: 'active',
         })
         .select('id')
         .single()

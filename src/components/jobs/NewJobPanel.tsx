@@ -1006,6 +1006,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
       // Create new customer if needed
       if (isNewCustomer) {
+        const nextServiceDue = new Date();
+        nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
         const { data: newCust, error: custErr } = await supabase.from("customers").insert({
           user_id: user.id,
           name: finalData.customer.name,
@@ -1013,6 +1015,9 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           address: finalData.customer.address,
           eircode: finalData.customer.eircode || "",
           boiler_make_model: finalData.customer.boilerType || null,
+          next_service_due: nextServiceDue.toISOString().split("T")[0],
+          renewal_stage: "none",
+          service_status: "active",
         }).select("id").single();
         if (custErr) {
           console.error("[NewJobPanel] Customer insert error:", custErr);
