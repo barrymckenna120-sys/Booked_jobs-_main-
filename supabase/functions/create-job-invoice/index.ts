@@ -396,7 +396,8 @@ Deno.serve(async (req) => {
     const firstName = cust.name.split(" ")[0];
     let messageFooter = biz.message_footer || "K&N Gas Services";
 
-    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.\n\n📄 View invoice:\n${pdfUrl}\n\nThank you, ${messageFooter}`;
+    const invoiceCleanUrl = `https://kngasservices.bookedjobs.ie/inv/${encodeURIComponent(invNum)}`;
+    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.\n\n📄 View invoice:\n${invoiceCleanUrl}\n\nThank you, ${messageFooter}`;
 
     let whatsappSent = false;
 
