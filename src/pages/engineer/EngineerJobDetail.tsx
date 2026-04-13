@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { createJobInvoice } from "@/lib/createJobInvoice";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import PaymentSheet from "@/components/engineer/PaymentSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
@@ -420,24 +421,20 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
         // Create invoice + send WhatsApp BEFORE navigating away
         if (paymentMethod === "invoice") {
+          let invoiceCreated = false;
           try {
-            console.log("[create-job-invoice] Invoking edge function for job:", job.id);
-            const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
-              body: { job_id: job.id },
-            });
-            if (fnErr) {
-              console.error("[create-job-invoice] error:", fnErr);
-              toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
-            } else {
-              const invoiceNumber = result?.invoice_number || null;
-              if (invoiceNumber) {
-                await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
-              }
-              toast({ title: "Job completed & invoice created" });
+            const result = await createJobInvoice(job.id);
+            const invoiceNumber = result?.invoice_number || null;
+            if (invoiceNumber) {
+              await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
             }
+            invoiceCreated = true;
           } catch (err) {
-            console.error("[create-job-invoice] exception:", err);
-            toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
+            console.error("[create-job-invoice] error:", err);
+            toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
+          }
+          if (invoiceCreated) {
+            toast({ title: "Job completed & invoice created" });
           }
           navigate(`/invoice-view/${job.id}`);
         } else {
