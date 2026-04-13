@@ -12,7 +12,6 @@ serve(async (req) => {
 
   try {
     const { service_call_id } = await req.json();
-    console.log('Function invoked', { service_call_id });
 
     if (!service_call_id) {
       return new Response(JSON.stringify({ success: false, error: "Missing service_call_id" }), {
@@ -38,8 +37,6 @@ serve(async (req) => {
     );
     const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
-    console.log('Job fetched', job);
-
     if (!job) {
       return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -53,8 +50,6 @@ serve(async (req) => {
     });
     const custRows = await custRes.json();
     const customer = Array.isArray(custRows) ? custRows[0] : null;
-    console.log('Customer fetched', customer);
-
     if (!customer || !customer.phone) {
       return new Response(JSON.stringify({ success: false, error: "Customer not found or missing phone" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -123,7 +118,6 @@ ${messageFooter}`;
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
-    console.log('Sending to', cleanNumber, 'apiKey starts:', apiKey?.substring(0, 10));
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -131,7 +125,6 @@ ${messageFooter}`;
     });
 
     const resultText = await response.text();
-    console.log('360 response', response.status, resultText);
     let result: any;
     try {
       result = JSON.parse(resultText);
