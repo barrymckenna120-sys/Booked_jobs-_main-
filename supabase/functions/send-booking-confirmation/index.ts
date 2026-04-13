@@ -38,6 +38,7 @@ serve(async (req) => {
     );
     const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
+    console.log('Job fetched', job);
 
     if (!job) {
       return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
