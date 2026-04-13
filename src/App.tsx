@@ -156,6 +156,8 @@ const App = () => (
             <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
             <Route path="/cert/:certNumber" element={<CertificateViewer />} />
             <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
+            <Route path="/inv/:invoiceNumber" element={<InvoiceRedirect />} />
+            <Route path="/rec/:receiptNumber" element={<ReceiptRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
