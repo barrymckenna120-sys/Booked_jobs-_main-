@@ -115,7 +115,7 @@ const InvoicePreview = () => {
     setSending(true);
     try {
       const { error } = await supabase.functions.invoke("send-payment-link", {
-        body: { job_id: job.id },
+        body: { service_call_id: job.id },
       });
       if (error) throw error;
       setSent(true);
