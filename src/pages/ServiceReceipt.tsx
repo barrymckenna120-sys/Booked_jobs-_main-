@@ -140,6 +140,7 @@ const ServiceReceipt = () => {
   };
 
   const handleSendWhatsApp = async () => {
+    console.log("handleSendWhatsApp fired — job.id:", job?.id, "whatsappSending:", whatsappSending, "whatsappSent:", whatsappSent);
     if (whatsappSending || whatsappSent) return;
     if (!job?.id) return;
 
