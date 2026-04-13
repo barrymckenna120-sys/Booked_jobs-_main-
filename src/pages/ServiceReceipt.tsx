@@ -61,6 +61,19 @@ const ServiceReceipt = () => {
       });
   }, [user]);
 
+  // Auto-send WhatsApp receipt on page load
+  useEffect(() => {
+    if (
+      job &&
+      !job.receipt_sent &&
+      job.payment_method !== "invoice" &&
+      !whatsappSent &&
+      !whatsappSending
+    ) {
+      handleSendWhatsApp();
+    }
+  }, [job]);
+
   const loadData = async () => {
     setLoading(true);
     const [jobRes, settingsRes] = await Promise.all([
