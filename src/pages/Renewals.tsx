@@ -86,17 +86,22 @@ const Renewals = () => {
   const [bulkWhatsAppConfirm, setBulkWhatsAppConfirm] = useState(false);
   const [bulkSending, setBulkSending] = useState(false);
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchCustomers = useCallback(async (background = false) => {
     if (!user) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("user_id", user.id)
-      .not("next_service_due", "is", null)
-      .order("next_service_due", { ascending: true });
-    setCustomers((data || []) as Customer[]);
-    setLoading(false);
+    if (!background) setLoading(true);
+    try {
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("user_id", user.id)
+        .not("next_service_due", "is", null)
+        .order("next_service_due", { ascending: true });
+      setCustomers((data || []) as Customer[]);
+    } catch (err) {
+      console.error("Failed to fetch customers:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   const fetchSettings = useCallback(async () => {
