@@ -75,6 +75,7 @@ const Renewals = () => {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string; default_service_price?: number } | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overdue");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
@@ -106,6 +107,7 @@ const Renewals = () => {
     if (!background) setLoading(true);
 
     try {
+      setFetchError(null);
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -122,8 +124,9 @@ const Renewals = () => {
       if (error) throw error;
 
       setCustomers((data || []) as Customer[]);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch customers:", err);
+      setFetchError(err?.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -463,7 +466,12 @@ const Renewals = () => {
         )}
       </div>
 
-      {/* Desktop summary bar */}
+      {/* DEBUG banner — remove after fix */}
+      <div className="bg-muted border border-border rounded-md px-3 py-2 mb-3 text-xs font-mono">
+        <span className="font-bold mr-2">DEBUG</span>
+        Customers loaded: {customers.length} · Loading: {String(loading)} · Error: {fetchError || "none"}
+      </div>
+
       {!loading && filtered.length > 0 && (
         <div className="hidden md:flex items-center justify-between bg-muted/50 border border-border rounded-lg px-4 py-2 mb-4">
           <p className="text-xs text-muted-foreground">
