@@ -256,12 +256,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
+    console.log("[updateJob:detail] safeDbPatch keys:", Object.keys(safeDbPatch), "status:", safeDbPatch.status, "payment_method:", safeDbPatch.payment_method);
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
-      console.error("updateJob: service_calls update failed:", error.message, error);
+      console.error("[updateJob:detail] DB update FAILED:", error.message, error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     } else {
+      console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
       // Log payment_received activity when payment is recorded as paid
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
@@ -421,6 +423,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         }).catch((err) => console.error("Review request trigger failed:", err));
 
         // Create invoice + send WhatsApp BEFORE navigating away
+        console.log("[updateJob:detail] Reached invoice block. paymentMethod:", paymentMethod);
         if (paymentMethod === "invoice") {
           let invoiceCreated = false;
           try {
