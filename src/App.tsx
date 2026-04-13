@@ -150,16 +150,16 @@ const App = () => (
             </Route>
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
             <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
-            <Route path="/receipt/:id" element={<ServiceReceipt />} />
-            <Route path="/invoice/:id" element={<InvoicePreview />} />
+            <Route path="/receipt-view/:id" element={<ServiceReceipt />} />
+            <Route path="/invoice-view/:id" element={<InvoicePreview />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
             <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
             <Route path="/cert/:certNumber" element={<CertificateViewer />} />
             <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
-            <Route path="/inv/:invoiceNumber" element={<InvoiceRedirect />} />
-            <Route path="/rec/:receiptNumber" element={<ReceiptRedirect />} />
+            <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
+            <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />

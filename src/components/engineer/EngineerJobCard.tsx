@@ -219,7 +219,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           <div className="mt-3">
             {job.receipt_number ? (
               <button
-                onClick={() => window.location.href = `/receipt/${job.id}`}
+                onClick={() => window.location.href = `/receipt-view/${job.id}`}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 text-primary font-bold text-sm"
               >
                 <Receipt className="w-4 h-4" /> {job.receipt_number}
