@@ -54,10 +54,10 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
         window.open(data.pdf_url, "_blank");
       } else {
         // Fallback: navigate to receipt page
-        window.open(`/receipt/${job.id}`, "_blank");
+        window.open(`/receipt-view/${job.id}`, "_blank");
       }
     } catch {
-      window.open(`/receipt/${job.id}`, "_blank");
+      window.open(`/receipt-view/${job.id}`, "_blank");
     }
     setDownloading(null);
   };

@@ -433,7 +433,7 @@ export const useEngineerJobs = () => {
             console.warn('[WhatsApp] Receipt send failed:', err);
           });
         }
-        navigate(`/receipt/${jobId}`);
+        navigate(`/receipt-view/${jobId}`);
       } else if (patch.status === "Cancelled") {
         toast({ title: "Job cancelled" });
         // Start 10-second fade-out timer

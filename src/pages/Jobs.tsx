@@ -332,7 +332,7 @@ const Jobs = () => {
               <TableCell onClick={(e) => e.stopPropagation()}>
                 {hasReceipt ? (
                   <button
-                    onClick={() => navigate(`/receipt/${j.id}`)}
+                    onClick={() => navigate(`/receipt-view/${j.id}`)}
                     className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
                   >
                     <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}

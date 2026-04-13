@@ -168,7 +168,7 @@ const ServiceHistory = ({ customerId }: { customerId: string }) => {
                           <TableCell>
                             {j.receipt_number ? (
                               <button
-                                onClick={(e) => { e.stopPropagation(); navigate(`/receipt/${j.id}`); }}
+                                onClick={(e) => { e.stopPropagation(); navigate(`/receipt-view/${j.id}`); }}
                                 className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
                               >
                                 <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}

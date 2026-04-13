@@ -131,7 +131,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         setTimeout(() => {
           onPaymentComplete?.("");
           onClose();
-          navigate(`/invoice/${job.id}`);
+          navigate(`/invoice-view/${job.id}`);
         }, 600);
       } catch (e: any) {
         toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -226,7 +226,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setTimeout(() => {
         onPaymentComplete?.(receiptNum);
         onClose();
-        navigate(`/receipt/${job.id}`);
+        navigate(`/receipt-view/${job.id}`);
       }, 600);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
