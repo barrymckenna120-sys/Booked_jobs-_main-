@@ -58,6 +58,8 @@ import Parts from "./pages/Parts";
 import WarrantyTracker from "./pages/WarrantyTracker";
 import WarrantyDetail from "./pages/WarrantyDetail";
 import PublicReceipt from "./pages/PublicReceipt";
+import InvoiceRedirect from "./pages/InvoiceRedirect";
+import ReceiptRedirect from "./pages/ReceiptRedirect";
 
 const queryClient = new QueryClient();
 
