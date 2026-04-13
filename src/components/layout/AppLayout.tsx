@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
-import OfflineBanner from "@/components/engineer/OfflineBanner";
+
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -217,7 +217,7 @@ const AppLayoutInner = () => {
 
       {/* ═══════════ MAIN CONTENT ═══════════ */}
       <main className="flex-1 md:ml-[220px] pb-20 md:pb-0">
-        <OfflineBanner topOffsetClassName="top-14 md:top-0" />
+        
         <Outlet />
       </main>
 
