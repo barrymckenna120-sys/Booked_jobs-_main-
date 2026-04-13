@@ -453,8 +453,16 @@ const Renewals = () => {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-success/60" />
-          <div className="font-bold text-sm">All clear — nothing in this category</div>
-          <p className="text-xs mt-1">No customers are currently {activeTab === "overdue" ? "overdue" : activeTab === "due_soon" ? "due soon" : "up to date"}.</p>
+          <div className="font-bold text-sm">
+            {selectedAreas.length > 0
+              ? `No customers found for ${selectedAreas.join(", ")} in this category`
+              : "All clear — nothing in this category"}
+          </div>
+          <p className="text-xs mt-1">
+            {selectedAreas.length > 0
+              ? "Try selecting a different area or clearing the filter."
+              : `No customers are currently ${activeTab === "overdue" ? "overdue" : activeTab === "due_soon" ? "due soon" : "up to date"}.`}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
