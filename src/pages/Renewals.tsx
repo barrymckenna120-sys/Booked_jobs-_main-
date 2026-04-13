@@ -93,7 +93,6 @@ const Renewals = () => {
       const { data } = await supabase
         .from("customers")
         .select("*")
-        .eq("user_id", user.id)
         .not("next_service_due", "is", null)
         .order("next_service_due", { ascending: true });
       setCustomers((data || []) as Customer[]);
