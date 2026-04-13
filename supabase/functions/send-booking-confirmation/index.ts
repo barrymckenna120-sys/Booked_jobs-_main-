@@ -53,6 +53,7 @@ serve(async (req) => {
     });
     const custRows = await custRes.json();
     const customer = Array.isArray(custRows) ? custRows[0] : null;
+    console.log('Customer fetched', customer);
 
     if (!customer || !customer.phone) {
       return new Response(JSON.stringify({ success: false, error: "Customer not found or missing phone" }), {
