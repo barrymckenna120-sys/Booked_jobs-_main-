@@ -123,6 +123,7 @@ ${messageFooter}`;
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
+    console.log('Sending to', cleanNumber, 'apiKey starts:', apiKey?.substring(0, 10));
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
