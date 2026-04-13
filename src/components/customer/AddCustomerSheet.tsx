@@ -71,6 +71,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     setSaving(true);
     const cleanPhone = formatPhoneInternational(form.phone);
     const cleanEircode = formatEircode(form.eircode);
+    const nextServiceDue = new Date();
+    nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
     const { error } = await supabase.from("customers").insert({
       user_id: user.id,
       name: form.name.trim(),
@@ -79,6 +81,9 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       address: form.address.trim(),
       eircode: cleanEircode,
       area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
+      next_service_due: nextServiceDue.toISOString().split("T")[0],
+      renewal_stage: "none",
+      service_status: "active",
     });
     setSaving(false);
 
