@@ -163,34 +163,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
-        const jobUpdateSuccess = await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
-        if (!jobUpdateSuccess) {
-          console.error("handlePaymentDone: updateJob failed for invoice flow, aborting edge function call");
-          toast({ title: "Failed to complete job", description: "Please try again or contact the office.", variant: "destructive" });
-          setInvoiceLoading(false);
-          return;
-        }
-
-        console.log("handlePaymentDone: updateJob succeeded, calling create-job-invoice edge function");
-        const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
-          body: { job_id: job.id },
-        });
-
-        if (fnErr) {
-          console.error("create-job-invoice error:", fnErr);
-          toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
-        } else {
-          const invoiceNumber = result?.invoice_number || null;
-          if (invoiceNumber) {
-            await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
-          }
-          toast({ title: "Job completed & invoice created" });
-        }
-        // Navigate to invoice preview screen
-        navigate(`/invoice-view/${job.id}`);
+        await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
+        // Invoice creation + navigation is now handled inside updateJob
       } catch (err) {
         console.error("handlePaymentDone invoice flow error:", err);
-        toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
+        toast({ title: "Failed to complete job", variant: "destructive" });
       }
       setInvoiceLoading(false);
     } else {
@@ -440,8 +417,33 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         supabase.functions.invoke("trigger-review-request", {
           body: { service_call_id: job.id, customer_id: job.customer_id },
         }).catch((err) => console.error("Review request trigger failed:", err));
-        toast({ title: "Job completed" });
-        navigate(-1);
+
+        // Create invoice + send WhatsApp BEFORE navigating away
+        if (paymentMethod === "invoice") {
+          try {
+            console.log("[create-job-invoice] Invoking edge function for job:", job.id);
+            const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
+              body: { job_id: job.id },
+            });
+            if (fnErr) {
+              console.error("[create-job-invoice] error:", fnErr);
+              toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
+            } else {
+              const invoiceNumber = result?.invoice_number || null;
+              if (invoiceNumber) {
+                await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
+              }
+              toast({ title: "Job completed & invoice created" });
+            }
+          } catch (err) {
+            console.error("[create-job-invoice] exception:", err);
+            toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
+          }
+          navigate(`/invoice-view/${job.id}`);
+        } else {
+          toast({ title: "Job completed" });
+          navigate(-1);
+        }
         return true;
       } else if (patch.status === "Cancelled") {
         logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });
