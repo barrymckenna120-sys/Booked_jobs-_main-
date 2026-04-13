@@ -86,17 +86,22 @@ const Renewals = () => {
   const [bulkWhatsAppConfirm, setBulkWhatsAppConfirm] = useState(false);
   const [bulkSending, setBulkSending] = useState(false);
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchCustomers = useCallback(async (background = false) => {
     if (!user) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("user_id", user.id)
-      .not("next_service_due", "is", null)
-      .order("next_service_due", { ascending: true });
-    setCustomers((data || []) as Customer[]);
-    setLoading(false);
+    if (!background) setLoading(true);
+    try {
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("user_id", user.id)
+        .not("next_service_due", "is", null)
+        .order("next_service_due", { ascending: true });
+      setCustomers((data || []) as Customer[]);
+    } catch (err) {
+      console.error("Failed to fetch customers:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   const fetchSettings = useCallback(async () => {
@@ -112,7 +117,7 @@ const Renewals = () => {
   useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
 
   useEffect(() => {
-    const interval = setInterval(fetchCustomers, 30000);
+    const interval = setInterval(() => fetchCustomers(true), 30000);
     return () => clearInterval(interval);
   }, [fetchCustomers]);
 
@@ -448,8 +453,16 @@ const Renewals = () => {
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-success/60" />
-          <div className="font-bold text-sm">All clear — nothing in this category</div>
-          <p className="text-xs mt-1">No customers are currently {activeTab === "overdue" ? "overdue" : activeTab === "due_soon" ? "due soon" : "up to date"}.</p>
+          <div className="font-bold text-sm">
+            {selectedAreas.length > 0
+              ? `No customers found for ${selectedAreas.join(", ")} in this category`
+              : "All clear — nothing in this category"}
+          </div>
+          <p className="text-xs mt-1">
+            {selectedAreas.length > 0
+              ? "Try selecting a different area or clearing the filter."
+              : `No customers are currently ${activeTab === "overdue" ? "overdue" : activeTab === "due_soon" ? "due soon" : "up to date"}.`}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
