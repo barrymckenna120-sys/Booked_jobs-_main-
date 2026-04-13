@@ -408,23 +408,10 @@ export const useEngineerJobs = () => {
           console.error("Failed to sync customer profile:", e);
         }
 
-        // Create invoice, generate PDF, send WhatsApp for invoice payments
+        // Invoice creation is handled by EngineerJobDetail.tsx's local updateJob
         if (paymentMethod === "invoice") {
-          try {
-            const { data: result } = await supabase.functions.invoke("create-job-invoice", {
-              body: { job_id: jobId },
-            });
-            const custName = result?.customer_name || customers[[...todayJobs, ...upcomingJobs].find(j => j.id === jobId)?.customer_id]?.name || "Customer";
-            if (result?.success) {
-              toast({ title: `Job Complete — Invoice sent to ${custName}` });
-            } else {
-              toast({ title: `Job Complete — Invoice sent to ${custName}`, description: "Invoice may not have been sent" });
-            }
-          } catch (e) {
-            console.error("Failed to create invoice:", e);
-            const cust = customers[[...todayJobs, ...upcomingJobs].find(j => j.id === jobId)?.customer_id];
-            toast({ title: `Job Complete — Invoice failed`, description: "The office will follow up." });
-          }
+          toast({ title: "Job completed" });
+          navigate(`/invoice-view/${jobId}`);
         } else {
           toast({ title: "Job completed ✔" });
           supabase.functions.invoke('send-whatsapp-receipt', {
@@ -432,8 +419,8 @@ export const useEngineerJobs = () => {
           }).catch((err) => {
             console.warn('[WhatsApp] Receipt send failed:', err);
           });
+          navigate(`/receipt-view/${jobId}`);
         }
-        navigate(`/receipt-view/${jobId}`);
       } else if (patch.status === "Cancelled") {
         toast({ title: "Job cancelled" });
         // Start 10-second fade-out timer
