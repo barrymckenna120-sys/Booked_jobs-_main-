@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { createJobInvoice } from "@/lib/createJobInvoice";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -408,9 +409,23 @@ export const useEngineerJobs = () => {
           console.error("Failed to sync customer profile:", e);
         }
 
-        // Invoice creation is handled by EngineerJobDetail.tsx's local updateJob
         if (paymentMethod === "invoice") {
-          toast({ title: "Job completed" });
+          let invoiceCreated = false;
+          try {
+            console.log("[create-job-invoice] Invoking from useEngineerJobs for job:", jobId);
+            await createJobInvoice(jobId);
+            invoiceCreated = true;
+          } catch (err) {
+            console.error("[create-job-invoice] error:", err);
+            toast({
+              title: "Job completed but invoice creation failed",
+              description: "Please create the invoice manually from the office.",
+              variant: "destructive",
+            });
+          }
+          if (invoiceCreated) {
+            toast({ title: "Job completed & invoice created" });
+          }
           navigate(`/invoice-view/${jobId}`);
         } else {
           toast({ title: "Job completed ✔" });
