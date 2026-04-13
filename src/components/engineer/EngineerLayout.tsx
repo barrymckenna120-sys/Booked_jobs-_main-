@@ -13,7 +13,7 @@ import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import { useAuth } from "@/hooks/useAuth";
-import OfflineBanner from "@/components/engineer/OfflineBanner";
+
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -95,8 +95,6 @@ const EngineerLayout = () => {
         </div>
       </div>
 
-      {/* Offline Banner */}
-      <OfflineBanner topOffsetClassName="top-0" />
 
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">
