@@ -40,6 +40,19 @@ const Customers = () => {
     if (user) fetchCustomers();
   }, [user]);
 
+  // Realtime: re-fetch on INSERT so new customers appear instantly
+  useEffect(() => {
+    const channel = supabase
+      .channel("customers-inserts")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "customers" },
+        () => { fetchCustomers(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   useEffect(() => { setPage(0); }, [search, statusFilter, areaFilters, selectedTags]);
 
   // When search looks like a job ref, look up the linked customer
