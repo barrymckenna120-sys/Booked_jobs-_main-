@@ -117,7 +117,7 @@ const Renewals = () => {
   useEffect(() => { fetchCustomers(); fetchSettings(); }, [fetchCustomers, fetchSettings]);
 
   useEffect(() => {
-    const interval = setInterval(fetchCustomers, 30000);
+    const interval = setInterval(() => fetchCustomers(true), 30000);
     return () => clearInterval(interval);
   }, [fetchCustomers]);
 
