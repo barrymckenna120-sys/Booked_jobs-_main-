@@ -12,6 +12,7 @@ serve(async (req) => {
 
   try {
     const { service_call_id } = await req.json();
+    console.log('Function invoked', { service_call_id });
 
     if (!service_call_id) {
       return new Response(JSON.stringify({ success: false, error: "Missing service_call_id" }), {
