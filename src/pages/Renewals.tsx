@@ -118,10 +118,13 @@ const Renewals = () => {
 
   const activeCustomers = customers.filter(c => !c.is_archived);
 
-  const areaCodes = useMemo(() => {
-    const codes = new Set<string>();
-    activeCustomers.forEach(c => { if (c.area_code) codes.add(c.area_code); });
-    return Array.from(codes).sort();
+  const areaCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    activeCustomers.forEach(c => {
+      const code = c.area_code || "No Area";
+      counts[code] = (counts[code] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [activeCustomers]);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -145,7 +148,7 @@ const Renewals = () => {
   const filterable = withStatus.filter(c => c.tab === "up_to_date" || !c.isResolved);
 
   const matchesArea = (c: typeof withStatus[0]) =>
-    selectedAreas.length === 0 || (c.area_code != null && selectedAreas.includes(c.area_code));
+    selectedAreas.length === 0 || selectedAreas.includes(c.area_code || "No Area");
 
   const tabCounts = {
     overdue: filterable.filter(c => c.tab === "overdue" && matchesArea(c)).length,
@@ -390,28 +393,28 @@ const Renewals = () => {
         </Tabs>
 
         {/* Area code chips */}
-        {areaCodes.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {areaCodes.map(code => {
+        {areaCounts.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {areaCounts.map(([code, count]) => {
               const isActive = selectedAreas.includes(code);
               return (
                 <button
                   key={code}
                   onClick={() => toggleArea(code)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                     isActive
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary/10 text-primary hover:bg-primary/20"
                   }`}
                 >
-                  {code}
+                  <MapPin className="w-3 h-3" /> {code} <span className={`font-extrabold ${isActive ? "text-primary-foreground" : "text-foreground"}`}>{count}</span>
                 </button>
               );
             })}
             {selectedAreas.length > 0 && (
               <button
                 onClick={() => setSelectedAreas([])}
-                className="px-2.5 py-1 rounded-full text-[11px] font-bold border border-border text-muted-foreground hover:bg-accent transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors cursor-pointer"
               >
                 Clear
               </button>
