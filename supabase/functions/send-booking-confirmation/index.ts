@@ -131,6 +131,7 @@ ${messageFooter}`;
     });
 
     const resultText = await response.text();
+    console.log('360 response', response.status, resultText);
     let result: any;
     try {
       result = JSON.parse(resultText);
