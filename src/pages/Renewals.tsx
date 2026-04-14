@@ -76,6 +76,7 @@ const Renewals = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [sortAscending, setSortAscending] = useState(true);
   const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string; default_service_price?: number } | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overdue");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
