@@ -110,6 +110,12 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
           <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
             <MapPin className="w-3 h-3 shrink-0" /> {customer.address}
           </div>
+          {/* Renewal Date - Prominent Display */}
+          <div className="mt-2 text-sm font-semibold text-foreground">
+            Renewal: {customer.next_service_due 
+              ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+              : "—"}
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
           <RenewalStatusPill status={status} />
