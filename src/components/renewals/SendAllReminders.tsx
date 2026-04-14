@@ -5,7 +5,11 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper, AlertTriangle } from "lucide-react";
+
+const TEST_PHONE = "353892109244";
 
 export type ReminderCustomer = {
   id: string;
