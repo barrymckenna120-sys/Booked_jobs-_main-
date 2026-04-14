@@ -33,6 +33,7 @@ type Customer = {
   last_reminder_sent: string | null;
   renewal_stage: string | null;
   is_archived: boolean;
+  opted_out: boolean | null;
 };
 
 type TabKey = "overdue" | "due_soon" | "up_to_date";
