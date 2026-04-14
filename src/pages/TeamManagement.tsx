@@ -350,6 +350,38 @@ const TeamManagement = () => {
     }
   };
 
+  const openEditDialog = (member: TeamMember) => {
+    setEditForm({
+      name: member.name,
+      email: member.email || "",
+      phone: member.phone || "",
+      rgi_number: (member as any).rgi_number || "",
+    });
+    setEditTarget(member);
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget || !editForm.name.trim()) return;
+    setEditSaving(true);
+    const { error } = await supabase
+      .from("engineers")
+      .update({
+        name: editForm.name.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        rgi_number: editForm.rgi_number.trim() || null,
+      } as any)
+      .eq("id", editTarget.id);
+    setEditSaving(false);
+    if (error) {
+      toast({ title: "Error updating engineer", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Engineer updated successfully" });
+    setEditTarget(null);
+    fetchMembers();
+  };
+
   const handleLinkLogin = async () => {
     if (!linkTarget || !linkEmail.trim()) return;
     const emailVal = linkEmail.trim().toLowerCase();
