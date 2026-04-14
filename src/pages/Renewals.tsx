@@ -216,7 +216,7 @@ const Renewals = () => {
   const buildReminderMessage = (customer: Customer) => {
     const firstName = customer.name.split(" ")[0];
     const nextDue = customer.next_service_due
-      ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+      ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })
       : "soon";
 
     if (settings?.template_renewal_reminder) {
@@ -226,7 +226,7 @@ const Renewals = () => {
         .replace(/\{\{phone\}\}/g, settings.whatsapp_number || "");
     }
 
-    return `Hi ${firstName},\n\nYour annual boiler service is due on ${nextDue}.\n\nRegular servicing keeps your boiler efficient, safe and your warranty valid.\n\nReply YES to book or call us on ${settings?.whatsapp_number || "our number"}.\n\n${businessName}`;
+    return `Hi ${firstName},\n\nThis is K & N Gas Services. Your annual boiler service is due on ${nextDue}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on 087 3686252.\n\nReply STOP to unsubscribe.\nK & N Gas Services`;
   };
 
   const markAsContacted = async (customerId: string, customerName: string) => {
