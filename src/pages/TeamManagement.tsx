@@ -119,6 +119,11 @@ const TeamManagement = () => {
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
 
+  // Edit dialog
+  const [editTarget, setEditTarget] = useState<TeamMember | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", rgi_number: "" });
+  const [editSaving, setEditSaving] = useState(false);
+
   // Link login dialog
   const [linkTarget, setLinkTarget] = useState<TeamMember | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
