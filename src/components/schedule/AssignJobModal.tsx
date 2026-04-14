@@ -59,6 +59,15 @@ const AssignJobModal = ({
   const [touched, setTouched] = useState<FieldErrors>({});
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
 
+  const { data: settingsBlocks } = useQuery({
+    queryKey: ["slot-settings-blocks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      return (data?.job_time_blocks as any[] | null) || [];
+    },
+  });
+  const TIME_BLOCKS = buildTimeBlocks(settingsBlocks || []);
+
   useEffect(() => {
     if (open) {
       setSelectedJobId(job?.id || "");
