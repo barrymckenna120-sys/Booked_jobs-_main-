@@ -20,10 +20,10 @@ const buildMsg = (c: ReminderCustomer) => {
   const firstName = c.name.split(" ")[0];
   const dueDate = new Date(c.nextDue).toLocaleDateString("en-IE", {
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
   });
-  return `Hi ${firstName},\n\nYour annual boiler service is due on ${dueDate}.\n\nRegular servicing keeps your boiler efficient, safe and your warranty valid.\n\nReply YES to book or call us.\n\nBookedJobs`;
+  return `Hi ${firstName},\n\nThis is K & N Gas Services. Your annual boiler service is due on ${dueDate}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on 087 3686252.\n\nReply STOP to unsubscribe.\nK & N Gas Services`;
 };
 
 const waUrl = (phone: string, msg: string) =>
