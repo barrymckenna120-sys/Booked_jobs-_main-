@@ -285,7 +285,7 @@ const Schedule = () => {
 
       // Determine if this is a move/reassign (job already had a date) or first assignment
       const existingJob = jobs.find(j => j.id === jobId);
-      const isReschedule = existingJob && existingJob.scheduled_date && existingJob.assigned_engineer;
+      const isReschedule = existingJob && existingJob.assigned_engineer;
       const functionName = isReschedule ? 'send-reschedule-notification' : 'send-booking-confirmation';
       supabase.functions.invoke(functionName, {
         body: { service_call_id: jobId }
