@@ -462,9 +462,10 @@ const JobDetail = () => {
         detail: `Reassigned to ${engineer.name}`,
         metadata: { new_engineer: engineer.name, old_engineer: job.assigned_engineer },
       });
-      supabase.functions.invoke('send-booking-confirmation', {
+      // Reassigning engineer on an existing job — send reschedule notification, not booking confirmation
+      supabase.functions.invoke('send-reschedule-notification', {
         body: { service_call_id: job.id }
-      }).catch(err => console.error('Booking confirmation failed:', err));
+      }).catch(err => console.error('Reschedule notification failed:', err));
       toast({ title: `Reassigned to ${engineer.name}` });
       fetchJob();
     }
