@@ -537,8 +537,15 @@ const Renewals = () => {
                 </div>
 
                 {/* Address */}
-                <div className="text-xs text-muted-foreground flex items-center gap-1 mb-3">
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <MapPin className="w-3 h-3 shrink-0" /> {c.address}
+                </div>
+
+                {/* Renewal date */}
+                <div className="mt-1.5 mb-3 text-sm font-semibold text-foreground">
+                  Renewal: {c.next_service_due
+                    ? new Date(c.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+                    : "—"}
                 </div>
 
                 {/* Actions */}
