@@ -261,7 +261,7 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
     )}
 
     {/* Heading */}
-    <div className="flex justify-between items-center">
+    <div id="section-scheduled" className="flex justify-between items-center">
       <div className="text-[17px] font-extrabold text-foreground">Today's Jobs</div>
       <span className="bg-primary/10 text-primary rounded-full px-3 py-0.5 text-xs font-bold">{active.length} left</span>
     </div>
@@ -294,16 +294,16 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
         ))}
 
         {completed.length > 0 && (
-          <>
+          <div id="section-completed">
             <SectionDivider label="COMPLETED" />
             {completed.map((job: any) => (
               <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} />
             ))}
-          </>
+          </div>
         )}
 
         {cancelled.length > 0 && (
-          <>
+          <div id="section-cancelled">
             <SectionDivider label="CANCELLED" />
             {cancelled.map((job: any) => (
               <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} />
