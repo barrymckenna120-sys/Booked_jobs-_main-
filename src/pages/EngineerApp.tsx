@@ -308,7 +308,7 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
             {cancelled.map((job: any) => (
               <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} />
             ))}
-          </>
+          </div>
         )}
       </>
     )}
