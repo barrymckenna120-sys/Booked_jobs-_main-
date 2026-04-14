@@ -698,12 +698,8 @@ const CustomerDetail = () => {
         {/* Collapsible Sections */}
         {id && (
           <div className="space-y-3">
-            <CollapsibleSection title="Service History" count={sectionCounts.serviceJobs}>
+            <CollapsibleSection title="Service History & Certificates" count={(sectionCounts.serviceJobs ?? 0) + (sectionCounts.certs ?? 0)}>
               <ServiceHistory customerId={id} onCountsReady={(jobCount, certCount) => setSectionCounts(prev => ({ ...prev, serviceJobs: jobCount, certs: certCount }))} />
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Certificates" count={sectionCounts.certs}>
-              {/* Certificates are rendered inside ServiceHistory above — this section shows standalone cert count */}
             </CollapsibleSection>
 
             <CollapsibleSection title="Quotes" count={sectionCounts.quotes}>
