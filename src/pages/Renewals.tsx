@@ -470,13 +470,6 @@ const Renewals = () => {
         )}
       </div>
 
-      {/* DEBUG banner — remove after fix */}
-      <div className="bg-muted border border-border rounded-md px-3 py-2 mb-3 text-xs font-mono">
-        <span className="font-bold mr-2">DEBUG</span>
-        Customers loaded: {customers.length} · Filtered: {filtered.length} · Loading: {String(loading)} · Error: {fetchError || "none"}
-        {selectedAreas.length > 0 && <> · Areas: {selectedAreas.join(", ")}</>}
-      </div>
-
       {!loading && filtered.length > 0 && (
         <div className="hidden md:flex items-center justify-between bg-muted/50 border border-border rounded-lg px-4 py-2 mb-4">
           <p className="text-xs text-muted-foreground">
