@@ -205,7 +205,7 @@ const Renewals = () => {
 
   const filtered = filterable
     .filter(c => c.tab === activeTab && matchesArea(c))
-    .sort((a, b) => a.daysUntil - b.daysUntil);
+    .sort((a, b) => sortAscending ? a.daysUntil - b.daysUntil : b.daysUntil - a.daysUntil);
 
   // Stats for header
   const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon") && matchesArea(c)).length;
