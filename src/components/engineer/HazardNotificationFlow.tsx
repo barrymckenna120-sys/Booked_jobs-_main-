@@ -159,7 +159,7 @@ const generateRefNumber = () => {
 };
 
 // ─── Main Flow ──────────────────────────────────────────────────
-const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, customer, engineerName, engineerRgi, onClose }) => {
+const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, customer, engineerName, engineerRgi: engineerRgiProp, onClose }) => {
   const { toast } = useToast();
   const [phase, setPhase] = useState<"form" | "customer_sig" | "engineer_sig" | "success">("form");
   const [saving, setSaving] = useState(false);
@@ -168,13 +168,32 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
   const [hazardId, setHazardId] = useState<string | null>(null);
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
+  // Live RGI lookup — always use the latest value from the engineers table
+  const [engineerRgi, setEngineerRgi] = useState<string | null>(engineerRgiProp);
+
+  useEffect(() => {
+    const fetchLiveRgi = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("engineers")
+        .select("rgi_number")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      if ((data as any)?.rgi_number) {
+        setEngineerRgi((data as any).rgi_number);
+      }
+    };
+    fetchLiveRgi();
+  }, []);
+
   // Form state
   const [gasType, setGasType] = useState<"natural_gas" | "lpg">("natural_gas");
   const [gasSupplier, setGasSupplier] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [appliance, setAppliance] = useState("");
-  const [make, setMake] = useState(job?.boiler_brand || "");
-  const [model, setModel] = useState(customer?.boiler_make_model || "");
+  const [appliance, setAppliance] = useState(job?.job_type || "");
+  const [make, setMake] = useState(job?.boiler_brand || customer?.boiler_brand || "");
+  const [model, setModel] = useState(job?.boiler_issue || customer?.boiler_make_model || customer?.boiler_model || "");
   const [location, setLocation] = useState("");
   const [isolationReasons, setIsolationReasons] = useState("");
   const [pressureReading, setPressureReading] = useState("");
@@ -182,6 +201,7 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
   const [meterReading, setMeterReading] = useState("");
   const [isolationNotes, setIsolationNotes] = useState("");
   const [gasIsolated, setGasIsolated] = useState<boolean | null>(null);
+  const [applianceNotes, setApplianceNotes] = useState("");
 
   // Signatures
   const [customerSig, setCustomerSig] = useState<string | null>(null);
@@ -213,6 +233,7 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
       meter_reading: meterReading || null,
       isolation_notes: isolationNotes || null,
       gas_isolated_to_premises: gasIsolated,
+      appliance_notes: applianceNotes || null,
       customer_sig_url: customerSig,
       engineer_sig_url: engSigUrl,
     } as any).select("id").single();
@@ -453,6 +474,15 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
           <EditField label="Make" value={make} onChange={setMake} placeholder="e.g. Vaillant" />
           <EditField label="Model" value={model} onChange={setModel} placeholder="e.g. ecoTEC Plus" />
           <EditField label="Location" value={location} onChange={setLocation} placeholder="e.g. Kitchen" />
+        </div>
+        <div className="bg-[#f0f4f8] rounded-lg px-3 py-2.5">
+          <Label className="text-[10px] font-bold text-[#888] uppercase tracking-wider">Appliance Notes</Label>
+          <Textarea
+            value={applianceNotes}
+            onChange={(e) => setApplianceNotes(e.target.value)}
+            placeholder="Age, condition, visible damage, non-standard setup…"
+            className="min-h-[60px] mt-1 border-[#d1d5db] text-[13px]"
+          />
         </div>
 
         {/* ISOLATION DETAILS — only when C is selected */}

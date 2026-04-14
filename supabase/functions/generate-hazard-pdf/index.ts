@@ -268,6 +268,14 @@ Deno.serve(async (req) => {
     fieldPair("Location", hazard.location || "", margin + contentW / 2);
     y = Math.max(aLeftEnd, y) + 2;
 
+    if (hazard.appliance_notes) {
+      checkNewPage(14);
+      addText("Appliance Notes", margin + 2, y, { size: 8, color: [136, 136, 136] });
+      y += 3.5;
+      const notesH = addText(hazard.appliance_notes, margin + 2, y, { size: 10, bold: true, maxWidth: contentW - 4 });
+      y += notesH + 4;
+    }
+
     // ─── ISOLATION DETAILS (only if C selected) ───
     if (hazardTypes.includes("C")) {
       sectionTitle("ISOLATION DETAILS", redHeaderRgb);
