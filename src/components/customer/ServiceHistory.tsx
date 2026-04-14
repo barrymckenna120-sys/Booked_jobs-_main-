@@ -128,110 +128,115 @@ const ServiceHistory = ({ customerId, onCountsReady }: ServiceHistoryProps) => {
 
   if (loading) return null;
 
-  return { jobs, certificates, total, renderJobs, renderCerts };
-
-  function renderJobs() {
-    if (jobs.length === 0) return <p className="text-sm text-muted-foreground">No service history yet.</p>;
-    return (
-      <>
-        <div className="overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Job Type</TableHead>
-                <TableHead>Engineer</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Receipt</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {jobs.map((j) => {
-                const ps = paymentStatus(j);
-                return (
-                  <TableRow key={j.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${j.id}`)}>
-                    <TableCell className="whitespace-nowrap">
-                      {j.scheduled_date
-                        ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{j.job_type}</TableCell>
-                    <TableCell>{j.assigned_engineer || "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {j.revenue != null ? `€${j.revenue.toFixed(2)}` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={paymentVariant(ps)} className="text-xs">{ps}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {j.receipt_number ? (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/receipt-view/${j.id}`); }}
-                          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-                        >
-                          <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
-                        </button>
-                      ) : null}
-                    </TableCell>
+  return (
+    <div className="space-y-6">
+      {/* Service History */}
+      <div>
+        {jobs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No service history yet.</p>
+        ) : (
+          <>
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Job Type</TableHead>
+                    <TableHead>Engineer</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Receipt</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
-          <span className="text-sm font-semibold">Total spent</span>
-          <span className="text-sm font-bold">€{total.toFixed(2)}</span>
-        </div>
-      </>
-    );
-  }
-
-  function renderCerts() {
-    if (certificates.length === 0) return <p className="text-sm text-muted-foreground">No certificates issued yet.</p>;
-    return (
-      <div className="space-y-3">
-        {certificates.map((cert) => {
-          const engineer = jobs.find((j) => j.id === cert.job_id)?.assigned_engineer;
-          return (
-            <div key={cert.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-card">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground">{cert.cert_type_label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {cert.cert_number || "—"}
-                    {cert.created_at
-                      ? ` · ${new Date(cert.created_at).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}`
-                      : ""}
-                    {engineer ? ` · ${engineer}` : ""}
-                  </p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-xs font-bold"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (cert.pdf_url) {
-                    window.open(cert.pdf_url, "_blank", "noopener,noreferrer");
-                  } else {
-                    toast({ title: "No certificate available", description: "The PDF has not been generated yet.", variant: "destructive" });
-                  }
-                }}
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> {cert.pdf_url ? "View Certificate" : "PDF pending…"}
-              </Button>
+                </TableHeader>
+                <TableBody>
+                  {jobs.map((j) => {
+                    const ps = paymentStatus(j);
+                    return (
+                      <TableRow key={j.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${j.id}`)}>
+                        <TableCell className="whitespace-nowrap">
+                          {j.scheduled_date
+                            ? new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+                            : "—"}
+                        </TableCell>
+                        <TableCell>{j.job_type}</TableCell>
+                        <TableCell>{j.assigned_engineer || "—"}</TableCell>
+                        <TableCell className="text-right">
+                          {j.revenue != null ? `€${j.revenue.toFixed(2)}` : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={paymentVariant(ps)} className="text-xs">{ps}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {j.receipt_number ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/receipt-view/${j.id}`); }}
+                              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                            >
+                              <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
+                            </button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
-          );
-        })}
+            <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
+              <span className="text-sm font-semibold">Total spent</span>
+              <span className="text-sm font-bold">€{total.toFixed(2)}</span>
+            </div>
+          </>
+        )}
       </div>
-    );
-  }
+
+      {/* Certificates */}
+      {certificates.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-muted-foreground mb-3">📄 Certificates</p>
+          <div className="space-y-3">
+            {certificates.map((cert) => {
+              const engineer = jobs.find((j) => j.id === cert.job_id)?.assigned_engineer;
+              return (
+                <div key={cert.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-card">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{cert.cert_type_label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {cert.cert_number || "—"}
+                        {cert.created_at
+                          ? ` · ${new Date(cert.created_at).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}`
+                          : ""}
+                        {engineer ? ` · ${engineer}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs font-bold"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (cert.pdf_url) {
+                        window.open(cert.pdf_url, "_blank", "noopener,noreferrer");
+                      } else {
+                        toast({ title: "No certificate available", description: "The PDF has not been generated yet.", variant: "destructive" });
+                      }
+                    }}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> {cert.pdf_url ? "View Certificate" : "PDF pending…"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default ServiceHistory;

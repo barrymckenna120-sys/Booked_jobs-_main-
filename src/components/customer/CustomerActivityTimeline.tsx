@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Plus } from "lucide-react";
 import {
   Drawer,
@@ -18,6 +17,8 @@ import {
 
 interface Props {
   customerId: string;
+  onCountReady?: (count: number) => void;
+  collapsed?: boolean;
 }
 
 type ActivityType = "note_inbound_call" | "note_outbound_call" | "note_general";
@@ -39,7 +40,7 @@ const PILL_CONFIG: Record<string, { label: string; className: string }> = {
   whatsapp_sent: { label: "WhatsApp", className: "bg-orange-100 text-orange-700" },
 };
 
-const CustomerActivityTimeline = ({ customerId }: Props) => {
+const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<any[]>([]);
@@ -49,6 +50,7 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
   const [saving, setSaving] = useState(false);
   const [selectedType, setSelectedType] = useState<ActivityType>("note_general");
   const [noteText, setNoteText] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const fetchActivities = async () => {
     setLoading(true);
@@ -60,7 +62,7 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
 
     if (data) {
       setActivities(data);
-      // Fetch profile names for created_by ids
+      onCountReady?.(data.length);
       const ids = [...new Set(data.map((a) => a.created_by).filter(Boolean))];
       if (ids.length > 0) {
         const { data: profiles } = await supabase
@@ -87,7 +89,6 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
     if (!noteText.trim() || !user) return;
     setSaving(true);
 
-    // Get user's profile id and organisation_id
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, organisation_id")
@@ -126,17 +127,16 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
     return `${day}/${month}/${year} ${hours}:${mins}`;
   };
 
+  const displayedActivities = showAll ? activities : activities.slice(0, 3);
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Activity Timeline</CardTitle>
+    <>
+      <div>
+        <div className="flex items-center justify-end mb-3">
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setOpen(true)}>
             <Plus className="w-3.5 h-3.5" /> Log Activity
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
         {loading ? (
           <div className="flex justify-center py-6">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -145,7 +145,7 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
           <p className="text-sm text-muted-foreground text-center py-4">No activity logged yet</p>
         ) : (
           <div className="space-y-2">
-            {activities.map((a) => {
+            {displayedActivities.map((a) => {
               const pill = PILL_CONFIG[a.event_type] || PILL_CONFIG.note_general;
               return (
                 <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm">
@@ -167,9 +167,25 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
                 </div>
               );
             })}
+            {activities.length > 3 && !showAll && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-sm font-medium text-primary hover:underline w-full text-center py-2"
+              >
+                Show all {activities.length} activities
+              </button>
+            )}
+            {showAll && activities.length > 3 && (
+              <button
+                onClick={() => setShowAll(false)}
+                className="text-sm font-medium text-muted-foreground hover:underline w-full text-center py-2"
+              >
+                Show less
+              </button>
+            )}
           </div>
         )}
-      </CardContent>
+      </div>
 
       {/* Log Activity Bottom Sheet */}
       <Drawer open={open} onOpenChange={setOpen}>
@@ -218,7 +234,7 @@ const CustomerActivityTimeline = ({ customerId }: Props) => {
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
-    </Card>
+    </>
   );
 };
 
