@@ -58,6 +58,8 @@ export function SendAllRemindersSheet({
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
 
+  const [testMode, setTestMode] = useState(false);
+
   const remaining = customers.filter(
     (c) => !sentIds.includes(c.id) && !skipped.includes(c.id)
   );
