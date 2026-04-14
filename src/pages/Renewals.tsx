@@ -33,6 +33,7 @@ type Customer = {
   last_reminder_sent: string | null;
   renewal_stage: string | null;
   is_archived: boolean;
+  opted_out: boolean | null;
 };
 
 type TabKey = "overdue" | "due_soon" | "up_to_date";
@@ -160,7 +161,7 @@ const Renewals = () => {
     return () => clearInterval(interval);
   }, [user, fetchCustomers]);
 
-  const activeCustomers = customers.filter(c => !c.is_archived);
+  const activeCustomers = customers.filter(c => !c.is_archived && !c.opted_out);
 
   const normalizeArea = (code: string | null | undefined): string =>
     code ? code.trim().toUpperCase() : "NO AREA";
