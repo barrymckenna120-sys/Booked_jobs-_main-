@@ -255,25 +255,31 @@ const Renewals = () => {
     }
   };
 
-  const handleSendReminder = (customer: Customer) => {
-    const cleanPhone = customer.phone.replace(/\s+/g, "").replace(/^0/, "353");
-    const msg = buildReminderMessage(customer);
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  const handleSendReminder = async (customer: Customer) => {
+    const firstName = customer.name.split(" ")[0];
+    const renewalDate = customer.next_service_due
+      ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })
+      : "soon";
 
-    markAsContacted(customer.id, customer.name);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-renewal-reminder", {
+        body: {
+          customer_id: customer.id,
+          phone: customer.phone,
+          first_name: firstName,
+          renewal_date: renewalDate,
+        },
+      });
 
-    if (user) {
-      supabase.from("whatsapp_messages").insert({
-        user_id: user.id,
-        customer_id: customer.id,
-        message_type: "30 Day Reminder",
-        message_body: msg,
-        sent_by: user.email,
-        status: "Sent",
-      } as any);
+      if (error) throw new Error(error.message || "Edge function error");
+      if (data && !data.success) throw new Error(data.error || "Send failed");
+
+      markAsContacted(customer.id, customer.name);
+      toast({ title: `✅ Reminder sent to ${customer.name}`, duration: 2500 });
+    } catch (err: any) {
+      console.error("Send renewal reminder failed:", err);
+      toast({ title: `❌ Failed to send to ${customer.name}`, description: err.message, variant: "destructive", duration: 4000 });
     }
-
-    toast({ title: `Reminder sent to ${customer.name}`, duration: 2500 });
   };
 
   const confirmArchive = (customerId: string, customerName: string, archive: boolean) => {
@@ -308,19 +314,8 @@ const Renewals = () => {
 
   const handleBatchReminderSent = async (customerId: string) => {
     const c = customers.find((x) => x.id === customerId);
-    if (!user || !c) return;
-
-    const msg = buildReminderMessage(c);
+    if (!c) return;
     markAsContacted(customerId, c.name);
-
-    supabase.from("whatsapp_messages").insert({
-      user_id: user.id,
-      customer_id: customerId,
-      message_type: "30 Day Reminder",
-      message_body: msg,
-      sent_by: user.email,
-      status: "Sent",
-    } as any);
   };
 
   const leftBorderClass = (tab: TabKey) => {

@@ -67,3 +67,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.job-reminder-2day]
     verify_jwt = false
+  [functions.send-renewal-reminder]
+    verify_jwt = false
