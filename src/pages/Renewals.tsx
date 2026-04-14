@@ -475,16 +475,26 @@ const Renewals = () => {
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-bold text-foreground">{filtered.length}</span> customers · <span className="font-bold text-foreground">{notRemindedCount}</span> not yet reminded
           </p>
-          <Button
-            onClick={() => setSendAllOpen(true)}
-            size="sm"
-            variant="outline"
-            className="gap-1.5 font-bold text-xs"
-            disabled={reminderQueue.length === 0}
-          >
-            <Send className="w-3.5 h-3.5" />
-            Remind All ({reminderQueue.length})
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setSortAscending(prev => !prev)}
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs font-medium"
+            >
+              Date {sortAscending ? "↑" : "↓"}
+            </Button>
+            <Button
+              onClick={() => setSendAllOpen(true)}
+              size="sm"
+              variant="outline"
+              className="gap-1.5 font-bold text-xs"
+              disabled={reminderQueue.length === 0}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Remind All ({reminderQueue.length})
+            </Button>
+          </div>
         </div>
       )}
 
