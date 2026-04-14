@@ -161,7 +161,7 @@ const Renewals = () => {
     return () => clearInterval(interval);
   }, [user, fetchCustomers]);
 
-  const activeCustomers = customers.filter(c => !c.is_archived);
+  const activeCustomers = customers.filter(c => !c.is_archived && !c.opted_out);
 
   const normalizeArea = (code: string | null | undefined): string =>
     code ? code.trim().toUpperCase() : "NO AREA";
