@@ -70,36 +70,38 @@ export function SendAllRemindersSheet({
 
   const sendCurrent = async () => {
     if (!current) return;
-    let fullPhone: string;
-    if (testMode) {
-      fullPhone = TEST_PHONE;
-    } else {
-      const phone = current.phone.replace(/\D/g, "");
-      fullPhone = phone.startsWith("353")
-        ? phone
-        : phone.startsWith("0")
-        ? "353" + phone.slice(1)
-        : "353" + phone;
+    const firstName = current.name.split(" ")[0];
+    const renewalDate = new Date(current.nextDue).toLocaleDateString("en-IE", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    // In test mode, override phone to test number
+    const phone = testMode ? TEST_PHONE : current.phone;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-renewal-reminder", {
+        body: {
+          customer_id: current.id,
+          phone,
+          first_name: firstName,
+          renewal_date: renewalDate,
+        },
+      });
+
+      if (error) throw new Error(error.message || "Edge function error");
+      if (data && !data.success) throw new Error(data.error || "Send failed");
+
+      setSentIds((p) => [...p, current.id]);
+      onReminderSent(current.id);
+      if (!started) setStarted(true);
+    } catch (err: any) {
+      console.error("Send renewal reminder failed:", err);
+      // Still mark as sent in UI to not block the queue, but log error
+      setSentIds((p) => [...p, current.id]);
+      if (!started) setStarted(true);
     }
-    const msg = buildMsg(current);
-    window.open(waUrl(fullPhone, msg), "_blank");
-
-    // Log to message_log
-    await supabase.from("message_log").insert({
-      customer_id: current.id,
-      message_type: "renewal",
-      channel: "whatsapp",
-      direction: "outbound",
-      content: msg,
-      status: "sent",
-      related_type: "renewal",
-      sent_by: user?.id || "system",
-      sent_at: new Date().toISOString(),
-    } as any);
-
-    setSentIds((p) => [...p, current.id]);
-    onReminderSent(current.id);
-    if (!started) setStarted(true);
   };
 
   const skipCurrent = () => {
