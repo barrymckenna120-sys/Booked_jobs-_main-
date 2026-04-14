@@ -197,10 +197,11 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
     try {
-      const { error } = await supabase.functions.invoke("send-whatsapp-booking-confirmation", {
+      const { data, error } = await supabase.functions.invoke("send-booking-confirmation", {
         body: { service_call_id: job.id },
       });
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || "Send failed");
       setWhatsappSent(true);
       toast({ title: "WhatsApp confirmation sent" });
     } catch (err: any) {
