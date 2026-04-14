@@ -58,7 +58,7 @@ const CustomerDetail = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [boilerBrands, setBoilerBrands] = useState<BoilerBrandRow[]>([]);
   const [modelManual, setModelManual] = useState(false);
-
+  const [sectionCounts, setSectionCounts] = useState<Record<string, number>>({});
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
