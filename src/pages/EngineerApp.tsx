@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CalendarDays, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, CalendarDays, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import { format, addDays } from "date-fns";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
