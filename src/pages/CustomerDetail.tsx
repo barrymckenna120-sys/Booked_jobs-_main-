@@ -182,16 +182,34 @@ const CustomerDetail = () => {
   // Generic field for non-validated fields
   const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => {
     if (type === "date") {
+      const dateValue = value ? new Date(value + "T12:00:00") : undefined;
+      const isValidDate = dateValue && !isNaN(dateValue.getTime());
       return (
         <div className="space-y-1.5">
           <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-          <input
-            id={field}
-            type="date"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background cursor-pointer"
-            value={formatDateForInput(value)}
-            onChange={(e) => handleChange(field, e.target.value || null)}
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal h-10",
+                  !isValidDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {isValidDate ? format(dateValue, "dd/MM/yyyy") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={isValidDate ? dateValue : undefined}
+                onSelect={(d) => handleChange(field, d ? format(d, "yyyy-MM-dd") : null)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       );
     }
