@@ -17,9 +17,12 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { customer_id, phone, first_name, renewal_date } = await req.json();
+    const body = await req.json();
+    console.log("Request received:", JSON.stringify(body));
+    const { customer_id, phone, first_name, renewal_date } = body;
 
     if (!customer_id || !phone || !first_name || !renewal_date) {
+      console.log("Missing required fields:", { customer_id, phone, first_name, renewal_date });
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields: customer_id, phone, first_name, renewal_date" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -28,6 +31,7 @@ Deno.serve(async (req) => {
 
     // Build message
     const message = `Hi ${first_name},\n\nThis is K & N Gas Services. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on 087 3686252.\n\nReply STOP to unsubscribe.\nK & N Gas Services`;
+    console.log("Message built for:", first_name);
 
     // Format phone — strip +, ensure 353 prefix
     let cleanPhone = phone.replace(/[^0-9]/g, "");
@@ -36,8 +40,10 @@ Deno.serve(async (req) => {
     } else if (!cleanPhone.startsWith("353")) {
       cleanPhone = "353" + cleanPhone;
     }
+    console.log("Phone formatted:", cleanPhone, "(original:", phone, ")");
 
     // Log pending message
+    console.log("Inserting pending message_log entry...");
     const { data: logRow, error: logErr } = await supabase
       .from("message_log")
       .insert({
@@ -54,12 +60,16 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
+    if (logErr) console.log("message_log insert error:", logErr.message);
     const logId = logRow?.id;
+    console.log("message_log id:", logId);
 
     // Send via 360 Messenger API
     const formData = new FormData();
     formData.append("phonenumber", cleanPhone);
     formData.append("text", message);
+    console.log("Calling 360 Messenger API...");
+    console.log("API key present:", !!apiKey, "length:", apiKey?.length);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
@@ -68,6 +78,9 @@ Deno.serve(async (req) => {
     });
 
     const resultText = await response.text();
+    console.log("360 Messenger response status:", response.status);
+    console.log("360 Messenger response body:", resultText);
+
     let result: any;
     try {
       result = JSON.parse(resultText);
@@ -76,7 +89,7 @@ Deno.serve(async (req) => {
     }
 
     if (result.success) {
-      // Update message_log to sent
+      console.log("SUCCESS — updating message_log and customer record");
       if (logId) {
         await supabase
           .from("message_log")
@@ -84,7 +97,6 @@ Deno.serve(async (req) => {
           .eq("id", logId);
       }
 
-      // Update customer record
       const now = new Date().toISOString();
       await supabase
         .from("customers")
@@ -100,8 +112,8 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } else {
-      // Update message_log to failed
       const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}`;
+      console.log("FAILED — errorDetail:", errorDetail);
       if (logId) {
         await supabase
           .from("message_log")
@@ -109,7 +121,6 @@ Deno.serve(async (req) => {
           .eq("id", logId);
       }
 
-      // Log to edge_function_logs
       await supabase.from("edge_function_logs").insert({
         function_name: "send-renewal-reminder",
         error_message: `Failed to send renewal reminder to ${first_name} (${cleanPhone})`,
@@ -123,6 +134,7 @@ Deno.serve(async (req) => {
     }
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
+    console.log("CATCH error:", errMsg);
 
     try {
       await supabase.from("edge_function_logs").insert({
