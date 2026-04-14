@@ -278,7 +278,7 @@ const CustomerDetail = () => {
           id={field}
           type={type}
           value={value ?? ""}
-          onChange={(e) => handleChange(field, e.target.value || "")}
+          onChange={(e) => handleChange(field, e.target.value)}
         />
       </div>
     );
