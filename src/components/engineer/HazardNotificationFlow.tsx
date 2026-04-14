@@ -233,6 +233,7 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
       meter_reading: meterReading || null,
       isolation_notes: isolationNotes || null,
       gas_isolated_to_premises: gasIsolated,
+      appliance_notes: applianceNotes || null,
       customer_sig_url: customerSig,
       engineer_sig_url: engSigUrl,
     } as any).select("id").single();
@@ -473,6 +474,15 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
           <EditField label="Make" value={make} onChange={setMake} placeholder="e.g. Vaillant" />
           <EditField label="Model" value={model} onChange={setModel} placeholder="e.g. ecoTEC Plus" />
           <EditField label="Location" value={location} onChange={setLocation} placeholder="e.g. Kitchen" />
+        </div>
+        <div className="bg-[#f0f4f8] rounded-lg px-3 py-2.5">
+          <Label className="text-[10px] font-bold text-[#888] uppercase tracking-wider">Appliance Notes</Label>
+          <Textarea
+            value={applianceNotes}
+            onChange={(e) => setApplianceNotes(e.target.value)}
+            placeholder="Age, condition, visible damage, non-standard setup…"
+            className="min-h-[60px] mt-1 border-[#d1d5db] text-[13px]"
+          />
         </div>
 
         {/* ISOLATION DETAILS — only when C is selected */}
