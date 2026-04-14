@@ -239,9 +239,9 @@ const CustomerDetail = () => {
 
   // Generic field for non-validated fields
   const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => {
-    const [localValue, setLocalValue] = React.useState(value ?? "");
+    const [localValue, setLocalValue] = useState(value ?? "");
 
-    React.useEffect(() => {
+    useEffect(() => {
       setLocalValue(value ?? "");
     }, [value]);
 
