@@ -5,7 +5,11 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper, AlertTriangle } from "lucide-react";
+
+const TEST_PHONE = "353892109244";
 
 export type ReminderCustomer = {
   id: string;
@@ -54,6 +58,8 @@ export function SendAllRemindersSheet({
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
 
+  const [testMode, setTestMode] = useState(false);
+
   const remaining = customers.filter(
     (c) => !sentIds.includes(c.id) && !skipped.includes(c.id)
   );
@@ -64,12 +70,17 @@ export function SendAllRemindersSheet({
 
   const sendCurrent = async () => {
     if (!current) return;
-    const phone = current.phone.replace(/\D/g, "");
-    const fullPhone = phone.startsWith("353")
-      ? phone
-      : phone.startsWith("0")
-      ? "353" + phone.slice(1)
-      : "353" + phone;
+    let fullPhone: string;
+    if (testMode) {
+      fullPhone = TEST_PHONE;
+    } else {
+      const phone = current.phone.replace(/\D/g, "");
+      fullPhone = phone.startsWith("353")
+        ? phone
+        : phone.startsWith("0")
+        ? "353" + phone.slice(1)
+        : "353" + phone;
+    }
     const msg = buildMsg(current);
     window.open(waUrl(fullPhone, msg), "_blank");
 
@@ -127,7 +138,22 @@ export function SendAllRemindersSheet({
 
           <Progress value={progress} className="h-1.5" />
 
-          {/* Finished */}
+          {/* Test Mode Toggle */}
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+              <Label htmlFor="test-mode" className="text-sm font-semibold cursor-pointer">Test Mode</Label>
+            </div>
+            <Switch id="test-mode" checked={testMode} onCheckedChange={setTestMode} />
+          </div>
+
+          {testMode && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-xl px-4 py-2.5 text-sm font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              TEST MODE — All messages will be sent to +353 89 210 9244
+            </div>
+          )}
+
           {isFinished ? (
             <Card className="bg-success/10 border-success/20">
               <CardContent className="py-8 text-center space-y-3">
