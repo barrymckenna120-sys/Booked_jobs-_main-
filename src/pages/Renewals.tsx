@@ -76,6 +76,7 @@ const Renewals = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [sortAscending, setSortAscending] = useState(true);
   const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string; default_service_price?: number } | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overdue");
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
@@ -204,7 +205,7 @@ const Renewals = () => {
 
   const filtered = filterable
     .filter(c => c.tab === activeTab && matchesArea(c))
-    .sort((a, b) => a.daysUntil - b.daysUntil);
+    .sort((a, b) => sortAscending ? a.daysUntil - b.daysUntil : b.daysUntil - a.daysUntil);
 
   // Stats for header
   const notContactedCount = filterable.filter(c => c.stage === "not_contacted" && (c.tab === "overdue" || c.tab === "due_soon") && matchesArea(c)).length;
