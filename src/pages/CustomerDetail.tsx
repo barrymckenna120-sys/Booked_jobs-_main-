@@ -239,6 +239,12 @@ const CustomerDetail = () => {
 
   // Generic field for non-validated fields
   const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => {
+    const [localValue, setLocalValue] = React.useState(value ?? "");
+
+    React.useEffect(() => {
+      setLocalValue(value ?? "");
+    }, [value]);
+
     if (type === "date") {
       const dateValue = value ? new Date(value + "T12:00:00") : undefined;
       const isValidDate = dateValue && !isNaN(dateValue.getTime());
@@ -277,8 +283,9 @@ const CustomerDetail = () => {
         <Input
           id={field}
           type={type}
-          value={value ?? ""}
-          onChange={(e) => handleChange(field, e.target.value)}
+          value={localValue}
+          onChange={(e) => setLocalValue(e.target.value)}
+          onBlur={() => handleChange(field, localValue)}
         />
       </div>
     );
