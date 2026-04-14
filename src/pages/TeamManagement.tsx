@@ -624,6 +624,12 @@ const TeamManagement = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                       {!isBlocked && (
+                        <DropdownMenuItem onClick={() => openEditDialog(member)}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit Details
+                        </DropdownMenuItem>
+                      )}
+                      {!isBlocked && (
                         <>
                           <DropdownMenuLabel>Change Role</DropdownMenuLabel>
                           {Object.entries(ROLES)
