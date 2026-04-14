@@ -47,6 +47,7 @@ import {
   Mail,
   Link,
   KeyRound,
+  Pencil,
 } from "lucide-react";
 
 // ── Role config ────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ interface TeamMember {
   is_available: boolean;
   created_at: string;
   auth_user_id: string | null;
+  rgi_number: string | null;
 }
 
 const TeamManagement = () => {
@@ -134,7 +136,7 @@ const TeamManagement = () => {
     setLoading(true);
     const { data } = await supabase
       .from("engineers")
-      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id")
+      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id, rgi_number")
       .order("name");
     if (data) setMembers(data as TeamMember[]);
     setLoading(false);
