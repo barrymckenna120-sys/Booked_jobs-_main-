@@ -70,12 +70,17 @@ export function SendAllRemindersSheet({
 
   const sendCurrent = async () => {
     if (!current) return;
-    const phone = current.phone.replace(/\D/g, "");
-    const fullPhone = phone.startsWith("353")
-      ? phone
-      : phone.startsWith("0")
-      ? "353" + phone.slice(1)
-      : "353" + phone;
+    let fullPhone: string;
+    if (testMode) {
+      fullPhone = TEST_PHONE;
+    } else {
+      const phone = current.phone.replace(/\D/g, "");
+      fullPhone = phone.startsWith("353")
+        ? phone
+        : phone.startsWith("0")
+        ? "353" + phone.slice(1)
+        : "353" + phone;
+    }
     const msg = buildMsg(current);
     window.open(waUrl(fullPhone, msg), "_blank");
 
