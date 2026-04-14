@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Receipt, Loader2 } from "lucide-react";
@@ -16,7 +15,12 @@ type ReceiptJob = {
   receipt_pdf_url: string | null;
 };
 
-const PaymentHistory = ({ customerId }: { customerId: string }) => {
+interface Props {
+  customerId: string;
+  onCountReady?: (count: number) => void;
+}
+
+const PaymentHistory = ({ customerId, onCountReady }: Props) => {
   const [jobs, setJobs] = useState<ReceiptJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -29,7 +33,9 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
         .eq("customer_id", customerId)
         .not("receipt_number", "is", null)
         .order("paid_at", { ascending: false, nullsFirst: false });
-      setJobs((data || []) as ReceiptJob[]);
+      const result = (data || []) as ReceiptJob[];
+      setJobs(result);
+      onCountReady?.(result.length);
       setLoading(false);
     };
     fetchReceipts();
@@ -38,22 +44,17 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
   const handleDownload = async (job: ReceiptJob) => {
     setDownloading(job.id);
     try {
-      // Use permanent public URL if available
       if (job.receipt_pdf_url) {
         window.open(job.receipt_pdf_url, "_blank");
         setDownloading(null);
         return;
       }
-
-      // Try generating the PDF on-demand
       const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
         body: { job_id: job.id },
       });
-
       if (!error && data?.pdf_url) {
         window.open(data.pdf_url, "_blank");
       } else {
-        // Fallback: navigate to receipt page
         window.open(`/receipt-view/${job.id}`, "_blank");
       }
     } catch {
@@ -71,58 +72,53 @@ const PaymentHistory = ({ customerId }: { customerId: string }) => {
   };
 
   if (loading) return null;
-  if (jobs.length === 0) return null;
+  if (jobs.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">No payment history yet.</p>;
 
   const total = jobs.reduce((sum, j) => sum + (j.revenue || 0), 0);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">🧾 Payment History</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {jobs.map((j) => (
-          <div
-            key={j.id}
-            className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/30"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <Receipt className="w-4 h-4 text-primary shrink-0" />
-                <span className="font-bold text-sm">{j.receipt_number}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {formatMethod(j.payment_method)}
-                </Badge>
-              </div>
-              <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
-                <span>{formatDate(j.scheduled_date)}</span>
-                {j.assigned_engineer && <span>{j.assigned_engineer}</span>}
-                <span className="font-semibold text-foreground">
-                  €{(j.revenue || 0).toFixed(2)}
-                </span>
-              </div>
+    <div className="space-y-3">
+      {jobs.map((j) => (
+        <div
+          key={j.id}
+          className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/30"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Receipt className="w-4 h-4 text-primary shrink-0" />
+              <span className="font-bold text-sm">{j.receipt_number}</span>
+              <Badge variant="secondary" className="text-xs">
+                {formatMethod(j.payment_method)}
+              </Badge>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0"
-              disabled={downloading === j.id}
-              onClick={() => handleDownload(j)}
-            >
-              {downloading === j.id ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-            </Button>
+            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+              <span>{formatDate(j.scheduled_date)}</span>
+              {j.assigned_engineer && <span>{j.assigned_engineer}</span>}
+              <span className="font-semibold text-foreground">
+                €{(j.revenue || 0).toFixed(2)}
+              </span>
+            </div>
           </div>
-        ))}
-        <div className="pt-3 border-t border-border flex justify-between items-center">
-          <span className="text-sm font-semibold">Total paid</span>
-          <span className="text-sm font-bold">€{total.toFixed(2)}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            disabled={downloading === j.id}
+            onClick={() => handleDownload(j)}
+          >
+            {downloading === j.id ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      ))}
+      <div className="pt-3 border-t border-border flex justify-between items-center">
+        <span className="text-sm font-semibold">Total paid</span>
+        <span className="text-sm font-bold">€{total.toFixed(2)}</span>
+      </div>
+    </div>
   );
 };
 

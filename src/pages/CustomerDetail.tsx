@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History, CalendarIcon, ChevronDown } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,64 @@ interface BoilerBrandRow {
   is_default: boolean;
 }
 
+// Collapsible accordion section component
+const CollapsibleSection = ({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 min-h-[52px] cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">{title}</span>
+          {count !== undefined && (
+            <Badge variant="secondary" className="text-[11px] font-bold px-2 py-0">
+              {count}
+            </Badge>
+          )}
+        </div>
+        <ChevronDown
+          className={cn(
+            "w-5 h-5 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          open ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
+        <CardContent className="pt-0 pb-4">
+          {children}
+        </CardContent>
+      </div>
+    </Card>
+  );
+};
+
+// Hazard section that only renders when data exists
+const HazardSection = ({ customerId, onCountReady }: { customerId: string; onCountReady?: (n: number) => void }) => {
+  const [count, setCount] = useState<number | null>(null);
+
+  const handleCount = (n: number) => {
+    setCount(n);
+    onCountReady?.(n);
+  };
+
+  if (count === 0) return null;
+
+  return (
+    <CollapsibleSection title="⚠️ Hazard Notices" count={count ?? undefined}>
+      <CustomerHazardNotices customerId={customerId} onCountReady={handleCount} />
+    </CollapsibleSection>
+  );
+};
+
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
@@ -58,7 +116,7 @@ const CustomerDetail = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [boilerBrands, setBoilerBrands] = useState<BoilerBrandRow[]>([]);
   const [modelManual, setModelManual] = useState(false);
-
+  const [sectionCounts, setSectionCounts] = useState<Record<string, number>>({});
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
 
@@ -637,8 +695,29 @@ const CustomerDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Activity Timeline */}
-        {id && <CustomerActivityTimeline customerId={id} />}
+        {/* Collapsible Sections */}
+        {id && (
+          <div className="space-y-3">
+            <CollapsibleSection title="Service History & Certificates" count={(sectionCounts.serviceJobs ?? 0) + (sectionCounts.certs ?? 0)}>
+              <ServiceHistory customerId={id} onCountsReady={(jobCount, certCount) => setSectionCounts(prev => ({ ...prev, serviceJobs: jobCount, certs: certCount }))} />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Quotes" count={sectionCounts.quotes}>
+              <CustomerQuotes customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, quotes: n }))} />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Payments & Activity" count={(sectionCounts.payments ?? 0) + (sectionCounts.activity ?? 0)}>
+              <PaymentHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
+              <div className="border-t border-border mt-4 pt-4">
+                <p className="text-sm font-semibold text-muted-foreground mb-3">Activity Timeline</p>
+                <CustomerActivityTimeline customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, activity: n }))} />
+              </div>
+            </CollapsibleSection>
+
+            {/* Hazard Notices — only renders when data exists */}
+            <HazardSection customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, hazards: n }))} />
+          </div>
+        )}
 
         {/* WhatsApp History */}
         {id && (
@@ -647,18 +726,6 @@ const CustomerDetail = () => {
             onSendMessage={() => setShowSendModal(true)}
           />
         )}
-
-        {/* Payment History */}
-        {id && <PaymentHistory customerId={id} />}
-
-        {/* Quotes */}
-        {id && <CustomerQuotes customerId={id} />}
-
-        {/* Service History */}
-        {id && <ServiceHistory customerId={id} />}
-
-        {/* Hazard Notices */}
-        {id && <CustomerHazardNotices customerId={id} />}
       </div>
 
       {/* Delete Customer Modal */}
