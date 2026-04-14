@@ -47,6 +47,7 @@ import {
   Mail,
   Link,
   KeyRound,
+  Pencil,
 } from "lucide-react";
 
 // ── Role config ────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ interface TeamMember {
   is_available: boolean;
   created_at: string;
   auth_user_id: string | null;
+  rgi_number: string | null;
 }
 
 const TeamManagement = () => {
@@ -119,6 +121,11 @@ const TeamManagement = () => {
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
 
+  // Edit dialog
+  const [editTarget, setEditTarget] = useState<TeamMember | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", rgi_number: "" });
+  const [editSaving, setEditSaving] = useState(false);
+
   // Link login dialog
   const [linkTarget, setLinkTarget] = useState<TeamMember | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
@@ -129,7 +136,7 @@ const TeamManagement = () => {
     setLoading(true);
     const { data } = await supabase
       .from("engineers")
-      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id")
+      .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id, rgi_number")
       .order("name");
     if (data) setMembers(data as TeamMember[]);
     setLoading(false);
@@ -341,6 +348,38 @@ const TeamManagement = () => {
     } catch (err: any) {
       toast({ title: "Failed to send reset email", description: err.message, variant: "destructive" });
     }
+  };
+
+  const openEditDialog = (member: TeamMember) => {
+    setEditForm({
+      name: member.name,
+      email: member.email || "",
+      phone: member.phone || "",
+      rgi_number: (member as any).rgi_number || "",
+    });
+    setEditTarget(member);
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget || !editForm.name.trim()) return;
+    setEditSaving(true);
+    const { error } = await supabase
+      .from("engineers")
+      .update({
+        name: editForm.name.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        rgi_number: editForm.rgi_number.trim() || null,
+      } as any)
+      .eq("id", editTarget.id);
+    setEditSaving(false);
+    if (error) {
+      toast({ title: "Error updating engineer", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Engineer updated successfully" });
+    setEditTarget(null);
+    fetchMembers();
   };
 
   const handleLinkLogin = async () => {
@@ -584,6 +623,12 @@ const TeamManagement = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
+                      {!isBlocked && (
+                        <DropdownMenuItem onClick={() => openEditDialog(member)}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit Details
+                        </DropdownMenuItem>
+                      )}
                       {!isBlocked && (
                         <>
                           <DropdownMenuLabel>Change Role</DropdownMenuLabel>
@@ -840,6 +885,57 @@ const TeamManagement = () => {
               >
                 {linking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />}
                 Link & Invite
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Dialog ──────────────────────────────────────────── */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit {editTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Full Name *</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Full name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Email</Label>
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="email@example.ie"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Phone</Label>
+              <Input
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+353 87 123 4567"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">RGI Number</Label>
+              <Input
+                value={editForm.rgi_number}
+                onChange={(e) => setEditForm((f) => ({ ...f, rgi_number: e.target.value }))}
+                placeholder="e.g. 12345"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button onClick={handleEditSave} disabled={!editForm.name.trim() || editSaving} className="gap-2">
+                {editSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+                Save Changes
               </Button>
             </div>
           </div>
