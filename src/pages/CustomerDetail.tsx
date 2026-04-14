@@ -181,26 +181,17 @@ const CustomerDetail = () => {
 
   // Generic field for non-validated fields
   const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => {
-    const dateRef = useRef<HTMLInputElement>(null);
     if (type === "date") {
       return (
         <div className="space-y-1.5">
           <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-          <div className="relative">
-            <div
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background cursor-pointer items-center"
-              onClick={() => dateRef.current?.showPicker?.()}
-            >
-              {value ? formatDisplayDate(value) : <span className="text-muted-foreground">Select date</span>}
-            </div>
-            <input
-              ref={dateRef}
-              type="date"
-              className="absolute inset-0 opacity-0 cursor-pointer"
-              value={formatDateForInput(value)}
-              onChange={(e) => handleChange(field, e.target.value || null)}
-            />
-          </div>
+          <input
+            id={field}
+            type="date"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background cursor-pointer"
+            value={formatDateForInput(value)}
+            onChange={(e) => handleChange(field, e.target.value || null)}
+          />
         </div>
       );
     }
