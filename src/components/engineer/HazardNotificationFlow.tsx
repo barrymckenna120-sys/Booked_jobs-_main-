@@ -191,9 +191,14 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
   const [gasType, setGasType] = useState<"natural_gas" | "lpg">("natural_gas");
   const [gasSupplier, setGasSupplier] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [appliance, setAppliance] = useState(job?.job_type || "");
+  const [appliance, setAppliance] = useState(() => {
+    const jt = job?.job_type || "";
+    const boilerTypes = ["Service", "Repair", "Emergency", "Boiler Service", "Boiler Repair", "boiler_service", "boiler_repair"];
+    if (boilerTypes.some(t => jt.toLowerCase().includes(t.toLowerCase()))) return "Boiler";
+    return jt || "";
+  });
   const [make, setMake] = useState(job?.boiler_brand || customer?.boiler_brand || "");
-  const [model, setModel] = useState(job?.boiler_issue || customer?.boiler_make_model || customer?.boiler_model || "");
+  const [model, setModel] = useState(customer?.boiler_model || customer?.boiler_make_model || "");
   const [location, setLocation] = useState("");
   const [isolationReasons, setIsolationReasons] = useState("");
   const [pressureReading, setPressureReading] = useState("");
