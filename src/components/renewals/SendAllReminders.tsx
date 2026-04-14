@@ -138,7 +138,22 @@ export function SendAllRemindersSheet({
 
           <Progress value={progress} className="h-1.5" />
 
-          {/* Finished */}
+          {/* Test Mode Toggle */}
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+              <Label htmlFor="test-mode" className="text-sm font-semibold cursor-pointer">Test Mode</Label>
+            </div>
+            <Switch id="test-mode" checked={testMode} onCheckedChange={setTestMode} />
+          </div>
+
+          {testMode && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-xl px-4 py-2.5 text-sm font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              TEST MODE — All messages will be sent to +353 89 210 9244
+            </div>
+          )}
+
           {isFinished ? (
             <Card className="bg-success/10 border-success/20">
               <CardContent className="py-8 text-center space-y-3">
