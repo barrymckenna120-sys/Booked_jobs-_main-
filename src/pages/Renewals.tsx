@@ -553,19 +553,26 @@ const Renewals = () => {
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 text-xs gap-1 h-11 sm:h-9 font-bold"
-                    variant={isSent ? "outline" : "default"}
-                    disabled={isSent}
-                    onClick={() => handleSendReminder(c)}
-                  >
-                    {isSent ? (
-                      <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</>
-                    ) : (
-                      <><Send className="w-3.5 h-3.5" /> Remind</>
+                  <div className="flex-1 flex flex-col gap-0.5">
+                    <Button
+                      size="sm"
+                      className="w-full text-xs gap-1 h-11 sm:h-9 font-bold"
+                      variant={isSent ? "outline" : "default"}
+                      disabled={isSent}
+                      onClick={() => handleSendReminder(c)}
+                    >
+                      {isSent ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</>
+                      ) : (
+                        <><Send className="w-3.5 h-3.5" /> Remind</>
+                      )}
+                    </Button>
+                    {isSent && c.last_reminder_sent && (
+                      <span className="text-[10px] text-muted-foreground text-center">
+                        Sent {new Date(c.last_reminder_sent).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}, {new Date(c.last_reminder_sent).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                      </span>
                     )}
-                  </Button>
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
