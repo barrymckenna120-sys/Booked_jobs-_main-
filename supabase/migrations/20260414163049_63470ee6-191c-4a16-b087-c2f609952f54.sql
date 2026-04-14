@@ -1,0 +1,1 @@
+ALTER TABLE public.hazard_notifications ADD COLUMN appliance_notes text DEFAULT NULL;

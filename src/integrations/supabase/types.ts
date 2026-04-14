@@ -956,6 +956,7 @@ export type Database = {
       hazard_notifications: {
         Row: {
           appliance: string | null
+          appliance_notes: string | null
           created_at: string | null
           customer_id: string | null
           customer_sig_url: string | null
@@ -981,6 +982,7 @@ export type Database = {
         }
         Insert: {
           appliance?: string | null
+          appliance_notes?: string | null
           created_at?: string | null
           customer_id?: string | null
           customer_sig_url?: string | null
@@ -1006,6 +1008,7 @@ export type Database = {
         }
         Update: {
           appliance?: string | null
+          appliance_notes?: string | null
           created_at?: string | null
           customer_id?: string | null
           customer_sig_url?: string | null
