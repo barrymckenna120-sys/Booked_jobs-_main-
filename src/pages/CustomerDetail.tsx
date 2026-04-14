@@ -40,6 +40,64 @@ interface BoilerBrandRow {
   is_default: boolean;
 }
 
+// Collapsible accordion section component
+const CollapsibleSection = ({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 min-h-[52px] cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">{title}</span>
+          {count !== undefined && (
+            <Badge variant="secondary" className="text-[11px] font-bold px-2 py-0">
+              {count}
+            </Badge>
+          )}
+        </div>
+        <ChevronDown
+          className={cn(
+            "w-5 h-5 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          open ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
+        <CardContent className="pt-0 pb-4">
+          {children}
+        </CardContent>
+      </div>
+    </Card>
+  );
+};
+
+// Hazard section that only renders when data exists
+const HazardSection = ({ customerId, onCountReady }: { customerId: string; onCountReady?: (n: number) => void }) => {
+  const [count, setCount] = useState<number | null>(null);
+
+  const handleCount = (n: number) => {
+    setCount(n);
+    onCountReady?.(n);
+  };
+
+  if (count === 0) return null;
+
+  return (
+    <CollapsibleSection title="⚠️ Hazard Notices" count={count ?? undefined}>
+      <CustomerHazardNotices customerId={customerId} onCountReady={handleCount} />
+    </CollapsibleSection>
+  );
+};
+
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
