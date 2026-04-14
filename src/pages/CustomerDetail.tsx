@@ -485,12 +485,7 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Service Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Last Service Date</Label>
-              <div className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-foreground items-center">
-                {lastService?.date || "No previous service"}
-              </div>
-            </div>
+            <PlainField label="Last Service Date" field="last_service_date" type="date" value={form.last_service_date} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Last Service Engineer</Label>
               <div className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-foreground items-center">
