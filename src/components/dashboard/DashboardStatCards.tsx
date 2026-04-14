@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Inbox, Wrench, Clock, CalendarDays } from "lucide-react";
+import { Inbox, Wrench, Clock, CalendarDays, ChevronRight } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 
 interface StatCard {
@@ -12,10 +13,12 @@ interface StatCard {
   trend: string;
   iconBg: string;
   iconColor: string;
+  path: string;
 }
 
 const DashboardStatCards = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
   const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
@@ -71,6 +74,7 @@ const DashboardStatCards = () => {
       trend: "This week",
       iconBg: "bg-warning/15",
       iconColor: "text-warning",
+      path: "/incoming-jobs",
     },
     {
       icon: Wrench,
@@ -79,6 +83,7 @@ const DashboardStatCards = () => {
       trend: "Needs action",
       iconBg: "bg-destructive/10",
       iconColor: "text-destructive",
+      path: "/customers?filter=overdue",
     },
     {
       icon: Clock,
@@ -87,6 +92,7 @@ const DashboardStatCards = () => {
       trend: "Next 30 days",
       iconBg: "bg-warning/10",
       iconColor: "text-warning",
+      path: "/customers?filter=due-soon",
     },
     {
       icon: CalendarDays,
@@ -95,29 +101,34 @@ const DashboardStatCards = () => {
       trend: "This week",
       iconBg: "bg-primary/10",
       iconColor: "text-primary",
+      path: "/jobs?filter=incomplete",
     },
   ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {cards.map((card) => (
-        <div
+        <button
           key={card.label}
-          className="bg-card rounded-xl border border-border/60 p-4 sm:p-5 shadow-sm"
+          onClick={() => navigate(card.path)}
+          className="bg-card rounded-xl border border-border/60 p-4 sm:p-5 shadow-sm text-left transition-colors hover:bg-accent/50 active:bg-accent/70 cursor-pointer"
         >
           <div className="flex items-start justify-between mb-3">
             <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
               <card.icon className={`w-5 h-5 ${card.iconColor}`} />
             </div>
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-              {card.trend}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                {card.trend}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
+            </div>
           </div>
           <p className="text-3xl sm:text-4xl font-bold font-mono text-foreground leading-none">
             {card.count}
           </p>
           <p className="text-xs font-medium text-muted-foreground mt-1.5">{card.label}</p>
-        </div>
+        </button>
       ))}
     </div>
   );
