@@ -16,6 +16,12 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
 }
 
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -303,8 +309,8 @@ Deno.serve(async (req) => {
     checkNewPage(30);
     sectionTitle("DECLARATION");
     const dy = y;
-    fieldPair("Date of Test", notes.date_of_test || "", margin + 2);
-    fieldPair("Date of Issue", notes.date_of_issue || "", margin + 2);
+    fieldPair("Date of Test", formatDate(notes.date_of_test), margin + 2);
+    fieldPair("Date of Issue", formatDate(notes.date_of_issue), margin + 2);
     const dLeftEnd = y;
     y = dy;
     fieldPair("Trainee No", notes.trainee_no || "N/A", margin + contentW / 2);
