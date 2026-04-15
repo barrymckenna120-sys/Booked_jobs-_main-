@@ -227,9 +227,11 @@ Deno.serve(async (req) => {
         const cx = margin + 32 + c * appColW + appColW / 2;
         const val = rowData[appCols[c]];
         if (val === true) {
-          addText("\u2713", cx, y + 5, { size: 10, bold: true, color: [34, 197, 94], align: "center" });
+          addText("\u2713", cx, y + 5, { size: 14, bold: true, color: [34, 197, 94], align: "center" });
+        } else if (val === false) {
+          addText("\u2717", cx, y + 5, { size: 14, bold: true, color: [239, 68, 68], align: "center" });
         } else {
-          addText("\u2717", cx, y + 5, { size: 10, bold: true, color: [220, 38, 38], align: "center" });
+          addText("\u2014", cx, y + 5, { size: 12, color: [160, 160, 160], align: "center" });
         }
       }
       y += 7;
