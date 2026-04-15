@@ -156,6 +156,7 @@ const App = () => (
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
             <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
+            <Route path="/certificate/:certNumber" element={<CertificateRedirect />} />
             <Route path="/cert/:certNumber" element={<CertificateViewer />} />
             <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
             <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
