@@ -11,6 +11,7 @@ import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow
 import Cert2Flow from "@/components/engineer/Cert2Flow";
 import Cert3Flow from "@/components/engineer/Cert3Flow";
 import GasInstallationFlow from "@/components/engineer/GasInstallationFlow";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
@@ -31,14 +32,14 @@ const EngineerCertificates = () => {
   const [showCert2, setShowCert2] = useState(false);
   const [showCert3, setShowCert3] = useState(false);
   const [showGasInstall, setShowGasInstall] = useState(false);
-  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
+  const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null; phone: string | null }>({ name: "", rgi_number: null, phone: null });
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
     if (user && id) {
       fetchData();
-      supabase.from("engineers").select("name, rgi_number").eq("auth_user_id", user.id).maybeSingle()
-        .then(({ data }) => { if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null }); });
+      supabase.from("engineers").select("name, rgi_number, phone").eq("auth_user_id", user.id).maybeSingle()
+        .then(({ data }) => { if (data) setEngineerInfo({ name: data.name || "", rgi_number: (data as any).rgi_number || null, phone: (data as any).phone || null }); });
       supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle()
         .then(({ data }) => { if (data) setSettings(data); });
     }
@@ -292,14 +293,17 @@ const EngineerCertificates = () => {
           onClose={() => { setShowCert3(false); fetchData(); }}
         />
       )}
-      {showGasInstall && (
-        <GasInstallationFlow
-          job={job}
-          customer={customer}
-          engineerName={engineerInfo.name}
-          engineerRgi={engineerInfo.rgi_number}
-          onClose={() => { setShowGasInstall(false); fetchData(); }}
-        />
+      {showGasInstall && job && customer && (
+        <ErrorBoundary>
+          <GasInstallationFlow
+            job={job}
+            customer={customer}
+            engineerName={engineerInfo.name || ""}
+            engineerRgi={engineerInfo.rgi_number || ""}
+            engineerPhone={engineerInfo.phone || ""}
+            onClose={() => { setShowGasInstall(false); fetchData(); }}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );
