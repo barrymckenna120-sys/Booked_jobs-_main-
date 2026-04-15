@@ -36,7 +36,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
     const allDocs: CertDoc[] = [
       ...(cert1Res.data || []).map((c: any) => {
         const certType = (c.notes as any)?.cert_type;
-        const label = certType === "gas_safety_service" ? "Domestic Safety / Service" : "Boiler Service";
+        const label = certType === "gas_safety_service" ? "Domestic Safety / Service" : certType === "domestic_safety_service" ? "Domestic Safety / Service" : certType === "gas_installation_new_meter" ? "Gas Installation / New Meter" : "Boiler Service";
         return { id: c.id, type: "cert1" as const, label, status: c.pdf_url ? "complete" : "draft", pdf_url: c.pdf_url, created_at: c.created_at };
       }),
       ...(cert2Res.data || []).map((c: any) => ({
