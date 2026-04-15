@@ -94,14 +94,26 @@ const ServiceHistory = ({ customerId, onCountsReady }: ServiceHistoryProps) => {
       }
 
       const cert1Docs: CertificateDoc[] = (cert1Res.data || []).map((c: any) => {
-        const certType = (c.notes as any)?.cert_type;
+        const certNumber = c.cert_number || "";
+        let certTypeLabel = "Gas Certificate";
+        
+        if (certNumber.startsWith("GI-")) {
+          certTypeLabel = "Gas Installation / New Meter";
+        } else if (certNumber.startsWith("DS-")) {
+          certTypeLabel = "Domestic Safety / Service";
+        } else if (certNumber.startsWith("DC-")) {
+          certTypeLabel = "Declaration of Conformance";
+        } else if (certNumber.startsWith("KN-")) {
+          certTypeLabel = "Boiler Service";
+        }
+        
         return {
           id: c.id,
           cert_number: c.cert_number,
           created_at: c.created_at,
           pdf_url: c.pdf_url,
           job_id: c.job_id,
-          cert_type_label: certType === "gas_safety_service" ? "Domestic Safety / Service" : certType === "domestic_safety_service" ? "Domestic Safety / Service" : certType === "gas_installation_new_meter" ? "Gas Installation / New Meter" : "Boiler Service",
+          cert_type_label: certTypeLabel,
         };
       });
 
