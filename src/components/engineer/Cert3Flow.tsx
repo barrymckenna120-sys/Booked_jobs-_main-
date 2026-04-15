@@ -40,12 +40,19 @@ const Toggle = ({ label, options, value, onChange }: { label: string; options: s
 );
 
 // ─── YES/NO cell ──────────────────────────────────
-const YesNoCell = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
-  <button type="button" onClick={() => onChange(!value)}
-    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border ${value ? "bg-success/20 border-success text-success" : "bg-destructive/10 border-destructive/30 text-destructive"}`}>
-    {value ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-  </button>
-);
+const YesNoCell = ({ value, onChange }: { value: boolean | null; onChange: (v: boolean | null) => void }) => {
+  const handleClick = () => {
+    if (value === null) onChange(true);
+    else if (value === true) onChange(false);
+    else onChange(null);
+  };
+  return (
+    <button type="button" onClick={handleClick}
+      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border ${value === true ? "bg-success/20 border-success text-success" : value === false ? "bg-destructive/10 border-destructive/30 text-destructive" : "border-border bg-card text-muted-foreground"}`}>
+      {value === true ? <Check className="w-3.5 h-3.5" /> : value === false ? <X className="w-3.5 h-3.5" /> : <span className="text-muted-foreground">—</span>}
+    </button>
+  );
+};
 
 // ─── Signature Canvas ──────────────────────────────
 const SignatureCanvas = ({ onConfirm, onBack, title, subtitle }: { onConfirm: (dataUrl: string) => void; onBack: () => void; title: string; subtitle?: string }) => {
@@ -107,14 +114,18 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
   const [gasType, setGasType] = useState("NAT GAS");
 
   // Step 2 — Appliance table
-  const [applianceData, setApplianceData] = useState<Record<string, Record<string, boolean>>>(() => {
-    const init: Record<string, Record<string, boolean>> = {};
-    APPLIANCE_ROWS.forEach(row => { init[row] = {}; APPLIANCE_COLS.forEach(col => { init[row][col] = false; }); });
+  const [applianceData, setApplianceData] = useState<Record<string, Record<string, boolean | null>>>(() => {
+    const init: Record<string, Record<string, boolean | null>> = {};
+    APPLIANCE_ROWS.forEach(row => { init[row] = {}; APPLIANCE_COLS.forEach(col => { init[row][col] = null; }); });
     return init;
   });
 
   const toggleAppliance = (row: string, col: string) => {
-    setApplianceData(prev => ({ ...prev, [row]: { ...prev[row], [col]: !prev[row][col] } }));
+    setApplianceData(prev => {
+      const cur = prev[row][col];
+      const next = cur === null ? true : cur === true ? false : null;
+      return { ...prev, [row]: { ...prev[row], [col]: next } };
+    });
   };
 
   // Step 3 — Readings
