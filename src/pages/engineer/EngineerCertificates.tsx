@@ -85,7 +85,7 @@ const EngineerCertificates = () => {
   const allDocs = [
     ...certificates.map(c => {
       const certType = (c.notes as any)?.cert_type;
-      const subType = certType === "declaration_of_conformance" ? "cert2" : certType === "gas_safety_service" ? "cert3" : "cert1";
+      const subType = certType === "declaration_of_conformance" ? "cert2" : certType === "domestic_safety_service" ? "cert3" : certType === "gas_installation_new_meter" ? "gas_install" : certType === "gas_safety_service" ? "cert3" : "cert1";
       return {
         type: "certificate" as const,
         subType,
