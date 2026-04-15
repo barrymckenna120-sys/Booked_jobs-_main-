@@ -232,7 +232,9 @@ const ServiceHistory = ({ customerId, onCountsReady }: ServiceHistoryProps) => {
                     className="gap-1.5 text-xs font-bold"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (cert.pdf_url) {
+                      if (cert.cert_number) {
+                        window.open(`https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`, "_blank", "noopener,noreferrer");
+                      } else if (cert.pdf_url) {
                         window.open(cert.pdf_url, "_blank", "noopener,noreferrer");
                       } else {
                         toast({ title: "No certificate available", description: "The PDF has not been generated yet.", variant: "destructive" });
