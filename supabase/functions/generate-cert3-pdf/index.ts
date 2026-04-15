@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
     checkNewPage(60);
     sectionTitle("APPLIANCE TABLE");
     const appliances = ["Hob", "Oven", "Cooker", "Fire", "Flueless Fire", "C/H Boiler", "Water Heater", "Pipework"];
-    const appCols = ["Repaired", "I.S. 813 / I.S. EN 1949", "Annex C - Serviced", "Annex E - Safety Check"];
+    const appCols = ["Repaired", "I.S. 813 / I.S. EN 1949", "Annex C \u2013 Serviced", "Annex E \u2013 Safety Check"];
     const appColW = (contentW - 32) / appCols.length;
 
     // Table header
