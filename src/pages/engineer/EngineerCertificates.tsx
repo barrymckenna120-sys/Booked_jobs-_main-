@@ -231,7 +231,7 @@ const EngineerCertificates = () => {
           </SheetHeader>
           <div className="space-y-3 py-4">
             {[
-              { label: "Gas Installation / New Meter", desc: "New gas connection · new meter installation", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert2(true); } },
+              { label: "Gas Installation / New Meter", desc: "New gas connection · new meter installation", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowGasInstall(true); } },
               { label: "Boiler Service", desc: "Annual service · safety checks · gas readings", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCertificate(true); } },
               { label: "Notification of Hazard", desc: "Non-conformance · appliance or gas isolation", icon: <AlertTriangle className="w-5 h-5 text-destructive" />, bg: "#FEE2E2", action: () => { setShowCreateSheet(false); setShowHazard(true); } },
               { label: "Declaration of Conformance", desc: "RGI conformance declaration for existing installations", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert2(true); } },
@@ -290,6 +290,15 @@ const EngineerCertificates = () => {
           engineerName={engineerInfo.name}
           engineerRgi={engineerInfo.rgi_number}
           onClose={() => { setShowCert3(false); fetchData(); }}
+        />
+      )}
+      {showGasInstall && (
+        <GasInstallationFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowGasInstall(false); fetchData(); }}
         />
       )}
     </div>
