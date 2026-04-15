@@ -69,3 +69,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-renewal-reminder]
     verify_jwt = false
+  [functions.get-hazard-pdf]
+    verify_jwt = false

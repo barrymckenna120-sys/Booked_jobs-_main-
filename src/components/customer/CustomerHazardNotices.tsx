@@ -111,7 +111,8 @@ const CustomerHazardNotices = ({ customerId, onCountReady }: Props) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   if (notice.pdf_url) {
-                    window.open(notice.pdf_url, "_blank", "noopener,noreferrer");
+                    const redirectUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-hazard-pdf?id=${notice.id}`;
+                    window.open(redirectUrl, "_blank", "noopener,noreferrer");
                   } else {
                     toast({
                       title: "No PDF available",
@@ -130,8 +131,9 @@ const CustomerHazardNotices = ({ customerId, onCountReady }: Props) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   if (notice.pdf_url) {
+                    const redirectUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-hazard-pdf?id=${notice.id}`;
                     const a = document.createElement("a");
-                    a.href = notice.pdf_url;
+                    a.href = redirectUrl;
                     a.download = `${notice.ref_number || "hazard-notice"}.pdf`;
                     a.target = "_blank";
                     a.click();
