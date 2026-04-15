@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     doc.roundedRect(margin, y, contentW, 22, 2, 2, "F");
     addText("RGI", margin + 5, y + 9, { size: 9, bold: true, color: headerTextRgb });
     addText("Cert 3", margin + 5, y + 14, { size: 9, bold: true, color: headerTextRgb });
-    addText("Gas Safety / Service", margin + 24, y + 10, { size: 15, bold: true, color: headerTextRgb });
+    addText("Declaration of Performance", margin + 24, y + 10, { size: 15, bold: true, color: headerTextRgb });
     addText(cert.cert_number || "", pageW - margin - 3, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
     const dateStr = new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" });
     addText(`Issued: ${dateStr}`, pageW - margin - 3, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
@@ -320,9 +320,9 @@ Deno.serve(async (req) => {
     doc.roundedRect(margin, y, contentW, 24, 2, 2, "F");
     doc.setDrawColor(...borderRgb);
     doc.roundedRect(margin, y, contentW, 24, 2, 2, "S");
-    addText("Declaration:", margin + 4, y + 5, { size: 8, bold: true, color: [68, 68, 68] });
+    addText("Declaration of Performance:", margin + 4, y + 5, { size: 8, bold: true, color: [68, 68, 68] });
     addText(
-      "I hereby declare that I am a Registered Gas Installer and that the gas installation work carried out at the above premises has been inspected, tested and serviced in accordance with I.S. 813 and current gas safety standards. All appliances have been checked and are safe for continued use.",
+      "I hereby declare that I am a Registered Gas Installer and that the gas appliance(s) at the above premises have been inspected, tested and serviced in accordance with I.S. 813 and current gas safety standards. All appliances listed have been checked and are safe for continued use.",
       margin + 4, y + 9, { size: 7, color: [68, 68, 68], maxWidth: contentW - 8 }
     );
     y += 28;
