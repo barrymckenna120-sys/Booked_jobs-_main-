@@ -110,12 +110,12 @@ const CustomerHazardNotices = ({ customerId, onCountReady }: Props) => {
                 className="gap-1 text-xs font-bold"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (notice.pdf_url) {
-                    const redirectUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-hazard-pdf?id=${notice.id}`;
-                    window.open(redirectUrl, "_blank", "noopener,noreferrer");
+                  if (notice.pdf_url && notice.ref_number) {
+                    const publicUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/certificates/${notice.ref_number}.pdf`;
+                    window.open(publicUrl, "_blank", "noopener,noreferrer");
                   } else {
                     toast({
-                      title: "No PDF available",
+                      title: "Certificate not available",
                       description: "The hazard notice PDF has not been generated yet.",
                       variant: "destructive",
                     });
@@ -130,16 +130,16 @@ const CustomerHazardNotices = ({ customerId, onCountReady }: Props) => {
                 className="gap-1 text-xs font-bold"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (notice.pdf_url) {
-                    const redirectUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-hazard-pdf?id=${notice.id}`;
+                  if (notice.pdf_url && notice.ref_number) {
+                    const publicUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/certificates/${notice.ref_number}.pdf`;
                     const a = document.createElement("a");
-                    a.href = redirectUrl;
-                    a.download = `${notice.ref_number || "hazard-notice"}.pdf`;
+                    a.href = publicUrl;
+                    a.download = `${notice.ref_number}.pdf`;
                     a.target = "_blank";
                     a.click();
                   } else {
                     toast({
-                      title: "No PDF available",
+                      title: "Certificate not available",
                       description: "The hazard notice PDF has not been generated yet.",
                       variant: "destructive",
                     });
