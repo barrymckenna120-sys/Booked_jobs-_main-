@@ -90,20 +90,27 @@ serve(async (req) => {
       } catch { /* ignore JWT parse errors */ }
     }
 
-    // Derive certificate type label from notes.cert_type
+    // Derive certificate type label from notes.cert_type with cert_number prefix fallback
     const certTypeRaw = (cert.notes && typeof cert.notes === "object" && (cert.notes as any).cert_type) || "";
     const certTypeLabel = (() => {
-      switch (certTypeRaw) {
-        case "gas_installation_new_meter": return "Gas Installation / New Meter Certificate";
-        case "declaration_of_conformance": return "Declaration of Conformance Certificate";
-        case "domestic_safety_service": return "Domestic Safety / Service Certificate";
-        default: return "Gas Service Certificate";
-      }
+      // Primary: check notes.cert_type
+      if (certTypeRaw === "gas_installation_new_meter") return "Gas Installation / New Meter Certificate";
+      if (certTypeRaw === "declaration_of_conformance") return "Declaration of Conformance Certificate";
+      if (certTypeRaw === "domestic_safety_service") return "Domestic Safety / Service Certificate";
+      // Fallback: check cert_number prefix
+      const cn = (cert.cert_number || "").toUpperCase();
+      if (cn.startsWith("GI-")) return "Gas Installation / New Meter Certificate";
+      if (cn.startsWith("DS-")) return "Domestic Safety / Service Certificate";
+      if (cn.startsWith("DC-")) return "Declaration of Conformance Certificate";
+      return "Gas Service Certificate";
     })();
+
+    console.log("[send-certificate-whatsapp] cert_type_raw:", certTypeRaw, "cert_number:", cert.cert_number, "label:", certTypeLabel);
 
     // Fetch settings: message_footer + template_certificate
     let messageFooter = "K&N Gas Services";
-    let messageTemplate = `Hi {{customer_name}}, please find your {{certificate_type}} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+    const defaultTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+    let messageTemplate = defaultTemplate;
 
     if (userId) {
       const settingsRes = await fetch(
@@ -125,7 +132,9 @@ serve(async (req) => {
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
       .replace(/\{\{certificate_type\}\}/g, certTypeLabel)
-      .replace(/Gas Service Certificate/g, certTypeLabel)
+      .replace(/Gas Service Certificate/gi, certTypeLabel)
+      .replace(/Gas Safety Certificate/gi, certTypeLabel)
+      .replace(/Boiler Service Certificate/gi, certTypeLabel)
       .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
 
     // Append dynamic footer
