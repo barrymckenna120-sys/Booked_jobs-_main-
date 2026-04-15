@@ -10,6 +10,7 @@ import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 import Cert2Flow from "@/components/engineer/Cert2Flow";
 import Cert3Flow from "@/components/engineer/Cert3Flow";
+import GasInstallationFlow from "@/components/engineer/GasInstallationFlow";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
@@ -29,6 +30,7 @@ const EngineerCertificates = () => {
   const [showHazard, setShowHazard] = useState(false);
   const [showCert2, setShowCert2] = useState(false);
   const [showCert3, setShowCert3] = useState(false);
+  const [showGasInstall, setShowGasInstall] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [settings, setSettings] = useState<any>(null);
 
@@ -83,7 +85,7 @@ const EngineerCertificates = () => {
   const allDocs = [
     ...certificates.map(c => {
       const certType = (c.notes as any)?.cert_type;
-      const subType = certType === "declaration_of_conformance" ? "cert2" : certType === "gas_safety_service" ? "cert3" : "cert1";
+      const subType = certType === "declaration_of_conformance" ? "cert2" : certType === "domestic_safety_service" ? "cert3" : certType === "gas_installation_new_meter" ? "gas_install" : certType === "gas_safety_service" ? "cert3" : "cert1";
       return {
         type: "certificate" as const,
         subType,
@@ -146,7 +148,7 @@ const EngineerCertificates = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-extrabold text-foreground">
-                    {doc.type === "hazard" ? "Notification of Hazard" : doc.subType === "cert2" ? "Declaration of Conformance" : doc.subType === "cert3" ? "Declaration of Performance" : "RGI Gas Certificate"}
+                    {doc.type === "hazard" ? "Notification of Hazard" : doc.subType === "gas_install" ? "Gas Installation / New Meter" : doc.subType === "cert2" ? "Declaration of Conformance" : doc.subType === "cert3" ? "Domestic Safety / Service" : "RGI Gas Certificate"}
                   </div>
                   <div className="text-[11px] text-muted-foreground font-semibold">{doc.ref}</div>
                   <div className="text-[11px] text-muted-foreground">
@@ -229,7 +231,7 @@ const EngineerCertificates = () => {
           </SheetHeader>
           <div className="space-y-3 py-4">
             {[
-              { label: "Gas Installation / New Meter", desc: "New gas connection · new meter installation", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert2(true); } },
+              { label: "Gas Installation / New Meter", desc: "New gas connection · new meter installation", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowGasInstall(true); } },
               { label: "Boiler Service", desc: "Annual service · safety checks · gas readings", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCertificate(true); } },
               { label: "Notification of Hazard", desc: "Non-conformance · appliance or gas isolation", icon: <AlertTriangle className="w-5 h-5 text-destructive" />, bg: "#FEE2E2", action: () => { setShowCreateSheet(false); setShowHazard(true); } },
               { label: "Declaration of Conformance", desc: "RGI conformance declaration for existing installations", icon: <FileText className="w-5 h-5 text-primary" />, bg: "#EBF2FF", action: () => { setShowCreateSheet(false); setShowCert2(true); } },
@@ -288,6 +290,15 @@ const EngineerCertificates = () => {
           engineerName={engineerInfo.name}
           engineerRgi={engineerInfo.rgi_number}
           onClose={() => { setShowCert3(false); fetchData(); }}
+        />
+      )}
+      {showGasInstall && (
+        <GasInstallationFlow
+          job={job}
+          customer={customer}
+          engineerName={engineerInfo.name}
+          engineerRgi={engineerInfo.rgi_number}
+          onClose={() => { setShowGasInstall(false); fetchData(); }}
         />
       )}
     </div>

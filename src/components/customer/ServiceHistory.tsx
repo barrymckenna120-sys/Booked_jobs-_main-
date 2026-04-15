@@ -101,7 +101,7 @@ const ServiceHistory = ({ customerId, onCountsReady }: ServiceHistoryProps) => {
           created_at: c.created_at,
           pdf_url: c.pdf_url,
           job_id: c.job_id,
-          cert_type_label: certType === "gas_safety_service" ? "Domestic Safety / Service" : "Boiler Service",
+          cert_type_label: certType === "gas_safety_service" ? "Domestic Safety / Service" : certType === "domestic_safety_service" ? "Domestic Safety / Service" : certType === "gas_installation_new_meter" ? "Gas Installation / New Meter" : "Boiler Service",
         };
       });
 
