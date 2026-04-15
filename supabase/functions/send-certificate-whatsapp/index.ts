@@ -126,7 +126,7 @@ serve(async (req) => {
 
     const firstName = customer.name.split(" ")[0];
     const cleanCertUrl = cert.cert_number
-      ? `https://ktkfuquqxbrmuqrmbmdj.supabase.co/storage/v1/object/public/certificates/${encodeURIComponent(cert.cert_number)}.pdf`
+      ? `https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
       : cert.pdf_url;
     let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
