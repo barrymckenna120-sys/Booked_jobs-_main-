@@ -30,7 +30,7 @@ serve(async (req) => {
 
     // Fetch certificate
     const certRes = await fetch(
-      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id`,
+      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes`,
       { headers }
     );
     const certs = await certRes.json();
@@ -90,9 +90,20 @@ serve(async (req) => {
       } catch { /* ignore JWT parse errors */ }
     }
 
+    // Derive certificate type label from notes.cert_type
+    const certTypeRaw = (cert.notes && typeof cert.notes === "object" && (cert.notes as any).cert_type) || "";
+    const certTypeLabel = (() => {
+      switch (certTypeRaw) {
+        case "gas_installation_new_meter": return "Gas Installation / New Meter Certificate";
+        case "declaration_of_conformance": return "Declaration of Conformance Certificate";
+        case "domestic_safety_service": return "Domestic Safety / Service Certificate";
+        default: return "Gas Service Certificate";
+      }
+    })();
+
     // Fetch settings: message_footer + template_certificate
     let messageFooter = "K&N Gas Services";
-    let messageTemplate = `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+    let messageTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
 
     if (userId) {
       const settingsRes = await fetch(
