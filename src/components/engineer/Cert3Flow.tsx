@@ -142,7 +142,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
   const generateCertNum = () => {
     const year = new Date().getFullYear();
     const rand = Math.floor(Math.random() * 9999) + 1;
-    return `GS-${year}-${String(rand).padStart(4, "0")}`;
+    return `DS-${year}-${String(rand).padStart(4, "0")}`;
   };
 
   const handleSubmit = async (engSigUrl: string) => {
@@ -161,7 +161,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         soundness_test: { status: soundnessTest === "YES" ? "pass" : "unchecked", note: "" },
       } as any,
       notes: {
-        cert_type: "gas_safety_service",
+        cert_type: "domestic_safety_service",
         gprn, eircode, address, customer_name: custName, tel_no: telNo, gas_type: gasType,
         appliance_table: applianceData,
         comments, next_service_due: nextServiceDue,
@@ -236,7 +236,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         <h1 className="text-2xl font-extrabold text-foreground">Certificate Created</h1>
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{custName}</p>
-        <p className="text-sm text-muted-foreground">Cert 3 — Gas Safety / Service</p>
+        <p className="text-sm text-muted-foreground">Domestic Safety / Service</p>
 
         {pdfUrl ? (
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
@@ -278,7 +278,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         {/* Step 1 — Premises Details */}
         {step === 0 && (
           <div className="px-4 py-4 space-y-4">
-            <h2 className="text-lg font-extrabold text-foreground">Cert 3 — Premises Details</h2>
+            <h2 className="text-lg font-extrabold text-foreground">Domestic Safety / Service</h2>
             <div className="space-y-3">
               <div className="space-y-1"><Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">GPRN</Label><Input value={gprn} onChange={e => setGprn(e.target.value)} placeholder="Enter GPRN" className="h-11" /></div>
               <div className="space-y-1"><Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Eircode</Label><Input value={eircode} onChange={e => setEircode(e.target.value)} className="h-11" /></div>
