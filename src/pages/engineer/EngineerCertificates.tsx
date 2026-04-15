@@ -10,6 +10,7 @@ import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 import Cert2Flow from "@/components/engineer/Cert2Flow";
 import Cert3Flow from "@/components/engineer/Cert3Flow";
+import GasInstallationFlow from "@/components/engineer/GasInstallationFlow";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
@@ -29,6 +30,7 @@ const EngineerCertificates = () => {
   const [showHazard, setShowHazard] = useState(false);
   const [showCert2, setShowCert2] = useState(false);
   const [showCert3, setShowCert3] = useState(false);
+  const [showGasInstall, setShowGasInstall] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [settings, setSettings] = useState<any>(null);
 
