@@ -42,11 +42,29 @@ Deno.serve(async (req) => {
     );
   }
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      ...corsHeaders,
-      Location: data.pdf_url,
-    },
-  });
+  try {
+    const pdfResponse = await fetch(data.pdf_url);
+    if (!pdfResponse.ok) {
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch PDF from storage" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const pdfBytes = await pdfResponse.arrayBuffer();
+
+    return new Response(pdfBytes, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="hazard-notice-${id}.pdf"`,
+      },
+    });
+  } catch (fetchErr) {
+    console.error("PDF fetch error:", fetchErr);
+    return new Response(
+      JSON.stringify({ error: "Failed to retrieve PDF" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });
