@@ -264,6 +264,22 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       return false;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      // Sync boiler details back to customer record
+      if (safeDbPatch.boiler_brand !== undefined) {
+        try {
+          const customerUpdate: Record<string, any> = {};
+          if (safeDbPatch.boiler_brand !== undefined) customerUpdate.boiler_brand = safeDbPatch.boiler_brand;
+          if (Object.keys(customerUpdate).length > 0) {
+            const brand = (customerUpdate.boiler_brand || "").trim();
+            const existingModel = customer?.boiler_model || customer?.boiler_make_model || "";
+            customerUpdate.boiler_make_model = [brand, existingModel].filter(Boolean).join(" ") || null;
+            await supabase.from("customers").update(customerUpdate).eq("id", job.customer_id);
+            console.log("[updateJob:detail] Boiler details synced to customer:", job.customer_id);
+          }
+        } catch (syncErr) {
+          console.error("[updateJob:detail] Boiler sync to customer failed:", syncErr);
+        }
+      }
       // Log payment_received activity when payment is recorded as paid
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
