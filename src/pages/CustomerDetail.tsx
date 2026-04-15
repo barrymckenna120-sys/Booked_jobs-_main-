@@ -209,7 +209,26 @@ const CustomerDetail = () => {
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Customer saved" });
+      // Sync boiler details to active service_calls for this customer
+      const boilerBrand = (updates.boiler_brand || "").trim();
+      const boilerModel = (updates.boiler_model || "").trim();
+      if (boilerBrand || boilerModel) {
+        try {
+          await supabase
+            .from("service_calls")
+            .update({
+              boiler_brand: boilerBrand || null,
+            } as any)
+            .eq("customer_id", id)
+            .not("status", "in", '("Completed","Cancelled")');
+          toast({ title: "Customer saved", description: "Boiler details synced to active jobs" });
+        } catch (syncErr) {
+          console.error("[CustomerDetail] Boiler sync to jobs failed:", syncErr);
+          toast({ title: "Customer saved" });
+        }
+      } else {
+        toast({ title: "Customer saved" });
+      }
       setOriginalForm({ ...form });
     }
   };
