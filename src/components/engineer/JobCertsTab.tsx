@@ -41,7 +41,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
       }),
       ...(cert2Res.data || []).map((c: any) => ({
         id: c.id, type: "cert2" as const,
-        label: c.cert_type === "declaration_of_conformance" ? "Declaration of Conformance" : "Gas Installation / New Meter",
+        label: c.cert_type === "declaration_of_conformance" ? "Declaration of Conformance" : c.cert_type === "gas_safety_service" ? "Declaration of Performance" : "Gas Installation / New Meter",
         status: c.status || "draft", pdf_url: c.pdf_url, created_at: c.created_at,
       })),
       ...(hazardRes.data || []).map((h: any) => ({
