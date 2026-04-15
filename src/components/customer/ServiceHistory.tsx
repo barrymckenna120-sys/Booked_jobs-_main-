@@ -89,7 +89,7 @@ const ServiceHistory = ({ customerId, onCountsReady }: ServiceHistoryProps) => {
           created_at: c.created_at,
           pdf_url: c.pdf_url,
           job_id: c.service_call_id,
-          cert_type_label: c.cert_type === "declaration_of_conformance" ? "Declaration of Conformance" : "Gas Installation / New Meter",
+          cert_type_label: c.cert_type === "declaration_of_conformance" ? "Declaration of Conformance" : c.cert_type === "gas_safety_service" ? "Declaration of Performance" : "Gas Installation / New Meter",
         }));
       }
 
