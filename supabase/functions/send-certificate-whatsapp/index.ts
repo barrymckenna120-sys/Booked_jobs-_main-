@@ -103,7 +103,7 @@ serve(async (req) => {
 
     // Fetch settings: message_footer + template_certificate
     let messageFooter = "K&N Gas Services";
-    let messageTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+    let messageTemplate = `Hi {{customer_name}}, please find your {{certificate_type}} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
 
     if (userId) {
       const settingsRes = await fetch(
@@ -124,6 +124,8 @@ serve(async (req) => {
     let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
+      .replace(/\{\{certificate_type\}\}/g, certTypeLabel)
+      .replace(/Gas Service Certificate/g, certTypeLabel)
       .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
 
     // Append dynamic footer
