@@ -175,17 +175,22 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
 
     setSaving(false);
     if (error) {
+      console.error("❌ Certificate insert failed:", error.message, error);
       toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
     } else {
-      setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
+      console.log("✅ Certificate inserted successfully. newCertId:", newCertId, "insertedRow:", insertedRow);
+      setCertNumber(cn);
       setCertId(newCertId);
       setStep(5);
 
       if (newCertId) {
+        console.log("🚀 Invoking generate-gas-install-pdf with certificate_id:", newCertId);
         supabase.functions.invoke("generate-gas-install-pdf", {
           body: { certificate_id: newCertId },
-        }).catch((err) => console.error("PDF generation error:", err));
+        }).then((res) => {
+          console.log("📄 generate-gas-install-pdf response:", res.data, "error:", res.error);
+        }).catch((err) => console.error("❌ PDF generation invoke error:", err));
 
         const poll = setInterval(async () => {
           const { data } = await supabase.from("certificates" as any).select("pdf_url").eq("id", newCertId).single();
