@@ -769,6 +769,15 @@ const Jobs = () => {
         />
       )}
 
+      {/* Schedule Incoming Job Modal */}
+      <ScheduleIncomingJobModal
+        open={!!scheduleJob}
+        onOpenChange={(o) => { if (!o) setScheduleJob(null); }}
+        jobId={scheduleJob?.id || null}
+        customerName={scheduleJob?.customer_name}
+        onScheduled={() => fetchJobs()}
+      />
+
     </div>
   );
 };
