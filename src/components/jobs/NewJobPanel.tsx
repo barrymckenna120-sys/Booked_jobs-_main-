@@ -889,6 +889,17 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   );
 };
 
+/* ── helpers ──────────────────────────────────────────── */
+const SALUTATIONS = ["mr", "mrs", "ms", "dr", "miss"];
+const getFirstName = (fullName: string | undefined): string => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length > 1 && SALUTATIONS.includes(parts[0].toLowerCase().replace(/\.$/, ""))) {
+    return parts[1];
+  }
+  return parts[0];
+};
+
 /* ── SUCCESS SCREEN ────────────────────────────────────── */
 const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
   jobData: any; engineers: any[]; onClose: () => void; onNewJob: () => void;
@@ -899,7 +910,8 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
   const jt = JOB_TYPES.find((j) => j.id === jobData.job?.jobType);
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEEE d MMMM"); } catch { return ""; } })();
 
-  const waMsg = `Hi ${jobData.customer?.name?.split(" ")[0]}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
+  const firstName = getFirstName(jobData.customer?.name);
+  const waMsg = `Hi ${firstName}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center">
@@ -916,7 +928,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         {[
           { Icon: CalendarDays, text: "Job appears in the schedule grid immediately" },
           { Icon: HardHat, text: `${eng?.name || "Engineer"} sees it on their app` },
-          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation ready to send" }] : []),
+          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation sent via WhatsApp ✔" }] : []),
           { Icon: Bell, text: "Audit log updated" },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-2.5 mb-2 last:mb-0">
@@ -930,12 +942,6 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         <div className="bg-success/5 border border-success/20 rounded-xl p-3 w-full mb-5 text-left">
           <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1.5 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp preview</div>
           <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed font-sans">{waMsg}</pre>
-          <Button
-            className="w-full mt-3 bg-[#25D366] hover:bg-[#1DA851] text-white font-bold gap-2"
-            onClick={() => window.open(`https://wa.me/${jobData.customer?.phone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waMsg)}`, "_blank")}
-          >
-            <MessageCircle className="w-4 h-4" /> Open WhatsApp to send
-          </Button>
         </div>
       )}
 
@@ -1076,6 +1082,18 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         entity_id: customerId,
         detail: `New ${finalData.job.jobType} for ${finalData.customer.name} on ${finalData.schedule.date}`,
       });
+
+      // Send booking confirmation via WhatsApp Edge Function if toggle is ON
+      if (finalData.sendWhatsApp && newJob?.id) {
+        try {
+          const { error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
+            body: { service_call_id: newJob.id },
+          });
+          if (waErr) console.error("[NewJobPanel] Booking confirmation WhatsApp error:", waErr);
+        } catch (waEx) {
+          console.error("[NewJobPanel] Booking confirmation WhatsApp exception:", waEx);
+        }
+      }
 
       setJobData(finalData);
       setDone(true);
