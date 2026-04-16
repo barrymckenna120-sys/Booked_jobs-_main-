@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react";
-import { format, addMonths } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -67,6 +64,15 @@ const AssignJobModal = ({
     },
   });
   const TIME_BLOCKS = buildTimeBlocks(settingsBlocks || []);
+
+  const dateOptions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Array.from({ length: 21 }, (_, i) => {
+      const d = addDays(today, i);
+      return { value: format(d, "yyyy-MM-dd"), label: format(d, "EEE d MMM") };
+    });
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -178,36 +184,16 @@ const AssignJobModal = ({
             {/* Date */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !selectedDate && "text-muted-foreground",
-                      validationBorderClass(showError("date"))
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(new Date(selectedDate + "T00:00:00"), "EEEE, d MMM yyyy") : <span>Select date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-50" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        setSelectedDate(format(date, "yyyy-MM-dd"));
-                        setErrors((e) => ({ ...e, date: false }));
-                      }
-                    }}
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || date > addMonths(new Date(), 3)}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Select value={selectedDate} onValueChange={(v) => { setSelectedDate(v); setErrors((e) => ({ ...e, date: false })); }}>
+                <SelectTrigger className={validationBorderClass(showError("date"))}>
+                  <SelectValue placeholder="Select date" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  {dateOptions.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <ValidationMessage show={showError("date")} />
             </div>
 
