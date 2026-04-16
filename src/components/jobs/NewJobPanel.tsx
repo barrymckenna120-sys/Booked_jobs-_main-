@@ -134,7 +134,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model, access_notes")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
