@@ -1083,6 +1083,18 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         detail: `New ${finalData.job.jobType} for ${finalData.customer.name} on ${finalData.schedule.date}`,
       });
 
+      // Send booking confirmation via WhatsApp Edge Function if toggle is ON
+      if (finalData.sendWhatsApp && newJob?.id) {
+        try {
+          const { error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
+            body: { service_call_id: newJob.id },
+          });
+          if (waErr) console.error("[NewJobPanel] Booking confirmation WhatsApp error:", waErr);
+        } catch (waEx) {
+          console.error("[NewJobPanel] Booking confirmation WhatsApp exception:", waEx);
+        }
+      }
+
       setJobData(finalData);
       setDone(true);
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
