@@ -213,7 +213,7 @@ const Customers = () => {
                   return (
                     <button
                       key={code}
-                      onClick={() => setAreaFilters((prev) => isActive ? prev.filter((a) => a !== code) : [...prev, code])}
+                      onClick={() => setAreaFilters((prev) => prev.includes(code) ? prev.filter((a) => a !== code) : [...prev, code])}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
                     >
                       <MapPin className="w-3 h-3" /> {code} <span className={`font-extrabold ${isActive ? "text-primary-foreground" : "text-foreground"}`}>{count}</span>
