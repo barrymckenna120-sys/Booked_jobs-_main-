@@ -390,17 +390,25 @@ export const useEngineerJobs = () => {
             }
             engNoteParts.push(tagStr);
           }
-          if (engNoteParts.length > 0 && theJob?.customer_id) {
+          if (theJob?.customer_id) {
             const { data: custData } = await supabase
               .from("customers")
-              .select("engineer_notes")
+              .select("engineer_notes, customer_since")
               .eq("id", theJob.customer_id)
               .maybeSingle();
-            const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
-            const existingEng = custData?.engineer_notes;
-            customerUpdate.engineer_notes = existingEng && existingEng.trim()
-              ? `${existingEng}\n${engNoteEntry}`
-              : engNoteEntry;
+
+            // Set customer_since if not already set
+            if (!custData?.customer_since) {
+              customerUpdate.customer_since = completedDate.toISOString().slice(0, 10);
+            }
+
+            if (engNoteParts.length > 0) {
+              const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
+              const existingEng = custData?.engineer_notes;
+              customerUpdate.engineer_notes = existingEng && existingEng.trim()
+                ? `${existingEng}\n${engNoteEntry}`
+                : engNoteEntry;
+            }
           }
 
           if (theJob?.customer_id) {
