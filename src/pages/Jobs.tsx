@@ -7,11 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown, Phone, MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, ChevronDown, Phone, MessageCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
-import ScheduleIncomingJobModal from "@/components/jobs/ScheduleIncomingJobModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 
@@ -52,7 +51,6 @@ const Jobs = () => {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [paymentJob, setPaymentJob] = useState<{ job: any; customer: any } | null>(null);
-  const [scheduleJob, setScheduleJob] = useState<{ id: string; customer_name?: string } | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [customersMap, setCustomersMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -65,7 +63,6 @@ const Jobs = () => {
   const [completedPage, setCompletedPage] = useState(0);
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
   const [jobQuotesMap, setJobQuotesMap] = useState<Record<string, string>>({});
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -112,11 +109,6 @@ const Jobs = () => {
         .order("created_at", { ascending: false });
 
       if (allQuotes) {
-        // Map for incoming jobs (by converted_job_id)
-        const qMap: Record<string, any> = {};
-        allQuotes.forEach(q => { if (q.converted_job_id) qMap[q.converted_job_id] = q; });
-        setQuotesMap(qMap);
-
         // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
         const jqMap: Record<string, string> = {};
         const quotesWithJobs = jobsData.filter(j => j.has_quote);
@@ -490,90 +482,6 @@ const Jobs = () => {
       </button>
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
 
-      {/* ── INCOMING JOBS SECTION ── */}
-      {incomingJobs.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="w-5 h-5 text-amber-500" />
-              <h2 className="text-lg font-bold text-foreground">
-                Incoming Jobs
-              </h2>
-              <span className="inline-flex items-center justify-center text-xs font-bold rounded-full px-2.5 py-0.5 bg-amber-500 text-white min-w-[24px]">
-                {incomingJobs.length}
-              </span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {incomingJobs.map((j) => {
-                const quote = quotesMap[j.id];
-                return (
-                  <div
-                    key={j.id}
-                    className="rounded-lg border border-amber-200 bg-white p-4 space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-bold text-foreground">{j.customer_name}</p>
-                        <p className="text-sm text-muted-foreground">{j.job_type}</p>
-                      </div>
-                      {j.revenue != null && j.revenue > 0 && (
-                        <span className="text-sm font-bold text-foreground">{eur(j.revenue)}</span>
-                      )}
-                    </div>
-
-                    {quote && (
-                      <div className="text-xs text-muted-foreground space-y-0.5">
-                        <p>From Quote <span className="font-semibold text-primary">{quote.quote_number}</span></p>
-                        {quote.accepted_at && (
-                          <p>Accepted {fmtDate(quote.accepted_at)}</p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        className="h-8 text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setScheduleJob({ id: j.id, customer_name: j.customer_name });
-                        }}
-                      >
-                        <CalendarPlus className="w-3.5 h-3.5" /> Schedule
-                      </Button>
-                      {quote && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs font-bold gap-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/quotes/${quote.id}`, { state: { returnTo: "/jobs" } });
-                          }}
-                        >
-                          <Eye className="w-3.5 h-3.5" /> View Quote
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs font-bold gap-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/jobs/${j.id}`);
-                        }}
-                      >
-                        View Job
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* ── FILTERS ── */}
       <div className="flex flex-wrap gap-3">
         <div className="relative w-full sm:w-[240px]">
@@ -768,15 +676,6 @@ const Jobs = () => {
           onPaymentComplete={() => fetchJobs()}
         />
       )}
-
-      {/* Schedule Incoming Job Modal */}
-      <ScheduleIncomingJobModal
-        open={!!scheduleJob}
-        onOpenChange={(o) => { if (!o) setScheduleJob(null); }}
-        jobId={scheduleJob?.id || null}
-        customerName={scheduleJob?.customer_name}
-        onScheduled={() => fetchJobs()}
-      />
 
     </div>
   );
