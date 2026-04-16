@@ -83,7 +83,7 @@ const DashboardStatCards = () => {
     trend: "Needs action",
     iconBg: "bg-destructive/10",
     iconColor: "text-destructive",
-    path: "/pipeline",
+    path: "/pipeline?filter=overdue",
   },
   {
     icon: Clock,
@@ -92,7 +92,7 @@ const DashboardStatCards = () => {
     trend: "Next 30 days",
     iconBg: "bg-warning/10",
     iconColor: "text-warning",
-    path: "/pipeline",
+    path: "/pipeline?filter=due-soon",
   },
     {
       icon: CalendarDays,
