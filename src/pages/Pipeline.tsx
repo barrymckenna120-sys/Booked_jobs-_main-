@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Inbox, Receipt, RefreshCw, Shield } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { Inbox, Receipt, RefreshCw, Shield, ChevronLeft } from "lucide-react";
 import IncomingJobs from "./IncomingJobs";
 import QuotesList from "./QuotesList";
 import Renewals from "./Renewals";
@@ -19,6 +19,7 @@ const WARRANTY_TAB = { key: "warranty", label: "Warranty", icon: Shield };
 type TabKey = "incoming" | "quotes" | "renewals" | "warranty";
 
 const Pipeline = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const filterParam = searchParams.get("filter");
   const initialTab: TabKey = (filterParam === "overdue" || filterParam === "due-soon") ? "renewals" : "incoming";
@@ -34,6 +35,13 @@ const Pipeline = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="md:hidden inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors -mb-2"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back
+      </button>
       <h1 className="text-2xl font-extrabold text-foreground">Pipeline</h1>
 
       {/* Sub-tabs */}
