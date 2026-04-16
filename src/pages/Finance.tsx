@@ -427,10 +427,10 @@ const Finance = () => {
 
   const revenue = useMemo(() => periodJobs.reduce((s, j) => s + (j.revenue || 0), 0), [periodJobs]);
   const outstanding = useMemo(() => {
-    return quotes
-      .filter(q => q.status !== "Paid" && q.status !== "Rejected" && q.status !== "Draft")
-      .reduce((s, q) => s + (q.total_amount || 0), 0);
-  }, [quotes]);
+    return jobs
+      .filter(j => j.payment_status !== "paid" && j.status !== "Cancelled" && j.completed_at)
+      .reduce((s, j) => s + (j.balance_due || 0), 0);
+  }, [jobs]);
   const avgJob = periodJobs.length > 0 ? Math.round(revenue / periodJobs.length) : 0;
   const completedJobsList = useMemo(() =>
     periodJobs.map(j => ({
