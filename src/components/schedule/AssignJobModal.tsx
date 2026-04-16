@@ -65,6 +65,15 @@ const AssignJobModal = ({
   });
   const TIME_BLOCKS = buildTimeBlocks(settingsBlocks || []);
 
+  const dateOptions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Array.from({ length: 21 }, (_, i) => {
+      const d = addDays(today, i);
+      return { value: format(d, "yyyy-MM-dd"), label: format(d, "EEE d MMM") };
+    });
+  }, []);
+
   useEffect(() => {
     if (open) {
       setSelectedJobId(job?.id || "");
