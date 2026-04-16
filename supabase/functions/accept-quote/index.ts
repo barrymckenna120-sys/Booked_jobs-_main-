@@ -292,6 +292,7 @@ async function sendDepositPaymentWhatsApp(
       body: new URLSearchParams({
         "line_items[0][price]": priceData.id,
         "line_items[0][quantity]": "1",
+        "metadata[job_id]": serviceCallId,
         "metadata[service_call_id]": serviceCallId,
         "metadata[customer_id]": quote.customer_id || "",
       }),
