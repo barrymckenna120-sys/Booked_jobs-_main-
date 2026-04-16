@@ -956,6 +956,38 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
           </div>
         </div>
 
+        {/* Deposit fields — only when "Deposit Taken" */}
+        {payment === "deposit" && (
+          <>
+            <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Deposit Amount €</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
+                <Input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" className="pl-8" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Balance Due €</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
+                <Input
+                  type="number"
+                  readOnly
+                  value={Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)).toFixed(2)}
+                  className="pl-8 bg-muted/50 cursor-not-allowed"
+                />
+              </div>
+            </div>
+            <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendDepositLink ? "border-success/40" : "border-border"}`}>
+              <div>
+                <div className="text-sm font-bold flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-success" /> Send deposit payment link?</div>
+                <div className="text-xs text-muted-foreground mt-1">WhatsApp payment link to customer for deposit amount</div>
+              </div>
+              <Switch checked={sendDepositLink} onCheckedChange={setSendDepositLink} />
+            </div>
+          </>
+        )}
+
         {/* WhatsApp toggle */}
         <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendWA ? "border-success/40" : "border-border"}`}>
           <div>
