@@ -116,6 +116,10 @@ const CustomerDetail = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [boilerBrands, setBoilerBrands] = useState<BoilerBrandRow[]>([]);
   const [modelManual, setModelManual] = useState(false);
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [brandQuery, setBrandQuery] = useState("");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelQuery, setModelQuery] = useState("");
   const [sectionCounts, setSectionCounts] = useState<Record<string, number>>({});
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
