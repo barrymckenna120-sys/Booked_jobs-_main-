@@ -85,7 +85,7 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
   const stageConfig = stage ? STAGE_DISPLAY[stage] : null;
 
   return (
-    <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3 ${reminderSent ? "opacity-75" : ""}`}>
+    <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3`}>
       {/* Top row */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
