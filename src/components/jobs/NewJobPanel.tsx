@@ -884,6 +884,8 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   });
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [sendDepositLink, setSendDepositLink] = useState(true);
   const [sendWA, setSendWA] = useState(true);
 
   // Pre-fill amount once settings have loaded
@@ -954,6 +956,38 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
           </div>
         </div>
 
+        {/* Deposit fields — only when "Deposit Taken" */}
+        {payment === "deposit" && (
+          <>
+            <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Deposit Amount €</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
+                <Input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" className="pl-8" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Balance Due €</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
+                <Input
+                  type="number"
+                  readOnly
+                  value={Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)).toFixed(2)}
+                  className="pl-8 bg-muted/50 cursor-not-allowed"
+                />
+              </div>
+            </div>
+            <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendDepositLink ? "border-success/40" : "border-border"}`}>
+              <div>
+                <div className="text-sm font-bold flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-success" /> Send deposit payment link?</div>
+                <div className="text-xs text-muted-foreground mt-1">WhatsApp payment link to customer for deposit amount</div>
+              </div>
+              <Switch checked={sendDepositLink} onCheckedChange={setSendDepositLink} />
+            </div>
+          </>
+        )}
+
         {/* WhatsApp toggle */}
         <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendWA ? "border-success/40" : "border-border"}`}>
           <div>
@@ -968,7 +1002,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
-          onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment }, sendWhatsApp: sendWA })}
+          onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment, depositAmount: payment === "deposit" ? (parseFloat(depositAmount) || 0) : null, balanceDue: payment === "deposit" ? Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)) : null, sendDepositLink: payment === "deposit" ? sendDepositLink : false }, sendWhatsApp: sendWA })}
         >
           <CheckCircle2 className="w-5 h-5" /> Create Job
         </Button>
@@ -1149,7 +1183,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         status: "Booked",
         revenue: finalData.payment.amount || null,
         deposit_paid: depositPaid,
-        deposit_amount: finalData.payment.status === "deposit" ? finalData.payment.amount : null,
+        deposit_amount: finalData.payment.status === "deposit" ? (finalData.payment.depositAmount || null) : null,
+        balance_due: finalData.payment.status === "deposit" ? (finalData.payment.balanceDue || null) : null,
         source: "Manual",
         incoming_status: "Accepted",
         email: finalData.job.email || null,
