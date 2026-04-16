@@ -884,6 +884,8 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   });
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [sendDepositLink, setSendDepositLink] = useState(true);
   const [sendWA, setSendWA] = useState(true);
 
   // Pre-fill amount once settings have loaded
