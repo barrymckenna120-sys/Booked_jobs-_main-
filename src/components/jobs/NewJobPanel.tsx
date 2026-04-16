@@ -134,7 +134,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -308,9 +308,12 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const { user } = useAuth();
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
-  const [boiler, setBoiler] = useState(prefilledBoiler || "");
-  const [boilerQuery, setBoilerQuery] = useState(prefilledBoiler || "");
-  const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
+  const [boilerBrand, setBoilerBrand] = useState(prefilledCustomer?.boiler_brand || prefilledBoiler || "");
+  const [boilerBrandQuery, setBoilerBrandQuery] = useState(prefilledCustomer?.boiler_brand || prefilledBoiler || "");
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [boilerModel, setBoilerModel] = useState(prefilledCustomer?.boiler_model || "");
+  const [boilerModelQuery, setBoilerModelQuery] = useState(prefilledCustomer?.boiler_model || "");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [jobTypeError, setJobTypeError] = useState(false);
   const [email, setEmail] = useState(prefilledCustomer?.email || "");
   const [jobIssue, setJobIssue] = useState("");
@@ -322,20 +325,37 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
 
-  const { data: boilerBrandSuggestions = [] } = useQuery({
-    queryKey: ["boiler-brand-suggestions", boilerQuery],
+  const { data: brandSuggestions = [] } = useQuery({
+    queryKey: ["boiler-brand-suggestions", boilerBrandQuery],
     queryFn: async () => {
-      if (!boilerQuery.trim()) return [];
+      if (!boilerBrandQuery.trim()) return [];
       const { data } = await supabase
         .from("boiler_brands")
         .select("brand_name")
         .eq("is_default", true)
-        .ilike("brand_name", `%${boilerQuery.trim()}%`)
+        .ilike("brand_name", `%${boilerBrandQuery.trim()}%`)
         .order("brand_name")
         .limit(8);
       return [...new Set((data || []).map((r: any) => r.brand_name))];
     },
-    enabled: boilerQuery.trim().length > 0 && boilerDropdownOpen,
+    enabled: boilerBrandQuery.trim().length > 0 && brandDropdownOpen,
+  });
+
+  const { data: modelSuggestions = [] } = useQuery({
+    queryKey: ["boiler-model-suggestions", boilerBrand, boilerModelQuery],
+    queryFn: async () => {
+      if (!boilerBrand.trim() || !boilerModelQuery.trim()) return [];
+      const { data } = await supabase
+        .from("boiler_brands")
+        .select("model_name")
+        .eq("is_default", false)
+        .eq("brand_name", boilerBrand.trim())
+        .ilike("model_name", `%${boilerModelQuery.trim()}%`)
+        .order("model_name")
+        .limit(8);
+      return [...new Set((data || []).filter((r: any) => r.model_name).map((r: any) => r.model_name))];
+    },
+    enabled: boilerBrand.trim().length > 0 && boilerModelQuery.trim().length > 0 && modelDropdownOpen,
   });
 
   const { data: defaultPrices } = useQuery({
@@ -369,7 +389,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
       setJobTypeError(true);
       return;
     }
-    onNext({ jobType, isUrgent, notes, boilerModel: boiler, email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
+    const combinedMakeModel = [boilerBrand.trim(), boilerModel.trim()].filter(Boolean).join(" ") || "";
+    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
   };
 
   return (
@@ -405,32 +426,67 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
           </div>
         )}
 
+        {/* Boiler Brand — typeahead */}
         <div className="relative">
-          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make / Model</Label>
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Brand</Label>
           <Input
-            value={boiler}
+            value={boilerBrand}
             onChange={(e) => {
-              setBoiler(e.target.value);
-              setBoilerQuery(e.target.value);
-              if (!boilerDropdownOpen) setBoilerDropdownOpen(true);
+              setBoilerBrand(e.target.value);
+              setBoilerBrandQuery(e.target.value);
+              if (!brandDropdownOpen) setBrandDropdownOpen(true);
+              if (e.target.value !== boilerBrand) { setBoilerModel(""); setBoilerModelQuery(""); }
             }}
-            onFocus={() => { setBoilerDropdownOpen(true); setBoilerQuery(boiler); }}
-            onBlur={() => setTimeout(() => setBoilerDropdownOpen(false), 200)}
-            placeholder="e.g. Vaillant ecoFIT Pure 25kW"
+            onFocus={() => { setBrandDropdownOpen(true); setBoilerBrandQuery(boilerBrand); }}
+            onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
+            placeholder="e.g. Vaillant, Ideal, Worcester"
             className="mt-1"
             autoComplete="off"
           />
-          {boilerDropdownOpen && boilerBrandSuggestions.length > 0 && (
+          {brandDropdownOpen && brandSuggestions.length > 0 && (
             <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-              {boilerBrandSuggestions.map((b: string) => (
+              {brandSuggestions.map((b: string) => (
                 <button
                   key={b}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { setBoiler(b); setBoilerQuery(b); setBoilerDropdownOpen(false); }}
+                  onClick={() => { setBoilerBrand(b); setBoilerBrandQuery(b); setBrandDropdownOpen(false); setBoilerModel(""); setBoilerModelQuery(""); }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors"
                 >
                   {b}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Boiler Model — typeahead when brand selected, otherwise free-text */}
+        <div className="relative">
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Model</Label>
+          <Input
+            value={boilerModel}
+            onChange={(e) => {
+              setBoilerModel(e.target.value);
+              setBoilerModelQuery(e.target.value);
+              if (!modelDropdownOpen && boilerBrand.trim()) setModelDropdownOpen(true);
+            }}
+            onFocus={() => { if (boilerBrand.trim()) { setModelDropdownOpen(true); setBoilerModelQuery(boilerModel); } }}
+            onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
+            placeholder="e.g. Logic Heat 18"
+            className="mt-1"
+            autoComplete="off"
+          />
+          {modelDropdownOpen && modelSuggestions.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {modelSuggestions.map((m: string) => (
+                <button
+                  key={m}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setBoilerModel(m); setBoilerModelQuery(m); setModelDropdownOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors"
+                >
+                  {m}
                 </button>
               ))}
             </div>
@@ -1067,9 +1123,9 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           address: finalData.customer.address,
           eircode: finalData.customer.eircode || "",
           area_code: finalData.job?.areaCode?.trim() || null,
-          boiler_brand: finalData.customer.boilerType || null,
-          boiler_model: finalData.job?.boilerModel || null,
-          boiler_make_model: finalData.job?.boilerModel || finalData.customer.boilerType || null,
+          boiler_brand: finalData.job?.boilerBrand || finalData.customer.boilerType || null,
+          boiler_model: finalData.job?.boilerModelField || null,
+          boiler_make_model: [finalData.job?.boilerBrand, finalData.job?.boilerModelField].filter(Boolean).join(" ") || finalData.customer.boilerType || null,
           boiler_type: finalData.job?.boilerType || null,
           next_service_due: nextServiceDue.toISOString().split("T")[0],
           renewal_stage: "none",
@@ -1096,7 +1152,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         user_id: user.id,
         customer_id: customerId,
         job_type: finalData.job.jobType,
-        boiler_brand: finalData.job.boilerModel || null,
+        boiler_brand: finalData.job.boilerBrand || finalData.job.boilerModel || null,
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
         scheduled_date: finalData.schedule.date,
@@ -1126,12 +1182,11 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
       // Sync job fields back to existing customer profile
       if (!isNewCustomer) {
-        const custUpdate: Record<string, string> = {};
-        if (finalData.job?.boilerModel?.trim()) {
-          custUpdate.boiler_brand = finalData.job.boilerModel.trim();
-          custUpdate.boiler_model = finalData.job.boilerModel.trim();
-          custUpdate.boiler_make_model = finalData.job.boilerModel.trim();
-        }
+        const custUpdate: Record<string, string | null> = {};
+        if (finalData.job?.boilerBrand?.trim()) custUpdate.boiler_brand = finalData.job.boilerBrand.trim();
+        if (finalData.job?.boilerModelField?.trim()) custUpdate.boiler_model = finalData.job.boilerModelField.trim();
+        const combinedMakeModel = [finalData.job?.boilerBrand?.trim(), finalData.job?.boilerModelField?.trim()].filter(Boolean).join(" ");
+        if (combinedMakeModel) custUpdate.boiler_make_model = combinedMakeModel;
         if (finalData.job?.boilerType?.trim()) custUpdate.boiler_type = finalData.job.boilerType.trim();
         if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
         if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();

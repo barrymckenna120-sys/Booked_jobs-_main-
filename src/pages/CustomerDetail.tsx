@@ -116,6 +116,10 @@ const CustomerDetail = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [boilerBrands, setBoilerBrands] = useState<BoilerBrandRow[]>([]);
   const [modelManual, setModelManual] = useState(false);
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [brandQuery, setBrandQuery] = useState("");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelQuery, setModelQuery] = useState("");
   const [sectionCounts, setSectionCounts] = useState<Record<string, number>>({});
   // Dirty check
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
@@ -395,23 +399,71 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Boiler Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Boiler Brand — free text */}
-            <div className="space-y-1.5">
+            {/* Boiler Brand — typeahead */}
+            <div className="space-y-1.5 relative">
               <Label className="text-xs text-muted-foreground">Boiler Brand</Label>
               <Input
                 value={form.boiler_brand ?? ""}
-                onChange={(e) => handleChange("boiler_brand", e.target.value)}
+                onChange={(e) => {
+                  handleChange("boiler_brand", e.target.value);
+                  setBrandQuery(e.target.value);
+                  if (!brandDropdownOpen) setBrandDropdownOpen(true);
+                  if (e.target.value !== form.boiler_brand) { handleChange("boiler_model", ""); setModelQuery(""); }
+                }}
+                onFocus={() => { setBrandDropdownOpen(true); setBrandQuery(form.boiler_brand ?? ""); }}
+                onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
                 placeholder="e.g. Ideal, Worcester, Vaillant"
+                autoComplete="off"
               />
+              {brandDropdownOpen && (() => {
+                const q = (brandQuery || "").toLowerCase();
+                const matches = boilerBrands
+                  .filter(b => b.is_default && b.brand_name.toLowerCase().includes(q))
+                  .map(b => b.brand_name)
+                  .filter((v, i, a) => a.indexOf(v) === i)
+                  .sort()
+                  .slice(0, 8);
+                return matches.length > 0 ? (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {matches.map(b => (
+                      <button key={b} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { handleChange("boiler_brand", b); setBrandQuery(b); setBrandDropdownOpen(false); handleChange("boiler_model", ""); setModelQuery(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{b}</button>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
             </div>
-            {/* Boiler Model — free text */}
-            <div className="space-y-1.5">
+            {/* Boiler Model — typeahead when brand selected */}
+            <div className="space-y-1.5 relative">
               <Label className="text-xs text-muted-foreground">Boiler Model</Label>
               <Input
                 value={form.boiler_model ?? ""}
-                onChange={(e) => handleChange("boiler_model", e.target.value)}
-                placeholder="e.g. Logic Max 30"
+                onChange={(e) => {
+                  handleChange("boiler_model", e.target.value);
+                  setModelQuery(e.target.value);
+                  if (!modelDropdownOpen && (form.boiler_brand ?? "").trim()) setModelDropdownOpen(true);
+                }}
+                onFocus={() => { if ((form.boiler_brand ?? "").trim()) { setModelDropdownOpen(true); setModelQuery(form.boiler_model ?? ""); } }}
+                onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
+                placeholder="e.g. Logic Heat 18"
+                autoComplete="off"
               />
+              {modelDropdownOpen && (() => {
+                const brand = (form.boiler_brand ?? "").trim();
+                const q = (modelQuery || "").toLowerCase();
+                const matches = boilerBrands
+                  .filter(b => !b.is_default && b.brand_name === brand && b.model_name && b.model_name.toLowerCase().includes(q))
+                  .map(b => b.model_name!)
+                  .filter((v, i, a) => a.indexOf(v) === i)
+                  .sort()
+                  .slice(0, 8);
+                return matches.length > 0 ? (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {matches.map(m => (
+                      <button key={m} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { handleChange("boiler_model", m); setModelQuery(m); setModelDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{m}</button>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
