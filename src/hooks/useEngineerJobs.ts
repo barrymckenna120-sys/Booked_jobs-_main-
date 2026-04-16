@@ -361,6 +361,7 @@ export const useEngineerJobs = () => {
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: theJob?.assigned_engineer || null,
+            assigned_engineer: theJob?.assigned_engineer || null,
             service_status: "Serviced",
             renewal_stage: "not_contacted",
           };
