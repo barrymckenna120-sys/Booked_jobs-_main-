@@ -74,7 +74,7 @@ const DashboardStatCards = () => {
       trend: "This week",
       iconBg: "bg-warning/15",
       iconColor: "text-warning",
-      path: "/incoming-jobs",
+      path: "/jobs",
     },
     {
       icon: Wrench,
@@ -83,7 +83,7 @@ const DashboardStatCards = () => {
       trend: "Needs action",
       iconBg: "bg-destructive/10",
       iconColor: "text-destructive",
-      path: "/customers?filter=overdue",
+      path: "/renewals",
     },
     {
       icon: Clock,
@@ -92,7 +92,7 @@ const DashboardStatCards = () => {
       trend: "Next 30 days",
       iconBg: "bg-warning/10",
       iconColor: "text-warning",
-      path: "/customers?filter=due-soon",
+      path: "/renewals",
     },
     {
       icon: CalendarDays,
