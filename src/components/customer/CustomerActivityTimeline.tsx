@@ -127,7 +127,7 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
     return `${day}/${month}/${year} ${hours}:${mins}`;
   };
 
-  const displayedActivities = showAll ? activities : activities.slice(0, 3);
+  const displayedActivities = showAll ? activities : activities.slice(0, 5);
 
   return (
     <>
@@ -167,7 +167,7 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
                 </div>
               );
             })}
-            {activities.length > 3 && !showAll && (
+            {activities.length > 5 && !showAll && (
               <button
                 onClick={() => setShowAll(true)}
                 className="text-sm font-medium text-primary hover:underline w-full text-center py-2"
@@ -175,7 +175,7 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
                 Show all {activities.length} activities
               </button>
             )}
-            {showAll && activities.length > 3 && (
+            {showAll && activities.length > 5 && (
               <button
                 onClick={() => setShowAll(false)}
                 className="text-sm font-medium text-muted-foreground hover:underline w-full text-center py-2"

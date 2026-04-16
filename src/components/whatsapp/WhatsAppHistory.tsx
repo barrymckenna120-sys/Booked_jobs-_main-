@@ -68,7 +68,7 @@ function formatTimestamp(ts: string): string {
     d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-const INITIAL_LIMIT = 10;
+const INITIAL_LIMIT = 3;
 
 const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);

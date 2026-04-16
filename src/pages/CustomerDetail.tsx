@@ -790,33 +790,30 @@ const CustomerDetail = () => {
         {/* Collapsible Sections */}
         {id && (
           <div className="space-y-3">
-            <CollapsibleSection title="Service History & Certificates" count={(sectionCounts.serviceJobs ?? 0) + (sectionCounts.certs ?? 0)}>
-              <ServiceHistory customerId={id} onCountsReady={(jobCount, certCount) => setSectionCounts(prev => ({ ...prev, serviceJobs: jobCount, certs: certCount }))} />
+            <CollapsibleSection title="Activity Timeline" count={sectionCounts.activity}>
+              <CustomerActivityTimeline customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, activity: n }))} />
+            </CollapsibleSection>
+
+            <WhatsAppHistory
+              customerId={id}
+              onSendMessage={() => setShowSendModal(true)}
+            />
+
+            <CollapsibleSection title="Payments & Activity" count={sectionCounts.payments}>
+              <PaymentHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
             </CollapsibleSection>
 
             <CollapsibleSection title="Quotes" count={sectionCounts.quotes}>
               <CustomerQuotes customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, quotes: n }))} />
             </CollapsibleSection>
 
-            <CollapsibleSection title="Payments & Activity" count={(sectionCounts.payments ?? 0) + (sectionCounts.activity ?? 0)}>
-              <PaymentHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
-              <div className="border-t border-border mt-4 pt-4">
-                <p className="text-sm font-semibold text-muted-foreground mb-3">Activity Timeline</p>
-                <CustomerActivityTimeline customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, activity: n }))} />
-              </div>
+            <CollapsibleSection title="Service History & Certificates" count={(sectionCounts.serviceJobs ?? 0) + (sectionCounts.certs ?? 0)}>
+              <ServiceHistory customerId={id} onCountsReady={(jobCount, certCount) => setSectionCounts(prev => ({ ...prev, serviceJobs: jobCount, certs: certCount }))} />
             </CollapsibleSection>
 
             {/* Hazard Notices — only renders when data exists */}
             <HazardSection customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, hazards: n }))} />
           </div>
-        )}
-
-        {/* WhatsApp History */}
-        {id && (
-          <WhatsAppHistory
-            customerId={id}
-            onSendMessage={() => setShowSendModal(true)}
-          />
         )}
       </div>
 
