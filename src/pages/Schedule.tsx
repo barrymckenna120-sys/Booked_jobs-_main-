@@ -283,15 +283,11 @@ const Schedule = () => {
     } else {
       logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
 
-      // Determine if this is a move/reassign (job already had a date) or first assignment
-      const existingJob = jobs.find(j => j.id === jobId);
-      const isReschedule = existingJob && existingJob.assigned_engineer;
-      const functionName = isReschedule ? 'send-reschedule-notification' : 'send-booking-confirmation';
-      supabase.functions.invoke(functionName, {
+      supabase.functions.invoke('send-booking-confirmation', {
         body: { service_call_id: jobId }
-      }).catch(err => console.error(`${functionName} failed:`, err));
+      }).catch(err => console.error('send-booking-confirmation failed:', err));
 
-      toast({ title: isReschedule ? "Job rescheduled" : "Job assigned" });
+      toast({ title: "Job assigned" });
       setAssignModal({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
     }
