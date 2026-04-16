@@ -1083,12 +1083,14 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       if (!isNewCustomer) {
         const custUpdate: Record<string, string> = {};
         if (finalData.job?.boilerModel?.trim()) {
-          custUpdate.boiler_brand = finalData.customer.boilerType || finalData.job.boilerModel;
-          custUpdate.boiler_model = finalData.job.boilerModel;
-          custUpdate.boiler_make_model = finalData.job.boilerModel;
+          custUpdate.boiler_brand = finalData.job.boilerModel.trim();
+          custUpdate.boiler_model = finalData.job.boilerModel.trim();
+          custUpdate.boiler_make_model = finalData.job.boilerModel.trim();
         }
+        if (finalData.job?.boilerType?.trim()) custUpdate.boiler_type = finalData.job.boilerType.trim();
         if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
         if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
+        if (finalData.job?.accessNotes?.trim()) custUpdate.access_notes = finalData.job.accessNotes.trim();
         if (Object.keys(custUpdate).length > 0) {
           await supabase.from("customers").update(custUpdate).eq("id", customerId);
         }
