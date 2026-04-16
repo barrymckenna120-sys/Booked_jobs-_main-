@@ -181,7 +181,25 @@ const Renewals = () => {
   const servicePrice = settings?.default_service_price || 120;
 
   const toggleArea = (code: string) => {
-    setSelectedAreas(prev => prev.includes(code) ? prev.filter(a => a !== code) : [...prev, code]);
+    const next = selectedAreas.includes(code)
+      ? selectedAreas.filter(a => a !== code)
+      : [...selectedAreas, code];
+    setSelectedAreas(next);
+
+    // Auto-switch tab to whichever has the most matches for the new area selection
+    if (next.length > 0) {
+      const areaMatch = (c: typeof withStatus[0]) => next.includes(normalizeArea(c.area_code));
+      const counts: Record<TabKey, number> = {
+        overdue: filterable.filter(c => c.tab === "overdue" && areaMatch(c)).length,
+        due_soon: filterable.filter(c => c.tab === "due_soon" && areaMatch(c)).length,
+        up_to_date: filterable.filter(c => c.tab === "up_to_date" && areaMatch(c)).length,
+      };
+      // Only switch if current tab has zero matches
+      if (counts[activeTab] === 0) {
+        const best = (Object.keys(counts) as TabKey[]).reduce((a, b) => counts[a] >= counts[b] ? a : b);
+        if (counts[best] > 0) setActiveTab(best);
+      }
+    }
   };
 
   const withStatus = activeCustomers.map((c) => {
