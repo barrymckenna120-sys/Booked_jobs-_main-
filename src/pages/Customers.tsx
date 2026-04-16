@@ -146,7 +146,7 @@ const Customers = () => {
     const q = search.toLowerCase();
     const textMatch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
     const refMatch = refCustomerIds !== null && refCustomerIds.has(c.id);
-    const matchesSearch = refCustomerIds !== null ? refMatch : textMatch;
+    const matchesSearch = refCustomerIds !== null ? (refMatch || textMatch) : textMatch;
 
     // Compute dynamic status from next_service_due
     let computedStatus = "Up to Date";
