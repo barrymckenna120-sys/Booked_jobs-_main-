@@ -1079,6 +1079,21 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       }
       console.log("[NewJobPanel] Job created successfully:", newJob?.id);
 
+      // Sync job fields back to existing customer profile
+      if (!isNewCustomer) {
+        const custUpdate: Record<string, string> = {};
+        if (finalData.job?.boilerModel?.trim()) {
+          custUpdate.boiler_brand = finalData.customer.boilerType || finalData.job.boilerModel;
+          custUpdate.boiler_model = finalData.job.boilerModel;
+          custUpdate.boiler_make_model = finalData.job.boilerModel;
+        }
+        if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
+        if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
+        if (Object.keys(custUpdate).length > 0) {
+          await supabase.from("customers").update(custUpdate).eq("id", customerId);
+        }
+      }
+
       await logAudit({
         action_type: "job_created",
         entity_type: "service_call",
