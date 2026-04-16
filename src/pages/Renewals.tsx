@@ -73,6 +73,7 @@ const formatDuePill = (days: number, nextDue: string | null): { text: string; cl
 };
 
 const Renewals = () => {
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -80,7 +81,9 @@ const Renewals = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [sortAscending, setSortAscending] = useState(true);
   const [settings, setSettings] = useState<{ business_name?: string; whatsapp_number?: string; template_renewal_reminder?: string; default_service_price?: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("overdue");
+  const filterParam = searchParams.get("filter");
+  const initialTab: TabKey = filterParam === "due-soon" ? "due_soon" : filterParam === "overdue" ? "overdue" : "overdue";
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
