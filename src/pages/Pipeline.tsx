@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Inbox, Receipt, RefreshCw, Shield } from "lucide-react";
 import IncomingJobs from "./IncomingJobs";
 import QuotesList from "./QuotesList";
@@ -18,7 +19,10 @@ const WARRANTY_TAB = { key: "warranty", label: "Warranty", icon: Shield };
 type TabKey = "incoming" | "quotes" | "renewals" | "warranty";
 
 const Pipeline = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("incoming");
+  const [searchParams] = useSearchParams();
+  const filterParam = searchParams.get("filter");
+  const initialTab: TabKey = (filterParam === "overdue" || filterParam === "due-soon") ? "renewals" : "incoming";
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const { user } = useAuth();
   const { isAdmin, isOffice } = useUserRole(user);
 
