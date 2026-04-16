@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react";
-import { format, addMonths } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
