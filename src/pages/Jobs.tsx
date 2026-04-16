@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp,
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import ScheduleIncomingJobModal from "@/components/jobs/ScheduleIncomingJobModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 
