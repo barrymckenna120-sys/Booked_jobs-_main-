@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
+import { Search, ChevronLeft, ChevronDown, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
 import { format, parse } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -328,34 +328,26 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const { data: brandSuggestions = [] } = useQuery({
     queryKey: ["boiler-brand-suggestions", boilerBrandQuery],
     queryFn: async () => {
-      if (!boilerBrandQuery.trim()) return [];
-      const { data } = await supabase
-        .from("boiler_brands")
-        .select("brand_name")
-        .eq("is_default", true)
-        .ilike("brand_name", `%${boilerBrandQuery.trim()}%`)
-        .order("brand_name")
-        .limit(8);
+      const q = boilerBrandQuery.trim();
+      const query = supabase.from("boiler_brands").select("brand_name").eq("is_default", true).order("brand_name").limit(8);
+      if (q) query.ilike("brand_name", `%${q}%`);
+      const { data } = await query;
       return [...new Set((data || []).map((r: any) => r.brand_name))];
     },
-    enabled: boilerBrandQuery.trim().length > 0 && brandDropdownOpen,
+    enabled: brandDropdownOpen,
   });
 
   const { data: modelSuggestions = [] } = useQuery({
     queryKey: ["boiler-model-suggestions", boilerBrand, boilerModelQuery],
     queryFn: async () => {
-      if (!boilerBrand.trim() || !boilerModelQuery.trim()) return [];
-      const { data } = await supabase
-        .from("boiler_brands")
-        .select("model_name")
-        .eq("is_default", false)
-        .eq("brand_name", boilerBrand.trim())
-        .ilike("model_name", `%${boilerModelQuery.trim()}%`)
-        .order("model_name")
-        .limit(8);
+      if (!boilerBrand.trim()) return [];
+      const q = boilerModelQuery.trim();
+      const query = supabase.from("boiler_brands").select("model_name").eq("is_default", false).eq("brand_name", boilerBrand.trim()).order("model_name").limit(8);
+      if (q) query.ilike("model_name", `%${q}%`);
+      const { data } = await query;
       return [...new Set((data || []).filter((r: any) => r.model_name).map((r: any) => r.model_name))];
     },
-    enabled: boilerBrand.trim().length > 0 && boilerModelQuery.trim().length > 0 && modelDropdownOpen,
+    enabled: boilerBrand.trim().length > 0 && modelDropdownOpen,
   });
 
   const { data: defaultPrices } = useQuery({
@@ -429,69 +421,64 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
         {/* Boiler Brand — typeahead */}
         <div className="relative">
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Brand</Label>
-          <Input
-            value={boilerBrand}
-            onChange={(e) => {
-              setBoilerBrand(e.target.value);
-              setBoilerBrandQuery(e.target.value);
-              if (!brandDropdownOpen) setBrandDropdownOpen(true);
-              if (e.target.value !== boilerBrand) { setBoilerModel(""); setBoilerModelQuery(""); }
-            }}
-            onFocus={() => { setBrandDropdownOpen(true); setBoilerBrandQuery(boilerBrand); }}
-            onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
-            placeholder="e.g. Vaillant, Ideal, Worcester"
-            className="mt-1"
-            autoComplete="off"
-          />
+          <div className="relative mt-1">
+            <Input
+              value={boilerBrand}
+              onChange={(e) => {
+                setBoilerBrand(e.target.value);
+                setBoilerBrandQuery(e.target.value);
+                if (!brandDropdownOpen) setBrandDropdownOpen(true);
+                if (e.target.value !== boilerBrand) { setBoilerModel(""); setBoilerModelQuery(""); }
+              }}
+              onFocus={() => { setBrandDropdownOpen(true); setBoilerBrandQuery(boilerBrand); }}
+              onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
+              placeholder="e.g. Vaillant, Ideal, Worcester"
+              className="pr-9"
+              autoComplete="off"
+            />
+            <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => setBrandDropdownOpen(!brandDropdownOpen)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronDown className={`w-4 h-4 transition-transform ${brandDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
           {brandDropdownOpen && brandSuggestions.length > 0 && (
             <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
               {brandSuggestions.map((b: string) => (
-                <button
-                  key={b}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { setBoilerBrand(b); setBoilerBrandQuery(b); setBrandDropdownOpen(false); setBoilerModel(""); setBoilerModelQuery(""); }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors"
-                >
-                  {b}
-                </button>
+                <button key={b} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setBoilerBrand(b); setBoilerBrandQuery(b); setBrandDropdownOpen(false); setBoilerModel(""); setBoilerModelQuery(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{b}</button>
               ))}
             </div>
           )}
+          <p className="text-[11px] text-muted-foreground mt-1">Start typing or click to see options</p>
         </div>
 
         {/* Boiler Model — typeahead when brand selected, otherwise free-text */}
         <div className="relative">
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Model</Label>
-          <Input
-            value={boilerModel}
-            onChange={(e) => {
-              setBoilerModel(e.target.value);
-              setBoilerModelQuery(e.target.value);
-              if (!modelDropdownOpen && boilerBrand.trim()) setModelDropdownOpen(true);
-            }}
-            onFocus={() => { if (boilerBrand.trim()) { setModelDropdownOpen(true); setBoilerModelQuery(boilerModel); } }}
-            onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
-            placeholder="e.g. Logic Heat 18"
-            className="mt-1"
-            autoComplete="off"
-          />
+          <div className="relative mt-1">
+            <Input
+              value={boilerModel}
+              onChange={(e) => {
+                setBoilerModel(e.target.value);
+                setBoilerModelQuery(e.target.value);
+                if (!modelDropdownOpen && boilerBrand.trim()) setModelDropdownOpen(true);
+              }}
+              onFocus={() => { if (boilerBrand.trim()) { setModelDropdownOpen(true); setBoilerModelQuery(boilerModel); } }}
+              onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
+              placeholder="e.g. Logic Heat 18"
+              className="pr-9"
+              autoComplete="off"
+            />
+            <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => { if (boilerBrand.trim()) setModelDropdownOpen(!modelDropdownOpen); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronDown className={`w-4 h-4 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
           {modelDropdownOpen && modelSuggestions.length > 0 && (
             <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
               {modelSuggestions.map((m: string) => (
-                <button
-                  key={m}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { setBoilerModel(m); setBoilerModelQuery(m); setModelDropdownOpen(false); }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors"
-                >
-                  {m}
-                </button>
+                <button key={m} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setBoilerModel(m); setBoilerModelQuery(m); setModelDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{m}</button>
               ))}
             </div>
           )}
-          <p className="text-[11px] text-muted-foreground mt-1">Leave blank if unknown</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Start typing or click to see options</p>
         </div>
 
         <div>

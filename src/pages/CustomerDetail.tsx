@@ -402,23 +402,29 @@ const CustomerDetail = () => {
             {/* Boiler Brand — typeahead */}
             <div className="space-y-1.5 relative">
               <Label className="text-xs text-muted-foreground">Boiler Brand</Label>
-              <Input
-                value={form.boiler_brand ?? ""}
-                onChange={(e) => {
-                  handleChange("boiler_brand", e.target.value);
-                  setBrandQuery(e.target.value);
-                  if (!brandDropdownOpen) setBrandDropdownOpen(true);
-                  if (e.target.value !== form.boiler_brand) { handleChange("boiler_model", ""); setModelQuery(""); }
-                }}
-                onFocus={() => { setBrandDropdownOpen(true); setBrandQuery(form.boiler_brand ?? ""); }}
-                onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
-                placeholder="e.g. Ideal, Worcester, Vaillant"
-                autoComplete="off"
-              />
+              <div className="relative">
+                <Input
+                  value={form.boiler_brand ?? ""}
+                  onChange={(e) => {
+                    handleChange("boiler_brand", e.target.value);
+                    setBrandQuery(e.target.value);
+                    if (!brandDropdownOpen) setBrandDropdownOpen(true);
+                    if (e.target.value !== form.boiler_brand) { handleChange("boiler_model", ""); setModelQuery(""); }
+                  }}
+                  onFocus={() => { setBrandDropdownOpen(true); setBrandQuery(form.boiler_brand ?? ""); }}
+                  onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
+                  placeholder="e.g. Ideal, Worcester, Vaillant"
+                  className="pr-9"
+                  autoComplete="off"
+                />
+                <button type="button" tabIndex={-1} onMouseDown={e => e.preventDefault()} onClick={() => setBrandDropdownOpen(!brandDropdownOpen)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                  <ChevronDown className={`w-4 h-4 transition-transform ${brandDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
               {brandDropdownOpen && (() => {
                 const q = (brandQuery || "").toLowerCase();
                 const matches = boilerBrands
-                  .filter(b => b.is_default && b.brand_name.toLowerCase().includes(q))
+                  .filter(b => b.is_default && (q === "" || b.brand_name.toLowerCase().includes(q)))
                   .map(b => b.brand_name)
                   .filter((v, i, a) => a.indexOf(v) === i)
                   .sort()
@@ -431,27 +437,34 @@ const CustomerDetail = () => {
                   </div>
                 ) : null;
               })()}
+              <p className="text-[11px] text-muted-foreground">Start typing or click to see options</p>
             </div>
             {/* Boiler Model — typeahead when brand selected */}
             <div className="space-y-1.5 relative">
               <Label className="text-xs text-muted-foreground">Boiler Model</Label>
-              <Input
-                value={form.boiler_model ?? ""}
-                onChange={(e) => {
-                  handleChange("boiler_model", e.target.value);
-                  setModelQuery(e.target.value);
-                  if (!modelDropdownOpen && (form.boiler_brand ?? "").trim()) setModelDropdownOpen(true);
-                }}
-                onFocus={() => { if ((form.boiler_brand ?? "").trim()) { setModelDropdownOpen(true); setModelQuery(form.boiler_model ?? ""); } }}
-                onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
-                placeholder="e.g. Logic Heat 18"
-                autoComplete="off"
-              />
+              <div className="relative">
+                <Input
+                  value={form.boiler_model ?? ""}
+                  onChange={(e) => {
+                    handleChange("boiler_model", e.target.value);
+                    setModelQuery(e.target.value);
+                    if (!modelDropdownOpen && (form.boiler_brand ?? "").trim()) setModelDropdownOpen(true);
+                  }}
+                  onFocus={() => { if ((form.boiler_brand ?? "").trim()) { setModelDropdownOpen(true); setModelQuery(form.boiler_model ?? ""); } }}
+                  onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
+                  placeholder="e.g. Logic Heat 18"
+                  className="pr-9"
+                  autoComplete="off"
+                />
+                <button type="button" tabIndex={-1} onMouseDown={e => e.preventDefault()} onClick={() => { if ((form.boiler_brand ?? "").trim()) setModelDropdownOpen(!modelDropdownOpen); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                  <ChevronDown className={`w-4 h-4 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
               {modelDropdownOpen && (() => {
                 const brand = (form.boiler_brand ?? "").trim();
                 const q = (modelQuery || "").toLowerCase();
                 const matches = boilerBrands
-                  .filter(b => !b.is_default && b.brand_name === brand && b.model_name && b.model_name.toLowerCase().includes(q))
+                  .filter(b => !b.is_default && b.brand_name === brand && b.model_name && (q === "" || b.model_name.toLowerCase().includes(q)))
                   .map(b => b.model_name!)
                   .filter((v, i, a) => a.indexOf(v) === i)
                   .sort()
@@ -464,6 +477,7 @@ const CustomerDetail = () => {
                   </div>
                 ) : null;
               })()}
+              <p className="text-[11px] text-muted-foreground">Start typing or click to see options</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
