@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown, Phone, MessageCircle, ArrowLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown, Phone, MessageCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
@@ -479,15 +479,14 @@ const Jobs = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent/60 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-foreground" />
-        </button>
-        <h1 className="text-2xl font-extrabold">All Jobs</h1>
-      </div>
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="md:hidden inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors -mb-2"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back
+      </button>
+      <h1 className="text-2xl font-extrabold">All Jobs</h1>
 
       {/* ── INCOMING JOBS SECTION ── */}
       {incomingJobs.length > 0 && (
