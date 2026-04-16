@@ -1182,6 +1182,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         assigned_engineer: eng?.name || null,
         status: "Booked",
         revenue: finalData.payment.amount || null,
+        deposit_paid: depositPaid,
         deposit_amount: finalData.payment.status === "deposit" ? (finalData.payment.depositAmount || null) : null,
         balance_due: finalData.payment.status === "deposit" ? (finalData.payment.balanceDue || null) : null,
         source: "Manual",
