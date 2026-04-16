@@ -309,6 +309,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
   const [boiler, setBoiler] = useState(prefilledBoiler || "");
+  const [boilerQuery, setBoilerQuery] = useState(prefilledBoiler || "");
+  const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [jobTypeError, setJobTypeError] = useState(false);
   const [email, setEmail] = useState(prefilledCustomer?.email || "");
   const [jobIssue, setJobIssue] = useState("");
@@ -319,6 +321,22 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
+
+  const { data: boilerBrandSuggestions = [] } = useQuery({
+    queryKey: ["boiler-brand-suggestions", boilerQuery],
+    queryFn: async () => {
+      if (!boilerQuery.trim()) return [];
+      const { data } = await supabase
+        .from("boiler_brands")
+        .select("brand_name")
+        .eq("is_default", true)
+        .ilike("brand_name", `%${boilerQuery.trim()}%`)
+        .order("brand_name")
+        .limit(8);
+      return [...new Set((data || []).map((r: any) => r.brand_name))];
+    },
+    enabled: boilerQuery.trim().length > 0 && boilerDropdownOpen,
+  });
 
   const { data: defaultPrices } = useQuery({
     queryKey: ["default-job-prices", user?.id],
@@ -387,9 +405,36 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
           </div>
         )}
 
-        <div>
+        <div className="relative">
           <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make / Model</Label>
-          <Input value={boiler} onChange={(e) => setBoiler(e.target.value)} placeholder="e.g. Vaillant ecoFIT Pure 25kW" className="mt-1" />
+          <Input
+            value={boiler}
+            onChange={(e) => {
+              setBoiler(e.target.value);
+              setBoilerQuery(e.target.value);
+              if (!boilerDropdownOpen) setBoilerDropdownOpen(true);
+            }}
+            onFocus={() => { setBoilerDropdownOpen(true); setBoilerQuery(boiler); }}
+            onBlur={() => setTimeout(() => setBoilerDropdownOpen(false), 200)}
+            placeholder="e.g. Vaillant ecoFIT Pure 25kW"
+            className="mt-1"
+            autoComplete="off"
+          />
+          {boilerDropdownOpen && boilerBrandSuggestions.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {boilerBrandSuggestions.map((b: string) => (
+                <button
+                  key={b}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setBoiler(b); setBoilerQuery(b); setBoilerDropdownOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors"
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="text-[11px] text-muted-foreground mt-1">Leave blank if unknown</p>
         </div>
 
