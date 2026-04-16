@@ -1152,7 +1152,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         user_id: user.id,
         customer_id: customerId,
         job_type: finalData.job.jobType,
-        boiler_brand: finalData.job.boilerModel || null,
+        boiler_brand: finalData.job.boilerBrand || finalData.job.boilerModel || null,
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
         scheduled_date: finalData.schedule.date,
@@ -1182,12 +1182,11 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
       // Sync job fields back to existing customer profile
       if (!isNewCustomer) {
-        const custUpdate: Record<string, string> = {};
-        if (finalData.job?.boilerModel?.trim()) {
-          custUpdate.boiler_brand = finalData.job.boilerModel.trim();
-          custUpdate.boiler_model = finalData.job.boilerModel.trim();
-          custUpdate.boiler_make_model = finalData.job.boilerModel.trim();
-        }
+        const custUpdate: Record<string, string | null> = {};
+        if (finalData.job?.boilerBrand?.trim()) custUpdate.boiler_brand = finalData.job.boilerBrand.trim();
+        if (finalData.job?.boilerModelField?.trim()) custUpdate.boiler_model = finalData.job.boilerModelField.trim();
+        const combinedMakeModel = [finalData.job?.boilerBrand?.trim(), finalData.job?.boilerModelField?.trim()].filter(Boolean).join(" ");
+        if (combinedMakeModel) custUpdate.boiler_make_model = combinedMakeModel;
         if (finalData.job?.boilerType?.trim()) custUpdate.boiler_type = finalData.job.boilerType.trim();
         if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
         if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
