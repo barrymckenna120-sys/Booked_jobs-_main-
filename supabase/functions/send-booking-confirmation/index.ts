@@ -57,16 +57,18 @@ serve(async (req) => {
       });
     }
 
-    // Fetch message_footer from settings
-    let messageFooter = "K&N Gas Services";
+    // Fetch message_footer + company_name from settings
+    let messageFooter = "";
+    let companyName = "K&N Gas Services";
     if (job.user_id) {
       const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${job.user_id}&select=message_footer&limit=1`,
+        `${supabaseUrl}/rest/v1/settings?user_id=eq.${job.user_id}&select=message_footer,business_name&limit=1`,
         { headers: dbHeaders },
       );
       const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]?.message_footer) {
-        messageFooter = settings[0].message_footer;
+      if (Array.isArray(settings) && settings[0]) {
+        if (settings[0].message_footer) messageFooter = settings[0].message_footer;
+        if (settings[0].business_name) companyName = settings[0].business_name;
       }
     }
 
@@ -79,27 +81,26 @@ serve(async (req) => {
       }
       return parts[0];
     };
-    const firstName = getFirstName(customer.name);
-    const scheduledDate = job.scheduled_date
-      ? new Date(job.scheduled_date + "T12:00:00").toLocaleDateString("en-IE", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
+    const firstName = getFirstName(customer.name) || "there";
+    const formattedDate = job.scheduled_date
+      ? (() => {
+          const d = new Date(job.scheduled_date + "T12:00:00");
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yyyy = d.getFullYear();
+          return `${dd}/${mm}/${yyyy}`;
+        })()
       : "TBC";
     const timeSlot = job.time_block || "TBC";
-    const jobType = job.job_type || "service";
-    const engineerName = job.assigned_engineer || "our engineer";
+    const engineerName = job.assigned_engineer || "TBC";
 
-    const message = `Booking Confirmed ✅
-${messageFooter}
-
-Hi ${firstName}, your ${jobType} has been booked for ${scheduledDate} between ${timeSlot}.
-
-Your engineer ${engineerName} will be with you on the day. If you need to make any changes, give us a call.
-
-Thanks,
-${messageFooter}`;
+    const message =
+      `Hi ${firstName}, your booking with ${companyName} is confirmed.\n\n` +
+      `📅 Date: ${formattedDate}\n` +
+      `⏰ Time: ${timeSlot}\n` +
+      `👷 Engineer: ${engineerName}\n\n` +
+      `If you need to make any changes please reply to this message.` +
+      (messageFooter ? `\n\n${messageFooter}` : "");
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
