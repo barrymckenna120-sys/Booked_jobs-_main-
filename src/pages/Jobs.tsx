@@ -52,6 +52,7 @@ const Jobs = () => {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [paymentJob, setPaymentJob] = useState<{ job: any; customer: any } | null>(null);
+  const [scheduleJob, setScheduleJob] = useState<{ id: string; customer_name?: string } | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [customersMap, setCustomersMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -535,7 +536,7 @@ const Jobs = () => {
                         className="h-8 text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-white"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/jobs/${j.id}`);
+                          setScheduleJob({ id: j.id, customer_name: j.customer_name });
                         }}
                       >
                         <CalendarPlus className="w-3.5 h-3.5" /> Schedule
