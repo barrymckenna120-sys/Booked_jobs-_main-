@@ -70,7 +70,16 @@ serve(async (req) => {
       }
     }
 
-    const firstName = customer.name.split(" ")[0];
+    const SALUTATIONS = ["mr", "mrs", "ms", "dr", "miss"];
+    const getFirstName = (fullName: string): string => {
+      if (!fullName) return "";
+      const parts = fullName.trim().split(/\s+/);
+      if (parts.length > 1 && SALUTATIONS.includes(parts[0].toLowerCase().replace(/\.$/, ""))) {
+        return parts[1];
+      }
+      return parts[0];
+    };
+    const firstName = getFirstName(customer.name);
     const scheduledDate = job.scheduled_date
       ? new Date(job.scheduled_date + "T12:00:00").toLocaleDateString("en-IE", {
           day: "numeric",
