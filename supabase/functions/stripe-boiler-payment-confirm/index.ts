@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
 
     const session = event.data?.object;
     const metadata = session?.metadata || {};
-    const jobId = metadata.job_id;
+    const jobId = metadata.job_id || metadata.service_call_id;
     const customerId = metadata.customer_id;
     const amountPaid = session?.amount_total ? session.amount_total / 100 : null;
 
@@ -104,16 +104,30 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Fetch current revenue to recalculate balance_due
+    const { data: existingRow } = await supabase
+      .from("service_calls")
+      .select("revenue")
+      .eq("id", jobId)
+      .single();
+
+    const currentRevenue = Number(existingRow?.revenue ?? 0);
+    const depositAmount = amountPaid !== null ? amountPaid : 0;
+    const newBalanceDue = currentRevenue > 0 ? currentRevenue - depositAmount : null;
+    const isFullyPaid = newBalanceDue !== null && newBalanceDue <= 0;
+
     const updateData: Record<string, unknown> = {
       status: "Booked",
-      payment_status: "paid",
+      payment_status: isFullyPaid ? "paid" : "deposit_paid",
       paid_at: new Date().toISOString(),
       deposit_paid: true,
     };
 
     if (amountPaid !== null) {
-      updateData.revenue = amountPaid;
       updateData.deposit_amount = amountPaid;
+      if (currentRevenue > 0) {
+        updateData.balance_due = Math.max(0, newBalanceDue ?? 0);
+      }
     }
 
     const { error: updateErr } = await supabase
