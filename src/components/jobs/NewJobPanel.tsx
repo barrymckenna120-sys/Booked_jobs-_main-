@@ -134,7 +134,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -308,9 +308,12 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const { user } = useAuth();
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
-  const [boiler, setBoiler] = useState(prefilledBoiler || "");
-  const [boilerQuery, setBoilerQuery] = useState(prefilledBoiler || "");
-  const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
+  const [boilerBrand, setBoilerBrand] = useState(prefilledCustomer?.boiler_brand || prefilledBoiler || "");
+  const [boilerBrandQuery, setBoilerBrandQuery] = useState(prefilledCustomer?.boiler_brand || prefilledBoiler || "");
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [boilerModel, setBoilerModel] = useState(prefilledCustomer?.boiler_model || "");
+  const [boilerModelQuery, setBoilerModelQuery] = useState(prefilledCustomer?.boiler_model || "");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [jobTypeError, setJobTypeError] = useState(false);
   const [email, setEmail] = useState(prefilledCustomer?.email || "");
   const [jobIssue, setJobIssue] = useState("");
@@ -322,55 +325,38 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [accessNotes, setAccessNotes] = useState("");
   const isUrgent = jobType === "Emergency";
 
-  const { data: boilerBrandSuggestions = [] } = useQuery({
-    queryKey: ["boiler-brand-suggestions", boilerQuery],
+  const { data: brandSuggestions = [] } = useQuery({
+    queryKey: ["boiler-brand-suggestions", boilerBrandQuery],
     queryFn: async () => {
-      if (!boilerQuery.trim()) return [];
+      if (!boilerBrandQuery.trim()) return [];
       const { data } = await supabase
         .from("boiler_brands")
         .select("brand_name")
         .eq("is_default", true)
-        .ilike("brand_name", `%${boilerQuery.trim()}%`)
+        .ilike("brand_name", `%${boilerBrandQuery.trim()}%`)
         .order("brand_name")
         .limit(8);
       return [...new Set((data || []).map((r: any) => r.brand_name))];
     },
-    enabled: boilerQuery.trim().length > 0 && boilerDropdownOpen,
+    enabled: boilerBrandQuery.trim().length > 0 && brandDropdownOpen,
   });
 
-  const { data: defaultPrices } = useQuery({
-    queryKey: ["default-job-prices", user?.id],
+  const { data: modelSuggestions = [] } = useQuery({
+    queryKey: ["boiler-model-suggestions", boilerBrand, boilerModelQuery],
     queryFn: async () => {
+      if (!boilerBrand.trim() || !boilerModelQuery.trim()) return [];
       const { data } = await supabase
-        .from("settings")
-        .select("default_service_price, default_emergency_price, default_repair_price, default_callout_charge")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      return {
-        service: Number(data?.default_service_price ?? 120),
-        emergency: Number(data?.default_emergency_price ?? 150),
-        repair: Number(data?.default_repair_price ?? 0),
-        callout: Number(data?.default_callout_charge ?? 85),
-      };
+        .from("boiler_brands")
+        .select("model_name")
+        .eq("is_default", false)
+        .eq("brand_name", boilerBrand.trim())
+        .ilike("model_name", `%${boilerModelQuery.trim()}%`)
+        .order("model_name")
+        .limit(8);
+      return [...new Set((data || []).filter((r: any) => r.model_name).map((r: any) => r.model_name))];
     },
-    enabled: !!user,
+    enabled: boilerBrand.trim().length > 0 && boilerModelQuery.trim().length > 0 && modelDropdownOpen,
   });
-
-  const getJobPrice = (typeId: string) => {
-    if (!defaultPrices) return null;
-    if (typeId === "Emergency") return defaultPrices.emergency;
-    if (typeId === "Boiler Service") return defaultPrices.service;
-    if (typeId === "Repair") return defaultPrices.repair;
-    return null;
-  };
-
-  const handleNext = () => {
-    if (!jobType) {
-      setJobTypeError(true);
-      return;
-    }
-    onNext({ jobType, isUrgent, notes, boilerModel: boiler, email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
-  };
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
