@@ -41,8 +41,8 @@ interface BoilerBrandRow {
 }
 
 // Collapsible accordion section component
-const CollapsibleSection = ({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) => {
-  const [open, setOpen] = useState(false);
+const CollapsibleSection = ({ title, count, children, defaultOpen = false }: { title: string; count?: number; children: React.ReactNode; defaultOpen?: boolean }) => {
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <Card>
@@ -790,7 +790,7 @@ const CustomerDetail = () => {
         {/* Collapsible Sections */}
         {id && (
           <div className="space-y-3">
-            <CollapsibleSection title="Activity Timeline" count={sectionCounts.activity}>
+            <CollapsibleSection title="Activity Timeline" count={sectionCounts.activity} defaultOpen={true}>
               <CustomerActivityTimeline customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, activity: n }))} />
             </CollapsibleSection>
 
