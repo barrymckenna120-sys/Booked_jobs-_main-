@@ -103,9 +103,9 @@ const JobsUpdateSection = () => {
   const { incompleteToday = 0, incompleteWeek = 0, cancelledWeek = 0, list = [] } = data || {};
 
   const metrics = [
-    { label: "Incomplete today", value: incompleteToday, color: "#BA7517", path: "/jobs?status=incomplete&when=today" },
-    { label: "Incomplete this week", value: incompleteWeek, color: "#185FA5", path: "/jobs?status=incomplete&when=week" },
-    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D", path: "/jobs?status=cancelled&when=week" },
+    { label: "Incomplete today", value: incompleteToday, color: "#BA7517", path: "/jobs?status=incomplete" },
+    { label: "Incomplete this week", value: incompleteWeek, color: "#185FA5", path: "/jobs?status=incomplete" },
+    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D", path: "/jobs?status=Cancelled" },
   ];
 
   return (
