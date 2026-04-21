@@ -105,7 +105,7 @@ const JobsUpdateSection = () => {
   const metrics = [
     { label: "Incomplete today", value: incompleteToday, color: "#BA7517", path: "/jobs?status=incomplete" },
     { label: "Incomplete this week", value: incompleteWeek, color: "#185FA5", path: "/jobs?status=incomplete" },
-    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D", path: "/jobs?status=Cancelled" },
+    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D", path: "/jobs?status=cancelled" },
   ];
 
   return (
