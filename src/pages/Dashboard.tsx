@@ -233,7 +233,7 @@ const Dashboard = () => {
               <BookOpen className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-foreground">Sales Ledger</div>
+              <div className="text-sm font-bold text-foreground">Sales Report</div>
               <div className="text-xs text-muted-foreground mt-0.5">View full payment & invoice history</div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
