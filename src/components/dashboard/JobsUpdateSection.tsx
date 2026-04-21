@@ -103,9 +103,9 @@ const JobsUpdateSection = () => {
   const { incompleteToday = 0, incompleteWeek = 0, cancelledWeek = 0, list = [] } = data || {};
 
   const metrics = [
-    { label: "Incomplete today", value: incompleteToday, color: "#BA7517" },
-    { label: "Incomplete this week", value: incompleteWeek, color: "#185FA5" },
-    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D" },
+    { label: "Incomplete today", value: incompleteToday, color: "#BA7517", path: "/jobs?status=incomplete" },
+    { label: "Incomplete this week", value: incompleteWeek, color: "#185FA5", path: "/jobs?status=incomplete" },
+    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D", path: "/jobs?status=Cancelled" },
   ];
 
   return (
@@ -127,9 +127,10 @@ const JobsUpdateSection = () => {
         {/* Metric Cards */}
         <div className="grid grid-cols-3 gap-3">
           {metrics.map((m) => (
-            <div
+            <button
               key={m.label}
-              className="bg-secondary rounded-lg px-3.5 py-3"
+              onClick={() => navigate(m.path)}
+              className="bg-secondary rounded-lg px-3.5 py-3 text-left hover:bg-secondary/80 transition-colors"
             >
               <p className="text-2xl font-extrabold leading-none" style={{ color: m.color }}>
                 {m.value}
@@ -137,7 +138,7 @@ const JobsUpdateSection = () => {
               <p className="text-[11px] text-muted-foreground mt-1.5 leading-tight">
                 {m.label}
               </p>
-            </div>
+            </button>
           ))}
         </div>
 
