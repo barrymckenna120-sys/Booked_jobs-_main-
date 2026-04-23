@@ -403,6 +403,60 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          after_hours: boolean | null
+          channel: string | null
+          collected: Json | null
+          created_at: string | null
+          customer_id: string | null
+          escalation_type: string | null
+          first_contact_at: string | null
+          follow_up_count: number | null
+          id: string
+          last_followup_at: string | null
+          messages: Json | null
+          organisation_id: string | null
+          phone: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          after_hours?: boolean | null
+          channel?: string | null
+          collected?: Json | null
+          created_at?: string | null
+          customer_id?: string | null
+          escalation_type?: string | null
+          first_contact_at?: string | null
+          follow_up_count?: number | null
+          id?: string
+          last_followup_at?: string | null
+          messages?: Json | null
+          organisation_id?: string | null
+          phone: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          after_hours?: boolean | null
+          channel?: string | null
+          collected?: Json | null
+          created_at?: string | null
+          customer_id?: string | null
+          escalation_type?: string | null
+          first_contact_at?: string | null
+          follow_up_count?: number | null
+          id?: string
+          last_followup_at?: string | null
+          messages?: Json | null
+          organisation_id?: string | null
+          phone?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       customer_activity: {
         Row: {
           created_at: string | null
@@ -517,6 +571,7 @@ export type Database = {
         Row: {
           access_notes: string | null
           address: string
+          area: string | null
           area_code: string | null
           assigned_engineer: string | null
           boiler_age: number | null
@@ -525,8 +580,10 @@ export type Database = {
           boiler_make_model: string | null
           boiler_model: string | null
           boiler_type: string | null
+          bot_created: boolean | null
           created_at: string
           customer_since: string | null
+          customer_type: string | null
           days_until_service: number | null
           eircode: string
           email: string | null
@@ -551,19 +608,23 @@ export type Database = {
           phone: string
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
+          reminders_consent: boolean | null
           renewal_stage: string
           scheduled_service_date: string | null
           service_status: string | null
+          source: string | null
           total_messages_sent: number | null
           under_warranty: boolean | null
           updated_at: string
           user_id: string
           warranty_reminder_log: Json | null
           warranty_years: number | null
+          whatsapp_phone: string | null
         }
         Insert: {
           access_notes?: string | null
           address: string
+          area?: string | null
           area_code?: string | null
           assigned_engineer?: string | null
           boiler_age?: number | null
@@ -572,8 +633,10 @@ export type Database = {
           boiler_make_model?: string | null
           boiler_model?: string | null
           boiler_type?: string | null
+          bot_created?: boolean | null
           created_at?: string
           customer_since?: string | null
+          customer_type?: string | null
           days_until_service?: number | null
           eircode: string
           email?: string | null
@@ -598,19 +661,23 @@ export type Database = {
           phone: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
+          reminders_consent?: boolean | null
           renewal_stage?: string
           scheduled_service_date?: string | null
           service_status?: string | null
+          source?: string | null
           total_messages_sent?: number | null
           under_warranty?: boolean | null
           updated_at?: string
           user_id: string
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
+          whatsapp_phone?: string | null
         }
         Update: {
           access_notes?: string | null
           address?: string
+          area?: string | null
           area_code?: string | null
           assigned_engineer?: string | null
           boiler_age?: number | null
@@ -619,8 +686,10 @@ export type Database = {
           boiler_make_model?: string | null
           boiler_model?: string | null
           boiler_type?: string | null
+          bot_created?: boolean | null
           created_at?: string
           customer_since?: string | null
+          customer_type?: string | null
           days_until_service?: number | null
           eircode?: string
           email?: string | null
@@ -645,15 +714,18 @@ export type Database = {
           phone?: string
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
+          reminders_consent?: boolean | null
           renewal_stage?: string
           scheduled_service_date?: string | null
           service_status?: string | null
+          source?: string | null
           total_messages_sent?: number | null
           under_warranty?: boolean | null
           updated_at?: string
           user_id?: string
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
+          whatsapp_phone?: string | null
         }
         Relationships: [
           {
@@ -1484,30 +1556,108 @@ export type Database = {
         }
         Relationships: []
       }
+      org_price_list: {
+        Row: {
+          active: boolean | null
+          fixed_price: boolean | null
+          id: string
+          organisation_id: string | null
+          price_from: number | null
+          price_to: number | null
+          service_category: string | null
+          service_name: string
+          sort_order: number | null
+          unit: string | null
+          updated_at: string | null
+          vat_included: boolean | null
+        }
+        Insert: {
+          active?: boolean | null
+          fixed_price?: boolean | null
+          id?: string
+          organisation_id?: string | null
+          price_from?: number | null
+          price_to?: number | null
+          service_category?: string | null
+          service_name: string
+          sort_order?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          vat_included?: boolean | null
+        }
+        Update: {
+          active?: boolean | null
+          fixed_price?: boolean | null
+          id?: string
+          organisation_id?: string | null
+          price_from?: number | null
+          price_to?: number | null
+          service_category?: string | null
+          service_name?: string
+          sort_order?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          vat_included?: boolean | null
+        }
+        Relationships: []
+      }
       organisations: {
         Row: {
+          bookedjobs_plan: string | null
+          bot_enabled: boolean | null
+          bot_name: string | null
+          bot_phone: string | null
+          business_hours_end: string | null
+          business_hours_start: string | null
           created_at: string | null
+          google_review_url: string | null
           id: string
+          industry: string | null
           name: string
+          owner_name: string | null
+          owner_phone: string | null
           owner_user_id: string | null
+          prompt_template: string | null
           slug: string
           stripe_customer_id: string | null
           subscription_status: string
         }
         Insert: {
+          bookedjobs_plan?: string | null
+          bot_enabled?: boolean | null
+          bot_name?: string | null
+          bot_phone?: string | null
+          business_hours_end?: string | null
+          business_hours_start?: string | null
           created_at?: string | null
+          google_review_url?: string | null
           id?: string
+          industry?: string | null
           name: string
+          owner_name?: string | null
+          owner_phone?: string | null
           owner_user_id?: string | null
+          prompt_template?: string | null
           slug: string
           stripe_customer_id?: string | null
           subscription_status?: string
         }
         Update: {
+          bookedjobs_plan?: string | null
+          bot_enabled?: boolean | null
+          bot_name?: string | null
+          bot_phone?: string | null
+          business_hours_end?: string | null
+          business_hours_start?: string | null
           created_at?: string | null
+          google_review_url?: string | null
           id?: string
+          industry?: string | null
           name?: string
+          owner_name?: string | null
+          owner_phone?: string | null
           owner_user_id?: string | null
+          prompt_template?: string | null
           slug?: string
           stripe_customer_id?: string | null
           subscription_status?: string
@@ -1663,8 +1813,12 @@ export type Database = {
       quotes: {
         Row: {
           accepted_at: string | null
+          approved: boolean | null
+          approved_at: string | null
           balance_due: number | null
+          bot_created: boolean | null
           callout_cost: number | null
+          conversation_id: string | null
           converted_job_id: string | null
           created_at: string
           customer_id: string
@@ -1674,19 +1828,24 @@ export type Database = {
           discount: number | null
           expiry_date: string | null
           follow_up_sent: boolean | null
+          grant_amount: number | null
           id: string
           job_id: string
           job_type: string | null
           labour_cost: number | null
           line_items: Json
+          net_cost: number | null
           notes: string | null
           organisation_id: string
           paid_at: string | null
           parts_cost: number | null
           payment_link: string | null
           pdf_url: string | null
+          public_url: string | null
           quote_number: string | null
           sent_at: string | null
+          sent_via_whatsapp: boolean | null
+          source: string | null
           status: string
           terms: string | null
           total_amount: number
@@ -1697,8 +1856,12 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          approved?: boolean | null
+          approved_at?: string | null
           balance_due?: number | null
+          bot_created?: boolean | null
           callout_cost?: number | null
+          conversation_id?: string | null
           converted_job_id?: string | null
           created_at?: string
           customer_id: string
@@ -1708,19 +1871,24 @@ export type Database = {
           discount?: number | null
           expiry_date?: string | null
           follow_up_sent?: boolean | null
+          grant_amount?: number | null
           id?: string
           job_id: string
           job_type?: string | null
           labour_cost?: number | null
           line_items?: Json
+          net_cost?: number | null
           notes?: string | null
           organisation_id?: string
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
           pdf_url?: string | null
+          public_url?: string | null
           quote_number?: string | null
           sent_at?: string | null
+          sent_via_whatsapp?: boolean | null
+          source?: string | null
           status?: string
           terms?: string | null
           total_amount?: number
@@ -1731,8 +1899,12 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          approved?: boolean | null
+          approved_at?: string | null
           balance_due?: number | null
+          bot_created?: boolean | null
           callout_cost?: number | null
+          conversation_id?: string | null
           converted_job_id?: string | null
           created_at?: string
           customer_id?: string
@@ -1742,19 +1914,24 @@ export type Database = {
           discount?: number | null
           expiry_date?: string | null
           follow_up_sent?: boolean | null
+          grant_amount?: number | null
           id?: string
           job_id?: string
           job_type?: string | null
           labour_cost?: number | null
           line_items?: Json
+          net_cost?: number | null
           notes?: string | null
           organisation_id?: string
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
           pdf_url?: string | null
+          public_url?: string | null
           quote_number?: string | null
           sent_at?: string | null
+          sent_via_whatsapp?: boolean | null
+          source?: string | null
           status?: string
           terms?: string | null
           total_amount?: number
@@ -1852,11 +2029,14 @@ export type Database = {
           boiler_issue: string | null
           boiler_type: string | null
           boiler_working: boolean | null
+          bot_created: boolean | null
+          budget_range: string | null
           cancellation_note: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
           completed_at: string | null
+          conversation_id: string | null
           created_at: string
           customer_id: string
           deposit_amount: number | null
@@ -1876,6 +2056,7 @@ export type Database = {
           invoice_reminder_count: number
           invoice_reminder_sent_at: string | null
           invoiced_at: string | null
+          job_category: string | null
           job_issue: string | null
           job_reference: string | null
           job_tags: string[]
@@ -1893,6 +2074,7 @@ export type Database = {
           payment_link: string | null
           payment_method: string | null
           payment_status: string | null
+          preferred_time: string | null
           quote_id: string | null
           receipt_number: string | null
           receipt_pdf_url: string | null
@@ -1901,6 +2083,7 @@ export type Database = {
           reminder_14day_sent: boolean
           reminder_2day_sent: boolean
           reminder_30day_sent: boolean
+          reminder_sent: boolean | null
           revenue: number | null
           review_sent: boolean
           review_sent_at: string | null
@@ -1912,6 +2095,7 @@ export type Database = {
           sumup_checkout_id: string | null
           tally_submission_id: string | null
           time_block: string | null
+          timeline: string | null
           updated_at: string
           user_id: string
           whatsapp_confirmation_sent: boolean
@@ -1927,11 +2111,14 @@ export type Database = {
           boiler_issue?: string | null
           boiler_type?: string | null
           boiler_working?: boolean | null
+          bot_created?: boolean | null
+          budget_range?: string | null
           cancellation_note?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           completed_at?: string | null
+          conversation_id?: string | null
           created_at?: string
           customer_id: string
           deposit_amount?: number | null
@@ -1951,6 +2138,7 @@ export type Database = {
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
           invoiced_at?: string | null
+          job_category?: string | null
           job_issue?: string | null
           job_reference?: string | null
           job_tags?: string[]
@@ -1968,6 +2156,7 @@ export type Database = {
           payment_link?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          preferred_time?: string | null
           quote_id?: string | null
           receipt_number?: string | null
           receipt_pdf_url?: string | null
@@ -1976,6 +2165,7 @@ export type Database = {
           reminder_14day_sent?: boolean
           reminder_2day_sent?: boolean
           reminder_30day_sent?: boolean
+          reminder_sent?: boolean | null
           revenue?: number | null
           review_sent?: boolean
           review_sent_at?: string | null
@@ -1987,6 +2177,7 @@ export type Database = {
           sumup_checkout_id?: string | null
           tally_submission_id?: string | null
           time_block?: string | null
+          timeline?: string | null
           updated_at?: string
           user_id: string
           whatsapp_confirmation_sent?: boolean
@@ -2002,11 +2193,14 @@ export type Database = {
           boiler_issue?: string | null
           boiler_type?: string | null
           boiler_working?: boolean | null
+          bot_created?: boolean | null
+          budget_range?: string | null
           cancellation_note?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           completed_at?: string | null
+          conversation_id?: string | null
           created_at?: string
           customer_id?: string
           deposit_amount?: number | null
@@ -2026,6 +2220,7 @@ export type Database = {
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
           invoiced_at?: string | null
+          job_category?: string | null
           job_issue?: string | null
           job_reference?: string | null
           job_tags?: string[]
@@ -2043,6 +2238,7 @@ export type Database = {
           payment_link?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          preferred_time?: string | null
           quote_id?: string | null
           receipt_number?: string | null
           receipt_pdf_url?: string | null
@@ -2051,6 +2247,7 @@ export type Database = {
           reminder_14day_sent?: boolean
           reminder_2day_sent?: boolean
           reminder_30day_sent?: boolean
+          reminder_sent?: boolean | null
           revenue?: number | null
           review_sent?: boolean
           review_sent_at?: string | null
@@ -2062,6 +2259,7 @@ export type Database = {
           sumup_checkout_id?: string | null
           tally_submission_id?: string | null
           time_block?: string | null
+          timeline?: string | null
           updated_at?: string
           user_id?: string
           whatsapp_confirmation_sent?: boolean
