@@ -123,6 +123,8 @@ Deno.serve(async (req) => {
     // Upsert customer (match by phone)
     let customerId: string
 
+    console.log('[tally-incoming-job] orgData.id:', orgData.id, 'userId:', userId)
+
     const { data: existing } = await supabase
       .from('customers')
       .select('id')
