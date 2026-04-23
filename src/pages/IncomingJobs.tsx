@@ -228,7 +228,6 @@ const IncomingJobs = () => {
             </ul>
           </div>
         </div>
-      )
       ) : (
         jobs.map((j) => (
           <IncomingJobCard
