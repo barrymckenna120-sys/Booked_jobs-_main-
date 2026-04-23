@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
     if (existing) {
       customerId = existing.id
       await supabase.from('customers').update({
+        user_id: userId,
         name: customerName,
         email,
         address: fullAddress || undefined,
