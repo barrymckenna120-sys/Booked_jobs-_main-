@@ -97,23 +97,21 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Get the business user_id (single-tenant)
-    const { data: firstSettings } = await supabase
-      .from('settings')
-      .select('user_id')
-      .limit(1)
+    // Get the organisation directly
+    const { data: orgData } = await supabase
+      .from('organisations')
+      .select('id, owner_user_id')
+      .eq('slug', 'kn-gas-services')
       .single()
 
-    const { data: orgData } = await supabase.from('organisations').select('id, owner_user_id').eq('slug', 'kn-gas-services').single()
-
-    const userId = orgData?.owner_user_id
-    if (!userId) {
-      console.error('No business user found in settings')
-      return new Response(JSON.stringify({ success: false, error: 'Unable to process submission.' }), {
+    if (!orgData) {
+      return new Response(JSON.stringify({ success: false, error: 'Organisation not found' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    const userId = orgData.owner_user_id
 
     // Upsert customer (match by phone)
     let customerId: string
