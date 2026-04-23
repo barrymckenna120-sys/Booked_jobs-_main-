@@ -113,6 +113,13 @@ Deno.serve(async (req) => {
 
     const userId = orgData.owner_user_id
 
+    if (!userId) {
+      return new Response(JSON.stringify({ success: false, error: 'Organisation owner not found' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Upsert customer (match by phone)
     let customerId: string
 
