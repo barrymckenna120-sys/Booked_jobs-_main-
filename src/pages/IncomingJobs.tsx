@@ -68,8 +68,7 @@ const IncomingJobs = () => {
     setLoading(true);
     let query = supabase
       .from("service_calls")
-      .select("*, customers!inner(id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model)")
-      .eq("user_id", user.id)
+      .select("*, customers(id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model)")
       .eq("source", "Tally Form")
       .order("created_at", { ascending: false });
 
