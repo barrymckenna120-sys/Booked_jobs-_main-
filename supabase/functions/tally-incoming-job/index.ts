@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
       .limit(1)
       .single()
 
+    const { data: orgData } = await supabase.from('organisations').select('id').eq('slug', 'kn-gas-services').single()
+
     const userId = firstSettings?.user_id
     if (!userId) {
       console.error('No business user found in settings')
@@ -181,6 +183,7 @@ Deno.serve(async (req) => {
       .from('service_calls')
       .insert({
         user_id: userId,
+        organisation_id: orgData?.id,
         customer_id: customerId,
         job_type: 'Boiler Service',
         status: 'Pending',
