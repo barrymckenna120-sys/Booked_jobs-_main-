@@ -209,9 +209,24 @@ const IncomingJobs = () => {
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Loading...</p>
       ) : jobs.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Inbox className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <div className="font-bold">No {filter !== "All" ? filter.toLowerCase() : ""} incoming jobs</div>
+        <div className="text-center py-12 px-4 max-w-md mx-auto">
+          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <Inbox className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <div className="font-bold text-base mb-2">
+            No {filter !== "All" ? filter.toLowerCase() : ""} incoming jobs
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+            New bookings from your online form will appear here automatically. If you're expecting jobs but don't see any, your account may not have access yet.
+          </p>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-left text-xs text-muted-foreground">
+            <div className="font-semibold text-foreground mb-1.5">Not seeing jobs your teammates can see?</div>
+            <ul className="space-y-1 list-disc list-inside">
+              <li>Ask an admin to confirm you're added to the team in <span className="font-medium">Settings → Team Management</span>.</li>
+              <li>Make sure your role (admin / office) has permission to view incoming jobs.</li>
+              <li>Database access rules (RLS) scope jobs to your organisation — a teammate may need to grant access.</li>
+            </ul>
+          </div>
         </div>
       ) : (
         jobs.map((j) => (
