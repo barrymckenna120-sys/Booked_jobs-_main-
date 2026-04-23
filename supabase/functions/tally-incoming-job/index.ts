@@ -104,9 +104,9 @@ Deno.serve(async (req) => {
       .limit(1)
       .single()
 
-    const { data: orgData } = await supabase.from('organisations').select('id').eq('slug', 'kn-gas-services').single()
+    const { data: orgData } = await supabase.from('organisations').select('id, owner_user_id').eq('slug', 'kn-gas-services').single()
 
-    const userId = firstSettings?.user_id
+    const userId = orgData?.owner_user_id
     if (!userId) {
       console.error('No business user found in settings')
       return new Response(JSON.stringify({ success: false, error: 'Unable to process submission.' }), {
@@ -186,9 +186,9 @@ Deno.serve(async (req) => {
         organisation_id: orgData?.id,
         customer_id: customerId,
         job_type: 'Boiler Service',
-        status: 'pending',
+        status: 'Pending',
         source: 'Tally Form',
-        incoming_status: 'pending',
+        incoming_status: 'Pending',
         scheduled_date: preferredDay ?? null,
         time_block: timeBlock,
         boiler_brand: boilerBrand,
