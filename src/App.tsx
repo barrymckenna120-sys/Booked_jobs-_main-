@@ -22,6 +22,7 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import WhatsApp from "./pages/WhatsApp";
 import WhatsAppTemplates from "./pages/WhatsAppTemplates";
 import IncomingJobs from "./pages/IncomingJobs";
+import IncomingJobsDebug from "./pages/IncomingJobsDebug";
 import EngineerLayout from "./components/engineer/EngineerLayout";
 import EngineerToday from "./pages/engineer/EngineerToday";
 import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
@@ -131,6 +132,7 @@ const App = () => (
               <Route path="/message-log" element={<Navigate to="/dashboard" replace />} />
               <Route path="/messages" element={<Navigate to="/inbox" replace />} />
               <Route path="/system-logs" element={<SystemLogs />} />
+              <Route path="/debug/incoming-jobs" element={<IncomingJobsDebug />} />
 
               {/* Quote detail routes still work directly */}
               <Route path="/quotes/new" element={<QuoteNew />} />
