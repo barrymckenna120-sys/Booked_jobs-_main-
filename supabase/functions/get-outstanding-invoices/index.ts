@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
 
     const { data: jobs, error } = await supabase
       .from("service_calls")
-      .select("id, balance_due, completed_at, invoice_reminder_count, customer_id, customers(name, phone, opted_out)")
+      .select("id, balance_due, completed_at, invoice_reminder_count, customer_id, invoice_number, invoice_date, customers(name, phone, opted_out)")
       .eq("payment_status", "unpaid")
       .eq("payment_method", "invoice")
       .lt("invoice_reminder_count", 2)
@@ -41,6 +41,8 @@ Deno.serve(async (req) => {
         customer_phone: j.customers?.phone || "",
         balance_due: j.balance_due || 0,
         completed_at: j.completed_at,
+        invoice_number: j.invoice_number || null,
+        invoice_date: j.invoice_date || j.completed_at,
         invoice_reminder_count: j.invoice_reminder_count || 0,
       }));
 
