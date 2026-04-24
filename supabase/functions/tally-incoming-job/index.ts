@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
         }
       }
     }
-
+    // v2 - force redeploy
     return new Response(JSON.stringify({ success: true, id: job.id, customer_id: customerId }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
