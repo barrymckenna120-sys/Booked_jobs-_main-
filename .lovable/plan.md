@@ -1,30 +1,48 @@
+## Scope
+Three small, surgical edits. Nothing else touched.
 
+---
 
-## Plan: Add diagnostic logging to invite-team-member
+### 1. `src/pages/IncomingJobs.tsx` — capture and log query errors
+In `fetchJobs`, replace:
+```ts
+const { data } = await query;
+```
+with:
+```ts
+const { data, error } = await query;
+console.log('[IncomingJobs] data:', data, 'error:', error);
+```
+No other changes to the function — the existing `data || []` fallback and downstream code remain intact.
 
-The function already has a try/catch, but lacks early-entry logging and request body logging. Three targeted additions:
+---
 
-### Changes to `supabase/functions/invite-team-member/index.ts`
+### 2. `src/pages/Schedule.tsx` — drop `!inner` on customers join
+At **line 157**, change:
+```ts
+.select("*, customers!inner(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
+```
+to:
+```ts
+.select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
+```
+Stops jobs from being silently dropped when the customers row is missing or RLS-restricted — matches the fix already applied to `IncomingJobs.tsx`.
 
-1. **Line 8** — Right after `Deno.serve(async (req) => {`, before the OPTIONS check, add:
-   ```typescript
-   console.log("invite-team-member called", req.method);
-   ```
+---
 
-2. **Line 22** — Right after parsing the request body, add:
-   ```typescript
-   console.log("Request body:", { engineer_id, email, name, role });
-   ```
+### 3. `src/pages/Jobs.tsx` — fix Tally source badge label
+The DB stores the source as `"Tally Form"`, but the badge check uses `"Tally"`, so Tally jobs currently fall through to the "Manual" branch.
 
-3. **CORS headers** — Update `Access-Control-Allow-Headers` to include the extended Supabase client headers that may be causing preflight failures:
-   ```
-   authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version
-   ```
+Two occurrences to update:
+- **Line 320:** `j.source === "Tally"` → `j.source === "Tally Form"`
+- **Line 437:** `j.source === "Tally"` → `j.source === "Tally Form"`
 
-4. **Redeploy** the function and check edge function logs.
+Badge text/styling stays as-is ("Tally" pill); only the comparison string changes.
 
-### Technical detail
+---
 
-- The existing try/catch on line 120 already logs and returns 500, so no structural change needed there.
-- The CORS header update is important — newer Supabase JS clients send extra headers that must be explicitly allowed, otherwise the browser blocks the preflight and the function appears to return a non-2xx with no logs.
-
+### Out of scope
+- No other error-handling changes beyond the single `console.log`.
+- No changes to `IncomingJobs.tsx` realtime subscription, hardcoded `organisation_id`, or any other logic.
+- No changes to other files, queries, or styling.
+- Pre-existing edge-function build errors in the build log are unrelated to these three files and are not addressed here.

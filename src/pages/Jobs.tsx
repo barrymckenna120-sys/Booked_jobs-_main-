@@ -317,7 +317,7 @@ const Jobs = () => {
               <TableCell className="hidden md:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
-                ) : j.source === "Tally" ? (
+                ) : j.source === "Tally Form" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">Tally</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
@@ -434,7 +434,7 @@ const Jobs = () => {
           <span className="text-[10px] text-muted-foreground font-mono">{(j as any).job_reference || `KN-${j.id.slice(0, 4).toUpperCase()}`}</span>
           {j.source === "Quote" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
-          ) : j.source === "Tally" ? (
+          ) : j.source === "Tally Form" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600">Tally</span>
           ) : (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Manual</span>
