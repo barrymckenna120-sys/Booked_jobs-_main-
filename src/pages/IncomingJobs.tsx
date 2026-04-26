@@ -81,7 +81,8 @@ const IncomingJobs = () => {
       query = query.neq("incoming_status", "Archived");
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    console.log('[IncomingJobs] data:', data, 'error:', error);
     const jobsData = (data || []) as unknown as IncomingJob[];
     setJobs(jobsData);
 

@@ -154,7 +154,7 @@ const Schedule = () => {
       // Get scheduled jobs for the week + unallocated jobs
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
-        .select("*, customers!inner(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
+        .select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null,status.eq.Pending,status.in.(incoming,accepted)`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
