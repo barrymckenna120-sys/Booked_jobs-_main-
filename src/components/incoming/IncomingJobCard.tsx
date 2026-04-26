@@ -25,7 +25,7 @@ type IncomingJob = {
     eircode: string;
     area_code: string | null;
     boiler_make_model: string | null;
-  };
+  } | null;
 };
 
 type Props = {
