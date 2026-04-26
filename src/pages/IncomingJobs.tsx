@@ -230,15 +230,27 @@ const IncomingJobs = () => {
           </div>
         </div>
       ) : (
-        jobs.map((j) => (
-          <IncomingJobCard
-            key={j.id}
-            job={j}
-            mediaCount={mediaCounts[j.id] || 0}
-            onClick={() => setReviewJob(j)}
-            onArchive={handleArchive}
-          />
-        ))
+        jobs.map((j) =>
+          j.customers ? (
+            <IncomingJobCard
+              key={j.id}
+              job={j}
+              mediaCount={mediaCounts[j.id] || 0}
+              onClick={() => setReviewJob(j)}
+              onArchive={handleArchive}
+            />
+          ) : (
+            <div
+              key={j.id}
+              className="bg-card border border-border border-l-4 border-l-muted-foreground rounded-xl p-4 mb-3 opacity-70"
+            >
+              <div className="text-[15px] font-extrabold">Unknown customer</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Job ID: {j.id} · Customer record missing or hidden
+              </div>
+            </div>
+          )
+        )
       )}
 
       {/* Review Panel */}
