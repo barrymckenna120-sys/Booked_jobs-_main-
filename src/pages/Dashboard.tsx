@@ -246,6 +246,16 @@ const Dashboard = () => {
       {activeTab === "parts" && <PartsPanel />}
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
+
+      <button
+        type="button"
+        onClick={() => {
+          throw new Error("Sentry test error from BookedJobs");
+        }}
+        className="fixed bottom-4 right-4 z-50 px-3 py-1.5 text-xs font-medium rounded-md bg-destructive text-destructive-foreground shadow-lg"
+      >
+        Sentry Test
+      </button>
     </div>
   );
 };
