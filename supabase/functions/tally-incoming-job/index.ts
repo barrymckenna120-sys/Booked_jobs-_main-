@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
         .from("customers")
         .update({
           user_id: userId,
+          organisation_id: orgData.id,
           name: customerName,
           email,
           address: fullAddress || undefined,
@@ -163,6 +164,7 @@ Deno.serve(async (req) => {
         .from("customers")
         .insert({
           user_id: userId,
+          organisation_id: orgData.id,
           name: customerName,
           phone: normalisedPhone,
           email,
