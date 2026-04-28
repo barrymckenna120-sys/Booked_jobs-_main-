@@ -181,6 +181,8 @@ Deno.serve(async (req) => {
       customerId = newCustomer.id;
     }
 
+    console.log("[tally-incoming-job] customerId:", customerId);
+
     // Parse boiler_working
     const boilerWorkingBool =
       boilerWorking === true || boilerWorking === "Yes" || boilerWorking === "yes" || boilerWorking === "true";
