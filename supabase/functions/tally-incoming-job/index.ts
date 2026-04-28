@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     const { data: existing } = await supabase
       .from("customers")
       .select("id")
-      .eq("phone", mobileNumber)
+      .eq("phone", normalisedPhone)
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle();
