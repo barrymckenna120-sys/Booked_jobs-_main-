@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         .insert({
           user_id: userId,
           name: customerName,
-          phone: mobileNumber,
+          phone: normalisedPhone,
           email,
           address: fullAddress || "TBC",
           eircode: eircode || "TBC",
