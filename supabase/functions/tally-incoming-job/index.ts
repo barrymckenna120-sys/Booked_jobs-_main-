@@ -98,6 +98,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Normalise phone to E.164 (+353XXXXXXXXX)
+    const normalisedPhone = mobileNumber.startsWith("+")
+      ? mobileNumber
+      : mobileNumber.startsWith("353")
+      ? "+" + mobileNumber
+      : "+353" + mobileNumber.replace(/^0/, "");
+
     // Get the organisation directly
     const { data: orgData } = await supabase
       .from("organisations")
@@ -129,7 +136,7 @@ Deno.serve(async (req) => {
     const { data: existing } = await supabase
       .from("customers")
       .select("id")
-      .eq("phone", mobileNumber)
+      .eq("phone", normalisedPhone)
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle();
@@ -157,7 +164,7 @@ Deno.serve(async (req) => {
         .insert({
           user_id: userId,
           name: customerName,
-          phone: mobileNumber,
+          phone: normalisedPhone,
           email,
           address: fullAddress || "TBC",
           eircode: eircode || "TBC",
