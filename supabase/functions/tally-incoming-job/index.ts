@@ -98,6 +98,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Normalise phone to E.164 (+353XXXXXXXXX)
+    const normalisedPhone = mobileNumber.startsWith("+")
+      ? mobileNumber
+      : mobileNumber.startsWith("353")
+      ? "+" + mobileNumber
+      : "+353" + mobileNumber.replace(/^0/, "");
+
     // Get the organisation directly
     const { data: orgData } = await supabase
       .from("organisations")
