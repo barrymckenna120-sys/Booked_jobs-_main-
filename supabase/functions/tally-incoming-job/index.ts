@@ -145,7 +145,8 @@ Deno.serve(async (req) => {
           address: fullAddress || undefined,
           eircode: eircode || undefined,
           area_code: areaCode,
-          boiler_make_model: boilerModel,
+          boiler_brand: boilerBrand,
+          boiler_model: boilerModel,
         })
         .eq("id", customerId);
     } else {
@@ -161,7 +162,8 @@ Deno.serve(async (req) => {
           address: fullAddress || "TBC",
           eircode: eircode || "TBC",
           area_code: areaCode,
-          boiler_make_model: boilerModel,
+          boiler_brand: boilerBrand,
+          boiler_model: boilerModel,
           next_service_due: nextServiceDue.toISOString().split("T")[0],
           renewal_stage: "none",
           service_status: "active",
