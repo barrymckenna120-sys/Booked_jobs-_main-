@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+// SW cache version: v2026-04-29-1 — bump to force clients to fetch latest build
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
