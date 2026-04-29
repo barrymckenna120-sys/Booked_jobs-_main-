@@ -99,7 +99,7 @@ const ScheduleIncomingJobModal = ({ open, onOpenChange, jobId, customerName, onS
     const { error } = await supabase
       .from("service_calls")
       .update(sanitizeServiceCallUpdatePayload({
-        scheduled_date: date,
+        scheduled_date: `${date}T12:00:00`,
         time_block: block,
         assigned_engineer_id: engineerId,
         assigned_engineer: engineerName,

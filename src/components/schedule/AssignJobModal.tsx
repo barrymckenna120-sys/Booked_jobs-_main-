@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { format, addDays } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -101,7 +101,7 @@ const AssignJobModal = ({
     setErrors(e);
     setTouched({ job: true, date: true, block: true, engineer: true });
     if (Object.keys(e).length > 0) return;
-    const date = weekDays.find((d) => format(d, "yyyy-MM-dd") === selectedDate) || new Date(selectedDate);
+    const date = weekDays.find((d) => format(d, "yyyy-MM-dd") === selectedDate) || parseISO(selectedDate.substring(0, 10));
     onAssign(selectedJobId, date, selectedBlock, selectedEngineer);
   };
 
