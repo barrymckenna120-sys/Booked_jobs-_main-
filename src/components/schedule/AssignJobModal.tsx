@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { format, addDays } from "date-fns";
+import { cn } from "@/lib/utils";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -9,8 +10,25 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-const TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
+const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
+
+const formatTimeLabel = (start: string, end: string) => {
+  const fmt = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const suffix = h >= 12 ? "pm" : "am";
+    const h12 = h % 12 || 12;
+    return m ? `${h12}:${m.toString().padStart(2, "0")}${suffix}` : `${h12}${suffix}`;
+  };
+  return `${fmt(start)}–${fmt(end)}`;
+};
+
+const buildTimeBlocks = (blocks: any[]): string[] => {
+  if (!blocks || blocks.length === 0) return DEFAULT_TIME_BLOCKS;
+  return blocks.map((s: any) => formatTimeLabel(s.start || "09:00", s.end || "17:00"));
+};
 
 type Props = {
   open: boolean;
@@ -37,6 +55,24 @@ const AssignJobModal = ({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [touched, setTouched] = useState<FieldErrors>({});
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
+
+  const { data: settingsBlocks } = useQuery({
+    queryKey: ["slot-settings-blocks"],
+    queryFn: async () => {
+      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      return (data?.job_time_blocks as any[] | null) || [];
+    },
+  });
+  const TIME_BLOCKS = buildTimeBlocks(settingsBlocks || []);
+
+  const dateOptions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Array.from({ length: 21 }, (_, i) => {
+      const d = addDays(today, i);
+      return { value: format(d, "yyyy-MM-dd"), label: format(d, "EEE d MMM") };
+    });
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -150,13 +186,11 @@ const AssignJobModal = ({
               <Label className="text-xs font-semibold">Date</Label>
               <Select value={selectedDate} onValueChange={(v) => { setSelectedDate(v); setErrors((e) => ({ ...e, date: false })); }}>
                 <SelectTrigger className={validationBorderClass(showError("date"))}>
-                  <SelectValue placeholder="Select day" />
+                  <SelectValue placeholder="Select date" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
-                  {weekDays.map((d) => (
-                    <SelectItem key={d.toISOString()} value={format(d, "yyyy-MM-dd")}>
-                      {format(d, "EEEE, d MMM")}
-                    </SelectItem>
+                  {dateOptions.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

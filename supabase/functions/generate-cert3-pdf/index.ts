@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +14,12 @@ function escapeHtml(str: string | null | undefined): string {
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
   return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 Deno.serve(async (req) => {
@@ -137,8 +143,8 @@ Deno.serve(async (req) => {
     doc.setFillColor(...primaryRgb);
     doc.roundedRect(margin, y, contentW, 22, 2, 2, "F");
     addText("RGI", margin + 5, y + 9, { size: 9, bold: true, color: headerTextRgb });
-    addText("Cert 3", margin + 5, y + 14, { size: 9, bold: true, color: headerTextRgb });
-    addText("Gas Safety / Service", margin + 24, y + 10, { size: 15, bold: true, color: headerTextRgb });
+    addText("Safety", margin + 5, y + 14, { size: 9, bold: true, color: headerTextRgb });
+    addText("Domestic Safety / Service", margin + 24, y + 10, { size: 15, bold: true, color: headerTextRgb });
     addText(cert.cert_number || "", pageW - margin - 3, y + 10, { size: 12, bold: true, color: accentRgb, align: "right" });
     const dateStr = new Date(cert.created_at).toLocaleDateString("en-IE", { day: "2-digit", month: "long", year: "numeric" });
     addText(`Issued: ${dateStr}`, pageW - margin - 3, y + 17, { size: 9, color: [200, 200, 200], align: "right" });
@@ -197,7 +203,7 @@ Deno.serve(async (req) => {
     checkNewPage(60);
     sectionTitle("APPLIANCE TABLE");
     const appliances = ["Hob", "Oven", "Cooker", "Fire", "Flueless Fire", "C/H Boiler", "Water Heater", "Pipework"];
-    const appCols = ["Repaired", "I.S. 813 / I.S. EN 1949", "Annex C - Serviced", "Annex E - Safety Check"];
+    const appCols = ["Repaired", "I.S. 813 / I.S. EN 1949", "Annex C \u2013 Serviced", "Annex E \u2013 Safety Check"];
     const appColW = (contentW - 32) / appCols.length;
 
     // Table header
@@ -227,9 +233,11 @@ Deno.serve(async (req) => {
         const cx = margin + 32 + c * appColW + appColW / 2;
         const val = rowData[appCols[c]];
         if (val === true) {
-          addText("\u2713", cx, y + 5, { size: 10, bold: true, color: [34, 197, 94], align: "center" });
+          addText("Y", cx, y + 5, { size: 11, bold: true, color: [34, 197, 94], align: "center" });
+        } else if (val === false) {
+          addText("N", cx, y + 5, { size: 11, bold: true, color: [239, 68, 68], align: "center" });
         } else {
-          addText("\u2717", cx, y + 5, { size: 10, bold: true, color: [220, 38, 38], align: "center" });
+          addText("-", cx, y + 5, { size: 11, color: [156, 163, 175], align: "center" });
         }
       }
       y += 7;
@@ -255,9 +263,9 @@ Deno.serve(async (req) => {
       addText(label, margin + 2, y + 4, { size: 10 });
       const val = checks[key];
       if (val?.status === "pass") {
-        addText("\u2713", margin + contentW - 10, y + 4, { size: 12, bold: true, color: [34, 197, 94], align: "right" });
+        addText("Y", margin + contentW - 10, y + 4, { size: 11, bold: true, color: [34, 197, 94], align: "right" });
       } else {
-        addText("\u2717", margin + contentW - 10, y + 4, { size: 12, bold: true, color: [220, 38, 38], align: "right" });
+        addText("N", margin + contentW - 10, y + 4, { size: 11, bold: true, color: [239, 68, 68], align: "right" });
       }
       y += 8;
       checkIdx++;
@@ -301,8 +309,8 @@ Deno.serve(async (req) => {
     checkNewPage(30);
     sectionTitle("DECLARATION");
     const dy = y;
-    fieldPair("Date of Test", notes.date_of_test || "", margin + 2);
-    fieldPair("Date of Issue", notes.date_of_issue || "", margin + 2);
+    fieldPair("Date of Test", formatDate(notes.date_of_test), margin + 2);
+    fieldPair("Date of Issue", formatDate(notes.date_of_issue), margin + 2);
     const dLeftEnd = y;
     y = dy;
     fieldPair("Trainee No", notes.trainee_no || "N/A", margin + contentW / 2);
@@ -320,9 +328,9 @@ Deno.serve(async (req) => {
     doc.roundedRect(margin, y, contentW, 24, 2, 2, "F");
     doc.setDrawColor(...borderRgb);
     doc.roundedRect(margin, y, contentW, 24, 2, 2, "S");
-    addText("Declaration:", margin + 4, y + 5, { size: 8, bold: true, color: [68, 68, 68] });
+    addText("Domestic Safety / Service Declaration:", margin + 4, y + 5, { size: 8, bold: true, color: [68, 68, 68] });
     addText(
-      "I hereby declare that I am a Registered Gas Installer and that the gas installation work carried out at the above premises has been inspected, tested and serviced in accordance with I.S. 813 and current gas safety standards. All appliances have been checked and are safe for continued use.",
+      "I hereby declare that I am a Registered Gas Installer and that the gas appliance(s) at the above premises have been inspected, tested and serviced in accordance with I.S. 813 and current gas safety standards. All appliances listed have been checked and are safe for continued use.",
       margin + 4, y + 9, { size: 7, color: [68, 68, 68], maxWidth: contentW - 8 }
     );
     y += 28;

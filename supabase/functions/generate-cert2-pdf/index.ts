@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -223,9 +223,9 @@ Deno.serve(async (req) => {
       addText(label, margin + 2, y + 4, { size: 10 });
       const val = checks[key];
       if (val?.status === "pass") {
-        addText("✓", margin + contentW - 10, y + 4, { size: 12, bold: true, color: [34, 197, 94], align: "right" });
+        addText("Y", margin + contentW - 10, y + 4, { size: 11, bold: true, color: [34, 197, 94], align: "right" });
       } else {
-        addText("—", margin + contentW - 10, y + 4, { size: 10, color: [136, 136, 136], align: "right" });
+        addText("N", margin + contentW - 10, y + 4, { size: 11, bold: true, color: [239, 68, 68], align: "right" });
       }
       y += 8;
       checkIdx++;

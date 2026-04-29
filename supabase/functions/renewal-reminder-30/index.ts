@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,6 +82,17 @@ Deno.serve(async (req) => {
       })
       .map((c) => {
         const latest = latestJobMap.get(c.id);
+        // Build Tally booking URL
+        let digits = (c.phone || "").replace(/\D/g, "");
+        if (digits.startsWith("353") && digits.length === 12) {
+          // already full international
+        } else if (digits.startsWith("0") && digits.length === 10) {
+          digits = "353" + digits.slice(1);
+        } else if (digits.length === 9) {
+          digits = "353" + digits;
+        }
+        const localPhone = "0" + digits.slice(3);
+        const tally_url = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
         return {
           customer_id: c.id,
           full_name: c.name,
@@ -91,6 +102,7 @@ Deno.serve(async (req) => {
           job_id: latest?.id || null,
           reminder_30day_sent: latest?.reminder_30day_sent ?? false,
           reminder_14day_sent: latest?.reminder_14day_sent ?? false,
+          tally_url,
         };
       });
 

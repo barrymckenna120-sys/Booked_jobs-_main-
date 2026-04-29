@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 
 const corsHeaders = {
@@ -396,7 +396,8 @@ Deno.serve(async (req) => {
     const firstName = cust.name.split(" ")[0];
     let messageFooter = biz.message_footer || "K&N Gas Services";
 
-    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.\n\n📄 View invoice:\n${pdfUrl}\n\nThank you, ${messageFooter}`;
+    const invoiceCleanUrl = `https://kngasservices.bookedjobs.ie/invoice/${encodeURIComponent(invNum)}`;
+    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.\n\n📄 View invoice:\n${invoiceCleanUrl}\n\nThank you, ${messageFooter}`;
 
     let whatsappSent = false;
 
@@ -442,6 +443,19 @@ Deno.serve(async (req) => {
         }
 
         whatsappSent = !!result.success;
+
+        // Log customer activity on success
+        if (result.success) {
+          try {
+            await sb.from("customer_activity").insert({
+              organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+              customer_id: job.customer_id,
+              service_call_id: job_id,
+              event_type: "whatsapp_sent",
+              event_label: "WhatsApp sent — Invoice",
+            });
+          } catch { /* non-critical */ }
+        }
 
         if (!result.success) {
           await sb.from("edge_function_logs").insert({

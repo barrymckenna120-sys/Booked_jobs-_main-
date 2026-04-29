@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,9 +13,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("MESSENGER_API_KEY");
+    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
 
-    if (!messengerKey) throw new Error("MESSENGER_API_KEY is not configured");
+    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -95,6 +95,16 @@ Deno.serve(async (req) => {
 
       if (result.success) {
         reminded++;
+        // Log customer activity
+        try {
+          await supabase.from("customer_activity").insert({
+            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            customer_id: job.customer_id,
+            service_call_id: job.id,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Deposit Reminder",
+          });
+        } catch { /* non-critical */ }
       } else {
         skipped++;
         await supabase.from("edge_function_logs").insert({

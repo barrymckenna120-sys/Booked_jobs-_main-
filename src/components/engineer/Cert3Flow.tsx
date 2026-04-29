@@ -40,12 +40,19 @@ const Toggle = ({ label, options, value, onChange }: { label: string; options: s
 );
 
 // ─── YES/NO cell ──────────────────────────────────
-const YesNoCell = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
-  <button type="button" onClick={() => onChange(!value)}
-    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border ${value ? "bg-success/20 border-success text-success" : "bg-destructive/10 border-destructive/30 text-destructive"}`}>
-    {value ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-  </button>
-);
+const YesNoCell = ({ value, onChange }: { value: boolean | null; onChange: (v: boolean | null) => void }) => {
+  const handleClick = () => {
+    if (value === null) onChange(true);
+    else if (value === true) onChange(false);
+    else onChange(null);
+  };
+  return (
+    <button type="button" onClick={handleClick}
+      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border ${value === true ? "bg-success/20 border-success text-success" : value === false ? "bg-destructive/10 border-destructive/30 text-destructive" : "border-border bg-card text-muted-foreground"}`}>
+      {value === true ? <Check className="w-3.5 h-3.5" /> : value === false ? <X className="w-3.5 h-3.5" /> : <span className="text-muted-foreground">—</span>}
+    </button>
+  );
+};
 
 // ─── Signature Canvas ──────────────────────────────
 const SignatureCanvas = ({ onConfirm, onBack, title, subtitle }: { onConfirm: (dataUrl: string) => void; onBack: () => void; title: string; subtitle?: string }) => {
@@ -107,14 +114,18 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
   const [gasType, setGasType] = useState("NAT GAS");
 
   // Step 2 — Appliance table
-  const [applianceData, setApplianceData] = useState<Record<string, Record<string, boolean>>>(() => {
-    const init: Record<string, Record<string, boolean>> = {};
-    APPLIANCE_ROWS.forEach(row => { init[row] = {}; APPLIANCE_COLS.forEach(col => { init[row][col] = false; }); });
+  const [applianceData, setApplianceData] = useState<Record<string, Record<string, boolean | null>>>(() => {
+    const init: Record<string, Record<string, boolean | null>> = {};
+    APPLIANCE_ROWS.forEach(row => { init[row] = {}; APPLIANCE_COLS.forEach(col => { init[row][col] = null; }); });
     return init;
   });
 
   const toggleAppliance = (row: string, col: string) => {
-    setApplianceData(prev => ({ ...prev, [row]: { ...prev[row], [col]: !prev[row][col] } }));
+    setApplianceData(prev => {
+      const cur = prev[row][col];
+      const next = cur === null ? true : cur === true ? false : null;
+      return { ...prev, [row]: { ...prev[row], [col]: next } };
+    });
   };
 
   // Step 3 — Readings
@@ -142,7 +153,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
   const generateCertNum = () => {
     const year = new Date().getFullYear();
     const rand = Math.floor(Math.random() * 9999) + 1;
-    return `GS-${year}-${String(rand).padStart(4, "0")}`;
+    return `DS-${year}-${String(rand).padStart(4, "0")}`;
   };
 
   const handleSubmit = async (engSigUrl: string) => {
@@ -161,7 +172,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         soundness_test: { status: soundnessTest === "YES" ? "pass" : "unchecked", note: "" },
       } as any,
       notes: {
-        cert_type: "gas_safety_service",
+        cert_type: "domestic_safety_service",
         gprn, eircode, address, customer_name: custName, tel_no: telNo, gas_type: gasType,
         appliance_table: applianceData,
         comments, next_service_due: nextServiceDue,
@@ -236,7 +247,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         <h1 className="text-2xl font-extrabold text-foreground">Certificate Created</h1>
         <p className="text-lg font-bold" style={{ color: ACCENT }}>{certNumber}</p>
         <p className="text-muted-foreground">{custName}</p>
-        <p className="text-sm text-muted-foreground">Cert 3 — Gas Safety / Service</p>
+        <p className="text-sm text-muted-foreground">Domestic Safety / Service</p>
 
         {pdfUrl ? (
           <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
@@ -278,7 +289,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
         {/* Step 1 — Premises Details */}
         {step === 0 && (
           <div className="px-4 py-4 space-y-4">
-            <h2 className="text-lg font-extrabold text-foreground">Cert 3 — Premises Details</h2>
+            <h2 className="text-lg font-extrabold text-foreground">Domestic Safety / Service</h2>
             <div className="space-y-3">
               <div className="space-y-1"><Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">GPRN</Label><Input value={gprn} onChange={e => setGprn(e.target.value)} placeholder="Enter GPRN" className="h-11" /></div>
               <div className="space-y-1"><Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Eircode</Label><Input value={eircode} onChange={e => setEircode(e.target.value)} className="h-11" /></div>

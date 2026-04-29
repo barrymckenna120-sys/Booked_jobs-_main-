@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
 
     const headers = {
       Authorization: `Bearer ${supabaseKey}`,
@@ -124,7 +124,7 @@ serve(async (req) => {
       if (logId) {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH", headers,
-          body: JSON.stringify({ status: "failed", error_message: "MESSENGER_API_KEY not configured" }),
+          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
         });
       }
       return new Response(JSON.stringify({ success: false, error: "WhatsApp API key not configured" }), {
@@ -167,6 +167,22 @@ serve(async (req) => {
           payload: { api_response: result, sent_to: customer.phone, hazard_id },
         }),
       });
+    } else {
+      // Log customer activity
+      try {
+        const orgRes = await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${hazard.job_id}&select=organisation_id`, { headers });
+        const orgRows = await orgRes.json();
+        const orgId = (Array.isArray(orgRows) && orgRows[0]?.organisation_id) || "8c37827f-ce2c-4507-a821-a5e807d89856";
+        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+          method: "POST", headers,
+          body: JSON.stringify({
+            organisation_id: orgId,
+            customer_id: hazard.customer_id,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Hazard Notification",
+          }),
+        });
+      } catch { /* non-critical */ }
     }
 
     return new Response(JSON.stringify({

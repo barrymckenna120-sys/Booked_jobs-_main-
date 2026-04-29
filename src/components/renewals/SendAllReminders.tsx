@@ -5,7 +5,11 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Send, SkipForward, MessageCircle, Check, Smartphone, ClipboardList, PartyPopper, AlertTriangle } from "lucide-react";
+
+const TEST_PHONE = "353892109244";
 
 export type ReminderCustomer = {
   id: string;
@@ -20,10 +24,10 @@ const buildMsg = (c: ReminderCustomer) => {
   const firstName = c.name.split(" ")[0];
   const dueDate = new Date(c.nextDue).toLocaleDateString("en-IE", {
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
   });
-  return `Hi ${firstName},\n\nYour annual boiler service is due on ${dueDate}.\n\nRegular servicing keeps your boiler efficient, safe and your warranty valid.\n\nReply YES to book or call us.\n\nBookedJobs`;
+  return `Hi ${firstName},\n\nThis is K & N Gas Services. Your annual boiler service is due on ${dueDate}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on 087 3686252.\n\nReply STOP to unsubscribe.\nK & N Gas Services`;
 };
 
 const waUrl = (phone: string, msg: string) =>
@@ -54,6 +58,8 @@ export function SendAllRemindersSheet({
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
 
+  const [testMode, setTestMode] = useState(false);
+
   const remaining = customers.filter(
     (c) => !sentIds.includes(c.id) && !skipped.includes(c.id)
   );
@@ -64,31 +70,38 @@ export function SendAllRemindersSheet({
 
   const sendCurrent = async () => {
     if (!current) return;
-    const phone = current.phone.replace(/\D/g, "");
-    const fullPhone = phone.startsWith("353")
-      ? phone
-      : phone.startsWith("0")
-      ? "353" + phone.slice(1)
-      : "353" + phone;
-    const msg = buildMsg(current);
-    window.open(waUrl(fullPhone, msg), "_blank");
+    const firstName = current.name.split(" ")[0];
+    const renewalDate = new Date(current.nextDue).toLocaleDateString("en-IE", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
 
-    // Log to message_log
-    await supabase.from("message_log").insert({
-      customer_id: current.id,
-      message_type: "renewal",
-      channel: "whatsapp",
-      direction: "outbound",
-      content: msg,
-      status: "sent",
-      related_type: "renewal",
-      sent_by: user?.id || "system",
-      sent_at: new Date().toISOString(),
-    } as any);
+    // In test mode, override phone to test number
+    const phone = testMode ? TEST_PHONE : current.phone;
 
-    setSentIds((p) => [...p, current.id]);
-    onReminderSent(current.id);
-    if (!started) setStarted(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-renewal-reminder", {
+        body: {
+          customer_id: current.id,
+          phone,
+          first_name: firstName,
+          renewal_date: renewalDate,
+        },
+      });
+
+      if (error) throw new Error(error.message || "Edge function error");
+      if (data && !data.success) throw new Error(data.error || "Send failed");
+
+      setSentIds((p) => [...p, current.id]);
+      onReminderSent(current.id);
+      if (!started) setStarted(true);
+    } catch (err: any) {
+      console.error("Send renewal reminder failed:", err);
+      // Still mark as sent in UI to not block the queue, but log error
+      setSentIds((p) => [...p, current.id]);
+      if (!started) setStarted(true);
+    }
   };
 
   const skipCurrent = () => {
@@ -127,7 +140,22 @@ export function SendAllRemindersSheet({
 
           <Progress value={progress} className="h-1.5" />
 
-          {/* Finished */}
+          {/* Test Mode Toggle */}
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+              <Label htmlFor="test-mode" className="text-sm font-semibold cursor-pointer">Test Mode</Label>
+            </div>
+            <Switch id="test-mode" checked={testMode} onCheckedChange={setTestMode} />
+          </div>
+
+          {testMode && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-xl px-4 py-2.5 text-sm font-bold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              TEST MODE — All messages will be sent to +353 89 210 9244
+            </div>
+          )}
+
           {isFinished ? (
             <Card className="bg-success/10 border-success/20">
               <CardContent className="py-8 text-center space-y-3">

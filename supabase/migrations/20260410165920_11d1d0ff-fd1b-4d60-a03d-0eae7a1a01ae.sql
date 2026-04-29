@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN receipt_pdf_url text;

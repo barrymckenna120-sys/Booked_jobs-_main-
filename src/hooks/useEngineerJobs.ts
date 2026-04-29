@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { createJobInvoice } from "@/lib/createJobInvoice";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -151,7 +152,22 @@ export const useEngineerJobs = () => {
     if (user) fetchAll();
   }, [user, fetchAll]);
 
+  const debugLog = async (event: string, payload?: Record<string, any>, stack?: string) => {
+    try {
+      await supabase.from('debug_logs').insert({
+        engineer_id: user?.id ?? null,
+        job_id: payload?.job_id ?? null,
+        event,
+        payload: payload ?? {},
+        stack: stack ?? null,
+      });
+    } catch (e) {
+      console.warn('[debugLog] insert failed', e);
+    }
+  };
+
   const updateJob = async (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => {
+    // debug logging removed — debugLog helper kept for future use
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 
@@ -227,6 +243,26 @@ export const useEngineerJobs = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Log payment_received activity when payment is recorded as paid
+      if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
+        try {
+          const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
+          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
+          const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
+          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
+          const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          await supabase.from("customer_activity").insert({
+            organisation_id: theJob?.organisation_id,
+            customer_id: theJob?.customer_id,
+            service_call_id: jobId,
+            event_type: "payment_received",
+            event_label: `Payment received — €${amountStr} — ${methodLabel}`,
+            created_by: profile?.id || null,
+          } as any);
+        } catch (e) {
+          console.error("Failed to log payment activity:", e);
+        }
+      }
       const existingJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId) || { id: jobId };
       const updatedJob = { ...existingJob, ...safeDbPatch };
       const nextStatus = safeDbPatch.status ?? existingJob.status;
@@ -325,7 +361,8 @@ export const useEngineerJobs = () => {
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: theJob?.assigned_engineer || null,
-            service_status: "Active",
+            assigned_engineer: theJob?.assigned_engineer || null,
+            service_status: "Serviced",
             renewal_stage: "not_contacted",
           };
           if (nextServiceDate) customerUpdate.next_service_due = nextServiceDate;
@@ -353,17 +390,25 @@ export const useEngineerJobs = () => {
             }
             engNoteParts.push(tagStr);
           }
-          if (engNoteParts.length > 0 && theJob?.customer_id) {
+          if (theJob?.customer_id) {
             const { data: custData } = await supabase
               .from("customers")
-              .select("engineer_notes")
+              .select("engineer_notes, customer_since")
               .eq("id", theJob.customer_id)
               .maybeSingle();
-            const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
-            const existingEng = custData?.engineer_notes;
-            customerUpdate.engineer_notes = existingEng && existingEng.trim()
-              ? `${existingEng}\n${engNoteEntry}`
-              : engNoteEntry;
+
+            // Set customer_since if not already set
+            if (!custData?.customer_since) {
+              customerUpdate.customer_since = completedDate.toISOString().slice(0, 10);
+            }
+
+            if (engNoteParts.length > 0) {
+              const engNoteEntry = `${dateStr} — ${engNoteParts.join(". ")}.`;
+              const existingEng = custData?.engineer_notes;
+              customerUpdate.engineer_notes = existingEng && existingEng.trim()
+                ? `${existingEng}\n${engNoteEntry}`
+                : engNoteEntry;
+            }
           }
 
           if (theJob?.customer_id) {
@@ -373,27 +418,33 @@ export const useEngineerJobs = () => {
           console.error("Failed to sync customer profile:", e);
         }
 
-        // Create invoice, generate PDF, send WhatsApp for invoice payments
         if (paymentMethod === "invoice") {
+          let invoiceCreated = false;
           try {
-            const { data: result } = await supabase.functions.invoke("create-job-invoice", {
-              body: { job_id: jobId },
+            console.log("[create-job-invoice] Invoking from useEngineerJobs for job:", jobId);
+            await createJobInvoice(jobId);
+            invoiceCreated = true;
+          } catch (err) {
+            console.error("[create-job-invoice] error:", err);
+            toast({
+              title: "Job completed but invoice creation failed",
+              description: "Please create the invoice manually from the office.",
+              variant: "destructive",
             });
-            const custName = result?.customer_name || customers[[...todayJobs, ...upcomingJobs].find(j => j.id === jobId)?.customer_id]?.name || "Customer";
-            if (result?.success) {
-              toast({ title: `Job Complete — Invoice sent to ${custName}` });
-            } else {
-              toast({ title: `Job Complete — Invoice sent to ${custName}`, description: "Invoice may not have been sent" });
-            }
-          } catch (e) {
-            console.error("Failed to create invoice:", e);
-            const cust = customers[[...todayJobs, ...upcomingJobs].find(j => j.id === jobId)?.customer_id];
-            toast({ title: `Job Complete — Invoice failed`, description: "The office will follow up." });
           }
+          if (invoiceCreated) {
+            toast({ title: "Job completed & invoice created" });
+          }
+          navigate(`/invoice-view/${jobId}`);
         } else {
           toast({ title: "Job completed ✔" });
+          supabase.functions.invoke('send-whatsapp-receipt', {
+            body: { job_id: jobId }
+          }).catch((err) => {
+            console.warn('[WhatsApp] Receipt send failed:', err);
+          });
+          navigate(`/receipt-view/${jobId}`);
         }
-        navigate(`/receipt/${jobId}`);
       } else if (patch.status === "Cancelled") {
         toast({ title: "Job cancelled" });
         // Start 10-second fade-out timer

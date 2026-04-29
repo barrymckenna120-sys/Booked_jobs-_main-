@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,9 +14,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("MESSENGER_API_KEY");
+    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
 
-    if (!messengerKey) throw new Error("MESSENGER_API_KEY is not configured");
+    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { job_id } = await req.json();
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id")
+      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, receipt_pdf_url")
       .eq("id", job_id)
       .single();
 
@@ -40,6 +40,30 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Generate receipt PDF if not already generated
+    let receiptPdfUrl = job.receipt_pdf_url;
+    if (!receiptPdfUrl) {
+      try {
+        const pdfRes = await fetch(
+          `${supabaseUrl}/functions/v1/generate-receipt-pdf`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ job_id }),
+          }
+        );
+        const pdfData = await pdfRes.json();
+        if (pdfData?.pdf_url) {
+          receiptPdfUrl = pdfData.pdf_url;
+        }
+      } catch (_e) {
+        console.error("Failed to generate receipt PDF:", _e);
+      }
     }
 
     // Fetch customer
@@ -76,14 +100,16 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})\n\nThanks,\n${footer}`;
+    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://kngasservices.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
+
+    const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
     // Strip leading + from phone for 360 Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
 
     // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
-    formData.append("phone_number", cleanNumber);
+    formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
     // Log to message_log before sending
@@ -119,10 +145,12 @@ Deno.serve(async (req) => {
       result = { success: false };
     }
 
+    const sentAt = new Date().toISOString();
+
     // Update message_log with outcome
     if (logId) {
       const updateBody = (result as any).success
-        ? { status: "sent", sent_at: new Date().toISOString() }
+        ? { status: "sent", sent_at: sentAt }
         : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
 
       await supabase.from("message_log").update(updateBody).eq("id", logId);
@@ -141,6 +169,29 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const { error: receiptStatusError } = await supabase
+      .from("service_calls")
+      .update({
+        receipt_sent: true,
+        receipt_sent_at: sentAt,
+      })
+      .eq("id", job_id);
+
+    if (receiptStatusError) {
+      console.error("Failed to update receipt sent status:", receiptStatusError);
+    }
+
+    // Log customer activity
+    try {
+      await supabase.from("customer_activity").insert({
+        organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+        customer_id: job.customer_id,
+        service_call_id: job_id,
+        event_type: "whatsapp_sent",
+        event_label: "WhatsApp sent — Receipt",
+      });
+    } catch { /* non-critical */ }
 
     return new Response(JSON.stringify({ success: true, customer_name: customer.name }), {
       status: 200,

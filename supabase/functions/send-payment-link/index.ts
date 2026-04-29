@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,9 +13,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("MESSENGER_API_KEY");
+    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
 
-    if (!messengerKey) throw new Error("MESSENGER_API_KEY is not configured");
+    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { service_call_id } = await req.json();
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     // Fetch job + customer
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id")
+      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id, organisation_id")
       .eq("id", service_call_id)
       .single();
 
@@ -142,6 +142,17 @@ Deno.serve(async (req) => {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Log customer activity
+    try {
+      await supabase.from("customer_activity").insert({
+        organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+        customer_id: job.customer_id,
+        service_call_id: service_call_id,
+        event_type: "whatsapp_sent",
+        event_label: "WhatsApp sent — Payment Link",
+      });
+    } catch { /* non-critical */ }
 
     return new Response(JSON.stringify({
       success: true,

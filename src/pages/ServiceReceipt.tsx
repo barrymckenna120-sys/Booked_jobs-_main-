@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { printReceipt } from "@/lib/printReceipt";
-import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, AlertTriangle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
@@ -18,6 +16,16 @@ const addMonths = (d: string, months: number) => {
   const date = new Date(d + "T00:00:00");
   date.setMonth(date.getMonth() + months);
   return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const openExternalUrl = (url: string) => {
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 };
 
 const ServiceReceipt = () => {
@@ -53,6 +61,19 @@ const ServiceReceipt = () => {
       });
   }, [user]);
 
+  // Auto-send WhatsApp receipt on page load
+  useEffect(() => {
+    if (
+      job &&
+      !job.receipt_sent &&
+      job.payment_method !== "invoice" &&
+      !whatsappSent &&
+      !whatsappSending
+    ) {
+      handleSendWhatsApp();
+    }
+  }, [job]);
+
   const loadData = async () => {
     setLoading(true);
     const [jobRes, settingsRes] = await Promise.all([
@@ -75,6 +96,7 @@ const ServiceReceipt = () => {
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
     setCertificate(certRes.data || null);
+    if (jobRes.data.receipt_sent) setWhatsappSent(true);
     setLoading(false);
   };
 
@@ -104,64 +126,55 @@ const ServiceReceipt = () => {
     };
   };
 
-  const handleDownloadPdf = () => {
-    const data = getReceiptData();
-    printReceipt({ ...data, jobReference: job.job_reference || undefined });
+  const generateReceiptPdf = async (): Promise<string | null> => {
+    // If we already have a URL, return it
+    if (job.receipt_pdf_url) return job.receipt_pdf_url;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
+        body: { job_id: job.id },
+      });
+      if (error || !data?.pdf_url) return null;
+      // Update local state so we don't re-generate
+      setJob((prev: any) => prev ? { ...prev, receipt_pdf_url: data.pdf_url } : prev);
+      return data.pdf_url;
+    } catch {
+      return null;
+    }
   };
 
-  const formatPhoneForWhatsApp = (phone: string): string => {
-    let cleaned = phone.replace(/[\s\-()]/g, "");
-    if (cleaned.startsWith("0")) cleaned = "353" + cleaned.slice(1);
-    if (!cleaned.startsWith("+") && !cleaned.startsWith("353")) cleaned = "353" + cleaned;
-    return cleaned.replace("+", "");
+  const handleDownloadPdf = async () => {
+    const url = await generateReceiptPdf();
+    if (url) {
+      openExternalUrl(url);
+    } else {
+      toast({ title: "Could not generate receipt PDF", variant: "destructive" });
+    }
   };
 
   const handleSendWhatsApp = async () => {
-    const phone = customer?.phone?.trim();
-    if (!phone) {
-      toast({
-        title: "No phone number on file for this customer — receipt cannot be sent via WhatsApp.",
-        variant: "destructive",
-        className: "bg-amber-500 text-white border-amber-600",
-      });
-      return;
-    }
+    console.log("handleSendWhatsApp fired — job.id:", job?.id, "whatsappSending:", whatsappSending, "whatsappSent:", whatsappSent);
+    if (whatsappSending || whatsappSent) return;
+    if (!job?.id) return;
 
     setWhatsappSending(true);
+
     try {
-      const data = getReceiptData();
-      const formattedPhone = formatPhoneForWhatsApp(phone);
-      const messageText = `Hi ${data.customerName}, here is your receipt from ${data.businessName} for your boiler service on ${data.serviceDate}. Receipt No: ${data.receiptNumber}. Amount Paid: ${data.amountPaid}. Paid by: ${data.paymentMethod}. Thank you for choosing ${data.businessName}.`;
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
+        body: { job_id: job.id },
+      });
 
-      await supabase.from("message_log").insert({
-        customer_id: customer?.id || null,
-        message_type: "receipt",
-        channel: "whatsapp",
-        direction: "outbound",
-        content: messageText,
-        status: "sent",
-        related_id: id,
-        related_type: "job",
-        sent_by: user?.id || "system",
-        sent_at: new Date().toISOString(),
-      } as any).select("id").single();
-
-      const message = encodeURIComponent(messageText);
-      window.open(`https://wa.me/${formattedPhone}?text=${message}`, "_blank");
-
-      await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload({ receipt_sent: true, receipt_sent_at: new Date().toISOString() } as any))
-        .eq("id", id);
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
 
       setWhatsappSent(true);
-    } catch (e: any) {
-      toast({
-        title: "Failed to send — please try again",
-        variant: "destructive",
-      });
+      setJob((prev: any) => prev ? { ...prev, receipt_sent: true, receipt_sent_at: new Date().toISOString() } : prev);
+    } catch (err: any) {
+      console.error("send-whatsapp-receipt error:", err);
+      toast({ title: "WhatsApp send failed — please try again", variant: "destructive" });
+    } finally {
+      setWhatsappSending(false);
     }
-    setWhatsappSending(false);
   };
 
   if (loading) {
@@ -286,24 +299,23 @@ const ServiceReceipt = () => {
             Download PDF Receipt
           </Button>
           <Button
-            className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            className={`w-full h-12 text-sm font-extrabold gap-2 ${whatsappSent ? "bg-success hover:bg-success/90 text-white" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
             onClick={handleSendWhatsApp}
             disabled={whatsappSending || whatsappSent}
           >
             {whatsappSending ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
             ) : whatsappSent ? (
-              <>✅ Sent to {customer?.name} via WhatsApp</>
+              <><CheckCircle2 className="w-4 h-4" /> Receipt Sent</>
             ) : (
               <><Send className="w-4 h-4" /> Send via WhatsApp</>
             )}
           </Button>
           {certificate?.pdf_url ? (
-            <Button
-              className="w-full h-12 text-sm font-extrabold gap-2 text-white bg-success hover:bg-success/90"
-              onClick={() => window.open(certificate.pdf_url!, "_blank")}
-            >
-              <Eye className="w-4 h-4" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+            <Button asChild className="w-full h-12 text-sm font-extrabold gap-2 text-white bg-success hover:bg-success/90">
+              <a href={certificate.pdf_url} target="_blank" rel="noopener noreferrer">
+                <Eye className="w-4 h-4" /> View Certificate{certificate.cert_number ? ` — ${certificate.cert_number}` : ""}
+              </a>
             </Button>
           ) : (
             <Button

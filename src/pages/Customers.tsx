@@ -40,6 +40,19 @@ const Customers = () => {
     if (user) fetchCustomers();
   }, [user]);
 
+  // Realtime: re-fetch on INSERT so new customers appear instantly
+  useEffect(() => {
+    const channel = supabase
+      .channel("customers-inserts")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "customers" },
+        () => { fetchCustomers(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   useEffect(() => { setPage(0); }, [search, statusFilter, areaFilters, selectedTags]);
 
   // When search looks like a job ref, look up the linked customer
@@ -133,7 +146,7 @@ const Customers = () => {
     const q = search.toLowerCase();
     const textMatch = c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.eircode?.toLowerCase().includes(q);
     const refMatch = refCustomerIds !== null && refCustomerIds.has(c.id);
-    const matchesSearch = refCustomerIds !== null ? refMatch : textMatch;
+    const matchesSearch = refCustomerIds !== null ? (refMatch || textMatch) : textMatch;
 
     // Compute dynamic status from next_service_due
     let computedStatus = "Up to Date";
@@ -200,7 +213,7 @@ const Customers = () => {
                   return (
                     <button
                       key={code}
-                      onClick={() => setAreaFilters((prev) => isActive ? prev.filter((a) => a !== code) : [...prev, code])}
+                      onClick={() => setAreaFilters((prev) => prev.includes(code) ? prev.filter((a) => a !== code) : [...prev, code])}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
                     >
                       <MapPin className="w-3 h-3" /> {code} <span className={`font-extrabold ${isActive ? "text-primary-foreground" : "text-foreground"}`}>{count}</span>

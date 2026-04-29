@@ -14,10 +14,10 @@ serve(async (req) => {
     const { service_call_id } = await req.json();
 
     if (!service_call_id) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing service_call_id" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+      return new Response(JSON.stringify({ success: false, error: "Missing service_call_id" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     const apiKey = Deno.env.get("THREESIXTY_API_KEY");
@@ -25,76 +25,87 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     const dbHeaders = {
-      "Authorization": `Bearer ${supabaseKey}`,
-      "apikey": supabaseKey!,
+      Authorization: `Bearer ${supabaseKey}`,
+      apikey: supabaseKey!,
       "Content-Type": "application/json",
     };
 
     // Fetch the service call with customer details
     const scRes = await fetch(
       `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,user_id`,
-      { headers: dbHeaders }
+      { headers: dbHeaders },
     );
     const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
-
     if (!job) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Service call not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
+      return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
     }
 
     // Fetch customer details
-    const custRes = await fetch(
-      `${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`,
-      { headers: dbHeaders }
-    );
+    const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {
+      headers: dbHeaders,
+    });
     const custRows = await custRes.json();
     const customer = Array.isArray(custRows) ? custRows[0] : null;
-
     if (!customer || !customer.phone) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Customer not found or missing phone" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+      return new Response(JSON.stringify({ success: false, error: "Customer not found or missing phone" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
-    // Fetch message_footer from settings
-    let messageFooter = "K&N Gas Services";
+    // Fetch message_footer + company_name from settings
+    let messageFooter = "";
+    let companyName = "K&N Gas Services";
     if (job.user_id) {
       const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${job.user_id}&select=message_footer&limit=1`,
-        { headers: dbHeaders }
+        `${supabaseUrl}/rest/v1/settings?user_id=eq.${job.user_id}&select=message_footer,business_name&limit=1`,
+        { headers: dbHeaders },
       );
       const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]?.message_footer) {
-        messageFooter = settings[0].message_footer;
+      if (Array.isArray(settings) && settings[0]) {
+        if (settings[0].message_footer) messageFooter = settings[0].message_footer;
+        if (settings[0].business_name) companyName = settings[0].business_name;
       }
     }
 
-    const firstName = customer.name.split(" ")[0];
-    const scheduledDate = job.scheduled_date
-      ? new Date(job.scheduled_date + 'T12:00:00').toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })
-      : 'TBC';
+    const SALUTATIONS = ["mr", "mrs", "ms", "dr", "miss"];
+    const getFirstName = (fullName: string): string => {
+      if (!fullName) return "";
+      const parts = fullName.trim().split(/\s+/);
+      if (parts.length > 1 && SALUTATIONS.includes(parts[0].toLowerCase().replace(/\.$/, ""))) {
+        return parts[1];
+      }
+      return parts[0];
+    };
+    const firstName = getFirstName(customer.name) || "there";
+    const formattedDate = job.scheduled_date
+      ? (() => {
+          const d = new Date(job.scheduled_date + "T12:00:00");
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yyyy = d.getFullYear();
+          return `${dd}/${mm}/${yyyy}`;
+        })()
+      : "TBC";
     const timeSlot = job.time_block || "TBC";
-    const jobType = job.job_type || "service";
-    const engineerName = job.assigned_engineer || "our engineer";
+    const engineerName = job.assigned_engineer || "TBC";
 
-    const message = `Booking Confirmed ✅
-${messageFooter}
-
-Hi ${firstName}, your ${jobType} has been booked for ${scheduledDate} between ${timeSlot}.
-
-Your engineer ${engineerName} will be with you on the day. If you need to make any changes, give us a call.
-
-Thanks,
-${messageFooter}`;
+    const message =
+      `Hi ${firstName}, your booking with ${companyName} is confirmed.\n\n` +
+      `📅 Date: ${formattedDate}\n` +
+      `⏰ Time: ${timeSlot}\n` +
+      `👷 Engineer: ${engineerName}\n\n` +
+      `If you need to make any changes please reply to this message.` +
+      (messageFooter ? `\n\n${messageFooter}` : "");
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
       method: "POST",
-      headers: { ...dbHeaders, "Prefer": "return=representation" },
+      headers: { ...dbHeaders, Prefer: "return=representation" },
       body: JSON.stringify({
         customer_id: job.customer_id,
         message_type: "booking_confirmation",
@@ -119,13 +130,17 @@ ${messageFooter}`;
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
     });
 
     const resultText = await response.text();
     let result: any;
-    try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+    try {
+      result = JSON.parse(resultText);
+    } catch {
+      result = { success: false, raw: resultText };
+    }
 
     // Log full API response to edge_function_logs for debugging
     await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
@@ -165,13 +180,39 @@ ${messageFooter}`;
         }),
       });
 
-      return new Response(JSON.stringify({
-        success: false,
-        error: errorDetail,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: errorDetail,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        },
+      );
+    }
+
+    // Log customer activity on success
+    try {
+      const orgRes = await fetch(
+        `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id`,
+        { headers: dbHeaders },
+      );
+      const orgRows = await orgRes.json();
+      const orgId = (Array.isArray(orgRows) && orgRows[0]?.organisation_id) || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+        method: "POST",
+        headers: dbHeaders,
+        body: JSON.stringify({
+          organisation_id: orgId,
+          customer_id: job.customer_id,
+          service_call_id: service_call_id,
+          event_type: "whatsapp_sent",
+          event_label: "WhatsApp sent — Booking Confirmation",
+        }),
       });
+    } catch {
+      /* non-critical */
     }
 
     return new Response(JSON.stringify({ success: true }), {

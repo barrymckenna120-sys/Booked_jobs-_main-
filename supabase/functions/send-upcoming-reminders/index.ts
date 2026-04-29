@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 serve(async (req) => {
   const corsHeaders = {
@@ -13,7 +13,7 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const apiKey = Deno.env.get("MESSENGER_API_KEY");
+  const apiKey = Deno.env.get("THREESIXTY_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const dbHeaders = {
@@ -41,6 +41,7 @@ serve(async (req) => {
         status,
         customer_id,
         user_id,
+        organisation_id,
         customers ( name, phone )
       `)
       .eq("scheduled_date", targetStr)
@@ -155,6 +156,19 @@ ${messageFooter}`;
         if (result.success) {
           sent++;
           results.push({ job_id: job.id, customer_name: customerName, status: "sent" });
+          // Log customer activity
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+              method: "POST", headers: dbHeaders,
+              body: JSON.stringify({
+                organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+                customer_id: job.customer_id,
+                service_call_id: job.id,
+                event_type: "whatsapp_sent",
+                event_label: "WhatsApp sent — Appointment Reminder",
+              }),
+            });
+          } catch { /* non-critical */ }
         } else {
           failed++;
           const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 300)}`;

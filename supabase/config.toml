@@ -61,3 +61,17 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.generate-accountant-export]
     verify_jwt = false
+  [functions.send-warranty-whatsapp]
+    verify_jwt = false
+  [functions.warranty-auto-send]
+    verify_jwt = false
+  [functions.job-reminder-2day]
+    verify_jwt = false
+  [functions.send-renewal-reminder]
+    verify_jwt = false
+  [functions.get-hazard-pdf]
+    verify_jwt = false
+  [functions.generate-gas-install-pdf]
+    verify_jwt = false
+  [functions.log-message]
+    verify_jwt = false

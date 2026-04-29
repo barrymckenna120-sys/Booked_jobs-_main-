@@ -65,7 +65,7 @@ const TodayTimeline = () => {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h3 className="text-sm font-bold text-foreground">Today's Schedule</h3>
-            <p className="text-xs text-muted-foreground/70 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {jobs.length} job{jobs.length !== 1 ? "s" : ""} · {completedCount} done · {activeCount} remaining
             </p>
           </div>

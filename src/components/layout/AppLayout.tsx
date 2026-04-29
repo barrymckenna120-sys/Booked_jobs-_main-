@@ -1,12 +1,12 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
-import OfflineBanner from "@/components/engineer/OfflineBanner";
+
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers,
+  CalendarCheck, Layers, Shield,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,6 +37,7 @@ const DESKTOP_NAV = [
   { label: "Jobs", icon: ClipboardList, path: "/jobs" },
   { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
   { label: "Customers", icon: Users, path: "/customers" },
+  { label: "Warranty", icon: Shield, path: "/warranty" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
@@ -216,7 +217,7 @@ const AppLayoutInner = () => {
 
       {/* ═══════════ MAIN CONTENT ═══════════ */}
       <main className="flex-1 md:ml-[220px] pb-20 md:pb-0">
-        <OfflineBanner topOffsetClassName="top-14 md:top-0" />
+        
         <Outlet />
       </main>
 

@@ -194,7 +194,7 @@ async function sendWhatsAppAlert(
     const officeNumber = Array.isArray(settingsData) ? (settingsData[0]?.whatsapp_number || settingsData[0]?.business_phone) : null;
 
     if (officeNumber) {
-      const apiKey = Deno.env.get("MESSENGER_API_KEY");
+      const apiKey = Deno.env.get("THREESIXTY_API_KEY");
       if (apiKey) {
         const alertMsg = `✅ Quote Accepted\n\nCustomer: ${customerName}\nQuote: ${quoteRef}\nTotal: €${totalAmount}\nDeposit: €${depositAmount}\n\nJob has been created — open BookedJobs to schedule.`;
 
@@ -292,6 +292,7 @@ async function sendDepositPaymentWhatsApp(
       body: new URLSearchParams({
         "line_items[0][price]": priceData.id,
         "line_items[0][quantity]": "1",
+        "metadata[job_id]": serviceCallId,
         "metadata[service_call_id]": serviceCallId,
         "metadata[customer_id]": quote.customer_id || "",
       }),
@@ -312,7 +313,7 @@ async function sendDepositPaymentWhatsApp(
       body: JSON.stringify({ payment_link: paymentLink }),
     });
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY") || Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
       console.log("No WhatsApp API key — skipping deposit WhatsApp");
       return;
@@ -379,6 +380,22 @@ async function sendDepositPaymentWhatsApp(
           payload: { sent_to: cleanNumber, service_call_id: serviceCallId, customer_id: quote.customer_id },
         }),
       });
+    }
+
+    // Log customer activity on success
+    if (result.success && quote.customer_id) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+          method: "POST", headers,
+          body: JSON.stringify({
+            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            customer_id: quote.customer_id,
+            service_call_id: serviceCallId,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Deposit Payment Request",
+          }),
+        });
+      } catch { /* non-critical */ }
     }
 
     console.log("Deposit WhatsApp send result:", result.success ? "sent" : "failed");

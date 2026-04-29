@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CalendarDays, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, CalendarDays, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import { format, addDays } from "date-fns";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
@@ -227,15 +227,23 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
     <>
     <div className="flex gap-3">
       {[
-        { count: active.length, label: "Scheduled", icon: "📋", borderColor: "border-t-primary" },
-        { count: completed.length, label: "Completed", icon: "✅", borderColor: "border-t-success" },
-        { count: cancelled.length, label: "Cancelled", icon: "✕", borderColor: "border-t-destructive" },
+        { count: active.length, label: "Scheduled", icon: "📋", borderColor: "border-t-primary", target: "scheduled" },
+        { count: completed.length, label: "Completed", icon: "✅", borderColor: "border-t-success", target: "completed" },
+        { count: cancelled.length, label: "Cancelled", icon: "✕", borderColor: "border-t-destructive", target: "cancelled" },
       ].map((stat) => (
-        <div key={stat.label} className={`flex-1 bg-card rounded-2xl border border-border ${stat.borderColor} border-t-4 p-4 text-center shadow-sm`}>
+        <button
+          key={stat.label}
+          onClick={() => {
+            const el = document.getElementById(`section-${stat.target}`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className={`flex-1 bg-card rounded-2xl border border-border ${stat.borderColor} border-t-4 p-4 text-center shadow-sm transition-colors hover:bg-accent/50 active:bg-accent/70 cursor-pointer relative`}
+        >
+          <ChevronRight className="w-3 h-3 text-muted-foreground/40 absolute top-2 right-2" />
           <div className="text-xl mb-1.5">{stat.icon}</div>
           <div className="text-3xl font-black tracking-tighter leading-none mb-1">{stat.count}</div>
           <div className="text-[11px] font-semibold text-muted-foreground leading-snug">{stat.label}</div>
-        </div>
+        </button>
       ))}
     </div>
 
@@ -253,7 +261,7 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
     )}
 
     {/* Heading */}
-    <div className="flex justify-between items-center">
+    <div id="section-scheduled" className="flex justify-between items-center">
       <div className="text-[17px] font-extrabold text-foreground">Today's Jobs</div>
       <span className="bg-primary/10 text-primary rounded-full px-3 py-0.5 text-xs font-bold">{active.length} left</span>
     </div>
@@ -286,21 +294,21 @@ const TodayView = ({ active, completed, cancelled, inProgress, customers, loadin
         ))}
 
         {completed.length > 0 && (
-          <>
+          <div id="section-completed">
             <SectionDivider label="COMPLETED" />
             {completed.map((job: any) => (
               <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} />
             ))}
-          </>
+          </div>
         )}
 
         {cancelled.length > 0 && (
-          <>
+          <div id="section-cancelled">
             <SectionDivider label="CANCELLED" />
             {cancelled.map((job: any) => (
               <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={onUpdate} />
             ))}
-          </>
+          </div>
         )}
       </>
     )}

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { createJobInvoice } from "@/lib/createJobInvoice";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import PaymentSheet from "@/components/engineer/PaymentSheet";
 import CancelSheet from "@/components/engineer/CancelSheet";
@@ -153,7 +154,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const handlePaymentDone = async (method: string, confirmedAmount: number) => {
-    if (!completeData || !job) return;
+    console.log("[handlePaymentDone] method:", method, "amount:", confirmedAmount, "jobId:", job?.id);
+    if (!completeData || !job) { console.log("[handlePaymentDone] early return: no completeData or job"); return; }
     setShowPayment(false);
 
     // Always include confirmedRevenue so updateJob writes it to service_calls.revenue
@@ -162,34 +164,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
-        const jobUpdateSuccess = await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
-        if (!jobUpdateSuccess) {
-          console.error("handlePaymentDone: updateJob failed for invoice flow, aborting edge function call");
-          toast({ title: "Failed to complete job", description: "Please try again or contact the office.", variant: "destructive" });
-          setInvoiceLoading(false);
-          return;
-        }
-
-        console.log("handlePaymentDone: updateJob succeeded, calling create-job-invoice edge function");
-        const { data: result, error: fnErr } = await supabase.functions.invoke("create-job-invoice", {
-          body: { job_id: job.id },
-        });
-
-        if (fnErr) {
-          console.error("create-job-invoice error:", fnErr);
-          toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
-        } else {
-          const invoiceNumber = result?.invoice_number || null;
-          if (invoiceNumber) {
-            await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
-          }
-          toast({ title: "Job completed & invoice created" });
-        }
-        // Navigate to invoice preview screen
-        navigate(`/invoice/${job.id}`);
+        await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
+        // Invoice creation + navigation is now handled inside updateJob
       } catch (err) {
         console.error("handlePaymentDone invoice flow error:", err);
-        toast({ title: "Job completed but invoice creation failed", variant: "destructive" });
+        toast({ title: "Failed to complete job", variant: "destructive" });
       }
       setInvoiceLoading(false);
     } else {
@@ -206,7 +185,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
-    if (!job) return false;
+    console.log("[updateJob:detail] called with patch.status:", patch.status, "paymentMethod:", patch.paymentMethod, "jobId:", job?.id);
+    if (!job) { console.log("[updateJob:detail] early return: no job"); return false; }
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
@@ -276,12 +256,49 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
+    console.log("[updateJob:detail] safeDbPatch keys:", Object.keys(safeDbPatch), "status:", safeDbPatch.status, "payment_method:", safeDbPatch.payment_method);
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
-      console.error("updateJob: service_calls update failed:", error.message, error);
+      console.error("[updateJob:detail] DB update FAILED:", error.message, error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return false;
     } else {
+      console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      // Sync boiler details back to customer record
+      if (safeDbPatch.boiler_brand !== undefined) {
+        try {
+          const customerUpdate: Record<string, any> = {};
+          if (safeDbPatch.boiler_brand !== undefined) customerUpdate.boiler_brand = safeDbPatch.boiler_brand;
+          if (Object.keys(customerUpdate).length > 0) {
+            const brand = (customerUpdate.boiler_brand || "").trim();
+            const existingModel = customer?.boiler_model || customer?.boiler_make_model || "";
+            customerUpdate.boiler_make_model = [brand, existingModel].filter(Boolean).join(" ") || null;
+            await supabase.from("customers").update(customerUpdate).eq("id", job.customer_id);
+            console.log("[updateJob:detail] Boiler details synced to customer:", job.customer_id);
+          }
+        } catch (syncErr) {
+          console.error("[updateJob:detail] Boiler sync to customer failed:", syncErr);
+        }
+      }
+      // Log payment_received activity when payment is recorded as paid
+      if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
+        try {
+          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
+          const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
+          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
+          const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          await supabase.from("customer_activity").insert({
+            organisation_id: job.organisation_id,
+            customer_id: job.customer_id,
+            service_call_id: job.id,
+            event_type: "payment_received",
+            event_label: `Payment received — €${amountStr} — ${methodLabel}`,
+            created_by: profile?.id || null,
+          } as any);
+        } catch (e) {
+          console.error("Failed to log payment activity:", e);
+        }
+      }
       // Save selected tags on completion
       if (patch.status === "Completed") {
         try {
@@ -358,7 +375,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           const customerUpdate: Record<string, any> = {
             last_service_date: completedDate.toISOString().slice(0, 10),
             last_service_engineer: job.assigned_engineer || null,
-            service_status: "Up to Date",
+            service_status: "Serviced",
             renewal_stage: "not_contacted",
           };
 
@@ -420,8 +437,30 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         supabase.functions.invoke("trigger-review-request", {
           body: { service_call_id: job.id, customer_id: job.customer_id },
         }).catch((err) => console.error("Review request trigger failed:", err));
-        toast({ title: "Job completed" });
-        navigate(-1);
+
+        // Create invoice + send WhatsApp BEFORE navigating away
+        console.log("[updateJob:detail] Reached invoice block. paymentMethod:", paymentMethod);
+        if (paymentMethod === "invoice") {
+          let invoiceCreated = false;
+          try {
+            const result = await createJobInvoice(job.id);
+            const invoiceNumber = result?.invoice_number || null;
+            if (invoiceNumber) {
+              await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ invoice_number: invoiceNumber })).eq("id", job.id);
+            }
+            invoiceCreated = true;
+          } catch (err) {
+            console.error("[create-job-invoice] error:", err);
+            toast({ title: "Job completed but invoice creation failed", description: "Please create the invoice manually from the office.", variant: "destructive" });
+          }
+          if (invoiceCreated) {
+            toast({ title: "Job completed & invoice created" });
+          }
+          navigate(`/invoice-view/${job.id}`);
+        } else {
+          toast({ title: "Job completed" });
+          navigate(-1);
+        }
         return true;
       } else if (patch.status === "Cancelled") {
         logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled by engineer: ${patch.cancelReason}`, metadata: { reason: patch.cancelReason, note: patch.cancelNote } });

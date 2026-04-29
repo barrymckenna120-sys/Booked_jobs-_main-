@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, CalendarPlus, Eye, AlertCircle, ChevronDown, Phone, MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, Banknote, CreditCard, FileText, Receipt, CheckCircle2, ChevronDown, Phone, MessageCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
@@ -63,7 +63,6 @@ const Jobs = () => {
   const [completedPage, setCompletedPage] = useState(0);
   const [sortCol, setSortCol] = useState<"customer_name" | "scheduled_date" | "status">("scheduled_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [quotesMap, setQuotesMap] = useState<Record<string, any>>({});
   const [jobQuotesMap, setJobQuotesMap] = useState<Record<string, string>>({});
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -110,11 +109,6 @@ const Jobs = () => {
         .order("created_at", { ascending: false });
 
       if (allQuotes) {
-        // Map for incoming jobs (by converted_job_id)
-        const qMap: Record<string, any> = {};
-        allQuotes.forEach(q => { if (q.converted_job_id) qMap[q.converted_job_id] = q; });
-        setQuotesMap(qMap);
-
         // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
         const jqMap: Record<string, string> = {};
         const quotesWithJobs = jobsData.filter(j => j.has_quote);
@@ -323,7 +317,7 @@ const Jobs = () => {
               <TableCell className="hidden md:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
-                ) : j.source === "Tally" ? (
+                ) : j.source === "Tally Form" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600">Tally</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">Manual</span>
@@ -332,7 +326,7 @@ const Jobs = () => {
               <TableCell onClick={(e) => e.stopPropagation()}>
                 {hasReceipt ? (
                   <button
-                    onClick={() => navigate(`/receipt/${j.id}`)}
+                    onClick={() => navigate(`/receipt-view/${j.id}`)}
                     className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
                   >
                     <Receipt className="w-3.5 h-3.5" /> {j.receipt_number}
@@ -440,7 +434,7 @@ const Jobs = () => {
           <span className="text-[10px] text-muted-foreground font-mono">{(j as any).job_reference || `KN-${j.id.slice(0, 4).toUpperCase()}`}</span>
           {j.source === "Quote" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
-          ) : j.source === "Tally" ? (
+          ) : j.source === "Tally Form" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600">Tally</span>
           ) : (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Manual</span>
@@ -479,91 +473,14 @@ const Jobs = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="md:hidden inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors -mb-2"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back
+      </button>
       <h1 className="text-2xl font-extrabold">All Jobs</h1>
-
-      {/* ── INCOMING JOBS SECTION ── */}
-      {incomingJobs.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="w-5 h-5 text-amber-500" />
-              <h2 className="text-lg font-bold text-foreground">
-                Incoming Jobs
-              </h2>
-              <span className="inline-flex items-center justify-center text-xs font-bold rounded-full px-2.5 py-0.5 bg-amber-500 text-white min-w-[24px]">
-                {incomingJobs.length}
-              </span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {incomingJobs.map((j) => {
-                const quote = quotesMap[j.id];
-                return (
-                  <div
-                    key={j.id}
-                    className="rounded-lg border border-amber-200 bg-white p-4 space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-bold text-foreground">{j.customer_name}</p>
-                        <p className="text-sm text-muted-foreground">{j.job_type}</p>
-                      </div>
-                      {j.revenue != null && j.revenue > 0 && (
-                        <span className="text-sm font-bold text-foreground">{eur(j.revenue)}</span>
-                      )}
-                    </div>
-
-                    {quote && (
-                      <div className="text-xs text-muted-foreground space-y-0.5">
-                        <p>From Quote <span className="font-semibold text-primary">{quote.quote_number}</span></p>
-                        {quote.accepted_at && (
-                          <p>Accepted {fmtDate(quote.accepted_at)}</p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        className="h-8 text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/jobs/${j.id}`);
-                        }}
-                      >
-                        <CalendarPlus className="w-3.5 h-3.5" /> Schedule
-                      </Button>
-                      {quote && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs font-bold gap-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/quotes/${quote.id}`, { state: { returnTo: "/jobs" } });
-                          }}
-                        >
-                          <Eye className="w-3.5 h-3.5" /> View Quote
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs font-bold gap-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/jobs/${j.id}`);
-                        }}
-                      >
-                        View Job
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ── FILTERS ── */}
       <div className="flex flex-wrap gap-3">

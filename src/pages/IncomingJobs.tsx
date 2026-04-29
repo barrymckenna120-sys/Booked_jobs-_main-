@@ -68,8 +68,7 @@ const IncomingJobs = () => {
     setLoading(true);
     let query = supabase
       .from("service_calls")
-      .select("*, customers!inner(id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model)")
-      .eq("user_id", user.id)
+      .select("*, customers(id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model)")
       .eq("source", "Tally Form")
       .order("created_at", { ascending: false });
 
@@ -82,7 +81,8 @@ const IncomingJobs = () => {
       query = query.neq("incoming_status", "Archived");
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    console.log('[IncomingJobs] data:', data, 'error:', error);
     const jobsData = (data || []) as unknown as IncomingJob[];
     setJobs(jobsData);
 
@@ -114,7 +114,7 @@ const IncomingJobs = () => {
           event: '*',
           schema: 'public',
           table: 'service_calls',
-          filter: `user_id=eq.${user.id}`,
+          filter: `organisation_id=eq.8c37827f-ce2c-4507-a821-a5e807d89856`,
         },
         () => { fetchJobs(); }
       )
@@ -210,20 +210,47 @@ const IncomingJobs = () => {
       {loading ? (
         <p className="text-center text-muted-foreground py-12">Loading...</p>
       ) : jobs.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Inbox className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <div className="font-bold">No {filter !== "All" ? filter.toLowerCase() : ""} incoming jobs</div>
+        <div className="text-center py-12 px-4 max-w-md mx-auto">
+          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <Inbox className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <div className="font-bold text-base mb-2">
+            No {filter !== "All" ? filter.toLowerCase() : ""} incoming jobs
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+            New bookings from your online form will appear here automatically. If you're expecting jobs but don't see any, your account may not have access yet.
+          </p>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-left text-xs text-muted-foreground">
+            <div className="font-semibold text-foreground mb-1.5">Not seeing jobs your teammates can see?</div>
+            <ul className="space-y-1 list-disc list-inside">
+              <li>Ask an admin to confirm you're added to the team in <span className="font-medium">Settings → Team Management</span>.</li>
+              <li>Make sure your role (admin / office) has permission to view incoming jobs.</li>
+              <li>Database access rules (RLS) scope jobs to your organisation — a teammate may need to grant access.</li>
+            </ul>
+          </div>
         </div>
       ) : (
-        jobs.map((j) => (
-          <IncomingJobCard
-            key={j.id}
-            job={j}
-            mediaCount={mediaCounts[j.id] || 0}
-            onClick={() => setReviewJob(j)}
-            onArchive={handleArchive}
-          />
-        ))
+        jobs.map((j) =>
+          j.customers ? (
+            <IncomingJobCard
+              key={j.id}
+              job={j}
+              mediaCount={mediaCounts[j.id] || 0}
+              onClick={() => setReviewJob(j)}
+              onArchive={handleArchive}
+            />
+          ) : (
+            <div
+              key={j.id}
+              className="bg-card border border-border border-l-4 border-l-muted-foreground rounded-xl p-4 mb-3 opacity-70"
+            >
+              <div className="text-[15px] font-extrabold">Unknown customer</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Job ID: {j.id} · Customer record missing or hidden
+              </div>
+            </div>
+          )
+        )
       )}
 
       {/* Review Panel */}

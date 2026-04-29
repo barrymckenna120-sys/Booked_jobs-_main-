@@ -85,7 +85,7 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
   const stageConfig = stage ? STAGE_DISPLAY[stage] : null;
 
   return (
-    <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3 ${reminderSent ? "opacity-75" : ""}`}>
+    <div className={`bg-card border border-border border-l-4 ${leftBorder} rounded-xl p-4 mb-3`}>
       {/* Top row */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
@@ -109,6 +109,12 @@ const RenewalCard = ({ customer, status, stage, daysUntil, reminderSent, lastCon
           </div>
           <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
             <MapPin className="w-3 h-3 shrink-0" /> {customer.address}
+          </div>
+          {/* Renewal Date - Prominent Display */}
+          <div className="mt-2 text-sm font-semibold text-foreground">
+            Renewal: {customer.next_service_due 
+              ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })
+              : "—"}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">

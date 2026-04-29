@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Search, ChevronLeft, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
+import { Search, ChevronLeft, ChevronDown, Loader2, Check, Plus, Phone, MapPin, Flame, Wrench, AlertTriangle, Settings, Sunrise, Sun, CloudSun, FileText, CreditCard, CheckCircle2, MessageCircle, CalendarDays, HardHat, Bell, ClipboardList, PartyPopper, XCircle } from "lucide-react";
 import { format, parse } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -134,7 +134,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model, access_notes")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -308,7 +308,12 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const { user } = useAuth();
   const [jobType, setJobType] = useState(prefilledType || "Boiler Service");
   const [notes, setNotes] = useState("");
-  const [boiler, setBoiler] = useState(prefilledBoiler || "");
+  const [boilerBrand, setBoilerBrand] = useState(prefilledCustomer?.boiler_brand || prefilledBoiler || "");
+  const [boilerBrandQuery, setBoilerBrandQuery] = useState(prefilledCustomer?.boiler_brand || prefilledBoiler || "");
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [boilerModel, setBoilerModel] = useState(prefilledCustomer?.boiler_model || "");
+  const [boilerModelQuery, setBoilerModelQuery] = useState(prefilledCustomer?.boiler_model || "");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [jobTypeError, setJobTypeError] = useState(false);
   const [email, setEmail] = useState(prefilledCustomer?.email || "");
   const [jobIssue, setJobIssue] = useState("");
@@ -317,8 +322,33 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [boilerErrorCode, setBoilerErrorCode] = useState("");
   const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
   const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
-  const [accessNotes, setAccessNotes] = useState("");
+  const [accessNotes, setAccessNotes] = useState(prefilledCustomer?.access_notes || "");
   const isUrgent = jobType === "Emergency";
+
+  const { data: brandSuggestions = [] } = useQuery({
+    queryKey: ["boiler-brand-suggestions", boilerBrandQuery],
+    queryFn: async () => {
+      const q = boilerBrandQuery.trim();
+      const query = supabase.from("boiler_brands").select("brand_name").eq("is_default", true).order("brand_name").limit(8);
+      if (q) query.ilike("brand_name", `%${q}%`);
+      const { data } = await query;
+      return [...new Set((data || []).map((r: any) => r.brand_name))];
+    },
+    enabled: brandDropdownOpen,
+  });
+
+  const { data: modelSuggestions = [] } = useQuery({
+    queryKey: ["boiler-model-suggestions", boilerBrand, boilerModelQuery],
+    queryFn: async () => {
+      if (!boilerBrand.trim()) return [];
+      const q = boilerModelQuery.trim();
+      const query = supabase.from("boiler_brands").select("model_name").eq("is_default", false).eq("brand_name", boilerBrand.trim()).order("model_name").limit(8);
+      if (q) query.ilike("model_name", `%${q}%`);
+      const { data } = await query;
+      return [...new Set((data || []).filter((r: any) => r.model_name).map((r: any) => r.model_name))];
+    },
+    enabled: boilerBrand.trim().length > 0 && modelDropdownOpen,
+  });
 
   const { data: defaultPrices } = useQuery({
     queryKey: ["default-job-prices", user?.id],
@@ -351,7 +381,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
       setJobTypeError(true);
       return;
     }
-    onNext({ jobType, isUrgent, notes, boilerModel: boiler, email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
+    const combinedMakeModel = [boilerBrand.trim(), boilerModel.trim()].filter(Boolean).join(" ") || "";
+    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
   };
 
   return (
@@ -387,10 +418,67 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
           </div>
         )}
 
-        <div>
-          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make / Model</Label>
-          <Input value={boiler} onChange={(e) => setBoiler(e.target.value)} placeholder="e.g. Vaillant ecoFIT Pure 25kW" className="mt-1" />
-          <p className="text-[11px] text-muted-foreground mt-1">Leave blank if unknown</p>
+        {/* Boiler Brand — typeahead */}
+        <div className="relative">
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Brand</Label>
+          <div className="relative mt-1">
+            <Input
+              value={boilerBrand}
+              onChange={(e) => {
+                setBoilerBrand(e.target.value);
+                setBoilerBrandQuery(e.target.value);
+                if (!brandDropdownOpen) setBrandDropdownOpen(true);
+                if (e.target.value !== boilerBrand) { setBoilerModel(""); setBoilerModelQuery(""); }
+              }}
+              onFocus={() => { setBrandDropdownOpen(true); setBoilerBrandQuery(boilerBrand); }}
+              onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
+              placeholder="e.g. Vaillant, Ideal, Worcester"
+              className="pr-9"
+              autoComplete="off"
+            />
+            <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => setBrandDropdownOpen(!brandDropdownOpen)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronDown className={`w-4 h-4 transition-transform ${brandDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+          {brandDropdownOpen && brandSuggestions.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {brandSuggestions.map((b: string) => (
+                <button key={b} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setBoilerBrand(b); setBoilerBrandQuery(b); setBrandDropdownOpen(false); setBoilerModel(""); setBoilerModelQuery(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{b}</button>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground mt-1">Start typing or click to see options</p>
+        </div>
+
+        {/* Boiler Model — typeahead when brand selected, otherwise free-text */}
+        <div className="relative">
+          <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Model</Label>
+          <div className="relative mt-1">
+            <Input
+              value={boilerModel}
+              onChange={(e) => {
+                setBoilerModel(e.target.value);
+                setBoilerModelQuery(e.target.value);
+                if (!modelDropdownOpen && boilerBrand.trim()) setModelDropdownOpen(true);
+              }}
+              onFocus={() => { if (boilerBrand.trim()) { setModelDropdownOpen(true); setBoilerModelQuery(boilerModel); } }}
+              onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
+              placeholder="e.g. Logic Heat 18"
+              className="pr-9"
+              autoComplete="off"
+            />
+            <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => { if (boilerBrand.trim()) setModelDropdownOpen(!modelDropdownOpen); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronDown className={`w-4 h-4 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+          {modelDropdownOpen && modelSuggestions.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {modelSuggestions.map((m: string) => (
+                <button key={m} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setBoilerModel(m); setBoilerModelQuery(m); setModelDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{m}</button>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground mt-1">Start typing or click to see options</p>
         </div>
 
         <div>
@@ -796,6 +884,8 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   });
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [sendDepositLink, setSendDepositLink] = useState(true);
   const [sendWA, setSendWA] = useState(true);
 
   // Pre-fill amount once settings have loaded
@@ -866,6 +956,38 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
           </div>
         </div>
 
+        {/* Deposit fields — only when "Deposit Taken" */}
+        {payment === "deposit" && (
+          <>
+            <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Deposit Amount €</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
+                <Input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" className="pl-8" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Balance Due €</Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
+                <Input
+                  type="number"
+                  readOnly
+                  value={Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)).toFixed(2)}
+                  className="pl-8 bg-muted/50 cursor-not-allowed"
+                />
+              </div>
+            </div>
+            <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendDepositLink ? "border-success/40" : "border-border"}`}>
+              <div>
+                <div className="text-sm font-bold flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-success" /> Send deposit payment link?</div>
+                <div className="text-xs text-muted-foreground mt-1">WhatsApp payment link to customer for deposit amount</div>
+              </div>
+              <Switch checked={sendDepositLink} onCheckedChange={setSendDepositLink} />
+            </div>
+          </>
+        )}
+
         {/* WhatsApp toggle */}
         <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendWA ? "border-success/40" : "border-border"}`}>
           <div>
@@ -880,13 +1002,24 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
-          onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment }, sendWhatsApp: sendWA })}
+          onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment, depositAmount: payment === "deposit" ? (parseFloat(depositAmount) || 0) : null, balanceDue: payment === "deposit" ? Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)) : null, sendDepositLink: payment === "deposit" ? sendDepositLink : false }, sendWhatsApp: sendWA })}
         >
           <CheckCircle2 className="w-5 h-5" /> Create Job
         </Button>
       </div>
     </div>
   );
+};
+
+/* ── helpers ──────────────────────────────────────────── */
+const SALUTATIONS = ["mr", "mrs", "ms", "dr", "miss"];
+const getFirstName = (fullName: string | undefined): string => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length > 1 && SALUTATIONS.includes(parts[0].toLowerCase().replace(/\.$/, ""))) {
+    return parts[1];
+  }
+  return parts[0];
 };
 
 /* ── SUCCESS SCREEN ────────────────────────────────────── */
@@ -899,7 +1032,8 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
   const jt = JOB_TYPES.find((j) => j.id === jobData.job?.jobType);
   const dateStr = (() => { try { return format(new Date(jobData.schedule.date + "T00:00:00"), "EEEE d MMMM"); } catch { return ""; } })();
 
-  const waMsg = `Hi ${jobData.customer?.name?.split(" ")[0]}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
+  const firstName = getFirstName(jobData.customer?.name);
+  const waMsg = `Hi ${firstName}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center">
@@ -916,7 +1050,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         {[
           { Icon: CalendarDays, text: "Job appears in the schedule grid immediately" },
           { Icon: HardHat, text: `${eng?.name || "Engineer"} sees it on their app` },
-          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation ready to send" }] : []),
+          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation sent via WhatsApp ✔" }] : []),
           { Icon: Bell, text: "Audit log updated" },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-2.5 mb-2 last:mb-0">
@@ -930,12 +1064,6 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         <div className="bg-success/5 border border-success/20 rounded-xl p-3 w-full mb-5 text-left">
           <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1.5 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp preview</div>
           <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed font-sans">{waMsg}</pre>
-          <Button
-            className="w-full mt-3 bg-[#25D366] hover:bg-[#1DA851] text-white font-bold gap-2"
-            onClick={() => window.open(`https://wa.me/${jobData.customer?.phone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waMsg)}`, "_blank")}
-          >
-            <MessageCircle className="w-4 h-4" /> Open WhatsApp to send
-          </Button>
         </div>
       )}
 
@@ -1006,13 +1134,23 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
       // Create new customer if needed
       if (isNewCustomer) {
+        const nextServiceDue = new Date();
+        nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
         const { data: newCust, error: custErr } = await supabase.from("customers").insert({
           user_id: user.id,
           name: finalData.customer.name,
           phone: finalData.customer.phone,
+          email: finalData.job?.email?.trim() || null,
           address: finalData.customer.address,
           eircode: finalData.customer.eircode || "",
-          boiler_make_model: finalData.customer.boilerType || null,
+          area_code: finalData.job?.areaCode?.trim() || null,
+          boiler_brand: finalData.job?.boilerBrand || finalData.customer.boilerType || null,
+          boiler_model: finalData.job?.boilerModelField || null,
+          boiler_make_model: [finalData.job?.boilerBrand, finalData.job?.boilerModelField].filter(Boolean).join(" ") || finalData.customer.boilerType || null,
+          boiler_type: finalData.job?.boilerType || null,
+          next_service_due: nextServiceDue.toISOString().split("T")[0],
+          renewal_stage: "none",
+          service_status: "active",
         }).select("id").single();
         if (custErr) {
           console.error("[NewJobPanel] Customer insert error:", custErr);
@@ -1035,7 +1173,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         user_id: user.id,
         customer_id: customerId,
         job_type: finalData.job.jobType,
-        boiler_brand: finalData.job.boilerModel || null,
+        boiler_brand: finalData.job.boilerBrand || finalData.job.boilerModel || null,
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
         scheduled_date: finalData.schedule.date,
@@ -1045,7 +1183,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         status: "Booked",
         revenue: finalData.payment.amount || null,
         deposit_paid: depositPaid,
-        deposit_amount: finalData.payment.status === "deposit" ? finalData.payment.amount : null,
+        deposit_amount: finalData.payment.status === "deposit" ? (finalData.payment.depositAmount || null) : null,
+        balance_due: finalData.payment.status === "deposit" ? (finalData.payment.balanceDue || null) : null,
         source: "Manual",
         incoming_status: "Accepted",
         email: finalData.job.email || null,
@@ -1063,12 +1202,40 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       }
       console.log("[NewJobPanel] Job created successfully:", newJob?.id);
 
+      // Sync job fields back to existing customer profile
+      if (!isNewCustomer) {
+        const custUpdate: Record<string, string | null> = {};
+        if (finalData.job?.boilerBrand?.trim()) custUpdate.boiler_brand = finalData.job.boilerBrand.trim();
+        if (finalData.job?.boilerModelField?.trim()) custUpdate.boiler_model = finalData.job.boilerModelField.trim();
+        const combinedMakeModel = [finalData.job?.boilerBrand?.trim(), finalData.job?.boilerModelField?.trim()].filter(Boolean).join(" ");
+        if (combinedMakeModel) custUpdate.boiler_make_model = combinedMakeModel;
+        if (finalData.job?.boilerType?.trim()) custUpdate.boiler_type = finalData.job.boilerType.trim();
+        if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
+        if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
+        if (finalData.job?.accessNotes?.trim()) custUpdate.access_notes = finalData.job.accessNotes.trim();
+        if (Object.keys(custUpdate).length > 0) {
+          await supabase.from("customers").update(custUpdate).eq("id", customerId);
+        }
+      }
+
       await logAudit({
         action_type: "job_created",
         entity_type: "service_call",
         entity_id: customerId,
         detail: `New ${finalData.job.jobType} for ${finalData.customer.name} on ${finalData.schedule.date}`,
       });
+
+      // Send booking confirmation via WhatsApp Edge Function if toggle is ON
+      if (finalData.sendWhatsApp && newJob?.id) {
+        try {
+          const { error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
+            body: { service_call_id: newJob.id },
+          });
+          if (waErr) console.error("[NewJobPanel] Booking confirmation WhatsApp error:", waErr);
+        } catch (waEx) {
+          console.error("[NewJobPanel] Booking confirmation WhatsApp exception:", waEx);
+        }
+      }
 
       setJobData(finalData);
       setDone(true);

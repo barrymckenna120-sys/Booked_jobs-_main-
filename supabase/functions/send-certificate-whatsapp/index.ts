@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
 
     const headers = {
       Authorization: `Bearer ${supabaseKey}`,
@@ -30,7 +30,7 @@ serve(async (req) => {
 
     // Fetch certificate
     const certRes = await fetch(
-      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id`,
+      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes`,
       { headers }
     );
     const certs = await certRes.json();
@@ -60,18 +60,57 @@ serve(async (req) => {
       });
     }
 
-    // Fetch job to get user_id for settings lookup
+    // Fetch job to get user_id and organisation_id for settings lookup
     const jobRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${cert.job_id}&select=user_id`,
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${cert.job_id}&select=user_id,organisation_id`,
       { headers }
     );
     const jobs = await jobRes.json();
     const job = Array.isArray(jobs) ? jobs[0] : null;
     const userId = job?.user_id;
 
+    // Extract calling user from JWT for activity logging
+    let callingProfileId: string | null = null;
+    const authHeader = req.headers.get("authorization");
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const callingUserId = payload.sub;
+        if (callingUserId) {
+          const profileRes = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?user_id=eq.${callingUserId}&select=id&limit=1`,
+            { headers }
+          );
+          const profiles = await profileRes.json();
+          if (Array.isArray(profiles) && profiles[0]) {
+            callingProfileId = profiles[0].id;
+          }
+        }
+      } catch { /* ignore JWT parse errors */ }
+    }
+
+    // Derive certificate type label from notes.cert_type with cert_number prefix fallback
+    const certTypeRaw = (cert.notes && typeof cert.notes === "object" && (cert.notes as any).cert_type) || "";
+    const certTypeLabel = (() => {
+      // Primary: check notes.cert_type
+      if (certTypeRaw === "gas_installation_new_meter") return "Gas Installation / New Meter Certificate";
+      if (certTypeRaw === "declaration_of_conformance") return "Declaration of Conformance Certificate";
+      if (certTypeRaw === "domestic_safety_service") return "Domestic Safety / Service Certificate";
+      // Fallback: check cert_number prefix
+      const cn = (cert.cert_number || "").toUpperCase();
+      if (cn.startsWith("GI-")) return "Gas Installation / New Meter Certificate";
+      if (cn.startsWith("DS-")) return "Domestic Safety / Service Certificate";
+      if (cn.startsWith("DC-")) return "Declaration of Conformance Certificate";
+      return "Gas Service Certificate";
+    })();
+
+    console.log("[send-certificate-whatsapp] cert_type_raw:", certTypeRaw, "cert_number:", cert.cert_number, "label:", certTypeLabel);
+
     // Fetch settings: message_footer + template_certificate
     let messageFooter = "K&N Gas Services";
-    let messageTemplate = `Hi {{customer_name}}, please find your Gas Service Certificate {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+    const defaultTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
+    let messageTemplate = defaultTemplate;
 
     if (userId) {
       const settingsRes = await fetch(
@@ -87,11 +126,15 @@ serve(async (req) => {
 
     const firstName = customer.name.split(" ")[0];
     const cleanCertUrl = cert.cert_number
-      ? `https://ktkfuquqxbrmuqrmbmdj.supabase.co/storage/v1/object/public/certificates/${encodeURIComponent(cert.cert_number)}.pdf`
+      ? `https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
       : cert.pdf_url;
     let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
+      .replace(/\{\{certificate_type\}\}/g, certTypeLabel)
+      .replace(/Gas Service Certificate/gi, certTypeLabel)
+      .replace(/Gas Safety Certificate/gi, certTypeLabel)
+      .replace(/Boiler Service Certificate/gi, certTypeLabel)
       .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
 
     // Append dynamic footer
@@ -122,7 +165,7 @@ serve(async (req) => {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH",
           headers,
-          body: JSON.stringify({ status: "failed", error_message: "MESSENGER_API_KEY not configured" }),
+          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
         });
       }
       return new Response(JSON.stringify({ success: false, error: "WhatsApp API key not configured" }), {
@@ -157,6 +200,24 @@ serve(async (req) => {
         method: "PATCH",
         headers,
         body: JSON.stringify(updateBody),
+      });
+    }
+
+    // Log customer_activity on success
+    if (result.success && cert.customer_id && cert.job_id) {
+      const certLabel = cert.cert_number ? `Certificate sent — ${cert.cert_number}` : "Certificate sent — Boiler Service";
+      const orgId = job?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          organisation_id: orgId,
+          customer_id: cert.customer_id,
+          service_call_id: cert.job_id,
+          event_type: "certificate_sent",
+          event_label: certLabel,
+          created_by: callingProfileId,
+        }),
       });
     }
 

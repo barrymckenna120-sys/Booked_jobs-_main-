@@ -55,7 +55,7 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("MESSENGER_API_KEY");
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ success: true, sent: false, reason: "No WhatsApp API key" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -124,6 +124,32 @@ ${messageFooter}`;
         headers: dbHeaders,
         body: JSON.stringify(updateBody),
       });
+    }
+
+    // Log customer activity on successful send
+    if (result.success && quote.customer_id) {
+      try {
+        // Fetch organisation_id from customer
+        const custOrgRes = await fetch(
+          `${supabaseUrl}/rest/v1/customers?id=eq.${quote.customer_id}&select=organisation_id`,
+          { headers: dbHeaders }
+        );
+        const custOrgRows = await custOrgRes.json();
+        const orgId = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id)
+          ? custOrgRows[0].organisation_id
+          : "8c37827f-ce2c-4507-a821-a5e807d89856";
+
+        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+          method: "POST",
+          headers: dbHeaders,
+          body: JSON.stringify({
+            organisation_id: orgId,
+            customer_id: quote.customer_id,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Quote Accepted Alert",
+          }),
+        });
+      } catch (_e) { /* non-critical */ }
     }
 
     return new Response(JSON.stringify({ success: true, sent: result.success }), {

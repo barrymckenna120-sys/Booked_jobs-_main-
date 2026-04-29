@@ -79,7 +79,7 @@ serve(async (req) => {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH",
           headers,
-          body: JSON.stringify({ status: "failed", error_message: "MESSENGER_API_KEY not configured" }),
+          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
         });
       }
       return new Response(
@@ -127,6 +127,27 @@ serve(async (req) => {
         headers,
         body: JSON.stringify(updateBody),
       });
+    }
+
+    // Log customer activity on success (best-effort - we don't have customer_id directly in some cases)
+    if (result.success) {
+      try {
+        const custRes2 = await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${job_id}&select=customer_id,organisation_id`, { headers });
+        const custRows2 = await custRes2.json();
+        const jobData = Array.isArray(custRows2) ? custRows2[0] : null;
+        if (jobData?.customer_id) {
+          await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+            method: "POST", headers,
+            body: JSON.stringify({
+              organisation_id: jobData.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+              customer_id: jobData.customer_id,
+              service_call_id: job_id,
+              event_type: "whatsapp_sent",
+              event_label: "WhatsApp sent — Part Arrived",
+            }),
+          });
+        }
+      } catch { /* non-critical */ }
     }
 
     return new Response(

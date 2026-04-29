@@ -446,7 +446,7 @@ const SalesLedger = () => {
                         <TableCell className="text-center">
                           {row.receipt_number ? (
                             <a
-                              href={`/receipt/${row.id}`}
+                              href={`/receipt-view/${row.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline text-xs font-semibold"

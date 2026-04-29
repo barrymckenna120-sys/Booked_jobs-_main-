@@ -44,7 +44,7 @@ const OutstandingBalances = () => {
     setLoading(true);
     supabase
       .from("service_calls")
-      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, customers(name, phone)")
+      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
       .not("invoiced_at", "is", null)
@@ -54,11 +54,7 @@ const OutstandingBalances = () => {
         if (rows) {
           setJobs(
             rows
-              .filter((r: any) => {
-                const bal = r.balance_due ?? null;
-                const rev = r.revenue || 0;
-                return (bal !== null && bal > 0) || rev > 0;
-              })
+              .filter((r: any) => (r.balance_due ?? 0) > 0)
               .map((r: any) => ({
                 id: r.id,
                 scheduled_date: r.scheduled_date,

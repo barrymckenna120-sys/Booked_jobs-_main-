@@ -1,11 +1,12 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
+  console.log("invite-team-member called", req.method);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -20,6 +21,7 @@ Deno.serve(async (req) => {
     }
 
     const { engineer_id, email, name, role } = await req.json();
+    console.log("Request body:", { engineer_id, email, name, role });
     if (!engineer_id || !email) {
       return new Response(JSON.stringify({ error: "engineer_id and email required" }), {
         status: 400,
@@ -33,7 +35,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: { user: caller } } = await supabaseUser.auth.getUser();
+    const { data: { user: caller }, error: getUserError } = await supabaseUser.auth.getUser();
+    console.log("getUser result:", JSON.stringify({ user: caller?.id, error: getUserError }));
     if (!caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -42,7 +45,8 @@ Deno.serve(async (req) => {
     }
 
     // Verify the caller has admin or office role (not engineer)
-    const { data: callerRole } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    const { data: callerRole, error: roleError } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
+    console.log("role check result:", JSON.stringify({ role: callerRole, error: roleError }));
     if (callerRole === 'engineer') {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
@@ -57,7 +61,8 @@ Deno.serve(async (req) => {
     );
 
     // Check if user already exists with this email
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    console.log("listUsers result:", JSON.stringify({ count: existingUsers?.users?.length, error: listError }));
     const existingUser = existingUsers?.users?.find(
       (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
@@ -65,8 +70,64 @@ Deno.serve(async (req) => {
     let authUserId: string;
 
     if (existingUser) {
+      console.log("Existing user found:", existingUser.id);
       authUserId = existingUser.id;
+
+      // Generate a password reset link for existing user
+      const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: { redirectTo: "https://kngasservices.bookedjobs.ie/auth" },
+      });
+      console.log("generateLink result (existing):", JSON.stringify({ data: linkData, error: resetError }));
+      if (resetError) {
+        console.error("Password reset link generation failed (existing):", resetError);
+      }
+
+      // Send welcome/invite email to existing user via Resend
+      const actionLink = linkData?.properties?.action_link || `https://kngasservices.bookedjobs.ie`;
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      if (RESEND_API_KEY) {
+        try {
+          const roleLabel = role === "admin" ? "Admin" : role === "office" ? "Office" : "Engineer";
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: `BookedJobs <noreply@bookedjobs.ie>`,
+              to: [email],
+              subject: `Welcome to BookedJobs — You're in, ${(name || "").split(" ")[0]}!`,
+              html: `<!DOCTYPE html><html><body style="font-family:'DM Sans',Arial,sans-serif;background:#F0F4FF;padding:40px 16px;">
+<div style="max-width:560px;margin:0 auto;">
+<div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(37,99,235,0.08);">
+<div style="height:5px;background:linear-gradient(90deg,#2563EB,#60a5fa);"></div>
+<div style="padding:44px 48px 40px;">
+<h1 style="font-size:26px;font-weight:700;color:#0f172a;margin-bottom:12px;">Welcome to BookedJobs! 👋</h1>
+<p style="font-size:15px;color:#4b5563;line-height:1.65;margin-bottom:28px;">Your account has been set up and you're ready to go. Click the button below to set your password and log in.</p>
+<div style="background:#F8FAFF;border:1px solid #dbeafe;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
+<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e8f0fe;font-size:14px;"><span style="color:#6b7280;font-weight:500;">Email</span><span style="color:#0f172a;font-weight:600;">${email}</span></div>
+<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;"><span style="color:#6b7280;font-weight:500;">Role</span><span style="color:#0f172a;font-weight:600;">${roleLabel}</span></div>
+</div>
+<a href="${actionLink}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1d4ed8);color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:15px 36px;border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">Set Password & Log In</a>
+</div></div>
+<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs · Karl's Gas</p></div>
+</div></body></html>`,
+            }),
+          });
+          console.log("Resend response status (existing):", res.status);
+          const resBody = await res.text();
+          console.log("Resend response body (existing):", resBody);
+        } catch (emailErr) {
+          console.error("Welcome email send error (existing):", emailErr);
+        }
+      } else {
+        console.warn("RESEND_API_KEY not set, skipping welcome email (existing)");
+      }
     } else {
+      console.log("No existing user, creating new auth user");
       // Generate a cryptographically random password
       const randomBytes = new Uint8Array(24);
       crypto.getRandomValues(randomBytes);
@@ -89,14 +150,80 @@ Deno.serve(async (req) => {
 
       authUserId = created.user.id;
 
-      // Trigger a password reset email so user sets their own password
-      const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+      // Generate a password reset link so user sets their own password
+      const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
         type: "recovery",
         email,
+        options: { redirectTo: "https://kngasservices.bookedjobs.ie/auth" },
       });
+      console.log("generateLink response:", JSON.stringify({ data: linkData, error: resetError }));
       if (resetError) {
-        console.error("Password reset email failed:", resetError);
+        console.error("Password reset link generation failed:", resetError);
       }
+
+      // Send the welcome email via Resend with the action link
+      const actionLink = linkData?.properties?.action_link || `https://kngasservices.bookedjobs.ie`;
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      if (RESEND_API_KEY) {
+        try {
+          const roleLabel = role === "admin" ? "Admin" : role === "office" ? "Office" : "Engineer";
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: `BookedJobs <noreply@bookedjobs.ie>`,
+              to: [email],
+              subject: `Welcome to BookedJobs — You're in, ${(name || "").split(" ")[0]}!`,
+              html: `<!DOCTYPE html><html><body style="font-family:'DM Sans',Arial,sans-serif;background:#F0F4FF;padding:40px 16px;">
+<div style="max-width:560px;margin:0 auto;">
+<div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(37,99,235,0.08);">
+<div style="height:5px;background:linear-gradient(90deg,#2563EB,#60a5fa);"></div>
+<div style="padding:44px 48px 40px;">
+<h1 style="font-size:26px;font-weight:700;color:#0f172a;margin-bottom:12px;">Welcome to BookedJobs! 👋</h1>
+<p style="font-size:15px;color:#4b5563;line-height:1.65;margin-bottom:28px;">Your account has been set up and you're ready to go. Click the button below to set your password and log in.</p>
+<div style="background:#F8FAFF;border:1px solid #dbeafe;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
+<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e8f0fe;font-size:14px;"><span style="color:#6b7280;font-weight:500;">Email</span><span style="color:#0f172a;font-weight:600;">${email}</span></div>
+<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;"><span style="color:#6b7280;font-weight:500;">Role</span><span style="color:#0f172a;font-weight:600;">${roleLabel}</span></div>
+</div>
+<a href="${actionLink}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1d4ed8);color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:15px 36px;border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">Set Password & Log In</a>
+</div></div>
+<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs · Karl's Gas</p></div>
+</div></body></html>`,
+            }),
+          });
+          console.log("Resend response status:", res.status);
+          const resBody = await res.text();
+          console.log("Resend response body:", resBody);
+          if (!res.ok) {
+            console.error("Resend welcome email failed:", resBody);
+          } else {
+            try {
+              const resData = JSON.parse(resBody);
+              console.log("Welcome email sent:", resData.id);
+            } catch (_) {
+              console.log("Welcome email sent (non-JSON response)");
+            }
+          }
+        } catch (emailErr) {
+          console.error("Welcome email send error:", emailErr);
+        }
+      } else {
+        console.warn("RESEND_API_KEY not set, skipping welcome email");
+      }
+    }
+
+    // Clear any existing engineer linked to this auth user (unique constraint)
+    const { error: clearError } = await supabaseAdmin
+      .from("engineers")
+      .update({ auth_user_id: null })
+      .eq("auth_user_id", authUserId)
+      .neq("id", engineer_id);
+
+    if (clearError) {
+      console.error("Failed to clear old auth link:", clearError);
     }
 
     // Link the auth user to the engineer record
@@ -113,13 +240,26 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Log to audit_log
+    const callerName = caller.user_metadata?.display_name || caller.email || "Admin";
+    await supabaseAdmin.from("audit_log").insert({
+      user_id: caller.id,
+      user_name: callerName,
+      user_role: callerRole || "admin",
+      action_type: "team_member_invited",
+      entity_type: "engineer",
+      entity_id: engineer_id,
+      detail: `Invited ${name || email} (${role}) to the team`,
+      metadata: { email, role, existing_user: !!existingUser },
+    });
+
     return new Response(
       JSON.stringify({ success: true, auth_user_id: authUserId, existing: !!existingUser }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("invite-team-member error:", err);
-    return new Response(JSON.stringify({ error: "An unexpected error occurred." }), {
+    console.error("Caught error:", err?.message, JSON.stringify(err));
+    return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

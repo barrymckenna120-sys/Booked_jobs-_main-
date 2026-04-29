@@ -154,7 +154,7 @@ const Schedule = () => {
       // Get scheduled jobs for the week + unallocated jobs
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
-        .select("*, customers!inner(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
+        .select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null,status.eq.Pending,status.in.(incoming,accepted)`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
@@ -282,9 +282,11 @@ const Schedule = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
+
       supabase.functions.invoke('send-booking-confirmation', {
         body: { service_call_id: jobId }
-      }).catch(err => console.error('Booking confirmation failed:', err));
+      }).catch(err => console.error('send-booking-confirmation failed:', err));
+
       toast({ title: "Job assigned" });
       setAssignModal({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Loader2, AlertTriangle, Package } from "lucide-react";
+import { CalendarDays, Plus, Loader2, AlertTriangle, Package, BookOpen, ChevronRight } from "lucide-react";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { useToast } from "@/hooks/use-toast";
@@ -223,6 +223,21 @@ const Dashboard = () => {
             <JobsUpdateSection />
             <TodaysRevenueCard />
           </div>
+
+          {/* Sales Ledger link card */}
+          <button
+            onClick={() => navigate("/finance")}
+            className="w-full flex items-center gap-4 p-4 bg-card border border-border rounded-lg shadow-sm hover:bg-accent/50 transition-colors text-left"
+          >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary shrink-0">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-foreground">Sales Report</div>
+              <div className="text-xs text-muted-foreground mt-0.5">View full payment & invoice history</div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+          </button>
         </div>
       )}
 

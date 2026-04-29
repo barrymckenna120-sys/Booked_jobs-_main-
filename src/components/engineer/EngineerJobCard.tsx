@@ -14,6 +14,7 @@ import ExtraWorkSheet from "./ExtraWorkSheet";
 import JobPhotoThumbnails from "./JobPhotoThumbnails";
 import NoShowSheet from "./NoShowSheet";
 import PartsNeededSheet from "./PartsNeededSheet";
+import PaymentSheet from "./PaymentSheet";
 
 import JobServiceHistory from "./JobServiceHistory";
 import JobNotesSection from "./JobNotesSection";
@@ -52,6 +53,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showPartsNeeded, setShowPartsNeeded] = useState(false);
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [showMessageOffice, setShowMessageOffice] = useState(false);
+  const [showCompletionPayment, setShowCompletionPayment] = useState(false);
+  const [pendingCompletionData, setPendingCompletionData] = useState<{ data: any; jobTagDate: string | null } | null>(null);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
   const { data: jobTags = [] } = useQuery({
@@ -216,7 +219,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           <div className="mt-3">
             {job.receipt_number ? (
               <button
-                onClick={() => window.location.href = `/receipt/${job.id}`}
+                onClick={() => window.location.href = `/receipt-view/${job.id}`}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 text-primary font-bold text-sm"
               >
                 <Receipt className="w-4 h-4" /> {job.receipt_number}
@@ -248,7 +251,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
-      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any, jobTagDate: string | null) => { onUpdate(job.id, { status: "Completed", ...data }, { jobTagDate }); setShowComplete(false); }} />}
+      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any, jobTagDate: string | null) => { setPendingCompletionData({ data, jobTagDate }); setShowComplete(false); setShowCompletionPayment(true); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}
@@ -277,6 +280,23 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           customer={customer}
           onPaymentComplete={() => {
             onUpdate(job.id, {}); // trigger refresh
+          }}
+        />
+      )}
+      {showCompletionPayment && pendingCompletionData && (
+        <PaymentSheet
+          job={job}
+          customer={customer}
+          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); }}
+          onDone={(method: string, confirmedAmount: number) => {
+            setShowCompletionPayment(false);
+            onUpdate(job.id, {
+              status: "Completed",
+              ...pendingCompletionData.data,
+              paymentMethod: method,
+              revenue: confirmedAmount,
+            }, { jobTagDate: pendingCompletionData.jobTagDate });
+            setPendingCompletionData(null);
           }}
         />
       )}

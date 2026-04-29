@@ -22,6 +22,7 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import WhatsApp from "./pages/WhatsApp";
 import WhatsAppTemplates from "./pages/WhatsAppTemplates";
 import IncomingJobs from "./pages/IncomingJobs";
+import IncomingJobsDebug from "./pages/IncomingJobsDebug";
 import EngineerLayout from "./components/engineer/EngineerLayout";
 import EngineerToday from "./pages/engineer/EngineerToday";
 import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
@@ -55,6 +56,11 @@ import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
 import CertificateViewer from "./pages/CertificateViewer";
 import Parts from "./pages/Parts";
+import WarrantyTracker from "./pages/WarrantyTracker";
+import WarrantyDetail from "./pages/WarrantyDetail";
+import PublicReceipt from "./pages/PublicReceipt";
+import InvoiceRedirect from "./pages/InvoiceRedirect";
+import ReceiptRedirect from "./pages/ReceiptRedirect";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +118,8 @@ const App = () => (
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
+              <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
+              <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
               <Route path="/products" element={<Products />} />
               <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
               <Route path="/settings/import" element={<ImportCustomers />} />
@@ -124,6 +132,7 @@ const App = () => (
               <Route path="/message-log" element={<Navigate to="/dashboard" replace />} />
               <Route path="/messages" element={<Navigate to="/inbox" replace />} />
               <Route path="/system-logs" element={<SystemLogs />} />
+              <Route path="/debug/incoming-jobs" element={<IncomingJobsDebug />} />
 
               {/* Quote detail routes still work directly */}
               <Route path="/quotes/new" element={<QuoteNew />} />
@@ -143,13 +152,17 @@ const App = () => (
             </Route>
             <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
             <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
-            <Route path="/receipt/:id" element={<ServiceReceipt />} />
-            <Route path="/invoice/:id" element={<InvoicePreview />} />
+            <Route path="/receipt-view/:id" element={<ServiceReceipt />} />
+            <Route path="/invoice-view/:id" element={<InvoicePreview />} />
             <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
             <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
             <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
             <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
+            <Route path="/certificate/:certNumber" element={<CertificateRedirect />} />
             <Route path="/cert/:certNumber" element={<CertificateViewer />} />
+            <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
+            <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
+            <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />

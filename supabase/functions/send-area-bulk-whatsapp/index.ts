@@ -60,7 +60,7 @@ serve(async (req) => {
 
       // Check opted_out status
       const custRes = await fetch(
-        `${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&select=opted_out,user_id`,
+        `${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&select=opted_out,user_id,organisation_id`,
         { headers: dbHeaders }
       );
       const custRows = await custRes.json();
@@ -162,12 +162,32 @@ K & N Gas Services`;
           sent++;
           byArea[areaKey].sent++;
 
-          // Mark renewal_stage = reminded
-          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}`, {
+          // Log customer activity
+          try {
+            await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+              method: "POST", headers: dbHeaders,
+              body: JSON.stringify({
+                organisation_id: custRecord?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+                customer_id,
+                event_type: "whatsapp_sent",
+                event_label: "WhatsApp sent — Renewal Reminder",
+              }),
+            });
+          } catch { /* non-critical */ }
+
+          // Advance renewal_stage to "reminded" only if currently "not_contacted"
+          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}&renewal_stage=eq.not_contacted`, {
             method: "PATCH",
             headers: dbHeaders,
             body: JSON.stringify({
               renewal_stage: "reminded",
+            }),
+          });
+          // Always update reminder tracking fields
+          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customer_id}`, {
+            method: "PATCH",
+            headers: dbHeaders,
+            body: JSON.stringify({
               last_reminder_sent: new Date().toISOString(),
               reminder_30_days_sent: true,
             }),
