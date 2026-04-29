@@ -269,7 +269,7 @@ const Schedule = () => {
     const { error } = await supabase
       .from("service_calls")
       .update(sanitizeServiceCallUpdatePayload({
-        scheduled_date: format(date, "yyyy-MM-dd"),
+        scheduled_date: `${format(date, "yyyy-MM-dd")}T12:00:00`,
         time_block: timeBlock,
         assigned_engineer: engineerName,
         assigned_engineer_id: matchedEngineer?.id || null,
