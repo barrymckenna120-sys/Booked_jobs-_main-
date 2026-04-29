@@ -215,7 +215,7 @@ const Auth = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
                 placeholder="you@example.com"
                 required
               />
@@ -228,7 +228,7 @@ const Auth = () => {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setFormError(null); }}
                   placeholder="••••••••"
                   required
                   minLength={6}
@@ -252,8 +252,17 @@ const Auth = () => {
               </button>
             </div>
             <Button type="submit" className="w-full" disabled={loading || isBlocked}>
-              {loading ? "Loading..." : "Sign In"}
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Signing in…
+                </span>
+              ) : "Sign In"}
             </Button>
+            {formError && (
+              <p role="alert" className="text-sm text-destructive text-center mt-2">
+                {formError}
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>
