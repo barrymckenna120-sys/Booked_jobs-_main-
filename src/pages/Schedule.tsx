@@ -197,7 +197,7 @@ const Schedule = () => {
   // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days
   const hasJobOnDay = (day: Date) => {
     const dateStr = format(day, "yyyy-MM-dd");
-    return jobs.some((j) => j.scheduled_date === dateStr && j.status !== "Completed" && j.status !== "Cancelled" && j.status !== "archived");
+    return jobs.some((j) => j.scheduled_date?.slice(0, 10) === dateStr && j.status !== "Completed" && j.status !== "Cancelled" && j.status !== "archived");
   };
   const weekDays = allWeekDays.filter((day, i) => i < 5 || hasJobOnDay(day));
 
@@ -225,7 +225,7 @@ const Schedule = () => {
     const dateStr = format(date, "yyyy-MM-dd");
     return jobs.find(
       (j) =>
-        j.scheduled_date === dateStr &&
+        j.scheduled_date?.slice(0, 10) === dateStr &&
         normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
         j.status !== "New" &&
         j.status !== "Contacted" &&
@@ -246,7 +246,7 @@ const Schedule = () => {
     const dateStr = format(date, "yyyy-MM-dd");
     const count = jobs.filter(
       (j) =>
-        j.scheduled_date === dateStr &&
+        j.scheduled_date?.slice(0, 10) === dateStr &&
         normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
         j.assigned_engineer === engineerName &&
         j.status !== "Completed" &&
