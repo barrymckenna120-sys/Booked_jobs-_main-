@@ -30,6 +30,7 @@ const Auth = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
+  const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -75,9 +76,22 @@ const Auth = () => {
       setFailedAttempts(0);
       navigate("/dashboard");
     } catch (error: any) {
-      setFormError(GENERIC_AUTH_ERROR);
+      const msg = (error?.message || "").toLowerCase();
+      const isBanned =
+        msg.includes("banned") ||
+        msg.includes("blocked") ||
+        msg.includes("user is banned") ||
+        error?.code === "user_banned" ||
+        error?.status === 423;
 
-      if (error.message?.toLowerCase().includes("invalid")) {
+      if (isBanned) {
+        setFormError(BLOCKED_AUTH_ERROR);
+        setIsBlocked(true);
+      } else {
+        setFormError(GENERIC_AUTH_ERROR);
+      }
+
+      if (msg.includes("invalid")) {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
 
@@ -85,6 +99,7 @@ const Auth = () => {
           setErrorTitle("Account Blocked");
           setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
           setIsBlocked(true);
+          setFormError(BLOCKED_AUTH_ERROR);
           setErrorModalOpen(true);
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
