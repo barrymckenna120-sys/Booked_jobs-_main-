@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
 
 const Auth = () => {
@@ -27,6 +27,9 @@ const Auth = () => {
   const [errorTitle, setErrorTitle] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isBlocked, setIsBlocked] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -64,6 +67,7 @@ const Auth = () => {
     e.preventDefault();
     if (isBlocked) return;
     setLoading(true);
+    setFormError(null);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -71,6 +75,8 @@ const Auth = () => {
       setFailedAttempts(0);
       navigate("/dashboard");
     } catch (error: any) {
+      setFormError(GENERIC_AUTH_ERROR);
+
       if (error.message?.toLowerCase().includes("invalid")) {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
@@ -87,17 +93,7 @@ const Auth = () => {
           setErrorTitle("Incorrect Password");
           setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
           setErrorModalOpen(true);
-        } else {
-          setErrorTitle("Incorrect Password");
-          setErrorMessage("Incorrect password. Please try again.");
-          setErrorModalOpen(true);
         }
-      } else {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
       }
     } finally {
       setLoading(false);
