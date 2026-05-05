@@ -62,6 +62,7 @@ import PublicReceipt from "./pages/PublicReceipt";
 import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
+import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
 
 const queryClient = new QueryClient();
 
@@ -120,6 +121,7 @@ const App = () => (
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
               <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
+              <Route path="/insights" element={<OfficeRoute><BusinessInsightsDashboard /></OfficeRoute>} />
               <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
               <Route path="/products" element={<Products />} />
               <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
