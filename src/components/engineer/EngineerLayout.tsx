@@ -146,7 +146,7 @@ const EngineerLayout = () => {
         notifications={bannerNotifications}
         onDismiss={dismissBanner}
         onMarkRead={markAsRead}
-        jobPathPrefix="/engineer/today"
+        jobPathPrefix="/engineer/job"
       />
       <MessageAlertBanner />
       {user && (
