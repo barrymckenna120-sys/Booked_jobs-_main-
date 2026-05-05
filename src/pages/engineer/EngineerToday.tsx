@@ -129,8 +129,7 @@ const EngineerToday = () => {
       {canAccessOffice && (
         <button
           onClick={() => navigate("/dashboard")}
-          className="mx-4 mb-4 w-auto flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-4 text-base font-semibold hover:bg-[#1d4ed8] transition-colors"
-          style={{ marginLeft: '1rem', marginRight: '1rem' }}
+          className="mx-4 mb-4 flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-4 text-base font-semibold hover:bg-[#1d4ed8] transition-colors"
         >
           <Briefcase className="h-5 w-5" />
           Switch to Office App
