@@ -157,6 +157,14 @@ K & N Gas Services ☎ 087 3686252`;
               event_label: "WhatsApp sent — 2-Day Reminder",
             });
           } catch { /* non-critical */ }
+          // Success log
+          try {
+            await supabase.from("edge_function_logs").insert({
+              function_name: "job-reminder-2day",
+              payload: { service_call_id: job.id, customer_name: fullName, phone: cleanNumber },
+              error_message: null,
+            });
+          } catch { /* non-critical */ }
         } else {
           errors++;
         }
