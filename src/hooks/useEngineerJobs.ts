@@ -45,7 +45,7 @@ export const useEngineerJobs = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { isOnline, lastChecked } = useNetworkStatus();
+  const { isOnline } = useNetworkStatus();
   const [todayJobs, setTodayJobs] = useState<any[]>([]);
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
@@ -530,7 +530,7 @@ export const useEngineerJobs = () => {
     user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
-    updateJob, fetchAll, fadingJobIds, isOnline, lastChecked,
+    updateJob, fetchAll, fadingJobIds, isOnline,
   };
 };
 

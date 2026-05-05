@@ -24,34 +24,23 @@ export const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
-  const [lastChecked, setLastChecked] = useState<string>("");
-
-  useEffect(() => {
-    console.log("isOnline changed to:", isOnline);
-  }, [isOnline]);
 
   useEffect(() => {
     let cancelled = false;
 
     const runProbe = async () => {
       const ok = await probe();
-      console.log("Probe result:", ok);
-      if (!cancelled) {
-        setIsOnline(ok);
-        setLastChecked(new Date().toLocaleTimeString());
-      }
+      if (!cancelled) setIsOnline(ok);
     };
 
     runProbe();
     const interval = setInterval(runProbe, PROBE_INTERVAL_MS);
 
     const handleOnline = () => {
-      console.log("Event: online");
       setIsOnline(true);
       runProbe();
     };
     const handleOffline = () => {
-      console.log("Event: offline");
       setIsOnline(false);
     };
     const handleVisibilityChange = () => {
@@ -73,5 +62,5 @@ export const useNetworkStatus = () => {
     };
   }, []);
 
-  return { isOnline, lastChecked };
+  return { isOnline };
 };
