@@ -2036,6 +2036,8 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           completed_at: string | null
+          confirmed: boolean
+          confirmed_at: string | null
           conversation_id: string | null
           created_at: string
           customer_id: string
@@ -2118,6 +2120,8 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           completed_at?: string | null
+          confirmed?: boolean
+          confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
           customer_id: string
@@ -2200,6 +2204,8 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           completed_at?: string | null
+          confirmed?: boolean
+          confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
           customer_id?: string
