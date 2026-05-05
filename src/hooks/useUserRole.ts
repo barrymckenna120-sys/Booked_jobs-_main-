@@ -12,6 +12,7 @@ export const useUserRole = (user: User | null) => {
   const [role, setRole] = useState<AppRole>("admin");
   const [engineerId, setEngineerId] = useState<string | null>(null);
   const [engineerName, setEngineerName] = useState<string | null>(null);
+  const [canAccessOffice, setCanAccessOffice] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export const useUserRole = (user: User | null) => {
       setRole("admin");
       setEngineerId(null);
       setEngineerName(null);
+      setCanAccessOffice(false);
       setLoading(false);
       return;
     }
@@ -27,7 +29,7 @@ export const useUserRole = (user: User | null) => {
       setLoading(true);
       const { data } = await supabase
         .from("engineers")
-        .select("id, name, role")
+        .select("id, name, role, can_access_office")
         .eq("auth_user_id", user.id)
         .maybeSingle();
 
@@ -35,10 +37,12 @@ export const useUserRole = (user: User | null) => {
         setRole((data.role as AppRole) || "engineer");
         setEngineerId(data.id);
         setEngineerName(data.name);
+        setCanAccessOffice((data as any).can_access_office === true);
       } else {
         setRole("admin");
         setEngineerId(null);
         setEngineerName(null);
+        setCanAccessOffice(false);
       }
       setLoading(false);
     };
@@ -50,5 +54,5 @@ export const useUserRole = (user: User | null) => {
   const isAdmin = role === "admin";
   const isOffice = role === "office";
 
-  return { role, isEngineer, isAdmin, isOffice, engineerId, engineerName, loading };
+  return { role, isEngineer, isAdmin, isOffice, engineerId, engineerName, canAccessOffice, loading };
 };
