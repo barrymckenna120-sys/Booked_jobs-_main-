@@ -76,13 +76,21 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
       if (error) throw error;
 
       if (officeUserId) {
+        const { data: jobInfo } = await supabase
+          .from("service_calls")
+          .select("invoice_number, customers(name)")
+          .eq("id", jobId)
+          .maybeSingle();
+        const fullName = (jobInfo as any)?.customers?.name || "Customer";
+        const invoiceNumber = (jobInfo as any)?.invoice_number || "";
         await supabase.from("notifications").insert({
           recipient_user_id: officeUserId,
           notification_type: "message",
-          title: `Message from ${engineerName}`,
+          title: `New message – ${fullName} (${invoiceNumber})`,
           body: message.trim(),
           job_id: jobId,
           role: "office",
+          metadata: { customer_name: fullName, job_reference: invoiceNumber },
         } as any);
       }
 
