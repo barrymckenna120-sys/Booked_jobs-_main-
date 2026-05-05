@@ -67,6 +67,7 @@ const EngineerLayout = () => {
     { key: "today", label: "Today", icon: Clock, count: todayActive.length, path: "/engineer/today" },
     { key: "upcoming", label: "Upcoming", icon: CalendarDays, count: upcomingJobs.length, path: "/engineer/upcoming" },
     { key: "completed", label: "Completed", icon: CheckCircle2, count: completedJobs.length, path: "/engineer/completed" },
+    ...(canAccessOffice ? [{ key: "office", label: "Office", icon: Briefcase, count: 0, path: "/dashboard" }] : []),
   ];
 
   return (
