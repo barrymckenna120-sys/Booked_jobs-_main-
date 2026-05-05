@@ -123,7 +123,7 @@ const NotificationDrawer = ({
                   <p className={`text-sm leading-tight ${n.is_read ? "font-medium" : "font-bold"}`}>
                     {n.title}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.body && n.body.length > 60 ? n.body.substring(0, 60) + "…" : n.body}</p>
                   <p className="text-[10px] text-muted-foreground/60 mt-1">
                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                   </p>
