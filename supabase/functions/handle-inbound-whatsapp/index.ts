@@ -84,9 +84,7 @@ Deno.serve(async (req) => {
           .eq("id", customer.id);
       }
 
-      const reply = `You've been unsubscribed from K & N Gas Services messages. To re-subscribe call us on 087 3686252.`;
-      const sendRes = await sendWhatsApp(apiKey, phone, reply);
-      await log(sendRes.ok ? null : `STOP reply failed: ${sendRes.raw.substring(0, 300)}`, {
+      await log(null, {
         from: phone, text, action: "stop", customer_id: customer?.id || null,
       });
 
