@@ -6,7 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, HardHat,
+  CalendarCheck, Layers, Shield,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -60,7 +60,7 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
-  const { isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
+  const { isEngineer, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
@@ -116,11 +116,9 @@ const AppLayoutInner = () => {
     };
   }, []);
 
-  if (!roleLoading && isEngineer && !canAccessOffice) {
+  if (!roleLoading && isEngineer) {
     return <Navigate to="/engineer/today" replace />;
   }
-
-  const showEngineerSwitcher = isEngineer && canAccessOffice;
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
@@ -179,17 +177,6 @@ const AppLayoutInner = () => {
             </button>
           ))}
         </nav>
-        {showEngineerSwitcher && (
-          <div className="px-3 pt-3">
-            <button
-              onClick={() => navigate("/engineer/today")}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <HardHat className="w-5 h-5" />
-              <span>Engineer App</span>
-            </button>
-          </div>
-        )}
         <div className="px-3 py-3 border-t border-border">
           <button
             onClick={signOut}
@@ -263,16 +250,6 @@ const AppLayoutInner = () => {
               </button>
             );
           })}
-          {showEngineerSwitcher && (
-            <button
-              onClick={() => navigate("/engineer/today")}
-              className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] transition-colors"
-              style={{ color: "#6B7280" }}
-            >
-              <HardHat className="w-6 h-6" strokeWidth={2.5} />
-              <span className="text-[10px] leading-tight mt-0.5">Engineer App</span>
-            </button>
-          )}
         </div>
       </nav>
 
