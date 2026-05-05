@@ -57,6 +57,19 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [pendingCompletionData, setPendingCompletionData] = useState<{ data: any; jobTagDate: string | null } | null>(null);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
+
+  const { data: officeOwnerId } = useQuery({
+    queryKey: ["org-owner", job.organisation_id],
+    enabled: !!job.organisation_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("organisations")
+        .select("owner_user_id")
+        .eq("id", job.organisation_id)
+        .maybeSingle();
+      return (data as any)?.owner_user_id ?? null;
+    },
+  });
   const { data: jobTags = [] } = useQuery({
     queryKey: ["job-card-tags", job.id],
     queryFn: async () => {
