@@ -24,6 +24,7 @@ export const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
+  const [lastChecked, setLastChecked] = useState<string>("");
 
   useEffect(() => {
     console.log("isOnline changed to:", isOnline);
@@ -35,7 +36,10 @@ export const useNetworkStatus = () => {
     const runProbe = async () => {
       const ok = await probe();
       console.log("Probe result:", ok);
-      if (!cancelled) setIsOnline(ok);
+      if (!cancelled) {
+        setIsOnline(ok);
+        setLastChecked(new Date().toLocaleTimeString());
+      }
     };
 
     runProbe();
