@@ -2,7 +2,6 @@
 // Single AudioContext instance, unlocked on first user gesture.
 
 let ctx: AudioContext | null = null;
-let unlocked = false;
 
 function getCtx(): AudioContext | null {
   if (ctx && ctx.state !== "closed") return ctx;
@@ -25,25 +24,29 @@ async function ensureRunning(c: AudioContext): Promise<void> {
 
 /** Call once — attaches a one-time touchstart/click listener that
  *  resumes the AudioContext + plays a silent buffer (required on iOS). */
-export function unlockAudio() {
-  if (unlocked) return;
+let unlockHandlerAttached = false;
 
+export function unlockAudio() {
+  if (unlockHandlerAttached) return;
+  unlockHandlerAttached = true;
+
+  // Persistent handler — re-runs on EVERY user gesture so iOS can re-unlock
+  // after the AudioContext re-suspends (backgrounding, phone calls, PWA throttling).
   const handler = () => {
-    if (unlocked) return;
-    unlocked = true;
     const c = getCtx();
-    if (c) {
-      if (c.state === "suspended") c.resume().catch(() => {});
-      // Silent buffer to fully unlock audio on iOS Safari & Chrome
+    if (!c) return;
+    const state = c.state as string;
+    if (state === "suspended" || state === "interrupted") {
+      c.resume().catch(() => {});
+    }
+    // Silent buffer to fully unlock audio on iOS Safari & Chrome
+    try {
       const buf = c.createBuffer(1, 1, 22050);
       const src = c.createBufferSource();
       src.buffer = buf;
       src.connect(c.destination);
       src.start(0);
-    }
-    document.removeEventListener("pointerdown", handler, true);
-    document.removeEventListener("touchstart", handler, true);
-    document.removeEventListener("click", handler, true);
+    } catch {}
   };
 
   document.addEventListener("pointerdown", handler, { capture: true, passive: true });
