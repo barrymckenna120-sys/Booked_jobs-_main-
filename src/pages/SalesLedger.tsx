@@ -320,7 +320,7 @@ const SalesLedger = () => {
       {/* Table Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2">
-          <CardTitle className="text-lg font-extrabold">Sales Ledger</CardTitle>
+          <CardTitle className="text-lg font-extrabold">Sales</CardTitle>
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
