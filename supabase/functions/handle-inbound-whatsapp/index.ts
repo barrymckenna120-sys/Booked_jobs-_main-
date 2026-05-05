@@ -59,8 +59,8 @@ Deno.serve(async (req) => {
     if (!fromRaw || !text) {
       await log("Missing from or text in payload", body);
       return new Response(
-        JSON.stringify({ success: false, error: "Missing from or text" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, action: "ignored", reason: "missing_fields" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -115,8 +115,8 @@ Deno.serve(async (req) => {
     if (!customer) {
       await log(`No customer matched phone ${phone}`, { from: phone, text });
       return new Response(
-        JSON.stringify({ success: false, error: "Customer not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, action: "ignored", reason: "customer_not_found" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -135,8 +135,8 @@ Deno.serve(async (req) => {
     if (!job) {
       await log(`No active reminded job for ${customer.name}`, { from: phone, text, customer_id: customer.id });
       return new Response(
-        JSON.stringify({ success: false, error: "No matching service call" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, action: "ignored", reason: "no_matching_service_call" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
     await log(m, null);
     return new Response(
       JSON.stringify({ success: false, error: m }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
