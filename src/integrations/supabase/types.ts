@@ -961,6 +961,7 @@ export type Database = {
         Row: {
           auth_user_id: string | null
           blocked_reason: string | null
+          can_access_office: boolean
           created_at: string
           email: string | null
           fcm_token: string | null
@@ -980,6 +981,7 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           blocked_reason?: string | null
+          can_access_office?: boolean
           created_at?: string
           email?: string | null
           fcm_token?: string | null
@@ -999,6 +1001,7 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           blocked_reason?: string | null
+          can_access_office?: boolean
           created_at?: string
           email?: string | null
           fcm_token?: string | null
