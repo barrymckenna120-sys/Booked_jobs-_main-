@@ -110,7 +110,9 @@ Deno.serve(async (req) => {
 
 This is a reminder from K & N Gas Services that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
 
-Your engineer will be ${engineerName}. If you need to reschedule please call us on 087 3686252 as soon as possible.
+Your engineer will be ${engineerName}.
+
+Please reply CONFIRM to confirm your appointment or CANCEL to cancel. Alternatively call us on 087 3686252.
 
 K & N Gas Services ☎ 087 3686252`;
 
@@ -153,6 +155,14 @@ K & N Gas Services ☎ 087 3686252`;
               service_call_id: job.id,
               event_type: "whatsapp_sent",
               event_label: "WhatsApp sent — 2-Day Reminder",
+            });
+          } catch { /* non-critical */ }
+          // Success log
+          try {
+            await supabase.from("edge_function_logs").insert({
+              function_name: "job-reminder-2day",
+              payload: { service_call_id: job.id, customer_name: fullName, phone: cleanNumber },
+              error_message: null,
             });
           } catch { /* non-critical */ }
         } else {
