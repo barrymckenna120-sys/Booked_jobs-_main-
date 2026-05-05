@@ -35,6 +35,7 @@ export const useUserRole = (user: User | null) => {
       .eq("auth_user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
+        console.log("useUserRole data:", data);
         if (cancelled) return;
         const engineerRow: any = data;
         if (engineerRow) {
