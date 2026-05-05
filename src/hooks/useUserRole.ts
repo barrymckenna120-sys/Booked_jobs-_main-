@@ -16,6 +16,8 @@ export const useUserRole = (user: User | null) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!user) {
       setRole("admin");
       setEngineerId(null);
@@ -25,29 +27,33 @@ export const useUserRole = (user: User | null) => {
       return;
     }
 
-    const fetchRole = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("engineers")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
+    setLoading(true);
 
-      if (data) {
-        setRole((data.role as AppRole) || "engineer");
-        setEngineerId(data.id);
-        setEngineerName(data.name);
-        setCanAccessOffice((data as any).can_access_office === true);
-      } else {
-        setRole("admin");
-        setEngineerId(null);
-        setEngineerName(null);
-        setCanAccessOffice(false);
-      }
-      setLoading(false);
+    supabase
+      .from("engineers")
+      .select("*")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const engineerRow: any = data;
+        if (engineerRow) {
+          setRole((engineerRow.role as AppRole) || "engineer");
+          setEngineerId(engineerRow.id);
+          setEngineerName(engineerRow.name);
+          setCanAccessOffice(!!engineerRow?.can_access_office);
+        } else {
+          setRole("admin");
+          setEngineerId(null);
+          setEngineerName(null);
+          setCanAccessOffice(false);
+        }
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
     };
-
-    fetchRole();
   }, [user]);
 
   const isEngineer = role === "engineer";
