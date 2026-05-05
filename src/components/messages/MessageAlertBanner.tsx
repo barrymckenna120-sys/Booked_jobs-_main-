@@ -37,7 +37,7 @@ const MessageAlertBanner = () => {
 
           playMessageBeep();
 
-          const senderName = n.title?.replace("Message from ", "") || "Unknown";
+          const senderName = n.title || "Unknown";
           const alert: MessageAlert = {
             id: crypto.randomUUID(),
             notificationId: n.id,
@@ -87,7 +87,7 @@ const MessageAlertBanner = () => {
         >
           <Mail className="w-5 h-5 shrink-0" />
           <span className="flex-1 min-w-0 truncate">
-            📩 Message from {alert.senderName}: {alert.message.substring(0, 60)}{alert.message.length > 60 ? "…" : ""}
+            📩 {alert.senderName}: {alert.message.substring(0, 60)}{alert.message.length > 60 ? "…" : ""}
           </span>
           {alert.jobId && (
             <button
