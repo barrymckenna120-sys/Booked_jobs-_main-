@@ -12,8 +12,23 @@ const firebaseConfig = {
   measurementId: "G-K9F9PZXX3R",
 };
 
-export const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
+let _app: ReturnType<typeof initializeApp> | null = null;
+let _analytics: ReturnType<typeof getAnalytics> | null = null;
+
+try {
+  _app = initializeApp(firebaseConfig);
+} catch (err) {
+  console.warn("Firebase initializeApp failed:", err);
+}
+
+try {
+  if (_app) _analytics = getAnalytics(_app);
+} catch (err) {
+  console.warn("Firebase getAnalytics failed:", err);
+}
+
+export const app = _app as ReturnType<typeof initializeApp>;
+export const analytics = _analytics as ReturnType<typeof getAnalytics>;
 
 // VAPID key from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
 const VAPID_KEY = "BPm23DsuB3fW2QHE69XzfQ7q4vKZ79oa8RxoURY-EAk5QbFZt-TyuyajpagU9Z4y1Pyybjv6rj15QbDiimKSS-o";
