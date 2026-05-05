@@ -12,6 +12,7 @@ import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
+import { WifiOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 
@@ -34,7 +35,7 @@ const EngineerLayout = () => {
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
   const engineerJobs = useEngineerJobs();
-  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName } = engineerJobs;
+  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
