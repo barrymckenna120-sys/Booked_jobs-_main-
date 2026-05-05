@@ -1,5 +1,6 @@
 // ─── Shared iOS-safe Web Audio utility ───
 // Single AudioContext instance, unlocked on first user gesture.
+import { debugLog } from "@/utils/debugLog";
 
 let ctx: AudioContext | null = null;
 
@@ -120,7 +121,7 @@ export async function playMessageBeep() {
 export async function playEngineerMessageAlert() {
   try {
     const c = getCtx();
-    console.log("Audio state at play:", c?.state, new Date().toISOString());
+    debugLog("Audio state at play:", c?.state ?? "no-ctx");
     if (!c) return;
     await ensureRunning(c);
     [0, 0.12, 0.24].forEach((delay, i) => {

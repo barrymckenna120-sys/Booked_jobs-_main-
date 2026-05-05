@@ -61,6 +61,7 @@ import WarrantyDetail from "./pages/WarrantyDetail";
 import PublicReceipt from "./pages/PublicReceipt";
 import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
+import AudioDebug from "./pages/AudioDebug";
 
 const queryClient = new QueryClient();
 
@@ -166,6 +167,7 @@ const App = () => (
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
+            <Route path="/debug/audio" element={<AudioDebug />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
