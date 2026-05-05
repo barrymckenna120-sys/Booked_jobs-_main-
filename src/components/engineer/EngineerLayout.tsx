@@ -103,10 +103,17 @@ const EngineerLayout = () => {
 
 
       {/* Offline banner */}
-      {!isOnline && (
-        <div className="w-full bg-[hsl(var(--warning))] text-white px-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm">
+      {!isOnline && !dismissed && (
+        <div className="w-full bg-[hsl(var(--warning))] text-white pl-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm relative">
           <WifiOff className="w-4 h-4 flex-shrink-0" />
           <span>You're offline — changes won't save until reconnected</span>
+          <button
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss offline banner"
+            className="ml-auto text-white font-bold text-lg px-3 min-h-[44px] flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       )}
 
