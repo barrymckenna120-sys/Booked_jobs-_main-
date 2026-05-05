@@ -1,5 +1,6 @@
 // ─── Shared iOS-safe Web Audio utility ───
 // Single AudioContext instance, unlocked on first user gesture.
+import { debugLog } from "@/utils/debugLog";
 
 let ctx: AudioContext | null = null;
 
