@@ -60,7 +60,7 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
-  const { isEngineer, loading: roleLoading } = useUserRole(user);
+  const { isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
@@ -116,7 +116,7 @@ const AppLayoutInner = () => {
     };
   }, []);
 
-  if (!roleLoading && isEngineer) {
+  if (!roleLoading && isEngineer && !canAccessOffice) {
     return <Navigate to="/engineer/today" replace />;
   }
 
