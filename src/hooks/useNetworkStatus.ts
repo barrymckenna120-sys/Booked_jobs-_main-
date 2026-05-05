@@ -36,20 +36,49 @@ export const useNetworkStatus = () => {
 
   useEffect(() => {
     let cancelled = false;
+    let aggressiveInterval: ReturnType<typeof setInterval> | null = null;
+    let aggressiveAttempts = 0;
+    const MAX_AGGRESSIVE_ATTEMPTS = 60;
+    const AGGRESSIVE_INTERVAL_MS = 1000;
+
+    const stopAggressive = () => {
+      if (aggressiveInterval) {
+        clearInterval(aggressiveInterval);
+        aggressiveInterval = null;
+      }
+      aggressiveAttempts = 0;
+    };
+
+    const startAggressive = () => {
+      if (aggressiveInterval) return;
+      aggressiveAttempts = 0;
+      aggressiveInterval = setInterval(async () => {
+        aggressiveAttempts += 1;
+        const ok = await probe();
+        if (cancelled) return;
+        if (ok) {
+          setIsOnline(true);
+          stopAggressive();
+        } else if (aggressiveAttempts >= MAX_AGGRESSIVE_ATTEMPTS) {
+          stopAggressive();
+        }
+      }, AGGRESSIVE_INTERVAL_MS);
+    };
 
     const runProbe = async () => {
       const ok = await probe();
-      if (!cancelled) setIsOnline(ok);
+      if (cancelled) return;
+      setIsOnline(ok);
+      if (!ok) startAggressive();
+      else stopAggressive();
     };
 
     runProbe();
     const interval = setInterval(runProbe, PROBE_INTERVAL_MS);
 
-    const handleOnline = () => {
-      setTimeout(() => runProbe(), 2000);
-    };
     const handleOffline = () => {
       setIsOnline(false);
+      startAggressive();
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -57,14 +86,13 @@ export const useNetworkStatus = () => {
       }
     };
 
-    window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
-      window.removeEventListener("online", handleOnline);
+      stopAggressive();
       window.removeEventListener("offline", handleOffline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
