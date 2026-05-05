@@ -12,7 +12,7 @@ import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
-import { WifiOff } from "lucide-react";
+import { WifiOff, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 
