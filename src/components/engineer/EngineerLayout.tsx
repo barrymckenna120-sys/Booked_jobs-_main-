@@ -86,9 +86,10 @@ const EngineerLayout = () => {
             {canAccessOffice && (
               <button
                 onClick={() => navigate("/dashboard")}
-                className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
+                className="flex items-center gap-1 text-white/70 hover:text-white transition-colors text-xs font-semibold px-2 min-h-[44px]"
               >
-                <Briefcase className="w-4 h-4" /> Office
+                <Briefcase className="h-4 w-4" />
+                Office
               </button>
             )}
             <button
