@@ -24,6 +24,8 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 const EngineerToday = () => {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { canAccessOffice } = useUserRole(user);
   const { todayActive, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
   const todayKey = new Date().toISOString().split("T")[0];
   const completedTodayCount = completedJobs.filter((job: any) =>
