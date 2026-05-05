@@ -20,14 +20,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify caller identity
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+
+    // Verify caller identity by passing the JWT explicitly
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: userData, error: userError } = await supabaseUser.auth.getUser();
+    const { data: userData, error: userError } = await supabaseUser.auth.getUser(token);
     if (userError || !userData?.user) {
       console.error("getUser error:", userError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -38,20 +39,31 @@ Deno.serve(async (req) => {
 
     const callerId = userData.user.id;
 
-    // Check caller has admin role
-    const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: callerId });
-    if (callerRole !== "admin" && callerRole !== "office") {
+    // Use service role for privileged checks and listing
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Check caller has admin/office role OR is the organisation owner
+    const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: callerId });
+    let isAuthorized = callerRole === "admin" || callerRole === "office";
+
+    if (!isAuthorized) {
+      const { data: ownedOrg } = await supabaseAdmin
+        .from("organisations")
+        .select("id")
+        .eq("owner_user_id", callerId)
+        .maybeSingle();
+      isAuthorized = !!ownedOrg;
+    }
+
+    if (!isAuthorized) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Use service role to list auth users
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
 

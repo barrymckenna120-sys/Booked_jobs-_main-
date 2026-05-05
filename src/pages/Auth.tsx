@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
 
 const Auth = () => {
@@ -27,6 +27,10 @@ const Auth = () => {
   const [errorTitle, setErrorTitle] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isBlocked, setIsBlocked] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
+  const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -64,6 +68,7 @@ const Auth = () => {
     e.preventDefault();
     if (isBlocked) return;
     setLoading(true);
+    setFormError(null);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -71,7 +76,22 @@ const Auth = () => {
       setFailedAttempts(0);
       navigate("/dashboard");
     } catch (error: any) {
-      if (error.message?.toLowerCase().includes("invalid")) {
+      const msg = (error?.message || "").toLowerCase();
+      const isBanned =
+        msg.includes("banned") ||
+        msg.includes("blocked") ||
+        msg.includes("user is banned") ||
+        error?.code === "user_banned" ||
+        error?.status === 423;
+
+      if (isBanned) {
+        setFormError(BLOCKED_AUTH_ERROR);
+        setIsBlocked(true);
+      } else {
+        setFormError(GENERIC_AUTH_ERROR);
+      }
+
+      if (msg.includes("invalid")) {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
 
@@ -79,6 +99,7 @@ const Auth = () => {
           setErrorTitle("Account Blocked");
           setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
           setIsBlocked(true);
+          setFormError(BLOCKED_AUTH_ERROR);
           setErrorModalOpen(true);
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
@@ -87,17 +108,7 @@ const Auth = () => {
           setErrorTitle("Incorrect Password");
           setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
           setErrorModalOpen(true);
-        } else {
-          setErrorTitle("Incorrect Password");
-          setErrorMessage("Incorrect password. Please try again.");
-          setErrorModalOpen(true);
         }
-      } else {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
       }
     } finally {
       setLoading(false);
@@ -219,7 +230,7 @@ const Auth = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
                 placeholder="you@example.com"
                 required
               />
@@ -232,7 +243,7 @@ const Auth = () => {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setFormError(null); }}
                   placeholder="••••••••"
                   required
                   minLength={6}
@@ -256,8 +267,17 @@ const Auth = () => {
               </button>
             </div>
             <Button type="submit" className="w-full" disabled={loading || isBlocked}>
-              {loading ? "Loading..." : "Sign In"}
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Signing in…
+                </span>
+              ) : "Sign In"}
             </Button>
+            {formError && (
+              <p role="alert" className="text-sm text-destructive text-center mt-2">
+                {formError}
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

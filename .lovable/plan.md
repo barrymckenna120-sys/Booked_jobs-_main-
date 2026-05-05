@@ -1,48 +1,46 @@
-## Scope
-Three small, surgical edits. Nothing else touched.
+# Fix silent login failures on the sign-in page
 
----
+The login page (`src/pages/Auth.tsx`) is shared by office staff and engineers. Today, only errors whose message contains "invalid" trigger a visible modal — every other auth failure (user not found, email not confirmed, network error, etc.) falls through to a toast that engineers report as "silent". We'll add a clear inline error directly under the Sign In button, plus a spinner and clear-on-typing behaviour, without altering routing, lockout, or auth logic.
 
-### 1. `src/pages/IncomingJobs.tsx` — capture and log query errors
-In `fetchJobs`, replace:
-```ts
-const { data } = await query;
-```
-with:
-```ts
-const { data, error } = await query;
-console.log('[IncomingJobs] data:', data, 'error:', error);
-```
-No other changes to the function — the existing `data || []` fallback and downstream code remain intact.
+## Changes — `src/pages/Auth.tsx`
 
----
+1. **Add a single inline error state** (`formError: string | null`) used for all sign-in failures.
 
-### 2. `src/pages/Schedule.tsx` — drop `!inner` on customers join
-At **line 157**, change:
-```ts
-.select("*, customers!inner(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
-```
-to:
-```ts
-.select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
-```
-Stops jobs from being silently dropped when the customers row is missing or RLS-restricted — matches the fix already applied to `IncomingJobs.tsx`.
+2. **Catch block in `handleSubmit`**: keep the existing 3-strike lockout behaviour (failed-attempt counter + modal + `lock-failed-login` invocation on attempt 3 — preserved exactly), but ALSO set `formError` to the generic message:
 
----
+   > "Incorrect email or password. Please try again."
 
-### 3. `src/pages/Jobs.tsx` — fix Tally source badge label
-The DB stores the source as `"Tally Form"`, but the badge check uses `"Tally"`, so Tally jobs currently fall through to the "Manual" branch.
+   This message is used for every auth failure — invalid credentials, user not found, email not confirmed, network/unknown — so we never disclose which case it is. The existing toast fallback for non-"invalid" errors is removed in favour of the inline message (toast still used for the forgot-password flow).
 
-Two occurrences to update:
-- **Line 320:** `j.source === "Tally"` → `j.source === "Tally Form"`
-- **Line 437:** `j.source === "Tally"` → `j.source === "Tally Form"`
+3. **Inline error rendering**: directly below the Sign In button, render
 
-Badge text/styling stays as-is ("Tally" pill); only the comparison string changes.
+   ```tsx
+   {formError && (
+     <p role="alert" className="text-sm text-destructive text-center mt-2">
+       {formError}
+     </p>
+   )}
+   ```
 
----
+   Uses the existing `text-destructive` token for the red style.
 
-### Out of scope
-- No other error-handling changes beyond the single `console.log`.
-- No changes to `IncomingJobs.tsx` realtime subscription, hardcoded `organisation_id`, or any other logic.
-- No changes to other files, queries, or styling.
-- Pre-existing edge-function build errors in the build log are unrelated to these three files and are not addressed here.
+4. **Loading spinner on submit button**: while `loading` is true, disable the button (already disabled) and show a `Loader2` icon from `lucide-react` spinning next to "Signing in…":
+
+   ```tsx
+   {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>) : "Sign In"}
+   ```
+
+5. **Clear error on typing**: in the email and password `onChange` handlers, call `setFormError(null)` alongside the existing `setEmail` / `setPassword`. Per project memory, `onChange` must pass the raw event value directly — we keep that pattern.
+
+## What stays the same
+
+- Route, redirect targets, and `navigate("/dashboard")` on success.
+- 3-strike lockout sequence and `lock-failed-login` edge function call.
+- Existing error modal (kept — it carries the lockout copy on attempts 2 and 3).
+- Forgot-password flow, password recovery handling, and all `useEffect` auth listeners.
+- No changes to `useAuth`, engineer linking, FCM token capture, or any other file.
+
+## Out of scope
+
+- No new route or separate engineer login page.
+- No changes to Supabase, RLS, edge functions, or styling tokens beyond `text-destructive` and `Loader2`.

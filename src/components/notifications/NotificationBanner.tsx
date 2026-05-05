@@ -124,7 +124,7 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
 
                 {/* Message */}
                 <div className="flex-1 min-w-0">
-                  <span className="text-[15px] md:text-[14px] font-bold text-foreground truncate block leading-snug">{n.body}</span>
+                  <span className="text-[15px] md:text-[14px] font-bold text-foreground truncate block leading-snug">{n.body && n.body.length > 60 ? n.body.substring(0, 60) + "…" : n.body}</span>
                 </div>
 
                 {/* Job ref */}

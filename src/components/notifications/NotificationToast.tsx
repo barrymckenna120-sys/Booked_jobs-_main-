@@ -87,7 +87,7 @@ const NotificationToast = ({ notification, onDismiss, onMarkRead, jobPathPrefix 
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
               </div>
               <p className="text-sm font-bold leading-tight truncate">{notification.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{notification.body}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{notification.body && notification.body.length > 60 ? notification.body.substring(0, 60) + "…" : notification.body}</p>
             </div>
             <button
               onClick={handleClose}

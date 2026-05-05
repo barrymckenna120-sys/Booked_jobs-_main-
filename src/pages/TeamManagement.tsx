@@ -146,12 +146,15 @@ const TeamManagement = () => {
     const { data, error } = await supabase.functions.invoke("list-users");
     if (error) {
       console.error("[TeamManagement] list-users error:", error);
+      toast({
+        title: "Couldn't load auth status",
+        description: "Blocked user badges may not appear. Please refresh.",
+        variant: "destructive",
+      });
     } else if (data?.users) {
-      console.log("[TeamManagement] list-users raw response:", data);
       setAuthUsers(data.users);
-      console.log("[TeamManagement] Auth users fetched:", data.users.length);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (user) {

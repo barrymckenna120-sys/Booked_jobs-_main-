@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
+import { debugLog } from "@/utils/debugLog";
 
 export type NotificationType =
   | "new_job"
@@ -122,6 +123,7 @@ export function useNotifications() {
             // Play sound + vibrate for high priority
             if (soundEnabled) {
               if (n.notification_type === "message") {
+                debugLog("Sound trigger fired, soundEnabled:", soundEnabled, "type:", n.notification_type);
                 playEngineerMessageAlert();
               } else if (n.notification_type === "completed") {
                 playSoftChime();
