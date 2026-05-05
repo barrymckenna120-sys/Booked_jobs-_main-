@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { addToQueue } from "@/hooks/useRetryQueue";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -173,10 +174,8 @@ export const useEngineerJobs = () => {
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 
-    if (!isOnline) {
-      toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
-      return;
-    }
+    // Offline-tolerant: attempt the write; on failure, queue for retry.
+
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
 
@@ -243,7 +242,17 @@ export const useEngineerJobs = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      addToQueue({
+        table: "service_calls",
+        operation: "update",
+        payload: safeDbPatch,
+        filter: { column: "id", value: jobId },
+      });
+      toast({
+        title: "No connection",
+        description: "Update saved and will retry automatically",
+        variant: "destructive",
+      });
     } else {
       // Log payment_received activity when payment is recorded as paid
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {

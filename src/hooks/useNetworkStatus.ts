@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { processQueue } from "@/hooks/useRetryQueue";
 
 const PROBE_URL = () => `https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/?_=${Date.now()}`;
 const PROBE_INTERVAL_MS = 5000;
@@ -24,6 +25,14 @@ export const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
+  const prevOnlineRef = useRef<boolean>(isOnline);
+
+  useEffect(() => {
+    if (!prevOnlineRef.current && isOnline) {
+      processQueue().catch((e) => console.error("processQueue failed:", e));
+    }
+    prevOnlineRef.current = isOnline;
+  }, [isOnline]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,3 +73,4 @@ export const useNetworkStatus = () => {
 
   return { isOnline };
 };
+
