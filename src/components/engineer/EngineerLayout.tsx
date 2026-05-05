@@ -100,7 +100,7 @@ const EngineerLayout = () => {
       {/* Offline banner — TEMP: forced visible for testing */}
       <div className="w-full bg-[hsl(var(--warning))] text-white px-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm">
         <WifiOff className="w-4 h-4 flex-shrink-0" />
-        <span>You're offline — changes won't save until reconnected (TEST: isOnline={String(isOnline)})</span>
+        <span>Network: {isOnline ? 'ONLINE' : 'OFFLINE'} — Last checked: {lastChecked}</span>
       </div>
 
       {/* Page content */}
