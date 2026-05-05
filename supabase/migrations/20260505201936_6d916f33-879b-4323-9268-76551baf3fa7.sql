@@ -1,0 +1,1 @@
+ALTER TABLE public.engineers ADD COLUMN IF NOT EXISTS can_access_office boolean NOT NULL DEFAULT false;
