@@ -88,7 +88,7 @@ const EngineerLayout = () => {
                 onClick={() => navigate("/dashboard")}
                 className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
               >
-                <Briefcase className="w-4 h-4" /> Office App
+                <Briefcase className="w-4 h-4" /> Office
               </button>
             )}
             <button
