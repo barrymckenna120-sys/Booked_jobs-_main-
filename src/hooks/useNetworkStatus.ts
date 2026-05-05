@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const PROBE_URL = "https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/";
+const PROBE_URL = () => `https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/?_=${Date.now()}`;
 const PROBE_INTERVAL_MS = 5000;
 const PROBE_TIMEOUT_MS = 5000;
 
@@ -8,7 +8,7 @@ const probe = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    const res = await fetch(PROBE_URL, {
+    const res = await fetch(PROBE_URL(), {
       method: "HEAD",
       cache: "no-store",
       signal: controller.signal,
@@ -50,15 +50,22 @@ export const useNetworkStatus = () => {
       console.log("Event: offline");
       setIsOnline(false);
     };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        runProbe();
+      }
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
