@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { processQueue } from "@/hooks/useRetryQueue";
 
 const PROBE_URL = () => `https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/?_=${Date.now()}`;
-const PROBE_INTERVAL_MS = 5000;
+const PROBE_INTERVAL_MS = 3000;
 const PROBE_TIMEOUT_MS = 5000;
 
 const probe = async (): Promise<boolean> => {
@@ -46,8 +46,7 @@ export const useNetworkStatus = () => {
     const interval = setInterval(runProbe, PROBE_INTERVAL_MS);
 
     const handleOnline = () => {
-      setIsOnline(true);
-      runProbe();
+      setTimeout(() => runProbe(), 2000);
     };
     const handleOffline = () => {
       setIsOnline(false);
