@@ -73,5 +73,5 @@ export const useNetworkStatus = () => {
     };
   }, []);
 
-  return { isOnline };
+  return { isOnline, lastChecked };
 };
