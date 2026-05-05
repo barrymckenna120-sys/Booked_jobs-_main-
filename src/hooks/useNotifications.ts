@@ -122,6 +122,7 @@ export function useNotifications() {
             // Play sound + vibrate for high priority
             if (soundEnabled) {
               if (n.notification_type === "message") {
+                console.log("Sound trigger fired, soundEnabled:", soundEnabled, "type:", n.notification_type);
                 playEngineerMessageAlert();
               } else if (n.notification_type === "completed") {
                 playSoftChime();

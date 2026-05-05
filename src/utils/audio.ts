@@ -120,6 +120,7 @@ export async function playMessageBeep() {
 export async function playEngineerMessageAlert() {
   try {
     const c = getCtx();
+    console.log("Audio state at play:", c?.state, new Date().toISOString());
     if (!c) return;
     await ensureRunning(c);
     [0, 0.12, 0.24].forEach((delay, i) => {
