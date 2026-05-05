@@ -530,7 +530,7 @@ export const useEngineerJobs = () => {
     user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
-    updateJob, fetchAll, fadingJobIds, isOnline,
+    updateJob, fetchAll, fadingJobIds, isOnline, lastChecked,
   };
 };
 
