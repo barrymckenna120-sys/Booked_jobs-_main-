@@ -29,7 +29,7 @@ export const useUserRole = (user: User | null) => {
       setLoading(true);
       const { data } = await supabase
         .from("engineers")
-        .select("id, name, role, can_access_office")
+        .select("*")
         .eq("auth_user_id", user.id)
         .maybeSingle();
 
