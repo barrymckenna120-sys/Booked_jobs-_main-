@@ -6,7 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield,
+  CalendarCheck, Layers, Shield, HardHat,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -60,7 +60,7 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
-  const { isEngineer, loading: roleLoading } = useUserRole(user);
+  const { isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
@@ -116,9 +116,11 @@ const AppLayoutInner = () => {
     };
   }, []);
 
-  if (!roleLoading && isEngineer) {
+  if (!roleLoading && isEngineer && !canAccessOffice) {
     return <Navigate to="/engineer/today" replace />;
   }
+
+  const showEngineerSwitcher = isEngineer && canAccessOffice;
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
