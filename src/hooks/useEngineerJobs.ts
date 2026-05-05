@@ -148,7 +148,7 @@ export const useEngineerJobs = () => {
     await fetchJobPhotos(allJobs);
     hasFetchedOnce.current = true;
     setLoading(false);
-  }, [user, fetchCustomers, fetchJobPhotos]);
+  }, [user, fetchCustomers, fetchJobPhotos, isOnline]);
 
   useEffect(() => {
     if (user) fetchAll();
