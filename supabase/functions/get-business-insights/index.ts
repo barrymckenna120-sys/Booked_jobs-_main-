@@ -15,7 +15,7 @@ const json = (body: unknown, status = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "GET" && req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
     const authHeader = req.headers.get("Authorization");
