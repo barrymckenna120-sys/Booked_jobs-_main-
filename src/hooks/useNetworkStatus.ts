@@ -40,7 +40,10 @@ export const useNetworkStatus = () => {
       setIsOnline(true);
       runProbe();
     };
-    const handleOffline = () => setIsOnline(false);
+    const handleOffline = () => {
+      setIsOnline(false);
+      runProbe();
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
