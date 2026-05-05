@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { addToQueue } from "@/hooks/useRetryQueue";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
