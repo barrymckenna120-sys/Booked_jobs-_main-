@@ -81,7 +81,6 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
           .select("job_reference, customers(name)")
           .eq("id", jobId)
           .maybeSingle();
-        console.log("[MessageOfficeModal] jobInfo:", jobInfo);
         const fullName = (jobInfo as any)?.customers?.name || "Customer";
         const invoiceNumber = (jobInfo as any)?.job_reference || "";
         await supabase.from("notifications").insert({
