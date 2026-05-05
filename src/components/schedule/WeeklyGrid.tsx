@@ -137,7 +137,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             } bg-card`}
                             >
                               <div className="flex items-center justify-between gap-1">
-                                <span className="font-semibold truncate">{job.customer_name}</span>
+                                <div className="min-w-0 flex-1">
+                                  <span className="font-semibold truncate block">{job.customer_name}</span>
+                                  <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
+                                </div>
                                 <div className="flex items-center gap-1">
                                   {["En Route", "On Site", "In Progress"].includes(job.status) && (
                                     <span className="text-[9px] font-bold text-warning bg-warning/10 rounded-full px-1.5 py-0.5">
@@ -225,7 +228,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                       } bg-card`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold">{job.customer_name}</span>
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold block truncate">{job.customer_name}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
+                          </div>
                           <div className="flex items-center gap-1">
                             {jobTypeBadge(job.job_type)}
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
