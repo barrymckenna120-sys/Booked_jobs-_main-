@@ -35,7 +35,7 @@ const EngineerLayout = () => {
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
   const engineerJobs = useEngineerJobs();
-  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
+  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline, lastChecked } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
