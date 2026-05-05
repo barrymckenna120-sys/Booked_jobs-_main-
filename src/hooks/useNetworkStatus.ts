@@ -26,10 +26,15 @@ export const useNetworkStatus = () => {
   );
 
   useEffect(() => {
+    console.log("isOnline changed to:", isOnline);
+  }, [isOnline]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const runProbe = async () => {
       const ok = await probe();
+      console.log("Probe result:", ok);
       if (!cancelled) setIsOnline(ok);
     };
 
@@ -37,10 +42,12 @@ export const useNetworkStatus = () => {
     const interval = setInterval(runProbe, PROBE_INTERVAL_MS);
 
     const handleOnline = () => {
+      console.log("Event: online");
       setIsOnline(true);
       runProbe();
     };
     const handleOffline = () => {
+      console.log("Event: offline");
       setIsOnline(false);
       runProbe();
     };
