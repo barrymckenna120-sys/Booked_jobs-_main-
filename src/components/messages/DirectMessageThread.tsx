@@ -29,7 +29,20 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [senderName, setSenderName] = useState("Office");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if ((data as any)?.display_name) setSenderName((data as any).display_name);
+      });
+  }, [user]);
 
   const fetchMessages = async () => {
     if (!user) return;
