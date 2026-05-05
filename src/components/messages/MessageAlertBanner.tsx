@@ -37,7 +37,7 @@ const MessageAlertBanner = () => {
 
           playMessageBeep();
 
-          const senderName = n.title?.replace("Message from ", "") || "Unknown";
+          const senderName = n.title || "Unknown";
           const alert: MessageAlert = {
             id: crypto.randomUUID(),
             notificationId: n.id,
