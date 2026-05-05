@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut, Briefcase } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -14,6 +14,7 @@ import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import { WifiOff, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 
 const greeting = () => {
@@ -34,6 +35,7 @@ const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
+  const { canAccessOffice } = useUserRole(user);
   const engineerJobs = useEngineerJobs();
   const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
@@ -81,6 +83,14 @@ const EngineerLayout = () => {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
+            {canAccessOffice && (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
+              >
+                <Briefcase className="w-4 h-4" /> Office App
+              </button>
+            )}
             <button
               onClick={signOut}
               className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
