@@ -244,7 +244,7 @@ const SalesLedger = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
           <BookOpen className="w-7 h-7 text-primary" />
-          <h1 className="text-2xl font-black tracking-tight">Sales Ledger</h1>
+          <h1 className="text-2xl font-black tracking-tight">Sales</h1>
         </div>
         <DateRangeToggle
           value={viewMode}
@@ -320,7 +320,7 @@ const SalesLedger = () => {
       {/* Table Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2">
-          <CardTitle className="text-lg font-extrabold">Sales Ledger</CardTitle>
+          <CardTitle className="text-lg font-extrabold">Sales</CardTitle>
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
