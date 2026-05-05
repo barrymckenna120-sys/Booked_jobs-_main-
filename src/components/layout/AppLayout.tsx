@@ -116,12 +116,8 @@ const AppLayoutInner = () => {
     };
   }, []);
 
-  if (!roleLoading && isEngineer && canAccessOffice && location.pathname === "/") {
-    return <Navigate to="/engineer/today" replace />;
-  }
-
-  if (!roleLoading && isEngineer && !canAccessOffice) {
-    return <Navigate to="/engineer/today" replace />;
+  if (!roleLoading && isEngineer) {
+    return <Navigate to="/engineer/today" />;
   }
 
   const isActive = (path: string) =>
