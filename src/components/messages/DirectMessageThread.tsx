@@ -116,7 +116,7 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
       await supabase.from("notifications").insert({
         recipient_user_id: recipientAuthId,
         notification_type: "message",
-        title: "New message from office",
+        title: `Direct message from ${senderName}`,
         body: newMessage.trim(),
         role: "engineer",
       } as any);
