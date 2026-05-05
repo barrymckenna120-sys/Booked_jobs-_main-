@@ -14,6 +14,15 @@ function getCtx(): AudioContext | null {
   }
 }
 
+async function ensureRunning(c: AudioContext): Promise<void> {
+  // iOS Safari can leave the context in "interrupted" after backgrounding /
+  // phone calls / PWA throttling — handle both suspended and interrupted.
+  const state = c.state as string;
+  if (state === "suspended" || state === "interrupted") {
+    await c.resume().catch(() => {});
+  }
+}
+
 /** Call once — attaches a one-time touchstart/click listener that
  *  resumes the AudioContext + plays a silent buffer (required on iOS). */
 export function unlockAudio() {
@@ -43,11 +52,11 @@ export function unlockAudio() {
 }
 
 /** 880Hz square double-beep for high-priority notifications */
-export function playDoubleBeep() {
+export async function playDoubleBeep() {
   try {
     const c = getCtx();
     if (!c) return;
-    if (c.state === "suspended") c.resume().catch(() => {});
+    await ensureRunning(c);
     [0, 0.15].forEach((delay) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -58,15 +67,17 @@ export function playDoubleBeep() {
       osc.start(c.currentTime + delay);
       osc.stop(c.currentTime + delay + 0.1);
     });
-  } catch {}
+  } catch (err) {
+    console.warn("Audio play failed:", err);
+  }
 }
 
 /** 440Hz sine soft chime for completed notifications */
-export function playSoftChime() {
+export async function playSoftChime() {
   try {
     const c = getCtx();
     if (!c) return;
-    if (c.state === "suspended") c.resume().catch(() => {});
+    await ensureRunning(c);
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = "sine";
@@ -76,15 +87,17 @@ export function playSoftChime() {
     osc.connect(gain).connect(c.destination);
     osc.start();
     osc.stop(c.currentTime + 0.5);
-  } catch {}
+  } catch (err) {
+    console.warn("Audio play failed:", err);
+  }
 }
 
 /** 880Hz sine double-beep for message alerts */
-export function playMessageBeep() {
+export async function playMessageBeep() {
   try {
     const c = getCtx();
     if (!c) return;
-    if (c.state === "suspended") c.resume().catch(() => {});
+    await ensureRunning(c);
     [0, 0.23].forEach((delay) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -95,15 +108,17 @@ export function playMessageBeep() {
       osc.start(c.currentTime + delay);
       osc.stop(c.currentTime + delay + 0.15);
     });
-  } catch {}
+  } catch (err) {
+    console.warn("Audio play failed:", err);
+  }
 }
 
 /** 1200Hz triangle triple-chirp for engineer message alerts — distinct from job notifications */
-export function playEngineerMessageAlert() {
+export async function playEngineerMessageAlert() {
   try {
     const c = getCtx();
     if (!c) return;
-    if (c.state === "suspended") c.resume().catch(() => {});
+    await ensureRunning(c);
     [0, 0.12, 0.24].forEach((delay, i) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -114,5 +129,7 @@ export function playEngineerMessageAlert() {
       osc.start(c.currentTime + delay);
       osc.stop(c.currentTime + delay + 0.08);
     });
-  } catch {}
+  } catch (err) {
+    console.warn("Audio play failed:", err);
+  }
 }
