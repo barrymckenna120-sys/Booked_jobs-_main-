@@ -65,11 +65,11 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
       if (engineerAuthUserId) {
         const { data: jobInfo } = await supabase
           .from("service_calls")
-          .select("invoice_number, customers(name)")
+          .select("job_reference, customers(name)")
           .eq("id", jobId)
           .maybeSingle();
         const fullName = (jobInfo as any)?.customers?.name || "Customer";
-        const invoiceNumber = (jobInfo as any)?.invoice_number || "";
+        const invoiceNumber = (jobInfo as any)?.job_reference || "";
         await supabase.from("notifications").insert({
           recipient_user_id: engineerAuthUserId,
           notification_type: "message",
