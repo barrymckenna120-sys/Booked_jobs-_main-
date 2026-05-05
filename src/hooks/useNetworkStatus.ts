@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 const PROBE_URL = "https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/";
-const PROBE_INTERVAL_MS = 15000;
+const PROBE_INTERVAL_MS = 5000;
 const PROBE_TIMEOUT_MS = 5000;
 
 const probe = async (): Promise<boolean> => {
@@ -49,7 +49,6 @@ export const useNetworkStatus = () => {
     const handleOffline = () => {
       console.log("Event: offline");
       setIsOnline(false);
-      runProbe();
     };
 
     window.addEventListener("online", handleOnline);
