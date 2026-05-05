@@ -263,6 +263,16 @@ const AppLayoutInner = () => {
               </button>
             );
           })}
+          {showEngineerSwitcher && (
+            <button
+              onClick={() => navigate("/engineer/today")}
+              className="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] transition-colors"
+              style={{ color: "#6B7280" }}
+            >
+              <HardHat className="w-6 h-6" strokeWidth={2.5} />
+              <span className="text-[10px] leading-tight mt-0.5">Engineer App</span>
+            </button>
+          )}
         </div>
       </nav>
 
