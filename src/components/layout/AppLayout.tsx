@@ -179,6 +179,17 @@ const AppLayoutInner = () => {
             </button>
           ))}
         </nav>
+        {showEngineerSwitcher && (
+          <div className="px-3 pt-3">
+            <button
+              onClick={() => navigate("/engineer/today")}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <HardHat className="w-5 h-5" />
+              <span>Engineer App</span>
+            </button>
+          </div>
+        )}
         <div className="px-3 py-3 border-t border-border">
           <button
             onClick={signOut}
