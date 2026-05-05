@@ -97,6 +97,14 @@ const EngineerLayout = () => {
       </div>
 
 
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="w-full bg-[hsl(var(--warning))] text-white px-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm">
+          <WifiOff className="w-4 h-4 flex-shrink-0" />
+          <span>You're offline — changes won't save until reconnected</span>
+        </div>
+      )}
+
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">
         <Outlet context={engineerJobs} />
