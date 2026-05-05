@@ -116,7 +116,7 @@ const AppLayoutInner = () => {
     };
   }, []);
 
-  if (!roleLoading && isEngineer) {
+  if (!roleLoading && isEngineer && !canAccessOffice) {
     return <Navigate to="/engineer/today" />;
   }
 
