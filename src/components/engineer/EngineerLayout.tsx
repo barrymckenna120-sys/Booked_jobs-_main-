@@ -12,6 +12,7 @@ import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
+import { WifiOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 
@@ -34,7 +35,7 @@ const EngineerLayout = () => {
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
   const engineerJobs = useEngineerJobs();
-  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName } = engineerJobs;
+  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
@@ -95,6 +96,14 @@ const EngineerLayout = () => {
         </div>
       </div>
 
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="w-full bg-[hsl(var(--warning))] text-white px-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm">
+          <WifiOff className="w-4 h-4 flex-shrink-0" />
+          <span>You're offline — changes won't save until reconnected</span>
+        </div>
+      )}
 
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">

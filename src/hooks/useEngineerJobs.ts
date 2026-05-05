@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -44,6 +45,7 @@ export const useEngineerJobs = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isOnline } = useNetworkStatus();
   const [todayJobs, setTodayJobs] = useState<any[]>([]);
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
@@ -89,7 +91,7 @@ export const useEngineerJobs = () => {
   const fetchAll = useCallback(async () => {
     if (!user) return;
     // Skip network requests when offline to avoid error modals/toasts
-    if (!navigator.onLine) return;
+    if (!isOnline) return;
     // Only show loading spinner on the very first fetch to avoid scroll resets
     if (!hasFetchedOnce.current) setLoading(true);
 
@@ -146,7 +148,7 @@ export const useEngineerJobs = () => {
     await fetchJobPhotos(allJobs);
     hasFetchedOnce.current = true;
     setLoading(false);
-  }, [user, fetchCustomers, fetchJobPhotos]);
+  }, [user, fetchCustomers, fetchJobPhotos, isOnline]);
 
   useEffect(() => {
     if (user) fetchAll();
@@ -171,7 +173,7 @@ export const useEngineerJobs = () => {
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
 
-    if (!navigator.onLine) {
+    if (!isOnline) {
       toast({ title: "You're offline", description: "Reconnect to save changes.", variant: "destructive" });
       return;
     }
@@ -512,7 +514,7 @@ export const useEngineerJobs = () => {
   // Refetch when tab becomes visible (engineer returning to app)
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && user && navigator.onLine) fetchAll();
+      if (document.visibilityState === "visible" && user && isOnline) fetchAll();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     // Re-fetch when coming back online so data is fresh
@@ -528,7 +530,7 @@ export const useEngineerJobs = () => {
     user, authLoading, loading, engineerName,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
-    updateJob, fetchAll, fadingJobIds,
+    updateJob, fetchAll, fadingJobIds, isOnline,
   };
 };
 
