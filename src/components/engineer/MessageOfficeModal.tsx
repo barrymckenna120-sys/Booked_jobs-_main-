@@ -87,7 +87,7 @@ const MessageOfficeModal = ({ open, onOpenChange, jobId, officeUserId }: Props) 
         await supabase.from("notifications").insert({
           recipient_user_id: officeUserId,
           notification_type: "message",
-          title: `New message – ${fullName} (${invoiceNumber})`,
+          title: `${engineerName} – ${fullName} (${invoiceNumber})`,
           body: message.trim(),
           job_id: jobId,
           role: "office",
