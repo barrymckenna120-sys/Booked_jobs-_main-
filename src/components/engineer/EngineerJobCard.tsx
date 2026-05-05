@@ -317,7 +317,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         open={showMessageOffice}
         onOpenChange={setShowMessageOffice}
         jobId={job.id}
-        officeUserId={job.user_id}
+        officeUserId={officeOwnerId ?? job.user_id}
       />
     </>
   );
