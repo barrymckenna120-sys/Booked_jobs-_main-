@@ -375,7 +375,7 @@ const Schedule = () => {
         const targetWeekStart = startOfWeek(date, { weekStartsOn: 1 });
         const knNumber = (prevJob as any)?.job_reference || `KN-${jobId.slice(0, 6).toUpperCase()}`;
         toast({
-          title: `${knNumber} moved to week of ${format(targetWeekStart, "d MMM")}`,
+          title: `${knNumber} moved to week of ${format(targetWeekStart, "EEE d MMM")}`,
           description: "Tap to view that week",
           action: (
             <Button size="sm" variant="outline" onClick={() => setWeekStart(targetWeekStart)}>
