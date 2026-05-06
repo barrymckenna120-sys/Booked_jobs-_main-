@@ -85,7 +85,14 @@ const EngineerLayout = () => {
           <div className="flex items-center gap-2">
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
-              onClick={signOut}
+              onClick={async () => {
+                try {
+                  await supabase.auth.signOut();
+                } catch (err) {
+                  console.error("Sign out error:", err);
+                }
+                navigate("/auth", { replace: true });
+              }}
               className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
             >
               <LogOut className="w-4 h-4" /> Log Out
