@@ -707,7 +707,7 @@ const JobDetail = () => {
               <div><span className="text-muted-foreground">Note:</span> <span className="font-semibold">{job.cancellation_note}</span></div>
             )}
             {job.cancelled_at && (
-              <div><span className="text-muted-foreground">Cancelled:</span> <span className="font-semibold">{new Date(job.cancelled_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span></div>
+              <div><span className="text-muted-foreground">Cancelled:</span> <span className="font-semibold">{new Date(job.cancelled_at).toLocaleString('en-IE', { timeZone: 'Europe/Dublin', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
             )}
             {job.deposit_paid && (
               <div className="flex items-center gap-1.5 mt-1 text-warning font-semibold">

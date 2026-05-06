@@ -819,7 +819,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             )}
             {job.cancelled_at && (
               <div className="text-[11px] text-muted-foreground mt-1">
-                {new Date(job.cancelled_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                {new Date(job.cancelled_at).toLocaleString('en-IE', { timeZone: 'Europe/Dublin', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
             )}
           </div>
