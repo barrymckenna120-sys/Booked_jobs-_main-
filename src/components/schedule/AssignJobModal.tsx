@@ -12,6 +12,7 @@ import { validationBorderClass, ValidationMessage } from "@/components/shared/Fo
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
@@ -56,10 +57,21 @@ const AssignJobModal = ({
   const [touched, setTouched] = useState<FieldErrors>({});
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
 
+  const { user } = useAuth();
   const { data: settingsBlocks } = useQuery({
-    queryKey: ["slot-settings-blocks"],
+    queryKey: ["slot-settings-blocks", user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase.from("settings").select("job_time_blocks").limit(1).single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      const { data } = await supabase
+        .from("settings")
+        .select("job_time_blocks")
+        .eq("organisation_id", profile?.organisation_id)
+        .maybeSingle();
       return (data?.job_time_blocks as any[] | null) || [];
     },
   });
