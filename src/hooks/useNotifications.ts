@@ -166,9 +166,13 @@ export function useNotifications() {
   }, [user]);
 
   const dismiss = useCallback(async (id: string) => {
-    await supabase.from("notifications").delete().eq("id", id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) {
+      console.error("Failed to delete notification:", error);
+      fetchNotifications();
+    }
+  }, [fetchNotifications]);
 
   const enableSound = useCallback(
     async (enabled: boolean) => {
