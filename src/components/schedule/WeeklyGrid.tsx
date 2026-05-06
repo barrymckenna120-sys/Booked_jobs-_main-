@@ -65,7 +65,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
     return jobs.filter(
       (j) =>
         j.scheduled_date?.slice(0, 10) === dateStr &&
-        normalizeBlock(j.time_block, blockMap) === timeBlock &&
+        normalizeBlock(j.time_block, blockMap) === normalizeDash(timeBlock) &&
         !["New", "Contacted", "Completed", "Cancelled"].includes(j.status) &&
         (selectedEngineer === "all" || j.assigned_engineer === selectedEngineer)
     );
