@@ -264,6 +264,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       return false;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      if (cancelReason) {
+        supabase.functions.invoke('cancel-job-notify', {
+          body: {
+            service_call_id: job.id,
+            cancellation_reason: cancelReason,
+            organisation_id: (job as any).organisation_id,
+          },
+        }).catch((err) => console.error('cancel-job-notify failed:', err));
+      }
       // Sync boiler details back to customer record
       if (safeDbPatch.boiler_brand !== undefined) {
         try {
