@@ -249,7 +249,7 @@ const Dashboard = () => {
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
 
-      {canAccessOffice && isEngineer && (
+      {canAccessOffice && (
         <div className="md:hidden fixed left-0 right-0 z-40 px-4" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
           <button
             onClick={() => navigate("/engineer/today")}
