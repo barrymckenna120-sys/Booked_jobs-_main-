@@ -243,7 +243,7 @@ const Schedule = () => {
     return jobs.find(
       (j) =>
         j.scheduled_date?.slice(0, 10) === dateStr &&
-        normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
+        normalizeBlock(j.time_block, BLOCK_MAP) === normalizeDash(timeBlock) &&
         j.status !== "New" &&
         j.status !== "Contacted" &&
         (engineerName === "all" || !engineerName || j.assigned_engineer === engineerName)
@@ -254,7 +254,7 @@ const Schedule = () => {
     const blocks = (settings?.job_time_blocks as any[]) || [];
     for (const block of blocks) {
       const canonical = normalizeBlock(block.label, BLOCK_MAP);
-      if (canonical === timeBlock) return block.max_jobs ?? 2;
+      if (canonical === normalizeDash(timeBlock)) return block.max_jobs ?? 2;
     }
     return 2; // fallback default
   };
@@ -264,7 +264,7 @@ const Schedule = () => {
     const count = jobs.filter(
       (j) =>
         j.scheduled_date?.slice(0, 10) === dateStr &&
-        normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
+        normalizeBlock(j.time_block, BLOCK_MAP) === normalizeDash(timeBlock) &&
         j.assigned_engineer === engineerName &&
         j.status !== "Completed" &&
         j.status !== "Cancelled"
