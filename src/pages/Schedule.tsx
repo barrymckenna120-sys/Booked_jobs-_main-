@@ -369,7 +369,23 @@ const Schedule = () => {
         console.error("Schedule push notify error:", notifyErr);
       }
 
-      toast({ title: "Job assigned" });
+      // Check if new date falls outside currently viewed week
+      const weekEndDate = addDays(weekStart, 6);
+      if (date < weekStart || date > weekEndDate) {
+        const targetWeekStart = startOfWeek(date, { weekStartsOn: 1 });
+        const knNumber = (prevJob as any)?.job_reference || `KN-${jobId.slice(0, 6).toUpperCase()}`;
+        toast({
+          title: `${knNumber} moved to week of ${format(targetWeekStart, "d MMM")}`,
+          description: "Tap to view that week",
+          action: (
+            <Button size="sm" variant="outline" onClick={() => setWeekStart(targetWeekStart)}>
+              Go to week
+            </Button>
+          ) as any,
+        });
+      } else {
+        toast({ title: "Job assigned" });
+      }
       setAssignModal({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
     }
