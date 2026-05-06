@@ -12,6 +12,7 @@ import { validationBorderClass, ValidationMessage } from "@/components/shared/Fo
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
