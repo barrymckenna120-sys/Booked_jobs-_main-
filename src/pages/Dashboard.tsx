@@ -250,13 +250,15 @@ const Dashboard = () => {
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
 
       {canAccessOffice && isEngineer && (
-        <button
-          onClick={() => navigate("/engineer/today")}
-          className="mx-4 mb-4 flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-4 text-base font-semibold hover:bg-[#1d4ed8] transition-colors"
-        >
-          <Wrench className="h-5 w-5" />
-          Switch to Engineer View
-        </button>
+        <div className="md:hidden fixed left-0 right-0 z-40 px-4" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
+          <button
+            onClick={() => navigate("/engineer/today")}
+            className="w-full flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-3 text-base font-semibold hover:bg-[#1d4ed8] transition-colors shadow-lg"
+          >
+            <Wrench className="h-5 w-5" />
+            Switch to Engineer View
+          </button>
+        </div>
       )}
     </div>
   );
