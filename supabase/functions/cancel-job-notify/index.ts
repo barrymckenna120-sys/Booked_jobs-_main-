@@ -97,11 +97,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    const text = `Hi ${firstName}, your booking with K&N Gas Services has been cancelled. Reason: ${cancellation_reason}. To rebook please call us on 087 3685252.`;
     const form = new FormData();
     form.append("phonenumber", to);
-    form.append("template_name", "job_cancellation_notice");
-    form.append("language", "en");
-    form.append("parameters", JSON.stringify([firstName, cancellation_reason]));
+    form.append("text", text);
 
     const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
