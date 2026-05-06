@@ -266,13 +266,26 @@ const Schedule = () => {
     // Resolve engineer ID for the assigned_engineer_id column
     const matchedEngineer = engineers.find((e) => e.name === engineerName);
 
+    // Capture existing values BEFORE update for change detection
+    const { data: prevJob } = await supabase
+      .from("service_calls")
+      .select("assigned_engineer_id, scheduled_date, time_block, customer_id, job_reference, organisation_id, customers(name)")
+      .eq("id", jobId)
+      .maybeSingle();
+
+    const oldEngineerId = (prevJob as any)?.assigned_engineer_id || null;
+    const oldDate = (prevJob as any)?.scheduled_date || null;
+    const oldBlock = (prevJob as any)?.time_block || null;
+    const newEngineerId = matchedEngineer?.id || null;
+    const newDateStr = `${format(date, "yyyy-MM-dd")}T12:00:00`;
+
     const { error } = await supabase
       .from("service_calls")
       .update(sanitizeServiceCallUpdatePayload({
-        scheduled_date: `${format(date, "yyyy-MM-dd")}T12:00:00`,
+        scheduled_date: newDateStr,
         time_block: timeBlock,
         assigned_engineer: engineerName,
-        assigned_engineer_id: matchedEngineer?.id || null,
+        assigned_engineer_id: newEngineerId,
         status: "Booked",
         needs_scheduling: false,
       } as any))
@@ -286,6 +299,75 @@ const Schedule = () => {
       supabase.functions.invoke('send-booking-confirmation', {
         body: { service_call_id: jobId }
       }).catch(err => console.error('send-booking-confirmation failed:', err));
+
+      // ---- Push notifications: reassign / reschedule ----
+      try {
+        const customerName = (prevJob as any)?.customers?.name || "Customer";
+        const knNumber = (prevJob as any)?.job_reference || `KN-${jobId.slice(0, 6).toUpperCase()}`;
+        const orgId = (prevJob as any)?.organisation_id || null;
+        const formattedDate = format(date, "dd/MM/yyyy");
+
+        const engineerChanged = oldEngineerId !== newEngineerId;
+        const scheduleChanged = (oldDate || null) !== newDateStr || (oldBlock || null) !== timeBlock;
+
+        const targets: { engineerId: string; title: string; body: string }[] = [];
+
+        if (engineerChanged) {
+          if (newEngineerId) {
+            targets.push({
+              engineerId: newEngineerId,
+              title: "New Job Assigned",
+              body: `${customerName} | ${knNumber} | ${formattedDate} at ${timeBlock}`,
+            });
+          }
+          if (oldEngineerId) {
+            targets.push({
+              engineerId: oldEngineerId,
+              title: "Job Removed",
+              body: `${customerName} | ${knNumber} | ${formattedDate} at ${timeBlock}`,
+            });
+          }
+        } else if (scheduleChanged && newEngineerId) {
+          targets.push({
+            engineerId: newEngineerId,
+            title: "Job Rescheduled",
+            body: `${customerName} | ${knNumber} | Now ${formattedDate} at ${timeBlock}`,
+          });
+        }
+
+        if (targets.length > 0) {
+          const ids = Array.from(new Set(targets.map((t) => t.engineerId)));
+          const { data: engRows } = await supabase
+            .from("engineers")
+            .select("id, auth_user_id")
+            .in("id", ids);
+          const authMap = new Map<string, string>();
+          (engRows || []).forEach((e: any) => { if (e.auth_user_id) authMap.set(e.id, e.auth_user_id); });
+
+          for (const t of targets) {
+            const authUserId = authMap.get(t.engineerId);
+            if (!authUserId) continue;
+
+            // Push
+            supabase.functions.invoke("send-push-notification", {
+              body: { recipient_user_id: authUserId, title: t.title, body: t.body, job_id: jobId },
+            }).catch((err) => console.error("send-push-notification failed:", err));
+
+            // In-app notification row
+            await supabase.from("notifications").insert({
+              recipient_user_id: authUserId,
+              notification_type: "schedule_update",
+              title: t.title,
+              body: t.body,
+              job_id: jobId,
+              role: "engineer",
+              organisation_id: orgId,
+            } as any);
+          }
+        }
+      } catch (notifyErr) {
+        console.error("Schedule push notify error:", notifyErr);
+      }
 
       toast({ title: "Job assigned" });
       setAssignModal({ open: false });
