@@ -210,7 +210,18 @@ const AppLayoutInner = () => {
           >
             <Settings className="w-5 h-5" />
           </button>
-          <Button variant="ghost" size="icon" onClick={signOut}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={async () => {
+              try {
+                await supabase.auth.signOut();
+              } catch (err) {
+                console.error("Sign out error:", err);
+              }
+              navigate("/auth", { replace: true });
+            }}
+          >
             <LogOut className="w-5 h-5" />
           </Button>
         </div>
