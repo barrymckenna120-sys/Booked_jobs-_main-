@@ -28,13 +28,16 @@ const jobTypeBadge = (type: string) => {
 };
 
 // Normalize time_block using the block map from parent
+const normalizeDash = (s: string) => s.replace(/[\u2013\u2014]/g, '-');
 const normalizeBlock = (b: string | null, bMap?: Record<string, string>) => {
   if (!b) return null;
-  if (bMap && bMap[b]) return bMap[b];
-  // Strip spaces around dashes as fallback
-  const stripped = b.replace(/\s*[–-]\s*/g, '–');
-  if (bMap && bMap[stripped]) return bMap[stripped];
-  return b;
+  const dashed = normalizeDash(b);
+  const normMap: Record<string, string> = {};
+  if (bMap) Object.entries(bMap).forEach(([k, v]) => { normMap[normalizeDash(k)] = normalizeDash(v); });
+  if (normMap[dashed]) return normMap[dashed];
+  const stripped = dashed.replace(/\s*-\s*/g, '-');
+  if (normMap[stripped]) return normMap[stripped];
+  return dashed;
 };
 
 const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, blockMap, onCellClick, onJobClick }: Props) => {
