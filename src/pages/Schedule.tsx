@@ -461,7 +461,7 @@ const Schedule = () => {
 
   const handleMoveSlot = (job: ScheduleJob) => {
     setDetailDrawer({ open: false });
-    setAssignModal({ open: true, job });
+    setAssignModal({ open: true, job, timeBlock: job.time_block || undefined });
   };
 
   const openAssignFromCell = (date: Date, timeBlock: string) => {
@@ -469,7 +469,7 @@ const Schedule = () => {
   };
 
   const openAssignFromUnallocated = (job: ScheduleJob) => {
-    setAssignModal({ open: true, job });
+    setAssignModal({ open: true, job, timeBlock: job.time_block || undefined });
   };
 
   const handleRemoveFromSchedule = async (job: ScheduleJob) => {
