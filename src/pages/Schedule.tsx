@@ -61,13 +61,19 @@ const buildBlockMap = (settingsBlocks: any[], canonicalBlocks: string[]): Record
   return map;
 };
 
+const normalizeDash = (s: string) => s.replace(/[\u2013\u2014]/g, '-');
+
 const normalizeBlock = (b: string | null, blockMap: Record<string, string>) => {
   if (!b) return null;
-  if (blockMap[b]) return blockMap[b];
+  const dashed = normalizeDash(b);
+  // Build a dash-normalized map for comparison
+  const normMap: Record<string, string> = {};
+  Object.entries(blockMap).forEach(([k, v]) => { normMap[normalizeDash(k)] = normalizeDash(v); });
+  if (normMap[dashed]) return normMap[dashed];
   // Strip spaces around dashes as fallback
-  const stripped = b.replace(/\s*[–-]\s*/g, '–');
-  if (blockMap[stripped]) return blockMap[stripped];
-  return b;
+  const stripped = dashed.replace(/\s*-\s*/g, '-');
+  if (normMap[stripped]) return normMap[stripped];
+  return dashed;
 };
 
 export type ScheduleJob = {
