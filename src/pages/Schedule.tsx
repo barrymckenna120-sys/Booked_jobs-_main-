@@ -134,7 +134,18 @@ const Schedule = () => {
   const { data: settings } = useQuery({
     queryKey: ["settings", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("settings").select("job_time_blocks").eq("user_id", user!.id).maybeSingle();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      const orgId = profile?.organisation_id;
+      if (!orgId) return null;
+      const { data } = await supabase
+        .from("settings")
+        .select("job_time_blocks")
+        .eq("organisation_id", orgId)
+        .maybeSingle();
       return data;
     },
     enabled: !!user,
