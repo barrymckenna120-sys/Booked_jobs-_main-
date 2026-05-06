@@ -15,6 +15,7 @@ import OnboardingTour from "@/components/OnboardingTour";
 import { WifiOff, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 
 
 const greeting = () => {
