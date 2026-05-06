@@ -433,6 +433,13 @@ const JobDetail = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
+      supabase.functions.invoke('cancel-job-notify', {
+        body: {
+          service_call_id: job.id,
+          cancellation_reason: reason,
+          organisation_id: (job as any).organisation_id,
+        },
+      }).catch((err) => console.error('cancel-job-notify failed:', err));
       toast({ title: "Job cancelled" });
       setCancelOpen(false);
       fetchJob();
