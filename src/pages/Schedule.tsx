@@ -240,14 +240,31 @@ const Schedule = () => {
 
   const getJobForSlot = (date: Date, timeBlock: string, engineerName?: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return jobs.find(
-      (j) =>
+    return jobs.find((j) => {
+      if (j.scheduled_date?.slice(0, 10) === '2026-05-11') {
+        console.log('SLOT CHECK', {
+          ref: j.job_reference,
+          time_block_raw: j.time_block,
+          time_block_json: JSON.stringify(j.time_block),
+          timeBlock_row: timeBlock,
+          timeBlock_row_json: JSON.stringify(timeBlock),
+          normalized_job: normalizeBlock(j.time_block, BLOCK_MAP),
+          normalized_row: normalizeBlock(timeBlock, BLOCK_MAP),
+          match: normalizeBlock(j.time_block, BLOCK_MAP) === normalizeBlock(timeBlock, BLOCK_MAP),
+          engineer_job: j.assigned_engineer,
+          engineer_filter: engineerName,
+          engineer_match: j.assigned_engineer === engineerName,
+          status: j.status,
+        });
+      }
+      return (
         j.scheduled_date?.slice(0, 10) === dateStr &&
         normalizeBlock(j.time_block, BLOCK_MAP) === normalizeDash(timeBlock) &&
         j.status !== "New" &&
         j.status !== "Contacted" &&
         (engineerName === "all" || !engineerName || j.assigned_engineer === engineerName)
-    );
+      );
+    });
   };
 
   const getSlotMaxJobs = (timeBlock: string): number => {
