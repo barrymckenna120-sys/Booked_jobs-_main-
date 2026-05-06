@@ -43,6 +43,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
+  const { isEngineer, canAccessOffice } = useUserRole(user);
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
