@@ -58,23 +58,25 @@ export function useNotifications() {
   // Audio unlock is now handled globally in AppLayout via unlockAudio()
 
   // Fetch existing notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("recipient_user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setNotifications((data as AppNotification[]) || []);
+    setLoading(false);
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     initialLoadDone.current = false;
-
-    const fetchNotifs = async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("recipient_user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      setNotifications((data as AppNotification[]) || []);
-      setLoading(false);
+    fetchNotifications().then(() => {
       setTimeout(() => { initialLoadDone.current = true; }, 1000);
-    };
-    fetchNotifs();
-  }, [user]);
+    });
+  }, [user, fetchNotifications]);
 
   // Fetch sound preference
   useEffect(() => {
