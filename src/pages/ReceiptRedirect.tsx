@@ -13,13 +13,12 @@ const ReceiptRedirect = () => {
       const cleanNumber = decodeURIComponent(receiptNumber).replace(/\.pdf$/i, "");
 
       const { data } = await supabase
-        .from("service_calls")
-        .select("receipt_pdf_url")
-        .eq("receipt_number", cleanNumber)
-        .maybeSingle();
+        .rpc("get_receipt_public", { p_receipt_number: cleanNumber })
+        .single();
 
-      if (data?.receipt_pdf_url) {
-        window.location.replace(data.receipt_pdf_url);
+      const receiptPdfUrl = (data as any)?.receipt_pdf_url;
+      if (receiptPdfUrl) {
+        window.location.replace(receiptPdfUrl);
       } else {
         setError(true);
       }
