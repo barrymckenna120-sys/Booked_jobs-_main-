@@ -330,6 +330,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   onBlur={() => setTimeout(() => setActiveProductSearch(null), 200)}
                   placeholder="Type to search products or enter custom…"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Type or click to search products</p>
                 {activeProductSearch === li.id && (() => {
                   const matches = li.description.trim().length === 0
                     ? products.slice(0, 10)
