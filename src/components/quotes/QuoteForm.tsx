@@ -70,7 +70,8 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const { data: customers = [] } = useQuery({
     queryKey: ["customers-list", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("customers").select("id, name, phone, address").eq("user_id", user!.id).eq("is_archived", false).order("name");
+      const { data, error } = await supabase.from("customers").select("id, name, phone, address").eq("is_archived", false).order("name");
+      if (error) console.error("Customer fetch error:", error);
       return data || [];
     },
     enabled: !!user,
