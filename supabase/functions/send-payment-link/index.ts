@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     // Send via 360Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
-    formData.append("phone_number", cleanNumber);
+    formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
     // Log to message_log
