@@ -16,7 +16,47 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+  // Per-org integration cache: orgId -> { companyName, companyPhone, countryCode, apiKey } or null if missing
+  const orgIntegrationCache = new Map<string, {
+    companyName: string;
+    companyPhone: string;
+    countryCode: string;
+    apiKey: string | undefined;
+  } | null>();
+
+  const loadOrgIntegration = async (orgId: string) => {
+    if (orgIntegrationCache.has(orgId)) return orgIntegrationCache.get(orgId)!;
+
+    const { data: integration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+
+    if (!integration) {
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "job-reminder-2day",
+          error_message: `No 360messenger tenant_integration row for org ${orgId} — skipping jobs`,
+          payload: { organisation_id: orgId },
+        });
+      } catch (_e) { /* best-effort */ }
+      orgIntegrationCache.set(orgId, null);
+      return null;
+    }
+
+    const cfg = (integration as any).config || {};
+    const apiKeySecret = cfg.api_key_secret;
+    const resolved = {
+      companyName: cfg.company_name,
+      companyPhone: cfg.company_phone,
+      countryCode: String(cfg.country_code || ""),
+      apiKey: apiKeySecret ? Deno.env.get(apiKeySecret) : undefined,
+    };
+    orgIntegrationCache.set(orgId, resolved);
+    return resolved;
+  };
 
   try {
     // Calculate target date (today + 2 days)
@@ -35,6 +75,7 @@ Deno.serve(async (req) => {
         assigned_engineer,
         assigned_engineer_id,
         customer_id,
+        organisation_id,
         customers ( name, phone, opted_out )
       `)
       .eq("scheduled_date", targetStr)
@@ -75,6 +116,20 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const orgId = job.organisation_id;
+      if (!orgId) {
+        skipped++;
+        continue;
+      }
+
+      const integration = await loadOrgIntegration(orgId);
+      if (!integration) {
+        skipped++;
+        continue;
+      }
+
+      const { companyName, companyPhone, countryCode, apiKey } = integration;
+
       const fullName = customer.name || "Customer";
       const engineerName = engineerMap.get(job.assigned_engineer_id) || job.assigned_engineer || "our engineer";
 
@@ -95,26 +150,27 @@ Deno.serve(async (req) => {
         formattedTime = `${hour}:${mins}${ampm}`;
       }
 
-      // Normalise phone number
+      // Normalise phone number using configured country code
       let digits = customer.phone.replace(/\D/g, "");
-      if (digits.startsWith("353") && digits.length === 12) {
+      const ccLen = countryCode.length;
+      if (countryCode && digits.startsWith(countryCode) && digits.length === 9 + ccLen) {
         // already international
       } else if (digits.startsWith("0") && digits.length === 10) {
-        digits = "353" + digits.slice(1);
+        digits = countryCode + digits.slice(1);
       } else if (digits.length === 9) {
-        digits = "353" + digits;
+        digits = countryCode + digits;
       }
       const cleanNumber = digits;
 
       const message = `Hi ${fullName},
 
-This is a reminder from K & N Gas Services that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
+This is a reminder from ${companyName} that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
 
 Your engineer will be ${engineerName}.
 
-Please reply CONFIRM to confirm your appointment or CANCEL to cancel. Alternatively call us on 087 3686252.
+Please reply CONFIRM to confirm your appointment or CANCEL to cancel. Alternatively call us on ${companyPhone}.
 
-K & N Gas Services ☎ 087 3686252`;
+${companyName} ☎ ${companyPhone}`;
 
       try {
         const formData = new FormData();
@@ -150,7 +206,7 @@ K & N Gas Services ☎ 087 3686252`;
           // Log customer activity
           try {
             await supabase.from("customer_activity").insert({
-              organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+              organisation_id: orgId,
               customer_id: job.customer_id,
               service_call_id: job.id,
               event_type: "whatsapp_sent",
