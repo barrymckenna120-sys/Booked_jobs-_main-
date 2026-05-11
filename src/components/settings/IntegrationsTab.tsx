@@ -73,7 +73,7 @@ const IntegrationsTab = () => {
       .eq("integration_type", type)
       .maybeSingle();
 
-    const merged = { ...(existing?.config ?? {}), ...config };
+    const merged = { ...((existing?.config as Record<string, any>) ?? {}), ...config };
 
     if (existing?.id) {
       const { error } = await supabase
