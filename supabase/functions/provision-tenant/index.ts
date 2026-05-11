@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
     }
     const new_org_id = org.id as string;
 
+    try {
     // b) Send auth invite
     const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(owner_email, {
       data: { organisation_id: new_org_id, role: "admin" },
