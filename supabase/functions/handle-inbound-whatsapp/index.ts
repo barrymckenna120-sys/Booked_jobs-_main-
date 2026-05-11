@@ -6,11 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function normalisePhone(raw: string): string {
+function normalisePhone(raw: string, countryCode = "353"): string {
   let digits = (raw || "").replace(/\D/g, "");
-  if (digits.startsWith("353") && digits.length === 12) return digits;
-  if (digits.startsWith("0") && digits.length === 10) return "353" + digits.slice(1);
-  if (digits.length === 9) return "353" + digits;
+  const ccLen = countryCode.length;
+  if (countryCode && digits.startsWith(countryCode) && digits.length === 9 + ccLen) return digits;
+  if (digits.startsWith("0") && digits.length === 10) return countryCode + digits.slice(1);
+  if (digits.length === 9) return countryCode + digits;
   return digits;
 }
 
@@ -38,7 +39,6 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
-  const apiKey = Deno.env.get("THREESIXTY_API_KEY")!;
 
   const log = async (error_message: string | null, payload: unknown) => {
     try {
@@ -64,12 +64,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Initial normalisation uses default country code for customer lookup
     const phone = normalisePhone(fromRaw);
     const upper = text.toUpperCase();
 
     // STOP — opt out customer (no service_call lookup required)
     if (upper === "STOP") {
-      // Find customer by phone (try multiple formats)
       const { data: customer } = await supabase
         .from("customers")
         .select("id, name, phone")
@@ -103,10 +103,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find customer by phone
+    // Find customer by phone (include organisation_id for tenant lookup)
     const { data: customer, error: custErr } = await supabase
       .from("customers")
-      .select("id, name, phone")
+      .select("id, name, phone, organisation_id")
       .or(`phone.eq.${phone},phone.eq.+${phone},phone.eq.0${phone.slice(3)}`)
       .limit(1)
       .maybeSingle();
@@ -119,6 +119,36 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const orgId = (customer as any).organisation_id;
+
+    // Load tenant 360messenger integration for this org
+    const { data: integration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+
+    if (!integration) {
+      await log(
+        `No 360messenger tenant_integration row for org ${orgId} — cannot reply`,
+        { from: phone, text, organisation_id: orgId, customer_id: customer.id },
+      );
+      return new Response(
+        JSON.stringify({ success: true, action: "ignored", reason: "tenant_integration_not_found" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const cfg: any = (integration as any).config || {};
+    const companyName: string = cfg.company_name;
+    const companyPhone: string = cfg.company_phone;
+    const countryCode: string = String(cfg.country_code || "353");
+    const apiKey = cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : undefined;
+
+    // Re-normalise using tenant country code
+    const tenantPhone = normalisePhone(fromRaw, countryCode);
 
     // Most recent service_call for this customer that received a 2-day reminder
     const { data: job, error: jobErr } = await supabase
@@ -148,11 +178,11 @@ Deno.serve(async (req) => {
         .update({ confirmed: true, confirmed_at: new Date().toISOString() })
         .eq("id", job.id);
 
-      const reply = `Thanks ${fullName}, your appointment is confirmed. See you then! K & N Gas Services ☎ 087 3686252`;
-      const sendRes = await sendWhatsApp(apiKey, phone, reply);
+      const reply = `Thanks ${fullName}, your appointment is confirmed. See you then! ${companyName} ☎ ${companyPhone}`;
+      const sendRes = await sendWhatsApp(apiKey || "", tenantPhone, reply);
 
       await log(sendRes.ok ? null : `CONFIRM reply failed: ${sendRes.raw.substring(0, 300)}`, {
-        from: phone, text, action: "confirm", service_call_id: job.id, customer_id: customer.id, customer_name: fullName,
+        from: tenantPhone, text, action: "confirm", service_call_id: job.id, customer_id: customer.id, customer_name: fullName,
       });
 
       try {
@@ -177,11 +207,11 @@ Deno.serve(async (req) => {
       .update({ status: "Cancelled", cancellation_reason: "Customer cancelled via WhatsApp" })
       .eq("id", job.id);
 
-    const reply = `Thanks ${fullName}, your appointment has been cancelled. To rebook call us on 087 3686252. K & N Gas Services`;
-    const sendRes = await sendWhatsApp(apiKey, phone, reply);
+    const reply = `Thanks ${fullName}, your appointment has been cancelled. To rebook call us on ${companyPhone}. ${companyName}`;
+    const sendRes = await sendWhatsApp(apiKey || "", tenantPhone, reply);
 
     await log(sendRes.ok ? null : `CANCEL reply failed: ${sendRes.raw.substring(0, 300)}`, {
-      from: phone, text, action: "cancel", service_call_id: job.id, customer_id: customer.id, customer_name: fullName,
+      from: tenantPhone, text, action: "cancel", service_call_id: job.id, customer_id: customer.id, customer_name: fullName,
     });
 
     try {
