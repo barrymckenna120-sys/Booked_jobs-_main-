@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 // Owner-only access. Update if Barry's email differs.
-const OWNER_EMAIL = "barry@bookedjobs.ie";
+const OWNER_EMAIL = "barrymckenna120@gmail.com";
 
 const slugify = (s: string) =>
   s
