@@ -63,6 +63,7 @@ import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -170,6 +171,7 @@ const App = () => (
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
             <Route path="/debug/audio" element={<AudioDebug />} />
+            <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
