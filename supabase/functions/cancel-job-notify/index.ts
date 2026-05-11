@@ -1,0 +1,143 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+const SKIP_REASONS = new Set([
+  "Duplicate Booking",
+  "Payment Failed",
+  "Engineer Unavailable",
+  "Parts Needed",
+  "Other",
+]);
+
+const SALUTATIONS = new Set(["mr", "mrs", "ms", "dr", "miss"]);
+
+function extractFirstName(fullName: string): string {
+  if (!fullName) return "there";
+  const parts = fullName.trim().split(/\s+/);
+  for (const p of parts) {
+    const cleaned = p.replace(/\.$/, "").toLowerCase();
+    if (!SALUTATIONS.has(cleaned)) return p.replace(/\.$/, "");
+  }
+  return parts[0] || "there";
+}
+
+function formatPhone360(raw: string): string {
+  if (!raw) return "";
+  let n = raw.replace(/[\s+]/g, "");
+  if (n.startsWith("00")) n = n.slice(2);
+  if (n.startsWith("353")) return n;
+  if (n.startsWith("0")) n = n.slice(1);
+  return "353" + n;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { service_call_id, cancellation_reason, organisation_id } =
+      await req.json();
+
+    if (!service_call_id || !cancellation_reason) {
+      return new Response(
+        JSON.stringify({ error: "Missing service_call_id or cancellation_reason" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (SKIP_REASONS.has(cancellation_reason)) {
+      return new Response(JSON.stringify({ skipped: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data: sc, error: scErr } = await supabase
+      .from("service_calls")
+      .select("id, user_id, customer_id, organisation_id, customers(name, phone)")
+      .eq("id", service_call_id)
+      .maybeSingle();
+
+    if (scErr || !sc) {
+      return new Response(
+        JSON.stringify({ error: "Service call not found", detail: scErr?.message }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const customer: any = (sc as any).customers;
+    const customerName = customer?.name || "";
+    const customerPhone = customer?.phone || "";
+    const firstName = extractFirstName(customerName);
+    const to = formatPhone360(customerPhone);
+
+    if (!to) {
+      return new Response(
+        JSON.stringify({ error: "Customer phone missing" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "THREESIXTY_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const text = `Hi ${firstName}, your booking with K&N Gas Services has been cancelled. Reason: ${cancellation_reason}. To rebook please call us on 087 3685252.`;
+    const form = new FormData();
+    form.append("phonenumber", to);
+    form.append("text", text);
+
+    const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+    const respText = await resp.text();
+
+    if (!resp.ok) {
+      return new Response(
+        JSON.stringify({ error: "360Messenger send failed", status: resp.status, detail: respText }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const orgId = organisation_id || (sc as any).organisation_id;
+
+    await supabase.from("whatsapp_messages").insert({
+      user_id: (sc as any).user_id,
+      customer_id: (sc as any).customer_id,
+      organisation_id: orgId,
+      message_type: "template",
+      message_body: `Template: job_cancellation_notice | ${firstName}, ${cancellation_reason}`,
+      status: "sent",
+      sent_by: "system",
+      sent_at: new Date().toISOString(),
+    });
+
+    return new Response(
+      JSON.stringify({ success: true, to, firstName, response: respText }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

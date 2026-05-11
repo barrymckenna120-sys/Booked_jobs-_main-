@@ -70,7 +70,8 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const { data: customers = [] } = useQuery({
     queryKey: ["customers-list", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("customers").select("id, name, phone, address").eq("user_id", user!.id).eq("is_archived", false).order("name");
+      const { data, error } = await supabase.from("customers").select("id, name, phone, address").eq("is_archived", false).order("name");
+      if (error) console.error("Customer fetch error:", error);
       return data || [];
     },
     enabled: !!user,
@@ -329,8 +330,11 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   onBlur={() => setTimeout(() => setActiveProductSearch(null), 200)}
                   placeholder="Type to search products or enter custom…"
                 />
-                {activeProductSearch === li.id && li.description.trim().length > 0 && (() => {
-                  const matches = products.filter((p: any) => p.name.toLowerCase().includes(li.description.toLowerCase())).slice(0, 10);
+                <p className="text-xs text-muted-foreground mt-1">Type or click to search products</p>
+                {activeProductSearch === li.id && (() => {
+                  const matches = li.description.trim().length === 0
+                    ? products.slice(0, 10)
+                    : products.filter((p: any) => p.name.toLowerCase().includes(li.description.toLowerCase())).slice(0, 10);
                   if (matches.length === 0) return null;
                   const grouped: Record<string, any[]> = {};
                   matches.forEach((p: any) => {

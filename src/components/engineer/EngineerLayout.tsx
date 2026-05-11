@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut, Briefcase } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -12,7 +12,10 @@ import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
+import { WifiOff, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 
 
 const greeting = () => {
@@ -33,9 +36,15 @@ const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
+  const { canAccessOffice } = useUserRole(user);
   const engineerJobs = useEngineerJobs();
-  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName } = engineerJobs;
+  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (isOnline) setDismissed(false);
+  }, [isOnline]);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
@@ -59,6 +68,7 @@ const EngineerLayout = () => {
     { key: "today", label: "Today", icon: Clock, count: todayActive.length, path: "/engineer/today" },
     { key: "upcoming", label: "Upcoming", icon: CalendarDays, count: upcomingJobs.length, path: "/engineer/upcoming" },
     { key: "completed", label: "Completed", icon: CheckCircle2, count: completedJobs.length, path: "/engineer/completed" },
+    ...(canAccessOffice ? [{ key: "office", label: "Office", icon: Briefcase, count: 0, path: "/dashboard" }] : []),
   ];
 
   return (
@@ -76,7 +86,14 @@ const EngineerLayout = () => {
           <div className="flex items-center gap-2">
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
-              onClick={signOut}
+              onClick={async () => {
+                try {
+                  await supabase.auth.signOut();
+                } catch (err) {
+                  console.error("Sign out error:", err);
+                }
+                navigate("/auth", { replace: true });
+              }}
               className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
             >
               <LogOut className="w-4 h-4" /> Log Out
@@ -95,6 +112,21 @@ const EngineerLayout = () => {
         </div>
       </div>
 
+
+      {/* Offline banner */}
+      {!isOnline && !dismissed && (
+        <div className="w-full bg-[hsl(var(--warning))] text-white pl-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm relative">
+          <WifiOff className="w-4 h-4 flex-shrink-0" />
+          <span>You're offline — changes won't save until reconnected</span>
+          <button
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss offline banner"
+            className="ml-auto text-white font-bold text-lg px-3 min-h-[44px] flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {/* Page content */}
       <div className="px-4 py-6 space-y-6">
@@ -146,7 +178,7 @@ const EngineerLayout = () => {
         notifications={bannerNotifications}
         onDismiss={dismissBanner}
         onMarkRead={markAsRead}
-        jobPathPrefix="/engineer/today"
+        jobPathPrefix="/engineer/job"
       />
       <MessageAlertBanner />
       {user && (

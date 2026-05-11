@@ -12,43 +12,54 @@ export const useUserRole = (user: User | null) => {
   const [role, setRole] = useState<AppRole>("admin");
   const [engineerId, setEngineerId] = useState<string | null>(null);
   const [engineerName, setEngineerName] = useState<string | null>(null);
+  const [canAccessOffice, setCanAccessOffice] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!user) {
       setRole("admin");
       setEngineerId(null);
       setEngineerName(null);
+      setCanAccessOffice(false);
       setLoading(false);
       return;
     }
 
-    const fetchRole = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("engineers")
-        .select("id, name, role")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
+    setLoading(true);
 
-      if (data) {
-        setRole((data.role as AppRole) || "engineer");
-        setEngineerId(data.id);
-        setEngineerName(data.name);
-      } else {
-        setRole("admin");
-        setEngineerId(null);
-        setEngineerName(null);
-      }
-      setLoading(false);
+    supabase
+      .from("engineers")
+      .select("*")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        console.log("useUserRole data:", data);
+        if (cancelled) return;
+        const engineerRow: any = data;
+        if (engineerRow) {
+          setRole((engineerRow.role as AppRole) || "engineer");
+          setEngineerId(engineerRow.id);
+          setEngineerName(engineerRow.name);
+          setCanAccessOffice(!!engineerRow?.can_access_office);
+        } else {
+          setRole("admin");
+          setEngineerId(null);
+          setEngineerName(null);
+          setCanAccessOffice(false);
+        }
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
     };
-
-    fetchRole();
   }, [user]);
 
   const isEngineer = role === "engineer";
   const isAdmin = role === "admin";
   const isOffice = role === "office";
 
-  return { role, isEngineer, isAdmin, isOffice, engineerId, engineerName, loading };
+  return { role, isEngineer, isAdmin, isOffice, engineerId, engineerName, canAccessOffice, loading };
 };

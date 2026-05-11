@@ -61,13 +61,19 @@ const buildBlockMap = (settingsBlocks: any[], canonicalBlocks: string[]): Record
   return map;
 };
 
+const normalizeDash = (s: string) => s.replace(/[\u2013\u2014]/g, '-');
+
 const normalizeBlock = (b: string | null, blockMap: Record<string, string>) => {
   if (!b) return null;
-  if (blockMap[b]) return blockMap[b];
+  const dashed = normalizeDash(b);
+  // Build a dash-normalized map for comparison
+  const normMap: Record<string, string> = {};
+  Object.entries(blockMap).forEach(([k, v]) => { normMap[normalizeDash(k)] = normalizeDash(v); });
+  if (normMap[dashed]) return normMap[dashed];
   // Strip spaces around dashes as fallback
-  const stripped = b.replace(/\s*[–-]\s*/g, '–');
-  if (blockMap[stripped]) return blockMap[stripped];
-  return b;
+  const stripped = dashed.replace(/\s*-\s*/g, '-');
+  if (normMap[stripped]) return normMap[stripped];
+  return dashed;
 };
 
 export type ScheduleJob = {
@@ -134,7 +140,18 @@ const Schedule = () => {
   const { data: settings } = useQuery({
     queryKey: ["settings", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("settings").select("job_time_blocks").single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      const orgId = profile?.organisation_id;
+      if (!orgId) return null;
+      const { data } = await supabase
+        .from("settings")
+        .select("job_time_blocks")
+        .eq("organisation_id", orgId)
+        .maybeSingle();
       return data;
     },
     enabled: !!user,
@@ -155,7 +172,7 @@ const Schedule = () => {
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
         .select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
-        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null,status.eq.Pending,status.in.(incoming,accepted)`)
+        .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
       return (scheduledJobs || []).map((j: any) => ({
@@ -223,21 +240,38 @@ const Schedule = () => {
 
   const getJobForSlot = (date: Date, timeBlock: string, engineerName?: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return jobs.find(
-      (j) =>
+    return jobs.find((j) => {
+      if (j.scheduled_date?.slice(0, 10) === '2026-05-11') {
+        console.log('SLOT CHECK', {
+          ref: j.job_reference,
+          time_block_raw: j.time_block,
+          time_block_json: JSON.stringify(j.time_block),
+          timeBlock_row: timeBlock,
+          timeBlock_row_json: JSON.stringify(timeBlock),
+          normalized_job: normalizeBlock(j.time_block, BLOCK_MAP),
+          normalized_row: normalizeBlock(timeBlock, BLOCK_MAP),
+          match: normalizeBlock(j.time_block, BLOCK_MAP) === normalizeBlock(timeBlock, BLOCK_MAP),
+          engineer_job: j.assigned_engineer,
+          engineer_filter: engineerName,
+          engineer_match: j.assigned_engineer === engineerName,
+          status: j.status,
+        });
+      }
+      return (
         j.scheduled_date?.slice(0, 10) === dateStr &&
-        normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
+        normalizeBlock(j.time_block, BLOCK_MAP) === normalizeDash(timeBlock) &&
         j.status !== "New" &&
         j.status !== "Contacted" &&
         (engineerName === "all" || !engineerName || j.assigned_engineer === engineerName)
-    );
+      );
+    });
   };
 
   const getSlotMaxJobs = (timeBlock: string): number => {
     const blocks = (settings?.job_time_blocks as any[]) || [];
     for (const block of blocks) {
       const canonical = normalizeBlock(block.label, BLOCK_MAP);
-      if (canonical === timeBlock) return block.max_jobs ?? 2;
+      if (canonical === normalizeDash(timeBlock)) return block.max_jobs ?? 2;
     }
     return 2; // fallback default
   };
@@ -247,7 +281,7 @@ const Schedule = () => {
     const count = jobs.filter(
       (j) =>
         j.scheduled_date?.slice(0, 10) === dateStr &&
-        normalizeBlock(j.time_block, BLOCK_MAP) === timeBlock &&
+        normalizeBlock(j.time_block, BLOCK_MAP) === normalizeDash(timeBlock) &&
         j.assigned_engineer === engineerName &&
         j.status !== "Completed" &&
         j.status !== "Cancelled"
@@ -266,13 +300,26 @@ const Schedule = () => {
     // Resolve engineer ID for the assigned_engineer_id column
     const matchedEngineer = engineers.find((e) => e.name === engineerName);
 
+    // Capture existing values BEFORE update for change detection
+    const { data: prevJob } = await supabase
+      .from("service_calls")
+      .select("assigned_engineer_id, scheduled_date, time_block, customer_id, job_reference, organisation_id, customers(name)")
+      .eq("id", jobId)
+      .maybeSingle();
+
+    const oldEngineerId = (prevJob as any)?.assigned_engineer_id || null;
+    const oldDate = (prevJob as any)?.scheduled_date || null;
+    const oldBlock = (prevJob as any)?.time_block || null;
+    const newEngineerId = matchedEngineer?.id || null;
+    const newDateStr = `${format(date, "yyyy-MM-dd")}T12:00:00`;
+
     const { error } = await supabase
       .from("service_calls")
       .update(sanitizeServiceCallUpdatePayload({
-        scheduled_date: `${format(date, "yyyy-MM-dd")}T12:00:00`,
+        scheduled_date: newDateStr,
         time_block: timeBlock,
         assigned_engineer: engineerName,
-        assigned_engineer_id: matchedEngineer?.id || null,
+        assigned_engineer_id: newEngineerId,
         status: "Booked",
         needs_scheduling: false,
       } as any))
@@ -287,7 +334,92 @@ const Schedule = () => {
         body: { service_call_id: jobId }
       }).catch(err => console.error('send-booking-confirmation failed:', err));
 
-      toast({ title: "Job assigned" });
+      // ---- Push notifications: reassign / reschedule ----
+      try {
+        const customerName = (prevJob as any)?.customers?.name || "Customer";
+        const knNumber = (prevJob as any)?.job_reference || `KN-${jobId.slice(0, 6).toUpperCase()}`;
+        const orgId = (prevJob as any)?.organisation_id || null;
+        const formattedDate = format(date, "dd/MM/yyyy");
+
+        const engineerChanged = oldEngineerId !== newEngineerId;
+        const scheduleChanged = (oldDate || null) !== newDateStr || (oldBlock || null) !== timeBlock;
+
+        const targets: { engineerId: string; title: string; body: string }[] = [];
+
+        if (engineerChanged) {
+          if (newEngineerId) {
+            targets.push({
+              engineerId: newEngineerId,
+              title: "New Job Assigned",
+              body: `${customerName} | ${knNumber} | ${formattedDate} at ${timeBlock}`,
+            });
+          }
+          if (oldEngineerId) {
+            targets.push({
+              engineerId: oldEngineerId,
+              title: "Job Removed",
+              body: `${customerName} | ${knNumber} | ${formattedDate} at ${timeBlock}`,
+            });
+          }
+        } else if (scheduleChanged && newEngineerId) {
+          targets.push({
+            engineerId: newEngineerId,
+            title: "Job Rescheduled",
+            body: `${customerName} | ${knNumber} | Now ${formattedDate} at ${timeBlock}`,
+          });
+        }
+
+        if (targets.length > 0) {
+          const ids = Array.from(new Set(targets.map((t) => t.engineerId)));
+          const { data: engRows } = await supabase
+            .from("engineers")
+            .select("id, auth_user_id")
+            .in("id", ids);
+          const authMap = new Map<string, string>();
+          (engRows || []).forEach((e: any) => { if (e.auth_user_id) authMap.set(e.id, e.auth_user_id); });
+
+          for (const t of targets) {
+            const authUserId = authMap.get(t.engineerId);
+            if (!authUserId) continue;
+
+            // Push
+            supabase.functions.invoke("send-push-notification", {
+              body: { recipient_user_id: authUserId, title: t.title, body: t.body, job_id: jobId },
+            }).catch((err) => console.error("send-push-notification failed:", err));
+
+            // In-app notification row
+            await supabase.from("notifications").insert({
+              recipient_user_id: authUserId,
+              notification_type: "schedule_update",
+              title: t.title,
+              body: t.body,
+              job_id: jobId,
+              role: "engineer",
+              organisation_id: orgId,
+            } as any);
+          }
+        }
+      } catch (notifyErr) {
+        console.error("Schedule push notify error:", notifyErr);
+      }
+
+      // Check if new date falls outside currently viewed week
+      const weekEndDate = addDays(weekStart, 6);
+      if (date < weekStart || date > weekEndDate) {
+        const targetWeekStart = startOfWeek(date, { weekStartsOn: 1 });
+        const knNumber = (prevJob as any)?.job_reference || `KN-${jobId.slice(0, 6).toUpperCase()}`;
+        toast({
+          title: `${knNumber} moved to week of ${format(targetWeekStart, "EEE d MMM")}`,
+          description: "Tap to view that week",
+          action: (
+            <Button size="sm" variant="outline" onClick={() => setWeekStart(targetWeekStart)}>
+              Go to week
+            </Button>
+          ) as any,
+        });
+      } else {
+        toast({ title: "Job assigned" });
+      }
       setAssignModal({ open: false });
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
     }
@@ -329,7 +461,7 @@ const Schedule = () => {
 
   const handleMoveSlot = (job: ScheduleJob) => {
     setDetailDrawer({ open: false });
-    setAssignModal({ open: true, job });
+    setAssignModal({ open: true, job, timeBlock: job.time_block || undefined });
   };
 
   const openAssignFromCell = (date: Date, timeBlock: string) => {
@@ -337,7 +469,7 @@ const Schedule = () => {
   };
 
   const openAssignFromUnallocated = (job: ScheduleJob) => {
-    setAssignModal({ open: true, job });
+    setAssignModal({ open: true, job, timeBlock: job.time_block || undefined });
   };
 
   const handleRemoveFromSchedule = async (job: ScheduleJob) => {

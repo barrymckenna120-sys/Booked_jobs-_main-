@@ -433,6 +433,13 @@ const JobDetail = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: job.id, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
+      supabase.functions.invoke('cancel-job-notify', {
+        body: {
+          service_call_id: job.id,
+          cancellation_reason: reason,
+          organisation_id: (job as any).organisation_id,
+        },
+      }).catch((err) => console.error('cancel-job-notify failed:', err));
       toast({ title: "Job cancelled" });
       setCancelOpen(false);
       fetchJob();
@@ -700,7 +707,7 @@ const JobDetail = () => {
               <div><span className="text-muted-foreground">Note:</span> <span className="font-semibold">{job.cancellation_note}</span></div>
             )}
             {job.cancelled_at && (
-              <div><span className="text-muted-foreground">Cancelled:</span> <span className="font-semibold">{new Date(job.cancelled_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span></div>
+              <div><span className="text-muted-foreground">Cancelled:</span> <span className="font-semibold">{new Date(job.cancelled_at).toLocaleString('en-IE', { timeZone: 'Europe/Dublin', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
             )}
             {job.deposit_paid && (
               <div className="flex items-center gap-1.5 mt-1 text-warning font-semibold">

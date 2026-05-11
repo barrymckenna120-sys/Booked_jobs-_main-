@@ -961,6 +961,7 @@ export type Database = {
         Row: {
           auth_user_id: string | null
           blocked_reason: string | null
+          can_access_office: boolean
           created_at: string
           email: string | null
           fcm_token: string | null
@@ -980,6 +981,7 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           blocked_reason?: string | null
+          can_access_office?: boolean
           created_at?: string
           email?: string | null
           fcm_token?: string | null
@@ -999,6 +1001,7 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           blocked_reason?: string | null
+          can_access_office?: boolean
           created_at?: string
           email?: string | null
           fcm_token?: string | null
@@ -2036,6 +2039,8 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           completed_at: string | null
+          confirmed: boolean
+          confirmed_at: string | null
           conversation_id: string | null
           created_at: string
           customer_id: string
@@ -2118,6 +2123,8 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           completed_at?: string | null
+          confirmed?: boolean
+          confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
           customer_id: string
@@ -2200,6 +2207,8 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           completed_at?: string | null
+          confirmed?: boolean
+          confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
           customer_id?: string
@@ -2482,6 +2491,41 @@ export type Database = {
           reason?: string
         }
         Relationships: []
+      }
+      tenant_integrations: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          integration_type: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          integration_type: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          integration_type?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_integrations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_messages: {
         Row: {

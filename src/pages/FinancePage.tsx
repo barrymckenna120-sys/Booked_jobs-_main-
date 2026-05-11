@@ -5,7 +5,7 @@ import SalesLedger from "./SalesLedger";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: CreditCard },
-  { key: "sales-ledger", label: "Sales Ledger", icon: BookOpen },
+  { key: "sales-ledger", label: "Sales", icon: BookOpen },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];

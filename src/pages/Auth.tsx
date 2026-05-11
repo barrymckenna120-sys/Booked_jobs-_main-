@@ -71,10 +71,23 @@ const Auth = () => {
     setFormError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       setFailedAttempts(0);
-      navigate("/dashboard");
+
+      let redirectPath = "/dashboard";
+      const userId = signInData?.user?.id;
+      if (userId) {
+        const { data: engineerRow } = await supabase
+          .from("engineers")
+          .select("role")
+          .eq("auth_user_id", userId)
+          .maybeSingle();
+        if (engineerRow && (engineerRow as any).role === "engineer") {
+          redirectPath = "/engineer/today";
+        }
+      }
+      navigate(redirectPath);
     } catch (error: any) {
       const msg = (error?.message || "").toLowerCase();
       const isBanned =

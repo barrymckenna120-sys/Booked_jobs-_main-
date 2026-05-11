@@ -75,3 +75,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.log-message]
     verify_jwt = false
+  [functions.cancel-job-notify]
+    verify_jwt = false

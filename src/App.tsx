@@ -62,6 +62,8 @@ import PublicReceipt from "./pages/PublicReceipt";
 import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
+import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -120,6 +122,7 @@ const App = () => (
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/parts" element={<Parts />} />
               <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
+              <Route path="/insights" element={<OfficeRoute><BusinessInsightsDashboard /></OfficeRoute>} />
               <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
               <Route path="/products" element={<Products />} />
               <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
@@ -168,6 +171,7 @@ const App = () => (
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
             <Route path="/debug/audio" element={<AudioDebug />} />
+            <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>

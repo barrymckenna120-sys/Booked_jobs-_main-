@@ -6,7 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield,
+  CalendarCheck, Layers, Shield, BarChart2,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -40,6 +40,7 @@ const DESKTOP_NAV = [
   { label: "Warranty", icon: Shield, path: "/warranty" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: PoundSterling, path: "/finance" },
+  { label: "Insights", icon: BarChart2, path: "/insights" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
@@ -60,7 +61,7 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
-  const { isEngineer, loading: roleLoading } = useUserRole(user);
+  const { isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
@@ -116,8 +117,8 @@ const AppLayoutInner = () => {
     };
   }, []);
 
-  if (!roleLoading && isEngineer) {
-    return <Navigate to="/engineer/today" replace />;
+  if (!roleLoading && isEngineer && !canAccessOffice) {
+    return <Navigate to="/engineer/today" />;
   }
 
   const isActive = (path: string) =>
@@ -209,7 +210,18 @@ const AppLayoutInner = () => {
           >
             <Settings className="w-5 h-5" />
           </button>
-          <Button variant="ghost" size="icon" onClick={signOut}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={async () => {
+              try {
+                await supabase.auth.signOut();
+              } catch (err) {
+                console.error("Sign out error:", err);
+              }
+              navigate("/auth", { replace: true });
+            }}
+          >
             <LogOut className="w-5 h-5" />
           </Button>
         </div>

@@ -138,7 +138,7 @@ const NotificationDrawer = ({
                     </button>
                   )}
                   <button
-                    onClick={(e) => { e.stopPropagation(); onDismiss(n.id); }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss(n.id); }}
                     className="text-muted-foreground/50 hover:text-destructive"
                   >
                     <X className="w-3.5 h-3.5" />

@@ -323,8 +323,12 @@ function OutstandingPayments({ invoices }: { invoices: { name: string; amount: n
 function PaymentBreakdown({ jobs, dateRange }: { jobs: any[]; dateRange: { start: Date; end: Date; label: string } }) {
   const periodJobs = useMemo(() =>
     jobs.filter(j => {
-      if (!j.scheduled_date || !j.payment_method) return false;
-      const d = new Date(j.scheduled_date + "T00:00:00");
+      if (!j.payment_method) return false;
+      const dateSource = (j.payment_status === "paid" ? (j.completed_at ?? j.scheduled_date) : j.scheduled_date);
+      if (!dateSource) return false;
+      const d = j.payment_status === "paid" && j.completed_at
+        ? new Date(j.completed_at)
+        : new Date(dateSource + "T00:00:00");
       return d >= dateRange.start && d <= dateRange.end && j.status === "Completed";
     }), [jobs, dateRange]);
 
@@ -420,8 +424,11 @@ const Finance = () => {
   // Date-filtered stats
   const periodJobs = useMemo(() =>
     jobs.filter(j => {
-      if (!j.scheduled_date) return false;
-      const d = new Date(j.scheduled_date + "T00:00:00");
+      const dateSource = j.payment_status === "paid" ? (j.completed_at ?? j.scheduled_date) : j.scheduled_date;
+      if (!dateSource) return false;
+      const d = j.payment_status === "paid" && j.completed_at
+        ? new Date(j.completed_at)
+        : new Date(dateSource + "T00:00:00");
       return d >= dateRange.start && d <= dateRange.end && j.status === "Completed";
     }), [jobs, dateRange]);
 

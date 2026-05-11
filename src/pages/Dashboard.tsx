@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Loader2, AlertTriangle, Package, BookOpen, ChevronRight } from "lucide-react";
+import { CalendarDays, Plus, Loader2, AlertTriangle, Package, BookOpen, ChevronRight, Wrench } from "lucide-react";
+import { useUserRole } from "@/hooks/useUserRole";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
+  const { isEngineer, canAccessOffice } = useUserRole(user);
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -246,6 +248,18 @@ const Dashboard = () => {
       {activeTab === "parts" && <PartsPanel />}
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
+
+      {canAccessOffice && (
+        <div className="md:hidden fixed left-0 right-0 z-40 px-4" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
+          <button
+            onClick={() => navigate("/engineer/today")}
+            className="w-full flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-3 text-base font-semibold hover:bg-[#1d4ed8] transition-colors shadow-lg"
+          >
+            <Wrench className="h-5 w-5" />
+            Switch to Engineer View
+          </button>
+        </div>
+      )}
     </div>
   );
 };
