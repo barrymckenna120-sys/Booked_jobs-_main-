@@ -2492,6 +2492,41 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_integrations: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          integration_type: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          integration_type: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          integration_type?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_integrations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           created_at: string | null
