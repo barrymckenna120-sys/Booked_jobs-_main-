@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
     }
     const new_org_id = org.id as string;
 
+    try {
     // b) Send auth invite
     const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(owner_email, {
       data: { organisation_id: new_org_id, role: "admin" },
@@ -213,6 +214,13 @@ Deno.serve(async (req) => {
       owner_email,
       message: "Tenant provisioned successfully",
     });
+    } catch (downstreamErr) {
+      const msg = downstreamErr instanceof Error ? downstreamErr.message : String(downstreamErr);
+      // Rollback — delete the org so slug is freed
+      await admin.from("organisations").delete().eq("id", new_org_id);
+      await logEvent(`Rollback triggered: ${msg}`, { new_org_id, slug, owner_email });
+      return json({ error: "Provisioning failed, rolled back. Try again." }, 500);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await logEvent(`Unhandled error: ${msg}`, null);
