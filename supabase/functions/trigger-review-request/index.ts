@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     // 2. Check if review already sent
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, review_sent, payment_method")
+      .select("id, review_sent, payment_method, organisation_id")
       .eq("id", service_call_id)
       .maybeSingle();
 
