@@ -67,15 +67,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    const webhookUrl = Deno.env.get("OUTSTANDING_REMINDER_WEBHOOK_URL");
+    const orgId = (job as any).organisation_id;
+
+    // Load make config for this org
+    const { data: makeIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "make")
+      .maybeSingle();
+
+    const webhookSecretName =
+      (makeIntegration as any)?.config?.outstanding_reminder_webhook_secret
+      ?? "OUTSTANDING_REMINDER_WEBHOOK_URL";
+    const webhookUrl = Deno.env.get(webhookSecretName);
+
     if (!webhookUrl) {
-      const msg = "OUTSTANDING_REMINDER_WEBHOOK_URL not configured";
+      const msg = `No Make webhook URL found for org ${orgId} (secret: ${webhookSecretName})`;
       await logFailure(msg);
       return new Response(
-        JSON.stringify({ success: false, error: msg }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, reason: "webhook_url_not_configured" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Load 360messenger config for this org
+    const { data: messengerIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+
+    const companyName = (messengerIntegration as any)?.config?.company_name ?? "K & N Gas Services";
+    const companyPhone = (messengerIntegration as any)?.config?.company_phone ?? "087 3686252";
 
     const makeSecret = Deno.env.get("MAKE_WEBHOOK_SECRET") || "";
 
@@ -85,6 +110,8 @@ Deno.serve(async (req) => {
       customer_phone,
       invoice_reminder_count,
       invoiced_at: job.invoiced_at,
+      company_name: companyName,
+      company_phone: companyPhone,
     };
 
     const makeRes = await fetch(webhookUrl, {
