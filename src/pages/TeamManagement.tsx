@@ -168,6 +168,14 @@ const TeamManagement = () => {
     if (!user || !inviteForm.name.trim()) return;
     setSaving(true);
 
+    // Fetch current user's organisation_id
+    const { data: engData } = await supabase
+      .from("engineers")
+      .select("organisation_id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    const orgId = (engData as any)?.organisation_id ?? null;
+
     // 1. Create the engineer record
     const { data: newEng, error } = await supabase.from("engineers").insert({
       name: inviteForm.name.trim(),
@@ -176,6 +184,7 @@ const TeamManagement = () => {
       role: inviteForm.role,
       status: "active",
       user_id: user.id,
+      organisation_id: orgId,
     } as any).select("id").single();
 
     if (error) {
@@ -188,7 +197,7 @@ const TeamManagement = () => {
     const email = inviteForm.email.trim();
     if (email && newEng) {
       const { data: fnData, error: fnError } = await supabase.functions.invoke("invite-team-member", {
-        body: { engineer_id: newEng.id, email, name: inviteForm.name.trim(), role: inviteForm.role },
+        body: { engineer_id: newEng.id, email, name: inviteForm.name.trim(), role: inviteForm.role, organisation_id: orgId },
       });
       if (fnError || fnData?.error) {
         toast({
