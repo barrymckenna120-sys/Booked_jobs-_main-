@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       .from("tenant_integrations")
       .insert(integrationRows);
     if (integrationsErr) {
-      await logEvent(`tenant_integrations insert failed: ${integrationsErr.message}`, { new_org_id });
+      throw new Error(`tenant_integrations insert failed: ${integrationsErr.message}`);
     }
 
     // d) Default brand_settings
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       .from("brand_settings")
       .insert({ organisation_id: new_org_id });
     if (brandErr) {
-      await logEvent(`brand_settings insert failed: ${brandErr.message}`, { new_org_id });
+      throw new Error(`brand_settings insert failed: ${brandErr.message}`);
     }
 
     // e) Default settings
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
       .from("settings")
       .insert({ organisation_id: new_org_id, business_name: company_name, business_phone: company_phone, user_id: authUserId });
     if (settingsErr) {
-      await logEvent(`settings insert failed: ${settingsErr.message}`, { new_org_id });
+      throw new Error(`settings insert failed: ${settingsErr.message}`);
     }
 
     const inviteSent = !inviteErr;
