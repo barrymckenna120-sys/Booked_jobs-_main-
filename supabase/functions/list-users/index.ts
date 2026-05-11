@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
     }
 
     const callerId = userData.user.id;
+    const callerEmail = userData.user.email?.toLowerCase() ?? "";
 
     // Use service role for privileged checks and listing
     const supabaseAdmin = createClient(
@@ -45,9 +46,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Platform owner bypass
+    const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
+    let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+
     // Check caller has admin/office role OR is the organisation owner
-    const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: callerId });
-    let isAuthorized = callerRole === "admin" || callerRole === "office";
+    if (!isAuthorized) {
+      const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: callerId });
+      isAuthorized = callerRole === "admin" || callerRole === "office";
+    }
 
     if (!isAuthorized) {
       const { data: ownedOrg } = await supabaseAdmin
