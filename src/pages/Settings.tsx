@@ -48,21 +48,34 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
   const [saving, setSaving] = useState(false);
 
-  const { data: settings, isLoading } = useQuery({
-    queryKey: ["settings", user?.id],
+  const { data: orgId } = useQuery({
+    queryKey: ["user-org-id", user?.id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("settings")
-        .select("*")
-        .eq("user_id", user!.id)
+        .from("engineers")
+        .select("organisation_id")
+        .eq("auth_user_id", user!.id)
         .maybeSingle();
-      return data;
+      return data?.organisation_id ?? null;
     },
     enabled: !!user,
   });
 
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["settings", orgId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("organisation_id", orgId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user && !!orgId,
+  });
+
   const handleSave = async (fields: Record<string, any>) => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setSaving(true);
     try {
       if (settings?.id) {
@@ -74,7 +87,7 @@ const Settings = () => {
       } else {
         const { error } = await supabase
           .from("settings")
-          .insert({ ...fields, user_id: user.id });
+          .insert({ ...fields, user_id: user.id, organisation_id: orgId });
         if (error) throw error;
       }
       queryClient.invalidateQueries({ queryKey: ["settings"] });
