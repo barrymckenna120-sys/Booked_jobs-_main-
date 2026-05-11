@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
     const { data: customers, error: custErr } = await supabase
       .from("customers")
-      .select("id, name, phone, next_service_due")
+      .select("id, name, phone, next_service_due, organisation_id")
       .eq("next_service_due", targetDate)
       .neq("opted_out", true);
 
@@ -34,6 +34,43 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Per-org tenant integration cache
+    const orgConfigCache = new Map<string, { tallyUrl: string; countryCode: string }>();
+    const loadOrgConfig = async (orgId: string) => {
+      if (orgConfigCache.has(orgId)) return orgConfigCache.get(orgId)!;
+
+      const { data: tallyIntegration } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", orgId)
+        .eq("integration_type", "tally")
+        .maybeSingle();
+
+      const { data: messengerIntegration } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", orgId)
+        .eq("integration_type", "360messenger")
+        .maybeSingle();
+
+      if (!tallyIntegration || !messengerIntegration) {
+        try {
+          await supabase.from("edge_function_logs").insert({
+            function_name: "14-day-reminder",
+            error_message: `Missing tenant_integration rows for org ${orgId} — using fallbacks`,
+            payload: { organisation_id: orgId, tally_found: !!tallyIntegration, messenger_found: !!messengerIntegration },
+          });
+        } catch (_e) { /* best-effort */ }
+      }
+
+      const cfg = {
+        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url ?? "https://rebook.kngasservices.ie/",
+        countryCode: String((messengerIntegration as any)?.config?.country_code ?? "353"),
+      };
+      orgConfigCache.set(orgId, cfg);
+      return cfg;
+    };
 
     const customerIds = customers.map((c) => c.id);
 
@@ -57,7 +94,6 @@ Deno.serve(async (req) => {
 
     if (recentErr) throw recentErr;
 
-    // Build map of customer_id -> most recent service_call
     const latestJobMap = new Map<string, { id: string; payment_status: string; reminder_14day_sent: boolean; reminder_30day_sent: boolean }>();
     for (const job of recentJobs || []) {
       if (!latestJobMap.has(job.customer_id)) {
@@ -70,37 +106,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    const result = customers
+    const filtered = customers
       .filter((c) => !bookedSet.has(c.id))
       .filter((c) => {
         const latest = latestJobMap.get(c.id);
         return !latest || !latest.reminder_14day_sent;
-      })
-      .map((c) => {
-        const latest = latestJobMap.get(c.id);
-        // Build Tally booking URL
-        let digits = (c.phone || "").replace(/\D/g, "");
-        if (digits.startsWith("353") && digits.length === 12) {
-          // already full international
-        } else if (digits.startsWith("0") && digits.length === 10) {
-          digits = "353" + digits.slice(1);
-        } else if (digits.length === 9) {
-          digits = "353" + digits;
-        }
-        const localPhone = "0" + digits.slice(3);
-        const tally_url = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
-        return {
-          customer_id: c.id,
-          customer_name: c.name,
-          customer_phone: c.phone,
-          next_service_due: c.next_service_due,
-          payment_status: latest?.payment_status || "unpaid",
-          job_id: latest?.id || null,
-          reminder_30day_sent: latest?.reminder_30day_sent ?? false,
-          reminder_14day_sent: latest?.reminder_14day_sent ?? false,
-          tally_url,
-        };
       });
+
+    const result = [];
+    for (const c of filtered) {
+      const latest = latestJobMap.get(c.id);
+      const orgId = (c as any).organisation_id;
+      const { tallyUrl, countryCode } = await loadOrgConfig(orgId);
+
+      let digits = (c.phone || "").replace(/\D/g, "");
+      const ccLen = countryCode.length;
+      if (countryCode && digits.startsWith(countryCode) && digits.length === 9 + ccLen) {
+        // already full international
+      } else if (digits.startsWith("0") && digits.length === 10) {
+        digits = countryCode + digits.slice(1);
+      } else if (digits.length === 9) {
+        digits = countryCode + digits;
+      }
+      const localPhone = "0" + digits.slice(ccLen);
+      const tally_url = `${tallyUrl}?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
+      result.push({
+        customer_id: c.id,
+        customer_name: c.name,
+        customer_phone: c.phone,
+        next_service_due: c.next_service_due,
+        payment_status: latest?.payment_status || "unpaid",
+        job_id: latest?.id || null,
+        reminder_30day_sent: latest?.reminder_30day_sent ?? false,
+        reminder_14day_sent: latest?.reminder_14day_sent ?? false,
+        tally_url,
+      });
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
