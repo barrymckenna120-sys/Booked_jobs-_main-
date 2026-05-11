@@ -171,6 +171,7 @@ const App = () => (
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
             <Route path="/debug/audio" element={<AudioDebug />} />
+            <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
