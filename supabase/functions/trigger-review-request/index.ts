@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     // 2. Check if review already sent
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, review_sent, payment_method")
+      .select("id, review_sent, payment_method, organisation_id")
       .eq("id", service_call_id)
       .maybeSingle();
 
@@ -77,19 +77,27 @@ Deno.serve(async (req) => {
 
     const reviewLink = settings?.google_review_url || "https://g.page/r/CV-tS_b3X22vEAE/review";
 
-    // 4. POST to Make.com webhook
-    const webhookUrl = Deno.env.get("MAKE_REVIEW_WEBHOOK_URL");
+    // 4. POST to Make.com webhook — per-org lookup
+    const { data: makeIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", (job as any).organisation_id)
+      .eq("integration_type", "make")
+      .maybeSingle();
+
+    const webhookSecretName = (makeIntegration as any)?.config?.review_webhook_secret ?? "MAKE_REVIEW_WEBHOOK_URL";
+    const webhookUrl = Deno.env.get(webhookSecretName);
 
     if (!webhookUrl) {
       // Log the error but don't fail the completion flow
       await supabase.from("edge_function_logs").insert({
         function_name: "trigger-review-request",
-        error_message: "MAKE_REVIEW_WEBHOOK_URL not configured",
-        payload: { service_call_id, customer_id },
+        error_message: `No Make webhook URL found for org ${(job as any).organisation_id} (secret: ${webhookSecretName})`,
+        payload: { service_call_id, customer_id, organisation_id: (job as any).organisation_id },
       });
       return new Response(
-        JSON.stringify({ skipped: true, reason: "webhook_not_configured" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ skipped: true, reason: "webhook_url_not_configured" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
