@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     // e) Default settings
     const { error: settingsErr } = await admin
       .from("settings")
-      .insert({ organisation_id: new_org_id, business_name: company_name, business_phone: company_phone });
+      .insert({ organisation_id: new_org_id, business_name: company_name, business_phone: company_phone, user_id: authUserId });
     if (settingsErr) {
       await logEvent(`settings insert failed: ${settingsErr.message}`, { new_org_id });
     }
