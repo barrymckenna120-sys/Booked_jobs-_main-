@@ -109,9 +109,31 @@ Deno.serve(async (req) => {
     const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(owner_email, {
       data: { organisation_id: new_org_id, role: "admin" },
     });
+    let authUserId: string | null = null;
     if (inviteErr) {
       await logEvent(`Invite failed: ${inviteErr.message}`, { owner_email, new_org_id });
-      // Continue — invite can be retried, but report partial success
+      // User already exists — look them up and link
+      const { data: listData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      const existing = listData?.users?.find((u: any) =>
+        u.email?.toLowerCase() === owner_email.toLowerCase()
+      );
+      if (existing) {
+        authUserId = existing.id;
+        await admin.from("organisations")
+          .update({ owner_user_id: existing.id })
+          .eq("id", new_org_id);
+      }
+    } else {
+      const { data: listData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      const newUser = listData?.users?.find((u: any) =>
+        u.email?.toLowerCase() === owner_email.toLowerCase()
+      );
+      if (newUser) {
+        authUserId = newUser.id;
+        await admin.from("organisations")
+          .update({ owner_user_id: newUser.id })
+          .eq("id", new_org_id);
+      }
     }
 
     // c) Default tenant_integrations
