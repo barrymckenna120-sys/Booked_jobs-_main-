@@ -112,18 +112,19 @@ Deno.serve(async (req) => {
     });
     let authUserId: string | null = null;
     if (inviteErr) {
-      throw new Error(`Invite failed: ${inviteErr.message}`);
-      // User already exists — look them up and link
+      // Invite failed — likely user already exists. Look them up by email.
+      await logEvent(`Invite failed: ${inviteErr.message}`, { owner_email, new_org_id });
       const { data: listData } = await admin.auth.admin.listUsers({ perPage: 1000 });
       const existing = listData?.users?.find((u: any) =>
         u.email?.toLowerCase() === owner_email.toLowerCase()
       );
-      if (existing) {
-        authUserId = existing.id;
-        await admin.from("organisations")
-          .update({ owner_user_id: existing.id })
-          .eq("id", new_org_id);
+      if (!existing) {
+        throw new Error(`Invite failed and no existing user found for ${owner_email}: ${inviteErr.message}`);
       }
+      authUserId = existing.id;
+      await admin.from("organisations")
+        .update({ owner_user_id: existing.id })
+        .eq("id", new_org_id);
     } else {
       const { data: listData } = await admin.auth.admin.listUsers({ perPage: 1000 });
       const newUser = listData?.users?.find((u: any) =>
