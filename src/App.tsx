@@ -63,6 +63,7 @@ import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
