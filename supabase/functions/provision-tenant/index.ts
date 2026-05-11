@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     });
     let authUserId: string | null = null;
     if (inviteErr) {
-      await logEvent(`Invite failed: ${inviteErr.message}`, { owner_email, new_org_id });
+      throw new Error(`Invite failed: ${inviteErr.message}`);
       // User already exists — look them up and link
       const { data: listData } = await admin.auth.admin.listUsers({ perPage: 1000 });
       const existing = listData?.users?.find((u: any) =>
