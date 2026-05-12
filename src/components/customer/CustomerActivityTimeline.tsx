@@ -51,6 +51,14 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
   const [selectedType, setSelectedType] = useState<ActivityType>("note_general");
   const [noteText, setNoteText] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [orgId, setOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const id = (session?.user?.app_metadata as any)?.organisation_id ?? null;
+      setOrgId(id);
+    });
+  }, []);
 
   const fetchActivities = async () => {
     setLoading(true);
