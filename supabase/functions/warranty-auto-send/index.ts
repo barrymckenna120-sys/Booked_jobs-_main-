@@ -5,8 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
-
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
