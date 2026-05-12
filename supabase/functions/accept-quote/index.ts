@@ -319,7 +319,28 @@ async function sendDepositPaymentWhatsApp(
       return;
     }
 
-    const message = `Hi ${customerName},\n\nThank you for approving your quote with K & N Gas Services.\n\nTo confirm your booking and secure the parts for your job, a 50% deposit of €${depositAmount.toFixed(2)} is required.\n\nPay securely here: ${paymentLink}\n\nIf you have any questions please reply to this message.\n\nK & N Gas Services ☎ 087 3686252`;
+    // Resolve organisation + branding from service_call
+    const jobOrgRes = await fetch(
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}&select=organisation_id&limit=1`,
+      { headers }
+    );
+    const jobOrgRows = await jobOrgRes.json();
+    const orgId = Array.isArray(jobOrgRows) ? jobOrgRows[0]?.organisation_id : null;
+
+    let companyName = "K & N Gas Services";
+    let companyPhone = "087 3686252";
+    if (orgId) {
+      const tiRes = await fetch(
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+        { headers }
+      );
+      const tiRows = await tiRes.json();
+      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+      if (cfg?.company_name) companyName = cfg.company_name;
+      if (cfg?.company_phone) companyPhone = cfg.company_phone;
+    }
+
+    const message = `Hi ${customerName},\n\nThank you for approving your quote with ${companyName}.\n\nTo confirm your booking and secure the parts for your job, a 50% deposit of €${depositAmount.toFixed(2)} is required.\n\nPay securely here: ${paymentLink}\n\nIf you have any questions please reply to this message.\n\n${companyName} ☎ ${companyPhone}`;
 
     const cleanNumber = customerPhone.replace(/^\+/, "");
     const formData = new FormData();
