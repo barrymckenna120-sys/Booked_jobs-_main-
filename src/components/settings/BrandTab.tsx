@@ -190,10 +190,10 @@ const BrandTab = () => {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setSaving(true);
     try {
-      const row = { ...toDbRow(settings), organisation_id: user.id, updated_at: new Date().toISOString() };
+      const row = { ...toDbRow(settings), organisation_id: orgId, updated_at: new Date().toISOString() };
       if (existingId) {
         const { error } = await supabase.from("brand_settings").update(row).eq("id", existingId);
         if (error) throw error;
