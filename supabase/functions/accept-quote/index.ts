@@ -409,7 +409,7 @@ async function sendDepositPaymentWhatsApp(
         await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
           method: "POST", headers,
           body: JSON.stringify({
-            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            organisation_id: orgId,
             customer_id: quote.customer_id,
             service_call_id: serviceCallId,
             event_type: "whatsapp_sent",
