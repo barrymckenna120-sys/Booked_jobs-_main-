@@ -204,7 +204,7 @@ const Schedule = () => {
         job_reference: j.job_reference || null,
       })) as ScheduleJob[];
     },
-    enabled: !!user,
+    enabled: !!user && ready,
   });
 
   // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days
