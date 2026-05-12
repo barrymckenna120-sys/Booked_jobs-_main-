@@ -58,7 +58,7 @@ const IncomingJobsDebug = () => {
           supabase
             .from("profiles")
             .select("id, user_id, display_name")
-            .eq("user_id", user.id)
+            .eq("id", user.id)
             .maybeSingle(),
           supabase
             .from("service_calls")
