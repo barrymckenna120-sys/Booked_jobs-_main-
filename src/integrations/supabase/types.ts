@@ -2635,6 +2635,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -2649,6 +2650,7 @@ export type Database = {
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
+      get_my_org_id: { Args: never; Returns: string }
       get_quote_by_number: { Args: { p_quote_number: string }; Returns: Json }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_receipt_public: { Args: { p_receipt_number: string }; Returns: Json }
