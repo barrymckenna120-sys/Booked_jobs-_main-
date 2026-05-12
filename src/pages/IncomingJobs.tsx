@@ -112,7 +112,7 @@ const IncomingJobs = () => {
 
   // Realtime subscription for new/updated incoming jobs
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     const channel = supabase
       .channel('incoming-jobs-realtime')
       .on(
@@ -121,13 +121,13 @@ const IncomingJobs = () => {
           event: '*',
           schema: 'public',
           table: 'service_calls',
-          filter: `organisation_id=eq.8c37827f-ce2c-4507-a821-a5e807d89856`,
+          filter: `organisation_id=eq.${orgId}`,
         },
         () => { fetchJobs(); }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, fetchJobs]);
+  }, [user, orgId, fetchJobs]);
 
   const handleArchive = async (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId);
