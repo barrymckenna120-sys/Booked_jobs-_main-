@@ -156,7 +156,7 @@ serve(async (req) => {
             Prefer: "return=minimal",
           },
           body: JSON.stringify({
-            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            organisation_id: orgId,
             customer_id,
             event_type: "whatsapp_sent",
             event_label: `WhatsApp sent — ${label}`,
