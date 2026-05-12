@@ -62,7 +62,14 @@ const IncomingJobs = () => {
   const [filter, setFilter] = useState<string>("All");
   const [mediaCounts, setMediaCounts] = useState<Record<string, number>>({});
   const [reviewJob, setReviewJob] = useState<IncomingJob | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const id = (session?.user?.app_metadata as any)?.organisation_id ?? null;
+      setOrgId(id);
+    });
+  }, []);
   const fetchJobs = useCallback(async () => {
     if (!user) return;
     setLoading(true);
