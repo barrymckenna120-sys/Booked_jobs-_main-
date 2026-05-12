@@ -152,13 +152,21 @@ const BrandTab = () => {
   const [previewTab, setPreviewTab] = useState<"cert" | "hazard" | "quote" | "invoice">("cert");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => { loadGoogleFonts(); }, []);
 
+  // Resolve organisation_id from JWT app_metadata once on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const id = (session?.user?.app_metadata as any)?.organisation_id ?? null;
+      setOrgId(id);
+    });
+  }, []);
+
   // Fetch on mount
   useEffect(() => {
-    if (!user) return;
-    const orgId = user.id;
+    if (!user || !orgId) return;
     (async () => {
       const { data } = await supabase
         .from("brand_settings")
@@ -171,7 +179,7 @@ const BrandTab = () => {
       }
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, orgId]);
 
   const setColor = (key: keyof BrandColors, value: string) =>
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -182,10 +190,10 @@ const BrandTab = () => {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setSaving(true);
     try {
-      const row = { ...toDbRow(settings), organisation_id: user.id, updated_at: new Date().toISOString() };
+      const row = { ...toDbRow(settings), organisation_id: orgId, updated_at: new Date().toISOString() };
       if (existingId) {
         const { error } = await supabase.from("brand_settings").update(row).eq("id", existingId);
         if (error) throw error;
