@@ -192,18 +192,43 @@ Deno.serve(async (req) => {
       ? emailLocal.charAt(0).toUpperCase() + emailLocal.slice(1).toLowerCase()
       : "there";
 
-    const emailSubject = `K & N Gas Services — Sales Ledger ${label}`;
+    // Resolve org branding for email copy
+    let orgId: string | null = body.organisation_id || null;
+    if (!orgId && body.user_id) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", body.user_id)
+        .maybeSingle();
+      orgId = prof?.organisation_id || null;
+    }
+
+    let companyName = "K & N Gas Services";
+    let companyPhone = "087 3686252";
+    if (orgId) {
+      const { data: messengerConfig } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", orgId)
+        .eq("integration_type", "360messenger")
+        .maybeSingle();
+      const cfg = (messengerConfig?.config as any) || null;
+      if (cfg?.company_name) companyName = cfg.company_name;
+      if (cfg?.company_phone) companyPhone = cfg.company_phone;
+    }
+
+    const emailSubject = `${companyName} — Sales Ledger ${label}`;
     const emailBody = `Hi ${greeting},
 
-Please find attached a copy of our sales ledger for ${label} for K & N Gas Services.
+Please find attached a copy of our sales ledger for ${label} for ${companyName}.
 
 The report includes all paid invoices for the period along with totals for your records.
 
 If you have any questions please don't hesitate to get in touch.
 
 Kind regards,
-K & N Gas Services
-087 3686252`;
+${companyName}
+${companyPhone}`;
 
     const emailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
