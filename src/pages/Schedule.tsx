@@ -3,6 +3,7 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay } from "dat
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -111,6 +112,7 @@ export type ScheduleJob = {
 
 const Schedule = () => {
   const { user } = useAuth();
+  const { orgId, ready } = useOrgId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   // Use Irish timezone to determine "today" so schedule aligns with Europe/Dublin

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 const QuotesList = () => {
   const { user } = useAuth();
+  const { ready } = useOrgId();
   const navigate = useNavigate();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -39,11 +41,10 @@ const QuotesList = () => {
       const { data } = await supabase
         .from("quotes")
         .select("*, customers!inner(id, name, phone, address)")
-        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && ready,
   });
 
   // Fetch failed message_log entries for quotes
