@@ -156,13 +156,18 @@ const BrandTab = () => {
 
   useEffect(() => { loadGoogleFonts(); }, []);
 
-  // Resolve organisation_id from JWT app_metadata once on mount
+  // Resolve organisation_id from profiles row once on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const id = (session?.user?.app_metadata as any)?.organisation_id ?? null;
-      setOrgId(id);
-    });
-  }, []);
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      setOrgId(data?.organisation_id ?? null);
+    })();
+  }, [user]);
 
   // Fetch on mount
   useEffect(() => {
