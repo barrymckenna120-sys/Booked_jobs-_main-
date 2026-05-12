@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     const { data: jobs, error: jobsErr } = await supabase
       .from("service_calls")
-      .select("id, payment_link, customer_id, customers(name, phone, opted_out)")
+      .select("id, payment_link, customer_id, organisation_id, customers(name, phone, opted_out)")
       .or("deposit_paid.eq.false,deposit_paid.is.null")
       .not("payment_link", "is", null)
       .gte("created_at", fiveDaysAgo)
