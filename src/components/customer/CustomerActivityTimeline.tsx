@@ -54,11 +54,16 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
   const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const id = (session?.user?.app_metadata as any)?.organisation_id ?? null;
-      setOrgId(id);
-    });
-  }, []);
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      setOrgId(data?.organisation_id ?? null);
+    })();
+  }, [user]);
 
   const fetchActivities = async () => {
     setLoading(true);
