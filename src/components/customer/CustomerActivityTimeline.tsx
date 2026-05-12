@@ -95,15 +95,17 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
 
   const handleSave = async () => {
     if (!noteText.trim() || !user) return;
+    if (!orgId) {
+      toast({ title: "Organisation not found", description: "Please refresh and try again.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, organisation_id")
+      .select("id")
       .eq("user_id", user.id)
       .maybeSingle();
-
-    const orgId = profile?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
 
     const { error } = await supabase.from("customer_activity").insert({
       customer_id: customerId,
