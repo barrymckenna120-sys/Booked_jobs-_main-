@@ -40,12 +40,12 @@ const JobMessageThread = ({ jobId, perspective }: Props) => {
       // Look up in profiles (for office users)
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, display_name")
-        .in("user_id", unknownIds);
+        .select("id, display_name")
+        .in("id", unknownIds);
 
       if (profiles) {
         for (const p of profiles) {
-          if (p.display_name) newNames[p.user_id] = p.display_name;
+          if (p.display_name) newNames[p.id] = p.display_name;
         }
       }
 

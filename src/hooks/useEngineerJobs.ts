@@ -258,7 +258,7 @@ export const useEngineerJobs = () => {
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
           const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
-          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
+          const { data: profile } = await supabase.from("profiles").select("id").eq("id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
           const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });

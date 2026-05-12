@@ -200,7 +200,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       if (updatePayload.payment_status === "paid") {
         try {
           const { data: { user: authUser } } = await supabase.auth.getUser();
-          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle() : { data: null };
+          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("id", authUser.id).maybeSingle() : { data: null };
           const { data: scRow } = await supabase.from("service_calls").select("organisation_id, customer_id").eq("id", job.id).single();
           const methodLabel = method === "cash" ? "Cash" : "Card";
           const amountStr = Number(parseFloat(amount) || 0).toLocaleString("en-IE", { maximumFractionDigits: 0 });

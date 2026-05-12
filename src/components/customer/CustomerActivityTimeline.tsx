@@ -109,7 +109,7 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .maybeSingle();
 
     const { error } = await supabase.from("customer_activity").insert({
