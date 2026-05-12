@@ -135,19 +135,13 @@ const Schedule = () => {
       const { data } = await supabase.from("engineers").select("id, name").order("name");
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && ready,
   });
 
   // Fetch settings for slot capacity (max_jobs per time block)
   const { data: settings } = useQuery({
-    queryKey: ["settings", user?.id],
+    queryKey: ["settings", orgId],
     queryFn: async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      const orgId = profile?.organisation_id;
       if (!orgId) return null;
       const { data } = await supabase
         .from("settings")
@@ -156,7 +150,7 @@ const Schedule = () => {
         .maybeSingle();
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && ready && !!orgId,
   });
 
   const settingsBlocks = (settings?.job_time_blocks as any[]) || [];
