@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +48,7 @@ type Job = {
 const Jobs = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const { ready } = useOrgId();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,12 +69,12 @@ const Jobs = () => {
   const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
-    if (user) fetchJobs();
-  }, [user]);
+    if (user && ready) fetchJobs();
+  }, [user, ready]);
 
   // Realtime: auto-refresh when any service_call changes
   useEffect(() => {
-    if (!user) return;
+    if (!user || !ready) return;
     const channel = supabase
       .channel("jobs-list-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
@@ -80,7 +82,7 @@ const Jobs = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, ready]);
 
   useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter, refSearch]);
 
