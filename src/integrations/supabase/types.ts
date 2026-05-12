@@ -2635,7 +2635,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
