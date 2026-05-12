@@ -55,12 +55,22 @@ Deno.serve(async (req) => {
     // Get payment link from service_calls or use fallback
     const { data: job } = await supabase
       .from("service_calls")
-      .select("payment_link, user_id")
+      .select("payment_link, user_id, organisation_id")
       .eq("id", service_call_id)
       .single();
 
     const paymentLink = job?.payment_link || "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
     const userId = job?.user_id;
+    const orgId = job?.organisation_id;
+
+    const { data: messengerConfig } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle() : { data: null };
+    const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
+    const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
 
     // Build line items summary
     const itemsSummary = (line_items || [])
@@ -71,7 +81,7 @@ Deno.serve(async (req) => {
 
     const message = `Hi ${customer.name},
 
-Your engineer has identified some additional work required during your service today with K & N Gas Services.
+Your engineer has identified some additional work required during your service today with ${companyName}.
 
 Additional work:
 ${itemsSummary}
@@ -80,9 +90,9 @@ Amount due: €${amount}
 To approve and pay securely tap here:
 ${paymentLink}
 
-If you have any questions please call us on 087 3686252.
+If you have any questions please call us on ${companyPhone}.
 
-K & N Gas Services ☎ 087 3686252`;
+${companyName} ☎ ${companyPhone}`;
 
     // Send via 360Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
