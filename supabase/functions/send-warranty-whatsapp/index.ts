@@ -42,7 +42,47 @@ serve(async (req) => {
     const messengerPhone = digits; // 353XXXXXXXXX
     const tallyPhone = "0" + digits.slice(3); // 0XXXXXXXXX
 
-    const tallyUrl = `https://tally.so/r/RGJDy4?Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;
+    // Resolve org + Tally form URL from customer
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    let orgId: string | null = null;
+    let tallyFormBase = "https://tally.so/r/RGJDy4";
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const custOrgRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&select=organisation_id&limit=1`,
+          {
+            headers: {
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          }
+        );
+        const custOrgRows = await custOrgRes.json();
+        orgId = Array.isArray(custOrgRows) ? custOrgRows[0]?.organisation_id ?? null : null;
+
+        if (orgId) {
+          const tiRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.tally&select=config&limit=1`,
+            {
+              headers: {
+                apikey: SUPABASE_SERVICE_ROLE_KEY,
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+            }
+          );
+          const tiRows = await tiRes.json();
+          const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+          if (cfg?.renewal_form_url) tallyFormBase = cfg.renewal_form_url;
+        }
+      } catch (_lookupErr) {
+        // Non-critical — fall back to default
+      }
+    }
+
+    const sep = tallyFormBase.includes("?") ? "&" : "?";
+    const tallyUrl = `${tallyFormBase}${sep}Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;
 
     // Build message based on type
     let message: string;
