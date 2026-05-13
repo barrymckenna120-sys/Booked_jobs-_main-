@@ -139,12 +139,15 @@ export default function AdminPanel() {
 
     setSubmitting(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/provision-tenant`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-secret": import.meta.env.VITE_ADMIN_PROVISION_SECRET as string,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           company_name: companyName.trim(),
