@@ -22,15 +22,31 @@ Deno.serve(async (req) => {
     return json({ error: "method_not_allowed" }, 405);
   }
 
-  const ADMIN_SECRET = Deno.env.get("BJ_ADMIN_PROVISION_SECRET");
-  const provided = req.headers.get("x-admin-secret");
-  if (!ADMIN_SECRET || provided !== ADMIN_SECRET) {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // Verify caller is an authenticated superadmin
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
     return json({ error: "unauthorized" }, 401);
   }
-
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userData?.user) {
+    return json({ error: "unauthorized" }, 401);
+  }
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  if ((profile as any)?.role !== "superadmin") {
+    return json({ error: "forbidden" }, 403);
+  }
 
   let body: any;
   try {
