@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     return json({ error: "method_not_allowed" }, 405);
   }
 
-  const ADMIN_SECRET = Deno.env.get("ADMIN_PROVISION_SECRET");
+  const ADMIN_SECRET = Deno.env.get("BJ_ADMIN_PROVISION_SECRET");
   const provided = req.headers.get("x-admin-secret");
   if (!ADMIN_SECRET || provided !== ADMIN_SECRET) {
     return json({ error: "unauthorized" }, 401);
