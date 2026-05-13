@@ -171,7 +171,6 @@ Deno.serve(async (req) => {
     .from("brand_settings")
     .insert({
       organisation_id: newOrgId,
-      company_name,
     });
   if (brandErr) {
     await logFailure("step 5", brandErr.message);
