@@ -109,11 +109,29 @@ Deno.serve(async (req) => {
   }
   const newOrgId = org.id as string;
 
+  // Step 6 (moved): send invite first to get user_id
+  const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(
+    owner_email,
+    {
+      data: {
+        organisation_id: newOrgId,
+        role: "admin",
+        full_name: owner_name,
+      },
+    },
+  );
+  if (inviteErr) {
+    await logFailure("step 6", inviteErr.message);
+    return json({ error: "provision_failed", step: "6", detail: inviteErr.message }, 500);
+  }
+  const newUserId = inviteData.user.id;
+
   // Step 4: settings insert
   const { error: settingsErr } = await supabase
     .from("settings")
     .insert({
       organisation_id: newOrgId,
+      user_id: newUserId,
       company_name,
       company_phone,
       business_name: company_name,
@@ -135,19 +153,6 @@ Deno.serve(async (req) => {
   if (brandErr) {
     await logFailure("step 5", brandErr.message);
     return json({ error: "provision_failed", step: "5", detail: brandErr.message }, 500);
-  }
-
-  // Step 6: send invite
-  const { error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(owner_email, {
-    data: {
-      organisation_id: newOrgId,
-      role: "admin",
-      full_name: owner_name,
-    },
-  });
-  if (inviteErr) {
-    await logFailure("step 6", inviteErr.message);
-    return json({ error: "provision_failed", step: "6", detail: inviteErr.message }, 500);
   }
 
   // Step 7: success
