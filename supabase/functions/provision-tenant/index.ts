@@ -109,32 +109,29 @@ Deno.serve(async (req) => {
   }
   const newOrgId = org.id as string;
 
-  // Step 4: settings upsert
+  // Step 4: settings insert
   const { error: settingsErr } = await supabase
     .from("settings")
-    .upsert(
-      {
-        organisation_id: newOrgId,
-        company_name,
-        company_phone,
-      },
-      { onConflict: "organisation_id" },
-    );
+    .insert({
+      organisation_id: newOrgId,
+      company_name,
+      company_phone,
+      business_name: company_name,
+      business_phone: company_phone,
+      owner_name,
+    });
   if (settingsErr) {
     await logFailure("step 4", settingsErr.message);
     return json({ error: "provision_failed", step: "4", detail: settingsErr.message }, 500);
   }
 
-  // Step 5: brand_settings upsert
+  // Step 5: brand_settings insert
   const { error: brandErr } = await supabase
     .from("brand_settings")
-    .upsert(
-      {
-        organisation_id: newOrgId,
-        company_name,
-      },
-      { onConflict: "organisation_id" },
-    );
+    .insert({
+      organisation_id: newOrgId,
+      company_name,
+    });
   if (brandErr) {
     await logFailure("step 5", brandErr.message);
     return json({ error: "provision_failed", step: "5", detail: brandErr.message }, 500);
