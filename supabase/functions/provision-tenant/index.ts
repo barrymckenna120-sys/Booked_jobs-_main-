@@ -109,7 +109,8 @@ Deno.serve(async (req) => {
   }
   const newOrgId = org.id as string;
 
-  // Step 6 (moved): send invite first to get user_id
+  // Step 6 (moved): send invite first to get user_id; reuse if user exists
+  let newUserId: string | null = null;
   const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(
     owner_email,
     {
@@ -121,10 +122,32 @@ Deno.serve(async (req) => {
     },
   );
   if (inviteErr) {
-    await logFailure("step 6", inviteErr.message);
-    return json({ error: "provision_failed", step: "6", detail: inviteErr.message }, 500);
+    const msg = inviteErr.message ?? "";
+    const alreadyExists = /already been registered|already registered|email_exists/i.test(msg);
+    if (!alreadyExists) {
+      await logFailure("step 6", msg);
+      return json({ error: "provision_failed", step: "6", detail: msg }, 500);
+    }
+    // Look up existing user by email
+    const { data: list, error: listErr } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 200,
+    });
+    if (listErr) {
+      await logFailure("step 6", `lookup failed: ${listErr.message}`);
+      return json({ error: "provision_failed", step: "6", detail: listErr.message }, 500);
+    }
+    const found = list?.users?.find(
+      (u) => (u.email ?? "").toLowerCase() === String(owner_email).toLowerCase(),
+    );
+    if (!found) {
+      await logFailure("step 6", "user reported existing but not found in list");
+      return json({ error: "provision_failed", step: "6", detail: "user_lookup_failed" }, 500);
+    }
+    newUserId = found.id;
+  } else {
+    newUserId = inviteData.user.id;
   }
-  const newUserId = inviteData.user.id;
 
   // Step 4: settings insert
   const { error: settingsErr } = await supabase
