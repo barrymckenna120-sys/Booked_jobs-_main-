@@ -2314,6 +2314,8 @@ export type Database = {
           business_email: string | null
           business_name: string
           business_phone: string | null
+          company_name: string | null
+          company_phone: string | null
           default_callout_charge: number | null
           default_deposit: number | null
           default_emergency_price: number | null
@@ -2365,6 +2367,8 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           default_callout_charge?: number | null
           default_deposit?: number | null
           default_emergency_price?: number | null
@@ -2416,6 +2420,8 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           default_callout_charge?: number | null
           default_deposit?: number | null
           default_emergency_price?: number | null
