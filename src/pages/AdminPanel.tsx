@@ -79,7 +79,7 @@ export default function AdminPanel() {
       const { data, error } = await supabase
         .from("profiles")
         .select("role" as any)
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
       const role = (data as any)?.role;
