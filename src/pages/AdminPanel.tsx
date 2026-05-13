@@ -187,7 +187,7 @@ export default function AdminPanel() {
     <div className="container mx-auto max-w-5xl space-y-6 p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Provision New Tenant</CardTitle>
+          <CardTitle>Create New Account</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -268,7 +268,7 @@ export default function AdminPanel() {
             )}
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Provisioning..." : "Provision Tenant"}
+              {submitting ? "Creating..." : "Create Account"}
             </Button>
           </form>
         </CardContent>
