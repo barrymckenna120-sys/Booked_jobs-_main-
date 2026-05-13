@@ -149,10 +149,10 @@ Deno.serve(async (req) => {
     newUserId = inviteData.user.id;
   }
 
-  // Step 4: settings insert
+  // Step 4: settings upsert (user may already have a settings row from a prior org)
   const { error: settingsErr } = await supabase
     .from("settings")
-    .insert({
+    .upsert({
       organisation_id: newOrgId,
       user_id: newUserId,
       company_name,
@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       business_name: company_name,
       business_phone: company_phone,
       owner_name,
-    });
+    }, { onConflict: "user_id" });
   if (settingsErr) {
     await logFailure("step 4", settingsErr.message);
     return json({ error: "provision_failed", step: "4", detail: settingsErr.message }, 500);
