@@ -148,6 +148,7 @@ export default function AdminPanel() {
           "Content-Type": "application/json",
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
           Authorization: `Bearer ${accessToken}`,
+          "x-admin-secret": "bj-admin-2026-xK9mP3",
         },
         body: JSON.stringify({
           company_name: companyName.trim(),
