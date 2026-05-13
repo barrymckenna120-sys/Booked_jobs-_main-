@@ -305,7 +305,7 @@ export default function AdminPanel() {
                       <TableCell>{t.owner_phone || "—"}</TableCell>
                       <TableCell>{t.industry || "—"}</TableCell>
                       <TableCell>
-                        {new Date(t.created_at).toLocaleDateString()}
+                        {new Date(t.created_at).toLocaleDateString("en-GB")}
                       </TableCell>
                     </TableRow>
                   ))}
