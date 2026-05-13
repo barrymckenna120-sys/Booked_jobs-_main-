@@ -1704,6 +1704,7 @@ export type Database = {
           id: string
           onboarding_complete: boolean | null
           organisation_id: string | null
+          role: string | null
           sound_alerts_enabled: boolean | null
           updated_at: string
           user_id: string
@@ -1714,6 +1715,7 @@ export type Database = {
           id?: string
           onboarding_complete?: boolean | null
           organisation_id?: string | null
+          role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id: string
@@ -1724,6 +1726,7 @@ export type Database = {
           id?: string
           onboarding_complete?: boolean | null
           organisation_id?: string | null
+          role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id?: string
