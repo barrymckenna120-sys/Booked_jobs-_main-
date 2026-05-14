@@ -13,13 +13,53 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const apiKey = Deno.env.get("THREESIXTY_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const dbHeaders = {
     "Authorization": `Bearer ${supabaseKey}`,
     "apikey": supabaseKey,
     "Content-Type": "application/json",
+  };
+
+  // Per-org cache: orgId -> { apiKey, messageFooter } or null
+  const orgCache = new Map<string, { apiKey: string; messageFooter: string } | null>();
+  const loadOrgConfig = async (orgId: string) => {
+    if (orgCache.has(orgId)) return orgCache.get(orgId)!;
+
+    const { data: waIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+
+    const apiKey = (waIntegration as any)?.config?.api_key;
+    if (!apiKey) {
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "send-upcoming-reminders",
+          error_message: `No whatsapp tenant_integration api_key for org ${orgId} — skipping`,
+          payload: { organisation_id: orgId },
+        });
+      } catch (_e) { /* best-effort */ }
+      orgCache.set(orgId, null);
+      return null;
+    }
+
+    let messageFooter = "K&N Gas Services";
+    const { data: settings } = await supabase
+      .from("settings")
+      .select("message_footer")
+      .eq("organisation_id", orgId)
+      .limit(1)
+      .maybeSingle();
+    if ((settings as any)?.message_footer) {
+      messageFooter = (settings as any).message_footer;
+    }
+
+    const cfg = { apiKey, messageFooter };
+    orgCache.set(orgId, cfg);
+    return cfg;
   };
 
   try {
@@ -40,7 +80,6 @@ serve(async (req) => {
         assigned_engineer,
         status,
         customer_id,
-        user_id,
         organisation_id,
         customers ( name, phone )
       `)
@@ -57,21 +96,6 @@ serve(async (req) => {
       });
     }
 
-    // Fetch message_footer from settings (use the first job's user_id)
-    let messageFooter = "K&N Gas Services";
-    const ownerUserId = (jobs[0] as any).user_id;
-    if (ownerUserId) {
-      const { data: settings } = await supabase
-        .from("settings")
-        .select("message_footer")
-        .eq("user_id", ownerUserId)
-        .limit(1)
-        .single();
-      if (settings?.message_footer) {
-        messageFooter = settings.message_footer;
-      }
-    }
-
     const results: Array<{ job_id: string; customer_name: string; status: string; error?: string }> = [];
     let sent = 0;
     let skipped = 0;
@@ -80,6 +104,20 @@ serve(async (req) => {
     for (const job of jobs as any[]) {
       const customerName = job.customers?.name;
       const customerPhone = job.customers?.phone;
+      const orgId = job.organisation_id;
+
+      if (!orgId) {
+        skipped++;
+        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "Missing organisation_id" });
+        try {
+          await supabase.from("edge_function_logs").insert({
+            function_name: "send-upcoming-reminders",
+            error_message: `Service call ${job.id} missing organisation_id — skipped`,
+            payload: { job_id: job.id },
+          });
+        } catch (_) { /* best-effort */ }
+        continue;
+      }
 
       // Skip if no phone number
       if (!customerPhone) {
@@ -87,6 +125,14 @@ serve(async (req) => {
         results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "No phone number" });
         continue;
       }
+
+      const orgCfg = await loadOrgConfig(orgId);
+      if (!orgCfg) {
+        skipped++;
+        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "WhatsApp integration not configured" });
+        continue;
+      }
+      const { apiKey, messageFooter } = orgCfg;
 
       const firstName = customerName ? customerName.split(" ")[0] : "Customer";
       const timeSlot = job.time_block || "TBC";
@@ -109,6 +155,7 @@ ${messageFooter}`;
         headers: { ...dbHeaders, "Prefer": "return=representation" },
         body: JSON.stringify({
           customer_id: job.customer_id,
+          organisation_id: orgId,
           message_type: "appointment_reminder",
           channel: "whatsapp",
           direction: "outbound",
@@ -161,7 +208,7 @@ ${messageFooter}`;
             await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
               method: "POST", headers: dbHeaders,
               body: JSON.stringify({
-                organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+                organisation_id: orgId,
                 customer_id: job.customer_id,
                 service_call_id: job.id,
                 event_type: "whatsapp_sent",
