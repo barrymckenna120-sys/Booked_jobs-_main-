@@ -136,18 +136,6 @@ serve(async (req) => {
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    if (!apiKey) {
-      if (logId) {
-        await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
-          method: "PATCH", headers,
-          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
-        });
-      }
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp API key not configured" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500,
-      });
-    }
-
     // Send via 360Messenger
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
