@@ -163,6 +163,7 @@ serve(async (req) => {
       headers: { ...headers, "Prefer": "return=representation" },
       body: JSON.stringify({
         customer_id: cert.customer_id,
+        organisation_id: orgId,
         message_type: "certificate",
         channel: "whatsapp",
         direction: "outbound",
