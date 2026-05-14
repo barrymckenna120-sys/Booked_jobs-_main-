@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
       // Log the error but don't fail the completion flow
       await supabase.from("edge_function_logs").insert({
         function_name: "trigger-review-request",
-        error_message: `No Make webhook URL found for org ${(job as any).organisation_id} (secret: ${webhookSecretName})`,
-        payload: { service_call_id, customer_id, organisation_id: (job as any).organisation_id },
+        error_message: `No Make webhook URL found for org ${orgId} (secret: ${webhookSecretName})`,
+        payload: { service_call_id, customer_id, organisation_id: orgId },
       });
       return new Response(
         JSON.stringify({ skipped: true, reason: "webhook_url_not_configured" }),
