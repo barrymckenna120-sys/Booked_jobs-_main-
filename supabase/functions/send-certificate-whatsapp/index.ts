@@ -59,7 +59,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch job to get user_id and organisation_id for settings lookup
+    // Derive organisation_id (required) — prefer certificate, fallback to job
+    let orgId: string | null = cert.organisation_id || null;
+
+    // Fetch job to get user_id (and org fallback)
     const jobRes = await fetch(
       `${supabaseUrl}/rest/v1/service_calls?id=eq.${cert.job_id}&select=user_id,organisation_id`,
       { headers }
@@ -67,6 +70,21 @@ serve(async (req) => {
     const jobs = await jobRes.json();
     const job = Array.isArray(jobs) ? jobs[0] : null;
     const userId = job?.user_id;
+    if (!orgId) orgId = job?.organisation_id || null;
+
+    if (!orgId) {
+      return new Response(JSON.stringify({ success: false, error: "organisation_id missing on certificate" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
+      });
+    }
+
+    // Lookup WhatsApp api_key from tenant_integrations
+    const integRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers }
+    );
+    const integRows = await integRes.json();
+    const apiKey = Array.isArray(integRows) && integRows[0]?.config?.api_key ? integRows[0].config.api_key : null;
 
     // Extract calling user from JWT for activity logging
     let callingProfileId: string | null = null;
