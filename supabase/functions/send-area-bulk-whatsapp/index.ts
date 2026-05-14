@@ -79,6 +79,22 @@ serve(async (req) => {
         continue;
       }
 
+      const orgId = custRecord?.organisation_id;
+      if (!orgId) {
+        console.warn(`Skipping customer ${customer_id}: missing organisation_id`);
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
+      const apiKey = await getApiKey(orgId);
+      if (!apiKey) {
+        console.warn(`Skipping customer ${customer_id}: no whatsapp api_key for org ${orgId}`);
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
       // Format phone number
       let cleanNumber = customer_phone.replace(/[\s\-()]/g, "").replace(/^\+/, "");
       if (cleanNumber.startsWith("0")) cleanNumber = "353" + cleanNumber.slice(1);
@@ -91,14 +107,12 @@ serve(async (req) => {
           })
         : "soon";
 
-      const orgId = custRecord?.organisation_id;
       let companyName = "K & N Gas Services";
       let companyPhone = "087 3686252";
-      if (orgId) {
-        const tiRes = await fetch(
-          `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-          { headers: dbHeaders }
-        );
+      const tiRes = await fetch(
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+        { headers: dbHeaders }
+      );
         const tiRows = await tiRes.json();
         const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
         if (cfg?.company_name) companyName = cfg.company_name;
