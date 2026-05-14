@@ -151,12 +151,12 @@ serve(async (req) => {
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("template_name", templateName);
-    formData.append("language", "en");
+    formData.append("language_code", "en");
     templateVars.forEach((v, i) => {
       formData.append(`body_${i + 1}`, String(v));
     });
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
+    const response = await fetch("https://api.360messenger.com/v2/sendTemplate", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
