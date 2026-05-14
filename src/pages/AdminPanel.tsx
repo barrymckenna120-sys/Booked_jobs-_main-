@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 
 type Tenant = {
   id: string;
