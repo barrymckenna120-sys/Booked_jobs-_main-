@@ -188,7 +188,6 @@ serve(async (req) => {
 
     // Log customer activity
     try {
-      const orgId = job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
       await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
         method: "POST",
         headers: dbHeaders,
