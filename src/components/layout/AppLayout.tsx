@@ -6,7 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2,
+  CalendarCheck, Layers, Shield, BarChart2, ScrollText,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ const DESKTOP_NAV = [
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Insights", icon: BarChart2, path: "/insights" },
+  { label: "Message Log", icon: ScrollText, path: "/message-log" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
