@@ -36,9 +36,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check caller has admin role
-    const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: caller.id });
-    if (callerRole !== "admin") {
+    // Use service role for privileged checks and auth admin actions
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const callerEmail = caller.email?.toLowerCase() ?? "";
+    const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
+    let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+
+    if (!isAuthorized) {
+      const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: caller.id });
+      isAuthorized = ["admin", "office", "owner", "manager"].includes(callerRole ?? "");
+    }
+
+    if (!isAuthorized) {
+      const { data: ownedOrg } = await supabaseAdmin
+        .from("organisations")
+        .select("id")
+        .eq("owner_user_id", caller.id)
+        .maybeSingle();
+      isAuthorized = !!ownedOrg;
+    }
+
+    if (!isAuthorized) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -52,12 +74,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Use service role to clear the ban
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       ban_duration: "none",
