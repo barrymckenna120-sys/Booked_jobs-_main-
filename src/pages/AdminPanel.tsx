@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 
 type Tenant = {
   id: string;
@@ -185,6 +187,13 @@ export default function AdminPanel() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-6 p-6">
+      <Tabs defaultValue="tenants" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="tenants">Tenants</TabsTrigger>
+          <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tenants" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Create New Account</CardTitle>
@@ -323,6 +332,13 @@ export default function AdminPanel() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <CustomerIntegrationsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
