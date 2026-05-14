@@ -145,9 +145,7 @@ async function getAccessToken(sa: { client_email: string; private_key: string })
     new TextEncoder().encode(unsignedToken)
   );
 
-  const signedToken = `${unsignedToken}.${btoa(
-    String.fromCharCode(...new Uint8Array(signature))
-  )}`;
+  const signedToken = `${unsignedToken}.${base64url(new Uint8Array(signature))}`;
 
   // Exchange JWT for access token
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
