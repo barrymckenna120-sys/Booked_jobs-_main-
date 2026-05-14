@@ -79,6 +79,8 @@ serve(async (req) => {
       method: "POST",
       headers: { ...headers, Prefer: "return=representation" },
       body: JSON.stringify({
+        customer_id: jobRow.customer_id,
+        organisation_id: orgId,
         message_type: "part_arrived",
         channel: "whatsapp",
         direction: "outbound",
