@@ -16,7 +16,8 @@ const MessagingTab = ({ settings, onSave, saving }: Props) => {
         <p className="text-sm text-muted-foreground mb-4">
           Customise the WhatsApp messages sent to your customers. Use variables to personalise each message.
         </p>
-        <WhatsAppTab settings={settings} onSave={onSave} saving={saving} />
+        {/* onSave removed — tab is read-only */}
+        <WhatsAppTab settings={settings} />
       </div>
 
       <Separator />
