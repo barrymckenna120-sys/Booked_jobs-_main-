@@ -223,7 +223,7 @@ serve(async (req) => {
     // Log customer_activity on success
     if (result.success && cert.customer_id && cert.job_id) {
       const certLabel = cert.cert_number ? `Certificate sent — ${cert.cert_number}` : "Certificate sent — Boiler Service";
-      const orgId = job?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      
       await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
         method: "POST",
         headers,
