@@ -20,7 +20,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
 
     const headers = {
       Authorization: `Bearer ${supabaseKey}`,
@@ -28,9 +27,9 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Fetch certificate
+    // Fetch certificate (incl. organisation_id)
     const certRes = await fetch(
-      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes`,
+      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes,organisation_id`,
       { headers }
     );
     const certs = await certRes.json();
