@@ -89,11 +89,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+    const orgId = organisation_id || (sc as any).organisation_id;
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ error: "Service call missing organisation_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Fetch WhatsApp api_key from tenant_integrations
+    const { data: waCfg } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+    const apiKey = ((waCfg as any)?.config?.api_key as string) || null;
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "THREESIXTY_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "WhatsApp integration not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -115,8 +130,6 @@ Deno.serve(async (req) => {
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    const orgId = organisation_id || (sc as any).organisation_id;
 
     await supabase.from("whatsapp_messages").insert({
       user_id: (sc as any).user_id,

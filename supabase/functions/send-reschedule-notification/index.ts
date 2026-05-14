@@ -22,7 +22,6 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -34,7 +33,7 @@ serve(async (req) => {
 
     // Fetch service call
     const scRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,user_id,organisation_id`,
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,organisation_id`,
       { headers: dbHeaders },
     );
     const scRows = await scRes.json();
@@ -47,6 +46,28 @@ serve(async (req) => {
       });
     }
     console.log("Job found:", { customer_id: job.customer_id, scheduled_date: job.scheduled_date, time_block: job.time_block });
+
+    const orgId = job.organisation_id;
+    if (!orgId) {
+      return new Response(JSON.stringify({ success: false, error: "Service call missing organisation_id" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Fetch WhatsApp api_key from tenant_integrations
+    const tiRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers: dbHeaders },
+    );
+    const tiRows = await tiRes.json();
+    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
 
     // Fetch customer
     const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {
@@ -63,17 +84,15 @@ serve(async (req) => {
     }
     console.log("Customer:", { name: customer.name, phone: customer.phone });
 
-    // Fetch message_footer from settings
+    // Fetch message_footer from settings (by organisation_id)
     let messageFooter = "Karl's Gas Services";
-    if (job.user_id) {
-      const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${job.user_id}&select=message_footer&limit=1`,
-        { headers: dbHeaders },
-      );
-      const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]?.message_footer) {
-        messageFooter = settings[0].message_footer;
-      }
+    const settingsRes = await fetch(
+      `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
+      { headers: dbHeaders },
+    );
+    const settings = await settingsRes.json();
+    if (Array.isArray(settings) && settings[0]?.message_footer) {
+      messageFooter = settings[0].message_footer;
     }
 
     const firstName = customer.name.split(" ")[0];
@@ -169,7 +188,6 @@ serve(async (req) => {
 
     // Log customer activity
     try {
-      const orgId = job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
       await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
         method: "POST",
         headers: dbHeaders,
