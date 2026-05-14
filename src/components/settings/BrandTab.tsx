@@ -163,7 +163,7 @@ const BrandTab = () => {
       const { data } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       setOrgId(data?.organisation_id ?? null);
     })();
