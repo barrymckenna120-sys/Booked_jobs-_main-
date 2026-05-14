@@ -133,7 +133,7 @@ const App = () => (
               <Route path="/incoming" element={<Navigate to="/pipeline" replace />} />
               <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
               <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
-              <Route path="/message-log" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/message-log" element={<MessageLog />} />
               <Route path="/messages" element={<Navigate to="/inbox" replace />} />
               <Route path="/system-logs" element={<SystemLogs />} />
               <Route path="/debug/incoming-jobs" element={<IncomingJobsDebug />} />
