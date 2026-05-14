@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { logMessage } from "../_shared/logMessage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,8 +151,33 @@ serve(async (req) => {
       }
     }
 
+    const logClient = (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      : null;
+
     if (!response.ok) {
+      if (logClient) {
+        await logMessage(logClient, {
+          organisation_id: orgId,
+          customer_id,
+          message_type: message_type === "warranty_day14" ? "warranty_day14" : "warranty_day28",
+          content: message,
+          status: "failed",
+          channel: "whatsapp",
+        });
+      }
       throw new Error(`360Messenger error (${response.status}): ${result}`);
+    }
+
+    if (logClient) {
+      await logMessage(logClient, {
+        organisation_id: orgId,
+        customer_id,
+        message_type: message_type === "warranty_day14" ? "warranty_day14" : "warranty_day28",
+        content: message,
+        status: "sent",
+        channel: "whatsapp",
+      });
     }
 
     // Log customer activity
