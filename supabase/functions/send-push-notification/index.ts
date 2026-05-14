@@ -104,10 +104,15 @@ Deno.serve(async (req) => {
 });
 
 /** Generate OAuth2 access token from a Google service account JSON */
+function base64url(input: string | Uint8Array): string {
+  const str = typeof input === "string" ? btoa(input) : btoa(String.fromCharCode(...input));
+  return str.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 async function getAccessToken(sa: { client_email: string; private_key: string }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = btoa(
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64url(
     JSON.stringify({
       iss: sa.client_email,
       scope: "https://www.googleapis.com/auth/firebase.messaging",
