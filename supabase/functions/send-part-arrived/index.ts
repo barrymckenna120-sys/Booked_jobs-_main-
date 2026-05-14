@@ -22,7 +22,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
 
     const headers = {
       Authorization: `Bearer ${supabaseKey}`,
@@ -30,25 +29,45 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Fetch job to get user_id for settings lookup
+    // Fetch job to get organisation_id
     const jobRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${job_id}&select=user_id`,
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${job_id}&select=organisation_id,customer_id`,
       { headers }
     );
     const jobs = await jobRes.json();
-    const userId = Array.isArray(jobs) ? jobs[0]?.user_id : null;
+    const jobRow = Array.isArray(jobs) ? jobs[0] : null;
+    const orgId = jobRow?.organisation_id;
 
-    // Fetch message_footer from settings
-    let messageFooter = "K&N Gas Services";
-    if (userId) {
-      const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=message_footer&limit=1`,
-        { headers }
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Service call missing organisation_id" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
-      const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]?.message_footer) {
-        messageFooter = settings[0].message_footer;
-      }
+    }
+
+    // Fetch WhatsApp api_key from tenant_integrations
+    const tiRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers }
+    );
+    const tiRows = await tiRes.json();
+    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    // Fetch message_footer from settings (by organisation_id)
+    let messageFooter = "K&N Gas Services";
+    const settingsRes = await fetch(
+      `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
+      { headers }
+    );
+    const settings = await settingsRes.json();
+    if (Array.isArray(settings) && settings[0]?.message_footer) {
+      messageFooter = settings[0].message_footer;
     }
 
     const firstName = customer_name.split(" ")[0];
