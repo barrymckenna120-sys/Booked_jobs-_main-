@@ -115,19 +115,13 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         .filter((m) => m.timestamp)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-      // Deduplicate: same message_type within 60s → keep message_log entry
+      // Deduplicate on id
+      const seen = new Set<string>();
       const deduped: UnifiedMessage[] = [];
       for (const msg of merged) {
-        const dupIdx = deduped.findIndex(
-          (existing) =>
-            existing.message_type === msg.message_type &&
-            Math.abs(new Date(existing.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000
-        );
-        if (dupIdx === -1) {
-          deduped.push(msg);
-        } else if (msg.source === "log" && deduped[dupIdx].source === "whatsapp") {
-          deduped[dupIdx] = msg;
-        }
+        if (seen.has(msg.id)) continue;
+        seen.add(msg.id);
+        deduped.push(msg);
       }
 
       setMessages(deduped);
