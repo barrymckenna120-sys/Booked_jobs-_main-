@@ -174,9 +174,6 @@ serve(async (req) => {
     } else {
       // Log customer activity
       try {
-        const orgRes = await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${hazard.job_id}&select=organisation_id`, { headers });
-        const orgRows = await orgRes.json();
-        const orgId = (Array.isArray(orgRows) && orgRows[0]?.organisation_id) || "8c37827f-ce2c-4507-a821-a5e807d89856";
         await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
           method: "POST", headers,
           body: JSON.stringify({
