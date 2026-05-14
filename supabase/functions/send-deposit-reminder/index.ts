@@ -13,11 +13,23 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Per-org WhatsApp api_key cache
+    const apiKeyCache = new Map<string, string | null>();
+    const loadApiKey = async (orgId: string): Promise<string | null> => {
+      if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId)!;
+      const { data: waCfg } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", orgId)
+        .eq("integration_type", "whatsapp")
+        .maybeSingle();
+      const key = ((waCfg as any)?.config?.api_key as string) || null;
+      apiKeyCache.set(orgId, key);
+      return key;
+    };
 
     // 4-5 days ago window
     const now = new Date();
