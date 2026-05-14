@@ -125,6 +125,15 @@ Deno.serve(async (req) => {
     const respText = await resp.text();
 
     if (!resp.ok) {
+      await logMessage(supabase, {
+        organisation_id: orgId,
+        customer_id: (sc as any).customer_id,
+        message_type: "cancel_job_notify",
+        content: text,
+        status: "failed",
+        channel: "whatsapp",
+        sent_by: (sc as any).user_id ?? undefined,
+      });
       return new Response(
         JSON.stringify({ error: "360Messenger send failed", status: resp.status, detail: respText }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -140,6 +149,16 @@ Deno.serve(async (req) => {
       status: "sent",
       sent_by: "system",
       sent_at: new Date().toISOString(),
+    });
+
+    await logMessage(supabase, {
+      organisation_id: orgId,
+      customer_id: (sc as any).customer_id,
+      message_type: "cancel_job_notify",
+      content: text,
+      status: "sent",
+      channel: "whatsapp",
+      sent_by: (sc as any).user_id ?? undefined,
     });
 
     return new Response(
