@@ -48,6 +48,13 @@ Deno.serve(async (req) => {
 
     const result = customers
       .filter((c) => !bookedSet.has(c.id))
+      .filter((c: any) => {
+        if (!c.organisation_id) {
+          console.warn(`[renewal-reminder-7] customer ${c.id} missing organisation_id — skipping`);
+          return false;
+        }
+        return true;
+      })
       .map((c) => ({
         id: c.id,
         full_name: c.name,
