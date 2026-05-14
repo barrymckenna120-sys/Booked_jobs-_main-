@@ -213,6 +213,14 @@ ${companyName} ☎ ${companyPhone}`;
             .update({ reminder_2day_sent: true })
             .eq("id", job.id);
           sent++;
+          await logMessage(supabase, {
+            organisation_id: orgId,
+            customer_id: job.customer_id,
+            message_type: "job_reminder_2day",
+            content: message,
+            status: "sent",
+            channel: "whatsapp",
+          });
           // Log customer activity
           try {
             await supabase.from("customer_activity").insert({
@@ -233,6 +241,14 @@ ${companyName} ☎ ${companyPhone}`;
           } catch { /* non-critical */ }
         } else {
           errors++;
+          await logMessage(supabase, {
+            organisation_id: orgId,
+            customer_id: job.customer_id,
+            message_type: "job_reminder_2day",
+            content: message,
+            status: "failed",
+            channel: "whatsapp",
+          });
         }
       } catch (sendErr: any) {
         errors++;
