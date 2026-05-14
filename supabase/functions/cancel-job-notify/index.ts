@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { logMessage } from "../_shared/logMessage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
