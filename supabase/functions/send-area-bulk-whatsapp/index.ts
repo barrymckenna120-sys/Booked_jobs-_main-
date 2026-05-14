@@ -113,11 +113,10 @@ serve(async (req) => {
         `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
         { headers: dbHeaders }
       );
-        const tiRows = await tiRes.json();
-        const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-        if (cfg?.company_name) companyName = cfg.company_name;
-        if (cfg?.company_phone) companyPhone = cfg.company_phone;
-      }
+      const tiRows = await tiRes.json();
+      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+      if (cfg?.company_name) companyName = cfg.company_name;
+      if (cfg?.company_phone) companyPhone = cfg.company_phone;
 
       const message = `Hi ${firstName},
 
@@ -202,7 +201,7 @@ ${companyName}`;
             await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
               method: "POST", headers: dbHeaders,
               body: JSON.stringify({
-                organisation_id: custRecord?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+                organisation_id: orgId,
                 customer_id,
                 event_type: "whatsapp_sent",
                 event_label: "WhatsApp sent — Renewal Reminder",
