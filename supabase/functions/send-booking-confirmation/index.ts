@@ -20,7 +20,6 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -32,7 +31,7 @@ serve(async (req) => {
 
     // Fetch the service call with customer details
     const scRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,user_id`,
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,organisation_id`,
       { headers: dbHeaders },
     );
     const scRows = await scRes.json();
@@ -41,6 +40,37 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 404,
+      });
+    }
+
+    const orgId = job.organisation_id;
+    if (!orgId) {
+      return new Response(JSON.stringify({ success: false, error: "Service call missing organisation_id" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Fetch tenant WhatsApp integration config
+    const tiRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers: dbHeaders },
+    );
+    const tiRows = await tiRes.json();
+    const config = Array.isArray(tiRows) && tiRows[0]?.config ? tiRows[0].config : null;
+    if (!config) {
+      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    const apiKey = config.api_key;
+    const templateName = config?.templates?.booking_confirmation;
+    if (!apiKey || !templateName) {
+      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key or booking_confirmation template missing in config" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
       });
     }
 
@@ -57,19 +87,17 @@ serve(async (req) => {
       });
     }
 
-    // Fetch message_footer + company_name from settings
+    // Fetch settings (message_footer / business_name) by organisation_id
     let messageFooter = "";
-    let companyName = "K&N Gas Services";
-    if (job.user_id) {
-      const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${job.user_id}&select=message_footer,business_name&limit=1`,
-        { headers: dbHeaders },
-      );
-      const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]) {
-        if (settings[0].message_footer) messageFooter = settings[0].message_footer;
-        if (settings[0].business_name) companyName = settings[0].business_name;
-      }
+    let companyName = "";
+    const settingsRes = await fetch(
+      `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer,business_name&limit=1`,
+      { headers: dbHeaders },
+    );
+    const settings = await settingsRes.json();
+    if (Array.isArray(settings) && settings[0]) {
+      if (settings[0].message_footer) messageFooter = settings[0].message_footer;
+      if (settings[0].business_name) companyName = settings[0].business_name;
     }
 
     const SALUTATIONS = ["mr", "mrs", "ms", "dr", "miss"];
@@ -94,13 +122,8 @@ serve(async (req) => {
     const timeSlot = job.time_block || "TBC";
     const engineerName = job.assigned_engineer || "TBC";
 
-    const message =
-      `Hi ${firstName}, your booking with ${companyName} is confirmed.\n\n` +
-      `📅 Date: ${formattedDate}\n` +
-      `⏰ Time: ${timeSlot}\n` +
-      `👷 Engineer: ${engineerName}\n\n` +
-      `If you need to make any changes please reply to this message.` +
-      (messageFooter ? `\n\n${messageFooter}` : "");
+    // Template variables in exact order required by Meta-approved template
+    const templateVars = [firstName, formattedDate, timeSlot, engineerName];
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
@@ -108,10 +131,11 @@ serve(async (req) => {
       headers: { ...dbHeaders, Prefer: "return=representation" },
       body: JSON.stringify({
         customer_id: job.customer_id,
+        organisation_id: orgId,
         message_type: "booking_confirmation",
         channel: "whatsapp",
         direction: "outbound",
-        content: message,
+        content: `[template:${templateName}] ${templateVars.join(" | ")}`,
         status: "pending",
         related_id: service_call_id,
         related_type: "service_call",
@@ -122,11 +146,15 @@ serve(async (req) => {
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    // Send via 360Messenger
+    // Send via 360Messenger Meta-approved template
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
-    formData.append("text", message);
+    formData.append("template_name", templateName);
+    formData.append("language", "en");
+    templateVars.forEach((v, i) => {
+      formData.append(`body_${i + 1}`, String(v));
+    });
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
@@ -149,7 +177,7 @@ serve(async (req) => {
       body: JSON.stringify({
         function_name: "send-booking-confirmation",
         error_message: `360Messenger HTTP ${response.status}: ${result.success ? "success" : "failed"}`,
-        payload: { api_response: result, sent_to: customer.phone, service_call_id, http_status: response.status },
+        payload: { api_response: result, sent_to: customer.phone, service_call_id, template_name: templateName, http_status: response.status },
       }),
     });
 
@@ -169,7 +197,6 @@ serve(async (req) => {
     if (!result.success) {
       const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}`;
 
-      // Log to edge_function_logs
       await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
         method: "POST",
         headers: dbHeaders,
@@ -194,12 +221,6 @@ serve(async (req) => {
 
     // Log customer activity on success
     try {
-      const orgRes = await fetch(
-        `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id`,
-        { headers: dbHeaders },
-      );
-      const orgRows = await orgRes.json();
-      const orgId = (Array.isArray(orgRows) && orgRows[0]?.organisation_id) || "8c37827f-ce2c-4507-a821-a5e807d89856";
       await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
         method: "POST",
         headers: dbHeaders,
