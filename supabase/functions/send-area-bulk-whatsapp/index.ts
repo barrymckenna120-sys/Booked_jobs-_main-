@@ -20,21 +20,28 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "WhatsApp API key not configured" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
 
     const dbHeaders = {
       "Authorization": `Bearer ${supabaseKey}`,
       "apikey": supabaseKey!,
       "Content-Type": "application/json",
+    };
+
+    // Per-org cache for whatsapp api_key
+    const apiKeyCache = new Map<string, string | null>();
+    const getApiKey = async (orgId: string): Promise<string | null> => {
+      if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId) ?? null;
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+        { headers: dbHeaders }
+      );
+      const rows = await r.json();
+      const cfg = Array.isArray(rows) ? rows[0]?.config : null;
+      const key = cfg?.api_key ?? null;
+      apiKeyCache.set(orgId, key);
+      return key;
     };
 
     let sent = 0;
