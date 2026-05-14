@@ -63,12 +63,23 @@ Deno.serve(async (req) => {
       }
 
       const orgId = (job as any).organisation_id;
-      const { data: messengerConfig } = orgId ? await supabase
+      if (!orgId) {
+        skipped++;
+        continue;
+      }
+
+      const messengerKey = await loadApiKey(orgId);
+      if (!messengerKey) {
+        skipped++;
+        continue;
+      }
+
+      const { data: messengerConfig } = await supabase
         .from("tenant_integrations")
         .select("config")
         .eq("organisation_id", orgId)
         .eq("integration_type", "360messenger")
-        .maybeSingle() : { data: null };
+        .maybeSingle();
       const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
       const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
 
