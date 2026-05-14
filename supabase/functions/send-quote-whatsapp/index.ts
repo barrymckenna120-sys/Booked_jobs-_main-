@@ -44,13 +44,14 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Derive organisation_id from quote
+    // Derive organisation_id and customer_id from quote
     const quoteRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=organisation_id&limit=1`,
+      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=organisation_id,customer_id&limit=1`,
       { headers: dbHeaders }
     );
     const quoteRows = await quoteRes.json();
     const orgId = Array.isArray(quoteRows) && quoteRows[0]?.organisation_id;
+    const resolvedCustomerId = (Array.isArray(quoteRows) && quoteRows[0]?.customer_id) || customer_id || null;
     if (!orgId) {
       return new Response(
         JSON.stringify({ success: false, error: "Quote missing organisation_id" }),
@@ -125,7 +126,7 @@ ${acceptUrl}`;
       method: "POST",
       headers: { ...dbHeaders, "Prefer": "return=representation" },
       body: JSON.stringify({
-        customer_id: customer_id || null,
+        customer_id: resolvedCustomerId,
         message_type: "quote",
         channel: "whatsapp",
         direction: "outbound",
