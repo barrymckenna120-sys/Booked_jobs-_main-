@@ -1,94 +1,92 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-// Owner-only access. Update if Barry's email differs.
-const OWNER_EMAIL = "barrymckenna120@gmail.com";
+type Tenant = {
+  id: string;
+  name: string;
+  slug: string;
+  subscription_status: string | null;
+  owner_name: string | null;
+  owner_phone: string | null;
+  industry: string | null;
+  created_at: string;
+};
 
 const slugify = (s: string) =>
   s
     .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 
-type SuccessResult = {
-  organisation_id: string;
-  owner_email: string;
-  slug: string;
+const StatusBadge = ({ status }: { status: string | null }) => {
+  const s = (status || "").toLowerCase();
+  const cls =
+    s === "active"
+      ? "bg-green-100 text-green-800 hover:bg-green-100"
+      : s === "suspended"
+      ? "bg-red-100 text-red-800 hover:bg-red-100"
+      : s === "trial"
+      ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+      : "bg-muted text-muted-foreground";
+  return <Badge className={cls} variant="secondary">{status || "—"}</Badge>;
 };
 
-type Org = { id: string; name: string; slug: string };
-
-type IntegrationFields = {
-  company_name: string;
-  company_phone: string;
-  api_key_secret: string;
-  payment_link: string;
-  renewal_form_url: string;
-  new_booking_url: string;
-};
-
-const emptyIntegrations: IntegrationFields = {
-  company_name: "",
-  company_phone: "",
-  api_key_secret: "",
-  payment_link: "",
-  renewal_form_url: "",
-  new_booking_url: "",
-};
-
-type LogRow = {
-  id: string;
-  created_at: string;
-  function_name: string;
-  error_message: string | null;
-};
-
-const AdminPanel = () => {
+export default function AdminPanel() {
   const navigate = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
-  const [authorised, setAuthorised] = useState(false);
 
+  // form state
   const [companyName, setCompanyName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
+  const [companyPhone, setCompanyPhone] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
-  const [companyPhone, setCompanyPhone] = useState("");
-
+  const [orgSlug, setOrgSlug] = useState("");
+  const [slugDirty, setSlugDirty] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<SuccessResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Section 2 state
-  const [orgs, setOrgs] = useState<Org[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
-  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
-  const [integrations, setIntegrations] = useState<IntegrationFields>(emptyIntegrations);
-  const [savingIntegrations, setSavingIntegrations] = useState(false);
+  // tenants
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loadingTenants, setLoadingTenants] = useState(true);
 
-  // Section 3 state
-  const [logs, setLogs] = useState<LogRow[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
-
+  // Access check
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      const email = data.user?.email?.toLowerCase();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        if (!cancelled) navigate("/dashboard", { replace: true });
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role" as any)
+        .eq("user_id", user.id)
+        .maybeSingle();
       if (cancelled) return;
-      if (!email || email !== OWNER_EMAIL.toLowerCase()) {
+      const role = (data as any)?.role;
+      if (error || role !== "superadmin") {
         navigate("/dashboard", { replace: true });
         return;
       }
-      setAuthorised(true);
       setAuthChecked(true);
     })();
     return () => {
@@ -96,485 +94,235 @@ const AdminPanel = () => {
     };
   }, [navigate]);
 
-  const loadOrgs = useCallback(async () => {
-    const { data, error } = await (supabase as any)
+  const loadTenants = async () => {
+    setLoadingTenants(true);
+    const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug")
-      .order("name", { ascending: true });
-    if (error) {
-      toast.error("Failed to load tenants");
-      return;
-    }
-    setOrgs((data as Org[]) || []);
-  }, []);
-
-  const loadLogs = useCallback(async () => {
-    setLoadingLogs(true);
-    const { data, error } = await supabase
-      .from("edge_function_logs")
-      .select("id, created_at, function_name, error_message")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) {
-      toast.error("Failed to load activity log");
-      setLoadingLogs(false);
-      return;
-    }
-    setLogs((data as LogRow[]) || []);
-    setLoadingLogs(false);
-  }, []);
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at")
+      .order("created_at", { ascending: false });
+    setTenants((data as any) || []);
+    setLoadingTenants(false);
+  };
 
   useEffect(() => {
-    if (!authorised) return;
-    loadOrgs();
-    loadLogs();
-  }, [authorised, loadOrgs, loadLogs]);
+    if (authChecked) loadTenants();
+  }, [authChecked]);
 
+  // Auto-slug from company name unless user has edited it
   useEffect(() => {
-    if (!selectedOrgId) {
-      setIntegrations(emptyIntegrations);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setLoadingIntegrations(true);
-      const { data, error } = await (supabase as any)
-        .from("tenant_integrations")
-        .select("integration_type, config")
-        .eq("organisation_id", selectedOrgId);
-      if (cancelled) return;
-      if (error) {
-        toast.error("Failed to load integrations");
-        setLoadingIntegrations(false);
-        return;
-      }
-      const next: IntegrationFields = { ...emptyIntegrations };
-      for (const row of (data as Array<{ integration_type: string; config: any }>) || []) {
-        const cfg = row.config || {};
-        if (row.integration_type === "360messenger") {
-          next.company_name = cfg.company_name ?? "";
-          next.company_phone = cfg.company_phone ?? "";
-          next.api_key_secret = cfg.api_key_secret ?? "";
-        } else if (row.integration_type === "stripe") {
-          next.payment_link = cfg.payment_link ?? "";
-        } else if (row.integration_type === "tally") {
-          next.renewal_form_url = cfg.renewal_form_url ?? "";
-          next.new_booking_url = cfg.new_booking_url ?? "";
-        }
-      }
-      setIntegrations(next);
-      setLoadingIntegrations(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedOrgId]);
-
-  const handleSaveIntegrations = async () => {
-    if (!selectedOrgId) return;
-    setSavingIntegrations(true);
-    try {
-      const rows = [
-        {
-          organisation_id: selectedOrgId,
-          integration_type: "360messenger",
-          config: {
-            company_name: integrations.company_name,
-            company_phone: integrations.company_phone,
-            api_key_secret: integrations.api_key_secret,
-          },
-        },
-        {
-          organisation_id: selectedOrgId,
-          integration_type: "stripe",
-          config: { payment_link: integrations.payment_link },
-        },
-        {
-          organisation_id: selectedOrgId,
-          integration_type: "tally",
-          config: {
-            renewal_form_url: integrations.renewal_form_url,
-            new_booking_url: integrations.new_booking_url,
-          },
-        },
-      ];
-      const { error } = await (supabase as any)
-        .from("tenant_integrations")
-        .upsert(rows, { onConflict: "organisation_id,integration_type" });
-      if (error) throw error;
-      toast.success("Integrations saved");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save integrations");
-    } finally {
-      setSavingIntegrations(false);
-    }
-  };
-
-  const handleCompanyNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value;
-    setCompanyName(v);
-    if (!slugTouched) setSlug(slugify(v));
-  };
-
-  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSlugTouched(true);
-    setSlug(slugify(e.target.value));
-  };
+    if (!slugDirty) setOrgSlug(slugify(companyName));
+  }, [companyName, slugDirty]);
 
   const resetForm = () => {
     setCompanyName("");
-    setSlug("");
-    setSlugTouched(false);
+    setCompanyPhone("");
     setOwnerName("");
     setOwnerEmail("");
-    setCompanyPhone("");
-    setSuccess(null);
-    setError(null);
+    setOrgSlug("");
+    setSlugDirty(false);
+    setErrors({});
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
     setSuccess(null);
+    setErrorMsg(null);
 
-    if (!companyName || !slug || !ownerName || !ownerEmail || !companyPhone) {
-      setError("All fields are required");
-      return;
-    }
+    const next: Record<string, string> = {};
+    if (!companyName.trim()) next.company_name = "Required";
+    if (!companyPhone.trim()) next.company_phone = "Required";
+    if (!ownerName.trim()) next.owner_name = "Required";
+    if (!ownerEmail.trim()) next.owner_email = "Required";
+    if (!orgSlug.trim()) next.org_slug = "Required";
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
 
     setSubmitting(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "provision-tenant",
-        {
-          body: {
-            company_name: companyName,
-            slug,
-            owner_name: ownerName,
-            owner_email: ownerEmail,
-            company_phone: companyPhone,
-          },
-        }
-      );
-
-      if (fnError) {
-        setError(fnError.message || "Failed to provision tenant");
-        return;
-      }
-      if (!data?.success) {
-        setError(data?.error || "Failed to provision tenant");
-        return;
-      }
-
-      setSuccess({
-        organisation_id: data.organisation_id,
-        owner_email: data.owner_email ?? ownerEmail,
-        slug: data.slug ?? slug,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/provision-tenant`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+          Authorization: `Bearer ${accessToken}`,
+          "x-admin-secret": "bj-admin-2026-xK9mP3",
+        },
+        body: JSON.stringify({
+          company_name: companyName.trim(),
+          company_phone: companyPhone.trim(),
+          owner_name: ownerName.trim(),
+          owner_email: ownerEmail.trim(),
+          org_slug: orgSlug.trim(),
+        }),
       });
-      loadOrgs();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        if (json?.error === "slug_taken") {
+          setErrorMsg("Slug already exists — choose a different one");
+        } else {
+          setErrorMsg(json?.detail || json?.error || `Request failed (${res.status})`);
+        }
+        return;
+      }
+      setSuccess(
+        `✅ ${companyName} provisioned. Invite sent to ${ownerEmail}. Org ID: ${json.organisation_id}`
+      );
+      resetForm();
+      loadTenants();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setErrorMsg(err instanceof Error ? err.message : "Request failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!authChecked || !authorised) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+  if (!authChecked) {
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="mb-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Admin Panel</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Owner-only tools.
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Provision New Tenant</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {success ? (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-5 space-y-3">
-                <div className="flex items-center gap-2 text-green-800 font-medium">
-                  <CheckCircle2 className="h-5 w-5" />
-                  Tenant provisioned successfully
-                </div>
-                <div className="text-sm text-green-900 space-y-1">
-                  <div>
-                    <span className="text-green-700">Organisation ID:</span>{" "}
-                    <span className="font-mono">{success.organisation_id}</span>
-                  </div>
-                  <div>
-                    <span className="text-green-700">Invite sent to:</span>{" "}
-                    {success.owner_email}
-                  </div>
-                  <div>
-                    <span className="text-green-700">Subdomain:</span>{" "}
-                    {success.slug}.bookedjobs.ie
-                  </div>
-                  <div className="text-green-700 italic pt-2">
-                    Owner will receive an invite email shortly.
-                  </div>
-                </div>
-                <Button variant="outline" onClick={resetForm} className="mt-2">
-                  Reset form
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">Company Name</Label>
-                  <Input
-                    id="company_name"
-                    value={companyName}
-                    onChange={handleCompanyNameChange}
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="slug">Slug</Label>
-                  <Input
-                    id="slug"
-                    value={slug}
-                    onChange={handleSlugChange}
-                    required
-                    disabled={submitting}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {slug || "your-slug"}.bookedjobs.ie
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="owner_name">Owner Name</Label>
-                  <Input
-                    id="owner_name"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="owner_email">Owner Email</Label>
-                  <Input
-                    id="owner_email"
-                    type="email"
-                    value={ownerEmail}
-                    onChange={(e) => setOwnerEmail(e.target.value)}
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company_phone">Company Phone</Label>
-                  <Input
-                    id="company_phone"
-                    value={companyPhone}
-                    onChange={(e) => setCompanyPhone(e.target.value)}
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-
-                {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-start gap-2 text-sm text-red-800">
-                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Provisioning…
-                    </>
-                  ) : (
-                    "Provision Tenant"
-                  )}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* SECTION 2: Manage Tenant Integrations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Manage Tenant Integrations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="select_tenant">Select Tenant</Label>
-              <select
-                id="select_tenant"
-                value={selectedOrgId}
-                onChange={(e) => setSelectedOrgId(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">— Choose an organisation —</option>
-                {orgs.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name} ({o.slug})
-                  </option>
-                ))}
-              </select>
+    <div className="container mx-auto max-w-5xl space-y-6 p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Create New Account</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="company_name">Company Name</Label>
+              <Input
+                id="company_name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+              />
+              {errors.company_name && (
+                <p className="text-sm text-destructive">{errors.company_name}</p>
+              )}
             </div>
 
-            {selectedOrgId && (
-              loadingIntegrations ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="i_company_name">Company Name</Label>
-                    <Input
-                      id="i_company_name"
-                      value={integrations.company_name}
-                      onChange={(e) => setIntegrations({ ...integrations, company_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="i_company_phone">Company Phone</Label>
-                    <Input
-                      id="i_company_phone"
-                      value={integrations.company_phone}
-                      onChange={(e) => setIntegrations({ ...integrations, company_phone: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="i_api_key_secret">360Messenger API Key Secret Name</Label>
-                    <Input
-                      id="i_api_key_secret"
-                      value={integrations.api_key_secret}
-                      onChange={(e) => setIntegrations({ ...integrations, api_key_secret: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Add the actual key value in Supabase → Edge Functions → Manage Secrets
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="i_payment_link">Stripe Payment Link</Label>
-                    <Input
-                      id="i_payment_link"
-                      value={integrations.payment_link}
-                      onChange={(e) => setIntegrations({ ...integrations, payment_link: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="i_renewal_url">Renewal Booking URL</Label>
-                    <Input
-                      id="i_renewal_url"
-                      value={integrations.renewal_form_url}
-                      onChange={(e) => setIntegrations({ ...integrations, renewal_form_url: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="i_new_booking_url">New Booking URL</Label>
-                    <Input
-                      id="i_new_booking_url"
-                      value={integrations.new_booking_url}
-                      onChange={(e) => setIntegrations({ ...integrations, new_booking_url: e.target.value })}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSaveIntegrations}
-                    disabled={savingIntegrations}
-                    className="w-full"
-                  >
-                    {savingIntegrations ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving…
-                      </>
-                    ) : (
-                      "Save Integrations"
-                    )}
-                  </Button>
-                </div>
-              )
-            )}
-          </CardContent>
-        </Card>
-
-        {/* SECTION 3: Activity Log */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle>System Activity Log</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Last 50 Edge Function calls
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadLogs}
-                disabled={loadingLogs}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loadingLogs ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="company_phone">Company Phone</Label>
+              <Input
+                id="company_phone"
+                value={companyPhone}
+                onChange={(e) => setCompanyPhone(e.target.value)}
+                placeholder="087 XXXXXXX"
+              />
+              {errors.company_phone && (
+                <p className="text-sm text-destructive">{errors.company_phone}</p>
+              )}
             </div>
-          </CardHeader>
-          <CardContent>
-            {loadingLogs ? (
-              <div className="flex justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+
+            <div className="space-y-1.5">
+              <Label htmlFor="owner_name">Owner Full Name</Label>
+              <Input
+                id="owner_name"
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+              />
+              {errors.owner_name && (
+                <p className="text-sm text-destructive">{errors.owner_name}</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="owner_email">Owner Email</Label>
+              <Input
+                id="owner_email"
+                type="email"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+              />
+              {errors.owner_email && (
+                <p className="text-sm text-destructive">{errors.owner_email}</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="org_slug">Org Slug</Label>
+              <Input
+                id="org_slug"
+                value={orgSlug}
+                onChange={(e) => {
+                  setSlugDirty(true);
+                  setOrgSlug(e.target.value);
+                }}
+              />
+              {errors.org_slug && (
+                <p className="text-sm text-destructive">{errors.org_slug}</p>
+              )}
+            </div>
+
+            {success && (
+              <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                {success}
               </div>
-            ) : logs.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No activity yet.
-              </p>
-            ) : (
-              <div className="space-y-1.5 max-h-[480px] overflow-y-auto">
-                {logs.map((log) => {
-                  const hasError = !!log.error_message;
-                  const msg = hasError
-                    ? (log.error_message!.length > 80
-                        ? log.error_message!.slice(0, 80) + "…"
-                        : log.error_message!)
-                    : "OK";
-                  return (
-                    <div
-                      key={log.id}
-                      className={`rounded-md border px-3 py-2 text-xs flex items-center gap-3 ${
-                        hasError
-                          ? "border-red-200 bg-red-50 text-red-900"
-                          : "border-green-200 bg-green-50 text-green-900"
-                      }`}
-                    >
-                      <span className="font-mono text-[11px] shrink-0 opacity-70">
-                        {new Date(log.created_at).toLocaleString("en-IE", {
-                          timeZone: "Europe/Dublin",
-                          hour12: false,
+            )}
+            {errorMsg && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                {errorMsg}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Creating..." : "Create Account"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Tenants</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingTenants ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : tenants.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No tenants yet</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Company Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Owner Name</TableHead>
+                    <TableHead>Owner Phone</TableHead>
+                    <TableHead>Industry</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tenants.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-medium">{t.name}</TableCell>
+                      <TableCell>{t.slug}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={t.subscription_status} />
+                      </TableCell>
+                      <TableCell>{t.owner_name || "—"}</TableCell>
+                      <TableCell>{t.owner_phone || "—"}</TableCell>
+                      <TableCell>{t.industry || "—"}</TableCell>
+                      <TableCell>
+                        {new Date(t.created_at).toLocaleDateString('en-IE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
                         })}
-                      </span>
-                      <span className="font-medium shrink-0">{log.function_name}</span>
-                      <span className="truncate">{msg}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default AdminPanel;
+}

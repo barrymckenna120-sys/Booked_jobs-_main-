@@ -51,6 +51,19 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
   const [selectedType, setSelectedType] = useState<ActivityType>("note_general");
   const [noteText, setNoteText] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [orgId, setOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      setOrgId(data?.organisation_id ?? null);
+    })();
+  }, [user]);
 
   const fetchActivities = async () => {
     setLoading(true);
@@ -87,15 +100,17 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
 
   const handleSave = async () => {
     if (!noteText.trim() || !user) return;
+    if (!orgId) {
+      toast({ title: "Organisation not found", description: "Please refresh and try again.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, organisation_id")
-      .eq("user_id", user.id)
+      .select("id")
+      .eq("id", user.id)
       .maybeSingle();
-
-    const orgId = profile?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
 
     const { error } = await supabase.from("customer_activity").insert({
       customer_id: customerId,

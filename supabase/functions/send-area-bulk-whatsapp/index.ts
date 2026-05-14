@@ -84,16 +84,30 @@ serve(async (req) => {
           })
         : "soon";
 
+      const orgId = custRecord?.organisation_id;
+      let companyName = "K & N Gas Services";
+      let companyPhone = "087 3686252";
+      if (orgId) {
+        const tiRes = await fetch(
+          `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+          { headers: dbHeaders }
+        );
+        const tiRows = await tiRes.json();
+        const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+        if (cfg?.company_name) companyName = cfg.company_name;
+        if (cfg?.company_phone) companyPhone = cfg.company_phone;
+      }
+
       const message = `Hi ${firstName},
 
-This is K & N Gas Services. Your annual boiler service is due on ${dueDate}.
+This is ${companyName}. Your annual boiler service is due on ${dueDate}.
 
 If your boiler is under manufacturer warranty, maintaining a yearly service is generally a condition of keeping that warranty valid.
 
-Reply here to book your service or call us on 087 3686252.
+Reply here to book your service or call us on ${companyPhone}.
 
 Reply STOP to unsubscribe.
-K & N Gas Services`;
+${companyName}`;
 
       // Send via 360Messenger
       const formData = new FormData();

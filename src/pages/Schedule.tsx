@@ -3,6 +3,7 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay } from "dat
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -111,6 +112,7 @@ export type ScheduleJob = {
 
 const Schedule = () => {
   const { user } = useAuth();
+  const { orgId, ready } = useOrgId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   // Use Irish timezone to determine "today" so schedule aligns with Europe/Dublin
@@ -133,19 +135,13 @@ const Schedule = () => {
       const { data } = await supabase.from("engineers").select("id, name").order("name");
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && ready,
   });
 
   // Fetch settings for slot capacity (max_jobs per time block)
   const { data: settings } = useQuery({
-    queryKey: ["settings", user?.id],
+    queryKey: ["settings", orgId],
     queryFn: async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      const orgId = profile?.organisation_id;
       if (!orgId) return null;
       const { data } = await supabase
         .from("settings")
@@ -154,7 +150,7 @@ const Schedule = () => {
         .maybeSingle();
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && ready && !!orgId,
   });
 
   const settingsBlocks = (settings?.job_time_blocks as any[]) || [];
@@ -208,7 +204,7 @@ const Schedule = () => {
         job_reference: j.job_reference || null,
       })) as ScheduleJob[];
     },
-    enabled: !!user,
+    enabled: !!user && ready,
   });
 
   // Show Mon-Fri always; include Sat/Sun only if jobs exist on those days

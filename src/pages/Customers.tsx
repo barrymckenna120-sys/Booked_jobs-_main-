@@ -3,6 +3,7 @@ import { addDays, isAfter, isBefore, isToday, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +23,7 @@ const TAG_FILTERS = [
 
 const Customers = () => {
   const { user } = useAuth();
+  const { ready } = useOrgId();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
@@ -37,8 +39,8 @@ const Customers = () => {
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
-    if (user) fetchCustomers();
-  }, [user]);
+    if (user && ready) fetchCustomers();
+  }, [user, ready]);
 
   // Realtime: re-fetch on INSERT so new customers appear instantly
   useEffect(() => {

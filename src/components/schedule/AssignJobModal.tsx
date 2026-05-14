@@ -65,7 +65,7 @@ const AssignJobModal = ({
       const { data: profile } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("user_id", user!.id)
+        .eq("id", user!.id)
         .maybeSingle();
       const { data } = await supabase
         .from("settings")

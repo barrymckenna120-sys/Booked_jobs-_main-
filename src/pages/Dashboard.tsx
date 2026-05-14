@@ -113,7 +113,7 @@ const Dashboard = () => {
       const { data } = await supabase
         .from("profiles")
         .select("display_name")
-        .eq("user_id", user!.id)
+        .eq("id", user!.id)
         .maybeSingle();
       return data;
     },

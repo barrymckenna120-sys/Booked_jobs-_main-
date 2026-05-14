@@ -1704,6 +1704,7 @@ export type Database = {
           id: string
           onboarding_complete: boolean | null
           organisation_id: string | null
+          role: string | null
           sound_alerts_enabled: boolean | null
           updated_at: string
           user_id: string
@@ -1714,6 +1715,7 @@ export type Database = {
           id?: string
           onboarding_complete?: boolean | null
           organisation_id?: string | null
+          role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id: string
@@ -1724,6 +1726,7 @@ export type Database = {
           id?: string
           onboarding_complete?: boolean | null
           organisation_id?: string | null
+          role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
           user_id?: string
@@ -2311,6 +2314,8 @@ export type Database = {
           business_email: string | null
           business_name: string
           business_phone: string | null
+          company_name: string | null
+          company_phone: string | null
           default_callout_charge: number | null
           default_deposit: number | null
           default_emergency_price: number | null
@@ -2362,6 +2367,8 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           default_callout_charge?: number | null
           default_deposit?: number | null
           default_emergency_price?: number | null
@@ -2413,6 +2420,8 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           default_callout_charge?: number | null
           default_deposit?: number | null
           default_emergency_price?: number | null
@@ -2649,6 +2658,7 @@ export type Database = {
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
+      get_my_org_id: { Args: never; Returns: string }
       get_quote_by_number: { Args: { p_quote_number: string }; Returns: Json }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_receipt_public: { Args: { p_receipt_number: string }; Returns: Json }

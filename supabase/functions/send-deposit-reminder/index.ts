@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     const { data: jobs, error: jobsErr } = await supabase
       .from("service_calls")
-      .select("id, payment_link, customer_id, customers(name, phone, opted_out)")
+      .select("id, payment_link, customer_id, organisation_id, customers(name, phone, opted_out)")
       .or("deposit_paid.eq.false,deposit_paid.is.null")
       .not("payment_link", "is", null)
       .gte("created_at", fiveDaysAgo)
@@ -50,7 +50,17 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const message = `Hi ${customer.name}, this is a reminder that your deposit payment is still outstanding for your booking with K & N Gas Services.\n\nPlease pay securely here: ${job.payment_link}\n\nIf you have any questions please reply to this message.\n\nK & N Gas Services ☎ 087 3686252`;
+      const orgId = (job as any).organisation_id;
+      const { data: messengerConfig } = orgId ? await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", orgId)
+        .eq("integration_type", "360messenger")
+        .maybeSingle() : { data: null };
+      const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
+      const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+
+      const message = `Hi ${customer.name}, this is a reminder that your deposit payment is still outstanding for your booking with ${companyName}.\n\nPlease pay securely here: ${job.payment_link}\n\nIf you have any questions please reply to this message.\n\n${companyName} ☎ ${companyPhone}`;
 
       const cleanNumber = customer.phone.replace(/^\+/, "");
       const formData = new FormData();

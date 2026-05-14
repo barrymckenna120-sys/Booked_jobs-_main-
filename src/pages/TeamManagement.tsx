@@ -134,11 +134,66 @@ const TeamManagement = () => {
   const fetchMembers = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+
+    // Resolve current user's organisation
+    const { data: meEng } = await supabase
+      .from("engineers")
+      .select("organisation_id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    const orgId = (meEng as any)?.organisation_id ?? null;
+
+    const { data: engs } = await supabase
       .from("engineers")
       .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id, rgi_number")
       .order("name");
-    if (data) setMembers(data as TeamMember[]);
+
+    let combined: TeamMember[] = (engs as TeamMember[]) || [];
+
+    if (orgId) {
+      // Pull all profiles in this org and surface any that aren't already an engineer
+      const { data: profs } = await (supabase as any)
+        .from("profiles")
+        .select("id, display_name, created_at")
+        .eq("organisation_id", orgId);
+
+      const existingAuthIds = new Set(
+        combined.map((m) => m.auth_user_id).filter(Boolean) as string[]
+      );
+      const extras: TeamMember[] = ((profs as any[]) || [])
+        .filter((p) => p.id && !existingAuthIds.has(p.id))
+        .map((p) => ({
+          id: `profile-${p.id}`,
+          name: p.display_name || "Owner",
+          email: null,
+          phone: null,
+          role: "admin",
+          status: "active",
+          blocked_reason: null,
+          is_available: true,
+          created_at: p.created_at,
+          auth_user_id: p.id,
+          rgi_number: null,
+        }));
+      combined = [...combined, ...extras];
+
+      // Sort the org owner to the top
+      const { data: org } = await (supabase as any)
+        .from("organisations")
+        .select("owner_user_id")
+        .eq("id", orgId)
+        .maybeSingle();
+      const ownerId = (org as any)?.owner_user_id ?? null;
+      combined.sort((a, b) => {
+        if (ownerId) {
+          if (a.auth_user_id === ownerId) return -1;
+          if (b.auth_user_id === ownerId) return 1;
+        }
+        return (a.name || "").localeCompare(b.name || "");
+      });
+    }
+
+    setMembers(combined);
     setLoading(false);
   }, [user]);
 

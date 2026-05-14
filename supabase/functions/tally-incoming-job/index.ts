@@ -105,12 +105,49 @@ Deno.serve(async (req) => {
       ? "+" + mobileNumber
       : "+353" + mobileNumber.replace(/^0/, "");
 
-    // Get the organisation directly
-    const { data: orgData } = await supabase
-      .from("organisations")
-      .select("id, owner_user_id")
-      .eq("slug", "kn-gas-services")
-      .single();
+    // Resolve organisation dynamically from the Tally payload.
+    // Accept either an explicit organisation_id (UUID) or an org slug field.
+    const payloadOrgId = sanitize(body.organisation_id, MAX_SHORT_LEN);
+    const payloadOrgSlug =
+      sanitize(body.org_slug, MAX_SHORT_LEN) ??
+      sanitize(body.organisation_slug, MAX_SHORT_LEN);
+
+    let orgData: { id: string; owner_user_id: string | null } | null = null;
+
+    if (payloadOrgId) {
+      const { data } = await supabase
+        .from("organisations")
+        .select("id, owner_user_id")
+        .eq("id", payloadOrgId)
+        .maybeSingle();
+      orgData = data as typeof orgData;
+    } else if (payloadOrgSlug) {
+      const { data } = await supabase
+        .from("organisations")
+        .select("id, owner_user_id")
+        .eq("slug", payloadOrgSlug)
+        .maybeSingle();
+      orgData = data as typeof orgData;
+    } else {
+      console.error("tally-incoming-job: no org identifier in payload");
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "tally-incoming-job",
+          error_message: "tally-incoming-job: no org identifier in payload",
+          payload: body ?? null,
+        });
+      } catch (_e) {
+        /* logging best-effort */
+      }
+      // Tally always needs a 200 — acknowledge without processing.
+      return new Response(
+        JSON.stringify({ success: false, error: "No organisation identifier in payload" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     if (!orgData) {
       return new Response(JSON.stringify({ success: false, error: "Organisation not found" }), {

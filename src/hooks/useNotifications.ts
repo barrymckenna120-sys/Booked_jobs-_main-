@@ -84,7 +84,7 @@ export function useNotifications() {
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single()
       .then(({ data }) => {
         if (data) {
@@ -182,7 +182,7 @@ export function useNotifications() {
         await supabase
           .from("profiles")
           .update({ sound_alerts_enabled: enabled } as any)
-          .eq("user_id", user.id);
+          .eq("id", user.id);
       }
     },
     [user]

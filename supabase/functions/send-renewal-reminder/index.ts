@@ -29,9 +29,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Resolve organisation + branding
+    const { data: custOrg } = await supabase
+      .from("customers")
+      .select("organisation_id")
+      .eq("id", customer_id)
+      .maybeSingle();
+    const orgId = custOrg?.organisation_id;
+
+    const { data: messengerConfig } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle() : { data: null };
+    const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
+    const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+
     // Build message
-    const message = `Hi ${first_name},\n\nThis is K & N Gas Services. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on 087 3686252.\n\nReply STOP to unsubscribe.\nK & N Gas Services`;
+    const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on ${companyPhone}.\n\nReply STOP to unsubscribe.\n${companyName}`;
     console.log("Message built for:", first_name);
+
 
     // Format phone — strip +, ensure 353 prefix
     let cleanPhone = phone.replace(/[^0-9]/g, "");

@@ -152,13 +152,26 @@ const BrandTab = () => {
   const [previewTab, setPreviewTab] = useState<"cert" | "hazard" | "quote" | "invoice">("cert");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   useEffect(() => { loadGoogleFonts(); }, []);
 
-  // Fetch on mount
+  // Resolve organisation_id from profiles row once on mount
   useEffect(() => {
     if (!user) return;
-    const orgId = user.id;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      setOrgId(data?.organisation_id ?? null);
+    })();
+  }, [user]);
+
+  // Fetch on mount
+  useEffect(() => {
+    if (!user || !orgId) return;
     (async () => {
       const { data } = await supabase
         .from("brand_settings")
@@ -171,7 +184,7 @@ const BrandTab = () => {
       }
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, orgId]);
 
   const setColor = (key: keyof BrandColors, value: string) =>
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -182,10 +195,10 @@ const BrandTab = () => {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setSaving(true);
     try {
-      const row = { ...toDbRow(settings), organisation_id: user.id, updated_at: new Date().toISOString() };
+      const row = { ...toDbRow(settings), organisation_id: orgId, updated_at: new Date().toISOString() };
       if (existingId) {
         const { error } = await supabase.from("brand_settings").update(row).eq("id", existingId);
         if (error) throw error;
