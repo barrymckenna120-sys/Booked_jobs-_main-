@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
         // Log customer activity
         try {
           await supabase.from("customer_activity").insert({
-            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            organisation_id: orgId,
             customer_id: job.customer_id,
             service_call_id: job.id,
             event_type: "whatsapp_sent",
