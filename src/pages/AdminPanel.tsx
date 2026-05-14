@@ -332,6 +332,13 @@ export default function AdminPanel() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <CustomerIntegrationsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
