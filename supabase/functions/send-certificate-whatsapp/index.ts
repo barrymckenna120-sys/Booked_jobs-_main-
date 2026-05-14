@@ -129,9 +129,9 @@ serve(async (req) => {
     const defaultTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
     let messageTemplate = defaultTemplate;
 
-    if (userId) {
+    {
       const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=message_footer,template_certificate&limit=1`,
+        `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer,template_certificate&limit=1`,
         { headers }
       );
       const settings = await settingsRes.json();
