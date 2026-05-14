@@ -182,11 +182,11 @@ serve(async (req) => {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH",
           headers,
-          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
+          body: JSON.stringify({ status: "failed", error_message: "WhatsApp api_key not configured for organisation" }),
         });
       }
       return new Response(JSON.stringify({ success: false, error: "WhatsApp API key not configured" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
       });
     }
 
