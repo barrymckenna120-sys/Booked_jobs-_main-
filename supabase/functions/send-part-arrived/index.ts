@@ -134,24 +134,19 @@ serve(async (req) => {
       });
     }
 
-    // Log customer activity on success (best-effort - we don't have customer_id directly in some cases)
-    if (result.success) {
+    // Log customer activity on success
+    if (result.success && jobRow?.customer_id) {
       try {
-        const custRes2 = await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${job_id}&select=customer_id,organisation_id`, { headers });
-        const custRows2 = await custRes2.json();
-        const jobData = Array.isArray(custRows2) ? custRows2[0] : null;
-        if (jobData?.customer_id) {
-          await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
-            method: "POST", headers,
-            body: JSON.stringify({
-              organisation_id: jobData.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
-              customer_id: jobData.customer_id,
-              service_call_id: job_id,
-              event_type: "whatsapp_sent",
-              event_label: "WhatsApp sent — Part Arrived",
-            }),
-          });
-        }
+        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+          method: "POST", headers,
+          body: JSON.stringify({
+            organisation_id: orgId,
+            customer_id: jobRow.customer_id,
+            service_call_id: job_id,
+            event_type: "whatsapp_sent",
+            event_label: "WhatsApp sent — Part Arrived",
+          }),
+        });
       } catch { /* non-critical */ }
     }
 
