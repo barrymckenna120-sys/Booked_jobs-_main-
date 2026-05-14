@@ -68,10 +68,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Get Google review URL from settings
+    const orgId = (job as any).organisation_id;
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ error: "organisation_id missing on service_call" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Get Google review URL from settings (scoped per org)
     const { data: settings } = await supabase
       .from("settings")
       .select("google_review_url")
+      .eq("organisation_id", orgId)
       .limit(1)
       .maybeSingle();
 
@@ -81,7 +90,7 @@ Deno.serve(async (req) => {
     const { data: makeIntegration } = await supabase
       .from("tenant_integrations")
       .select("config")
-      .eq("organisation_id", (job as any).organisation_id)
+      .eq("organisation_id", orgId)
       .eq("integration_type", "make")
       .maybeSingle();
 
@@ -92,8 +101,8 @@ Deno.serve(async (req) => {
       // Log the error but don't fail the completion flow
       await supabase.from("edge_function_logs").insert({
         function_name: "trigger-review-request",
-        error_message: `No Make webhook URL found for org ${(job as any).organisation_id} (secret: ${webhookSecretName})`,
-        payload: { service_call_id, customer_id, organisation_id: (job as any).organisation_id },
+        error_message: `No Make webhook URL found for org ${orgId} (secret: ${webhookSecretName})`,
+        payload: { service_call_id, customer_id, organisation_id: orgId },
       });
       return new Response(
         JSON.stringify({ skipped: true, reason: "webhook_url_not_configured" }),
