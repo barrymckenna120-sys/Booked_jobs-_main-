@@ -8,8 +8,6 @@ import { MessageCircle, Loader2, RotateCcw } from "lucide-react";
 
 interface Props {
   settings: any;
-  onSave: (fields: Record<string, any>) => Promise<void>;
-  saving: boolean;
 }
 
 const TEMPLATES = [
