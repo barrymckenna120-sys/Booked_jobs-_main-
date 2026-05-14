@@ -122,8 +122,14 @@ serve(async (req) => {
     const timeSlot = job.time_block || "TBC";
     const engineerName = job.assigned_engineer || "TBC";
 
-    // Template variables in exact order required by Meta-approved template
-    const templateVars = [firstName, formattedDate, timeSlot, engineerName];
+    // Build message body (360Messenger /v2/sendMessage only supports free text)
+    const message =
+      `Hi ${firstName}, your booking with ${companyName || "us"} is confirmed.\n\n` +
+      `📅 Date: ${formattedDate}\n` +
+      `⏰ Time: ${timeSlot}\n` +
+      `👷 Engineer: ${engineerName}\n\n` +
+      `If you need to make any changes please reply to this message.` +
+      (messageFooter ? `\n\n${messageFooter}` : "");
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
@@ -135,7 +141,7 @@ serve(async (req) => {
         message_type: "booking_confirmation",
         channel: "whatsapp",
         direction: "outbound",
-        content: `[template:${templateName}] ${templateVars.join(" | ")}`,
+        content: message,
         status: "pending",
         related_id: service_call_id,
         related_type: "service_call",
@@ -146,17 +152,13 @@ serve(async (req) => {
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    // Send via 360Messenger Meta-approved template
+    // Send via 360Messenger free-text endpoint (template name retained for reference: ${templateName})
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
-    formData.append("template_name", templateName);
-    formData.append("language_code", "en");
-    templateVars.forEach((v, i) => {
-      formData.append(`body_${i + 1}`, String(v));
-    });
+    formData.append("text", message);
 
-    const response = await fetch("https://api.360messenger.com/v2/sendTemplate", {
+    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
