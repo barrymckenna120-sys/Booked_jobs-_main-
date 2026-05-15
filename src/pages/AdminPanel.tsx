@@ -74,6 +74,7 @@ export default function AdminPanel() {
   const [loadingTenants, setLoadingTenants] = useState(true);
   const [ownerEmails, setOwnerEmails] = useState<Record<string, string>>({});
   const [unblockingEmail, setUnblockingEmail] = useState<string | null>(null);
+  const [sendingMagicLinkFor, setSendingMagicLinkFor] = useState<string | null>(null);
 
   // Access check
   useEffect(() => {
