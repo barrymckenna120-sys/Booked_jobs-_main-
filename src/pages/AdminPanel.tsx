@@ -614,6 +614,37 @@ export default function AdminPanel() {
           <CustomerIntegrationsTab />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!activityModalOrg} onOpenChange={(open) => !open && setActivityModalOrg(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Activity — {activityModalOrg?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingActivityModal ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : activityModalEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No activity yet.</p>
+          ) : (
+            <ul className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {activityModalEntries.map((entry) => (
+                <li key={entry.id} className="border-b pb-2 last:border-b-0">
+                  <div className="text-sm font-medium">
+                    {EVENT_LABELS[entry.event_type] || entry.event_type}
+                  </div>
+                  {entry.note && (
+                    <div className="text-sm text-muted-foreground">{entry.note}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatActivityTime(entry.created_at)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
