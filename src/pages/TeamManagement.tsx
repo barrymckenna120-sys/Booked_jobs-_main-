@@ -52,6 +52,12 @@ import {
 
 // ── Role config ────────────────────────────────────────────────────
 const ROLES: Record<string, { label: string; icon: React.ReactNode; description: string; perms: string[] }> = {
+  owner: {
+    label: "Owner / Manager",
+    icon: <ShieldCheck className="w-4 h-4" />,
+    description: "Owner-level access — full control across office and engineer apps",
+    perms: ["All admin permissions", "Switch between office & engineer view", "Invite & block users", "Access settings", "View finance & reports"],
+  },
   admin: {
     label: "Admin",
     icon: <ShieldCheck className="w-4 h-4" />,
@@ -309,8 +315,9 @@ const TeamManagement = () => {
 
   const handleChangeRole = async (id: string, newRole: string) => {
     const m = members.find((m) => m.id === id);
-    await supabase.from("engineers").update({ role: newRole } as any).eq("id", id);
-    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
+    const canAccessOffice = ["admin", "owner"].includes(newRole);
+    await supabase.from("engineers").update({ role: newRole, can_access_office: canAccessOffice } as any).eq("id", id);
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole, can_access_office: canAccessOffice } : m)));
     toast({ title: `${m?.name} is now ${ROLES[newRole]?.label}` });
     logAudit({
       action_type: "user_role_changed",
