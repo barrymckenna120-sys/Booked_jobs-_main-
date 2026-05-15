@@ -15,10 +15,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
-import { Loader2 } from "lucide-react";
+import { Loader2, History, Ban, ShieldCheck } from "lucide-react";
 
 type Tenant = {
   id: string;
