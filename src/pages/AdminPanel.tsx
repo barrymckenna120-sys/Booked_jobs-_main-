@@ -291,6 +291,28 @@ export default function AdminPanel() {
     }
   };
 
+  const handleConfirmArchive = async () => {
+    if (!archiveModalTenant) return;
+    if (archiveTypedName.trim() !== archiveModalTenant.name) return;
+    const tenant = archiveModalTenant;
+    setArchiving(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_archived: true, archived_at: new Date().toISOString() } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+      toast.success("Organisation archived");
+      setArchiveModalTenant(null);
+      setArchiveTypedName("");
+      loadTenants();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to archive");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const openActivityModal = async (tenant: Tenant) => {
     setActivityModalOrg(tenant);
     setLoadingActivityModal(true);
