@@ -674,6 +674,13 @@ export default function AdminPanel() {
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/admin/tenants/${t.id}`)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
                             variant="secondary"
                             onClick={() => {
                               setViewingOrg(t.id, t.name);
@@ -682,27 +689,6 @@ export default function AdminPanel() {
                             }}
                           >
                             Switch Context
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!email || unblockingEmail === email}
-                            onClick={() => email && handleUnblock(email)}
-                            title={email || "Owner email unavailable"}
-                          >
-                            {email && unblockingEmail === email ? "Unblocking…" : "Unblock"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={archived}
-                            onClick={() => {
-                              setArchiveModalTenant(t);
-                              setArchiveTypedName("");
-                            }}
-                          >
-                            <Trash2 className="mr-1 h-3 w-3" />
-                            Archive
                           </Button>
                         </div>
                       </TableCell>
