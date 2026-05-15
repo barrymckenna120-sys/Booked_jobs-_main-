@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
   return json({
     success: true,
     organisation_id: newOrgId,
-    org_slug,
+    org_slug: finalSlug,
     invited_email: owner_email,
   });
 });
