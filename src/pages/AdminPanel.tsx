@@ -686,6 +686,18 @@ export default function AdminPanel() {
                           >
                             {email && unblockingEmail === email ? "Unblocking…" : "Unblock"}
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={archived}
+                            onClick={() => {
+                              setArchiveModalTenant(t);
+                              setArchiveTypedName("");
+                            }}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Archive
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
