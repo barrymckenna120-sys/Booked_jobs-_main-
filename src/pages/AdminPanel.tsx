@@ -20,7 +20,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
