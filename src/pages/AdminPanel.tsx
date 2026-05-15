@@ -803,6 +803,67 @@ export default function AdminPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!archiveModalTenant}
+        onOpenChange={(open) => {
+          if (!open && !archiving) {
+            setArchiveModalTenant(null);
+            setArchiveTypedName("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Archive {archiveModalTenant?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="archive-name">
+              Type the organisation name to confirm archiving
+            </Label>
+            <Input
+              id="archive-name"
+              value={archiveTypedName}
+              onChange={(e) => setArchiveTypedName(e.target.value)}
+              placeholder={archiveModalTenant?.name}
+              disabled={archiving}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setArchiveModalTenant(null);
+                setArchiveTypedName("");
+              }}
+              disabled={archiving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmArchive}
+              disabled={
+                archiving ||
+                archiveTypedName.trim() !== (archiveModalTenant?.name ?? "")
+              }
+            >
+              {archiving ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Archiving…
+                </>
+              ) : (
+                "Archive Organisation"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
