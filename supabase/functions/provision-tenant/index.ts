@@ -75,18 +75,26 @@ Deno.serve(async (req) => {
     } catch (_e) { /* best effort */ }
   };
 
-  // Step 2: slug uniqueness
-  const { data: existing, error: slugErr } = await supabase
-    .from("organisations")
-    .select("id")
-    .eq("slug", org_slug)
-    .maybeSingle();
-  if (slugErr) {
-    await logFailure("step 2", slugErr.message);
-    return json({ error: "provision_failed", step: "2", detail: slugErr.message }, 500);
-  }
-  if (existing) {
-    return json({ error: "slug_taken" }, 409);
+  // Step 2: slug uniqueness — auto-suffix if taken
+  let finalSlug = org_slug;
+  for (let i = 0; i < 50; i++) {
+    const candidate = i === 0 ? org_slug : `${org_slug}-${i + 1}`;
+    const { data: existing, error: slugErr } = await supabase
+      .from("organisations")
+      .select("id")
+      .eq("slug", candidate)
+      .maybeSingle();
+    if (slugErr) {
+      await logFailure("step 2", slugErr.message);
+      return json({ error: "provision_failed", step: "2", detail: slugErr.message }, 500);
+    }
+    if (!existing) {
+      finalSlug = candidate;
+      break;
+    }
+    if (i === 49) {
+      return json({ error: "slug_taken" }, 409);
+    }
   }
 
   // Step 3: insert organisation
