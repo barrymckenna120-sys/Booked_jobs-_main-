@@ -358,6 +358,7 @@ export default function AdminPanel() {
                     <TableHead>Status</TableHead>
                     <TableHead>Owner Name</TableHead>
                     <TableHead>Owner Phone</TableHead>
+                    <TableHead>Owner Email</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Magic Link</TableHead>
