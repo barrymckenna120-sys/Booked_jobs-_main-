@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
+import { toast } from "sonner";
 
 type Tenant = {
   id: string;
@@ -26,6 +27,7 @@ type Tenant = {
   owner_phone: string | null;
   industry: string | null;
   created_at: string;
+  owner_user_id: string | null;
 };
 
 const slugify = (s: string) =>
@@ -68,6 +70,8 @@ export default function AdminPanel() {
   // tenants
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loadingTenants, setLoadingTenants] = useState(true);
+  const [ownerEmails, setOwnerEmails] = useState<Record<string, string>>({});
+  const [unblockingEmail, setUnblockingEmail] = useState<string | null>(null);
 
   // Access check
   useEffect(() => {
@@ -100,10 +104,41 @@ export default function AdminPanel() {
     setLoadingTenants(true);
     const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at")
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id")
       .order("created_at", { ascending: false });
-    setTenants((data as any) || []);
+    const list = (data as any[]) || [];
+    setTenants(list as any);
     setLoadingTenants(false);
+
+    // Fetch owner emails via list-users edge function
+    try {
+      const { data: usersResp } = await supabase.functions.invoke("list-users");
+      const users = (usersResp as any)?.users || [];
+      const map: Record<string, string> = {};
+      for (const u of users) {
+        if (u?.id && u?.email) map[u.id] = u.email;
+      }
+      setOwnerEmails(map);
+    } catch (_e) {
+      // non-fatal — Unblock button will be disabled when email missing
+    }
+  };
+
+  const handleUnblock = async (email: string) => {
+    setUnblockingEmail(email);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-auth-block", {
+        body: { email },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Failed to unblock");
+      }
+      toast.success("User unblocked successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to unblock user");
+    } finally {
+      setUnblockingEmail(null);
+    }
   };
 
   useEffect(() => {
