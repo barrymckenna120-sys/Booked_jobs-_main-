@@ -1606,6 +1606,7 @@ export type Database = {
       }
       organisations: {
         Row: {
+          archived_at: string | null
           bookedjobs_plan: string | null
           bot_enabled: boolean | null
           bot_name: string | null
@@ -1616,6 +1617,7 @@ export type Database = {
           google_review_url: string | null
           id: string
           industry: string | null
+          is_archived: boolean
           is_blocked: boolean
           name: string
           owner_name: string | null
@@ -1627,6 +1629,7 @@ export type Database = {
           subscription_status: string
         }
         Insert: {
+          archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
           bot_name?: string | null
@@ -1637,6 +1640,7 @@ export type Database = {
           google_review_url?: string | null
           id?: string
           industry?: string | null
+          is_archived?: boolean
           is_blocked?: boolean
           name: string
           owner_name?: string | null
@@ -1648,6 +1652,7 @@ export type Database = {
           subscription_status?: string
         }
         Update: {
+          archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
           bot_name?: string | null
@@ -1658,6 +1663,7 @@ export type Database = {
           google_review_url?: string | null
           id?: string
           industry?: string | null
+          is_archived?: boolean
           is_blocked?: boolean
           name?: string
           owner_name?: string | null
