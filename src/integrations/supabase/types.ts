@@ -1616,6 +1616,7 @@ export type Database = {
           google_review_url: string | null
           id: string
           industry: string | null
+          is_blocked: boolean
           name: string
           owner_name: string | null
           owner_phone: string | null
@@ -1636,6 +1637,7 @@ export type Database = {
           google_review_url?: string | null
           id?: string
           industry?: string | null
+          is_blocked?: boolean
           name: string
           owner_name?: string | null
           owner_phone?: string | null
@@ -1656,6 +1658,7 @@ export type Database = {
           google_review_url?: string | null
           id?: string
           industry?: string | null
+          is_blocked?: boolean
           name?: string
           owner_name?: string | null
           owner_phone?: string | null
