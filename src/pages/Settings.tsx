@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgId } from "@/hooks/useOrgId";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
   Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
@@ -48,18 +49,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
   const [saving, setSaving] = useState(false);
 
-  const { data: orgId } = useQuery({
-    queryKey: ["user-org-id", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("engineers")
-        .select("organisation_id")
-        .eq("auth_user_id", user!.id)
-        .maybeSingle();
-      return data?.organisation_id ?? null;
-    },
-    enabled: !!user,
-  });
+  const { orgId } = useOrgId();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["settings", orgId],
