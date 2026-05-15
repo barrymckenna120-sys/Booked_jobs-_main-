@@ -604,7 +604,7 @@ export default function AdminPanel() {
                             size="sm"
                             variant={blocked ? "outline" : "destructive"}
                             disabled={togglingBlockFor === t.id}
-                            onClick={() => handleToggleBlock(t)}
+                            onClick={() => (blocked ? handleUnblockTenant(t) : openBlockModal(t))}
                           >
                             {togglingBlockFor === t.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
