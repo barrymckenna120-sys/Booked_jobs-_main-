@@ -358,6 +358,7 @@ export default function AdminPanel() {
                     <TableHead>Status</TableHead>
                     <TableHead>Owner Name</TableHead>
                     <TableHead>Owner Phone</TableHead>
+                    <TableHead>Owner Email</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Magic Link</TableHead>
@@ -376,6 +377,7 @@ export default function AdminPanel() {
                       </TableCell>
                       <TableCell>{t.owner_name || "—"}</TableCell>
                       <TableCell>{t.owner_phone || "—"}</TableCell>
+                      <TableCell>{email || "—"}</TableCell>
                       <TableCell>{t.industry || "—"}</TableCell>
                       <TableCell>
                         {new Date(t.created_at).toLocaleDateString('en-IE', {
