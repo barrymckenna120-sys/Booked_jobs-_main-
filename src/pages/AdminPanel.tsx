@@ -39,6 +39,8 @@ type Tenant = {
   created_at: string;
   owner_user_id: string | null;
   is_blocked: boolean | null;
+  is_archived?: boolean | null;
+  archived_at?: string | null;
 };
 
 type ActivityEntry = {
