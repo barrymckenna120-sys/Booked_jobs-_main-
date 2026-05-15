@@ -700,6 +700,63 @@ export default function AdminPanel() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!blockModalTenant}
+        onOpenChange={(open) => {
+          if (!open && !confirmingBlock) {
+            setBlockModalTenant(null);
+            setBlockReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Block {blockModalTenant?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="block-reason">Reason for blocking</Label>
+            <Textarea
+              id="block-reason"
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Explain why this tenant is being blocked (min 10 characters)…"
+              rows={4}
+              disabled={confirmingBlock}
+            />
+            <p className="text-xs text-muted-foreground">
+              {blockReason.trim().length}/10 characters minimum. The owner will be emailed
+              with this reason.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBlockModalTenant(null);
+                setBlockReason("");
+              }}
+              disabled={confirmingBlock}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmBlock}
+              disabled={confirmingBlock || blockReason.trim().length < 10}
+            >
+              {confirmingBlock ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Blocking…
+                </>
+              ) : (
+                "Confirm Block"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
