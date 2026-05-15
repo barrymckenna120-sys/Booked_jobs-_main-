@@ -21,10 +21,17 @@ interface CertDoc {
 }
 
 const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }) => {
+  const navigate = useNavigate();
   const [docs, setDocs] = useState<CertDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editCert, setEditCert] = useState<any>(null);
+
+  const closeAndReturnToJob = () => {
+    setShowForm(false);
+    setEditCert(null);
+    navigate(-1);
+  };
 
   const fetchDocs = async () => {
     setLoading(true);
