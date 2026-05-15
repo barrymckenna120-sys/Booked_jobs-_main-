@@ -62,7 +62,8 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
-  const { isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
+  const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
+  const isOwnerManager = role === ("owner_manager" as any);
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
