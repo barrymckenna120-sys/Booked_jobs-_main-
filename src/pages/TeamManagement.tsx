@@ -315,8 +315,9 @@ const TeamManagement = () => {
 
   const handleChangeRole = async (id: string, newRole: string) => {
     const m = members.find((m) => m.id === id);
-    await supabase.from("engineers").update({ role: newRole } as any).eq("id", id);
-    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
+    const canAccessOffice = ["admin", "owner"].includes(newRole);
+    await supabase.from("engineers").update({ role: newRole, can_access_office: canAccessOffice } as any).eq("id", id);
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole, can_access_office: canAccessOffice } : m)));
     toast({ title: `${m?.name} is now ${ROLES[newRole]?.label}` });
     logAudit({
       action_type: "user_role_changed",
