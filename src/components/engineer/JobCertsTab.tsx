@@ -71,8 +71,8 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
         customer={customer}
         engineerInfo={engineerInfo}
         existingCert={editCert}
-        onClose={() => { setShowForm(false); setEditCert(null); }}
-        onSaved={() => { setShowForm(false); setEditCert(null); fetchDocs(); }}
+        onClose={closeAndReturnToJob}
+        onSaved={closeAndReturnToJob}
       />
     );
   }
