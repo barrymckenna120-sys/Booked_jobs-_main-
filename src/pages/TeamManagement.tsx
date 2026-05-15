@@ -386,6 +386,33 @@ const TeamManagement = () => {
   const handleDelete = async () => {
     if (!deleteTarget) return;
 
+    const { data: activeJobs, error: activeJobsError } = await supabase
+      .from("service_calls")
+      .select("id, status")
+      .eq("assigned_engineer_id", deleteTarget.id)
+      .not("status", "in", "(completed,cancelled)");
+
+    if (activeJobsError) {
+      console.error("Active jobs check error:", activeJobsError);
+      toast({
+        title: "Failed to remove user",
+        description: activeJobsError.message,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
+    if (activeJobs && activeJobs.length > 0) {
+      const count = activeJobs.length;
+      toast({
+        title: `Cannot remove ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
     const { error } = await supabase
       .from("engineers")
       .delete()
