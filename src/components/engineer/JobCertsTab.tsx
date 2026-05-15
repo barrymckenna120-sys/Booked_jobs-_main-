@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2, ExternalLink, PenLine, AlertTriangle } from "lucide-react";
@@ -20,10 +21,17 @@ interface CertDoc {
 }
 
 const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }) => {
+  const navigate = useNavigate();
   const [docs, setDocs] = useState<CertDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editCert, setEditCert] = useState<any>(null);
+
+  const closeAndReturnToJob = () => {
+    setShowForm(false);
+    setEditCert(null);
+    navigate(-1);
+  };
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -63,8 +71,8 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
         customer={customer}
         engineerInfo={engineerInfo}
         existingCert={editCert}
-        onClose={() => { setShowForm(false); setEditCert(null); }}
-        onSaved={() => { setShowForm(false); setEditCert(null); fetchDocs(); }}
+        onClose={closeAndReturnToJob}
+        onSaved={closeAndReturnToJob}
       />
     );
   }
