@@ -36,7 +36,8 @@ const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
-  const { canAccessOffice } = useUserRole(user);
+  const { role, canAccessOffice } = useUserRole(user);
+  const isOwnerManager = role === ("owner_manager" as any);
   const engineerJobs = useEngineerJobs();
   const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
@@ -84,6 +85,15 @@ const EngineerLayout = () => {
             <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
           </div>
           <div className="flex items-center gap-2">
+            {isOwnerManager && (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+                title="Back to Office"
+              >
+                <Briefcase className="w-4 h-4" /> Back to Office
+              </button>
+            )}
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
               onClick={async () => {
