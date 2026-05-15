@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
-import { Loader2, History, Ban, ShieldCheck } from "lucide-react";
+import { Loader2, History, Ban, ShieldCheck, Trash2 } from "lucide-react";
 
 type Tenant = {
   id: string;
@@ -39,6 +39,8 @@ type Tenant = {
   created_at: string;
   owner_user_id: string | null;
   is_blocked: boolean | null;
+  is_archived?: boolean | null;
+  archived_at?: string | null;
 };
 
 type ActivityEntry = {
@@ -117,6 +119,9 @@ export default function AdminPanel() {
   const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const [archiveModalTenant, setArchiveModalTenant] = useState<Tenant | null>(null);
+  const [archiveTypedName, setArchiveTypedName] = useState("");
+  const [archiving, setArchiving] = useState(false);
 
   // Access check
   useEffect(() => {
@@ -149,7 +154,7 @@ export default function AdminPanel() {
     setLoadingTenants(true);
     const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked" as any)
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked, is_archived, archived_at" as any)
       .order("created_at", { ascending: false });
     const list = (data as any[]) || [];
     setTenants(list as any);
@@ -283,6 +288,28 @@ export default function AdminPanel() {
       toast.error(err instanceof Error ? err.message : "Failed to block tenant");
     } finally {
       setConfirmingBlock(false);
+    }
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!archiveModalTenant) return;
+    if (archiveTypedName.trim() !== archiveModalTenant.name) return;
+    const tenant = archiveModalTenant;
+    setArchiving(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_archived: true, archived_at: new Date().toISOString() } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+      toast.success("Organisation archived");
+      setArchiveModalTenant(null);
+      setArchiveTypedName("");
+      loadTenants();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to archive");
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -547,13 +574,14 @@ export default function AdminPanel() {
                   {tenants.map((t) => {
                     const email = t.owner_user_id ? ownerEmails[t.owner_user_id] : null;
                     const blocked = !!t.is_blocked;
+                    const archived = !!t.is_archived;
                     const latest = latestActivity[t.id];
                     return (
-                    <TableRow key={t.id} className={blocked ? "opacity-60 bg-muted/40" : ""}>
+                    <TableRow key={t.id} className={archived ? "opacity-50 bg-muted/40" : blocked ? "opacity-60 bg-muted/40" : ""}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <span>{t.name}</span>
-                          {blocked && (
+                          {blocked && !archived && (
                             <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
                               Blocked
                             </Badge>
@@ -562,7 +590,13 @@ export default function AdminPanel() {
                       </TableCell>
                       <TableCell>{t.slug}</TableCell>
                       <TableCell>
-                        <StatusBadge status={t.subscription_status} />
+                        {archived ? (
+                          <Badge variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-200">
+                            Archived
+                          </Badge>
+                        ) : (
+                          <StatusBadge status={t.subscription_status} />
+                        )}
                       </TableCell>
                       <TableCell>
                         <div>{t.owner_name || "—"}</div>
@@ -651,6 +685,18 @@ export default function AdminPanel() {
                             title={email || "Owner email unavailable"}
                           >
                             {email && unblockingEmail === email ? "Unblocking…" : "Unblock"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={archived}
+                            onClick={() => {
+                              setArchiveModalTenant(t);
+                              setArchiveTypedName("");
+                            }}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Archive
                           </Button>
                         </div>
                       </TableCell>
@@ -752,6 +798,67 @@ export default function AdminPanel() {
                 </>
               ) : (
                 "Confirm Block"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!archiveModalTenant}
+        onOpenChange={(open) => {
+          if (!open && !archiving) {
+            setArchiveModalTenant(null);
+            setArchiveTypedName("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Archive {archiveModalTenant?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="archive-name">
+              Type the organisation name to confirm archiving
+            </Label>
+            <Input
+              id="archive-name"
+              value={archiveTypedName}
+              onChange={(e) => setArchiveTypedName(e.target.value)}
+              placeholder={archiveModalTenant?.name}
+              disabled={archiving}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setArchiveModalTenant(null);
+                setArchiveTypedName("");
+              }}
+              disabled={archiving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmArchive}
+              disabled={
+                archiving ||
+                archiveTypedName.trim() !== (archiveModalTenant?.name ?? "")
+              }
+            >
+              {archiving ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Archiving…
+                </>
+              ) : (
+                "Archive Organisation"
               )}
             </Button>
           </DialogFooter>
