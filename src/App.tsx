@@ -179,6 +179,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
+        </AdminViewAsProvider>
       </BrowserRouter>
       </WhatsAppConnectionProvider>
     </TooltipProvider>
