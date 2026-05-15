@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
+import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 
 type Tenant = {
   id: string;
@@ -53,6 +54,7 @@ const StatusBadge = ({ status }: { status: string | null }) => {
 
 export default function AdminPanel() {
   const navigate = useNavigate();
+  const { setViewingOrg } = useAdminViewAs();
   const [authChecked, setAuthChecked] = useState(false);
 
   // form state
@@ -363,15 +365,28 @@ export default function AdminPanel() {
                         })}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!email || unblockingEmail === email}
-                          onClick={() => email && handleUnblock(email)}
-                          title={email || "Owner email unavailable"}
-                        >
-                          {unblockingEmail === email ? "Unblocking…" : "Unblock"}
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setViewingOrg(t.id, t.name);
+                              toast.success(`Switched to ${t.name}`);
+                              navigate("/dashboard");
+                            }}
+                          >
+                            Switch Context
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!email || unblockingEmail === email}
+                            onClick={() => email && handleUnblock(email)}
+                            title={email || "Owner email unavailable"}
+                          >
+                            {unblockingEmail === email ? "Unblocking…" : "Unblock"}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                     );
