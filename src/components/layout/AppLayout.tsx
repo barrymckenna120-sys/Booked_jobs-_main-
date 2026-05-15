@@ -135,6 +135,15 @@ const AppLayoutInner = () => {
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
+            {isOwnerManager && (
+              <button
+                onClick={() => navigate("/engineer/today")}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Switch to Engineer View"
+              >
+                <Hammer className="w-4 h-4" /> Engineer View
+              </button>
+            )}
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
             <button
               onClick={() => guardedNavigate("/settings")}
