@@ -384,6 +384,24 @@ export default function AdminPanel() {
                           year: 'numeric'
                         })}
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!email || sendingMagicLinkFor === t.id}
+                          onClick={() => email && handleSendMagicLink(t.id, email, t.name)}
+                          title={email || "Owner email unavailable"}
+                        >
+                          {sendingMagicLinkFor === t.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              Sending…
+                            </>
+                          ) : (
+                            "Send Magic Link"
+                          )}
+                        </Button>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
