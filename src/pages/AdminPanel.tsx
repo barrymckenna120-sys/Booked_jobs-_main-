@@ -20,7 +20,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
@@ -112,6 +114,9 @@ export default function AdminPanel() {
   const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
   const [activityModalEntries, setActivityModalEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivityModal, setLoadingActivityModal] = useState(false);
+  const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
 
   // Access check
   useEffect(() => {
@@ -203,31 +208,81 @@ export default function AdminPanel() {
     loadLatestActivity();
   };
 
-  const handleToggleBlock = async (tenant: Tenant) => {
-    const willBlock = !tenant.is_blocked;
+  const handleUnblockTenant = async (tenant: Tenant) => {
     setTogglingBlockFor(tenant.id);
     try {
       const { error } = await supabase
         .from("organisations")
-        .update({ is_blocked: willBlock } as any)
+        .update({ is_blocked: false } as any)
         .eq("id", tenant.id);
       if (error) throw error;
 
       setTenants((prev) =>
-        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: willBlock } : t)),
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: false } : t)),
       );
 
-      await logTenantActivity(
-        tenant.id,
-        willBlock ? "access_blocked" : "access_unblocked",
-        tenant.name,
-      );
-
-      toast.success(willBlock ? `${tenant.name} blocked` : `${tenant.name} unblocked`);
+      await logTenantActivity(tenant.id, "access_unblocked", tenant.name);
+      toast.success(`${tenant.name} unblocked`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update tenant");
     } finally {
       setTogglingBlockFor(null);
+    }
+  };
+
+  const openBlockModal = (tenant: Tenant) => {
+    setBlockModalTenant(tenant);
+    setBlockReason("");
+  };
+
+  const handleConfirmBlock = async () => {
+    if (!blockModalTenant) return;
+    const reason = blockReason.trim();
+    if (reason.length < 10) {
+      toast.error("Reason must be at least 10 characters");
+      return;
+    }
+    const tenant = blockModalTenant;
+    setConfirmingBlock(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_blocked: true } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+
+      setTenants((prev) =>
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: true } : t)),
+      );
+
+      await logTenantActivity(tenant.id, "access_blocked", reason);
+
+      const ownerEmail = tenant.owner_user_id ? ownerEmails[tenant.owner_user_id] : null;
+      if (ownerEmail) {
+        try {
+          const { data, error: fnErr } = await supabase.functions.invoke(
+            "send-block-notification",
+            { body: { email: ownerEmail, org_name: tenant.name, reason } },
+          );
+          if (fnErr || (data as any)?.error) {
+            const msg = (data as any)?.error || fnErr?.message || "Failed to send notification";
+            toast.error(`Blocked, but email failed: ${msg}`);
+          } else {
+            toast.success(`${tenant.name} blocked — owner notified`);
+          }
+        } catch (e) {
+          toast.error(`Blocked, but email failed: ${e instanceof Error ? e.message : "unknown"}`);
+        }
+      } else {
+        toast.success(`${tenant.name} blocked (no owner email on file)`);
+      }
+
+      setBlockModalTenant(null);
+      setBlockReason("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to block tenant");
+    } finally {
+      setConfirmingBlock(false);
     }
   };
 
@@ -549,7 +604,7 @@ export default function AdminPanel() {
                             size="sm"
                             variant={blocked ? "outline" : "destructive"}
                             disabled={togglingBlockFor === t.id}
-                            onClick={() => handleToggleBlock(t)}
+                            onClick={() => (blocked ? handleUnblockTenant(t) : openBlockModal(t))}
                           >
                             {togglingBlockFor === t.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
@@ -643,6 +698,63 @@ export default function AdminPanel() {
               ))}
             </ul>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!blockModalTenant}
+        onOpenChange={(open) => {
+          if (!open && !confirmingBlock) {
+            setBlockModalTenant(null);
+            setBlockReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Block {blockModalTenant?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="block-reason">Reason for blocking</Label>
+            <Textarea
+              id="block-reason"
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Explain why this tenant is being blocked (min 10 characters)…"
+              rows={4}
+              disabled={confirmingBlock}
+            />
+            <p className="text-xs text-muted-foreground">
+              {blockReason.trim().length}/10 characters minimum. The owner will be emailed
+              with this reason.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBlockModalTenant(null);
+                setBlockReason("");
+              }}
+              disabled={confirmingBlock}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmBlock}
+              disabled={confirmingBlock || blockReason.trim().length < 10}
+            >
+              {confirmingBlock ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Blocking…
+                </>
+              ) : (
+                "Confirm Block"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
