@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminViewingOrgId, SUPER_ADMIN_EMAIL } from "@/hooks/useAdminViewAs";
 
 /**
  * Resolves the current user's organisation_id from the profiles table.
@@ -18,6 +19,15 @@ export function useOrgId() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           if (!cancelled) setReady(true);
+          return;
+        }
+        // Super-admin "View as Tenant" override
+        const override = getAdminViewingOrgId();
+        if (override && session.user.email?.toLowerCase() === SUPER_ADMIN_EMAIL) {
+          if (!cancelled) {
+            setOrgId(override);
+            setReady(true);
+          }
           return;
         }
         const { data: profile } = await supabase
