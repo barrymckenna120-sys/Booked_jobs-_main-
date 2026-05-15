@@ -208,31 +208,81 @@ export default function AdminPanel() {
     loadLatestActivity();
   };
 
-  const handleToggleBlock = async (tenant: Tenant) => {
-    const willBlock = !tenant.is_blocked;
+  const handleUnblockTenant = async (tenant: Tenant) => {
     setTogglingBlockFor(tenant.id);
     try {
       const { error } = await supabase
         .from("organisations")
-        .update({ is_blocked: willBlock } as any)
+        .update({ is_blocked: false } as any)
         .eq("id", tenant.id);
       if (error) throw error;
 
       setTenants((prev) =>
-        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: willBlock } : t)),
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: false } : t)),
       );
 
-      await logTenantActivity(
-        tenant.id,
-        willBlock ? "access_blocked" : "access_unblocked",
-        tenant.name,
-      );
-
-      toast.success(willBlock ? `${tenant.name} blocked` : `${tenant.name} unblocked`);
+      await logTenantActivity(tenant.id, "access_unblocked", tenant.name);
+      toast.success(`${tenant.name} unblocked`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update tenant");
     } finally {
       setTogglingBlockFor(null);
+    }
+  };
+
+  const openBlockModal = (tenant: Tenant) => {
+    setBlockModalTenant(tenant);
+    setBlockReason("");
+  };
+
+  const handleConfirmBlock = async () => {
+    if (!blockModalTenant) return;
+    const reason = blockReason.trim();
+    if (reason.length < 10) {
+      toast.error("Reason must be at least 10 characters");
+      return;
+    }
+    const tenant = blockModalTenant;
+    setConfirmingBlock(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_blocked: true } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+
+      setTenants((prev) =>
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: true } : t)),
+      );
+
+      await logTenantActivity(tenant.id, "access_blocked", reason);
+
+      const ownerEmail = tenant.owner_user_id ? ownerEmails[tenant.owner_user_id] : null;
+      if (ownerEmail) {
+        try {
+          const { data, error: fnErr } = await supabase.functions.invoke(
+            "send-block-notification",
+            { body: { email: ownerEmail, org_name: tenant.name, reason } },
+          );
+          if (fnErr || (data as any)?.error) {
+            const msg = (data as any)?.error || fnErr?.message || "Failed to send notification";
+            toast.error(`Blocked, but email failed: ${msg}`);
+          } else {
+            toast.success(`${tenant.name} blocked — owner notified`);
+          }
+        } catch (e) {
+          toast.error(`Blocked, but email failed: ${e instanceof Error ? e.message : "unknown"}`);
+        }
+      } else {
+        toast.success(`${tenant.name} blocked (no owner email on file)`);
+      }
+
+      setBlockModalTenant(null);
+      setBlockReason("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to block tenant");
+    } finally {
+      setConfirmingBlock(false);
     }
   };
 
