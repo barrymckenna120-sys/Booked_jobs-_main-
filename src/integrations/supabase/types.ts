@@ -2501,6 +2501,41 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_activity_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          note: string | null
+          organisation_id: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          note?: string | null
+          organisation_id?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_activity_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_integrations: {
         Row: {
           config: Json
