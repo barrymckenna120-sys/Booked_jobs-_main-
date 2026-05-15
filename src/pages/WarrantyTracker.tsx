@@ -178,23 +178,63 @@ const WarrantyTracker = () => {
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide mb-4">Boiler Brand & Model Breakdown</p>
             <div className="space-y-4">
-              {brandBreakdown.map(({ brand, models }) => (
-                <div key={brand}>
-                  <p className="text-sm font-bold mb-1">{brand}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {models.map(([model, count]) => (
-                      <button
-                        key={model}
-                        onClick={() => setSearch(model === "Unknown" ? "" : model)}
-                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
-                      >
-                        {model} <span className="font-extrabold">{count}</span>
-                      </button>
-                    ))}
+              {brandBreakdown.map(({ brand, models }) => {
+                const brandActive = selectedBrand === brand;
+                return (
+                  <div key={brand}>
+                    <button
+                      onClick={() => {
+                        setSelectedBrand(brandActive ? null : brand);
+                        setSelectedModel(null);
+                      }}
+                      className={`text-sm font-bold mb-1 transition-colors ${brandActive ? "text-primary underline" : "hover:text-primary"}`}
+                    >
+                      {brand}
+                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      {models.map(([model, count]) => {
+                        const modelActive = selectedModel === model && selectedBrand === brand;
+                        return (
+                          <button
+                            key={model}
+                            onClick={() => {
+                              if (modelActive) {
+                                setSelectedModel(null);
+                                setSelectedBrand(null);
+                              } else {
+                                setSelectedBrand(brand);
+                                setSelectedModel(model);
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                              modelActive
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                            }`}
+                          >
+                            {model} <span className="font-extrabold">{count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+            {(selectedBrand || selectedModel) && (
+              <div className="mt-4 flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">Filtering by:</span>
+                <span className="font-semibold text-foreground">
+                  {selectedBrand}{selectedModel ? ` · ${selectedModel}` : ""}
+                </span>
+                <button
+                  onClick={() => { setSelectedBrand(null); setSelectedModel(null); }}
+                  className="ml-1 text-primary font-semibold hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
