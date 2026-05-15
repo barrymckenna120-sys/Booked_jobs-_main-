@@ -206,6 +206,16 @@ const AppLayoutInner = () => {
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
         <div className="flex items-center gap-1.5">
+          {isOwnerManager && (
+            <button
+              onClick={() => navigate("/engineer/today")}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Switch to Engineer View"
+              aria-label="Engineer View"
+            >
+              <Hammer className="w-5 h-5" />
+            </button>
+          )}
           <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
