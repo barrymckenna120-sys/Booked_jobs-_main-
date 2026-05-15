@@ -2551,6 +2551,7 @@ export type Database = {
           created_at: string
           id: string
           integration_type: string
+          is_active: boolean
           organisation_id: string
           updated_at: string
         }
@@ -2559,6 +2560,7 @@ export type Database = {
           created_at?: string
           id?: string
           integration_type: string
+          is_active?: boolean
           organisation_id: string
           updated_at?: string
         }
@@ -2567,6 +2569,7 @@ export type Database = {
           created_at?: string
           id?: string
           integration_type?: string
+          is_active?: boolean
           organisation_id?: string
           updated_at?: string
         }
