@@ -114,6 +114,9 @@ export default function AdminPanel() {
   const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
   const [activityModalEntries, setActivityModalEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivityModal, setLoadingActivityModal] = useState(false);
+  const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
 
   // Access check
   useEffect(() => {
