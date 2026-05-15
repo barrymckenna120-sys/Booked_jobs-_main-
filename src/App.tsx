@@ -64,6 +64,7 @@ import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
 import AdminPanel from "./pages/AdminPanel";
+import TenantDetail from "./pages/admin/TenantDetail";
 import { AdminViewAsProvider } from "@/hooks/useAdminViewAs";
 import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
 
@@ -176,6 +177,7 @@ const App = () => (
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
             <Route path="/debug/audio" element={<AudioDebug />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
