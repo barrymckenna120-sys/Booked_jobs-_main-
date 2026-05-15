@@ -77,3 +77,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.cancel-job-notify]
     verify_jwt = false
+  [functions.send-magic-link]
+    verify_jwt = false
