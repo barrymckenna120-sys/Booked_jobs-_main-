@@ -72,7 +72,7 @@ const WarrantyTracker = () => {
     fetch();
   }, [user]);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, selectedBrand, selectedModel]);
 
   // Summary counts
   const summary = useMemo(() => {
