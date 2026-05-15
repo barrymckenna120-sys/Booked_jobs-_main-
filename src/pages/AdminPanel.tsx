@@ -377,6 +377,7 @@ export default function AdminPanel() {
                       </TableCell>
                       <TableCell>{t.owner_name || "—"}</TableCell>
                       <TableCell>{t.owner_phone || "—"}</TableCell>
+                      <TableCell>{email || "—"}</TableCell>
                       <TableCell>{t.industry || "—"}</TableCell>
                       <TableCell>
                         {new Date(t.created_at).toLocaleDateString('en-IE', {
