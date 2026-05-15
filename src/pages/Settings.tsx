@@ -48,18 +48,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
   const [saving, setSaving] = useState(false);
 
-  const { data: orgId } = useQuery({
-    queryKey: ["user-org-id", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("engineers")
-        .select("organisation_id")
-        .eq("auth_user_id", user!.id)
-        .maybeSingle();
-      return data?.organisation_id ?? null;
-    },
-    enabled: !!user,
-  });
+  const { orgId } = useOrgId();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["settings", orgId],
