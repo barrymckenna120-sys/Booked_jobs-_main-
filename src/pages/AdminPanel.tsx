@@ -119,6 +119,9 @@ export default function AdminPanel() {
   const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const [archiveModalTenant, setArchiveModalTenant] = useState<Tenant | null>(null);
+  const [archiveTypedName, setArchiveTypedName] = useState("");
+  const [archiving, setArchiving] = useState(false);
 
   // Access check
   useEffect(() => {
