@@ -384,7 +384,7 @@ export default function AdminPanel() {
                             onClick={() => email && handleUnblock(email)}
                             title={email || "Owner email unavailable"}
                           >
-                            {unblockingEmail === email ? "Unblocking…" : "Unblock"}
+                            {email && unblockingEmail === email ? "Unblocking…" : "Unblock"}
                           </Button>
                         </div>
                       </TableCell>
