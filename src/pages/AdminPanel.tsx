@@ -36,7 +36,32 @@ type Tenant = {
   industry: string | null;
   created_at: string;
   owner_user_id: string | null;
+  is_blocked: boolean | null;
 };
+
+type ActivityEntry = {
+  id: string;
+  organisation_id: string | null;
+  event_type: string;
+  performed_by: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  magic_link_sent: "Magic link sent",
+  access_blocked: "Access blocked",
+  access_unblocked: "Access unblocked",
+};
+
+const formatActivityTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-IE", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Dublin",
+  });
 
 const slugify = (s: string) =>
   s
