@@ -360,6 +360,7 @@ export default function AdminPanel() {
                     <TableHead>Owner Phone</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Magic Link</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
