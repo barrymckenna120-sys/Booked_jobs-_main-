@@ -36,7 +36,8 @@ const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
-  const { canAccessOffice } = useUserRole(user);
+  const { role, canAccessOffice } = useUserRole(user);
+  const isOwnerManager = role === ("owner_manager" as any);
   const engineerJobs = useEngineerJobs();
   const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
