@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgId } from "@/hooks/useOrgId";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
   Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
