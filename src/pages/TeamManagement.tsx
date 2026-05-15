@@ -52,6 +52,12 @@ import {
 
 // ── Role config ────────────────────────────────────────────────────
 const ROLES: Record<string, { label: string; icon: React.ReactNode; description: string; perms: string[] }> = {
+  owner: {
+    label: "Owner / Manager",
+    icon: <ShieldCheck className="w-4 h-4" />,
+    description: "Owner-level access — full control across office and engineer apps",
+    perms: ["All admin permissions", "Switch between office & engineer view", "Invite & block users", "Access settings", "View finance & reports"],
+  },
   admin: {
     label: "Admin",
     icon: <ShieldCheck className="w-4 h-4" />,
