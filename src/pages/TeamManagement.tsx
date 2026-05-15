@@ -390,6 +390,8 @@ const TeamManagement = () => {
       return;
     }
 
+    console.log("[handleDelete] organisation_id filter:", currentOrganisationId);
+
     const { error: engineerError } = await supabase
       .from("engineers")
       .delete()
@@ -397,6 +399,7 @@ const TeamManagement = () => {
       .eq("organisation_id", currentOrganisationId);
 
     if (engineerError) {
+      console.error("[handleDelete] Supabase delete error:", engineerError);
       toast({ title: "Failed to remove user. Please try again.", variant: "destructive" });
       return;
     }
