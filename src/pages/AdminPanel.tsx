@@ -574,13 +574,14 @@ export default function AdminPanel() {
                   {tenants.map((t) => {
                     const email = t.owner_user_id ? ownerEmails[t.owner_user_id] : null;
                     const blocked = !!t.is_blocked;
+                    const archived = !!t.is_archived;
                     const latest = latestActivity[t.id];
                     return (
-                    <TableRow key={t.id} className={blocked ? "opacity-60 bg-muted/40" : ""}>
+                    <TableRow key={t.id} className={archived ? "opacity-50 bg-muted/40" : blocked ? "opacity-60 bg-muted/40" : ""}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <span>{t.name}</span>
-                          {blocked && (
+                          {blocked && !archived && (
                             <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
                               Blocked
                             </Badge>
@@ -589,7 +590,13 @@ export default function AdminPanel() {
                       </TableCell>
                       <TableCell>{t.slug}</TableCell>
                       <TableCell>
-                        <StatusBadge status={t.subscription_status} />
+                        {archived ? (
+                          <Badge variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-200">
+                            Archived
+                          </Badge>
+                        ) : (
+                          <StatusBadge status={t.subscription_status} />
+                        )}
                       </TableCell>
                       <TableCell>
                         <div>{t.owner_name || "—"}</div>
