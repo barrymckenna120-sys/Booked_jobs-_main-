@@ -107,6 +107,11 @@ export default function AdminPanel() {
   const [ownerEmails, setOwnerEmails] = useState<Record<string, string>>({});
   const [unblockingEmail, setUnblockingEmail] = useState<string | null>(null);
   const [sendingMagicLinkFor, setSendingMagicLinkFor] = useState<string | null>(null);
+  const [togglingBlockFor, setTogglingBlockFor] = useState<string | null>(null);
+  const [latestActivity, setLatestActivity] = useState<Record<string, ActivityEntry>>({});
+  const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
+  const [activityModalEntries, setActivityModalEntries] = useState<ActivityEntry[]>([]);
+  const [loadingActivityModal, setLoadingActivityModal] = useState(false);
 
   // Access check
   useEffect(() => {
