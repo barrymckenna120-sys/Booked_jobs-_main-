@@ -7,6 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +32,7 @@ import {
   Trash2,
   Save,
   X,
+  Plus,
 } from "lucide-react";
 
 type Org = {
@@ -58,6 +67,13 @@ type SettingsRow = {
 };
 
 const SENSITIVE_KEY_RE = /(api[_-]?key|secret|token|password|auth)/i;
+const INTEGRATION_TYPES = [
+  "whatsapp_360",
+  "stripe",
+  "resend",
+  "tally",
+  "cloudinary",
+];
 
 const maskValue = (key: string, val: any): string => {
   if (val == null) return "—";
@@ -80,9 +96,29 @@ export default function TenantDetail() {
   const [settings, setSettings] = useState<SettingsRow | null>(null);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
 
+  // Settings edit
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    business_name: "",
+    owner_name: "",
+    owner_email: "",
+    phone: "",
+  });
+
+  // Per-integration edit
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editJson, setEditJson] = useState("");
+  const [editActive, setEditActive] = useState(true);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Add integration
+  const [addOpen, setAddOpen] = useState(false);
+  const [addType, setAddType] = useState<string>("whatsapp_360");
+  const [addJson, setAddJson] = useState("{\n  \n}");
+  const [addActive, setAddActive] = useState(true);
+  const [addSaving, setAddSaving] = useState(false);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveTyped, setArchiveTyped] = useState("");
@@ -145,17 +181,27 @@ export default function TenantDetail() {
       setSettings((settingsRow as any) || null);
 
       // Owner email via list-users edge fn
+      let resolvedEmail: string | null = null;
       const ownerUserId = (orgRow as any)?.owner_user_id;
       if (ownerUserId) {
         try {
           const { data: usersResp } = await supabase.functions.invoke("list-users");
           const users = (usersResp as any)?.users || [];
           const u = users.find((u: any) => u?.id === ownerUserId);
-          setOwnerEmail(u?.email || null);
+          resolvedEmail = u?.email || null;
         } catch (_e) {
-          setOwnerEmail(null);
+          resolvedEmail = null;
         }
       }
+      setOwnerEmail(resolvedEmail);
+
+      const s = (settingsRow as any) || {};
+      setSettingsForm({
+        business_name: s.business_name || s.company_name || "",
+        owner_name: s.owner_name || (orgRow as any)?.owner_name || "",
+        owner_email: resolvedEmail || s.business_email || "",
+        phone: s.business_phone || s.company_phone || (orgRow as any)?.owner_phone || "",
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load tenant");
     } finally {
@@ -168,9 +214,47 @@ export default function TenantDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, orgId]);
 
+  const saveSettings = async () => {
+    if (!orgId) return;
+    setSavingSettings(true);
+    try {
+      const payload: Record<string, any> = {
+        business_name: settingsForm.business_name || null,
+        owner_name: settingsForm.owner_name || null,
+        business_email: settingsForm.owner_email || null,
+        business_phone: settingsForm.phone || null,
+      };
+      const { data: existing } = await supabase
+        .from("settings")
+        .select("id")
+        .eq("organisation_id", orgId)
+        .maybeSingle();
+      let error;
+      if (existing?.id) {
+        ({ error } = await supabase
+          .from("settings")
+          .update(payload)
+          .eq("organisation_id", orgId));
+      } else {
+        ({ error } = await supabase
+          .from("settings")
+          .insert({ ...payload, organisation_id: orgId } as any));
+      }
+      if (error) throw error;
+      toast.success("Settings updated");
+      setEditingSettings(false);
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const startEdit = (i: Integration) => {
     setEditingId(i.id);
     setEditJson(JSON.stringify(i.config ?? {}, null, 2));
+    setEditActive(i.is_active !== false);
   };
 
   const cancelEdit = () => {
@@ -190,7 +274,7 @@ export default function TenantDetail() {
     try {
       const { error } = await supabase
         .from("tenant_integrations" as any)
-        .update({ config: parsed })
+        .update({ config: parsed, is_active: editActive })
         .eq("id", i.id);
       if (error) throw error;
       toast.success("Integration updated");
@@ -200,6 +284,57 @@ export default function TenantDetail() {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteIntegration = async (i: Integration) => {
+    if (!confirm(`Delete the "${i.integration_type}" integration?`)) return;
+    setDeletingId(i.id);
+    try {
+      const { error } = await supabase
+        .from("tenant_integrations" as any)
+        .delete()
+        .eq("id", i.id);
+      if (error) throw error;
+      toast.success("Integration deleted");
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleAddIntegration = async () => {
+    if (!orgId) return;
+    let parsed: any;
+    try {
+      parsed = JSON.parse(addJson);
+    } catch {
+      toast.error("Invalid JSON");
+      return;
+    }
+    setAddSaving(true);
+    try {
+      const { error } = await supabase
+        .from("tenant_integrations" as any)
+        .insert({
+          organisation_id: orgId,
+          integration_type: addType,
+          config: parsed,
+          is_active: addActive,
+        });
+      if (error) throw error;
+      toast.success("Integration added");
+      setAddOpen(false);
+      setAddType("whatsapp_360");
+      setAddJson("{\n  \n}");
+      setAddActive(true);
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add");
+    } finally {
+      setAddSaving(false);
     }
   };
 
@@ -331,31 +466,110 @@ export default function TenantDetail() {
       {/* Settings summary */}
       <Card>
         <CardHeader>
-          <CardTitle>Settings Summary</CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Settings Summary</CardTitle>
+            {!editingSettings ? (
+              <Button size="sm" variant="outline" onClick={() => setEditingSettings(true)}>
+                <Pencil className="mr-1 h-3 w-3" /> Edit
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingSettings(false);
+                    // reset form from current state
+                    setSettingsForm({
+                      business_name: settings?.business_name || settings?.company_name || "",
+                      owner_name: settings?.owner_name || org.owner_name || "",
+                      owner_email: ownerEmail || settings?.business_email || "",
+                      phone:
+                        settings?.business_phone || settings?.company_phone || org.owner_phone || "",
+                    });
+                  }}
+                  disabled={savingSettings}
+                >
+                  <X className="mr-1 h-3 w-3" /> Cancel
+                </Button>
+                <Button size="sm" onClick={saveSettings} disabled={savingSettings}>
+                  {savingSettings ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-3 w-3" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <div className="text-muted-foreground">Business Name</div>
-              <div className="font-medium">
-                {settings?.business_name || settings?.company_name || org.name}
-              </div>
+              <Label className="text-muted-foreground">Business Name</Label>
+              {editingSettings ? (
+                <Input
+                  value={settingsForm.business_name}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, business_name: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <div className="font-medium mt-1">
+                  {settings?.business_name || settings?.company_name || org.name}
+                </div>
+              )}
             </div>
             <div>
-              <div className="text-muted-foreground">Owner</div>
-              <div className="font-medium">
-                {settings?.owner_name || org.owner_name || "—"}
-              </div>
+              <Label className="text-muted-foreground">Owner</Label>
+              {editingSettings ? (
+                <Input
+                  value={settingsForm.owner_name}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, owner_name: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <div className="font-medium mt-1">
+                  {settings?.owner_name || org.owner_name || "—"}
+                </div>
+              )}
             </div>
             <div>
-              <div className="text-muted-foreground">Owner Email</div>
-              <div className="font-medium">{ownerEmail || settings?.business_email || "—"}</div>
+              <Label className="text-muted-foreground">Owner Email</Label>
+              {editingSettings ? (
+                <Input
+                  type="email"
+                  value={settingsForm.owner_email}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, owner_email: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <div className="font-medium mt-1">
+                  {ownerEmail || settings?.business_email || "—"}
+                </div>
+              )}
             </div>
             <div>
-              <div className="text-muted-foreground">Phone</div>
-              <div className="font-medium">
-                {settings?.business_phone || settings?.company_phone || org.owner_phone || "—"}
-              </div>
+              <Label className="text-muted-foreground">Phone</Label>
+              {editingSettings ? (
+                <Input
+                  value={settingsForm.phone}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, phone: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <div className="font-medium mt-1">
+                  {settings?.business_phone || settings?.company_phone || org.owner_phone || "—"}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -364,7 +578,12 @@ export default function TenantDetail() {
       {/* Integrations */}
       <Card>
         <CardHeader>
-          <CardTitle>Integrations</CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Integrations</CardTitle>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="mr-1 h-3 w-3" /> Add Integration
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {integrations.length === 0 ? (
@@ -391,9 +610,24 @@ export default function TenantDetail() {
                         </Badge>
                       </div>
                       {!isEditing ? (
-                        <Button size="sm" variant="outline" onClick={() => startEdit(i)}>
-                          <Pencil className="mr-1 h-3 w-3" /> Edit
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => startEdit(i)}>
+                            <Pencil className="mr-1 h-3 w-3" /> Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteIntegration(i)}
+                            disabled={deletingId === i.id}
+                          >
+                            {deletingId === i.id ? (
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="mr-1 h-3 w-3" />
+                            )}
+                            Delete
+                          </Button>
+                        </div>
                       ) : (
                         <div className="flex gap-2">
                           <Button
@@ -421,12 +655,22 @@ export default function TenantDetail() {
                     </div>
 
                     {isEditing ? (
-                      <Textarea
-                        value={editJson}
-                        onChange={(e) => setEditJson(e.target.value)}
-                        rows={8}
-                        className="font-mono text-xs"
-                      />
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id={`active-${i.id}`}
+                            checked={editActive}
+                            onCheckedChange={setEditActive}
+                          />
+                          <Label htmlFor={`active-${i.id}`}>Active</Label>
+                        </div>
+                        <Textarea
+                          value={editJson}
+                          onChange={(e) => setEditJson(e.target.value)}
+                          rows={8}
+                          className="font-mono text-xs"
+                        />
+                      </div>
                     ) : (
                       <div className="space-y-1.5 text-sm">
                         {Object.entries(i.config ?? {}).length === 0 ? (
@@ -486,6 +730,72 @@ export default function TenantDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add integration dialog */}
+      <Dialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          if (!open && !addSaving) setAddOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Integration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Integration type</Label>
+              <Select value={addType} onValueChange={setAddType}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTEGRATION_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Config (JSON)</Label>
+              <Textarea
+                value={addJson}
+                onChange={(e) => setAddJson(e.target.value)}
+                rows={8}
+                className="font-mono text-xs mt-1"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="add-active"
+                checked={addActive}
+                onCheckedChange={setAddActive}
+              />
+              <Label htmlFor="add-active">Active</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddOpen(false)}
+              disabled={addSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddIntegration} disabled={addSaving}>
+              {addSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" /> Saving…
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Archive confirm */}
       <Dialog
