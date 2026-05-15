@@ -64,6 +64,8 @@ import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
 import AdminPanel from "./pages/AdminPanel";
+import { AdminViewAsProvider } from "@/hooks/useAdminViewAs";
+import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +106,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AdminViewAsProvider>
+        <AdminViewAsBanner />
         <RecoveryRedirectGuard>
           <InstallAppBanner />
           <Routes>
