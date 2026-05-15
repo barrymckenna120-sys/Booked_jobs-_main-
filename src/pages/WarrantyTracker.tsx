@@ -112,9 +112,11 @@ const WarrantyTracker = () => {
       const matchesSearch = !q || c.name?.toLowerCase().includes(q) || c.boiler_model?.toLowerCase().includes(q) || c.boiler_brand?.toLowerCase().includes(q);
       const s = calcStatus(c.boiler_installation_date, c.warranty_years);
       const matchesStatus = statusFilter === "all" || s === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesBrand = !selectedBrand || (c.boiler_brand || "Unknown") === selectedBrand;
+      const matchesModel = !selectedModel || (c.boiler_model || "Unknown") === selectedModel;
+      return matchesSearch && matchesStatus && matchesBrand && matchesModel;
     });
-  }, [customers, search, statusFilter]);
+  }, [customers, search, statusFilter, selectedBrand, selectedModel]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
