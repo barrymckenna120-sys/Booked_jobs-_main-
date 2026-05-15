@@ -17,27 +17,45 @@ function buildHtml(orgName: string, actionLink: string): string {
   const safeOrg = orgName || "your team";
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Your login link</title></head>
-<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;max-width:520px;">
-        <tr><td>
-          <h1 style="margin:0 0 12px;font-size:22px;color:#0F172A;font-weight:700;">Welcome to BookedJobs</h1>
-          <p style="margin:0 0 8px;font-size:15px;color:#334155;line-height:1.5;">Hi there,</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.5;">
-            You've been invited to join <strong>${safeOrg}</strong> on BookedJobs. Click the button below to log in — no password needed.
-          </p>
-          <table role="presentation" cellpadding="0" cellspacing="0"><tr><td>
-            <a href="${actionLink}" style="display:inline-block;background:#2563EB;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px;">Log in to BookedJobs</a>
-          </td></tr></table>
-          <p style="margin:28px 0 0;font-size:13px;color:#64748b;line-height:1.5;">
-            This link will expire shortly. If you didn't request it, you can safely ignore this email.
-          </p>
-          <hr style="border:none;border-top:1px solid #e2e8f0;margin:28px 0;">
-          <p style="margin:0;font-size:12px;color:#94a3b8;">BookedJobs · Manage jobs, quotes, and customers in one place.</p>
-        </td></tr>
-      </table>
-    </td></tr>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f4f4" style="background:#f4f4f4;width:100%;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+          <tr>
+            <td align="center" bgcolor="#4A86E8" style="background:#4A86E8;padding:28px 24px;">
+              <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:0.3px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">BookedJobs</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h2 style="margin:0 0 16px;font-size:20px;color:#0F172A;font-weight:700;">Welcome to BookedJobs</h2>
+              <p style="margin:0 0 12px;font-size:15px;color:#334155;line-height:1.6;">Hi there,</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.6;">
+                You've been invited to join <strong>${safeOrg}</strong> on BookedJobs. Click the button below to log in — no password needed.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding:8px 0 16px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" bgcolor="#4A86E8" style="background:#4A86E8;border:1px solid #4A86E8;border-radius:6px;">
+                          <a href="${actionLink}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">Log in to BookedJobs</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;color:#64748b;line-height:1.5;">
+                This link will expire shortly. If you didn't request it, you can safely ignore this email.
+              </p>
+              <p style="margin:24px 0 0;padding-top:20px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;">BookedJobs · Manage jobs, quotes, and customers in one place.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body></html>`;
 }
