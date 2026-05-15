@@ -491,14 +491,32 @@ export default function AdminPanel() {
                 <TableBody>
                   {tenants.map((t) => {
                     const email = t.owner_user_id ? ownerEmails[t.owner_user_id] : null;
+                    const blocked = !!t.is_blocked;
+                    const latest = latestActivity[t.id];
                     return (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.name}</TableCell>
+                    <TableRow key={t.id} className={blocked ? "opacity-60 bg-muted/40" : ""}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{t.name}</span>
+                          {blocked && (
+                            <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
+                              Blocked
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{t.slug}</TableCell>
                       <TableCell>
                         <StatusBadge status={t.subscription_status} />
                       </TableCell>
-                      <TableCell>{t.owner_name || "—"}</TableCell>
+                      <TableCell>
+                        <div>{t.owner_name || "—"}</div>
+                        {latest && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {EVENT_LABELS[latest.event_type] || latest.event_type} · {formatActivityTime(latest.created_at)}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{t.owner_phone || "—"}</TableCell>
                       <TableCell>{email || "—"}</TableCell>
                       <TableCell>{t.industry || "—"}</TableCell>
@@ -510,22 +528,52 @@ export default function AdminPanel() {
                         })}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!email || sendingMagicLinkFor === t.id}
-                          onClick={() => email && handleSendMagicLink(t.id, email, t.name)}
-                          title={email || "Owner email unavailable"}
-                        >
-                          {sendingMagicLinkFor === t.id ? (
-                            <>
-                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                              Sending…
-                            </>
-                          ) : (
-                            "Send Magic Link"
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!email || sendingMagicLinkFor === t.id}
+                            onClick={() => email && handleSendMagicLink(t.id, email, t.name)}
+                            title={email || "Owner email unavailable"}
+                          >
+                            {sendingMagicLinkFor === t.id ? (
+                              <>
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                Sending…
+                              </>
+                            ) : (
+                              "Send Magic Link"
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={blocked ? "outline" : "destructive"}
+                            disabled={togglingBlockFor === t.id}
+                            onClick={() => handleToggleBlock(t)}
+                          >
+                            {togglingBlockFor === t.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : blocked ? (
+                              <>
+                                <ShieldCheck className="mr-1 h-3 w-3" />
+                                Unblock
+                              </>
+                            ) : (
+                              <>
+                                <Ban className="mr-1 h-3 w-3" />
+                                Block
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openActivityModal(t)}
+                            title="View activity"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
