@@ -339,10 +339,13 @@ export default function AdminPanel() {
                     <TableHead>Owner Phone</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenants.map((t) => (
+                  {tenants.map((t) => {
+                    const email = t.owner_user_id ? ownerEmails[t.owner_user_id] : null;
+                    return (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.name}</TableCell>
                       <TableCell>{t.slug}</TableCell>
@@ -359,8 +362,20 @@ export default function AdminPanel() {
                           year: 'numeric'
                         })}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!email || unblockingEmail === email}
+                          onClick={() => email && handleUnblock(email)}
+                          title={email || "Owner email unavailable"}
+                        >
+                          {unblockingEmail === email ? "Unblocking…" : "Unblock"}
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
