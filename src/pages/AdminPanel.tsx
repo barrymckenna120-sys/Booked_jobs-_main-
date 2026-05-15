@@ -277,6 +277,7 @@ export default function AdminPanel() {
         throw new Error((data as any)?.error || error?.message || "Failed");
       }
       toast.success(`Magic link sent to ${email}`);
+      await logTenantActivity(tenantId, "magic_link_sent", email);
     } catch (_e) {
       toast.error("Failed to send magic link");
     } finally {
