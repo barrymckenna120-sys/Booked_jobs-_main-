@@ -154,7 +154,7 @@ export default function AdminPanel() {
     setLoadingTenants(true);
     const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked" as any)
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked, is_archived, archived_at" as any)
       .order("created_at", { ascending: false });
     const list = (data as any[]) || [];
     setTenants(list as any);
