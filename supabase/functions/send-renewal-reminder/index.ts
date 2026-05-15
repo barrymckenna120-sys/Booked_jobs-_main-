@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
       .from("message_log")
       .insert({
         customer_id,
+        organisation_id: orgId,
         message_type: "renewal_reminder",
         channel: "whatsapp",
         direction: "outbound",

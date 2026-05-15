@@ -121,8 +121,15 @@ Deno.serve(async (req) => {
     }
 
     const orgId = (customer as any).organisation_id;
+    if (!orgId) {
+      await log(`Customer ${customer.id} missing organisation_id`, { from: phone, text, customer_id: customer.id });
+      return new Response(
+        JSON.stringify({ error: "organisation_id missing on customer" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Load tenant 360messenger integration for this org
+    // Load tenant 360messenger integration for company branding (company_name, company_phone, country_code)
     const { data: integration } = await supabase
       .from("tenant_integrations")
       .select("config")
@@ -145,7 +152,16 @@ Deno.serve(async (req) => {
     const companyName: string = cfg.company_name;
     const companyPhone: string = cfg.company_phone;
     const countryCode: string = String(cfg.country_code || "353");
-    const apiKey = cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : undefined;
+
+    // Load whatsapp integration for the api_key
+    const { data: waIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+
+    const apiKey: string | undefined = (waIntegration as any)?.config?.api_key;
 
     // Re-normalise using tenant country code
     const tenantPhone = normalisePhone(fromRaw, countryCode);

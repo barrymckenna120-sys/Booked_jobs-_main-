@@ -14,6 +14,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
+import { toast } from "sonner";
+import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 
 type Tenant = {
   id: string;
@@ -24,6 +28,7 @@ type Tenant = {
   owner_phone: string | null;
   industry: string | null;
   created_at: string;
+  owner_user_id: string | null;
 };
 
 const slugify = (s: string) =>
@@ -49,6 +54,7 @@ const StatusBadge = ({ status }: { status: string | null }) => {
 
 export default function AdminPanel() {
   const navigate = useNavigate();
+  const { setViewingOrg } = useAdminViewAs();
   const [authChecked, setAuthChecked] = useState(false);
 
   // form state
@@ -66,6 +72,8 @@ export default function AdminPanel() {
   // tenants
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loadingTenants, setLoadingTenants] = useState(true);
+  const [ownerEmails, setOwnerEmails] = useState<Record<string, string>>({});
+  const [unblockingEmail, setUnblockingEmail] = useState<string | null>(null);
 
   // Access check
   useEffect(() => {
@@ -98,10 +106,41 @@ export default function AdminPanel() {
     setLoadingTenants(true);
     const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at")
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id")
       .order("created_at", { ascending: false });
-    setTenants((data as any) || []);
+    const list = (data as any[]) || [];
+    setTenants(list as any);
     setLoadingTenants(false);
+
+    // Fetch owner emails via list-users edge function
+    try {
+      const { data: usersResp } = await supabase.functions.invoke("list-users");
+      const users = (usersResp as any)?.users || [];
+      const map: Record<string, string> = {};
+      for (const u of users) {
+        if (u?.id && u?.email) map[u.id] = u.email;
+      }
+      setOwnerEmails(map);
+    } catch (_e) {
+      // non-fatal — Unblock button will be disabled when email missing
+    }
+  };
+
+  const handleUnblock = async (email: string) => {
+    setUnblockingEmail(email);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-auth-block", {
+        body: { email },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Failed to unblock");
+      }
+      toast.success("User unblocked successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to unblock user");
+    } finally {
+      setUnblockingEmail(null);
+    }
   };
 
   useEffect(() => {
@@ -185,6 +224,13 @@ export default function AdminPanel() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-6 p-6">
+      <Tabs defaultValue="tenants" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="tenants">Tenants</TabsTrigger>
+          <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tenants" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Create New Account</CardTitle>
@@ -295,10 +341,13 @@ export default function AdminPanel() {
                     <TableHead>Owner Phone</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenants.map((t) => (
+                  {tenants.map((t) => {
+                    const email = t.owner_user_id ? ownerEmails[t.owner_user_id] : null;
+                    return (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.name}</TableCell>
                       <TableCell>{t.slug}</TableCell>
@@ -315,14 +364,46 @@ export default function AdminPanel() {
                           year: 'numeric'
                         })}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setViewingOrg(t.id, t.name);
+                              toast.success(`Switched to ${t.name}`);
+                              navigate("/dashboard");
+                            }}
+                          >
+                            Switch Context
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!email || unblockingEmail === email}
+                            onClick={() => email && handleUnblock(email)}
+                            title={email || "Owner email unavailable"}
+                          >
+                            {email && unblockingEmail === email ? "Unblocking…" : "Unblock"}
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <CustomerIntegrationsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+

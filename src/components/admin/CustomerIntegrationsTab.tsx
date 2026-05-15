@@ -1,0 +1,239 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+
+type Org = { id: string; name: string; slug: string };
+
+// Field defs: [integration_type, key, label, isSecret?]
+type Field = { type: string; key: string; label: string; secret?: boolean; placeholder?: string };
+
+const SECTIONS: { title: string; fields: Field[] }[] = [
+  {
+    title: "Booking & Rebooking",
+    fields: [
+      { type: "tally_new_booking", key: "form_url", label: "New Booking Form URL", placeholder: "https://tally.so/r/..." },
+      { type: "tally_rebook", key: "form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." },
+    ],
+  },
+  {
+    title: "Payments",
+    fields: [
+      { type: "stripe", key: "payment_link_url", label: "Stripe Payment Link URL", placeholder: "https://buy.stripe.com/..." },
+    ],
+  },
+  {
+    title: "WhatsApp / 360Messenger",
+    fields: [
+      { type: "whatsapp", key: "api_key", label: "360dialog API Key", secret: true },
+      { type: "whatsapp", key: "phone_number_id", label: "WhatsApp Phone Number ID" },
+      { type: "whatsapp", key: "waba_id", label: "WABA ID" },
+    ],
+  },
+  {
+    title: "Make.com Webhooks",
+    fields: [
+      { type: "make", key: "review_webhook_url", label: "Review Request Webhook URL", placeholder: "https://hook.eu1.make.com/..." },
+      { type: "make", key: "rebook_webhook_url", label: "Rebooking Webhook URL", placeholder: "https://hook.eu1.make.com/..." },
+    ],
+  },
+  {
+    title: "Business Details",
+    fields: [
+      { type: "settings", key: "company_name", label: "Company Display Name" },
+      { type: "settings", key: "company_phone", label: "Company Phone Number" },
+      { type: "settings", key: "google_review_url", label: "Google Review URL" },
+    ],
+  },
+];
+
+const fieldId = (f: Field) => `${f.type}::${f.key}`;
+
+export default function CustomerIntegrationsTab() {
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [orgId, setOrgId] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from("organisations")
+        .select("id, name, slug")
+        .order("name");
+      if (error) {
+        toast.error("Failed to load tenants");
+        return;
+      }
+      setOrgs((data as Org[]) || []);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!orgId) {
+      setValues({});
+      return;
+    }
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("tenant_integrations" as any)
+        .select("integration_type, config")
+        .eq("organisation_id", orgId);
+      setLoading(false);
+      if (error) {
+        toast.error("Failed to load integrations");
+        return;
+      }
+      const next: Record<string, string> = {};
+      for (const section of SECTIONS) {
+        for (const f of section.fields) {
+          const row = (data as any[])?.find((r) => r.integration_type === f.type);
+          const v = row?.config?.[f.key];
+          next[fieldId(f)] = v == null ? "" : String(v);
+        }
+      }
+      setValues(next);
+    })();
+  }, [orgId]);
+
+  const handleSave = async () => {
+    if (!orgId) return;
+    setSaving(true);
+    try {
+      // Group values by integration_type
+      const byType: Record<string, Record<string, string>> = {};
+      for (const section of SECTIONS) {
+        for (const f of section.fields) {
+          const v = values[fieldId(f)] ?? "";
+          if (!byType[f.type]) byType[f.type] = {};
+          byType[f.type][f.key] = v;
+        }
+      }
+
+      // Fetch existing configs to merge (preserve unrelated keys)
+      const { data: existing } = await supabase
+        .from("tenant_integrations" as any)
+        .select("integration_type, config")
+        .eq("organisation_id", orgId);
+
+      const rows = Object.entries(byType).map(([integration_type, patch]) => {
+        const prev = (existing as any[])?.find((r) => r.integration_type === integration_type)?.config ?? {};
+        return {
+          organisation_id: orgId,
+          integration_type,
+          config: { ...prev, ...patch },
+        };
+      });
+
+      const { error } = await supabase
+        .from("tenant_integrations" as any)
+        .upsert(rows, { onConflict: "organisation_id,integration_type" });
+
+      if (error) throw error;
+      toast.success("Integrations saved");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setVal = (id: string, v: string) => setValues((p) => ({ ...p, [id]: v }));
+  const toggleSecret = (id: string) => setShowSecrets((p) => ({ ...p, [id]: !p[id] }));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Customer Integrations</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-1.5">
+          <Label>Tenant</Label>
+          <Select value={orgId} onValueChange={setOrgId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a tenant..." />
+            </SelectTrigger>
+            <SelectContent>
+              {orgs.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.name} <span className="text-muted-foreground">({o.slug})</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading integrations…
+          </div>
+        )}
+
+        {orgId && !loading && (
+          <>
+            {SECTIONS.map((section, idx) => (
+              <div key={section.title} className="space-y-4">
+                {idx > 0 && <Separator />}
+                <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                <div className="space-y-3">
+                  {section.fields.map((f) => {
+                    const id = fieldId(f);
+                    const isSecret = !!f.secret;
+                    const reveal = showSecrets[id];
+                    return (
+                      <div key={id} className="space-y-1.5">
+                        <Label htmlFor={id}>{f.label}</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id={id}
+                            type={isSecret && !reveal ? "password" : "text"}
+                            value={values[id] ?? ""}
+                            onChange={(e) => setVal(id, e.target.value)}
+                            placeholder={f.placeholder}
+                            autoComplete="off"
+                          />
+                          {isSecret && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => toggleSecret(id)}
+                              aria-label={reveal ? "Hide" : "Show"}
+                            >
+                              {reveal ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            <div className="flex justify-end pt-2">
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : "Save Integrations"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

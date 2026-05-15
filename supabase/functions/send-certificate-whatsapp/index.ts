@@ -20,7 +20,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
 
     const headers = {
       Authorization: `Bearer ${supabaseKey}`,
@@ -28,9 +27,9 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Fetch certificate
+    // Fetch certificate (incl. organisation_id)
     const certRes = await fetch(
-      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes`,
+      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes,organisation_id`,
       { headers }
     );
     const certs = await certRes.json();
@@ -60,7 +59,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch job to get user_id and organisation_id for settings lookup
+    // Derive organisation_id (required) — prefer certificate, fallback to job
+    let orgId: string | null = cert.organisation_id || null;
+
+    // Fetch job to get user_id (and org fallback)
     const jobRes = await fetch(
       `${supabaseUrl}/rest/v1/service_calls?id=eq.${cert.job_id}&select=user_id,organisation_id`,
       { headers }
@@ -68,6 +70,21 @@ serve(async (req) => {
     const jobs = await jobRes.json();
     const job = Array.isArray(jobs) ? jobs[0] : null;
     const userId = job?.user_id;
+    if (!orgId) orgId = job?.organisation_id || null;
+
+    if (!orgId) {
+      return new Response(JSON.stringify({ success: false, error: "organisation_id missing on certificate" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
+      });
+    }
+
+    // Lookup WhatsApp api_key from tenant_integrations
+    const integRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers }
+    );
+    const integRows = await integRes.json();
+    const apiKey = Array.isArray(integRows) && integRows[0]?.config?.api_key ? integRows[0].config.api_key : null;
 
     // Extract calling user from JWT for activity logging
     let callingProfileId: string | null = null;
@@ -112,9 +129,9 @@ serve(async (req) => {
     const defaultTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
     let messageTemplate = defaultTemplate;
 
-    if (userId) {
+    {
       const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=message_footer,template_certificate&limit=1`,
+        `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer,template_certificate&limit=1`,
         { headers }
       );
       const settings = await settingsRes.json();
@@ -146,6 +163,7 @@ serve(async (req) => {
       headers: { ...headers, "Prefer": "return=representation" },
       body: JSON.stringify({
         customer_id: cert.customer_id,
+        organisation_id: orgId,
         message_type: "certificate",
         channel: "whatsapp",
         direction: "outbound",
@@ -165,11 +183,11 @@ serve(async (req) => {
         await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
           method: "PATCH",
           headers,
-          body: JSON.stringify({ status: "failed", error_message: "THREESIXTY_API_KEY not configured" }),
+          body: JSON.stringify({ status: "failed", error_message: "WhatsApp api_key not configured for organisation" }),
         });
       }
       return new Response(JSON.stringify({ success: false, error: "WhatsApp API key not configured" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
       });
     }
 
@@ -206,7 +224,7 @@ serve(async (req) => {
     // Log customer_activity on success
     if (result.success && cert.customer_id && cert.job_id) {
       const certLabel = cert.cert_number ? `Certificate sent — ${cert.cert_number}` : "Certificate sent — Boiler Service";
-      const orgId = job?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856";
+      
       await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
         method: "POST",
         headers,

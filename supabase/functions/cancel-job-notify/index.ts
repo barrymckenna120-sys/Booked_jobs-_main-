@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { logMessage } from "../_shared/logMessage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,11 +90,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+    const orgId = organisation_id || (sc as any).organisation_id;
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ error: "Service call missing organisation_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Fetch WhatsApp api_key from tenant_integrations
+    const { data: waCfg } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+    const apiKey = ((waCfg as any)?.config?.api_key as string) || null;
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "THREESIXTY_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "WhatsApp integration not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -110,13 +126,20 @@ Deno.serve(async (req) => {
     const respText = await resp.text();
 
     if (!resp.ok) {
+      await logMessage(supabase, {
+        organisation_id: orgId,
+        customer_id: (sc as any).customer_id,
+        message_type: "cancel_job_notify",
+        content: text,
+        status: "failed",
+        channel: "whatsapp",
+        sent_by: (sc as any).user_id ?? undefined,
+      });
       return new Response(
         JSON.stringify({ error: "360Messenger send failed", status: resp.status, detail: respText }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    const orgId = organisation_id || (sc as any).organisation_id;
 
     await supabase.from("whatsapp_messages").insert({
       user_id: (sc as any).user_id,
@@ -127,6 +150,16 @@ Deno.serve(async (req) => {
       status: "sent",
       sent_by: "system",
       sent_at: new Date().toISOString(),
+    });
+
+    await logMessage(supabase, {
+      organisation_id: orgId,
+      customer_id: (sc as any).customer_id,
+      message_type: "cancel_job_notify",
+      content: text,
+      status: "sent",
+      channel: "whatsapp",
+      sent_by: (sc as any).user_id ?? undefined,
     });
 
     return new Response(

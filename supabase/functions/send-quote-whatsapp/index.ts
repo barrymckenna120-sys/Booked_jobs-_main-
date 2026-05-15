@@ -35,7 +35,6 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -45,17 +44,45 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Fetch message_footer from settings
-    let messageFooter = "K&N Gas Services";
-    if (sent_by_user_id) {
-      const settingsRes = await fetch(
-        `${supabaseUrl}/rest/v1/settings?user_id=eq.${sent_by_user_id}&select=message_footer&limit=1`,
-        { headers: dbHeaders }
+    // Derive organisation_id and customer_id from quote
+    const quoteRes = await fetch(
+      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=organisation_id,customer_id&limit=1`,
+      { headers: dbHeaders }
+    );
+    const quoteRows = await quoteRes.json();
+    const orgId = Array.isArray(quoteRows) && quoteRows[0]?.organisation_id;
+    const resolvedCustomerId = (Array.isArray(quoteRows) && quoteRows[0]?.customer_id) || customer_id || null;
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Quote missing organisation_id" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
-      const settings = await settingsRes.json();
-      if (Array.isArray(settings) && settings[0]?.message_footer) {
-        messageFooter = settings[0].message_footer;
-      }
+    }
+
+    // Fetch tenant WhatsApp integration config (api_key)
+    const tiRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers: dbHeaders }
+    );
+    const tiRows = await tiRes.json();
+    const config = Array.isArray(tiRows) && tiRows[0]?.config ? tiRows[0].config : null;
+    const apiKey = config?.api_key;
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    // Fetch message_footer from settings (by organisation_id)
+    let messageFooter = "K&N Gas Services";
+    const settingsRes = await fetch(
+      `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
+      { headers: dbHeaders }
+    );
+    const settings = await settingsRes.json();
+    if (Array.isArray(settings) && settings[0]?.message_footer) {
+      messageFooter = settings[0].message_footer;
     }
 
     const firstName = customer_name.split(" ")[0];
@@ -99,7 +126,7 @@ ${acceptUrl}`;
       method: "POST",
       headers: { ...dbHeaders, "Prefer": "return=representation" },
       body: JSON.stringify({
-        customer_id: customer_id || null,
+        customer_id: resolvedCustomerId,
         message_type: "quote",
         channel: "whatsapp",
         direction: "outbound",
@@ -155,7 +182,7 @@ ${acceptUrl}`;
           await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
             method: "POST", headers: dbHeaders,
             body: JSON.stringify({
-              organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+              organisation_id: orgId,
               customer_id,
               event_type: "whatsapp_sent",
               event_label: "WhatsApp sent — Quote",

@@ -13,11 +13,23 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Per-org WhatsApp api_key cache
+    const apiKeyCache = new Map<string, string | null>();
+    const loadApiKey = async (orgId: string): Promise<string | null> => {
+      if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId)!;
+      const { data: waCfg } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", orgId)
+        .eq("integration_type", "whatsapp")
+        .maybeSingle();
+      const key = ((waCfg as any)?.config?.api_key as string) || null;
+      apiKeyCache.set(orgId, key);
+      return key;
+    };
 
     // 4-5 days ago window
     const now = new Date();
@@ -51,12 +63,23 @@ Deno.serve(async (req) => {
       }
 
       const orgId = (job as any).organisation_id;
-      const { data: messengerConfig } = orgId ? await supabase
+      if (!orgId) {
+        skipped++;
+        continue;
+      }
+
+      const messengerKey = await loadApiKey(orgId);
+      if (!messengerKey) {
+        skipped++;
+        continue;
+      }
+
+      const { data: messengerConfig } = await supabase
         .from("tenant_integrations")
         .select("config")
         .eq("organisation_id", orgId)
         .eq("integration_type", "360messenger")
-        .maybeSingle() : { data: null };
+        .maybeSingle();
       const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
       const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
 
@@ -108,7 +131,7 @@ Deno.serve(async (req) => {
         // Log customer activity
         try {
           await supabase.from("customer_activity").insert({
-            organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
+            organisation_id: orgId,
             customer_id: job.customer_id,
             service_call_id: job.id,
             event_type: "whatsapp_sent",

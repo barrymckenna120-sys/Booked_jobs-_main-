@@ -20,21 +20,28 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "WhatsApp API key not configured" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
 
     const dbHeaders = {
       "Authorization": `Bearer ${supabaseKey}`,
       "apikey": supabaseKey!,
       "Content-Type": "application/json",
+    };
+
+    // Per-org cache for whatsapp api_key
+    const apiKeyCache = new Map<string, string | null>();
+    const getApiKey = async (orgId: string): Promise<string | null> => {
+      if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId) ?? null;
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+        { headers: dbHeaders }
+      );
+      const rows = await r.json();
+      const cfg = Array.isArray(rows) ? rows[0]?.config : null;
+      const key = cfg?.api_key ?? null;
+      apiKeyCache.set(orgId, key);
+      return key;
     };
 
     let sent = 0;
@@ -72,6 +79,22 @@ serve(async (req) => {
         continue;
       }
 
+      const orgId = custRecord?.organisation_id;
+      if (!orgId) {
+        console.warn(`Skipping customer ${customer_id}: missing organisation_id`);
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
+      const apiKey = await getApiKey(orgId);
+      if (!apiKey) {
+        console.warn(`Skipping customer ${customer_id}: no whatsapp api_key for org ${orgId}`);
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
       // Format phone number
       let cleanNumber = customer_phone.replace(/[\s\-()]/g, "").replace(/^\+/, "");
       if (cleanNumber.startsWith("0")) cleanNumber = "353" + cleanNumber.slice(1);
@@ -84,19 +107,16 @@ serve(async (req) => {
           })
         : "soon";
 
-      const orgId = custRecord?.organisation_id;
       let companyName = "K & N Gas Services";
       let companyPhone = "087 3686252";
-      if (orgId) {
-        const tiRes = await fetch(
-          `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-          { headers: dbHeaders }
-        );
-        const tiRows = await tiRes.json();
-        const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-        if (cfg?.company_name) companyName = cfg.company_name;
-        if (cfg?.company_phone) companyPhone = cfg.company_phone;
-      }
+      const tiRes = await fetch(
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+        { headers: dbHeaders }
+      );
+      const tiRows = await tiRes.json();
+      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+      if (cfg?.company_name) companyName = cfg.company_name;
+      if (cfg?.company_phone) companyPhone = cfg.company_phone;
 
       const message = `Hi ${firstName},
 
@@ -181,7 +201,7 @@ ${companyName}`;
             await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
               method: "POST", headers: dbHeaders,
               body: JSON.stringify({
-                organisation_id: custRecord?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+                organisation_id: orgId,
                 customer_id,
                 event_type: "whatsapp_sent",
                 event_label: "WhatsApp sent — Renewal Reminder",

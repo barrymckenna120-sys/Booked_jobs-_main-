@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { logMessage } from "../_shared/logMessage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,18 +28,29 @@ Deno.serve(async (req) => {
   const loadOrgIntegration = async (orgId: string) => {
     if (orgIntegrationCache.has(orgId)) return orgIntegrationCache.get(orgId)!;
 
-    const { data: integration } = await supabase
+    const { data: waIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+
+    const { data: msgIntegration } = await supabase
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", orgId)
       .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    if (!integration) {
+    const waCfg = (waIntegration as any)?.config || {};
+    const msgCfg = (msgIntegration as any)?.config || {};
+    const apiKey = waCfg.api_key;
+
+    if (!apiKey) {
       try {
         await supabase.from("edge_function_logs").insert({
           function_name: "job-reminder-2day",
-          error_message: `No 360messenger tenant_integration row for org ${orgId} — skipping jobs`,
+          error_message: `No whatsapp tenant_integration api_key for org ${orgId} — skipping jobs`,
           payload: { organisation_id: orgId },
         });
       } catch (_e) { /* best-effort */ }
@@ -46,13 +58,11 @@ Deno.serve(async (req) => {
       return null;
     }
 
-    const cfg = (integration as any).config || {};
-    const apiKeySecret = cfg.api_key_secret;
     const resolved = {
-      companyName: cfg.company_name,
-      companyPhone: cfg.company_phone,
-      countryCode: String(cfg.country_code || ""),
-      apiKey: apiKeySecret ? Deno.env.get(apiKeySecret) : undefined,
+      companyName: msgCfg.company_name,
+      companyPhone: msgCfg.company_phone,
+      countryCode: String(msgCfg.country_code || ""),
+      apiKey,
     };
     orgIntegrationCache.set(orgId, resolved);
     return resolved;
@@ -203,6 +213,14 @@ ${companyName} ☎ ${companyPhone}`;
             .update({ reminder_2day_sent: true })
             .eq("id", job.id);
           sent++;
+          await logMessage(supabase, {
+            organisation_id: orgId,
+            customer_id: job.customer_id,
+            message_type: "job_reminder_2day",
+            content: message,
+            status: "sent",
+            channel: "whatsapp",
+          });
           // Log customer activity
           try {
             await supabase.from("customer_activity").insert({
@@ -223,6 +241,14 @@ ${companyName} ☎ ${companyPhone}`;
           } catch { /* non-critical */ }
         } else {
           errors++;
+          await logMessage(supabase, {
+            organisation_id: orgId,
+            customer_id: job.customer_id,
+            message_type: "job_reminder_2day",
+            content: message,
+            status: "failed",
+            channel: "whatsapp",
+          });
         }
       } catch (sendErr: any) {
         errors++;

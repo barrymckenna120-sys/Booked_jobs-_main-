@@ -8,8 +8,6 @@ import { MessageCircle, Loader2, RotateCcw } from "lucide-react";
 
 interface Props {
   settings: any;
-  onSave: (fields: Record<string, any>) => Promise<void>;
-  saving: boolean;
 }
 
 const TEMPLATES = [
@@ -106,7 +104,7 @@ Thank you for choosing us. 🔧
   },
 ];
 
-const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
+const WhatsAppTab = ({ settings }: Props) => {
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [footer, setFooter] = useState("K&N Gas Services");
 
@@ -121,15 +119,14 @@ const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
     }
   }, [settings]);
 
-  const insertVariable = (key: string, variable: string) => {
-    setTemplates((prev) => ({
-      ...prev,
-      [key]: (prev[key] || "") + variable,
-    }));
-  };
-
   return (
     <div className="space-y-6">
+      <Alert>
+        <AlertDescription>
+          WhatsApp messages are managed centrally as approved Meta templates. Contact BookedJobs to request changes.
+        </AlertDescription>
+      </Alert>
+
       {/* Message Footer */}
       <Card>
         <CardHeader className="pb-3">
@@ -139,26 +136,12 @@ const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
         <CardContent className="space-y-3">
           <Textarea
             value={footer}
-            onChange={(e) => setFooter(e.target.value)}
+            readOnly
             rows={2}
-            className="font-mono text-sm"
+            className="font-mono text-sm bg-muted cursor-default"
           />
-          <Button
-            size="sm"
-            onClick={() => onSave({ message_footer: footer })}
-            disabled={saving}
-          >
-            {saving && <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />} Save Footer
-          </Button>
         </CardContent>
       </Card>
-
-      <Alert>
-        <MessageCircle className="w-4 h-4" />
-        <AlertDescription>
-          These messages are sent automatically via WhatsApp. Variables like <code className="bg-muted px-1 rounded text-xs">{"{{name}}"}</code> and <code className="bg-muted px-1 rounded text-xs">{"{{date}}"}</code> are replaced automatically when the message is sent.
-        </AlertDescription>
-      </Alert>
 
       {TEMPLATES.map((t) => (
         <Card key={t.key}>
@@ -169,37 +152,20 @@ const WhatsAppTab = ({ settings, onSave, saving }: Props) => {
           <CardContent className="space-y-3">
             <Textarea
               value={templates[t.key] || ""}
-              onChange={(e) => setTemplates((p) => ({ ...p, [t.key]: e.target.value }))}
+              readOnly
               rows={8}
-              className="font-mono text-sm"
+              className="font-mono text-sm bg-muted cursor-default"
             />
             <div className="flex flex-wrap gap-1.5">
               {t.variables.map((v) => (
                 <Badge
                   key={v}
                   variant="outline"
-                  className="cursor-pointer hover:bg-primary/10 text-xs"
-                  onClick={() => insertVariable(t.key, v)}
+                  className="cursor-default text-xs"
                 >
                   {v}
                 </Badge>
               ))}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => onSave({ [t.key]: templates[t.key] })}
-                disabled={saving}
-              >
-                {saving && <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />} Save Template
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setTemplates((p) => ({ ...p, [t.key]: t.defaultBody }))}
-              >
-                <RotateCcw className="w-3 h-3 mr-1.5" /> Reset to Default
-              </Button>
             </div>
           </CardContent>
         </Card>

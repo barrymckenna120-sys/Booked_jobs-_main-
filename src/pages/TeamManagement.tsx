@@ -52,6 +52,12 @@ import {
 
 // ── Role config ────────────────────────────────────────────────────
 const ROLES: Record<string, { label: string; icon: React.ReactNode; description: string; perms: string[] }> = {
+  owner: {
+    label: "Owner / Manager",
+    icon: <ShieldCheck className="w-4 h-4" />,
+    description: "Owner-level access — full control across office and engineer apps",
+    perms: ["All admin permissions", "Switch between office & engineer view", "Invite & block users", "Access settings", "View finance & reports"],
+  },
   admin: {
     label: "Admin",
     icon: <ShieldCheck className="w-4 h-4" />,
@@ -135,17 +141,29 @@ const TeamManagement = () => {
     if (!user) return;
     setLoading(true);
 
-    // Resolve current user's organisation
-    const { data: meEng } = await supabase
-      .from("engineers")
+    // Resolve current user's organisation — check profiles first, then engineers
+    const { data: profileData } = await supabase
+      .from("profiles")
       .select("organisation_id")
-      .eq("auth_user_id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle();
-    const orgId = (meEng as any)?.organisation_id ?? null;
+    let orgId = (profileData as any)?.organisation_id ?? null;
+
+    if (!orgId) {
+      const { data: engData } = await supabase
+        .from("engineers")
+        .select("organisation_id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      orgId = (engData as any)?.organisation_id ?? null;
+    }
+
+    if (!orgId) return; // can't scope queries without orgId
 
     const { data: engs } = await supabase
       .from("engineers")
       .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id, rgi_number")
+      .eq("organisation_id", orgId)
       .order("name");
 
     let combined: TeamMember[] = (engs as TeamMember[]) || [];
@@ -297,8 +315,9 @@ const TeamManagement = () => {
 
   const handleChangeRole = async (id: string, newRole: string) => {
     const m = members.find((m) => m.id === id);
-    await supabase.from("engineers").update({ role: newRole } as any).eq("id", id);
-    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
+    const canAccessOffice = ["admin", "owner"].includes(newRole);
+    await supabase.from("engineers").update({ role: newRole, can_access_office: canAccessOffice } as any).eq("id", id);
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole, can_access_office: canAccessOffice } : m)));
     toast({ title: `${m?.name} is now ${ROLES[newRole]?.label}` });
     logAudit({
       action_type: "user_role_changed",
