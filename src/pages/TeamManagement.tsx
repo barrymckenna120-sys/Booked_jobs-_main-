@@ -385,7 +385,26 @@ const TeamManagement = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await supabase.from("engineers").delete().eq("id", deleteTarget.id);
+    if (!currentOrganisationId) {
+      toast({ title: "Failed to remove user. Please try again.", variant: "destructive" });
+      return;
+    }
+
+    const { error: engineerError } = await supabase
+      .from("engineers")
+      .delete()
+      .eq("id", deleteTarget.id)
+      .eq("organisation_id", currentOrganisationId);
+
+    if (engineerError) {
+      toast({ title: "Failed to remove user. Please try again.", variant: "destructive" });
+      return;
+    }
+
+    if (deleteTarget.auth_user_id) {
+      await supabase.from("profiles").delete().eq("user_id", deleteTarget.auth_user_id);
+    }
+
     setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
     toast({ title: `${deleteTarget.name} has been removed` });
     logAudit({
@@ -394,7 +413,6 @@ const TeamManagement = () => {
       entity_id: deleteTarget.id,
       detail: `Removed: ${deleteTarget.name}`,
     });
-    setDeleteTarget(null);
     setDeleteTarget(null);
   };
 
