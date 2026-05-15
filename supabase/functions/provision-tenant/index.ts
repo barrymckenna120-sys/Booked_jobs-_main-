@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     .from("organisations")
     .insert({
       name: company_name,
-      slug: org_slug,
+      slug: finalSlug,
       subscription_status: "trial",
       owner_name,
       owner_phone: company_phone,
