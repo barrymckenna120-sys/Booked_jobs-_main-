@@ -144,6 +144,23 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSendMagicLink = async (tenantId: string, email: string, orgName: string) => {
+    setSendingMagicLinkFor(tenantId);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-magic-link", {
+        body: { email, org_name: orgName },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Failed");
+      }
+      toast.success(`Magic link sent to ${email}`);
+    } catch (_e) {
+      toast.error("Failed to send magic link");
+    } finally {
+      setSendingMagicLinkFor(null);
+    }
+  };
+
   useEffect(() => {
     if (authChecked) loadTenants();
   }, [authChecked]);
