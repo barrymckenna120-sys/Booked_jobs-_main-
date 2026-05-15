@@ -135,17 +135,29 @@ const TeamManagement = () => {
     if (!user) return;
     setLoading(true);
 
-    // Resolve current user's organisation
-    const { data: meEng } = await supabase
-      .from("engineers")
+    // Resolve current user's organisation — check profiles first, then engineers
+    const { data: profileData } = await supabase
+      .from("profiles")
       .select("organisation_id")
-      .eq("auth_user_id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle();
-    const orgId = (meEng as any)?.organisation_id ?? null;
+    let orgId = (profileData as any)?.organisation_id ?? null;
+
+    if (!orgId) {
+      const { data: engData } = await supabase
+        .from("engineers")
+        .select("organisation_id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      orgId = (engData as any)?.organisation_id ?? null;
+    }
+
+    if (!orgId) return; // can't scope queries without orgId
 
     const { data: engs } = await supabase
       .from("engineers")
       .select("id, name, email, phone, role, status, blocked_reason, is_available, created_at, auth_user_id, rgi_number")
+      .eq("organisation_id", orgId)
       .order("name");
 
     let combined: TeamMember[] = (engs as TeamMember[]) || [];
