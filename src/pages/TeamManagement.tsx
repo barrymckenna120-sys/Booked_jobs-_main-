@@ -385,27 +385,28 @@ const TeamManagement = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (!currentOrganisationId) {
-      toast({ title: "Failed to remove user. Please try again.", variant: "destructive" });
-      return;
-    }
 
-    console.log("[handleDelete] organisation_id filter:", currentOrganisationId);
-
-    const { error: engineerError } = await supabase
+    const { error } = await supabase
       .from("engineers")
       .delete()
-      .eq("id", deleteTarget.id)
-      .eq("organisation_id", currentOrganisationId);
+      .eq("id", deleteTarget.id);
 
-    if (engineerError) {
-      console.error("[handleDelete] Supabase delete error:", engineerError);
-      toast({ title: "Failed to remove user. Please try again.", variant: "destructive" });
+    if (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Failed to remove user",
+        description: error.message,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
       return;
     }
 
     if (deleteTarget.auth_user_id) {
-      await supabase.from("profiles").delete().eq("user_id", deleteTarget.auth_user_id);
+      await supabase
+        .from("profiles")
+        .delete()
+        .eq("user_id", deleteTarget.auth_user_id);
     }
 
     setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
