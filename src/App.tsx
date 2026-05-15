@@ -64,6 +64,7 @@ import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
 import AdminPanel from "./pages/AdminPanel";
+import TenantDetail from "./pages/admin/TenantDetail";
 import { AdminViewAsProvider } from "@/hooks/useAdminViewAs";
 import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
 
