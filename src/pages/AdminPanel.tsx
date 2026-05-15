@@ -144,7 +144,7 @@ export default function AdminPanel() {
     setLoadingTenants(true);
     const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id")
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked" as any)
       .order("created_at", { ascending: false });
     const list = (data as any[]) || [];
     setTenants(list as any);
@@ -161,6 +161,92 @@ export default function AdminPanel() {
       setOwnerEmails(map);
     } catch (_e) {
       // non-fatal — Unblock button will be disabled when email missing
+    }
+
+    // Load latest activity per organisation
+    loadLatestActivity();
+  };
+
+  const loadLatestActivity = async () => {
+    const { data } = await supabase
+      .from("tenant_activity_log" as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+    const rows = (data as any[]) || [];
+    const map: Record<string, ActivityEntry> = {};
+    for (const r of rows) {
+      const orgId = r.organisation_id as string | null;
+      if (orgId && !map[orgId]) map[orgId] = r as ActivityEntry;
+    }
+    setLatestActivity(map);
+  };
+
+  const logTenantActivity = async (
+    organisationId: string,
+    eventType: "magic_link_sent" | "access_blocked" | "access_unblocked",
+    note: string | null,
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("tenant_activity_log" as any).insert({
+        organisation_id: organisationId,
+        event_type: eventType,
+        performed_by: user?.id ?? null,
+        note,
+      } as any);
+      if (error) {
+        console.error("Failed to log tenant activity:", error.message);
+      }
+    } catch (e) {
+      console.error("Failed to log tenant activity:", e);
+    }
+    loadLatestActivity();
+  };
+
+  const handleToggleBlock = async (tenant: Tenant) => {
+    const willBlock = !tenant.is_blocked;
+    setTogglingBlockFor(tenant.id);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_blocked: willBlock } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+
+      setTenants((prev) =>
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: willBlock } : t)),
+      );
+
+      await logTenantActivity(
+        tenant.id,
+        willBlock ? "access_blocked" : "access_unblocked",
+        tenant.name,
+      );
+
+      toast.success(willBlock ? `${tenant.name} blocked` : `${tenant.name} unblocked`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update tenant");
+    } finally {
+      setTogglingBlockFor(null);
+    }
+  };
+
+  const openActivityModal = async (tenant: Tenant) => {
+    setActivityModalOrg(tenant);
+    setLoadingActivityModal(true);
+    setActivityModalEntries([]);
+    try {
+      const { data, error } = await supabase
+        .from("tenant_activity_log" as any)
+        .select("*")
+        .eq("organisation_id", tenant.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setActivityModalEntries((data as any[]) as ActivityEntry[] || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load activity");
+    } finally {
+      setLoadingActivityModal(false);
     }
   };
 
