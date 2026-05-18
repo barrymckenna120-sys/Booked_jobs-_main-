@@ -330,6 +330,10 @@ const Schedule = () => {
         body: { service_call_id: jobId }
       }).catch(err => console.error('send-booking-confirmation failed:', err));
 
+      supabase.functions.invoke('send-schedule-confirmation', {
+        body: { service_call_id: jobId }
+      }).catch(err => console.error('send-schedule-confirmation failed:', err));
+
       // ---- Push notifications: reassign / reschedule ----
       try {
         const customerName = (prevJob as any)?.customers?.name || "Customer";
