@@ -87,3 +87,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-payment-received]
     verify_jwt = false
+  [functions.send-schedule-confirmation]
+    verify_jwt = false
