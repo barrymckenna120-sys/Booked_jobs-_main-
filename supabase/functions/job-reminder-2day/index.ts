@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
       }
       const cleanNumber = digits;
 
-      const message = `Hi ${fullName},
+      const message = `Hi ${firstName},
 
 This is a reminder from ${companyName} that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
 
