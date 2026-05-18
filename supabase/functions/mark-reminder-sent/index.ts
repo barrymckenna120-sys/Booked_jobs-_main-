@@ -12,11 +12,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { job_id, reminder_type } = await req.json();
+    const { job_id, reminder_type, organisation_id } = await req.json();
 
     if (!job_id || typeof job_id !== "string") {
       return new Response(
         JSON.stringify({ error: "job_id is required and must be a string" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!organisation_id || typeof organisation_id !== "string") {
+      return new Response(
+        JSON.stringify({ error: "organisation_id is required and must be a string" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
