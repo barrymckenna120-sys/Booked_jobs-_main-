@@ -12,6 +12,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const organisation_id = body?.organisation_id;
+    if (!organisation_id) {
+      return new Response(
+        JSON.stringify({ error: "organisation_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -29,6 +38,7 @@ Deno.serve(async (req) => {
     const { data: customers, error: custErr } = await supabase
       .from("customers")
       .select("id, name, phone, next_service_due, organisation_id")
+      .eq("organisation_id", organisation_id)
       .gte("next_service_due", startDate)
       .lte("next_service_due", endDate)
       .neq("opted_out", true);
