@@ -1842,6 +1842,7 @@ export type Database = {
           description: string
           discount: number | null
           expiry_date: string | null
+          follow_up_day3_sent: boolean
           follow_up_sent: boolean | null
           grant_amount: number | null
           id: string
@@ -1885,6 +1886,7 @@ export type Database = {
           description: string
           discount?: number | null
           expiry_date?: string | null
+          follow_up_day3_sent?: boolean
           follow_up_sent?: boolean | null
           grant_amount?: number | null
           id?: string
@@ -1928,6 +1930,7 @@ export type Database = {
           description?: string
           discount?: number | null
           expiry_date?: string | null
+          follow_up_day3_sent?: boolean
           follow_up_sent?: boolean | null
           grant_amount?: number | null
           id?: string
