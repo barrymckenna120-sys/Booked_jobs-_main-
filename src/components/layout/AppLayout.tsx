@@ -63,7 +63,8 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
   const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
-  const isOwnerManager = role === ("owner_manager" as any);
+  // Show "Switch to Engineer View" for office/admin users (owners/managers)
+  const canSwitchToEngineer = !isEngineer;
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
@@ -135,7 +136,7 @@ const AppLayoutInner = () => {
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
-            {isOwnerManager && (
+            {canSwitchToEngineer && (
               <button
                 onClick={() => navigate("/engineer/today")}
                 className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -206,7 +207,7 @@ const AppLayoutInner = () => {
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
         <div className="flex items-center gap-1.5">
-          {isOwnerManager && (
+          {canSwitchToEngineer && (
             <button
               onClick={() => navigate("/engineer/today")}
               className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
