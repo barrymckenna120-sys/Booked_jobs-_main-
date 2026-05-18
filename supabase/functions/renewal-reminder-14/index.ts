@@ -139,7 +139,14 @@ Deno.serve(async (req) => {
         digits = countryCode + digits;
       }
       const localPhone = "0" + digits.slice(ccLen);
-      const tally_url = `${tallyUrl}?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
+      const tally_url = `${tallyUrl}` +
+        `?Name=${encodeURIComponent(c.name || "")}` +
+        `&Phone=${localPhone}` +
+        `&Address=${encodeURIComponent((c as any).address || "")}` +
+        `&Eircode=${encodeURIComponent((c as any).eircode || "")}` +
+        `&Area code=${encodeURIComponent((c as any).area_code || "")}` +
+        `&Boiler_brand=${encodeURIComponent((c as any).boiler_brand || "")}` +
+        `&Boiler _ Model=${encodeURIComponent((c as any).boiler_model || "")}`;
       const d = new Date(c.next_service_due);
       const next_service_due_formatted = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
       result.push({
