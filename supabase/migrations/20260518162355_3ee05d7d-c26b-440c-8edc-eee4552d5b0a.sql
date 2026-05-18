@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS invoice_sent_at timestamp with time zone;
