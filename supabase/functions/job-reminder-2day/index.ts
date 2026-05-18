@@ -140,7 +140,8 @@ Deno.serve(async (req) => {
 
       const { companyName, companyPhone, countryCode, apiKey } = integration;
 
-      const firstName = (customer.name || "Customer").split(" ")[0];
+      const fullName = customer.name || "Customer";
+      const firstName = fullName.split(" ")[0];
       const engineerName = engineerMap.get(job.assigned_engineer_id) || job.assigned_engineer || "our engineer";
 
       // Format date as DD/MM/YYYY
