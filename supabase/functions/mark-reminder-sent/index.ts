@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
     const { error } = await supabase
       .from("service_calls")
       .update({ [column]: true })
-      .eq("id", job_id);
+      .eq("id", job_id)
+      .eq("organisation_id", organisation_id);
 
     if (error) throw error;
 
