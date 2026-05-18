@@ -143,11 +143,15 @@ Deno.serve(async (req) => {
       }
       const localPhone = "0" + digits.slice(ccLen);
       const tally_url = `${tallyUrl}?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
+      const d = new Date(c.next_service_due);
+      const next_service_due_formatted = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
       result.push({
         customer_id: c.id,
-        full_name: c.name,
-        mobile_number: c.phone,
+        customer_name: c.name,
+        customer_first_name: (c.name || "Customer").split(" ")[0],
+        customer_phone: c.phone,
         next_service_due: c.next_service_due,
+        next_service_due_formatted,
         payment_status: latest?.payment_status || "unpaid",
         job_id: latest?.id || null,
         reminder_30day_sent: latest?.reminder_30day_sent ?? false,
