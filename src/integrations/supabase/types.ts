@@ -2108,6 +2108,7 @@ export type Database = {
           review_sent_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          schedule_confirmation_sent: boolean
           scheduled_date: string | null
           source: string | null
           status: string
@@ -2194,6 +2195,7 @@ export type Database = {
           review_sent_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          schedule_confirmation_sent?: boolean
           scheduled_date?: string | null
           source?: string | null
           status?: string
@@ -2280,6 +2282,7 @@ export type Database = {
           review_sent_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          schedule_confirmation_sent?: boolean
           scheduled_date?: string | null
           source?: string | null
           status?: string
