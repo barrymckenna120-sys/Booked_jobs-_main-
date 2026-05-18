@@ -8,18 +8,17 @@ import { getFcmToken } from "@/lib/firebase";
 const linkEngineerAndCaptureFcm = async (user: User) => {
   if (!user.email) return;
   try {
-    // Step 1: auto-link auth_user_id if missing
-    const { data: unlinked } = await supabase
+    // Step 1: auto-link auth_user_id if missing OR stale (doesn't match current auth user)
+    const { data: engineerByEmail } = await supabase
       .from("engineers")
       .select("id, auth_user_id")
       .eq("email", user.email)
-      .is("auth_user_id", null)
       .maybeSingle();
-    if (unlinked) {
+    if (engineerByEmail && engineerByEmail.auth_user_id !== user.id) {
       await supabase
         .from("engineers")
         .update({ auth_user_id: user.id } as any)
-        .eq("id", unlinked.id);
+        .eq("id", engineerByEmail.id);
     }
 
     // Step 2: capture FCM token for the engineer
