@@ -440,6 +440,9 @@ const JobDetail = () => {
           organisation_id: (job as any).organisation_id,
         },
       }).catch((err) => console.error('cancel-job-notify failed:', err));
+      supabase.functions.invoke('send-cancellation-notice', {
+        body: { service_call_id: job.id },
+      }).catch((err) => console.error('send-cancellation-notice failed:', err));
       toast({ title: "Job cancelled" });
       setCancelOpen(false);
       fetchJob();
