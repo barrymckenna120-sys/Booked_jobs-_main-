@@ -2072,6 +2072,7 @@ export type Database = {
           invoice_reminder_2_sent_at: string | null
           invoice_reminder_count: number
           invoice_reminder_sent_at: string | null
+          invoice_sent_at: string | null
           invoiced_at: string | null
           job_category: string | null
           job_issue: string | null
@@ -2156,6 +2157,7 @@ export type Database = {
           invoice_reminder_2_sent_at?: string | null
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
+          invoice_sent_at?: string | null
           invoiced_at?: string | null
           job_category?: string | null
           job_issue?: string | null
@@ -2240,6 +2242,7 @@ export type Database = {
           invoice_reminder_2_sent_at?: string | null
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
+          invoice_sent_at?: string | null
           invoiced_at?: string | null
           job_category?: string | null
           job_issue?: string | null
