@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       }
 
       const cfg = {
-        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url ?? "https://rebook.kngasservices.ie/",
+        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url ?? "https://tally.so/r/RGJDy4",
         countryCode: String((messengerIntegration as any)?.config?.country_code ?? "353"),
       };
       orgConfigCache.set(orgId, cfg);
