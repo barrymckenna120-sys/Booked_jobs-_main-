@@ -85,7 +85,7 @@ const EngineerLayout = () => {
             <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
           </div>
           <div className="flex items-center gap-2">
-            {isOwnerManager && (
+            {canSwitchToOffice && (
               <button
                 onClick={() => navigate("/dashboard")}
                 className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
