@@ -77,3 +77,15 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.cancel-job-notify]
     verify_jwt = false
+  [functions.send-magic-link]
+    verify_jwt = false
+  [functions.send-block-notification]
+    verify_jwt = false
+  [functions.handle-whatsapp-opt-out]
+    verify_jwt = false
+  [functions.send-invoice-whatsapp]
+    verify_jwt = false
+  [functions.send-payment-received]
+    verify_jwt = false
+  [functions.send-schedule-confirmation]
+    verify_jwt = false

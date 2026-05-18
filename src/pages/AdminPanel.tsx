@@ -15,9 +15,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
+import { Loader2, History, Ban, ShieldCheck, Trash2 } from "lucide-react";
 
 type Tenant = {
   id: string;
@@ -29,7 +38,34 @@ type Tenant = {
   industry: string | null;
   created_at: string;
   owner_user_id: string | null;
+  is_blocked: boolean | null;
+  is_archived?: boolean | null;
+  archived_at?: string | null;
 };
+
+type ActivityEntry = {
+  id: string;
+  organisation_id: string | null;
+  event_type: string;
+  performed_by: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  magic_link_sent: "Magic link sent",
+  access_blocked: "Access blocked",
+  access_unblocked: "Access unblocked",
+};
+
+const formatActivityTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-IE", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Dublin",
+  });
 
 const slugify = (s: string) =>
   s
@@ -74,6 +110,18 @@ export default function AdminPanel() {
   const [loadingTenants, setLoadingTenants] = useState(true);
   const [ownerEmails, setOwnerEmails] = useState<Record<string, string>>({});
   const [unblockingEmail, setUnblockingEmail] = useState<string | null>(null);
+  const [sendingMagicLinkFor, setSendingMagicLinkFor] = useState<string | null>(null);
+  const [togglingBlockFor, setTogglingBlockFor] = useState<string | null>(null);
+  const [latestActivity, setLatestActivity] = useState<Record<string, ActivityEntry>>({});
+  const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
+  const [activityModalEntries, setActivityModalEntries] = useState<ActivityEntry[]>([]);
+  const [loadingActivityModal, setLoadingActivityModal] = useState(false);
+  const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const [archiveModalTenant, setArchiveModalTenant] = useState<Tenant | null>(null);
+  const [archiveTypedName, setArchiveTypedName] = useState("");
+  const [archiving, setArchiving] = useState(false);
 
   // Access check
   useEffect(() => {
@@ -106,7 +154,7 @@ export default function AdminPanel() {
     setLoadingTenants(true);
     const { data } = await supabase
       .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id")
+      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked, is_archived, archived_at" as any)
       .order("created_at", { ascending: false });
     const list = (data as any[]) || [];
     setTenants(list as any);
@@ -124,6 +172,164 @@ export default function AdminPanel() {
     } catch (_e) {
       // non-fatal — Unblock button will be disabled when email missing
     }
+
+    // Load latest activity per organisation
+    loadLatestActivity();
+  };
+
+  const loadLatestActivity = async () => {
+    const { data } = await supabase
+      .from("tenant_activity_log" as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+    const rows = (data as any[]) || [];
+    const map: Record<string, ActivityEntry> = {};
+    for (const r of rows) {
+      const orgId = r.organisation_id as string | null;
+      if (orgId && !map[orgId]) map[orgId] = r as ActivityEntry;
+    }
+    setLatestActivity(map);
+  };
+
+  const logTenantActivity = async (
+    organisationId: string,
+    eventType: "magic_link_sent" | "access_blocked" | "access_unblocked",
+    note: string | null,
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("tenant_activity_log" as any).insert({
+        organisation_id: organisationId,
+        event_type: eventType,
+        performed_by: user?.id ?? null,
+        note,
+      } as any);
+      if (error) {
+        console.error("Failed to log tenant activity:", error.message);
+      }
+    } catch (e) {
+      console.error("Failed to log tenant activity:", e);
+    }
+    loadLatestActivity();
+  };
+
+  const handleUnblockTenant = async (tenant: Tenant) => {
+    setTogglingBlockFor(tenant.id);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_blocked: false } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+
+      setTenants((prev) =>
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: false } : t)),
+      );
+
+      await logTenantActivity(tenant.id, "access_unblocked", tenant.name);
+      toast.success(`${tenant.name} unblocked`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update tenant");
+    } finally {
+      setTogglingBlockFor(null);
+    }
+  };
+
+  const openBlockModal = (tenant: Tenant) => {
+    setBlockModalTenant(tenant);
+    setBlockReason("");
+  };
+
+  const handleConfirmBlock = async () => {
+    if (!blockModalTenant) return;
+    const reason = blockReason.trim();
+    if (reason.length < 10) {
+      toast.error("Reason must be at least 10 characters");
+      return;
+    }
+    const tenant = blockModalTenant;
+    setConfirmingBlock(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_blocked: true } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+
+      setTenants((prev) =>
+        prev.map((t) => (t.id === tenant.id ? { ...t, is_blocked: true } : t)),
+      );
+
+      await logTenantActivity(tenant.id, "access_blocked", reason);
+
+      const ownerEmail = tenant.owner_user_id ? ownerEmails[tenant.owner_user_id] : null;
+      if (ownerEmail) {
+        try {
+          const { data, error: fnErr } = await supabase.functions.invoke(
+            "send-block-notification",
+            { body: { email: ownerEmail, org_name: tenant.name, reason } },
+          );
+          if (fnErr || (data as any)?.error) {
+            const msg = (data as any)?.error || fnErr?.message || "Failed to send notification";
+            toast.error(`Blocked, but email failed: ${msg}`);
+          } else {
+            toast.success(`${tenant.name} blocked — owner notified`);
+          }
+        } catch (e) {
+          toast.error(`Blocked, but email failed: ${e instanceof Error ? e.message : "unknown"}`);
+        }
+      } else {
+        toast.success(`${tenant.name} blocked (no owner email on file)`);
+      }
+
+      setBlockModalTenant(null);
+      setBlockReason("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to block tenant");
+    } finally {
+      setConfirmingBlock(false);
+    }
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!archiveModalTenant) return;
+    if (archiveTypedName.trim() !== archiveModalTenant.name) return;
+    const tenant = archiveModalTenant;
+    setArchiving(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ is_archived: true, archived_at: new Date().toISOString() } as any)
+        .eq("id", tenant.id);
+      if (error) throw error;
+      toast.success("Organisation archived");
+      setArchiveModalTenant(null);
+      setArchiveTypedName("");
+      loadTenants();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to archive");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const openActivityModal = async (tenant: Tenant) => {
+    setActivityModalOrg(tenant);
+    setLoadingActivityModal(true);
+    setActivityModalEntries([]);
+    try {
+      const { data, error } = await supabase
+        .from("tenant_activity_log" as any)
+        .select("*")
+        .eq("organisation_id", tenant.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setActivityModalEntries((data as any[]) as ActivityEntry[] || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load activity");
+    } finally {
+      setLoadingActivityModal(false);
+    }
   };
 
   const handleUnblock = async (email: string) => {
@@ -140,6 +346,24 @@ export default function AdminPanel() {
       toast.error(err instanceof Error ? err.message : "Failed to unblock user");
     } finally {
       setUnblockingEmail(null);
+    }
+  };
+
+  const handleSendMagicLink = async (tenantId: string, email: string, orgName: string) => {
+    setSendingMagicLinkFor(tenantId);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-magic-link", {
+        body: { email, org_name: orgName },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Failed");
+      }
+      toast.success(`Magic link sent to ${email}`);
+      await logTenantActivity(tenantId, "magic_link_sent", email);
+    } catch (_e) {
+      toast.error("Failed to send magic link");
+    } finally {
+      setSendingMagicLinkFor(null);
     }
   };
 
@@ -339,23 +563,57 @@ export default function AdminPanel() {
                     <TableHead>Status</TableHead>
                     <TableHead>Owner Name</TableHead>
                     <TableHead>Owner Phone</TableHead>
+                    <TableHead>Owner Email</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Magic Link</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tenants.map((t) => {
                     const email = t.owner_user_id ? ownerEmails[t.owner_user_id] : null;
+                    const blocked = !!t.is_blocked;
+                    const archived = !!t.is_archived;
+                    const latest = latestActivity[t.id];
                     return (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.name}</TableCell>
+                    <TableRow key={t.id} className={archived ? "opacity-50 bg-muted/40" : blocked ? "opacity-60 bg-muted/40" : ""}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/admin/tenants/${t.id}`)}
+                            className="text-primary hover:underline text-left"
+                          >
+                            {t.name}
+                          </button>
+                          {blocked && !archived && (
+                            <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
+                              Blocked
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{t.slug}</TableCell>
                       <TableCell>
-                        <StatusBadge status={t.subscription_status} />
+                        {archived ? (
+                          <Badge variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-200">
+                            Archived
+                          </Badge>
+                        ) : (
+                          <StatusBadge status={t.subscription_status} />
+                        )}
                       </TableCell>
-                      <TableCell>{t.owner_name || "—"}</TableCell>
+                      <TableCell>
+                        <div>{t.owner_name || "—"}</div>
+                        {latest && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {EVENT_LABELS[latest.event_type] || latest.event_type} · {formatActivityTime(latest.created_at)}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{t.owner_phone || "—"}</TableCell>
+                      <TableCell>{email || "—"}</TableCell>
                       <TableCell>{t.industry || "—"}</TableCell>
                       <TableCell>
                         {new Date(t.created_at).toLocaleDateString('en-IE', {
@@ -364,8 +622,63 @@ export default function AdminPanel() {
                           year: 'numeric'
                         })}
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!email || sendingMagicLinkFor === t.id}
+                            onClick={() => email && handleSendMagicLink(t.id, email, t.name)}
+                            title={email || "Owner email unavailable"}
+                          >
+                            {sendingMagicLinkFor === t.id ? (
+                              <>
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                Sending…
+                              </>
+                            ) : (
+                              "Send Magic Link"
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={blocked ? "outline" : "destructive"}
+                            disabled={togglingBlockFor === t.id}
+                            onClick={() => (blocked ? handleUnblockTenant(t) : openBlockModal(t))}
+                          >
+                            {togglingBlockFor === t.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : blocked ? (
+                              <>
+                                <ShieldCheck className="mr-1 h-3 w-3" />
+                                Unblock
+                              </>
+                            ) : (
+                              <>
+                                <Ban className="mr-1 h-3 w-3" />
+                                Block
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openActivityModal(t)}
+                            title="View activity"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/admin/tenants/${t.id}`)}
+                          >
+                            View
+                          </Button>
                           <Button
                             size="sm"
                             variant="secondary"
@@ -376,15 +689,6 @@ export default function AdminPanel() {
                             }}
                           >
                             Switch Context
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!email || unblockingEmail === email}
-                            onClick={() => email && handleUnblock(email)}
-                            title={email || "Owner email unavailable"}
-                          >
-                            {email && unblockingEmail === email ? "Unblocking…" : "Unblock"}
                           </Button>
                         </div>
                       </TableCell>
@@ -403,6 +707,155 @@ export default function AdminPanel() {
           <CustomerIntegrationsTab />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!activityModalOrg} onOpenChange={(open) => !open && setActivityModalOrg(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Activity — {activityModalOrg?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingActivityModal ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : activityModalEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No activity yet.</p>
+          ) : (
+            <ul className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {activityModalEntries.map((entry) => (
+                <li key={entry.id} className="border-b pb-2 last:border-b-0">
+                  <div className="text-sm font-medium">
+                    {EVENT_LABELS[entry.event_type] || entry.event_type}
+                  </div>
+                  {entry.note && (
+                    <div className="text-sm text-muted-foreground">{entry.note}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatActivityTime(entry.created_at)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!blockModalTenant}
+        onOpenChange={(open) => {
+          if (!open && !confirmingBlock) {
+            setBlockModalTenant(null);
+            setBlockReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Block {blockModalTenant?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="block-reason">Reason for blocking</Label>
+            <Textarea
+              id="block-reason"
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Explain why this tenant is being blocked (min 10 characters)…"
+              rows={4}
+              disabled={confirmingBlock}
+            />
+            <p className="text-xs text-muted-foreground">
+              {blockReason.trim().length}/10 characters minimum. The owner will be emailed
+              with this reason.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBlockModalTenant(null);
+                setBlockReason("");
+              }}
+              disabled={confirmingBlock}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmBlock}
+              disabled={confirmingBlock || blockReason.trim().length < 10}
+            >
+              {confirmingBlock ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Blocking…
+                </>
+              ) : (
+                "Confirm Block"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!archiveModalTenant}
+        onOpenChange={(open) => {
+          if (!open && !archiving) {
+            setArchiveModalTenant(null);
+            setArchiveTypedName("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Archive {archiveModalTenant?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="archive-name">
+              Type the organisation name to confirm archiving
+            </Label>
+            <Input
+              id="archive-name"
+              value={archiveTypedName}
+              onChange={(e) => setArchiveTypedName(e.target.value)}
+              placeholder={archiveModalTenant?.name}
+              disabled={archiving}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setArchiveModalTenant(null);
+                setArchiveTypedName("");
+              }}
+              disabled={archiving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmArchive}
+              disabled={
+                archiving ||
+                archiveTypedName.trim() !== (archiveModalTenant?.name ?? "")
+              }
+            >
+              {archiving ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Archiving…
+                </>
+              ) : (
+                "Archive Organisation"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

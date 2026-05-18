@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS payment_received_whatsapp_sent boolean NOT NULL DEFAULT false;

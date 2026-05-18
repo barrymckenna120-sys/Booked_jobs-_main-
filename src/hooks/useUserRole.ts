@@ -39,10 +39,14 @@ export const useUserRole = (user: User | null) => {
         if (cancelled) return;
         const engineerRow: any = data;
         if (engineerRow) {
-          setRole((engineerRow.role as AppRole) || "engineer");
+          const rawRole = (engineerRow.role as string) || "engineer";
+          setRole(rawRole as AppRole);
           setEngineerId(engineerRow.id);
           setEngineerName(engineerRow.name);
-          setCanAccessOffice(!!engineerRow?.can_access_office);
+          // Owner/manager/admin/office roles always get office access,
+          // regardless of the can_access_office flag on the engineer row.
+          const elevated = ["owner", "manager", "admin", "office"].includes(rawRole);
+          setCanAccessOffice(elevated || !!engineerRow?.can_access_office);
         } else {
           setRole("admin");
           setEngineerId(null);

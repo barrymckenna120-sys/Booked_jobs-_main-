@@ -6,7 +6,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2, ScrollText,
+  CalendarCheck, Layers, Shield, BarChart2, ScrollText, Hammer,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -62,7 +62,9 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
-  const { isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
+  const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
+  // Show "Switch to Engineer View" for office/admin users (owners/managers)
+  const canSwitchToEngineer = !isEngineer;
   const location = useLocation();
   const navigate = useNavigate();
   const { guardedNavigate, pendingDestination, confirmNavigation, cancelNavigation } = useNavigationGuard();
@@ -134,6 +136,15 @@ const AppLayoutInner = () => {
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
+            {canSwitchToEngineer && (
+              <button
+                onClick={() => navigate("/engineer/today")}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Switch to Engineer View"
+              >
+                <Hammer className="w-4 h-4" /> Engineer View
+              </button>
+            )}
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
             <button
               onClick={() => guardedNavigate("/settings")}
@@ -196,6 +207,16 @@ const AppLayoutInner = () => {
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
         </div>
         <div className="flex items-center gap-1.5">
+          {canSwitchToEngineer && (
+            <button
+              onClick={() => navigate("/engineer/today")}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Switch to Engineer View"
+              aria-label="Engineer View"
+            >
+              <Hammer className="w-5 h-5" />
+            </button>
+          )}
           <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>

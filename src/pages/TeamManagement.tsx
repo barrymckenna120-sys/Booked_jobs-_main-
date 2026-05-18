@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { logAudit } from "@/lib/auditLog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,6 +109,7 @@ interface TeamMember {
 
 const TeamManagement = () => {
   const { user, loading: authLoading } = useAuth();
+  const { orgId: currentOrganisationId } = useOrgId();
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
@@ -383,7 +385,57 @@ const TeamManagement = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await supabase.from("engineers").delete().eq("id", deleteTarget.id);
+
+    const { data: activeJobs, error: activeJobsError } = await supabase
+      .from("service_calls")
+      .select("id, status")
+      .eq("assigned_engineer_id", deleteTarget.id)
+      .not("status", "in", "(completed,cancelled)");
+
+    if (activeJobsError) {
+      console.error("Active jobs check error:", activeJobsError);
+      toast({
+        title: "Failed to remove user",
+        description: activeJobsError.message,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
+    if (activeJobs && activeJobs.length > 0) {
+      const count = activeJobs.length;
+      toast({
+        title: `Cannot remove ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("engineers")
+      .delete()
+      .eq("id", deleteTarget.id);
+
+    if (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Failed to remove user",
+        description: error.message,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+      return;
+    }
+
+    if (deleteTarget.auth_user_id) {
+      await supabase
+        .from("profiles")
+        .delete()
+        .eq("user_id", deleteTarget.auth_user_id);
+    }
+
     setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
     toast({ title: `${deleteTarget.name} has been removed` });
     logAudit({
@@ -392,7 +444,6 @@ const TeamManagement = () => {
       entity_id: deleteTarget.id,
       detail: `Removed: ${deleteTarget.name}`,
     });
-    setDeleteTarget(null);
     setDeleteTarget(null);
   };
 

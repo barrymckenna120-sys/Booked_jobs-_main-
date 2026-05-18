@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS schedule_confirmation_sent boolean NOT NULL DEFAULT false;

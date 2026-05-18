@@ -1606,6 +1606,7 @@ export type Database = {
       }
       organisations: {
         Row: {
+          archived_at: string | null
           bookedjobs_plan: string | null
           bot_enabled: boolean | null
           bot_name: string | null
@@ -1616,6 +1617,8 @@ export type Database = {
           google_review_url: string | null
           id: string
           industry: string | null
+          is_archived: boolean
+          is_blocked: boolean
           name: string
           owner_name: string | null
           owner_phone: string | null
@@ -1626,6 +1629,7 @@ export type Database = {
           subscription_status: string
         }
         Insert: {
+          archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
           bot_name?: string | null
@@ -1636,6 +1640,8 @@ export type Database = {
           google_review_url?: string | null
           id?: string
           industry?: string | null
+          is_archived?: boolean
+          is_blocked?: boolean
           name: string
           owner_name?: string | null
           owner_phone?: string | null
@@ -1646,6 +1652,7 @@ export type Database = {
           subscription_status?: string
         }
         Update: {
+          archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
           bot_name?: string | null
@@ -1656,6 +1663,8 @@ export type Database = {
           google_review_url?: string | null
           id?: string
           industry?: string | null
+          is_archived?: boolean
+          is_blocked?: boolean
           name?: string
           owner_name?: string | null
           owner_phone?: string | null
@@ -2063,6 +2072,7 @@ export type Database = {
           invoice_reminder_2_sent_at: string | null
           invoice_reminder_count: number
           invoice_reminder_sent_at: string | null
+          invoice_sent_at: string | null
           invoiced_at: string | null
           job_category: string | null
           job_issue: string | null
@@ -2081,6 +2091,7 @@ export type Database = {
           payment_collected_by: string | null
           payment_link: string | null
           payment_method: string | null
+          payment_received_whatsapp_sent: boolean
           payment_status: string | null
           preferred_time: string | null
           quote_id: string | null
@@ -2097,6 +2108,7 @@ export type Database = {
           review_sent_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          schedule_confirmation_sent: boolean
           scheduled_date: string | null
           source: string | null
           status: string
@@ -2147,6 +2159,7 @@ export type Database = {
           invoice_reminder_2_sent_at?: string | null
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
+          invoice_sent_at?: string | null
           invoiced_at?: string | null
           job_category?: string | null
           job_issue?: string | null
@@ -2165,6 +2178,7 @@ export type Database = {
           payment_collected_by?: string | null
           payment_link?: string | null
           payment_method?: string | null
+          payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
           preferred_time?: string | null
           quote_id?: string | null
@@ -2181,6 +2195,7 @@ export type Database = {
           review_sent_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          schedule_confirmation_sent?: boolean
           scheduled_date?: string | null
           source?: string | null
           status?: string
@@ -2231,6 +2246,7 @@ export type Database = {
           invoice_reminder_2_sent_at?: string | null
           invoice_reminder_count?: number
           invoice_reminder_sent_at?: string | null
+          invoice_sent_at?: string | null
           invoiced_at?: string | null
           job_category?: string | null
           job_issue?: string | null
@@ -2249,6 +2265,7 @@ export type Database = {
           payment_collected_by?: string | null
           payment_link?: string | null
           payment_method?: string | null
+          payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
           preferred_time?: string | null
           quote_id?: string | null
@@ -2265,6 +2282,7 @@ export type Database = {
           review_sent_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          schedule_confirmation_sent?: boolean
           scheduled_date?: string | null
           source?: string | null
           status?: string
@@ -2501,12 +2519,48 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_activity_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          note: string | null
+          organisation_id: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          note?: string | null
+          organisation_id?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_activity_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_integrations: {
         Row: {
           config: Json
           created_at: string
           id: string
           integration_type: string
+          is_active: boolean
           organisation_id: string
           updated_at: string
         }
@@ -2515,6 +2569,7 @@ export type Database = {
           created_at?: string
           id?: string
           integration_type: string
+          is_active?: boolean
           organisation_id: string
           updated_at?: string
         }
@@ -2523,6 +2578,7 @@ export type Database = {
           created_at?: string
           id?: string
           integration_type?: string
+          is_active?: boolean
           organisation_id?: string
           updated_at?: string
         }

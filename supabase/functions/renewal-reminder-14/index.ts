@@ -12,6 +12,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const organisation_id = body?.organisation_id;
+    if (!organisation_id) {
+      return new Response(
+        JSON.stringify({ error: "organisation_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -24,7 +33,8 @@ Deno.serve(async (req) => {
 
     const { data: customers, error: custErr } = await supabase
       .from("customers")
-      .select("id, name, phone, next_service_due, organisation_id")
+      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model")
+      .eq("organisation_id", organisation_id)
       .eq("next_service_due", targetDate)
       .neq("opted_out", true);
 
@@ -65,7 +75,7 @@ Deno.serve(async (req) => {
       }
 
       const cfg = {
-        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url ?? "https://rebook.kngasservices.ie/",
+        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url ?? "https://tally.so/r/RGJDy4",
         countryCode: String((messengerIntegration as any)?.config?.country_code ?? "353"),
       };
       orgConfigCache.set(orgId, cfg);
@@ -129,12 +139,23 @@ Deno.serve(async (req) => {
         digits = countryCode + digits;
       }
       const localPhone = "0" + digits.slice(ccLen);
-      const tally_url = `${tallyUrl}?Name=${encodeURIComponent(c.name || "")}&Mobile=${encodeURIComponent(localPhone)}&source=renewal_tally`;
+      const tally_url = `${tallyUrl}` +
+        `?Name=${encodeURIComponent(c.name || "")}` +
+        `&Moblie=${localPhone}` +
+        `&Address=${encodeURIComponent((c as any).address || "")}` +
+        `&Eircode=${encodeURIComponent((c as any).eircode || "")}` +
+        `&Areacode=${encodeURIComponent((c as any).area_code || "")}` +
+        `&Boiler_ Brand=${encodeURIComponent((c as any).boiler_brand || "")}` +
+        `&Boiler_model=${encodeURIComponent((c as any).boiler_model || "")}`;
+      const d = new Date(c.next_service_due);
+      const next_service_due_formatted = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
       result.push({
         customer_id: c.id,
         customer_name: c.name,
+        customer_first_name: (c.name || "Customer").split(" ")[0],
         customer_phone: c.phone,
         next_service_due: c.next_service_due,
+        next_service_due_formatted,
         payment_status: latest?.payment_status || "unpaid",
         job_id: latest?.id || null,
         reminder_30day_sent: latest?.reminder_30day_sent ?? false,

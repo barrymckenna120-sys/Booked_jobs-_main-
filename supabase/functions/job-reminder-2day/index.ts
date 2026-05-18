@@ -69,6 +69,17 @@ Deno.serve(async (req) => {
   };
 
   try {
+    // Parse organisation_id from request body (required for multi-tenant scoping)
+    const body = await req.json().catch(() => ({}));
+    const organisation_id = body?.organisation_id;
+
+    if (!organisation_id) {
+      return new Response(
+        JSON.stringify({ error: "organisation_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Calculate target date (today + 2 days)
     const today = new Date();
     const target = new Date(today);
@@ -88,6 +99,7 @@ Deno.serve(async (req) => {
         organisation_id,
         customers ( name, phone, opted_out )
       `)
+      .eq("organisation_id", organisation_id)
       .eq("scheduled_date", targetStr)
       .eq("status", "Scheduled")
       .neq("reminder_2day_sent", true);
@@ -141,23 +153,24 @@ Deno.serve(async (req) => {
       const { companyName, companyPhone, countryCode, apiKey } = integration;
 
       const fullName = customer.name || "Customer";
+      const firstName = fullName.split(" ")[0];
       const engineerName = engineerMap.get(job.assigned_engineer_id) || job.assigned_engineer || "our engineer";
 
       // Format date as DD/MM/YYYY
       const [year, month, day] = (job.scheduled_date as string).split("-");
       const formattedDate = `${day}/${month}/${year}`;
 
-      // Format time block to 12-hour
+      // Format time block to 12-hour start time only (no end_time field exists on service_calls)
       const timeBlock = job.time_block || "TBC";
       let formattedTime = timeBlock;
-      const timeMatch = timeBlock.match(/^(\d{1,2}):(\d{2})/);
+      const timeMatch = timeBlock.match(/^(\d{1,2})(?::(\d{2}))?/);
       if (timeMatch) {
         let hour = parseInt(timeMatch[1], 10);
-        const mins = timeMatch[2];
+        const mins = timeMatch[2] || "00";
         const ampm = hour >= 12 ? "pm" : "am";
         if (hour > 12) hour -= 12;
         if (hour === 0) hour = 12;
-        formattedTime = `${hour}:${mins}${ampm}`;
+        formattedTime = mins === "00" ? `${hour}${ampm}` : `${hour}:${mins}${ampm}`;
       }
 
       // Normalise phone number using configured country code
@@ -172,7 +185,7 @@ Deno.serve(async (req) => {
       }
       const cleanNumber = digits;
 
-      const message = `Hi ${fullName},
+      const message = `Hi ${firstName},
 
 This is a reminder from ${companyName} that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
 

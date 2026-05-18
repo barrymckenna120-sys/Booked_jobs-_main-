@@ -307,6 +307,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
+        // Fire-and-forget: send WhatsApp payment-received confirmation
+        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
       }
       // Save selected tags on completion
       if (patch.status === "Completed") {

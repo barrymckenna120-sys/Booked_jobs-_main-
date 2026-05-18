@@ -407,6 +407,7 @@ Deno.serve(async (req) => {
       // Log pending message
       const { data: logRows } = await sb.from("message_log").insert({
         customer_id: job.customer_id,
+        organisation_id: job.organisation_id,
         message_type: "invoice",
         channel: "whatsapp",
         direction: "outbound",
