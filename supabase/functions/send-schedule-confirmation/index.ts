@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       scheduledDate = `${dd}/${mm}/${yyyy}`;
     }
 
-    const timeSlot = (job as any).time_slot || job.time_block || "TBC";
+    const timeSlot = job.time_block || "TBC";
 
     // 4. First name
     const firstName = String(customer.name || "there").trim().split(/\s+/)[0];
