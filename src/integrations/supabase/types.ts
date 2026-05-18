@@ -2053,6 +2053,7 @@ export type Database = {
           bot_created: boolean | null
           budget_range: string | null
           cancellation_note: string | null
+          cancellation_notice_sent: boolean
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -2140,6 +2141,7 @@ export type Database = {
           bot_created?: boolean | null
           budget_range?: string | null
           cancellation_note?: string | null
+          cancellation_notice_sent?: boolean
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -2227,6 +2229,7 @@ export type Database = {
           bot_created?: boolean | null
           budget_range?: string | null
           cancellation_note?: string | null
+          cancellation_notice_sent?: boolean
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
