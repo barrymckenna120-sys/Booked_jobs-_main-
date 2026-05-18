@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         digits = countryCode + digits;
       }
       const localPhone = "0" + digits.slice(ccLen);
-      const tally_url = `https://rebook.kngasservices.ie/` +
+      const tally_url = tallyUrl +
         `?Name=${encodeURIComponent(c.name || "")}` +
         `&Phone=${localPhone}` +
         `&Address=${encodeURIComponent((c as any).address || "")}` +
