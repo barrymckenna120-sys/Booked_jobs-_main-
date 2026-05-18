@@ -69,6 +69,17 @@ Deno.serve(async (req) => {
   };
 
   try {
+    // Parse organisation_id from request body (required for multi-tenant scoping)
+    const body = await req.json().catch(() => ({}));
+    const organisation_id = body?.organisation_id;
+
+    if (!organisation_id) {
+      return new Response(
+        JSON.stringify({ error: "organisation_id is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Calculate target date (today + 2 days)
     const today = new Date();
     const target = new Date(today);
@@ -88,6 +99,7 @@ Deno.serve(async (req) => {
         organisation_id,
         customers ( name, phone, opted_out )
       `)
+      .eq("organisation_id", organisation_id)
       .eq("scheduled_date", targetStr)
       .eq("status", "Scheduled")
       .neq("reminder_2day_sent", true);
