@@ -222,6 +222,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       // Fire-and-forget: generate receipt PDF so it's ready for WhatsApp
       supabase.functions.invoke("generate-receipt-pdf", { body: { job_id: job.id } }).catch(() => {});
 
+      // Fire-and-forget: send WhatsApp payment-received confirmation
+      if (updatePayload.payment_status === "paid") {
+        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
+      }
+
       // Navigate to receipt preview screen
       setTimeout(() => {
         onPaymentComplete?.(receiptNum);
