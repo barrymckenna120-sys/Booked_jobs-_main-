@@ -83,3 +83,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.handle-whatsapp-opt-out]
     verify_jwt = false
+  [functions.send-invoice-whatsapp]
+    verify_jwt = false
