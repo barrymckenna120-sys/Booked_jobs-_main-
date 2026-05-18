@@ -131,6 +131,11 @@ const EngineerApp = () => {
       setTodayJobs(updater);
       setUpcomingJobs(updater);
       setCompletedJobs(updater);
+      if (cancelReason) {
+        supabase.functions.invoke('send-cancellation-notice', {
+          body: { service_call_id: jobId },
+        }).catch((err) => console.error('send-cancellation-notice failed:', err));
+      }
       toast({ title: patch.status === "Completed" ? "Job completed ✔" : patch.status === "Cancelled" ? "Job cancelled" : "Updated" });
     }
   };

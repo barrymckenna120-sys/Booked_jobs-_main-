@@ -254,6 +254,11 @@ export const useEngineerJobs = () => {
         variant: "destructive",
       });
     } else {
+      if (cancelReason) {
+        supabase.functions.invoke('send-cancellation-notice', {
+          body: { service_call_id: jobId },
+        }).catch((err) => console.error('send-cancellation-notice failed:', err));
+      }
       // Log payment_received activity when payment is recorded as paid
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {

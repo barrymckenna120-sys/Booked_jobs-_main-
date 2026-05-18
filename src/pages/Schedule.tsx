@@ -447,6 +447,9 @@ const Schedule = () => {
     } as any)).eq("id", jobId);
     if (!error) {
       logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: jobId, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
+      supabase.functions.invoke('send-cancellation-notice', {
+        body: { service_call_id: jobId },
+      }).catch((err) => console.error('send-cancellation-notice failed:', err));
       toast({ title: "Job cancelled" });
       setCancelModal({ open: false });
       setDetailDrawer({ open: false });
