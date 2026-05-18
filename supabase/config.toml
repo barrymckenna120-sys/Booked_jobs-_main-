@@ -81,3 +81,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-block-notification]
     verify_jwt = false
+  [functions.handle-whatsapp-opt-out]
+    verify_jwt = false
