@@ -27,11 +27,11 @@ Deno.serve(async (req) => {
     // 1. Fetch job
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, organisation_id, scheduled_date, time_slot, time_block, customer_id, assigned_engineer_id, assigned_engineer")
+      .select("id, organisation_id, scheduled_date, time_block, customer_id, assigned_engineer_id, assigned_engineer")
       .eq("id", service_call_id)
-      .single();
+      .maybeSingle();
 
-    if (jobErr || !job) return json({ error: "Job not found" }, 404);
+    if (jobErr || !job) return json({ error: "Job not found", detail: jobErr?.message }, 404);
 
     // Customer
     const { data: customer } = await supabase
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       scheduledDate = `${dd}/${mm}/${yyyy}`;
     }
 
-    const timeSlot = (job as any).time_slot || job.time_block || "TBC";
+    const timeSlot = job.time_block || "TBC";
 
     // 4. First name
     const firstName = String(customer.name || "there").trim().split(/\s+/)[0];
