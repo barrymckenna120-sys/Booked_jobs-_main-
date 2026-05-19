@@ -295,7 +295,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       // Log payment_received activity when payment is recorded as paid
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
-          const { data: profile } = await supabase.from("profiles").select("id").eq("id", user!.id).maybeSingle();
+          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
           const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
@@ -344,7 +344,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             const { data: profile } = await supabase
               .from("profiles")
               .select("id")
-              .eq("id", user!.id)
+              .eq("user_id", user!.id)
               .maybeSingle();
 
             const profileId = profile?.id || null;
