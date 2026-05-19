@@ -33,7 +33,7 @@ export function useOrgId() {
         const { data: profile } = await supabase
           .from("profiles")
           .select("organisation_id")
-          .eq("id", session.user.id)
+          .eq("user_id", session.user.id)
           .maybeSingle();
         if (!cancelled) {
           setOrgId((profile as any)?.organisation_id ?? null);
