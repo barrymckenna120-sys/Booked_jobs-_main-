@@ -65,7 +65,14 @@ const Settings = () => {
   });
 
   const handleSave = async (fields: Record<string, any>) => {
-    if (!user || !orgId) return;
+    if (!user || !orgId) {
+      toast({
+        title: "Could not resolve your organisation",
+        description: "Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       if (settings?.id) {
