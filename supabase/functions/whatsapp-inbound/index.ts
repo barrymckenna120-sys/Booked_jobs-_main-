@@ -19,67 +19,53 @@ Deno.serve(async (req: Request) => {
     return earlyResponse;
   }
 
-  console.log("360dialog inbound webhook received:", JSON.stringify(payload));
+  console.log("360Messenger webhook received:", JSON.stringify(payload));
 
-  const messages =
-    payload?.entry?.[0]?.changes?.[0]?.value?.messages ||
-    payload?.messages ||
-    [];
-
-  const statuses =
-    payload?.entry?.[0]?.changes?.[0]?.value?.statuses ||
-    payload?.statuses ||
-    [];
-
-  for (const msg of messages) {
-    const from = msg.from;
-    const messageText =
-      msg.text?.body ||
-      msg.button?.text ||
-      msg.interactive?.button_reply?.title ||
-      "[non-text message]";
-    const timestamp = msg.timestamp
-      ? new Date(parseInt(msg.timestamp) * 1000).toISOString()
-      : new Date().toISOString();
-
-    console.log(`Inbound from ${from}: ${messageText}`);
-
-    const phoneVariants = [
-      from,
-      `+${from}`,
-      `0${from.slice(3)}`,
-    ];
-
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("id, organisation_id")
-      .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
-      .maybeSingle();
-
-    await supabase.from("whatsapp_messages").insert({
-      organisation_id: customer?.organisation_id ?? "8c37827f-ce2c-4507-a821-a5e807d89856",
-      customer_id: customer?.id ?? null,
-      message_body: messageText,
-      message_type: "Inbound Reply",
-      sent_by: "customer",
-      status: "Received",
-      customer_reply: messageText,
-      reply_received_at: timestamp,
-      sent_at: timestamp,
-    });
-
-    if (customer?.id) {
-      await supabase
-        .from("customers")
-        .update({ last_message_sent_at: timestamp })
-        .eq("id", customer.id);
-    }
+  // Only process inbound chat or file messages
+  if (payload?.dataType !== "message") {
+    console.log("Non-message event, ignoring:", payload?.dataType);
+    return earlyResponse;
   }
 
-  for (const status of statuses) {
-    console.log(
-      `Message ${status.id} status: ${status.status} for ${status.recipient_id}`
-    );
+  const from = payload?.From ?? "";
+  const messageText = payload?.Chat || payload?.Caption || "[non-text message]";
+  const createdAt = payload?.createdAt
+    ? new Date(payload.createdAt).toISOString()
+    : new Date().toISOString();
+
+  console.log(`Inbound from ${from}: ${messageText}`);
+
+  // Try to match customer by phone — check multiple formats
+  const phoneVariants = [
+    from,
+    `+${from}`,
+    `0${from.slice(2)}`,   // 447499999999 → 07499999999 (UK)
+    `0${from.slice(3)}`,   // 353871234567 → 0871234567 (IE)
+  ];
+
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, organisation_id")
+    .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
+    .maybeSingle();
+
+  await supabase.from("whatsapp_messages").insert({
+    organisation_id: customer?.organisation_id ?? "8c37827f-ce2c-4507-a821-a5e807d89856",
+    customer_id: customer?.id ?? null,
+    message_body: messageText,
+    message_type: "Inbound Reply",
+    sent_by: "customer",
+    status: "Received",
+    customer_reply: messageText,
+    reply_received_at: createdAt,
+    sent_at: createdAt,
+  });
+
+  if (customer?.id) {
+    await supabase
+      .from("customers")
+      .update({ last_message_sent_at: createdAt })
+      .eq("id", customer.id);
   }
 
   return earlyResponse;
