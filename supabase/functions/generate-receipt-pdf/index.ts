@@ -68,15 +68,15 @@ Deno.serve(async (req) => {
       .eq("id", job.customer_id)
       .single();
 
-    // Fetch settings
+    // Fetch settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
       .select("business_name, business_phone, business_address, rgi_number, message_footer")
-      .eq("user_id", job.user_id)
+      .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    const businessName = settings?.business_name || "KN Gas Services";
-    const businessPhone = settings?.business_phone || "087 686 252";
+    const businessName = settings?.business_name || "";
+    const businessPhone = settings?.business_phone || "";
     const businessAddress = settings?.business_address || "";
     const rgiNumber = settings?.rgi_number || "";
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
