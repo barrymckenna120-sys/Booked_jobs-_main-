@@ -1,4 +1,11 @@
 Deno.serve(async (req) => {
+  if (req.method === "GET") {
+    return new Response(JSON.stringify({ status: "ok" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   let bodyJson = {};
   let bodyRaw = "";
 
