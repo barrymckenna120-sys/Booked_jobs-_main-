@@ -2606,11 +2606,14 @@ export type Database = {
           created_at: string | null
           customer_id: string | null
           customer_reply: string | null
+          direction: string | null
           id: string
           linked_quote_id: string | null
           message_body: string
           message_type: string
           organisation_id: string | null
+          phone_number: string | null
+          raw_payload: Json | null
           reply_received_at: string | null
           sent_at: string | null
           sent_by: string | null
@@ -2621,11 +2624,14 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           customer_reply?: string | null
+          direction?: string | null
           id?: string
           linked_quote_id?: string | null
           message_body: string
           message_type: string
           organisation_id?: string | null
+          phone_number?: string | null
+          raw_payload?: Json | null
           reply_received_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -2636,11 +2642,14 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           customer_reply?: string | null
+          direction?: string | null
           id?: string
           linked_quote_id?: string | null
           message_body?: string
           message_type?: string
           organisation_id?: string | null
+          phone_number?: string | null
+          raw_payload?: Json | null
           reply_received_at?: string | null
           sent_at?: string | null
           sent_by?: string | null

@@ -95,3 +95,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-outstanding-invoice-reminders]
     verify_jwt = false
+  [functions.whatsapp-webhook-test]
+    verify_jwt = false
