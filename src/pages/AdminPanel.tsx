@@ -592,6 +592,11 @@ export default function AdminPanel() {
                               Blocked
                             </Badge>
                           )}
+                          {t.subscription_status === "suspended" && !archived && (
+                            <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
+                              Suspended
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{t.slug}</TableCell>
