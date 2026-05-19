@@ -149,7 +149,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       const receiptNum = rn || "KG-000";
       setReceiptNumber(receiptNum);
 
-      const businessName = settings?.business_name || "Karl's Gas";
+      const businessName = settings?.business_name || "";
       const businessPhone = settings?.business_phone || "087 686 252";
       const businessAddress = settings?.business_address || "";
       const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
