@@ -66,8 +66,8 @@ const InvoicePreview = () => {
 
   if (!job || !customer) return null;
 
-  const businessName = settings?.business_name || "KN Gas Services";
-  const businessPhone = settings?.business_phone || "087 686 252";
+  const businessName = settings?.business_name || "";
+  const businessPhone = settings?.business_phone || "";
   const businessAddress = settings?.business_address || "";
   const rgiNumber = settings?.rgi_number || "";
 
