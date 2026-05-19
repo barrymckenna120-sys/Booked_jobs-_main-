@@ -389,11 +389,11 @@ export default function TenantDetail() {
     if (!org) return;
     setSuspending(true);
     try {
-      const { error } = await supabase
-        .from("organisations")
-        .update({ subscription_status: "suspended" } as any)
-        .eq("id", org.id);
+      const { data, error } = await supabase.functions.invoke("update-tenant-status", {
+        body: { organisation_id: org.id, status: "suspended" },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success("Tenant suspended");
       setSuspendOpen(false);
       loadAll();
@@ -408,11 +408,11 @@ export default function TenantDetail() {
     if (!org) return;
     setSuspending(true);
     try {
-      const { error } = await supabase
-        .from("organisations")
-        .update({ subscription_status: "active" } as any)
-        .eq("id", org.id);
+      const { data, error } = await supabase.functions.invoke("update-tenant-status", {
+        body: { organisation_id: org.id, status: "active" },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success("Tenant reactivated");
       loadAll();
     } catch (err) {
