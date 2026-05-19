@@ -108,8 +108,8 @@ const ServiceReceipt = () => {
   };
 
   const getReceiptData = () => {
-    const businessName = settings?.business_name || "KN Gas Services";
-    const businessPhone = settings?.business_phone || "087 686 252";
+    const businessName = settings?.business_name || "";
+    const businessPhone = settings?.business_phone || "";
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
     const paymentMethodLabel = job.payment_method === "cash" ? "Cash" : job.payment_method === "card" ? "Card" : "Invoice";
     const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : job.deposit_amount ? `€${Number(job.deposit_amount).toFixed(2)}` : "€120.00";
@@ -127,7 +127,7 @@ const ServiceReceipt = () => {
       nextServiceDue: nextDue,
       businessName,
       businessPhone,
-      businessTagline: "Professional Gas & Boiler Services",
+      businessTagline: "",
       businessAddress: settings?.business_address || undefined,
       rgiNumber: settings?.rgi_number || undefined,
     };
