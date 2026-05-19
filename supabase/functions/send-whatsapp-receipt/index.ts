@@ -80,14 +80,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch business name from settings
+    // Fetch business name from settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
       .select("business_name, message_footer")
-      .eq("user_id", job.user_id)
+      .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    const businessName = settings?.business_name || "K&N Gas Services";
+    const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
     const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
