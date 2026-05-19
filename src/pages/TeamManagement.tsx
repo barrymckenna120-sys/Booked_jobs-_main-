@@ -244,12 +244,12 @@ const TeamManagement = () => {
     setSaving(true);
 
     // Fetch current user's organisation_id
-    const { data: engData } = await supabase
-      .from("engineers")
+    const { data: profileData } = await supabase
+      .from("profiles")
       .select("organisation_id")
-      .eq("auth_user_id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle();
-    const orgId = (engData as any)?.organisation_id ?? null;
+    const orgId = (profileData as any)?.organisation_id ?? null;
 
     // 1. Create the engineer record
     const { data: newEng, error } = await supabase.from("engineers").insert({
