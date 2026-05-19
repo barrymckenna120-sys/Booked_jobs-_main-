@@ -43,7 +43,7 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
       const { data } = await supabase
         .from("profiles")
         .select("onboarding_complete")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       const complete = (data as any)?.onboarding_complete ?? false;
@@ -68,7 +68,7 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
     await supabase
       .from("profiles")
       .update({ onboarding_complete: true } as any)
-      .eq("id", user.id);
+      .eq("user_id", user.id);
     setOnboardingComplete(true);
   }, [user]);
 

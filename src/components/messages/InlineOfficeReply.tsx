@@ -30,7 +30,7 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
     supabase
       .from("profiles")
       .select("display_name")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.display_name) setSenderName(data.display_name);
