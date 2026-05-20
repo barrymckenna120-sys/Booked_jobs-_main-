@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { engineer_id, email, name, role } = await req.json();
-    console.log("Request body:", { engineer_id, email, name, role });
+    const { engineer_id, email, name, role, organisation_id } = await req.json();
+    console.log("Request body:", { engineer_id, email, name, role, organisation_id });
     if (!engineer_id || !email) {
       return new Response(JSON.stringify({ error: "engineer_id and email required" }), {
         status: 400,
