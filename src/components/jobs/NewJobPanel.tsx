@@ -1140,6 +1140,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
         const { data: newCust, error: custErr } = await supabase.from("customers").insert({
           user_id: user.id,
+          organisation_id: orgId!,
           name: finalData.customer.name,
           phone: finalData.customer.phone,
           email: finalData.job?.email?.trim() || null,
