@@ -700,7 +700,13 @@ export default function AdminPanel() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => {
+                            onClick={async () => {
+                              const { error: cfgErr } = await supabase.rpc('set_config' as any, {
+                                key: 'app.current_org_id',
+                                value: t.id,
+                                is_local: false,
+                              } as any);
+                              if (cfgErr) console.error('set_config (switch) failed:', cfgErr);
                               setViewingOrg(t.id, t.name);
                               toast.success(`Switched to ${t.name}`);
                               navigate("/dashboard");
