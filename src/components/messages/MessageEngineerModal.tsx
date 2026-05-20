@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ interface Props {
 
 const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, engineerAuthUserId }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isPreset, setIsPreset] = useState(false);
@@ -53,6 +55,7 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
     setSending(true);
     try {
       const { error } = await supabase.from("job_messages").insert({
+        organisation_id: orgId!,
         job_id: jobId,
         sender_role: "office",
         sender_id: user.id,
@@ -71,6 +74,7 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
         const fullName = (jobInfo as any)?.customers?.name || "Customer";
         const invoiceNumber = (jobInfo as any)?.job_reference || "";
         await supabase.from("notifications").insert({
+          organisation_id: orgId!,
           recipient_user_id: engineerAuthUserId,
           notification_type: "message",
           title: `New message – ${fullName} (${invoiceNumber})`,

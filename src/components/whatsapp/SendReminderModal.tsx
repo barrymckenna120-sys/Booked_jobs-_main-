@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 
 type Customer = {
@@ -48,6 +49,7 @@ const fillTemplate = (
 
 const SendReminderModal = ({ customer, defaultType = "30 Day Reminder", settings, open, onClose, onSent }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [messageType, setMessageType] = useState(defaultType);
   const [messageBody, setMessageBody] = useState("");
@@ -94,6 +96,7 @@ const SendReminderModal = ({ customer, defaultType = "30 Day Reminder", settings
 
     await supabase.from("whatsapp_messages").insert({
       user_id: user.id,
+      organisation_id: orgId!,
       customer_id: customer.id,
       message_type: messageType,
       message_body: messageBody,
@@ -103,6 +106,7 @@ const SendReminderModal = ({ customer, defaultType = "30 Day Reminder", settings
 
     // Log to message_log
     await supabase.from("message_log").insert({
+      organisation_id: orgId!,
       customer_id: customer.id,
       message_type: "renewal",
       channel: "whatsapp",
