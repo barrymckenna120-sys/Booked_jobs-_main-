@@ -37,9 +37,16 @@ const InvoicePreview = () => {
 
   const loadData = async () => {
     setLoading(true);
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("user_id", user!.id)
+      .maybeSingle();
+    const orgId = profileData?.organisation_id;
+
     const [jobRes, settingsRes] = await Promise.all([
       supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("settings").select("*").limit(1).maybeSingle(),
+      supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
     ]);
 
     if (!jobRes.data) {

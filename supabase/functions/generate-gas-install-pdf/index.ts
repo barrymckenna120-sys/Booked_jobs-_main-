@@ -58,8 +58,8 @@ Deno.serve(async (req) => {
 
     if (job?.user_id) {
       const [settingsRes, brandRes] = await Promise.all([
-        supabaseAdmin.from("settings").select("*").eq("user_id", job.user_id).maybeSingle(),
-        supabaseAdmin.from("brand_settings").select("*").eq("organisation_id", job.user_id).maybeSingle(),
+        supabaseAdmin.from("settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
+        supabaseAdmin.from("brand_settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
       ]);
       settings = settingsRes.data;
       brandRow = brandRes.data;

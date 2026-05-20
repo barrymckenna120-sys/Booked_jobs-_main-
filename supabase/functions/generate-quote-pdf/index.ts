@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
 
     const [lineItemsRes, settingsRes, brandRes] = await Promise.all([
       sb.from("quote_line_items").select("*").eq("quote_id", quote_id).order("sort_order"),
-      sb.from("settings").select("*").eq("user_id", quote.user_id).single(),
-      sb.from("brand_settings").select("*").eq("organisation_id", quote.user_id).maybeSingle(),
+      sb.from("settings").select("*").eq("organisation_id", quote.organisation_id).single(),
+      sb.from("brand_settings").select("*").eq("organisation_id", quote.organisation_id).maybeSingle(),
     ]);
 
     const items = lineItemsRes.data || [];
