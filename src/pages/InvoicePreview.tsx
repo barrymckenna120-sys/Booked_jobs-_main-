@@ -37,27 +37,24 @@ const InvoicePreview = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user!.id)
+    const { data: jobData } = await supabase
+      .from("service_calls")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
-    const orgId = profileData?.organisation_id;
 
-    const [jobRes, settingsRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
-    ]);
-
-    if (!jobRes.data) {
+    if (!jobData) {
       toast({ title: "Job not found", variant: "destructive" });
       navigate(-1);
       return;
     }
 
-    const custRes = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+    const [settingsRes, custRes] = await Promise.all([
+      supabase.from("settings").select("*").eq("organisation_id", jobData.organisation_id).maybeSingle(),
+      supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
+    ]);
 
-    setJob(jobRes.data);
+    setJob(jobData);
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
     setLoading(false);
