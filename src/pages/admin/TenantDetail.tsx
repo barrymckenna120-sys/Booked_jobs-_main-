@@ -71,6 +71,7 @@ type SettingsRow = {
 const SENSITIVE_KEY_RE = /(api[_-]?key|secret|token|password|auth)/i;
 const INTEGRATION_TYPES = [
   "whatsapp_360",
+  "360messenger",
   "stripe",
   "resend",
   "tally",
