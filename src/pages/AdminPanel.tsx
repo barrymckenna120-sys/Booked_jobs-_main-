@@ -90,8 +90,21 @@ const StatusBadge = ({ status }: { status: string | null }) => {
 
 export default function AdminPanel() {
   const navigate = useNavigate();
-  const { setViewingOrg } = useAdminViewAs();
+  const { setViewingOrg, viewingOrgId } = useAdminViewAs();
   const [authChecked, setAuthChecked] = useState(false);
+
+  // On mount, push the currently selected org override into the Supabase session
+  // so all subsequent queries resolve data for the selected tenant.
+  useEffect(() => {
+    if (!viewingOrgId) return;
+    supabase.rpc('set_config' as any, {
+      key: 'app.current_org_id',
+      value: viewingOrgId,
+      is_local: false,
+    } as any).then(({ error }) => {
+      if (error) console.error('set_config (mount) failed:', error);
+    });
+  }, [viewingOrgId]);
 
   // form state
   const [companyName, setCompanyName] = useState("");
