@@ -66,6 +66,13 @@ Deno.serve(async (req: Request) => {
       .from("customers")
       .update({ last_message_sent_at: createdAt })
       .eq("id", customer.id);
+
+    if (messageText.trim().toLowerCase() === "stop") {
+      await supabase
+        .from("customers")
+        .update({ opted_out: true })
+        .eq("id", customer.id);
+    }
   }
 
   return earlyResponse;
