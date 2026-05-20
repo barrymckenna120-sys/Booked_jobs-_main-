@@ -68,6 +68,7 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
     if (email && !isSuperAdmin && viewingOrgId) {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_NAME_KEY);
+      setAdminSelectedOrgId(null);
       setViewingOrgIdState(null);
       setViewingOrgNameState(null);
     }
