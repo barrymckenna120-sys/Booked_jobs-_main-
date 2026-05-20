@@ -69,24 +69,13 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // Parse organisation_id from request body (required for multi-tenant scoping)
-    const body = await req.json().catch(() => ({}));
-    const organisation_id = body?.organisation_id;
-
-    if (!organisation_id) {
-      return new Response(
-        JSON.stringify({ error: "organisation_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Calculate target date (today + 2 days)
     const today = new Date();
     const target = new Date(today);
     target.setDate(target.getDate() + 2);
     const targetStr = target.toISOString().split("T")[0];
 
-    // Query scheduled jobs for target date that haven't had reminder sent
+    // Query scheduled jobs for target date that haven't had reminder sent (across all orgs)
     const { data: jobs, error: jobErr } = await supabase
       .from("service_calls")
       .select(`
@@ -99,10 +88,10 @@ Deno.serve(async (req) => {
         organisation_id,
         customers ( name, phone, opted_out )
       `)
-      .eq("organisation_id", organisation_id)
       .eq("scheduled_date", targetStr)
-      .eq("status", "Scheduled")
+      .in("status", ["Booked", "Scheduled"])
       .neq("reminder_2day_sent", true);
+
 
     if (jobErr) throw jobErr;
 
