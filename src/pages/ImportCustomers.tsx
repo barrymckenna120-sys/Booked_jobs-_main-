@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { generateImportTemplate } from "@/lib/generateTemplate";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -323,6 +324,7 @@ const ImportCustomers = () => {
             .insert([{
               ...cleaned,
               user_id: user.id,
+              organisation_id: orgId!,
               next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
               renewal_stage: cleaned.renewal_stage || "none",
               service_status: cleaned.service_status || "active",
