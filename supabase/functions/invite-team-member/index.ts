@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: { display_name: name, role },
+        user_metadata: { display_name: name, role, organisation_id },
       });
 
       if (createError) {
