@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     );
 
     const { error } = await supabase.from("message_log").insert({
-      customer_id: body.customer_id,
+      customer_id: body.customer_id === "" || body.customer_id == null ? null : body.customer_id,
       message_type: body.message_type,
       channel: body.channel,
       direction: body.direction,
