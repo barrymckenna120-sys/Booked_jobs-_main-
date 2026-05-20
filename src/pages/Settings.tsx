@@ -96,7 +96,7 @@ const Settings = () => {
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || !orgId || isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 
