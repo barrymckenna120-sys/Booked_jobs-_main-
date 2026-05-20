@@ -62,6 +62,8 @@ const Settings = () => {
       return data;
     },
     enabled: !!user && !!orgId,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const handleSave = async (fields: Record<string, any>) => {
