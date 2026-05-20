@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
       related_type: body.related_type,
       sent_by: body.sent_by,
       sent_at: body.sent_at,
+      organisation_id: body.organisation_id,
       organisation_id_ref: body.organisation_id_ref,
     });
 
