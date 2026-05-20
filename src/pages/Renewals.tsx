@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { logAudit } from "@/lib/auditLog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -263,10 +264,7 @@ const Renewals = () => {
     setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, last_reminder_sent: now, renewal_stage: "reminded" } : c));
 
     if (user) {
-      await supabase.from("audit_log").insert({
-        user_id: user.id,
-        user_name: user.email || "Unknown",
-        user_role: "admin",
+      await logAudit({
         action_type: "reminder_sent",
         entity_type: "customer",
         entity_id: customerId,

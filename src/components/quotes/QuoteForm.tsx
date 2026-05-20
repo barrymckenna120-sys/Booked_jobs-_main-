@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ type QuoteFormProps = {
 
 const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
@@ -178,6 +180,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     const status = sendNow ? "Sent" : "Draft";
     const quotePayload: any = {
       user_id: user.id,
+      organisation_id: orgId!,
       customer_id: customerId,
       job_id: customerId,
       description: jobDescription.trim(),
@@ -208,6 +211,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
         const { data: newJob } = await supabase.from("service_calls").insert({
           customer_id: customerId,
           user_id: user.id,
+          organisation_id: orgId!,
           job_type: jobType || "Other",
           job_issue: jobDescription.trim(),
           status: "Pending",

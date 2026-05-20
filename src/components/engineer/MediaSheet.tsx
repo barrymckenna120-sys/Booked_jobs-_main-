@@ -98,6 +98,7 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
       const signedUrl = await getSignedUrl(path);
 
       await supabase.from("job_media").insert({
+        organisation_id: job.organisation_id,
         job_id: job.id,
         customer_id: customer.id,
         user_id: user.id,

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,7 @@ type Props = {
 
 const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [engineers, setEngineers] = useState<any[]>([]);
   const [assignEngineer, setAssignEngineer] = useState("");
@@ -185,6 +187,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     if (user) {
       supabase.from("whatsapp_messages").insert({
         user_id: user.id,
+        organisation_id: orgId!,
         customer_id: customer.id,
         message_type: "Booking Confirmation",
         message_body: msg,

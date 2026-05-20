@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -34,6 +35,7 @@ interface NewMessageModalProps {
 
 const NewMessageModal = ({ open, onOpenChange, onSent }: NewMessageModalProps) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [selectedEngineerId, setSelectedEngineerId] = useState("");
@@ -64,6 +66,7 @@ const NewMessageModal = ({ open, onOpenChange, onSent }: NewMessageModalProps) =
 
     setSending(true);
     const { error } = await supabase.from("job_messages").insert({
+      organisation_id: orgId!,
       job_id: null,
       sender_id: user.id,
       sender_role: "office",

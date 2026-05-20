@@ -99,6 +99,7 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
 
     const payload = {
       user_id: job.user_id,
+      organisation_id: job.organisation_id,
       customer_id: job.customer_id,
       job_id: job.id,
       description: "Extra work",

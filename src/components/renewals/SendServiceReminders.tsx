@@ -26,6 +26,7 @@ type Customer = {
 type Props = {
   customers: Customer[];
   userId: string | undefined;
+  orgId: string | null;
   onRemindersSent: () => void;
   postcodeFilter: string;
   onPostcodeChange: (v: string) => void;
@@ -34,7 +35,7 @@ type Props = {
   filteredCount: number;
 };
 
-const SendServiceReminders = ({ customers, userId, onRemindersSent, postcodeFilter, onPostcodeChange, monthFilter, onMonthChange, filteredCount }: Props) => {
+const SendServiceReminders = ({ customers, userId, orgId, onRemindersSent, postcodeFilter, onPostcodeChange, monthFilter, onMonthChange, filteredCount }: Props) => {
   const { toast } = useToast();
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
@@ -80,6 +81,7 @@ const SendServiceReminders = ({ customers, userId, onRemindersSent, postcodeFilt
 
       // Log to message_log
       await supabase.from("message_log").insert({
+        organisation_id: orgId!,
         customer_id: customer.id,
         message_type: "service_reminder",
         channel: "whatsapp",
@@ -101,6 +103,7 @@ const SendServiceReminders = ({ customers, userId, onRemindersSent, postcodeFilt
       // Log to whatsapp_messages
       await supabase.from("whatsapp_messages").insert({
         user_id: userId,
+        organisation_id: orgId!,
         customer_id: customer.id,
         message_type: "Service Reminder",
         message_body: message,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrgId } from "@/hooks/useOrgId";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ const useVideoDurations = (media: MediaItem[]) => {
 
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const { toast } = useToast();
+  const { orgId } = useOrgId();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -128,6 +130,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
       }
 
       await supabase.from("job_media").insert({
+        organisation_id: orgId!,
         job_id: jobId,
         customer_id: customerId,
         user_id: user?.id,
