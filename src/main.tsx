@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
+import { installOrgHeaderInterceptor } from "./integrations/supabase/orgHeaderInterceptor";
+
+installOrgHeaderInterceptor();
 
 Sentry.init({
   dsn: "https://940563403eba06fc2d04d2b29c84d18b@o4511293795074048.ingest.de.sentry.io/4511293857267792",
