@@ -116,6 +116,7 @@ type ParsedRow = {
 
 const ImportCustomers = () => {
   const { user, loading: authLoading } = useAuth();
+  const { orgId } = useOrgId();
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
