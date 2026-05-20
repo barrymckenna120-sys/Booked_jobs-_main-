@@ -6,6 +6,8 @@ interface AuditEntry {
   entity_id: string;
   detail: string;
   metadata?: Record<string, unknown>;
+  /** Optional override. When not passed, the helper resolves it from the caller's profile. */
+  organisation_id?: string;
 }
 
 /**
@@ -27,6 +29,18 @@ export const logAudit = async (entry: AuditEntry) => {
     const userName = eng?.name || user.email || "Unknown";
     const userRole = eng?.role || "admin";
 
+    // Resolve organisation_id (required for RLS) — prefer caller-supplied value
+    let organisationId = entry.organisation_id;
+    if (!organisationId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      organisationId = (profile as any)?.organisation_id;
+    }
+    if (!organisationId) return;
+
     await supabase.from("audit_log" as any).insert({
       user_id: user.id,
       user_name: userName,
@@ -36,6 +50,7 @@ export const logAudit = async (entry: AuditEntry) => {
       entity_id: entry.entity_id,
       detail: entry.detail,
       metadata: entry.metadata || {},
+      organisation_id: organisationId,
     });
   } catch {
     // Audit logging should never throw

@@ -43,6 +43,7 @@ const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) =>
       const result = await uploadVideoToCloudinary(file, (pct) => setProgress(pct));
 
       await supabase.from("job_media").insert({
+        organisation_id: job.organisation_id,
         job_id: job.id,
         customer_id: customer?.id,
         user_id: user.id,

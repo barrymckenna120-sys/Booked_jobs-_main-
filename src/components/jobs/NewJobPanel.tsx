@@ -1174,6 +1174,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
       const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
         user_id: user.id,
+        organisation_id: orgId!,
         customer_id: customerId,
         job_type: finalData.job.jobType,
         boiler_brand: finalData.job.boilerBrand || finalData.job.boilerModel || null,
