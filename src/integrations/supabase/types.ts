@@ -656,7 +656,7 @@ export type Database = {
           notes?: string | null
           opted_out?: boolean | null
           opted_out_date?: string | null
-          organisation_id?: string
+          organisation_id: string
           owner_or_tenant?: string | null
           phone: string
           reminder_30_days_sent?: boolean | null
@@ -990,7 +990,7 @@ export type Database = {
           last_login?: string | null
           name: string
           notes?: string | null
-          organisation_id?: string
+          organisation_id: string
           phone?: string | null
           rgi_number?: string | null
           role?: string
@@ -1199,7 +1199,7 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           job_id?: string | null
-          organisation_id?: string
+          organisation_id: string
           pdf_url?: string | null
           quote_id?: string | null
           sent_at?: string | null
@@ -1898,7 +1898,7 @@ export type Database = {
           line_items?: Json
           net_cost?: number | null
           notes?: string | null
-          organisation_id?: string
+          organisation_id: string
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -2176,7 +2176,7 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
-          organisation_id?: string
+          organisation_id: string
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
