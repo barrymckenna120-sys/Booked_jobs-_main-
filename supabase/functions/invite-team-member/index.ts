@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { engineer_id, email, name, role } = await req.json();
-    console.log("Request body:", { engineer_id, email, name, role });
+    const { engineer_id, email, name, role, organisation_id } = await req.json();
+    console.log("Request body:", { engineer_id, email, name, role, organisation_id });
     if (!engineer_id || !email) {
       return new Response(JSON.stringify({ error: "engineer_id and email required" }), {
         status: 400,
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: { display_name: name, role },
+        user_metadata: { display_name: name, role, organisation_id },
       });
 
       if (createError) {
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
     // Link the auth user to the engineer record
     const { error: updateError } = await supabaseAdmin
       .from("engineers")
-      .update({ auth_user_id: authUserId, email })
+      .update({ auth_user_id: authUserId, user_id: authUserId, email: email })
       .eq("id", engineer_id);
 
     if (updateError) {

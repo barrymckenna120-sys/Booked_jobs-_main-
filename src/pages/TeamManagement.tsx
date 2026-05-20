@@ -258,7 +258,7 @@ const TeamManagement = () => {
       phone: inviteForm.phone.trim() || null,
       role: inviteForm.role,
       status: "active",
-      user_id: user.id,
+      user_id: null,
       organisation_id: orgId,
     } as any).select("id").single();
 
