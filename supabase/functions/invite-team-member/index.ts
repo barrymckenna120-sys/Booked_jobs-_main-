@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
     // Link the auth user to the engineer record
     const { error: updateError } = await supabaseAdmin
       .from("engineers")
-      .update({ auth_user_id: authUserId, email })
+      .update({ auth_user_id: authUserId, user_id: authUserId, email: email })
       .eq("id", engineer_id);
 
     if (updateError) {
