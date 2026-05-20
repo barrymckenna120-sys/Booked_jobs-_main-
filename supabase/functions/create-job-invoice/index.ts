@@ -145,8 +145,8 @@ Deno.serve(async (req) => {
 
     // ── Fetch settings + brand ──
     const [settingsRes, brandRes] = await Promise.all([
-      sb.from("settings").select("*").eq("user_id", job.user_id).single(),
-      sb.from("brand_settings").select("*").eq("organisation_id", job.user_id).maybeSingle(),
+      sb.from("settings").select("*").eq("organisation_id", job.organisation_id).single(),
+      sb.from("brand_settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
     ]);
 
     const biz = settingsRes.data || {} as any;
