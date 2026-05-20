@@ -976,7 +976,7 @@ export type Database = {
           role: string
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           auth_user_id?: string | null
@@ -996,7 +996,7 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           auth_user_id?: string | null
@@ -1016,7 +1016,7 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
