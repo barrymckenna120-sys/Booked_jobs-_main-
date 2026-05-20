@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { toast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ interface AddCustomerSheetProps {
 
 const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetProps) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const [saving, setSaving] = useState(false);
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
   const [form, setForm] = useState({
@@ -75,6 +77,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
     const { error } = await supabase.from("customers").insert({
       user_id: user.id,
+      organisation_id: orgId!,
       name: form.name.trim(),
       phone: cleanPhone,
       email: form.email.trim() || null,

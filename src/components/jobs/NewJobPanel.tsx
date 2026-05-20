@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { logAudit } from "@/lib/auditLog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -1078,6 +1079,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 /* ── MAIN PANEL ────────────────────────────────────────── */
 const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock, prefilledEngineer, prefilledJobType }: NewJobPanelProps) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
@@ -1138,6 +1140,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
         const { data: newCust, error: custErr } = await supabase.from("customers").insert({
           user_id: user.id,
+          organisation_id: orgId!,
           name: finalData.customer.name,
           phone: finalData.customer.phone,
           email: finalData.job?.email?.trim() || null,
