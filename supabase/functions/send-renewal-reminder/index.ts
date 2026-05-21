@@ -45,6 +45,21 @@ Deno.serve(async (req) => {
     const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
     const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
 
+    // Resolve per-org WhatsApp API key from tenant_integrations
+    const { data: waConfig } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle() : { data: null };
+    const apiKey = (waConfig?.config as any)?.api_key ?? Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "WhatsApp API key not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Build message
     const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on ${companyPhone}.\n\nReply STOP to unsubscribe.\n${companyName}`;
     console.log("Message built for:", first_name);
