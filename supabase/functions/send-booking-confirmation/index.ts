@@ -65,7 +65,7 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = config.api_key;
+    const apiKey = config.api_key || (config.api_key_secret ? Deno.env.get(config.api_key_secret) : null);
     const templateName = config?.templates?.booking_confirmation;
     if (!apiKey || !templateName) {
       return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key or booking_confirmation template missing in config" }), {
