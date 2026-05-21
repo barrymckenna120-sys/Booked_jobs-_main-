@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ customer_id: c.id, full_url: full_tally_url, organisation_id: orgId }),
         });
         const shortJson = await shortRes.json();
+        console.log(`[create-booking-link] customer=${c.id} status=${shortRes.status} body=${JSON.stringify(shortJson)}`);
         if (shortJson?.short_url) tally_url = shortJson.short_url;
       } catch (_e) { /* fall back to full url */ }
       const d = new Date(c.next_service_due);
