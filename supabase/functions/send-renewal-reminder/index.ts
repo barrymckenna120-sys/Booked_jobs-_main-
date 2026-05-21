@@ -42,8 +42,9 @@ Deno.serve(async (req) => {
       .eq("organisation_id", orgId)
       .eq("integration_type", "360messenger")
       .maybeSingle() : { data: null };
-    const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
-    const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+    const messengerSettings = (messengerConfig?.config as any) ?? {};
+    const companyName = messengerSettings.company_name ?? "K & N Gas Services";
+    const companyPhone = messengerSettings.company_phone ?? "087 3686252";
 
     // Resolve per-org WhatsApp API key from tenant_integrations
     const { data: waConfig } = orgId ? await supabase
@@ -52,7 +53,10 @@ Deno.serve(async (req) => {
       .eq("organisation_id", orgId)
       .eq("integration_type", "whatsapp")
       .maybeSingle() : { data: null };
-    const apiKey = (waConfig?.config as any)?.api_key ?? Deno.env.get("THREESIXTY_API_KEY");
+    const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
+    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
+      ?? (waConfig?.config as any)?.api_key
+      ?? Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: "WhatsApp API key not configured for this organisation" }),
