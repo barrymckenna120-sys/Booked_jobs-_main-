@@ -1636,6 +1636,7 @@ export type Database = {
       }
       organisations: {
         Row: {
+          address: string | null
           archived_at: string | null
           bookedjobs_plan: string | null
           bot_enabled: boolean | null
@@ -1643,6 +1644,8 @@ export type Database = {
           bot_phone: string | null
           business_hours_end: string | null
           business_hours_start: string | null
+          company_email: string | null
+          company_phone: string | null
           created_at: string | null
           google_review_url: string | null
           id: string
@@ -1659,6 +1662,7 @@ export type Database = {
           subscription_status: string
         }
         Insert: {
+          address?: string | null
           archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
@@ -1666,6 +1670,8 @@ export type Database = {
           bot_phone?: string | null
           business_hours_end?: string | null
           business_hours_start?: string | null
+          company_email?: string | null
+          company_phone?: string | null
           created_at?: string | null
           google_review_url?: string | null
           id?: string
@@ -1682,6 +1688,7 @@ export type Database = {
           subscription_status?: string
         }
         Update: {
+          address?: string | null
           archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
@@ -1689,6 +1696,8 @@ export type Database = {
           bot_phone?: string | null
           business_hours_end?: string | null
           business_hours_start?: string | null
+          company_email?: string | null
+          company_phone?: string | null
           created_at?: string | null
           google_review_url?: string | null
           id?: string
