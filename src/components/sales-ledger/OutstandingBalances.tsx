@@ -393,9 +393,7 @@ const OutstandingBalances = () => {
                 id: reminderModalJob.id,
                 customer_name: reminderModalJob.customer_name,
                 receipt_number: reminderModalJob.receipt_number,
-                scheduled_date: reminderModalJob.scheduled_date
-                  ? format(new Date(reminderModalJob.scheduled_date + "T00:00:00"), "dd/MM/yyyy")
-                  : null,
+                invoiced_at: reminderModalJob.invoiced_at,
                 balance_due: (reminderModalJob.revenue || 0) - (reminderModalJob.deposit_amount || 0),
                 customer_phone: reminderModalJob.customer_phone,
                 payment_status: reminderModalJob.payment_status,
