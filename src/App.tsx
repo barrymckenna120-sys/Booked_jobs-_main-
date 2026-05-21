@@ -172,6 +172,7 @@ const App = () => (
             <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
             <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
             <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
+            <Route path="/b/:token" element={<BookingRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
