@@ -43,11 +43,12 @@ Deno.serve(async (req: Request) => {
     `0${from.slice(3)}`,   // 353871234567 → 0871234567 (IE)
   ];
 
-  const { data: customer } = await supabase
+  const { data: customers } = await supabase
     .from("customers")
     .select("id, organisation_id")
     .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
-    .maybeSingle();
+    .limit(1);
+  const customer = customers?.[0] ?? null;
 
   await supabase.from("whatsapp_messages").insert({
     organisation_id: customer?.organisation_id ?? "8c37827f-ce2c-4507-a821-a5e807d89856",
