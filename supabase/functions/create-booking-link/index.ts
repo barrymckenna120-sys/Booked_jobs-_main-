@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SHORT_BASE = "https://rebook.kngasservices.ie/b";
+const SHORT_BASE = "https://kngasservices.bookedjobs.ie/b";
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 function genToken(len = 6): string {
