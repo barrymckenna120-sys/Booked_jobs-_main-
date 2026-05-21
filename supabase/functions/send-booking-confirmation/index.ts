@@ -66,9 +66,9 @@ serve(async (req) => {
     }
 
     const apiKey = config.api_key || (config.api_key_secret ? Deno.env.get(config.api_key_secret) : null);
-    const templateName = config?.templates?.booking_confirmation;
-    if (!apiKey || !templateName) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key or booking_confirmation template missing in config" }), {
+    const templateName = config?.templates?.booking_confirmation ?? "booking_confirmation";
+    if (!apiKey) {
+      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key missing in config (set api_key or api_key_secret)" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
