@@ -31,6 +31,7 @@ import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
 import EngineerCertificates from "./pages/engineer/EngineerCertificates";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import BookingRedirect from "./pages/BookingRedirect";
 import Finance from "./pages/Finance";
 import FinancePage from "./pages/FinancePage";
 import SalesLedger from "./pages/SalesLedger";
@@ -172,6 +173,7 @@ const App = () => (
             <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
             <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
             <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
+            <Route path="/b/:token" element={<BookingRedirect />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
             <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />

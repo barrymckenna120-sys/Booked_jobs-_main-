@@ -102,6 +102,36 @@ export type Database = {
           },
         ]
       }
+      booking_links: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          expires_at: string
+          full_url: string
+          id: string
+          organisation_id: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          expires_at?: string
+          full_url: string
+          id?: string
+          organisation_id?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          expires_at?: string
+          full_url?: string
+          id?: string
+          organisation_id?: string | null
+          token?: string
+        }
+        Relationships: []
+      }
       brand_settings: {
         Row: {
           accent_color: string
