@@ -31,6 +31,7 @@ import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
 import EngineerCertificates from "./pages/engineer/EngineerCertificates";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import BookingRedirect from "./pages/BookingRedirect";
 import Finance from "./pages/Finance";
 import FinancePage from "./pages/FinancePage";
 import SalesLedger from "./pages/SalesLedger";
