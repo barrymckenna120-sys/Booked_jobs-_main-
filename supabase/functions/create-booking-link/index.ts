@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       token = genToken(6);
       const { error } = await supabase.from("booking_links").insert({
         token,
-        full_url,
+        full_url: normalised_url,
         customer_id: customer_id ?? null,
         organisation_id,
       });
