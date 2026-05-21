@@ -11,7 +11,7 @@ type JobDetails = {
   id: string;
   customer_name: string;
   receipt_number: string | null;
-  scheduled_date: string | null;
+  invoiced_at: string | null;
   balance_due: number;
   customer_phone: string | null;
   payment_status: string | null;
