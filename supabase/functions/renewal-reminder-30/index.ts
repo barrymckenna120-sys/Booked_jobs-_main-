@@ -88,11 +88,13 @@ Deno.serve(async (req) => {
     };
 
     const customerIds = customers.map((c) => c.id);
+    const todayStr = today.toISOString().split("T")[0];
     const { data: bookedJobs, error: jobErr } = await supabase
       .from("service_calls")
       .select("customer_id")
       .in("customer_id", customerIds)
-      .in("status", ["Pending", "pending", "Booked", "booked", "Confirmed", "confirmed", "Scheduled"]);
+      .in("status", ["Pending", "pending", "Booked", "booked", "Confirmed", "confirmed", "Scheduled"])
+      .gte("scheduled_date", todayStr);
 
     if (jobErr) throw jobErr;
 
