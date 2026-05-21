@@ -32,6 +32,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Always store with the canonical Tally form as the base, preserving query params.
+    const TALLY_BASE = "https://tally.so/r/RGJDy4";
+    const qIdx = String(full_url).indexOf("?");
+    const queryString = qIdx >= 0 ? String(full_url).slice(qIdx) : "";
+    const normalised_url = `${TALLY_BASE}${queryString}`;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
