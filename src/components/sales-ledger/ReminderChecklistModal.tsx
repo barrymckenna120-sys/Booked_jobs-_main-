@@ -96,7 +96,17 @@ const ReminderChecklistModal = ({ open, onClose, job, onConfirm }: Props) => {
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Invoice Date</span>
             <span className="font-semibold text-foreground">
-              {job.scheduled_date || "—"}
+              {job.invoiced_at
+                ? new Date(job.invoiced_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Due Date</span>
+            <span className="font-semibold text-foreground">
+              {job.invoiced_at
+                ? new Date(new Date(job.invoiced_at).getTime() + 14 * 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                : "—"}
             </span>
           </div>
           <div className="flex justify-between text-sm">
