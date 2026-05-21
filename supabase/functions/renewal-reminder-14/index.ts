@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       }
       const localPhone = "0" + digits.slice(ccLen);
       const tally_url = `${tallyUrl}` +
-        `?Name=${encodeURIComponent(c.name || "")}` +
+        `?Customer=${encodeURIComponent(c.name || "")}` +
         `&Mobile=${localPhone}` +
         `&Address=${encodeURIComponent((c as any).address || "")}` +
         `&Eircode=${encodeURIComponent((c as any).eircode || "")}` +
