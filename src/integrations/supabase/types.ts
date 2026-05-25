@@ -2780,6 +2780,13 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
+      get_booking_link_by_token: {
+        Args: { _token: string }
+        Returns: {
+          expires_at: string
+          full_url: string
+        }[]
+      }
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_my_org_id: { Args: never; Returns: string }
