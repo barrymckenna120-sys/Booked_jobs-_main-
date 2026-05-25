@@ -2754,18 +2754,7 @@ export type Database = {
       }
     }
     Views: {
-      current_user_email: {
-        Row: {
-          email: string | null
-        }
-        Insert: {
-          email?: string | null
-        }
-        Update: {
-          email?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       delete_email: {
