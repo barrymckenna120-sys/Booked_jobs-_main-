@@ -245,6 +245,29 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     if (sendWhatsApp && savedQuoteId) {
       const customer = customers.find((c: any) => c.id === customerId);
       if (customer) {
+        // Generate PDF first (best-effort — do not block WhatsApp send on failure)
+        let pdfUrl: string | undefined;
+        try {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const pdfRes = await fetch(`https://${projectId}.supabase.co/functions/v1/generate-quote-pdf`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${anonKey}`,
+              "apikey": anonKey,
+            },
+            body: JSON.stringify({ quote_id: savedQuoteId }),
+          });
+          const pdfResult = await pdfRes.json().catch(() => ({}));
+          if (pdfRes.ok && pdfResult?.success && pdfResult?.pdf_url) {
+            pdfUrl = pdfResult.pdf_url;
+            await supabase.from("quotes").update({ pdf_url: pdfUrl } as any).eq("id", savedQuoteId);
+          }
+        } catch {
+          // Swallow — proceed without PDF
+        }
+
         try {
           const { error: waError } = await supabase.functions.invoke("send-quote-whatsapp", {
             body: {
@@ -255,6 +278,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
               quote_amount: total,
               deposit_amount: depositNum,
               quote_number: savedQuoteNumber,
+              ...(pdfUrl ? { pdf_url: pdfUrl } : {}),
             },
           });
           if (waError) {
