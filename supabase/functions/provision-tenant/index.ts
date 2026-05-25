@@ -55,7 +55,16 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400);
   }
 
-  const { company_name, company_phone, owner_name, owner_email, org_slug } = body ?? {};
+  const {
+    company_name,
+    company_phone,
+    owner_name,
+    owner_email,
+    org_slug,
+    business_address,
+    business_email,
+    rgi_number,
+  } = body ?? {};
 
   // Step 1: validate
   const required = { company_name, company_phone, owner_name, owner_email, org_slug };
@@ -64,6 +73,11 @@ Deno.serve(async (req) => {
       return json({ error: "missing_field", field }, 400);
     }
   }
+
+  const addressPart = (business_address ?? "").toString().trim();
+  const message_footer = [company_name, addressPart, company_phone]
+    .filter((v) => v && String(v).trim())
+    .join(" | ");
 
   const logFailure = async (step: string, error: string) => {
     try {
