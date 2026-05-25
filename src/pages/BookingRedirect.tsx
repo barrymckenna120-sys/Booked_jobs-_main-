@@ -13,9 +13,7 @@ export default function BookingRedirect() {
     }
     (async () => {
       const { data, error } = await supabase
-        .from("booking_links")
-        .select("full_url, expires_at")
-        .eq("token", token)
+        .rpc("get_booking_link_by_token", { _token: token })
         .maybeSingle();
 
       if (error || !data) {
