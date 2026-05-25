@@ -66,7 +66,10 @@ serve(async (req) => {
     );
     const tiRows = await tiRes.json();
     const config = Array.isArray(tiRows) && tiRows[0]?.config ? tiRows[0].config : null;
-    const apiKey = config?.api_key;
+    const apiKeySecretName = config?.api_key_secret as string | undefined;
+    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
+      ?? config?.api_key
+      ?? Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }),
