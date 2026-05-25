@@ -22,6 +22,7 @@ export const corsHeaders: Record<string, string> = {
     "x-client-info",
     "apikey",
     "content-type",
+    "x-org-id",
     "x-make-secret",
     "x-supabase-client-platform",
     "x-supabase-client-platform-version",
