@@ -57,7 +57,7 @@ serve(async (req) => {
 
     // WhatsApp api_key
     const tiRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
       { headers: sbHeaders },
     );
     const tiRows = await tiRes.json();

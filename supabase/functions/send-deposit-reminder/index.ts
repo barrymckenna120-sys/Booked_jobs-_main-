@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
         .from("tenant_integrations")
         .select("config")
         .eq("organisation_id", orgId)
-        .eq("integration_type", "whatsapp")
+        .eq("integration_type", "360messenger")
         .maybeSingle();
       const key = ((waCfg as any)?.config?.api_key as string) || null;
       apiKeyCache.set(orgId, key);
