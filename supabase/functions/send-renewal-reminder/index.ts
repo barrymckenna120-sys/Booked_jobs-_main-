@@ -36,6 +36,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const orgId = custOrg?.organisation_id;
 
+    const { data: settingsRow } = orgId ? await supabase
+      .from("settings")
+      .select("company_name, company_phone")
+      .eq("organisation_id", orgId)
+      .maybeSingle() : { data: null };
+    const companyName = (settingsRow as any)?.company_name ?? "";
+    const companyPhone = (settingsRow as any)?.company_phone ?? "";
+
+    // 360messenger config retained for api_key_secret lookup below
     const { data: messengerConfig } = orgId ? await supabase
       .from("tenant_integrations")
       .select("config")
@@ -43,8 +52,6 @@ Deno.serve(async (req) => {
       .eq("integration_type", "360messenger")
       .maybeSingle() : { data: null };
     const messengerSettings = (messengerConfig?.config as any) ?? {};
-    const companyName = messengerSettings.company_name ?? "K & N Gas Services";
-    const companyPhone = messengerSettings.company_phone ?? "087 3686252";
 
     // Resolve per-org WhatsApp API key from tenant_integrations
     const { data: waConfig } = orgId ? await supabase
