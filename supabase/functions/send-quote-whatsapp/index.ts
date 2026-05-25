@@ -59,6 +59,14 @@ serve(async (req) => {
       );
     }
 
+    // Fetch organisation slug for building tenant-specific URLs
+    const orgRes = await fetch(
+      `${supabaseUrl}/rest/v1/organisations?id=eq.${orgId}&select=slug&limit=1`,
+      { headers: dbHeaders }
+    );
+    const orgRows = await orgRes.json();
+    const slug = (Array.isArray(orgRows) && orgRows[0]?.slug) || "kngasservices";
+
     // Fetch tenant WhatsApp integration config (api_key)
     const tiRes = await fetch(
       `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
