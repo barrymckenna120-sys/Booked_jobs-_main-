@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", orgId)
-      .eq("integration_type", "whatsapp")
+      .eq("integration_type", "360messenger")
       .maybeSingle() : { data: null };
     const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
     const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)

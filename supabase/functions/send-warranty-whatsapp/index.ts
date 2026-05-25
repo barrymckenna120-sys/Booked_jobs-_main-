@@ -86,7 +86,7 @@ serve(async (req) => {
 
     // Fetch WhatsApp api_key from tenant_integrations
     const tiWaRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
       { headers: sbHeaders }
     );
     const tiWaRows = await tiWaRes.json();

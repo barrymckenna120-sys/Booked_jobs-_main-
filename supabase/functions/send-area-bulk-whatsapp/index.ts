@@ -34,7 +34,7 @@ serve(async (req) => {
     const getApiKey = async (orgId: string): Promise<string | null> => {
       if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId) ?? null;
       const r = await fetch(
-        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
         { headers: dbHeaders }
       );
       const rows = await r.json();
