@@ -1150,10 +1150,16 @@ const Quotes = () => {
                           <Button className="w-full justify-center" onClick={() => openWhatsApp(q)}>
                             <MessageCircle className="w-4 h-4 mr-2" /> Send via WhatsApp
                           </Button>
-                          <Button variant="outline" className="w-full justify-center" onClick={() => {
+                          <Button variant="outline" className="w-full justify-center" onClick={async () => {
                             const phone = q.customers.phone.replace(/\D/g, "");
                             const fp = phone.startsWith("353") ? phone : "353" + phone.replace(/^0/, "");
-                            const quoteLink = `https://kngasservices.bookedjobs.ie/quote/${q.quote_number || q.id}`;
+                            const { data: orgRow } = await supabase
+                              .from("quotes")
+                              .select("organisations(slug)")
+                              .eq("id", q.id)
+                              .maybeSingle();
+                            const slug = (orgRow as any)?.organisations?.slug || "kngasservices";
+                            const quoteLink = `https://${slug}.bookedjobs.ie/quote/${q.quote_number || q.id}`;
                             const sub = encodeURIComponent(`Your Quote from Karl's Gas — €${Number(q.total_amount).toFixed(2)}`);
                             const body = encodeURIComponent(`Hi ${q.customers.name},\n\nHere is your quote: ${quoteLink}\n\nTotal: €${Number(q.total_amount).toFixed(2)}\n\nKarl's Gas 🔥`);
                             window.open(`mailto:${q.customers.email}?subject=${sub}&body=${body}`, "_blank");
