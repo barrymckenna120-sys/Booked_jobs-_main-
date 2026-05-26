@@ -67,7 +67,12 @@ Deno.serve(async (req) => {
       .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const apiKey = (integration?.config as any)?.api_key;
+    const messengerSettings = (integration?.config as any) ?? {};
+    const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
+    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
+      ?? messengerSettings.api_key
+      ?? Deno.env.get("THREESIXTY_API_KEY")
+      ?? Deno.env.get("MESSENGER_API_KEY");
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
 
     // 2b. Branding from settings
