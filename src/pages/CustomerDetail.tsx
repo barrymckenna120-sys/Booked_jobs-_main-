@@ -140,6 +140,25 @@ const CustomerDetail = () => {
       supabase.from("boiler_brands").select("brand_name, model_name, is_default").then(({ data }) => {
         if (data) setBoilerBrands(data as BoilerBrandRow[]);
       });
+
+      const channel = supabase
+        .channel(`customer-${id}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'customers', filter: `id=eq.${id}` },
+          (payload) => {
+            const newOptedOut = (payload.new as any)?.opted_out;
+            if (typeof newOptedOut === 'boolean') {
+              setForm((prev) => ({ ...prev, opted_out: newOptedOut }));
+              setOriginalForm((prev) => ({ ...prev, opted_out: newOptedOut }));
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, id]);
@@ -384,11 +403,16 @@ const CustomerDetail = () => {
                 <Label htmlFor="opted_out" className="text-sm font-medium text-foreground">Opt out of service reminders</Label>
                 <p className="text-[11px] text-muted-foreground mt-0.5">This customer won't receive automated renewal reminders</p>
               </div>
-              <Switch
-                id="opted_out"
-                checked={!!form.opted_out}
-                onCheckedChange={(v) => handleChange("opted_out", v)}
-              />
+              <div className="flex items-center gap-2">
+                <span className={cn("text-xs font-semibold", form.opted_out ? "text-red-500" : "text-green-500")}>
+                  {form.opted_out ? "Opted Out" : "Receiving WhatsApp"}
+                </span>
+                <Switch
+                  id="opted_out"
+                  checked={!!form.opted_out}
+                  onCheckedChange={(v) => handleChange("opted_out", v)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
