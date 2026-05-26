@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const invoiceNumber = invoice?.invoice_number || "—";
 
-    // 3. WhatsApp integration config
+    // 3. WhatsApp API key — prefer per-org config, fall back to global env
     const { data: integration } = await supabase
       .from("tenant_integrations")
       .select("config")
@@ -68,8 +68,10 @@ Deno.serve(async (req) => {
       .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const apiKey = (integration?.config as any)?.api_key;
-    if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
+    const apiKey =
+      (integration?.config as any)?.api_key || Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) return json({ error: "WhatsApp API key not configured" }, 400);
+
 
     // 4. Format fields
     let scheduledDate = "—";
