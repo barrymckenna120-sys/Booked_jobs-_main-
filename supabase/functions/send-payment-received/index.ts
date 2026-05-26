@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .select(
-        "id, organisation_id, job_reference, job_type, scheduled_date, amount_paid, customer_id"
+        "id, organisation_id, job_reference, job_type, scheduled_date, revenue, customer_id"
       )
       .eq("id", service_call_id)
       .single();
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       scheduledDate = `${dd}/${mm}/${yyyy}`;
     }
 
-    const amountPaid = `€${Number(job.amount_paid || 0).toFixed(2)}`;
+    const amountPaid = `€${Number(job.revenue || 0).toFixed(2)}`;
 
     const jobRef =
       job.job_reference ||
