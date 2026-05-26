@@ -230,10 +230,16 @@ const ServiceHistory = ({ customerId, onCountsReady }: ServiceHistoryProps) => {
                     size="sm"
                     variant="outline"
                     className="gap-1.5 text-xs font-bold"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       if (cert.cert_number) {
-                        window.open(`https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`, "_blank", "noopener,noreferrer");
+                        const { data: orgRow } = await supabase
+                          .from("certificates")
+                          .select("organisations(slug)")
+                          .eq("id", cert.id)
+                          .maybeSingle();
+                        const slug = (orgRow as any)?.organisations?.slug || "kngasservices";
+                        window.open(`https://${slug}.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`, "_blank", "noopener,noreferrer");
                       } else if (cert.pdf_url) {
                         window.open(cert.pdf_url, "_blank", "noopener,noreferrer");
                       } else {
