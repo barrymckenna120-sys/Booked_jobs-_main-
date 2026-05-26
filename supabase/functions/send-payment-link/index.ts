@@ -48,9 +48,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    const paymentLink = job.payment_link;
+    let paymentLink = job.payment_link;
     if (!paymentLink) {
-      return new Response(JSON.stringify({ error: "No payment link set on this job. Add a payment link first." }), {
+      const { data: stripeIntegration } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", job.organisation_id)
+        .eq("integration_type", "stripe")
+        .maybeSingle();
+      paymentLink = (stripeIntegration?.config as any)?.stripe_payment_link
+        || (stripeIntegration?.config as any)?.payment_link
+        || null;
+    }
+    if (!paymentLink) {
+      return new Response(JSON.stringify({ error: "No payment link set on this job or organisation. Add a payment link first." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
