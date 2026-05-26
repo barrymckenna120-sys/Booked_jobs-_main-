@@ -233,10 +233,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       }
       if (!job.receipt_number) {
         try {
-          const { data: receiptNum, error: rpcErr } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
-          if (!rpcErr && receiptNum) {
-            dbPatch.receipt_number = receiptNum;
-          }
+          const { data: settingsRow } = await supabase
+            .from("settings")
+            .select("cert_prefix")
+            .eq("organisation_id", (job as any).organisation_id)
+            .maybeSingle();
+          const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
+          const yr = new Date().getFullYear();
+          const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+          dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
         } catch {}
       }
       // Always write confirmed revenue on completion
