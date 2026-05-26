@@ -89,8 +89,6 @@ serve(async (req) => {
     if (!apiKey && integConfig?.api_key_secret) {
       apiKey = Deno.env.get(integConfig.api_key_secret) || null;
     }
-    console.log("[send-certificate-whatsapp] apiKey resolved:", !!apiKey, "orgId:", orgId);
-    console.log("[send-certificate-whatsapp] customer phone:", customer?.phone);
 
     // Extract calling user from JWT for activity logging
     let callingProfileId: string | null = null;
@@ -216,13 +214,11 @@ serve(async (req) => {
     formData.append("text", message);
     formData.append("doc_url", cert.pdf_url);
 
-    console.log("[send-certificate-whatsapp] sending to:", cleanNumber);
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}` },
       body: formData,
     });
-    console.log("[send-certificate-whatsapp] 360 response status:", response.status);
 
     const resultText = await response.text();
     let result: any;

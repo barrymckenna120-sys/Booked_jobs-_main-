@@ -145,8 +145,15 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     setProcStep(0);
 
     try {
-      const { data: rn } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
-      const receiptNum = rn || "KG-000";
+      const { data: settingsRow } = await supabase
+        .from("settings")
+        .select("cert_prefix")
+        .eq("organisation_id", (job as any).organisation_id)
+        .maybeSingle();
+      const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
+      const yr = new Date().getFullYear();
+      const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+      const receiptNum = `${prefix}-${yr}-${rand}`;
       setReceiptNumber(receiptNum);
 
       const businessName = settings?.business_name || "";
