@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       scheduledDate = `${dd}/${mm}/${yyyy}`;
     }
 
-    const amountPaid = `€${Number(job.amount_paid || 0).toFixed(2)}`;
+    const amountPaid = `€${Number(job.revenue || 0).toFixed(2)}`;
 
     const jobRef =
       job.job_reference ||
