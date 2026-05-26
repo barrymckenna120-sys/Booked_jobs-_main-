@@ -229,15 +229,12 @@ const TeamManagement = () => {
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
     if (!user || !inviteForm.name.trim()) return;
+    if (!orgId) {
+      toast({ title: "Organisation not ready", description: "Please try again in a moment.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
-    // Fetch current user's organisation_id
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const orgId = (profileData as any)?.organisation_id ?? null;
 
     // 1. Create the engineer record
     const { data: newEng, error } = await supabase.from("engineers").insert({
