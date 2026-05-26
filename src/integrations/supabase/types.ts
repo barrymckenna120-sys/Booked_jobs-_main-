@@ -2380,6 +2380,7 @@ export type Database = {
           business_email: string | null
           business_name: string
           business_phone: string | null
+          cert_prefix: string | null
           company_name: string | null
           company_phone: string | null
           default_callout_charge: number | null
@@ -2433,6 +2434,7 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          cert_prefix?: string | null
           company_name?: string | null
           company_phone?: string | null
           default_callout_charge?: number | null
@@ -2486,6 +2488,7 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          cert_prefix?: string | null
           company_name?: string | null
           company_phone?: string | null
           default_callout_charge?: number | null
