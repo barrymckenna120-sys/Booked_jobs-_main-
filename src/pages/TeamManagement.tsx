@@ -109,7 +109,7 @@ interface TeamMember {
 
 const TeamManagement = () => {
   const { user, loading: authLoading } = useAuth();
-  const { orgId: currentOrganisationId } = useOrgId();
+  const { orgId, ready } = useOrgId();
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
