@@ -110,9 +110,7 @@ const SignatureCanvas = ({
           onMouseMove={move}
           onMouseUp={end}
           onMouseLeave={end}
-          onTouchStart={start}
-          onTouchMove={move}
-          onTouchEnd={end}
+          /* touch listeners attached natively via useEffect with passive:false */
         />
         <div className="absolute bottom-8 left-6 right-6 border-b border-muted-foreground/30" />
         <span className="absolute bottom-2 left-6 text-[10px] text-muted-foreground">Sign above the line</span>
