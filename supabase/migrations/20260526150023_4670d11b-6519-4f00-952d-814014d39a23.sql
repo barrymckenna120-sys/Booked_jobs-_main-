@@ -1,0 +1,1 @@
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS payment_link_sent boolean NOT NULL DEFAULT false;
