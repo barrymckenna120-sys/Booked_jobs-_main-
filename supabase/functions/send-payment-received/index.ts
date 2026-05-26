@@ -87,7 +87,13 @@ Deno.serve(async (req) => {
       job.job_reference ||
       `KN-${(job.id || "").replace(/-/g, "").substring(0, 6).toUpperCase()}`;
 
-    const receiptUrl = `https://kngasservices.bookedjobs.ie/receipt/${invoiceNumber}`;
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("slug")
+      .eq("id", job.organisation_id)
+      .maybeSingle();
+    const orgSlug = orgRow?.slug || "kngasservices";
+    const receiptUrl = `https://${orgSlug}.bookedjobs.ie/receipt/${invoiceNumber}`;
 
     // 5. Normalise phone
     let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");
