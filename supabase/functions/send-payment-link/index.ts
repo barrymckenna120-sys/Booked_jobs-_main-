@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
     const { service_call_id } = await req.json();
 
     if (!service_call_id) {
+      console.log("send-payment-link 400: missing service_call_id");
       return new Response(JSON.stringify({ error: "service_call_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
