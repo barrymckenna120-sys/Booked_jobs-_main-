@@ -186,6 +186,7 @@ Deno.serve(async (req) => {
       rgi_number: (rgi_number ?? "").toString().trim() || null,
       message_footer,
       owner_name,
+      cert_prefix: finalSlug.slice(0, 2).toUpperCase(),
     }, { onConflict: "user_id" });
   if (settingsErr) {
     await logFailure("step 4", settingsErr.message);
