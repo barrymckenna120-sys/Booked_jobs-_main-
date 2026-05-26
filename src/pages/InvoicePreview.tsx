@@ -119,22 +119,38 @@ const InvoicePreview = () => {
     setSending(true);
     try {
       // Generate invoice PDF first if not already done
-      if (!job.invoice_pdf_url) {
-        await supabase.functions.invoke("create-job-invoice", {
+      let invoiceNumberForLookup = job.invoice_number;
+      if (!invoiceNumberForLookup) {
+        const { data: created } = await supabase.functions.invoke("create-job-invoice", {
           body: { job_id: job.id },
         });
-        const { data: updatedJob } = await supabase
-          .from("service_calls")
-          .select("invoice_pdf_url")
-          .eq("id", job.id)
-          .single();
-        job.invoice_pdf_url = (updatedJob as any)?.invoice_pdf_url;
+        invoiceNumberForLookup = (created as any)?.invoice_number || null;
+
+        if (!invoiceNumberForLookup) {
+          const { data: updatedJob } = await supabase
+            .from("service_calls")
+            .select("invoice_number")
+            .eq("id", job.id)
+            .single();
+          invoiceNumberForLookup = (updatedJob as any)?.invoice_number || null;
+        }
+      }
+
+      // Look up the PDF URL from invoices table (don't block send if missing)
+      let invoicePdfUrl: string | null = null;
+      if (invoiceNumberForLookup) {
+        const { data: invoiceRow } = await supabase
+          .from("invoices")
+          .select("pdf_url")
+          .eq("invoice_number", invoiceNumberForLookup)
+          .maybeSingle();
+        invoicePdfUrl = (invoiceRow as any)?.pdf_url || null;
       }
 
       const { error } = await supabase.functions.invoke("send-payment-link", {
         body: {
           service_call_id: job.id,
-          invoice_pdf_url: job.invoice_pdf_url,
+          invoice_pdf_url: invoicePdfUrl,
         },
       });
       if (error) throw error;
@@ -152,6 +168,7 @@ const InvoicePreview = () => {
     }
     setSending(false);
   };
+
 
 
   return (
