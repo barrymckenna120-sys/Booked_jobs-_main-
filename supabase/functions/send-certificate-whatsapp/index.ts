@@ -89,6 +89,8 @@ serve(async (req) => {
     if (!apiKey && integConfig?.api_key_secret) {
       apiKey = Deno.env.get(integConfig.api_key_secret) || null;
     }
+    console.log("[send-certificate-whatsapp] apiKey resolved:", !!apiKey, "orgId:", orgId);
+    console.log("[send-certificate-whatsapp] customer phone:", customer?.phone);
 
     // Extract calling user from JWT for activity logging
     let callingProfileId: string | null = null;
