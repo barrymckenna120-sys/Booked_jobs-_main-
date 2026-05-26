@@ -123,9 +123,14 @@ const InvoicePreview = () => {
       });
       if (error) throw error;
       setSent(true);
+      await supabase
+        .from("service_calls")
+        .update({ payment_link_sent: true })
+        .eq("id", job.id);
     } catch (e: any) {
       toast({
-        title: "Failed to send — please try again",
+        title: "Failed to send",
+        description: e?.message || "Please try again",
         variant: "destructive",
       });
     }
