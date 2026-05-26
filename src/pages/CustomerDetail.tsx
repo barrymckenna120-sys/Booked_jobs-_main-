@@ -140,6 +140,25 @@ const CustomerDetail = () => {
       supabase.from("boiler_brands").select("brand_name, model_name, is_default").then(({ data }) => {
         if (data) setBoilerBrands(data as BoilerBrandRow[]);
       });
+
+      const channel = supabase
+        .channel(`customer-${id}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'customers', filter: `id=eq.${id}` },
+          (payload) => {
+            const newOptedOut = (payload.new as any)?.opted_out;
+            if (typeof newOptedOut === 'boolean') {
+              setForm((prev) => ({ ...prev, opted_out: newOptedOut }));
+              setOriginalForm((prev) => ({ ...prev, opted_out: newOptedOut }));
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, id]);
