@@ -141,26 +141,14 @@ const TeamManagement = () => {
 
   const fetchMembers = useCallback(async () => {
     if (!user) return;
+    if (!ready) return;
     setLoading(true);
 
-    // Resolve current user's organisation — check profiles first, then engineers
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    let orgId = (profileData as any)?.organisation_id ?? null;
-
     if (!orgId) {
-      const { data: engData } = await supabase
-        .from("engineers")
-        .select("organisation_id")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-      orgId = (engData as any)?.organisation_id ?? null;
+      setLoading(false);
+      return; // can't scope queries without orgId
     }
 
-    if (!orgId) return; // can't scope queries without orgId
 
     const { data: engs } = await supabase
       .from("engineers")
