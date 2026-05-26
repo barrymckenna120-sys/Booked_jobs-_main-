@@ -159,6 +159,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
     const today = new Date().toISOString().split("T")[0];
 
     const certData = {
+      organisation_id: job.organisation_id,
       job_id: job.id,
       customer_id: customer.id,
       cert_number: cn,
