@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (jobErr || !job) {
+      console.log("send-payment-link 404: job not found", { service_call_id, jobErr: jobErr?.message });
       return new Response(JSON.stringify({ error: "Job not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -44,6 +45,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!customer?.phone) {
+      console.log("send-payment-link 400: customer has no phone", { customer_id: job.customer_id });
       return new Response(JSON.stringify({ error: "Customer has no phone number" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -62,6 +64,7 @@ Deno.serve(async (req) => {
         || null;
     }
     if (!paymentLink) {
+      console.log("send-payment-link 400: no payment link", { service_call_id, organisation_id: job.organisation_id });
       return new Response(JSON.stringify({ error: "No payment link set on this job or organisation. Add a payment link first." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -72,6 +75,7 @@ Deno.serve(async (req) => {
     const balanceDue = job.balance_due || (jobTotal - depositAmount) || jobTotal;
 
     if (balanceDue <= 0) {
+      console.log("send-payment-link 400: no balance due", { service_call_id, balanceDue });
       return new Response(JSON.stringify({ error: "No balance due on this job" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -91,6 +95,7 @@ Deno.serve(async (req) => {
       (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null) ||
       Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) {
+      console.log("send-payment-link 400: no API key", { organisation_id: job.organisation_id });
       return new Response(JSON.stringify({ error: "WhatsApp API key not configured for this organisation" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
