@@ -203,7 +203,7 @@ const TeamManagement = () => {
 
     setMembers(combined);
     setLoading(false);
-  }, [user]);
+  }, [user, orgId, ready]);
 
   const fetchAuthUsers = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke("list-users");
