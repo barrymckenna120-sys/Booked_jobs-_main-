@@ -13,9 +13,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { service_call_id } = await req.json();
@@ -68,14 +65,33 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Per-tenant 360Messenger API key (config.api_key → config.api_key_secret env → THREESIXTY_API_KEY)
+    const { data: integration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", job.organisation_id)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+
+    const cfg = (integration?.config ?? {}) as Record<string, any>;
+    const apiKey =
+      cfg.api_key ||
+      (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null) ||
+      Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "WhatsApp API key not configured for this organisation" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Get WhatsApp template from settings
     const { data: settings } = await supabase
       .from("settings")
-      .select("template_payment_link, message_footer, business_phone")
-      .eq("user_id", job.user_id)
+      .select("template_payment_link, message_footer, business_phone, business_name")
+      .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    const footer = settings?.message_footer || "K&N Gas Services";
+    const footer = settings?.message_footer || settings?.business_name || "";
     const businessPhone = settings?.business_phone || "";
 
     const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n{{payment_link}}\n\n{{phone}}`;
@@ -114,7 +130,7 @@ Deno.serve(async (req) => {
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
-      headers: { Authorization: `Bearer ${messengerKey}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
     });
 
@@ -146,7 +162,7 @@ Deno.serve(async (req) => {
     // Log customer activity
     try {
       await supabase.from("customer_activity").insert({
-        organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+        organisation_id: job.organisation_id,
         customer_id: job.customer_id,
         service_call_id: service_call_id,
         event_type: "whatsapp_sent",
