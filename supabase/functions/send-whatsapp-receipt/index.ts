@@ -87,6 +87,14 @@ Deno.serve(async (req) => {
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
+    // Fetch organisation slug for tenant-specific URL
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("slug")
+      .eq("id", job.organisation_id)
+      .maybeSingle();
+    const orgSlug = orgRow?.slug || "kngasservices";
+
     const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
@@ -100,7 +108,7 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://kngasservices.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
+    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://${orgSlug}.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 

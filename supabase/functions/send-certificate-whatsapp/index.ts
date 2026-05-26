@@ -148,8 +148,20 @@ serve(async (req) => {
     }
 
     const firstName = customer.name.split(" ")[0];
+
+    // Fetch organisation slug for tenant-specific URL
+    let orgSlug = "kngasservices";
+    {
+      const orgRes = await fetch(
+        `${supabaseUrl}/rest/v1/organisations?id=eq.${orgId}&select=slug&limit=1`,
+        { headers }
+      );
+      const orgRows = await orgRes.json();
+      if (Array.isArray(orgRows) && orgRows[0]?.slug) orgSlug = orgRows[0].slug;
+    }
+
     const cleanCertUrl = cert.cert_number
-      ? `https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
+      ? `https://${orgSlug}.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
       : cert.pdf_url;
     let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)

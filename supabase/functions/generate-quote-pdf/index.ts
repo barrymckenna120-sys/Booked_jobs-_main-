@@ -551,9 +551,15 @@ Deno.serve(async (req) => {
     );
     doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
 
-    // Accept URL
+    // Accept URL — tenant-specific slug
     const quoteNum = quote.quote_number || `Q-${quote.id.substring(0, 4).toUpperCase()}`;
-    const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${quoteNum}`;
+    const { data: orgRow } = await sb
+      .from("organisations")
+      .select("slug")
+      .eq("id", (quote as any).organisation_id)
+      .maybeSingle();
+    const orgSlug = (orgRow as any)?.slug || "kngasservices";
+    const acceptUrl = `https://${orgSlug}.bookedjobs.ie/quote/${quoteNum}`;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...headerTextRgb);
