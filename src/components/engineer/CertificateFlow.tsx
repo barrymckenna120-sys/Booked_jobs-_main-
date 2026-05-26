@@ -221,6 +221,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     const cn = generateCertNumber();
 
     const { data: insertedRow, error } = await supabase.from("certificates" as any).insert({
+      organisation_id: job.organisation_id,
       job_id: job.id,
       customer_id: customer.id,
       cert_number: cn,
