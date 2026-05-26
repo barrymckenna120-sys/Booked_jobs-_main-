@@ -150,15 +150,21 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
   const [hazardNo, setHazardNo] = useState("");
   const [hazardReason, setHazardReason] = useState("");
 
-  const generateCertNum = () => {
+  const generateCertNum = (prefix: string) => {
     const year = new Date().getFullYear();
-    const rand = Math.floor(Math.random() * 9999) + 1;
-    return `DS-${year}-${String(rand).padStart(4, "0")}`;
+    const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+    return `${prefix}-${year}-${rand}`;
   };
 
   const handleSubmit = async (engSigUrl: string) => {
     setSaving(true);
-    const cn = generateCertNum();
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("cert_prefix")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+    const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "CERT";
+    const cn = generateCertNum(prefix);
     const today = new Date().toISOString().split("T")[0];
 
     const certData = {
