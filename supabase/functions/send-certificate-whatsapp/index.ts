@@ -84,7 +84,11 @@ serve(async (req) => {
       { headers }
     );
     const integRows = await integRes.json();
-    const apiKey = Array.isArray(integRows) && integRows[0]?.config?.api_key ? integRows[0].config.api_key : null;
+    const integConfig = Array.isArray(integRows) && integRows[0]?.config ? integRows[0].config : null;
+    let apiKey: string | null = integConfig?.api_key || null;
+    if (!apiKey && integConfig?.api_key_secret) {
+      apiKey = Deno.env.get(integConfig.api_key_secret) || null;
+    }
 
     // Extract calling user from JWT for activity logging
     let callingProfileId: string | null = null;
