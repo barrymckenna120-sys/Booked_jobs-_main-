@@ -2136,6 +2136,7 @@ export type Database = {
           parts_status: string | null
           payment_collected_by: string | null
           payment_link: string | null
+          payment_link_sent: boolean
           payment_method: string | null
           payment_received_whatsapp_sent: boolean
           payment_status: string | null
@@ -2224,6 +2225,7 @@ export type Database = {
           parts_status?: string | null
           payment_collected_by?: string | null
           payment_link?: string | null
+          payment_link_sent?: boolean
           payment_method?: string | null
           payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
@@ -2312,6 +2314,7 @@ export type Database = {
           parts_status?: string | null
           payment_collected_by?: string | null
           payment_link?: string | null
+          payment_link_sent?: boolean
           payment_method?: string | null
           payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
