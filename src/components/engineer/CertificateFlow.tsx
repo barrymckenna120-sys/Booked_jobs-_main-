@@ -210,15 +210,24 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [customerSig, setCustomerSig] = useState<string | null>(null);
   const [engineerSig, setEngineerSig] = useState<string | null>(null);
 
-  const generateCertNumber = () => {
+  const generateCertNumber = (prefix: string) => {
     const year = new Date().getFullYear();
-    const rand = Math.floor(Math.random() * 9999) + 1;
-    return `KN-${year}-${String(rand).padStart(4, "0")}`;
+    const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+    return `${prefix}-${year}-${rand}`;
   };
 
   const handleSubmit = async (engSigUrl: string) => {
     setSaving(true);
-    const cn = generateCertNumber();
+
+    // Resolve tenant-specific cert prefix from settings
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("cert_prefix")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+    const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "CERT";
+    const cn = generateCertNumber(prefix);
+
 
     const { data: insertedRow, error } = await supabase.from("certificates" as any).insert({
       organisation_id: job.organisation_id,
