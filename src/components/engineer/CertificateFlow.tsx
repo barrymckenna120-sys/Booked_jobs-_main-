@@ -354,7 +354,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           </div>
         )}
 
-        <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
+        <Button onClick={() => { onClose(); navigate(-1); }} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
           Back to Job
         </Button>
       </div>,
