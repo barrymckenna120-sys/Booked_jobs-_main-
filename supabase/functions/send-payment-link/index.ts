@@ -65,14 +65,33 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Per-tenant 360Messenger API key (config.api_key → config.api_key_secret env → THREESIXTY_API_KEY)
+    const { data: integration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", job.organisation_id)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+
+    const cfg = (integration?.config ?? {}) as Record<string, any>;
+    const apiKey =
+      cfg.api_key ||
+      (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null) ||
+      Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "WhatsApp API key not configured for this organisation" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Get WhatsApp template from settings
     const { data: settings } = await supabase
       .from("settings")
-      .select("template_payment_link, message_footer, business_phone")
-      .eq("user_id", job.user_id)
+      .select("template_payment_link, message_footer, business_phone, business_name")
+      .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    const footer = settings?.message_footer || "K&N Gas Services";
+    const footer = settings?.message_footer || settings?.business_name || "";
     const businessPhone = settings?.business_phone || "";
 
     const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n{{payment_link}}\n\n{{phone}}`;
