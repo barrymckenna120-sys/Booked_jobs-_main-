@@ -44,10 +44,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify the caller has admin or office role (not engineer)
-    const { data: callerRole, error: roleError } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
-    console.log("role check result:", JSON.stringify({ role: callerRole, error: roleError }));
-    if (callerRole === 'engineer') {
+    // Verify the caller has admin/office/owner/superadmin role.
+    // Check profiles first (source of truth for non-engineer staff), then engineers.
+    const supabaseAdminCheck = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data: callerProfile } = await supabaseAdminCheck
+      .from("profiles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    const { data: callerEngineer } = await supabaseAdminCheck
+      .from("engineers")
+      .select("role")
+      .eq("auth_user_id", caller.id)
+      .maybeSingle();
+    const callerRole = (callerProfile as any)?.role || (callerEngineer as any)?.role || null;
+    console.log("role check result:", JSON.stringify({ profileRole: (callerProfile as any)?.role, engineerRole: (callerEngineer as any)?.role, resolved: callerRole }));
+    const allowedRoles = ['admin', 'office', 'owner', 'owner_manager', 'superadmin'];
+    if (!callerRole || !allowedRoles.includes(callerRole)) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
