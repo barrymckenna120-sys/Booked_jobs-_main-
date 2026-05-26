@@ -118,8 +118,24 @@ const InvoicePreview = () => {
   const handleSendPaymentLink = async () => {
     setSending(true);
     try {
+      // Generate invoice PDF first if not already done
+      if (!job.invoice_pdf_url) {
+        await supabase.functions.invoke("create-job-invoice", {
+          body: { job_id: job.id },
+        });
+        const { data: updatedJob } = await supabase
+          .from("service_calls")
+          .select("invoice_pdf_url")
+          .eq("id", job.id)
+          .single();
+        job.invoice_pdf_url = (updatedJob as any)?.invoice_pdf_url;
+      }
+
       const { error } = await supabase.functions.invoke("send-payment-link", {
-        body: { service_call_id: job.id },
+        body: {
+          service_call_id: job.id,
+          invoice_pdf_url: job.invoice_pdf_url,
+        },
       });
       if (error) throw error;
       setSent(true);
@@ -136,6 +152,7 @@ const InvoicePreview = () => {
     }
     setSending(false);
   };
+
 
   return (
     <div className="min-h-screen bg-[hsl(220,14%,96%)]">
