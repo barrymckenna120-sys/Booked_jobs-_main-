@@ -81,6 +81,19 @@ const SignatureCanvas = ({
     const parent = c.parentElement!;
     c.width = parent.clientWidth;
     c.height = parent.clientHeight;
+
+    // Attach native touch listeners with passive:false so preventDefault() works on mobile
+    const touchStart = (e: TouchEvent) => start(e as any);
+    const touchMove = (e: TouchEvent) => move(e as any);
+    const touchEnd = () => end();
+    c.addEventListener("touchstart", touchStart, { passive: false });
+    c.addEventListener("touchmove", touchMove, { passive: false });
+    c.addEventListener("touchend", touchEnd, { passive: false });
+    return () => {
+      c.removeEventListener("touchstart", touchStart);
+      c.removeEventListener("touchmove", touchMove);
+      c.removeEventListener("touchend", touchEnd);
+    };
   }, []);
 
   return (
