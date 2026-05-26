@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .select(
-        "id, organisation_id, job_reference, job_type, scheduled_date, amount_paid, customer_id"
+        "id, organisation_id, job_reference, job_type, scheduled_date, revenue, customer_id"
       )
       .eq("id", service_call_id)
       .single();
