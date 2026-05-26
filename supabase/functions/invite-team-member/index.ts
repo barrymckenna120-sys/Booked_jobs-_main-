@@ -44,26 +44,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify the caller has admin/office/owner/superadmin role.
-    // Check profiles first (source of truth for non-engineer staff), then engineers.
+    // Verify the caller has sufficient permissions.
+    // Check both get_user_role RPC AND profiles.role — get_user_role falls back
+    // to 'engineer' for users without an engineer record (e.g. superadmins,
+    // owner_managers), so profiles is the source of truth for non-engineer staff.
     const supabaseAdminCheck = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const { data: callerProfile } = await supabaseAdminCheck
-      .from("profiles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .maybeSingle();
-    const { data: callerEngineer } = await supabaseAdminCheck
-      .from("engineers")
-      .select("role")
-      .eq("auth_user_id", caller.id)
-      .maybeSingle();
-    const callerRole = (callerProfile as any)?.role || (callerEngineer as any)?.role || null;
-    console.log("role check result:", JSON.stringify({ profileRole: (callerProfile as any)?.role, engineerRole: (callerEngineer as any)?.role, resolved: callerRole }));
+    const [{ data: rpcRole }, { data: callerProfile }] = await Promise.all([
+      supabaseUser.rpc('get_user_role', { _user_id: caller.id }),
+      supabaseAdminCheck.from("profiles").select("role").eq("user_id", caller.id).maybeSingle(),
+    ]);
+    const profileRole = (callerProfile as any)?.role || null;
     const allowedRoles = ['admin', 'office', 'owner', 'owner_manager', 'superadmin'];
-    if (!callerRole || !allowedRoles.includes(callerRole)) {
+    const isAllowed = allowedRoles.includes(rpcRole as string) || allowedRoles.includes(profileRole);
+    const callerRole = profileRole || (rpcRole as string) || null;
+    console.log("role check result:", JSON.stringify({ rpcRole, profileRole, isAllowed }));
+    if (!isAllowed) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
