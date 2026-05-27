@@ -2543,7 +2543,7 @@ export type Database = {
           {
             foreignKeyName: "settings_organisation_id_fkey"
             columns: ["organisation_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
