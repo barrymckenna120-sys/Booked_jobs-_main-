@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { service_call_id } = await req.json();
+    const { service_call_id, invoice_pdf_url } = await req.json();
 
     if (!service_call_id) {
       console.log("send-payment-link 400: missing service_call_id");
