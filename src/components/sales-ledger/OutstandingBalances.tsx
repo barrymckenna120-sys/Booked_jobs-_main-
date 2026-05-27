@@ -42,7 +42,10 @@ const OutstandingBalances = () => {
   const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user || !orgId) return;
+    if (!user || !orgId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     supabase
       .from("service_calls")
@@ -51,9 +54,13 @@ const OutstandingBalances = () => {
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
       .not("invoiced_at", "is", null)
-      .not("completed_at", "is", null)
       .order("scheduled_date", { ascending: false })
-      .then(({ data: rows }) => {
+      .then(({ data: rows, error }) => {
+        if (error) {
+          console.error("OutstandingBalances query failed:", error);
+          setLoading(false);
+          return;
+        }
         if (rows) {
           setJobs(
             rows
