@@ -118,7 +118,15 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => (
+const App = () => {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <AuthLoadingScreen />;
+  }
+
+  return (
+  <QueryClientProvider client={queryClient}>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <WhatsAppConnectionProvider>
