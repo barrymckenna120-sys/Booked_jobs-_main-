@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const OutstandingBalances = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<OutstandingJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,11 +42,12 @@ const OutstandingBalances = () => {
   const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setLoading(true);
     supabase
       .from("service_calls")
       .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
+      .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
       .not("invoiced_at", "is", null)
@@ -73,7 +76,7 @@ const OutstandingBalances = () => {
         }
         setLoading(false);
       });
-  }, [user]);
+  }, [user, orgId]);
 
   const handleSendLink = async (job: OutstandingJob) => {
     setSendingId(job.id);
