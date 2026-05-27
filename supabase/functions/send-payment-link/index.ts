@@ -101,27 +101,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get WhatsApp template from settings
-    const { data: settings } = await supabase
-      .from("settings")
-      .select("template_payment_link, message_footer, business_phone, business_name")
-      .eq("organisation_id", job.organisation_id)
-      .maybeSingle();
+    const total = job.revenue || 0;
+    const depositAmount = job.deposit_required ? (job.deposit_amount || 0) : 0;
+    const balanceDue = job.balance_due || (total - depositAmount) || total;
 
-    const footer = settings?.message_footer || settings?.business_name || "";
-    const businessPhone = settings?.business_phone || "";
+    let message = `Hi ${customer.name}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: €${total.toFixed(2)}\n\nDeposit paid: €${depositAmount.toFixed(2)}\n\nBalance due: €${balanceDue.toFixed(2)}\n\nInvoice ref: ${job.invoice_number || "N/A"}\n\nPayment due within 14 days.`;
 
-    const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n{{payment_link}}\n\n{{phone}}`;
+    if (invoice_pdf_url) {
+      message += `\n\n📄 View invoice:\n${invoice_pdf_url}`;
+    }
 
-    let message = (settings?.template_payment_link || defaultTemplate)
-      .replace(/\{\{name\}\}/g, customer.name)
-      .replace(/\{\{amount\}\}/g, balanceDue.toFixed(2))
-      .replace(/\{\{payment_link\}\}/g, paymentLink)
-      .replace(/\{\{phone\}\}/g, businessPhone);
+    message += `\n\n💳 Pay now:\n${paymentLink}`;
 
-    // Append footer if not already present
-    if (footer && !message.includes(footer)) {
-      message = message.trimEnd() + `\n\n${footer}`;
+    if (footer) {
+      message += `\n\nThank you, ${footer}`;
     }
 
     // Send via 360Messenger
