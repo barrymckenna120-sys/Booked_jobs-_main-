@@ -230,6 +230,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.completed_at = new Date().toISOString();
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
+        const orgId = (job as any).organisation_id;
+        const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
+          ? Number(confirmedRevenue)
+          : Number((job as any).revenue || 0);
+        dbPatch.balance_due = revenueForInvoice;
+        try {
+          const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
+          const invNum = await nextInvoiceNumber(orgId);
+          if (invNum) dbPatch.invoice_number = invNum;
+        } catch (e) {
+          console.error("[EngineerJobDetail] invoice number generation failed", e);
+        }
       }
       if (!job.receipt_number) {
         try {
