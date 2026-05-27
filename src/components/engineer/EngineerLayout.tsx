@@ -42,6 +42,9 @@ const EngineerLayout = () => {
   const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isEngineerNotLinked, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [browserOnline, setBrowserOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
 
   useEffect(() => {
     if (isOnline) setDismissed(false);
@@ -54,6 +57,18 @@ const EngineerLayout = () => {
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
+
+  // Native browser online/offline detection
+  useEffect(() => {
+    const handleOnline = () => setBrowserOnline(true);
+    const handleOffline = () => setBrowserOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
@@ -145,17 +160,10 @@ const EngineerLayout = () => {
 
 
       {/* Offline banner */}
-      {!isOnline && !dismissed && (
+      {!browserOnline && (
         <div className="w-full bg-[hsl(var(--warning))] text-white pl-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm relative">
           <WifiOff className="w-4 h-4 flex-shrink-0" />
-          <span>You're offline — changes won't save until reconnected</span>
-          <button
-            onClick={() => setDismissed(true)}
-            aria-label="Dismiss offline banner"
-            className="ml-auto text-white font-bold text-lg px-3 min-h-[44px] flex items-center justify-center"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <span>No signal — changes won't save until you're back online</span>
         </div>
       )}
 
