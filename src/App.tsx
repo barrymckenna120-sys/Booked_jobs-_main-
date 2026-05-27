@@ -192,7 +192,7 @@ const App = () => {
             <Route path="/offline" element={<Offline />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AuthGate>
+          
           </RecoveryRedirectGuard>
         </AdminViewAsProvider>
       </BrowserRouter>
