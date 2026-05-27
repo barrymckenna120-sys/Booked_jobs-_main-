@@ -63,7 +63,7 @@ import WarrantyDetail from "./pages/WarrantyDetail";
 import PublicReceipt from "./pages/PublicReceipt";
 import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
-import AudioDebug from "./pages/AudioDebug";
+import Offline from "./pages/Offline";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import TenantDetail from "./pages/admin/TenantDetail";
