@@ -53,6 +53,7 @@ export const useEngineerJobs = () => {
   const [customers, setCustomers] = useState<Record<string, any>>({});
   const [jobPhotos, setJobPhotos] = useState<Record<string, { url: string; name: string; type?: string }[]>>({});
   const [engineerName, setEngineerName] = useState<string | null>(null);
+  const [isEngineerNotLinked, setIsEngineerNotLinked] = useState(false);
   const [loading, setLoading] = useState(true);
   // Track cancelled jobs that should fade out after 10 seconds
   const [fadingJobIds, setFadingJobIds] = useState<Set<string>>(new Set());
@@ -103,7 +104,13 @@ export const useEngineerJobs = () => {
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
-    if (engData?.name) setEngineerName(engData.name);
+    if (!engData) {
+      setIsEngineerNotLinked(true);
+      setEngineerName(null);
+    } else {
+      setIsEngineerNotLinked(false);
+      if (engData.name) setEngineerName(engData.name);
+    }
 
     const engineerId = engData?.id;
 
@@ -560,7 +567,7 @@ export const useEngineerJobs = () => {
   }, [user, fetchAll]);
 
   return {
-    user, authLoading, loading, engineerName,
+    user, authLoading, loading, engineerName, isEngineerNotLinked,
     todayActive, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
     updateJob, fetchAll, fadingJobIds, isOnline,
