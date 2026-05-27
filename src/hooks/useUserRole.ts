@@ -48,7 +48,7 @@ export const useUserRole = (user: User | null) => {
           const elevated = ["owner", "manager", "admin", "office"].includes(rawRole);
           setCanAccessOffice(elevated || !!engineerRow?.can_access_office);
         } else {
-          setRole("admin");
+          setRole("engineer");
           setEngineerId(null);
           setEngineerName(null);
           setCanAccessOffice(false);
