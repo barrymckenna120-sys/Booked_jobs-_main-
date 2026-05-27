@@ -199,8 +199,10 @@ export const useEngineerJobs = () => {
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
       if (paymentMethod === "invoice") {
-        // Invoice = unpaid, no paid_at
+        // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
         dbPatch.payment_status = "unpaid";
+        if (!dbPatch.status) dbPatch.status = "Completed";
+        if (!patch.status) patch.status = "Completed";
       } else {
         dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
