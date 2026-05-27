@@ -183,6 +183,7 @@ const App = () => (
             <Route path="/debug/audio" element={<AudioDebug />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
+            <Route path="/offline" element={<Offline />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
