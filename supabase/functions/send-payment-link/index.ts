@@ -109,7 +109,6 @@ Deno.serve(async (req) => {
 
     const footer = settings?.message_footer || settings?.business_name || "";
 
-
     let message = `Hi ${customer.name}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: €${jobTotal.toFixed(2)}\n\nDeposit paid: €${depositAmount.toFixed(2)}\n\nBalance due: €${balanceDue.toFixed(2)}\n\nInvoice ref: ${job.invoice_number || "N/A"}\n\nPayment due within 14 days.`;
 
     if (invoice_pdf_url) {
