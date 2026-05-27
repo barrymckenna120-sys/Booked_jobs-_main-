@@ -171,6 +171,15 @@ Deno.serve(async (req) => {
     newUserId = inviteData.user.id;
   }
 
+  // Ensure organisation_id + role are present in raw_app_meta_data (JWT claims)
+  const { error: appMetaErr } = await supabase.auth.admin.updateUserById(newUserId, {
+    app_metadata: { organisation_id: newOrgId, role: "admin" },
+  });
+  if (appMetaErr) {
+    await logFailure("step 6b", appMetaErr.message);
+    return json({ error: "provision_failed", step: "6b", detail: appMetaErr.message }, 500);
+  }
+
   // Step 4: settings upsert (user may already have a settings row from a prior org)
   const { error: settingsErr } = await supabase
     .from("settings")
