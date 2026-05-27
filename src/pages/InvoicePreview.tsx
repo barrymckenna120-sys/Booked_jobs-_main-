@@ -179,6 +179,8 @@ const InvoicePreview = () => {
       });
     }
     setSending(false);
+    setRetrying(false);
+
   };
 
 
