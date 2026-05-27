@@ -71,7 +71,7 @@ import TenantDetail from "./pages/admin/TenantDetail";
 import { AdminViewAsProvider } from "@/hooks/useAdminViewAs";
 import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
 
-import { useAuth } from "@/hooks/useAuth";
+
 
 const queryClient = new QueryClient();
 
