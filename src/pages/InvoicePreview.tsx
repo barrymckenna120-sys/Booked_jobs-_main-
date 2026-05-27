@@ -324,9 +324,12 @@ const InvoicePreview = () => {
             onClick={handleSendPaymentLink}
             disabled={sending || sent}
           >
-            {sending ? (
+            {retrying ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Retrying…</>
+            ) : sending ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
             ) : sent ? (
+
               <>✅ Sent to {customer?.name} via WhatsApp</>
             ) : (
               <><Send className="w-4 h-4" /> Send Payment Link via WhatsApp</>
