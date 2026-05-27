@@ -128,6 +128,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
           invoiced_at: new Date().toISOString(),
           revenue: revenueAmt,
           balance_due: revenueAmt,
+          status: "Completed",
+          completed_at: new Date().toISOString(),
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
