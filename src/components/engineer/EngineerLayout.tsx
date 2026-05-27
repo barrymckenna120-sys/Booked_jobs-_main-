@@ -62,7 +62,26 @@ const EngineerLayout = () => {
     : "today";
 
   if (authLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        backgroundColor: "#ffffff"
+      }}>
+        <img
+          src="/icons/icon-192.png"
+          style={{ width: 64, height: 64, marginBottom: 24 }}
+        />
+        <div style={{ width: 280 }}>
+          <div style={{ height: 20, backgroundColor: "#f0f0f0", borderRadius: 8, marginBottom: 12 }} />
+          <div style={{ height: 20, backgroundColor: "#f0f0f0", borderRadius: 8, marginBottom: 12 }} />
+          <div style={{ height: 20, backgroundColor: "#f0f0f0", borderRadius: 8 }} />
+        </div>
+      </div>
+    );
   }
 
   const navItems = [
