@@ -68,6 +68,7 @@ const OutstandingBalances = () => {
               .filter((r: any) => (r.balance_due ?? 0) > 0)
               .map((r: any) => ({
                 id: r.id,
+                job_reference: r.job_reference || null,
                 scheduled_date: r.scheduled_date,
                 job_type: r.job_type,
                 assigned_engineer: r.assigned_engineer,
