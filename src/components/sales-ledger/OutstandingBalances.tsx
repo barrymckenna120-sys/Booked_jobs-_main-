@@ -15,6 +15,7 @@ import ReminderChecklistModal from "./ReminderChecklistModal";
 
 type OutstandingJob = {
   id: string;
+  job_reference: string | null;
   scheduled_date: string | null;
   job_type: string;
   assigned_engineer: string | null;
