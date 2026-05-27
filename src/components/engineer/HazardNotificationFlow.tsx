@@ -222,6 +222,7 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
     setSaving(true);
 
     const { data: insertedRow, error } = await supabase.from("hazard_notifications" as any).insert({
+      organisation_id: job.organisation_id,
       job_id: job.id,
       customer_id: customer.id,
       ref_number: refNumber,
