@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
+
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +77,8 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 
 const SalesLedger = () => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
+
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [anchor, setAnchor] = useState(new Date());
   const [search, setSearch] = useState("");
@@ -89,15 +93,17 @@ const SalesLedger = () => {
   const { start, end } = getDateRange(viewMode, anchor);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     supabase
       .from("engineers")
       .select("id, name")
+      .eq("organisation_id", orgId)
       .eq("status", "active")
       .then(({ data }) => {
         if (data) setEngineers(data);
       });
-  }, [user]);
+  }, [user, orgId]);
+
 
   useEffect(() => {
     if (!user) return;
