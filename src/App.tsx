@@ -75,18 +75,6 @@ import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
 
-const AuthLoadingScreen = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-    <img
-      src="/icons/icon-192.png"
-      alt="BookedJobs"
-      className="w-20 h-20 animate-pulse mb-4"
-    />
-    <p className="text-lg font-medium" style={{ color: "#4A86E8" }}>
-      Loading...
-    </p>
-  </div>
-);
 
 const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
