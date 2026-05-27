@@ -215,6 +215,7 @@ const App = () => {
       </WhatsAppConnectionProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
