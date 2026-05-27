@@ -42,11 +42,12 @@ const OutstandingBalances = () => {
   const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setLoading(true);
     supabase
       .from("service_calls")
       .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
+      .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
       .not("invoiced_at", "is", null)
@@ -75,7 +76,7 @@ const OutstandingBalances = () => {
         }
         setLoading(false);
       });
-  }, [user]);
+  }, [user, orgId]);
 
   const handleSendLink = async (job: OutstandingJob) => {
     setSendingId(job.id);
