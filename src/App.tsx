@@ -126,8 +126,7 @@ const App = () => {
   }
 
   return (
-  <QueryClientProvider client={queryClient}>
-  <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <WhatsAppConnectionProvider>
       <Toaster />
