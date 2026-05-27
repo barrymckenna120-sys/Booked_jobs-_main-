@@ -118,13 +118,13 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => {
+const AuthGate = ({ children }: { children: React.ReactNode }) => {
   const { loading } = useAuth();
+  if (loading) return <AuthLoadingScreen />;
+  return <>{children}</>;
+};
 
-  if (loading) {
-    return <AuthLoadingScreen />;
-  }
-
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -137,6 +137,8 @@ const App = () => {
         <RecoveryRedirectGuard>
           <PWAUpdateBanner />
           <InstallAppBanner />
+          <AuthGate>
+
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
