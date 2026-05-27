@@ -101,6 +101,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { data: settings } = await supabase
+      .from("settings")
+      .select("message_footer, business_name")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+
+    const footer = settings?.message_footer || settings?.business_name || "";
+
     const total = job.revenue || 0;
     const depositAmount = job.deposit_required ? (job.deposit_amount || 0) : 0;
     const balanceDue = job.balance_due || (total - depositAmount) || total;
