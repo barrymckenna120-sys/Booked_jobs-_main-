@@ -208,9 +208,10 @@ const App = () => {
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
             <Route path="/offline" element={<Offline />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </RecoveryRedirectGuard>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthGate>
+          </RecoveryRedirectGuard>
         </AdminViewAsProvider>
       </BrowserRouter>
       </WhatsAppConnectionProvider>
