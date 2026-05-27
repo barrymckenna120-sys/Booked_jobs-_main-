@@ -33,6 +33,7 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const OutstandingBalances = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const orgId = useOrgId();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<OutstandingJob[]>([]);
   const [loading, setLoading] = useState(true);
