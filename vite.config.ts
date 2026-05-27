@@ -34,6 +34,22 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
+            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/service_calls/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "supabase-service-calls",
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/engineers/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "supabase-engineers",
+              expiration: { maxEntries: 20, maxAgeSeconds: 86400 },
+            },
+          },
+          {
             urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest/,
             handler: "NetworkFirst",
             options: {
