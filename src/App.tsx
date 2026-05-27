@@ -106,11 +106,6 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const AuthGate = ({ children }: { children: React.ReactNode }) => {
-  const { loading } = useAuth();
-  if (loading) return <AuthLoadingScreen />;
-  return <>{children}</>;
-};
 
 const App = () => {
   return (
