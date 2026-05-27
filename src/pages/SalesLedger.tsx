@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
+
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +77,8 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 
 const SalesLedger = () => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
+
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [anchor, setAnchor] = useState(new Date());
   const [search, setSearch] = useState("");
@@ -89,18 +93,20 @@ const SalesLedger = () => {
   const { start, end } = getDateRange(viewMode, anchor);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     supabase
       .from("engineers")
       .select("id, name")
+      .eq("organisation_id", orgId)
       .eq("status", "active")
       .then(({ data }) => {
         if (data) setEngineers(data);
       });
-  }, [user]);
+  }, [user, orgId]);
+
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     setLoading(true);
     const startStr = format(start, "yyyy-MM-dd");
     const endStr = format(end, "yyyy-MM-dd");
@@ -108,7 +114,9 @@ const SalesLedger = () => {
     supabase
       .from("service_calls")
       .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .eq("organisation_id", orgId)
       .eq("status", "Completed")
+
       .gte("completed_at", startStr)
       .lte("completed_at", endStr + "T23:59:59")
       .order("completed_at", { ascending: false })
@@ -136,7 +144,7 @@ const SalesLedger = () => {
         setLoading(false);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, start.getTime(), end.getTime()]);
+  }, [user, orgId, start.getTime(), end.getTime()]);
 
   const filtered = useMemo(() => {
     return data.filter((row) => {
@@ -212,14 +220,16 @@ const SalesLedger = () => {
   const [customExporting, setCustomExporting] = useState(false);
 
   const exportCustomRange = async () => {
-    if (!customStart || !customEnd || !user) return;
+    if (!customStart || !customEnd || !user || !orgId) return;
     setCustomExporting(true);
     const startStr = format(customStart, "yyyy-MM-dd");
     const endStr = format(customEnd, "yyyy-MM-dd");
     const { data: rows } = await supabase
       .from("service_calls")
       .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .eq("organisation_id", orgId)
       .eq("status", "Completed")
+
       .gte("completed_at", startStr)
       .lte("completed_at", endStr + "T23:59:59")
       .order("completed_at", { ascending: false });

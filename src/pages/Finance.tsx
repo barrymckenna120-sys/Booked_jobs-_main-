@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, TrendingUp, Clock, CheckCircle2, BarChart3, Calendar, RefreshCw, AlertTriangle, ChevronDown, Send, ClipboardList, Coins, TrendingDown, Banknote, CreditCard, FileText } from "lucide-react";
@@ -391,6 +393,8 @@ function PaymentBreakdown({ jobs, dateRange }: { jobs: any[]; dateRange: { start
 // ── Main Finance Page ──
 const Finance = () => {
   const { user, loading: authLoading } = useAuth();
+  const { orgId } = useOrgId();
+
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -401,13 +405,13 @@ const Finance = () => {
   const dateRange = useMemo(() => getDateRange(viewMode, anchor), [viewMode, anchor]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     const fetchAll = async () => {
       setLoading(true);
       const [jobsRes, custRes, quotesRes] = await Promise.all([
-        supabase.from("service_calls").select("*, customers(name)"),
-        supabase.from("customers").select("*"),
-        supabase.from("quotes").select("*, customers(name)"),
+        supabase.from("service_calls").select("*, customers(name)").eq("organisation_id", orgId),
+        supabase.from("customers").select("*").eq("organisation_id", orgId),
+        supabase.from("quotes").select("*, customers(name)").eq("organisation_id", orgId),
       ]);
       if (jobsRes.data) setJobs(jobsRes.data);
       if (custRes.data) setCustomers(custRes.data);
@@ -415,7 +419,8 @@ const Finance = () => {
       setLoading(false);
     };
     fetchAll();
-  }, [user]);
+  }, [user, orgId]);
+
 
   const now = new Date();
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
