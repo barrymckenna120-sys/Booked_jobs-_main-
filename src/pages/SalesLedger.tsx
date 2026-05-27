@@ -106,7 +106,10 @@ const SalesLedger = () => {
 
 
   useEffect(() => {
-    if (!user || !orgId) return;
+    if (!user || !orgId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const startStr = format(start, "yyyy-MM-dd");
     const endStr = format(end, "yyyy-MM-dd");
@@ -120,7 +123,12 @@ const SalesLedger = () => {
       .gte("completed_at", startStr)
       .lte("completed_at", endStr + "T23:59:59")
       .order("completed_at", { ascending: false })
-      .then(({ data: rows }) => {
+      .then(({ data: rows, error }) => {
+        if (error) {
+          console.error("SalesLedger query failed:", error);
+          setLoading(false);
+          return;
+        }
         if (rows) {
           setData(
             rows.map((r: any) => ({
