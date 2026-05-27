@@ -120,7 +120,6 @@ const App = () => {
         <RecoveryRedirectGuard>
           <PWAUpdateBanner />
           <InstallAppBanner />
-          <AuthGate>
 
           <Routes>
             <Route path="/" element={<Index />} />
