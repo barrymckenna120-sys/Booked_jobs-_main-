@@ -64,6 +64,7 @@ import PublicReceipt from "./pages/PublicReceipt";
 import InvoiceRedirect from "./pages/InvoiceRedirect";
 import ReceiptRedirect from "./pages/ReceiptRedirect";
 import AudioDebug from "./pages/AudioDebug";
+import Offline from "./pages/Offline";
 import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import TenantDetail from "./pages/admin/TenantDetail";
@@ -182,6 +183,7 @@ const App = () => (
             <Route path="/debug/audio" element={<AudioDebug />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
+            <Route path="/offline" element={<Offline />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </RecoveryRedirectGuard>
