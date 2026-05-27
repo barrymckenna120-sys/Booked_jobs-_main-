@@ -29,7 +29,9 @@ const InvoicePreview = () => {
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [sent, setSent] = useState(false);
+
 
   useEffect(() => {
     if (user && id) loadData();
@@ -147,13 +149,23 @@ const InvoicePreview = () => {
         invoicePdfUrl = (invoiceRow as any)?.pdf_url || null;
       }
 
-      const { error } = await supabase.functions.invoke("send-payment-link", {
-        body: {
-          service_call_id: job.id,
-          invoice_pdf_url: invoicePdfUrl,
-        },
-      });
-      if (error) throw error;
+      const invokeSend = () =>
+        supabase.functions.invoke("send-payment-link", {
+          body: {
+            service_call_id: job.id,
+            invoice_pdf_url: invoicePdfUrl,
+          },
+        });
+
+      let { error } = await invokeSend();
+      if (error) {
+        setRetrying(true);
+        await new Promise((r) => setTimeout(r, 2000));
+        ({ error } = await invokeSend());
+        setRetrying(false);
+        if (error) throw error;
+      }
+
       setSent(true);
       await supabase
         .from("service_calls")
