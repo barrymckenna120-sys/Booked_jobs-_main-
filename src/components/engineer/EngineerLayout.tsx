@@ -58,15 +58,35 @@ const EngineerLayout = () => {
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
 
-  // Native browser online/offline detection
+  // Active connectivity check against Supabase (avoids navigator.onLine lying on weak 5G)
   useEffect(() => {
-    const handleOnline = () => setBrowserOnline(true);
-    const handleOffline = () => setBrowserOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    let cancelled = false;
+
+    const checkConnectivity = async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        await fetch("https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/", {
+          method: "HEAD",
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!cancelled) setBrowserOnline(true);
+      } catch {
+        if (!cancelled) setBrowserOnline(false);
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
+    checkConnectivity();
+    const interval = setInterval(checkConnectivity, 30000);
+    window.addEventListener("online", checkConnectivity);
+
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("online", checkConnectivity);
     };
   }, []);
 
