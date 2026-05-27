@@ -118,13 +118,13 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => {
+const AuthGate = ({ children }: { children: React.ReactNode }) => {
   const { loading } = useAuth();
+  if (loading) return <AuthLoadingScreen />;
+  return <>{children}</>;
+};
 
-  if (loading) {
-    return <AuthLoadingScreen />;
-  }
-
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -137,6 +137,8 @@ const App = () => {
         <RecoveryRedirectGuard>
           <PWAUpdateBanner />
           <InstallAppBanner />
+          <AuthGate>
+
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -206,9 +208,10 @@ const App = () => {
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
             <Route path="/offline" element={<Offline />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </RecoveryRedirectGuard>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthGate>
+          </RecoveryRedirectGuard>
         </AdminViewAsProvider>
       </BrowserRouter>
       </WhatsAppConnectionProvider>
