@@ -2800,6 +2800,7 @@ export type Database = {
         }
         Returns: number
       }
+      next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
