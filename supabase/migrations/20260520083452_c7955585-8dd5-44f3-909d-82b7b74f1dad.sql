@@ -1,0 +1,1 @@
+UPDATE public.service_calls SET status = 'Completed' WHERE id IN ('e45b1c19-1062-449f-967d-0e9d20cceeae','87760b2a-400b-433f-b876-6b8eb7c327be');

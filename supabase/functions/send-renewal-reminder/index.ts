@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -13,7 +13,6 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const apiKey = Deno.env.get("THREESIXTY_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
@@ -37,14 +36,40 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const orgId = custOrg?.organisation_id;
 
+    const { data: settingsRow } = orgId ? await supabase
+      .from("settings")
+      .select("company_name, company_phone")
+      .eq("organisation_id", orgId)
+      .maybeSingle() : { data: null };
+    const companyName = (settingsRow as any)?.company_name ?? "";
+    const companyPhone = (settingsRow as any)?.company_phone ?? "";
+
+    // 360messenger config retained for api_key_secret lookup below
     const { data: messengerConfig } = orgId ? await supabase
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", orgId)
       .eq("integration_type", "360messenger")
       .maybeSingle() : { data: null };
-    const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
-    const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+    const messengerSettings = (messengerConfig?.config as any) ?? {};
+
+    // Resolve per-org WhatsApp API key from tenant_integrations
+    const { data: waConfig } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle() : { data: null };
+    const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
+    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
+      ?? (waConfig?.config as any)?.api_key
+      ?? Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "WhatsApp API key not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Build message
     const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on ${companyPhone}.\n\nReply STOP to unsubscribe.\n${companyName}`;

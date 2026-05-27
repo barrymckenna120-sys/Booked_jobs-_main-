@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,6 +82,19 @@ const SignatureCanvas = ({
     const parent = c.parentElement!;
     c.width = parent.clientWidth;
     c.height = parent.clientHeight;
+
+    // Attach native touch listeners with passive:false so preventDefault() works on mobile
+    const touchStart = (e: TouchEvent) => start(e as any);
+    const touchMove = (e: TouchEvent) => move(e as any);
+    const touchEnd = () => end();
+    c.addEventListener("touchstart", touchStart, { passive: false });
+    c.addEventListener("touchmove", touchMove, { passive: false });
+    c.addEventListener("touchend", touchEnd, { passive: false });
+    return () => {
+      c.removeEventListener("touchstart", touchStart);
+      c.removeEventListener("touchmove", touchMove);
+      c.removeEventListener("touchend", touchEnd);
+    };
   }, []);
 
   return (
@@ -97,9 +111,7 @@ const SignatureCanvas = ({
           onMouseMove={move}
           onMouseUp={end}
           onMouseLeave={end}
-          onTouchStart={start}
-          onTouchMove={move}
-          onTouchEnd={end}
+          /* touch listeners attached natively via useEffect with passive:false */
         />
         <div className="absolute bottom-8 left-6 right-6 border-b border-muted-foreground/30" />
         <span className="absolute bottom-2 left-6 text-[10px] text-muted-foreground">Sign above the line</span>
@@ -129,6 +141,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engineerName, engineerRgi, onClose }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [certNumber, setCertNumber] = useState<string | null>(null);
@@ -197,17 +210,27 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [customerSig, setCustomerSig] = useState<string | null>(null);
   const [engineerSig, setEngineerSig] = useState<string | null>(null);
 
-  const generateCertNumber = () => {
+  const generateCertNumber = (prefix: string) => {
     const year = new Date().getFullYear();
-    const rand = Math.floor(Math.random() * 9999) + 1;
-    return `KN-${year}-${String(rand).padStart(4, "0")}`;
+    const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+    return `${prefix}-${year}-${rand}`;
   };
 
   const handleSubmit = async (engSigUrl: string) => {
     setSaving(true);
-    const cn = generateCertNumber();
+
+    // Resolve tenant-specific cert prefix from settings
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("cert_prefix")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+    const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "CERT";
+    const cn = generateCertNumber(prefix);
+
 
     const { data: insertedRow, error } = await supabase.from("certificates" as any).insert({
+      organisation_id: job.organisation_id,
       job_id: job.id,
       customer_id: customer.id,
       cert_number: cn,
@@ -341,7 +364,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
           </div>
         )}
 
-        <Button onClick={onClose} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
+        <Button onClick={() => { onClose(); navigate(-1); }} className="mt-4 h-12 px-8 font-bold" style={{ backgroundColor: ACCENT }}>
           Back to Job
         </Button>
       </div>,

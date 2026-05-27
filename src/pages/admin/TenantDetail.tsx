@@ -33,6 +33,8 @@ import {
   Save,
   X,
   Plus,
+  Ban,
+  Power,
 } from "lucide-react";
 
 type Org = {
@@ -69,6 +71,7 @@ type SettingsRow = {
 const SENSITIVE_KEY_RE = /(api[_-]?key|secret|token|password|auth)/i;
 const INTEGRATION_TYPES = [
   "whatsapp_360",
+  "360messenger",
   "stripe",
   "resend",
   "tally",
@@ -123,6 +126,9 @@ export default function TenantDetail() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveTyped, setArchiveTyped] = useState("");
   const [archiving, setArchiving] = useState(false);
+
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [suspending, setSuspending] = useState(false);
 
   const [sendingReset, setSendingReset] = useState(false);
 
@@ -377,6 +383,43 @@ export default function TenantDetail() {
       toast.error(err instanceof Error ? err.message : "Failed to archive");
     } finally {
       setArchiving(false);
+    }
+  };
+
+  const handleSuspend = async () => {
+    if (!org) return;
+    setSuspending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-tenant-status", {
+        body: { organisation_id: org.id, status: "suspended" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Tenant suspended");
+      setSuspendOpen(false);
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to suspend");
+    } finally {
+      setSuspending(false);
+    }
+  };
+
+  const handleUnsuspend = async () => {
+    if (!org) return;
+    setSuspending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-tenant-status", {
+        body: { organisation_id: org.id, status: "active" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Tenant reactivated");
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reactivate");
+    } finally {
+      setSuspending(false);
     }
   };
 
@@ -717,6 +760,28 @@ export default function TenantDetail() {
             <Button variant="secondary" onClick={handleSwitchContext}>
               Switch Context
             </Button>
+            {org.subscription_status === "suspended" ? (
+              <Button
+                variant="outline"
+                onClick={handleUnsuspend}
+                disabled={suspending}
+              >
+                {suspending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="mr-2 h-4 w-4" />
+                )}
+                Unsuspend
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setSuspendOpen(true)}
+                disabled={suspending || archived}
+              >
+                <Ban className="mr-2 h-4 w-4" /> Suspend
+              </Button>
+            )}
             <Button
               variant="destructive"
               disabled={archived}
@@ -848,6 +913,43 @@ export default function TenantDetail() {
                 </>
               ) : (
                 "Archive Organisation"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspend confirm */}
+      <Dialog
+        open={suspendOpen}
+        onOpenChange={(open) => {
+          if (!open && !suspending) setSuspendOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5" /> Suspend {org.name}?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            They will lose access immediately.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSuspendOpen(false)}
+              disabled={suspending}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSuspend} disabled={suspending}>
+              {suspending ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" /> Suspending…
+                </>
+              ) : (
+                "Suspend"
               )}
             </Button>
           </DialogFooter>

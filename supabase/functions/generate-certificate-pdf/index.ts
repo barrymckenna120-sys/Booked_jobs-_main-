@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 function escapeHtml(str: string | null | undefined): string {
@@ -269,8 +269,8 @@ Deno.serve(async (req) => {
     let brandRow = null;
     if (job?.user_id) {
       const [settingsRes, brandRes] = await Promise.all([
-        supabaseAdmin.from("settings").select("*").eq("user_id", job.user_id).maybeSingle(),
-        supabaseAdmin.from("brand_settings").select("*").eq("organisation_id", job.user_id).maybeSingle(),
+        supabaseAdmin.from("settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
+        supabaseAdmin.from("brand_settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
       ]);
       settings = settingsRes.data;
       brandRow = brandRes.data;

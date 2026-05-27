@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 serve(async (req) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
   };
 
   if (req.method === "OPTIONS") {
@@ -53,7 +53,7 @@ serve(async (req) => {
 
     // Fetch tenant WhatsApp integration config
     const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
       { headers: dbHeaders },
     );
     const tiRows = await tiRes.json();
@@ -65,10 +65,10 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = config.api_key;
-    const templateName = config?.templates?.booking_confirmation;
-    if (!apiKey || !templateName) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key or booking_confirmation template missing in config" }), {
+    const apiKey = config.api_key || (config.api_key_secret ? Deno.env.get(config.api_key_secret) : null);
+    const templateName = config?.templates?.booking_confirmation ?? "booking_confirmation";
+    if (!apiKey) {
+      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key missing in config (set api_key or api_key_secret)" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });

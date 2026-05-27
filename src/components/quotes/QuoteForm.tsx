@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ type QuoteFormProps = {
 
 const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
@@ -178,6 +180,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     const status = sendNow ? "Sent" : "Draft";
     const quotePayload: any = {
       user_id: user.id,
+      organisation_id: orgId!,
       customer_id: customerId,
       job_id: customerId,
       description: jobDescription.trim(),
@@ -208,6 +211,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
         const { data: newJob } = await supabase.from("service_calls").insert({
           customer_id: customerId,
           user_id: user.id,
+          organisation_id: orgId!,
           job_type: jobType || "Other",
           job_issue: jobDescription.trim(),
           status: "Pending",
@@ -241,6 +245,29 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
     if (sendWhatsApp && savedQuoteId) {
       const customer = customers.find((c: any) => c.id === customerId);
       if (customer) {
+        // Generate PDF first (best-effort — do not block WhatsApp send on failure)
+        let pdfUrl: string | undefined;
+        try {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const pdfRes = await fetch(`https://${projectId}.supabase.co/functions/v1/generate-quote-pdf`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${anonKey}`,
+              "apikey": anonKey,
+            },
+            body: JSON.stringify({ quote_id: savedQuoteId }),
+          });
+          const pdfResult = await pdfRes.json().catch(() => ({}));
+          if (pdfRes.ok && pdfResult?.success && pdfResult?.pdf_url) {
+            pdfUrl = pdfResult.pdf_url;
+            await supabase.from("quotes").update({ pdf_url: pdfUrl } as any).eq("id", savedQuoteId);
+          }
+        } catch {
+          // Swallow — proceed without PDF
+        }
+
         try {
           const { error: waError } = await supabase.functions.invoke("send-quote-whatsapp", {
             body: {
@@ -251,6 +278,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
               quote_amount: total,
               deposit_amount: depositNum,
               quote_number: savedQuoteNumber,
+              ...(pdfUrl ? { pdf_url: pdfUrl } : {}),
             },
           });
           if (waError) {

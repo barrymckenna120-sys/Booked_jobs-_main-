@@ -89,3 +89,13 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.send-schedule-confirmation]
     verify_jwt = false
+  [functions.quote-followup-day3]
+    verify_jwt = false
+  [functions.quote-followup-day6]
+    verify_jwt = false
+  [functions.send-outstanding-invoice-reminders]
+    verify_jwt = false
+  [functions.whatsapp-webhook-test]
+    verify_jwt = false
+  [functions.whatsapp-inbound]
+    verify_jwt = false

@@ -29,7 +29,9 @@ const InvoicePreview = () => {
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [sent, setSent] = useState(false);
+
 
   useEffect(() => {
     if (user && id) loadData();
@@ -37,20 +39,24 @@ const InvoicePreview = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [jobRes, settingsRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("settings").select("*").limit(1).maybeSingle(),
-    ]);
+    const { data: jobData } = await supabase
+      .from("service_calls")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-    if (!jobRes.data) {
+    if (!jobData) {
       toast({ title: "Job not found", variant: "destructive" });
       navigate(-1);
       return;
     }
 
-    const custRes = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+    const [settingsRes, custRes] = await Promise.all([
+      supabase.from("settings").select("*").eq("organisation_id", jobData.organisation_id).maybeSingle(),
+      supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
+    ]);
 
-    setJob(jobRes.data);
+    setJob(jobData);
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
     setLoading(false);
@@ -66,8 +72,8 @@ const InvoicePreview = () => {
 
   if (!job || !customer) return null;
 
-  const businessName = settings?.business_name || "KN Gas Services";
-  const businessPhone = settings?.business_phone || "087 686 252";
+  const businessName = settings?.business_name || "";
+  const businessPhone = settings?.business_phone || "";
   const businessAddress = settings?.business_address || "";
   const rgiNumber = settings?.rgi_number || "";
 
@@ -114,19 +120,65 @@ const InvoicePreview = () => {
   const handleSendPaymentLink = async () => {
     setSending(true);
     try {
+      // Generate invoice PDF first if not already done
+      let invoiceNumberForLookup = job.invoice_number;
+      if (!invoiceNumberForLookup) {
+        const { data: created } = await supabase.functions.invoke("create-job-invoice", {
+          body: { job_id: job.id },
+        });
+        invoiceNumberForLookup = (created as any)?.invoice_number || null;
+
+        if (!invoiceNumberForLookup) {
+          const { data: updatedJob } = await supabase
+            .from("service_calls")
+            .select("invoice_number")
+            .eq("id", job.id)
+            .single();
+          invoiceNumberForLookup = (updatedJob as any)?.invoice_number || null;
+        }
+      }
+
+      // Build clean invoice page URL using the org slug
+      let invoicePageUrl: string | null = null;
+      if (invoiceNumberForLookup && job.organisation_id) {
+        const { data: orgRow } = await supabase
+          .from("organisations")
+          .select("slug")
+          .eq("id", job.organisation_id)
+          .maybeSingle();
+        const slug = (orgRow as any)?.slug || "";
+        if (slug) {
+          invoicePageUrl = `https://${slug}.bookedjobs.ie/invoice/${encodeURIComponent(invoiceNumberForLookup)}`;
+        }
+      }
+
+      // Single invoke, no retry — retries were causing duplicate WhatsApp sends
       const { error } = await supabase.functions.invoke("send-payment-link", {
-        body: { service_call_id: job.id },
+        body: {
+          service_call_id: job.id,
+          invoice_pdf_url: invoicePageUrl,
+        },
       });
       if (error) throw error;
+
       setSent(true);
+      await supabase
+        .from("service_calls")
+        .update({ payment_link_sent: true })
+        .eq("id", job.id);
     } catch (e: any) {
       toast({
-        title: "Failed to send — please try again",
+        title: "Failed to send",
+        description: e?.message || "Please try again",
         variant: "destructive",
       });
     }
     setSending(false);
+    setRetrying(false);
+
   };
+
+
 
   return (
     <div className="min-h-screen bg-[hsl(220,14%,96%)]">
@@ -267,9 +319,12 @@ const InvoicePreview = () => {
             onClick={handleSendPaymentLink}
             disabled={sending || sent}
           >
-            {sending ? (
+            {retrying ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Retrying…</>
+            ) : sending ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
             ) : sent ? (
+
               <>✅ Sent to {customer?.name} via WhatsApp</>
             ) : (
               <><Send className="w-4 h-4" /> Send Payment Link via WhatsApp</>

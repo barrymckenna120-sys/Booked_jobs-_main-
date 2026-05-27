@@ -102,6 +102,36 @@ export type Database = {
           },
         ]
       }
+      booking_links: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          expires_at: string
+          full_url: string
+          id: string
+          organisation_id: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          expires_at?: string
+          full_url: string
+          id?: string
+          organisation_id?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          expires_at?: string
+          full_url?: string
+          id?: string
+          organisation_id?: string | null
+          token?: string
+        }
+        Relationships: []
+      }
       brand_settings: {
         Row: {
           accent_color: string
@@ -656,7 +686,7 @@ export type Database = {
           notes?: string | null
           opted_out?: boolean | null
           opted_out_date?: string | null
-          organisation_id?: string
+          organisation_id: string
           owner_or_tenant?: string | null
           phone: string
           reminder_30_days_sent?: boolean | null
@@ -976,7 +1006,7 @@ export type Database = {
           role: string
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           auth_user_id?: string | null
@@ -990,13 +1020,13 @@ export type Database = {
           last_login?: string | null
           name: string
           notes?: string | null
-          organisation_id?: string
+          organisation_id: string
           phone?: string | null
           rgi_number?: string | null
           role?: string
           status?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           auth_user_id?: string | null
@@ -1016,7 +1046,7 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1199,7 +1229,7 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           job_id?: string | null
-          organisation_id?: string
+          organisation_id: string
           pdf_url?: string | null
           quote_id?: string | null
           sent_at?: string | null
@@ -1606,6 +1636,7 @@ export type Database = {
       }
       organisations: {
         Row: {
+          address: string | null
           archived_at: string | null
           bookedjobs_plan: string | null
           bot_enabled: boolean | null
@@ -1613,6 +1644,8 @@ export type Database = {
           bot_phone: string | null
           business_hours_end: string | null
           business_hours_start: string | null
+          company_email: string | null
+          company_phone: string | null
           created_at: string | null
           google_review_url: string | null
           id: string
@@ -1629,6 +1662,7 @@ export type Database = {
           subscription_status: string
         }
         Insert: {
+          address?: string | null
           archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
@@ -1636,6 +1670,8 @@ export type Database = {
           bot_phone?: string | null
           business_hours_end?: string | null
           business_hours_start?: string | null
+          company_email?: string | null
+          company_phone?: string | null
           created_at?: string | null
           google_review_url?: string | null
           id?: string
@@ -1652,6 +1688,7 @@ export type Database = {
           subscription_status?: string
         }
         Update: {
+          address?: string | null
           archived_at?: string | null
           bookedjobs_plan?: string | null
           bot_enabled?: boolean | null
@@ -1659,6 +1696,8 @@ export type Database = {
           bot_phone?: string | null
           business_hours_end?: string | null
           business_hours_start?: string | null
+          company_email?: string | null
+          company_phone?: string | null
           created_at?: string | null
           google_review_url?: string | null
           id?: string
@@ -1842,6 +1881,8 @@ export type Database = {
           description: string
           discount: number | null
           expiry_date: string | null
+          follow_up_day3_sent: boolean
+          follow_up_day6_sent: boolean
           follow_up_sent: boolean | null
           grant_amount: number | null
           id: string
@@ -1885,6 +1926,8 @@ export type Database = {
           description: string
           discount?: number | null
           expiry_date?: string | null
+          follow_up_day3_sent?: boolean
+          follow_up_day6_sent?: boolean
           follow_up_sent?: boolean | null
           grant_amount?: number | null
           id?: string
@@ -1894,7 +1937,7 @@ export type Database = {
           line_items?: Json
           net_cost?: number | null
           notes?: string | null
-          organisation_id?: string
+          organisation_id: string
           paid_at?: string | null
           parts_cost?: number | null
           payment_link?: string | null
@@ -1928,6 +1971,8 @@ export type Database = {
           description?: string
           discount?: number | null
           expiry_date?: string | null
+          follow_up_day3_sent?: boolean
+          follow_up_day6_sent?: boolean
           follow_up_sent?: boolean | null
           grant_amount?: number | null
           id?: string
@@ -2047,6 +2092,7 @@ export type Database = {
           bot_created: boolean | null
           budget_range: string | null
           cancellation_note: string | null
+          cancellation_notice_sent: boolean
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -2090,6 +2136,7 @@ export type Database = {
           parts_status: string | null
           payment_collected_by: string | null
           payment_link: string | null
+          payment_link_sent: boolean
           payment_method: string | null
           payment_received_whatsapp_sent: boolean
           payment_status: string | null
@@ -2134,6 +2181,7 @@ export type Database = {
           bot_created?: boolean | null
           budget_range?: string | null
           cancellation_note?: string | null
+          cancellation_notice_sent?: boolean
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -2168,7 +2216,7 @@ export type Database = {
           job_type?: string
           needs_scheduling?: boolean
           notes?: string | null
-          organisation_id?: string
+          organisation_id: string
           owner_or_tenant?: string | null
           paid_at?: string | null
           parts_logged_at?: string | null
@@ -2177,6 +2225,7 @@ export type Database = {
           parts_status?: string | null
           payment_collected_by?: string | null
           payment_link?: string | null
+          payment_link_sent?: boolean
           payment_method?: string | null
           payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
@@ -2221,6 +2270,7 @@ export type Database = {
           bot_created?: boolean | null
           budget_range?: string | null
           cancellation_note?: string | null
+          cancellation_notice_sent?: boolean
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -2264,6 +2314,7 @@ export type Database = {
           parts_status?: string | null
           payment_collected_by?: string | null
           payment_link?: string | null
+          payment_link_sent?: boolean
           payment_method?: string | null
           payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
@@ -2332,6 +2383,7 @@ export type Database = {
           business_email: string | null
           business_name: string
           business_phone: string | null
+          cert_prefix: string | null
           company_name: string | null
           company_phone: string | null
           default_callout_charge: number | null
@@ -2385,6 +2437,7 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          cert_prefix?: string | null
           company_name?: string | null
           company_phone?: string | null
           default_callout_charge?: number | null
@@ -2438,6 +2491,7 @@ export type Database = {
           business_email?: string | null
           business_name?: string
           business_phone?: string | null
+          cert_prefix?: string | null
           company_name?: string | null
           company_phone?: string | null
           default_callout_charge?: number | null
@@ -2489,7 +2543,7 @@ export type Database = {
           {
             foreignKeyName: "settings_organisation_id_fkey"
             columns: ["organisation_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
@@ -2597,11 +2651,14 @@ export type Database = {
           created_at: string | null
           customer_id: string | null
           customer_reply: string | null
+          direction: string | null
           id: string
           linked_quote_id: string | null
           message_body: string
           message_type: string
           organisation_id: string | null
+          phone_number: string | null
+          raw_payload: Json | null
           reply_received_at: string | null
           sent_at: string | null
           sent_by: string | null
@@ -2612,11 +2669,14 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           customer_reply?: string | null
+          direction?: string | null
           id?: string
           linked_quote_id?: string | null
           message_body: string
           message_type: string
           organisation_id?: string | null
+          phone_number?: string | null
+          raw_payload?: Json | null
           reply_received_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -2627,11 +2687,14 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           customer_reply?: string | null
+          direction?: string | null
           id?: string
           linked_quote_id?: string | null
           message_body?: string
           message_type?: string
           organisation_id?: string | null
+          phone_number?: string | null
+          raw_payload?: Json | null
           reply_received_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -2712,6 +2775,13 @@ export type Database = {
       generate_invoice_number: { Args: never; Returns: string }
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
+      get_booking_link_by_token: {
+        Args: { _token: string }
+        Returns: {
+          expires_at: string
+          full_url: string
+        }[]
+      }
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_my_org_id: { Args: never; Returns: string }
@@ -2730,6 +2800,7 @@ export type Database = {
         }
         Returns: number
       }
+      next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

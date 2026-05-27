@@ -109,7 +109,7 @@ interface TeamMember {
 
 const TeamManagement = () => {
   const { user, loading: authLoading } = useAuth();
-  const { orgId: currentOrganisationId } = useOrgId();
+  const { orgId, ready } = useOrgId();
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
@@ -141,26 +141,14 @@ const TeamManagement = () => {
 
   const fetchMembers = useCallback(async () => {
     if (!user) return;
+    if (!ready) return;
     setLoading(true);
 
-    // Resolve current user's organisation — check profiles first, then engineers
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    let orgId = (profileData as any)?.organisation_id ?? null;
-
     if (!orgId) {
-      const { data: engData } = await supabase
-        .from("engineers")
-        .select("organisation_id")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-      orgId = (engData as any)?.organisation_id ?? null;
+      setLoading(false);
+      return; // can't scope queries without orgId
     }
 
-    if (!orgId) return; // can't scope queries without orgId
 
     const { data: engs } = await supabase
       .from("engineers")
@@ -215,7 +203,7 @@ const TeamManagement = () => {
 
     setMembers(combined);
     setLoading(false);
-  }, [user]);
+  }, [user, orgId, ready]);
 
   const fetchAuthUsers = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke("list-users");
@@ -241,15 +229,12 @@ const TeamManagement = () => {
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
     if (!user || !inviteForm.name.trim()) return;
+    if (!orgId) {
+      toast({ title: "Organisation not ready", description: "Please try again in a moment.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
-    // Fetch current user's organisation_id
-    const { data: engData } = await supabase
-      .from("engineers")
-      .select("organisation_id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-    const orgId = (engData as any)?.organisation_id ?? null;
 
     // 1. Create the engineer record
     const { data: newEng, error } = await supabase.from("engineers").insert({
@@ -258,7 +243,7 @@ const TeamManagement = () => {
       phone: inviteForm.phone.trim() || null,
       role: inviteForm.role,
       status: "active",
-      user_id: user.id,
+      user_id: null,
       organisation_id: orgId,
     } as any).select("id").single();
 

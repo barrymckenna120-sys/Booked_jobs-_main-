@@ -147,18 +147,25 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
   // Signatures
   const [customerSig, setCustomerSig] = useState<string | null>(null);
 
-  const generateCertNumber = () => {
+  const generateCertNumber = (prefix: string) => {
     const year = new Date().getFullYear();
-    const rand = Math.floor(Math.random() * 9999) + 1;
-    return `DC-${year}-${String(rand).padStart(4, "0")}`;
+    const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+    return `${prefix}-${year}-${rand}`;
   };
 
   const handleSubmit = async (engSigUrl: string) => {
     setSaving(true);
-    const cn = generateCertNumber();
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("cert_prefix")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+    const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "CERT";
+    const cn = generateCertNumber(prefix);
     const today = new Date().toISOString().split("T")[0];
 
     const certData = {
+      organisation_id: job.organisation_id,
       job_id: job.id,
       customer_id: customer.id,
       cert_number: cn,

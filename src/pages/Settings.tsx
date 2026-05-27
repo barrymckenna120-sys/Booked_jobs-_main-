@@ -62,10 +62,19 @@ const Settings = () => {
       return data;
     },
     enabled: !!user && !!orgId,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const handleSave = async (fields: Record<string, any>) => {
-    if (!user || !orgId) return;
+    if (!user || !orgId) {
+      toast({
+        title: "Could not resolve your organisation",
+        description: "Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       if (settings?.id) {
@@ -89,7 +98,7 @@ const Settings = () => {
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || !orgId || isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import { useQuery } from "@tanstack/react-query";
@@ -90,6 +91,7 @@ const FILTERS = ["All", "Draft", "Sent", "Accepted", "Paid", "Rejected"];
 
 const Quotes = () => {
   const { user, loading: authLoading } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -416,6 +418,7 @@ const Quotes = () => {
         const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
           customer_id: quote.customer_id,
           user_id: user.id,
+          organisation_id: orgId!,
           job_type: quote.service_calls?.job_type || "Repair",
           job_issue: quote.description,
           assigned_engineer: quote.service_calls?.assigned_engineer || null,
@@ -493,6 +496,7 @@ const Quotes = () => {
     setSaving(true);
     const { data, error } = await supabase.from("quotes").insert([{
       user_id: user.id,
+      organisation_id: orgId!,
       customer_id: formCustomerId,
       job_id: formJobId,
       description: formDesc.trim(),
@@ -1146,10 +1150,16 @@ const Quotes = () => {
                           <Button className="w-full justify-center" onClick={() => openWhatsApp(q)}>
                             <MessageCircle className="w-4 h-4 mr-2" /> Send via WhatsApp
                           </Button>
-                          <Button variant="outline" className="w-full justify-center" onClick={() => {
+                          <Button variant="outline" className="w-full justify-center" onClick={async () => {
                             const phone = q.customers.phone.replace(/\D/g, "");
                             const fp = phone.startsWith("353") ? phone : "353" + phone.replace(/^0/, "");
-                            const quoteLink = `https://kngasservices.bookedjobs.ie/quote/${q.quote_number || q.id}`;
+                            const { data: orgRow } = await supabase
+                              .from("quotes")
+                              .select("organisations(slug)")
+                              .eq("id", q.id)
+                              .maybeSingle();
+                            const slug = (orgRow as any)?.organisations?.slug || "kngasservices";
+                            const quoteLink = `https://${slug}.bookedjobs.ie/quote/${q.quote_number || q.id}`;
                             const sub = encodeURIComponent(`Your Quote from Karl's Gas — €${Number(q.total_amount).toFixed(2)}`);
                             const body = encodeURIComponent(`Hi ${q.customers.name},\n\nHere is your quote: ${quoteLink}\n\nTotal: €${Number(q.total_amount).toFixed(2)}\n\nKarl's Gas 🔥`);
                             window.open(`mailto:${q.customers.email}?subject=${sub}&body=${body}`, "_blank");

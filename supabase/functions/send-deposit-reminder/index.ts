@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
         .from("tenant_integrations")
         .select("config")
         .eq("organisation_id", orgId)
-        .eq("integration_type", "whatsapp")
+        .eq("integration_type", "360messenger")
         .maybeSingle();
       const key = ((waCfg as any)?.config?.api_key as string) || null;
       apiKeyCache.set(orgId, key);

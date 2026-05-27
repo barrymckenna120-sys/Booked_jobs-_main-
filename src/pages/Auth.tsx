@@ -96,12 +96,8 @@ const Auth = () => {
       navigate(redirectPath);
     } catch (error: any) {
       const msg = (error?.message || "").toLowerCase();
-      const isBanned =
-        msg.includes("banned") ||
-        msg.includes("blocked") ||
-        msg.includes("user is banned") ||
-        error?.code === "user_banned" ||
-        error?.status === 423;
+      const code = (error?.code || "").toLowerCase();
+      const isBanned = code === "user_banned" || msg.includes("banned");
 
       if (isBanned) {
         setFormError(BLOCKED_AUTH_ERROR);

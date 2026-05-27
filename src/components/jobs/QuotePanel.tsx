@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ const quoteStatusBadge = (status: string) => {
 
 const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -116,6 +118,7 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
       job_id: jobId,
       customer_id: customerId,
       user_id: user.id,
+      organisation_id: orgId!,
       description: description.trim(),
       parts_cost: showBreakdown ? parseFloat(partsCost) || 0 : null,
       labour_cost: showBreakdown ? parseFloat(labourCost) || 0 : null,
@@ -173,6 +176,7 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
       const { data: newJob, error: jobErr } = await supabase.from("service_calls").insert({
         customer_id: customerId,
         user_id: user.id,
+        organisation_id: orgId!,
         job_type: (origJob as any)?.job_type || "Repair",
         job_issue: quote.description,
         assigned_engineer: (origJob as any)?.assigned_engineer || null,

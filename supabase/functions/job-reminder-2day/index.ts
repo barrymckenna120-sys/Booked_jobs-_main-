@@ -4,7 +4,7 @@ import { logMessage } from "../_shared/logMessage.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", orgId)
-      .eq("integration_type", "whatsapp")
+      .eq("integration_type", "360messenger")
       .maybeSingle();
 
     const { data: msgIntegration } = await supabase
@@ -69,24 +69,13 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // Parse organisation_id from request body (required for multi-tenant scoping)
-    const body = await req.json().catch(() => ({}));
-    const organisation_id = body?.organisation_id;
-
-    if (!organisation_id) {
-      return new Response(
-        JSON.stringify({ error: "organisation_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Calculate target date (today + 2 days)
     const today = new Date();
     const target = new Date(today);
     target.setDate(target.getDate() + 2);
     const targetStr = target.toISOString().split("T")[0];
 
-    // Query scheduled jobs for target date that haven't had reminder sent
+    // Query scheduled jobs for target date that haven't had reminder sent (across all orgs)
     const { data: jobs, error: jobErr } = await supabase
       .from("service_calls")
       .select(`
@@ -99,10 +88,10 @@ Deno.serve(async (req) => {
         organisation_id,
         customers ( name, phone, opted_out )
       `)
-      .eq("organisation_id", organisation_id)
       .eq("scheduled_date", targetStr)
-      .eq("status", "Scheduled")
+      .in("status", ["Booked", "Scheduled"])
       .neq("reminder_2day_sent", true);
+
 
     if (jobErr) throw jobErr;
 

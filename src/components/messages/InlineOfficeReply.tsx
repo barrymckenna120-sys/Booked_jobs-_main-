@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Send } from "lucide-react";
 
@@ -19,6 +20,7 @@ interface Props {
 
 const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isPreset, setIsPreset] = useState(false);
@@ -30,7 +32,7 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
     supabase
       .from("profiles")
       .select("display_name")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.display_name) setSenderName(data.display_name);
@@ -42,6 +44,7 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
     setSending(true);
     try {
       const { error } = await supabase.from("job_messages").insert({
+        organisation_id: orgId!,
         job_id: jobId,
         sender_role: "office",
         sender_id: user.id,
@@ -60,6 +63,7 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
         const invoiceNumber = (jobInfo as any)?.job_reference || "";
         const notifTitle = `New message – ${fullName} (${invoiceNumber})`;
         await supabase.from("notifications").insert({
+          organisation_id: orgId!,
           recipient_user_id: engineerAuthUserId,
           notification_type: "message",
           title: notifTitle,

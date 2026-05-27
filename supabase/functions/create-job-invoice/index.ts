@@ -4,7 +4,7 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
 
 interface BrandColors {
@@ -145,8 +145,8 @@ Deno.serve(async (req) => {
 
     // ── Fetch settings + brand ──
     const [settingsRes, brandRes] = await Promise.all([
-      sb.from("settings").select("*").eq("user_id", job.user_id).single(),
-      sb.from("brand_settings").select("*").eq("organisation_id", job.user_id).maybeSingle(),
+      sb.from("settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
+      sb.from("brand_settings").select("*").eq("organisation_id", job.organisation_id).maybeSingle(),
     ]);
 
     const biz = settingsRes.data || {} as any;
@@ -394,10 +394,18 @@ Deno.serve(async (req) => {
     // ── Send WhatsApp ──
     const apiKey = Deno.env.get("THREESIXTY_API_KEY");
     const firstName = cust.name.split(" ")[0];
-    let messageFooter = biz.message_footer || "K&N Gas Services";
+    let messageFooter = biz?.message_footer || biz?.business_name || "";
 
-    const invoiceCleanUrl = `https://kngasservices.bookedjobs.ie/invoice/${encodeURIComponent(invNum)}`;
-    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.\n\n📄 View invoice:\n${invoiceCleanUrl}\n\nThank you, ${messageFooter}`;
+    const { data: invOrgRow } = await sb
+      .from("organisations")
+      .select("slug")
+      .eq("id", job.organisation_id)
+      .maybeSingle();
+    const invOrgSlug = (invOrgRow as any)?.slug || "";
+    const invoiceUrl = invOrgSlug
+      ? `https://${invOrgSlug}.bookedjobs.ie/invoice/${encodeURIComponent(invNum)}`
+      : null;
+    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.${invoiceUrl ? `\n\n📄 View invoice:\n${invoiceUrl}` : ""}${messageFooter ? `\n\nThank you, ${messageFooter}` : ""}`;
 
     let whatsappSent = false;
 

@@ -170,7 +170,7 @@ const PartsNeededSection = ({ job, customerId, notes, onStatusChange, onPartsArr
       const { data: profile } = await supabase
         .from("profiles")
         .select("display_name")
-        .eq("id", user?.id)
+        .eq("user_id", user?.id)
         .maybeSingle();
       const officeName = profile?.display_name || "Office";
 
@@ -440,6 +440,9 @@ const JobDetail = () => {
           organisation_id: (job as any).organisation_id,
         },
       }).catch((err) => console.error('cancel-job-notify failed:', err));
+      supabase.functions.invoke('send-cancellation-notice', {
+        body: { service_call_id: job.id },
+      }).catch((err) => console.error('send-cancellation-notice failed:', err));
       toast({ title: "Job cancelled" });
       setCancelOpen(false);
       fetchJob();

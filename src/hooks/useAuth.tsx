@@ -66,9 +66,12 @@ export const useAuth = (redirectTo = "/auth") => {
       (event, session) => {
         // Only act on auth changes after initial check is done
         if (!initialCheckDone.current) return;
+        if (event === "TOKEN_REFRESHED") {
+          console.log("[Auth] Token refreshed for user:", session?.user?.id);
+        }
         setUser(session?.user ?? null);
         setLoading(false);
-        if (!session?.user && redirectTo && event === "SIGNED_OUT") {
+        if (!session?.user && redirectTo) {
           navigate(redirectTo, { replace: true });
         }
       }

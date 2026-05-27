@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 
 type Customer = {
@@ -35,6 +36,7 @@ const TIME_BLOCKS = [
 
 const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [engineers, setEngineers] = useState<any[]>([]);
   const [date, setDate] = useState("");
@@ -70,6 +72,7 @@ const BookServiceSheet = ({ customer, open, onClose, onBooked }: Props) => {
     const matchedEng = engineers.find((e: any) => e.name === engineer);
     const { data: insertedRow, error } = await supabase.from("service_calls").insert({
       user_id: user.id,
+      organisation_id: orgId!,
       customer_id: customer.id,
       job_type: "Boiler Service",
       status: "Scheduled",

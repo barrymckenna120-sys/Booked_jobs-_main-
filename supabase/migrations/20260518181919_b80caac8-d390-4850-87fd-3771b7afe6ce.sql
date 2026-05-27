@@ -1,0 +1,1 @@
+ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS follow_up_day3_sent boolean NOT NULL DEFAULT false;

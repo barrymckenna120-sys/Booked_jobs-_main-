@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-make-secret",
+    "authorization, x-client-info, apikey, content-type, x-make-secret, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: customer, error: findErr } = await supabase
       .from("customers")
-      .select("id, phone, whatsapp_phone")
+      .select("id, phone, whatsapp_phone, organisation_id")
       .or(
         `phone.eq.${international},phone.eq.+${international},phone.eq.${local},whatsapp_phone.eq.${international},whatsapp_phone.eq.+${international},whatsapp_phone.eq.${local}`
       )
@@ -68,6 +68,18 @@ Deno.serve(async (req) => {
       .eq("id", customer.id);
 
     if (updErr) throw updErr;
+
+    await supabase.from("message_log").insert({
+      customer_id: customer.id,
+      organisation_id: customer.organisation_id,
+      channel: "whatsapp",
+      direction: "inbound",
+      message_type: "opt_out",
+      content: "Customer replied STOP — opted out of WhatsApp messages",
+      status: "received",
+      sent_at: new Date().toISOString(),
+      sent_by: "customer",
+    });
 
     return new Response(
       JSON.stringify({

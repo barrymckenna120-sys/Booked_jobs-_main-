@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
 
 serve(async (req) => {
@@ -80,11 +80,15 @@ serve(async (req) => {
 
     // Lookup WhatsApp api_key from tenant_integrations
     const integRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
       { headers }
     );
     const integRows = await integRes.json();
-    const apiKey = Array.isArray(integRows) && integRows[0]?.config?.api_key ? integRows[0].config.api_key : null;
+    const integConfig = Array.isArray(integRows) && integRows[0]?.config ? integRows[0].config : null;
+    let apiKey: string | null = integConfig?.api_key || null;
+    if (!apiKey && integConfig?.api_key_secret) {
+      apiKey = Deno.env.get(integConfig.api_key_secret) || null;
+    }
 
     // Extract calling user from JWT for activity logging
     let callingProfileId: string | null = null;
@@ -142,8 +146,20 @@ serve(async (req) => {
     }
 
     const firstName = customer.name.split(" ")[0];
+
+    // Fetch organisation slug for tenant-specific URL
+    let orgSlug = "kngasservices";
+    {
+      const orgRes = await fetch(
+        `${supabaseUrl}/rest/v1/organisations?id=eq.${orgId}&select=slug&limit=1`,
+        { headers }
+      );
+      const orgRows = await orgRes.json();
+      if (Array.isArray(orgRows) && orgRows[0]?.slug) orgSlug = orgRows[0].slug;
+    }
+
     const cleanCertUrl = cert.cert_number
-      ? `https://kngasservices.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
+      ? `https://${orgSlug}.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
       : cert.pdf_url;
     let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)

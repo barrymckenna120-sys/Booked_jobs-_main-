@@ -4,7 +4,7 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
 
 // ── Brand defaults & helpers ────────────────────────────────────────────────
@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
 
     const [lineItemsRes, settingsRes, brandRes] = await Promise.all([
       sb.from("quote_line_items").select("*").eq("quote_id", quote_id).order("sort_order"),
-      sb.from("settings").select("*").eq("user_id", quote.user_id).single(),
-      sb.from("brand_settings").select("*").eq("organisation_id", quote.user_id).maybeSingle(),
+      sb.from("settings").select("*").eq("organisation_id", quote.organisation_id).single(),
+      sb.from("brand_settings").select("*").eq("organisation_id", quote.organisation_id).maybeSingle(),
     ]);
 
     const items = lineItemsRes.data || [];
@@ -551,9 +551,15 @@ Deno.serve(async (req) => {
     );
     doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
 
-    // Accept URL
+    // Accept URL — tenant-specific slug
     const quoteNum = quote.quote_number || `Q-${quote.id.substring(0, 4).toUpperCase()}`;
-    const acceptUrl = `https://kngasservices.bookedjobs.ie/quote/${quoteNum}`;
+    const { data: orgRow } = await sb
+      .from("organisations")
+      .select("slug")
+      .eq("id", (quote as any).organisation_id)
+      .maybeSingle();
+    const orgSlug = (orgRow as any)?.slug || "kngasservices";
+    const acceptUrl = `https://${orgSlug}.bookedjobs.ie/quote/${quoteNum}`;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...headerTextRgb);

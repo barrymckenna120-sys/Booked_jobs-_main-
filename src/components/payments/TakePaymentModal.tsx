@@ -118,12 +118,20 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setStep(2);
       setProcStep(0);
       try {
+        const revenueAmt = parseFloat(amount) || 0;
+        const orgId = (job as any).organisation_id;
+        const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
+        const invoiceNum = await nextInvoiceNumber(orgId);
         const updatePayload: Record<string, any> = {
           payment_method: "invoice",
           payment_status: "unpaid",
           invoiced_at: new Date().toISOString(),
-          revenue: parseFloat(amount) || 0,
+          revenue: revenueAmt,
+          balance_due: revenueAmt,
+          status: "Completed",
+          completed_at: new Date().toISOString(),
         };
+        if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
         setProcStep(2);
 
@@ -145,11 +153,18 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     setProcStep(0);
 
     try {
-      const { data: rn } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
-      const receiptNum = rn || "KG-000";
+      const { data: settingsRow } = await supabase
+        .from("settings")
+        .select("cert_prefix")
+        .eq("organisation_id", (job as any).organisation_id)
+        .maybeSingle();
+      const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
+      const yr = new Date().getFullYear();
+      const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+      const receiptNum = `${prefix}-${yr}-${rand}`;
       setReceiptNumber(receiptNum);
 
-      const businessName = settings?.business_name || "Karl's Gas";
+      const businessName = settings?.business_name || "";
       const businessPhone = settings?.business_phone || "087 686 252";
       const businessAddress = settings?.business_address || "";
       const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
@@ -200,7 +215,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       if (updatePayload.payment_status === "paid") {
         try {
           const { data: { user: authUser } } = await supabase.auth.getUser();
-          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("id", authUser.id).maybeSingle() : { data: null };
+          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle() : { data: null };
           const { data: scRow } = await supabase.from("service_calls").select("organisation_id, customer_id").eq("id", job.id).single();
           const methodLabel = method === "cash" ? "Cash" : "Card";
           const amountStr = Number(parseFloat(amount) || 0).toLocaleString("en-IE", { maximumFractionDigits: 0 });

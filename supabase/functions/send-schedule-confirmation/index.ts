@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -64,11 +64,26 @@ Deno.serve(async (req) => {
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", job.organisation_id)
-      .eq("integration_type", "whatsapp")
+      .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const apiKey = (integration?.config as any)?.api_key;
+    const messengerSettings = (integration?.config as any) ?? {};
+    const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
+    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
+      ?? messengerSettings.api_key
+      ?? Deno.env.get("THREESIXTY_API_KEY")
+      ?? Deno.env.get("MESSENGER_API_KEY");
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
+
+    // 2b. Branding from settings
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("company_name, company_phone, message_footer")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+
+    const companyName = (settingsRow as any)?.company_name ?? "";
+    const companyPhone = (settingsRow as any)?.company_phone ?? "";
 
     // 3. Format date
     let scheduledDate = "TBC";
@@ -90,13 +105,14 @@ Deno.serve(async (req) => {
     if (phone.startsWith("0")) phone = "353" + phone.substring(1);
 
     // 6. Build message
+    const confirmedWith = companyName ? ` with ${companyName}` : "";
+    const signoff = [companyName, companyPhone].filter(Boolean).join(" ☎ ");
     const message =
-      `Hi ${firstName}, your booking with K & N Gas Services is confirmed.\n\n` +
+      `Hi ${firstName}, your booking${confirmedWith} is confirmed.\n\n` +
       `📅 Date: ${scheduledDate}\n` +
       `⏰ Time: ${timeSlot}\n` +
       `👷 Engineer: ${engineerName}\n\n` +
-      `If you need to make any changes please reply to this message.\n\n` +
-      `K&N Gas Services`;
+      `If you need to make any changes please reply to this message.${signoff ? `\n\n${signoff}` : ""}`;
 
     // 7. Send via 360 Messenger
     const formData = new FormData();

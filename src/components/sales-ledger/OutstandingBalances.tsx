@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import ReminderChecklistModal from "./ReminderChecklistModal";
 
 type OutstandingJob = {
   id: string;
+  job_reference: string | null;
   scheduled_date: string | null;
   job_type: string;
   assigned_engineer: string | null;
@@ -32,6 +34,7 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const OutstandingBalances = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<OutstandingJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,23 +43,32 @@ const OutstandingBalances = () => {
   const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     supabase
       .from("service_calls")
-      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
+      .select("id, job_reference, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_method, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
+      .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
-      .not("invoiced_at", "is", null)
-      .not("completed_at", "is", null)
+      .or("invoiced_at.not.is.null,payment_method.eq.invoice")
       .order("scheduled_date", { ascending: false })
-      .then(({ data: rows }) => {
+      .then(({ data: rows, error }) => {
+        if (error) {
+          console.error("OutstandingBalances query failed:", error);
+          setLoading(false);
+          return;
+        }
         if (rows) {
           setJobs(
             rows
               .filter((r: any) => (r.balance_due ?? 0) > 0)
               .map((r: any) => ({
                 id: r.id,
+                job_reference: r.job_reference || null,
                 scheduled_date: r.scheduled_date,
                 job_type: r.job_type,
                 assigned_engineer: r.assigned_engineer,
@@ -73,7 +85,7 @@ const OutstandingBalances = () => {
         }
         setLoading(false);
       });
-  }, [user]);
+  }, [user, orgId]);
 
   const handleSendLink = async (job: OutstandingJob) => {
     setSendingId(job.id);
@@ -393,9 +405,7 @@ const OutstandingBalances = () => {
                 id: reminderModalJob.id,
                 customer_name: reminderModalJob.customer_name,
                 receipt_number: reminderModalJob.receipt_number,
-                scheduled_date: reminderModalJob.scheduled_date
-                  ? format(new Date(reminderModalJob.scheduled_date + "T00:00:00"), "dd/MM/yyyy")
-                  : null,
+                invoiced_at: reminderModalJob.invoiced_at,
                 balance_due: (reminderModalJob.revenue || 0) - (reminderModalJob.deposit_amount || 0),
                 customer_phone: reminderModalJob.customer_phone,
                 payment_status: reminderModalJob.payment_status,

@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -53,25 +53,39 @@ Deno.serve(async (req) => {
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", job.organisation_id)
-      .eq("integration_type", "whatsapp")
+      .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const apiKey = integration?.config?.api_key;
+    const cfg = (integration?.config ?? {}) as Record<string, any>;
+    const apiKey =
+      cfg.api_key ||
+      (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null) ||
+      Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
 
-    // 4. Stripe payment link
+    // 4. Org settings: branding + payment link + cert prefix
+    const { data: orgSettings } = await supabase
+      .from("settings")
+      .select("business_name, business_phone, template_payment_link, cert_prefix")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
+
+    const businessName = orgSettings?.business_name || "K & N Gas Services";
+    const businessPhone = orgSettings?.business_phone || "087 368 5252";
     const stripePaymentLink =
-      integration?.config?.stripe_payment_link ||
+      orgSettings?.template_payment_link ||
+      cfg.stripe_payment_link ||
       "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+    const certPrefix = orgSettings?.cert_prefix || "JOB";
 
     // 5. Normalise phone: strip +, leading 0 -> 353
     let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");
     if (phone.startsWith("0")) phone = "353" + phone.substring(1);
 
-    // Format job ref (KN-XXXXXX)
+    // Format job ref (<prefix>-XXXXXX)
     const jobRef =
       job.job_reference ||
-      `KN-${(job.id || "").replace(/-/g, "").substring(0, 6).toUpperCase()}`;
+      `${certPrefix}-${(job.id || "").replace(/-/g, "").substring(0, 6).toUpperCase()}`;
 
     const invoiceNumber = job.invoice_number || "—";
 
@@ -88,14 +102,15 @@ Deno.serve(async (req) => {
 
     // 6. Build message
     const message =
-      `Hi ${customer.name}, please find your invoice from K & N Gas Services.\n\n` +
+      `Hi ${customer.name}, please find your invoice from ${businessName}.\n\n` +
       `Job Ref: ${jobRef}\n` +
       `Invoice #: ${invoiceNumber}\n` +
       `Invoice Date: ${invoiceDate}\n` +
       `Balance Due: ${balanceDue}\n\n` +
       `Pay securely here: ${stripePaymentLink}\n\n` +
       `If you have any questions please reply to this message.\n\n` +
-      `K&N Gas Services\n☎️ 087 368 5252`;
+      `${businessName}\n☎️ ${businessPhone}`;
+
 
     // 7. POST to 360 Messenger
     const formData = new FormData();

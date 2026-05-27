@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { setAdminSelectedOrgId } from "@/integrations/supabase/orgHeaderInterceptor";
 
 const STORAGE_KEY = "adminViewingOrgId";
 const STORAGE_NAME_KEY = "adminViewingOrgName";
@@ -48,11 +49,13 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
     if (orgId) {
       localStorage.setItem(STORAGE_KEY, orgId);
       if (orgName) localStorage.setItem(STORAGE_NAME_KEY, orgName);
+      setAdminSelectedOrgId(orgId);
       setViewingOrgIdState(orgId);
       setViewingOrgNameState(orgName ?? null);
     } else {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_NAME_KEY);
+      setAdminSelectedOrgId(null);
       setViewingOrgIdState(null);
       setViewingOrgNameState(null);
     }
@@ -65,6 +68,7 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
     if (email && !isSuperAdmin && viewingOrgId) {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_NAME_KEY);
+      setAdminSelectedOrgId(null);
       setViewingOrgIdState(null);
       setViewingOrgNameState(null);
     }

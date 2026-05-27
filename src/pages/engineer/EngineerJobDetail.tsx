@@ -230,13 +230,30 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.completed_at = new Date().toISOString();
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
+        const orgId = (job as any).organisation_id;
+        const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
+          ? Number(confirmedRevenue)
+          : Number((job as any).revenue || 0);
+        dbPatch.balance_due = revenueForInvoice;
+        try {
+          const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
+          const invNum = await nextInvoiceNumber(orgId);
+          if (invNum) dbPatch.invoice_number = invNum;
+        } catch (e) {
+          console.error("[EngineerJobDetail] invoice number generation failed", e);
+        }
       }
       if (!job.receipt_number) {
         try {
-          const { data: receiptNum, error: rpcErr } = await supabase.rpc("generate_receipt_number", { p_user_id: job.user_id });
-          if (!rpcErr && receiptNum) {
-            dbPatch.receipt_number = receiptNum;
-          }
+          const { data: settingsRow } = await supabase
+            .from("settings")
+            .select("cert_prefix")
+            .eq("organisation_id", (job as any).organisation_id)
+            .maybeSingle();
+          const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
+          const yr = new Date().getFullYear();
+          const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+          dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
         } catch {}
       }
       // Always write confirmed revenue on completion
@@ -272,6 +289,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             organisation_id: (job as any).organisation_id,
           },
         }).catch((err) => console.error('cancel-job-notify failed:', err));
+        supabase.functions.invoke('send-cancellation-notice', {
+          body: { service_call_id: job.id },
+        }).catch((err) => console.error('send-cancellation-notice failed:', err));
       }
       // Sync boiler details back to customer record
       if (safeDbPatch.boiler_brand !== undefined) {
@@ -292,7 +312,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       // Log payment_received activity when payment is recorded as paid
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
-          const { data: profile } = await supabase.from("profiles").select("id").eq("id", user!.id).maybeSingle();
+          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
           const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
@@ -341,7 +361,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             const { data: profile } = await supabase
               .from("profiles")
               .select("id")
-              .eq("id", user!.id)
+              .eq("user_id", user!.id)
               .maybeSingle();
 
             const profileId = profile?.id || null;

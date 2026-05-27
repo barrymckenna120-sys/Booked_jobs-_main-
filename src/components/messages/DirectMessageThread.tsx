@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
@@ -24,6 +25,7 @@ interface Props {
 
 const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) => {
   const { user } = useAuth();
+  const { orgId } = useOrgId();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
     supabase
       .from("profiles")
       .select("display_name")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if ((data as any)?.display_name) setSenderName((data as any).display_name);
@@ -102,6 +104,7 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
     if (!user || !newMessage.trim()) return;
     setSending(true);
     const { error } = await supabase.from("job_messages").insert({
+      organisation_id: orgId!,
       job_id: null,
       sender_id: user.id,
       sender_role: "office",
@@ -114,6 +117,7 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
     } else {
       // Send notification to engineer
       await supabase.from("notifications").insert({
+        organisation_id: orgId!,
         recipient_user_id: recipientAuthId,
         notification_type: "message",
         title: `Direct message from ${senderName}`,

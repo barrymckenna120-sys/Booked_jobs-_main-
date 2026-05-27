@@ -41,7 +41,15 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
     if (!message.trim() || !user) return;
     setSending(true);
     try {
+      const { data: jobInfo } = await supabase
+        .from("service_calls")
+        .select("job_reference, organisation_id, customers(name)")
+        .eq("id", jobId)
+        .maybeSingle();
+      const orgId = (jobInfo as any)?.organisation_id;
+
       const { error } = await supabase.from("job_messages").insert({
+        organisation_id: orgId,
         job_id: jobId,
         sender_role: "engineer",
         sender_id: user.id,
@@ -52,14 +60,10 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
 
       // Notify office
       if (officeUserId) {
-        const { data: jobInfo } = await supabase
-          .from("service_calls")
-          .select("job_reference, customers(name)")
-          .eq("id", jobId)
-          .maybeSingle();
         const fullName = (jobInfo as any)?.customers?.name || "Customer";
         const invoiceNumber = (jobInfo as any)?.job_reference || "";
         await supabase.from("notifications").insert({
+          organisation_id: orgId,
           recipient_user_id: officeUserId,
           notification_type: "message",
           title: `${engineerName} – ${fullName} (${invoiceNumber})`,

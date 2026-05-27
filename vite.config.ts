@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallback: "/index.html",
+        navigateFallback: "/offline.html",
         navigateFallbackDenylist: [/^\/rest/, /^\/functions/, /^\/~oauth/],
         runtimeCaching: [
           {
@@ -31,6 +31,22 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "html",
               networkTimeoutSeconds: 3,
+            },
+          },
+          {
+            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/service_calls/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "supabase-service-calls",
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/engineers/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "supabase-engineers",
+              expiration: { maxEntries: 20, maxAgeSeconds: 86400 },
             },
           },
           {

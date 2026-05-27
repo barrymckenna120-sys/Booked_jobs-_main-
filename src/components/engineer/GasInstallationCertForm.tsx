@@ -138,6 +138,7 @@ const GasInstallationCertForm: React.FC<GasInstallationCertFormProps> = ({
 
   const buildPayload = () => ({
     service_call_id: job.id,
+    organisation_id: job.organisation_id,
     engineer_id: engineerId!,
     serial_number: serialNumber,
     gas_type: gasType,

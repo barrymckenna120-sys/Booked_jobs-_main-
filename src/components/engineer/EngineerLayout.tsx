@@ -39,7 +39,7 @@ const EngineerLayout = () => {
   const { role, canAccessOffice } = useUserRole(user);
   const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const engineerJobs = useEngineerJobs();
-  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isOnline } = engineerJobs;
+  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isEngineerNotLinked, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -62,7 +62,26 @@ const EngineerLayout = () => {
     : "today";
 
   if (authLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        backgroundColor: "#ffffff"
+      }}>
+        <img
+          src="/icons/icon-192.png"
+          style={{ width: 64, height: 64, marginBottom: 24 }}
+        />
+        <div style={{ width: 280 }}>
+          <div style={{ height: 20, backgroundColor: "#f0f0f0", borderRadius: 8, marginBottom: 12 }} />
+          <div style={{ height: 20, backgroundColor: "#f0f0f0", borderRadius: 8, marginBottom: 12 }} />
+          <div style={{ height: 20, backgroundColor: "#f0f0f0", borderRadius: 8 }} />
+        </div>
+      </div>
+    );
   }
 
   const navItems = [
@@ -116,7 +135,9 @@ const EngineerLayout = () => {
           {greeting()},<br />{engineerName?.split(" ")[0] || "Engineer"} <Hand className="w-7 h-7 text-white/80 mb-0.5" />
         </div>
         <div className="text-[13px] text-white/75 font-medium flex items-center gap-1.5">
-          {todayActive.length > 0
+          {isEngineerNotLinked
+            ? <>⚠️ Account not linked — please contact your office</>
+            : todayActive.length > 0
             ? `${todayActive.length} job${todayActive.length > 1 ? "s" : ""} remaining today`
             : <><PartyPopper className="w-4 h-4" /> All jobs done for today!</>}
         </div>

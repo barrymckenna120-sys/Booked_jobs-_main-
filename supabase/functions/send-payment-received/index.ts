@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .select(
-        "id, organisation_id, job_reference, job_type, scheduled_date, amount_paid, customer_id"
+        "id, organisation_id, job_reference, job_type, scheduled_date, revenue, customer_id"
       )
       .eq("id", service_call_id)
       .single();
@@ -60,16 +60,18 @@ Deno.serve(async (req) => {
 
     const invoiceNumber = invoice?.invoice_number || "—";
 
-    // 3. WhatsApp integration config
+    // 3. WhatsApp API key — prefer per-org config, fall back to global env
     const { data: integration } = await supabase
       .from("tenant_integrations")
       .select("config")
       .eq("organisation_id", job.organisation_id)
-      .eq("integration_type", "whatsapp")
+      .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const apiKey = (integration?.config as any)?.api_key;
-    if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
+    const apiKey =
+      (integration?.config as any)?.api_key || Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) return json({ error: "WhatsApp API key not configured" }, 400);
+
 
     // 4. Format fields
     let scheduledDate = "—";
@@ -81,13 +83,19 @@ Deno.serve(async (req) => {
       scheduledDate = `${dd}/${mm}/${yyyy}`;
     }
 
-    const amountPaid = `€${Number(job.amount_paid || 0).toFixed(2)}`;
+    const amountPaid = `€${Number(job.revenue || 0).toFixed(2)}`;
 
     const jobRef =
       job.job_reference ||
       `KN-${(job.id || "").replace(/-/g, "").substring(0, 6).toUpperCase()}`;
 
-    const receiptUrl = `https://kngasservices.bookedjobs.ie/receipt/${invoiceNumber}`;
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("slug")
+      .eq("id", job.organisation_id)
+      .maybeSingle();
+    const orgSlug = orgRow?.slug || "kngasservices";
+    const receiptUrl = `https://${orgSlug}.bookedjobs.ie/receipt/${invoiceNumber}`;
 
     // 5. Normalise phone
     let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");

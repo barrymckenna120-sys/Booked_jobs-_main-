@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -80,14 +80,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch business name from settings
+    // Fetch business name from settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
       .select("business_name, message_footer")
-      .eq("user_id", job.user_id)
+      .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    const businessName = settings?.business_name || "K&N Gas Services";
+    // Fetch organisation slug for tenant-specific URL
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("slug")
+      .eq("id", job.organisation_id)
+      .maybeSingle();
+    const orgSlug = orgRow?.slug || "kngasservices";
+
+    const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
     const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
@@ -100,7 +108,7 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://kngasservices.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
+    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://${orgSlug}.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 

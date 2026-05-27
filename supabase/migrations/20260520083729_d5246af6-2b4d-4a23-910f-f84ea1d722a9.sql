@@ -1,0 +1,1 @@
+UPDATE public.service_calls SET reminder_30day_sent = false WHERE id = 'e45b1c19-1062-449f-967d-0e9d20cceeae';

@@ -19,7 +19,7 @@ messaging.onBackgroundMessage((payload) => {
   if (title) {
     self.registration.showNotification(title, {
       body: body || "",
-      icon: "/favicon.ico",
+      icon: "/icons/icon-192.png",
     });
   }
 });

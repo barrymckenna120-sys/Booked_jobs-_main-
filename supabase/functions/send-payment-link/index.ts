@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -13,14 +13,12 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { service_call_id } = await req.json();
+    const { service_call_id, invoice_pdf_url } = await req.json();
 
     if (!service_call_id) {
+      console.log("send-payment-link 400: missing service_call_id");
       return new Response(JSON.stringify({ error: "service_call_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -29,11 +27,12 @@ Deno.serve(async (req) => {
     // Fetch job + customer
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id, organisation_id")
+      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id, organisation_id, job_type, invoice_number")
       .eq("id", service_call_id)
       .single();
 
     if (jobErr || !job) {
+      console.log("send-payment-link 404: job not found", { service_call_id, jobErr: jobErr?.message });
       return new Response(JSON.stringify({ error: "Job not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -46,14 +45,27 @@ Deno.serve(async (req) => {
       .single();
 
     if (!customer?.phone) {
+      console.log("send-payment-link 400: customer has no phone", { customer_id: job.customer_id });
       return new Response(JSON.stringify({ error: "Customer has no phone number" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const paymentLink = job.payment_link;
+    let paymentLink = job.payment_link;
     if (!paymentLink) {
-      return new Response(JSON.stringify({ error: "No payment link set on this job. Add a payment link first." }), {
+      const { data: stripeIntegration } = await supabase
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", job.organisation_id)
+        .eq("integration_type", "stripe")
+        .maybeSingle();
+      paymentLink = (stripeIntegration?.config as any)?.stripe_payment_link
+        || (stripeIntegration?.config as any)?.payment_link
+        || null;
+    }
+    if (!paymentLink) {
+      console.log("send-payment-link 400: no payment link", { service_call_id, organisation_id: job.organisation_id });
+      return new Response(JSON.stringify({ error: "No payment link set on this job or organisation. Add a payment link first." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -63,32 +75,50 @@ Deno.serve(async (req) => {
     const balanceDue = job.balance_due || (jobTotal - depositAmount) || jobTotal;
 
     if (balanceDue <= 0) {
+      console.log("send-payment-link 400: no balance due", { service_call_id, balanceDue });
       return new Response(JSON.stringify({ error: "No balance due on this job" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get WhatsApp template from settings
-    const { data: settings } = await supabase
-      .from("settings")
-      .select("template_payment_link, message_footer, business_phone")
-      .eq("user_id", job.user_id)
+    // Per-tenant 360Messenger API key (config.api_key → config.api_key_secret env → THREESIXTY_API_KEY)
+    const { data: integration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", job.organisation_id)
+      .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const footer = settings?.message_footer || "K&N Gas Services";
-    const businessPhone = settings?.business_phone || "";
+    const cfg = (integration?.config ?? {}) as Record<string, any>;
+    const apiKey =
+      cfg.api_key ||
+      (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null) ||
+      Deno.env.get("THREESIXTY_API_KEY");
+    if (!apiKey) {
+      console.log("send-payment-link 400: no API key", { organisation_id: job.organisation_id });
+      return new Response(JSON.stringify({ error: "WhatsApp API key not configured for this organisation" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n{{payment_link}}\n\n{{phone}}`;
+    const { data: settings } = await supabase
+      .from("settings")
+      .select("message_footer, business_name")
+      .eq("organisation_id", job.organisation_id)
+      .maybeSingle();
 
-    let message = (settings?.template_payment_link || defaultTemplate)
-      .replace(/\{\{name\}\}/g, customer.name)
-      .replace(/\{\{amount\}\}/g, balanceDue.toFixed(2))
-      .replace(/\{\{payment_link\}\}/g, paymentLink)
-      .replace(/\{\{phone\}\}/g, businessPhone);
+    const footer = settings?.message_footer || settings?.business_name || "";
 
-    // Append footer if not already present
-    if (footer && !message.includes(footer)) {
-      message = message.trimEnd() + `\n\n${footer}`;
+    let message = `Hi ${customer.name}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: €${jobTotal.toFixed(2)}\n\nDeposit paid: €${depositAmount.toFixed(2)}\n\nBalance due: €${balanceDue.toFixed(2)}\n\nInvoice ref: ${job.invoice_number || "N/A"}\n\nPayment due within 14 days.`;
+
+    if (invoice_pdf_url) {
+      message += `\n\n📄 View invoice:\n${invoice_pdf_url}`;
+    }
+
+    message += `\n\n💳 Pay now:\n${paymentLink}`;
+
+    if (footer) {
+      message += `\n\nThank you, ${footer}`;
     }
 
     // Send via 360Messenger
@@ -114,7 +144,7 @@ Deno.serve(async (req) => {
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
-      headers: { Authorization: `Bearer ${messengerKey}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
     });
 
@@ -146,7 +176,7 @@ Deno.serve(async (req) => {
     // Log customer activity
     try {
       await supabase.from("customer_activity").insert({
-        organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
+        organisation_id: job.organisation_id,
         customer_id: job.customer_id,
         service_call_id: service_call_id,
         event_type: "whatsapp_sent",

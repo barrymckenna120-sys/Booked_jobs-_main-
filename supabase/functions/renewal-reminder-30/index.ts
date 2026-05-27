@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -88,11 +88,13 @@ Deno.serve(async (req) => {
     };
 
     const customerIds = customers.map((c) => c.id);
+    const todayStr = today.toISOString().split("T")[0];
     const { data: bookedJobs, error: jobErr } = await supabase
       .from("service_calls")
       .select("customer_id")
       .in("customer_id", customerIds)
-      .in("status", ["Pending", "pending", "Booked", "booked", "Confirmed", "confirmed", "Scheduled"]);
+      .in("status", ["Pending", "pending", "Booked", "booked", "Confirmed", "confirmed", "Scheduled"])
+      .gte("scheduled_date", todayStr);
 
     if (jobErr) throw jobErr;
 
@@ -142,14 +144,29 @@ Deno.serve(async (req) => {
         digits = countryCode + digits;
       }
       const localPhone = "0" + digits.slice(ccLen);
-      const tally_url = `${tallyUrl}` +
-        `?Name=${encodeURIComponent(c.name || "")}` +
-        `&Moblie=${localPhone}` +
+      const full_tally_url = `${tallyUrl}` +
+        `?Customer=${encodeURIComponent(c.name || "")}` +
+        `&Mobile=${localPhone}` +
         `&Address=${encodeURIComponent((c as any).address || "")}` +
         `&Eircode=${encodeURIComponent((c as any).eircode || "")}` +
         `&Areacode=${encodeURIComponent((c as any).area_code || "")}` +
-        `&Boiler_ Brand=${encodeURIComponent((c as any).boiler_brand || "")}` +
+        `&Boiler_Brand=${encodeURIComponent((c as any).boiler_brand || "")}` +
         `&Boiler_model=${encodeURIComponent((c as any).boiler_model || "")}`;
+
+      let tally_url = full_tally_url;
+      try {
+        const shortRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/create-booking-link`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ customer_id: c.id, full_url: full_tally_url, organisation_id: orgId }),
+        });
+        const shortJson = await shortRes.json();
+        console.log(`[create-booking-link] customer=${c.id} status=${shortRes.status} body=${JSON.stringify(shortJson)}`);
+        if (shortJson?.short_url) tally_url = shortJson.short_url;
+      } catch (_e) { /* fall back to full url */ }
       const d = new Date(c.next_service_due);
       const next_service_due_formatted = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
       result.push({

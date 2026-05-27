@@ -23,7 +23,7 @@ const TAG_FILTERS = [
 
 const Customers = () => {
   const { user } = useAuth();
-  const { ready } = useOrgId();
+  const { orgId, ready } = useOrgId();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
@@ -121,8 +121,13 @@ const Customers = () => {
   };
 
   const fetchCustomers = async () => {
+    if (!orgId) return;
     setLoading(true);
-    const { data } = await supabase.from("customers").select("*").order("name");
+    const { data } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("organisation_id", orgId)
+      .order("name");
     if (data) {
       // Sort by surname (last word of name) A-Z
       data.sort((a: any, b: any) => {

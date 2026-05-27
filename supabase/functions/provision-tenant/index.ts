@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-admin-secret",
+    "authorization, x-client-info, apikey, content-type, x-admin-secret, x-org-id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -55,7 +55,16 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400);
   }
 
-  const { company_name, company_phone, owner_name, owner_email, org_slug } = body ?? {};
+  const {
+    company_name,
+    company_phone,
+    owner_name,
+    owner_email,
+    org_slug,
+    business_address,
+    business_email,
+    rgi_number,
+  } = body ?? {};
 
   // Step 1: validate
   const required = { company_name, company_phone, owner_name, owner_email, org_slug };
@@ -64,6 +73,11 @@ Deno.serve(async (req) => {
       return json({ error: "missing_field", field }, 400);
     }
   }
+
+  const addressPart = (business_address ?? "").toString().trim();
+  const message_footer = [company_name, addressPart, company_phone]
+    .filter((v) => v && String(v).trim())
+    .join(" | ");
 
   const logFailure = async (step: string, error: string) => {
     try {
@@ -157,6 +171,15 @@ Deno.serve(async (req) => {
     newUserId = inviteData.user.id;
   }
 
+  // Ensure organisation_id + role are present in raw_app_meta_data (JWT claims)
+  const { error: appMetaErr } = await supabase.auth.admin.updateUserById(newUserId, {
+    app_metadata: { organisation_id: newOrgId, role: "admin" },
+  });
+  if (appMetaErr) {
+    await logFailure("step 6b", appMetaErr.message);
+    return json({ error: "provision_failed", step: "6b", detail: appMetaErr.message }, 500);
+  }
+
   // Step 4: settings upsert (user may already have a settings row from a prior org)
   const { error: settingsErr } = await supabase
     .from("settings")
@@ -167,8 +190,13 @@ Deno.serve(async (req) => {
       company_phone,
       business_name: company_name,
       business_phone: company_phone,
+      business_address: addressPart || null,
+      business_email: (business_email ?? "").toString().trim() || null,
+      rgi_number: (rgi_number ?? "").toString().trim() || null,
+      message_footer,
       owner_name,
-    }, { onConflict: "user_id" });
+      cert_prefix: finalSlug.slice(0, 2).toUpperCase(),
+    }, { onConflict: "organisation_id" });
   if (settingsErr) {
     await logFailure("step 4", settingsErr.message);
     return json({ error: "provision_failed", step: "4", detail: settingsErr.message }, 500);
@@ -183,6 +211,50 @@ Deno.serve(async (req) => {
   if (brandErr) {
     await logFailure("step 5", brandErr.message);
     return json({ error: "provision_failed", step: "5", detail: brandErr.message }, 500);
+  }
+
+  // Step 5b: engineers row for owner (so IntegrationsTab + role checks resolve org)
+  const { error: engErr } = await supabase
+    .from("engineers")
+    .insert({
+      organisation_id: newOrgId,
+      auth_user_id: newUserId,
+      name: owner_name,
+      email: owner_email,
+      phone: company_phone,
+      role: "admin",
+      can_access_office: true,
+      status: "active",
+      is_available: true,
+    });
+  if (engErr) {
+    await logFailure("step 5b", engErr.message);
+    return json({ error: "provision_failed", step: "5b", detail: engErr.message }, 500);
+  }
+
+  // Step 5c: seed tenant_integrations rows so WhatsApp + Tally work out of the box
+  const { error: tiErr } = await supabase
+    .from("tenant_integrations")
+    .insert([
+      {
+        organisation_id: newOrgId,
+        integration_type: "360messenger",
+        config: {
+          api_key_secret: "THREESIXTY_API_KEY",
+          company_name,
+          company_phone,
+          country_code: "353",
+        },
+      },
+      {
+        organisation_id: newOrgId,
+        integration_type: "tally",
+        config: {},
+      },
+    ]);
+  if (tiErr) {
+    await logFailure("step 5c", tiErr.message);
+    return json({ error: "provision_failed", step: "5c", detail: tiErr.message }, 500);
   }
 
   // Step 7: success

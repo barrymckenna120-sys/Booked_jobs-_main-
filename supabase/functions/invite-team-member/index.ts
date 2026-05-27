@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
 
 Deno.serve(async (req) => {
@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { engineer_id, email, name, role } = await req.json();
-    console.log("Request body:", { engineer_id, email, name, role });
+    const { engineer_id, email, name, role, organisation_id } = await req.json();
+    console.log("Request body:", { engineer_id, email, name, role, organisation_id });
     if (!engineer_id || !email) {
       return new Response(JSON.stringify({ error: "engineer_id and email required" }), {
         status: 400,
@@ -44,10 +44,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify the caller has admin or office role (not engineer)
-    const { data: callerRole, error: roleError } = await supabaseUser.rpc('get_user_role', { _user_id: caller.id });
-    console.log("role check result:", JSON.stringify({ role: callerRole, error: roleError }));
-    if (callerRole === 'engineer') {
+    // Verify the caller has sufficient permissions.
+    // Check both get_user_role RPC AND profiles.role — get_user_role falls back
+    // to 'engineer' for users without an engineer record (e.g. superadmins,
+    // owner_managers), so profiles is the source of truth for non-engineer staff.
+    const supabaseAdminCheck = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const [{ data: rpcRole }, { data: callerProfile }] = await Promise.all([
+      supabaseUser.rpc('get_user_role', { _user_id: caller.id }),
+      supabaseAdminCheck.from("profiles").select("role").eq("user_id", caller.id).maybeSingle(),
+    ]);
+    const profileRole = (callerProfile as any)?.role || null;
+    const allowedRoles = ['admin', 'office', 'owner', 'owner_manager', 'superadmin'];
+    const isAllowed = allowedRoles.includes(rpcRole as string) || allowedRoles.includes(profileRole);
+    const callerRole = profileRole || (rpcRole as string) || null;
+    console.log("role check result:", JSON.stringify({ rpcRole, profileRole, isAllowed }));
+    if (!isAllowed) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -137,7 +151,7 @@ Deno.serve(async (req) => {
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: { display_name: name, role },
+        user_metadata: { display_name: name, role, organisation_id },
       });
 
       if (createError) {
@@ -229,7 +243,7 @@ Deno.serve(async (req) => {
     // Link the auth user to the engineer record
     const { error: updateError } = await supabaseAdmin
       .from("engineers")
-      .update({ auth_user_id: authUserId, email })
+      .update({ auth_user_id: authUserId, user_id: authUserId, email: email })
       .eq("id", engineer_id);
 
     if (updateError) {
