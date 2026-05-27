@@ -118,12 +118,18 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setStep(2);
       setProcStep(0);
       try {
+        const revenueAmt = parseFloat(amount) || 0;
+        const orgId = (job as any).organisation_id;
+        const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
+        const invoiceNum = await nextInvoiceNumber(orgId);
         const updatePayload: Record<string, any> = {
           payment_method: "invoice",
           payment_status: "unpaid",
           invoiced_at: new Date().toISOString(),
-          revenue: parseFloat(amount) || 0,
+          revenue: revenueAmt,
+          balance_due: revenueAmt,
         };
+        if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
         setProcStep(2);
 
