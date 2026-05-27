@@ -47,6 +47,7 @@ import InvoicePreview from "./pages/InvoicePreview";
 import Messages from "./pages/Messages";
 import SystemLogs from "./pages/SystemLogs";
 import InstallAppBanner from "./components/pwa/InstallAppBanner";
+import PWAUpdateBanner from "./components/pwa/PWAUpdateBanner";
 import Products from "./pages/Products";
 import QuotesList from "./pages/QuotesList";
 import QuoteNew from "./pages/QuoteNew";
@@ -111,6 +112,7 @@ const App = () => (
         <AdminViewAsProvider>
         <AdminViewAsBanner />
         <RecoveryRedirectGuard>
+          <PWAUpdateBanner />
           <InstallAppBanner />
           <Routes>
             <Route path="/" element={<Index />} />
