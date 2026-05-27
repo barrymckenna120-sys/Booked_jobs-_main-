@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
-import compression from "vite-plugin-compression";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -11,14 +10,9 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  build: {
-    chunkSizeWarningLimit: 1000,
-  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
-    compression({ algorithm: "gzip" }),
-    compression({ algorithm: "brotliCompress", ext: ".br" }),
     VitePWA({
       registerType: "autoUpdate",
       filename: "sw.js",
@@ -27,7 +21,6 @@ export default defineConfig(({ mode }) => ({
       devOptions: { enabled: false },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: "/offline.html",
         navigateFallbackDenylist: [/^\/rest/, /^\/functions/, /^\/~oauth/],
         runtimeCaching: [
