@@ -15,6 +15,7 @@ import ReminderChecklistModal from "./ReminderChecklistModal";
 
 type OutstandingJob = {
   id: string;
+  job_reference: string | null;
   scheduled_date: string | null;
   job_type: string;
   assigned_engineer: string | null;
@@ -49,11 +50,11 @@ const OutstandingBalances = () => {
     setLoading(true);
     supabase
       .from("service_calls")
-      .select("id, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
+      .select("id, job_reference, scheduled_date, job_type, assigned_engineer, revenue, deposit_amount, deposit_required, deposit_paid, payment_method, payment_status, receipt_number, reminder_14day_sent, customer_id, completed_at, invoiced_at, balance_due, customers(name, phone)")
       .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
-      .not("invoiced_at", "is", null)
+      .or("invoiced_at.not.is.null,payment_method.eq.invoice")
       .order("scheduled_date", { ascending: false })
       .then(({ data: rows, error }) => {
         if (error) {
@@ -67,6 +68,7 @@ const OutstandingBalances = () => {
               .filter((r: any) => (r.balance_due ?? 0) > 0)
               .map((r: any) => ({
                 id: r.id,
+                job_reference: r.job_reference || null,
                 scheduled_date: r.scheduled_date,
                 job_type: r.job_type,
                 assigned_engineer: r.assigned_engineer,
