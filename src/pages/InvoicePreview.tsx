@@ -138,50 +138,28 @@ const InvoicePreview = () => {
         }
       }
 
-      // Look up the PDF URL from invoices table (don't block send if missing)
-      let invoicePdfUrl: string | null = null;
-      if (invoiceNumberForLookup) {
-        const { data: invoiceRow } = await supabase
-          .from("invoices")
-          .select("pdf_url")
-          .eq("invoice_number", invoiceNumberForLookup)
+      // Build clean invoice page URL using the org slug
+      let invoicePageUrl: string | null = null;
+      if (invoiceNumberForLookup && job.organisation_id) {
+        const { data: orgRow } = await supabase
+          .from("organisations")
+          .select("slug")
+          .eq("id", job.organisation_id)
           .maybeSingle();
-        invoicePdfUrl = (invoiceRow as any)?.pdf_url || null;
-      }
-
-      const invokeSend = () =>
-        supabase.functions.invoke("send-payment-link", {
-          body: {
-            service_call_id: job.id,
-            invoice_pdf_url: invoicePdfUrl,
-          },
-        });
-
-      let { error } = await invokeSend();
-      if (error) {
-        // Before retrying, check if the first invoke actually delivered
-        // (cold-start timeouts can surface as client errors even when the
-        // function completed and inserted a message_log row).
-        const { data: recentLog } = await supabase
-          .from("message_log")
-          .select("id")
-          .eq("related_id", job.id)
-          .eq("related_type", "service_call")
-          .eq("message_type", "payment_link")
-          .gte("created_at", new Date(Date.now() - 30000).toISOString())
-          .limit(1);
-
-        if (recentLog && recentLog.length > 0) {
-          // Already sent — treat as success, skip retry
-          error = null;
-        } else {
-          setRetrying(true);
-          await new Promise((r) => setTimeout(r, 2000));
-          ({ error } = await invokeSend());
-          setRetrying(false);
-          if (error) throw error;
+        const slug = (orgRow as any)?.slug || "";
+        if (slug) {
+          invoicePageUrl = `https://${slug}.bookedjobs.ie/invoice/${encodeURIComponent(invoiceNumberForLookup)}`;
         }
       }
+
+      // Single invoke, no retry — retries were causing duplicate WhatsApp sends
+      const { error } = await supabase.functions.invoke("send-payment-link", {
+        body: {
+          service_call_id: job.id,
+          invoice_pdf_url: invoicePageUrl,
+        },
+      });
+      if (error) throw error;
 
       setSent(true);
       await supabase
