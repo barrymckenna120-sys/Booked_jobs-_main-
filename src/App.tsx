@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
@@ -105,6 +106,102 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+function AppContent() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        backgroundColor: "#ffffff"
+      }}>
+        <img
+          src="/icons/icon-192.png"
+          style={{ width: 80, height: 80, marginBottom: 16 }}
+        />
+        <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route element={<AppLayout />}>
+        <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/customers/:id" element={<CustomerDetail />} />
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/finance" element={<FinancePage />} />
+        <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/parts" element={<Parts />} />
+        <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
+        <Route path="/insights" element={<OfficeRoute><BusinessInsightsDashboard /></OfficeRoute>} />
+        <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
+        <Route path="/settings/import" element={<ImportCustomers />} />
+
+        {/* Legacy routes — redirect to new locations */}
+        <Route path="/renewals" element={<Navigate to="/pipeline" replace />} />
+        <Route path="/incoming" element={<Navigate to="/pipeline" replace />} />
+        <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
+        <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
+        <Route path="/message-log" element={<MessageLog />} />
+        <Route path="/messages" element={<Navigate to="/inbox" replace />} />
+        <Route path="/system-logs" element={<SystemLogs />} />
+        <Route path="/debug/incoming-jobs" element={<IncomingJobsDebug />} />
+
+        {/* Quote detail routes still work directly */}
+        <Route path="/quotes/new" element={<QuoteNew />} />
+        <Route path="/quotes/:id" element={<QuoteDetail />} />
+        <Route path="/quotes/:id/edit" element={<QuoteEdit />} />
+
+        {/* WhatsApp direct routes still work */}
+        <Route path="/whatsapp" element={<WhatsApp />} />
+        <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
+      </Route>
+      {/* Engineer Mode */}
+      <Route path="/engineer" element={<EngineerLayout />}>
+        <Route index element={<Navigate to="/engineer/today" replace />} />
+        <Route path="today" element={<EngineerToday />} />
+        <Route path="upcoming" element={<EngineerUpcoming />} />
+        <Route path="completed" element={<EngineerCompleted />} />
+      </Route>
+      <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
+      <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
+      <Route path="/receipt-view/:id" element={<ServiceReceipt />} />
+      <Route path="/invoice-view/:id" element={<InvoicePreview />} />
+      <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
+      <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
+      <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
+      <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
+      <Route path="/certificate/:certNumber" element={<CertificateRedirect />} />
+      <Route path="/cert/:certNumber" element={<CertificateViewer />} />
+      <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
+      <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
+      <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
+      <Route path="/b/:token" element={<BookingRedirect />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+      <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
+      <Route path="/debug/audio" element={<AudioDebug />} />
+      <Route path="/admin" element={<AdminPanel />} />
+      <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
+      <Route path="/offline" element={<Offline />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
 
 
 const App = () => {
@@ -121,77 +218,7 @@ const App = () => {
           <PWAUpdateBanner />
           <InstallAppBanner />
 
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/jobs/:id" element={<JobDetail />} />
-              <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/customers/:id" element={<CustomerDetail />} />
-              <Route path="/schedule" element={<Schedule />} />
-              <Route path="/finance" element={<FinancePage />} />
-              <Route path="/inbox" element={<InboxPage />} />
-              <Route path="/parts" element={<Parts />} />
-              <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
-              <Route path="/insights" element={<OfficeRoute><BusinessInsightsDashboard /></OfficeRoute>} />
-              <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
-              <Route path="/settings/import" element={<ImportCustomers />} />
-
-              {/* Legacy routes — redirect to new locations */}
-              <Route path="/renewals" element={<Navigate to="/pipeline" replace />} />
-              <Route path="/incoming" element={<Navigate to="/pipeline" replace />} />
-              <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
-              <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
-              <Route path="/message-log" element={<MessageLog />} />
-              <Route path="/messages" element={<Navigate to="/inbox" replace />} />
-              <Route path="/system-logs" element={<SystemLogs />} />
-              <Route path="/debug/incoming-jobs" element={<IncomingJobsDebug />} />
-
-              {/* Quote detail routes still work directly */}
-              <Route path="/quotes/new" element={<QuoteNew />} />
-              <Route path="/quotes/:id" element={<QuoteDetail />} />
-              <Route path="/quotes/:id/edit" element={<QuoteEdit />} />
-
-              {/* WhatsApp direct routes still work */}
-              <Route path="/whatsapp" element={<WhatsApp />} />
-              <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
-            </Route>
-            {/* Engineer Mode */}
-            <Route path="/engineer" element={<EngineerLayout />}>
-              <Route index element={<Navigate to="/engineer/today" replace />} />
-              <Route path="today" element={<EngineerToday />} />
-              <Route path="upcoming" element={<EngineerUpcoming />} />
-              <Route path="completed" element={<EngineerCompleted />} />
-            </Route>
-            <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
-            <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
-            <Route path="/receipt-view/:id" element={<ServiceReceipt />} />
-            <Route path="/invoice-view/:id" element={<InvoicePreview />} />
-            <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
-            <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
-            <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
-            <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
-            <Route path="/certificate/:certNumber" element={<CertificateRedirect />} />
-            <Route path="/cert/:certNumber" element={<CertificateViewer />} />
-            <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
-            <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
-            <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
-            <Route path="/b/:token" element={<BookingRedirect />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-            <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
-            <Route path="/debug/audio" element={<AudioDebug />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
-            <Route path="/offline" element={<Offline />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+          <AppContent />
           
           </RecoveryRedirectGuard>
         </AdminViewAsProvider>
