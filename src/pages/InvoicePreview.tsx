@@ -159,11 +159,28 @@ const InvoicePreview = () => {
 
       let { error } = await invokeSend();
       if (error) {
-        setRetrying(true);
-        await new Promise((r) => setTimeout(r, 2000));
-        ({ error } = await invokeSend());
-        setRetrying(false);
-        if (error) throw error;
+        // Before retrying, check if the first invoke actually delivered
+        // (cold-start timeouts can surface as client errors even when the
+        // function completed and inserted a message_log row).
+        const { data: recentLog } = await supabase
+          .from("message_log")
+          .select("id")
+          .eq("related_id", job.id)
+          .eq("related_type", "service_call")
+          .eq("message_type", "payment_link")
+          .gte("created_at", new Date(Date.now() - 30000).toISOString())
+          .limit(1);
+
+        if (recentLog && recentLog.length > 0) {
+          // Already sent — treat as success, skip retry
+          error = null;
+        } else {
+          setRetrying(true);
+          await new Promise((r) => setTimeout(r, 2000));
+          ({ error } = await invokeSend());
+          setRetrying(false);
+          if (error) throw error;
+        }
       }
 
       setSent(true);
