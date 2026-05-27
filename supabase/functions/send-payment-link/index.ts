@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { service_call_id } = await req.json();
+    const { service_call_id, invoice_pdf_url } = await req.json();
 
     if (!service_call_id) {
       console.log("send-payment-link 400: missing service_call_id");
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     // Fetch job + customer
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id, organisation_id")
+      .select("id, revenue, deposit_amount, deposit_required, balance_due, payment_link, customer_id, user_id, organisation_id, job_type, invoice_number")
       .eq("id", service_call_id)
       .single();
 
@@ -101,27 +101,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get WhatsApp template from settings
     const { data: settings } = await supabase
       .from("settings")
-      .select("template_payment_link, message_footer, business_phone, business_name")
+      .select("message_footer, business_name")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
     const footer = settings?.message_footer || settings?.business_name || "";
-    const businessPhone = settings?.business_phone || "";
 
-    const defaultTemplate = `Hi {{name}}, thanks for having us today!\n\nYour invoice for €{{amount}} is ready:\n{{payment_link}}\n\n{{phone}}`;
+    let message = `Hi ${customer.name}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: €${jobTotal.toFixed(2)}\n\nDeposit paid: €${depositAmount.toFixed(2)}\n\nBalance due: €${balanceDue.toFixed(2)}\n\nInvoice ref: ${job.invoice_number || "N/A"}\n\nPayment due within 14 days.`;
 
-    let message = (settings?.template_payment_link || defaultTemplate)
-      .replace(/\{\{name\}\}/g, customer.name)
-      .replace(/\{\{amount\}\}/g, balanceDue.toFixed(2))
-      .replace(/\{\{payment_link\}\}/g, paymentLink)
-      .replace(/\{\{phone\}\}/g, businessPhone);
+    if (invoice_pdf_url) {
+      message += `\n\n📄 View invoice:\n${invoice_pdf_url}`;
+    }
 
-    // Append footer if not already present
-    if (footer && !message.includes(footer)) {
-      message = message.trimEnd() + `\n\n${footer}`;
+    message += `\n\n💳 Pay now:\n${paymentLink}`;
+
+    if (footer) {
+      message += `\n\nThank you, ${footer}`;
     }
 
     // Send via 360Messenger
