@@ -154,7 +154,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     if (step !== 5) return;
     const timer = setTimeout(() => {
       onClose();
-      navigate(`/engineer/job/${job.id}`);
+      navigate('/engineer/today');
     }, 3000);
     return () => clearTimeout(timer);
   }, [step, job.id, onClose, navigate]);
