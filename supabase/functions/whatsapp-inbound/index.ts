@@ -69,6 +69,24 @@ Deno.serve(async (req: Request) => {
     sent_at: createdAt,
   });
 
+  // Mirror inbound to message_log so it appears in Chat Inbox History
+  try {
+    await supabase.from("message_log").insert({
+      organisation_id: inboundOrgId,
+      customer_id: customer?.id ?? null,
+      message_type: "inbound",
+      channel: "whatsapp",
+      direction: "inbound",
+      content: messageText,
+      status: "received",
+      sent_by: "customer",
+      sent_at: createdAt,
+    });
+  } catch (_e) {
+    console.error("Failed to log inbound message_log:", _e);
+  }
+
+
   if (customer?.id) {
     await supabase
       .from("customers")
