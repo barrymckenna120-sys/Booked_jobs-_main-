@@ -130,10 +130,10 @@ export function useNotifications() {
             // Show banner
             setBannerNotifications((prev) => [n, ...prev]);
 
-            // Play sound + vibrate for high priority
-            if (soundEnabled) {
+            // Play sound + vibrate for high priority (read from ref to avoid re-subscribing)
+            if (soundEnabledRef.current) {
               if (n.notification_type === "message") {
-                debugLog("Sound trigger fired, soundEnabled:", soundEnabled, "type:", n.notification_type);
+                debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
                 playEngineerMessageAlert();
               } else if (n.notification_type === "completed") {
                 playSoftChime();
@@ -152,7 +152,12 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, soundEnabled]);
+  }, [user]);
+
+  // Keep ref in sync so the realtime handler always sees the latest preference
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
