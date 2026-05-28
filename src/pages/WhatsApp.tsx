@@ -153,16 +153,28 @@ const WhatsApp = () => {
     custs.forEach((c) => (map[c.id] = c));
     setCustomerMap(map);
 
-    const msgs = (messagesRes.data || []) as WaMessage[];
+    const msgs: WaMessage[] = ((messagesRes.data as any[]) || []).map((r) => ({
+      id: r.id,
+      customer_id: r.customer_id,
+      message_type: r.message_type || "unknown",
+      message_body: r.content || "",
+      sent_at: r.sent_at || r.created_at,
+      sent_by: r.sent_by,
+      status: r.status || "sent",
+      customer_reply: null,
+      reply_received_at: null,
+      linked_quote_id: null,
+    }));
     setMessages(msgs);
 
     // KPIs
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthMsgs = msgs.filter((m) => new Date(m.sent_at) >= monthStart);
+    const thisMonthMsgs = msgs.filter((m) => m.sent_at && new Date(m.sent_at) >= monthStart);
     setKpiSent(thisMonthMsgs.length);
-    setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "Confirmed").length);
-    setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "No Response").length);
+    setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "delivered").length);
+    setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "pending").length);
+
 
     const dueCount = custs.filter((c) => {
       if (!c.next_service_due || c.reminder_30_days_sent) return false;
