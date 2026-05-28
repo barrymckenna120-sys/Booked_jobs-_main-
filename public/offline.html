@@ -79,7 +79,7 @@
       <h1>You're offline</h1>
       <p>Please check your connection and try again.</p>
     </div>
-    <button onclick="window.location.reload()">
+    <button id="retryBtn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
         <path d="M3 3v5h5"></path>
@@ -88,6 +88,45 @@
       </svg>
       Try again
     </button>
+    <p id="status" style="font-size:12px;color:#64748B;margin-top:-8px;">Checking connection...</p>
   </div>
+  <script>
+    (function () {
+      var attempts = 0;
+      var timer = null;
+      var statusEl = document.getElementById('status');
+      var btn = document.getElementById('retryBtn');
+
+      function probe() {
+        attempts++;
+        if (statusEl) statusEl.textContent = 'Checking connection... (attempt ' + attempts + ')';
+        var ctrl = new AbortController();
+        var to = setTimeout(function () { ctrl.abort(); }, 4000);
+        fetch('https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/', {
+          method: 'HEAD',
+          signal: ctrl.signal,
+          cache: 'no-store',
+          mode: 'no-cors',
+        }).then(function () {
+          clearTimeout(to);
+          if (timer) clearInterval(timer);
+          window.location.href = '/';
+        }).catch(function () {
+          clearTimeout(to);
+        });
+      }
+
+      function start() {
+        if (timer) clearInterval(timer);
+        probe();
+        timer = setInterval(probe, 3000);
+      }
+
+      if (btn) btn.addEventListener('click', function () { start(); });
+      start();
+    })();
+  </script>
+</body>
+</html>
 </body>
 </html>
