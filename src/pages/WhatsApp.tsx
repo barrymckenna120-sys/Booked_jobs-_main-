@@ -46,26 +46,54 @@ type WaMessage = {
 
 const typeBadgeClass = (type: string) => {
   const map: Record<string, string> = {
-    "30 Day Reminder": "bg-primary/10 text-primary",
-    "7 Day Reminder": "bg-warning-light text-warning",
-    "Quote Sent": "bg-[hsl(263,70%,94%)] text-[hsl(263,70%,46%)]",
-    "Booking Confirmation": "bg-success-light text-success",
-    "Payment Request": "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
-    "Custom": "bg-muted text-muted-foreground",
+    appointment_reminder: "bg-warning-light text-warning",
+    renewal: "bg-primary/10 text-primary",
+    reminder: "bg-warning-light text-warning",
+    quote: "bg-[hsl(263,70%,94%)] text-[hsl(263,70%,46%)]",
+    booking_confirmation: "bg-success-light text-success",
+    Booking_confirmation: "bg-success-light text-success",
+    invoice: "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    receipt: "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    payment_link: "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    certificate: "bg-primary/10 text-primary",
+    part_arrived: "bg-muted text-muted-foreground",
+    Part_arrived: "bg-muted text-muted-foreground",
+    job_update: "bg-muted text-muted-foreground",
+    broadcast: "bg-muted text-muted-foreground",
   };
-  return map[type] || map["Custom"];
+  return map[type] || "bg-muted text-muted-foreground";
 };
+
+const TYPE_LABELS: Record<string, string> = {
+  appointment_reminder: "Appointment Reminder",
+  renewal: "Renewal Reminder",
+  reminder: "Reminder",
+  quote: "Quote Sent",
+  booking_confirmation: "Booking Confirmation",
+  Booking_confirmation: "Booking Confirmation",
+  invoice: "Invoice",
+  receipt: "Receipt",
+  payment_link: "Payment Link",
+  certificate: "Gas Certificate",
+  part_arrived: "Part Arrived",
+  Part_arrived: "Part Arrived",
+  job_update: "Job Update",
+  broadcast: "Broadcast",
+};
+
+const friendlyType = (raw: string) =>
+  TYPE_LABELS[raw] || raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 const statusBadgeClass = (status: string) => {
   const map: Record<string, string> = {
-    "Sent": "bg-primary/10 text-primary",
-    "Confirmed": "bg-success-light text-success",
-    "No Response": "bg-muted text-muted-foreground",
-    "Opted Out": "bg-destructive/10 text-destructive",
-    "Failed": "bg-destructive/10 text-destructive",
+    sent: "bg-primary/10 text-primary",
+    delivered: "bg-success-light text-success",
+    pending: "bg-muted text-muted-foreground",
+    failed: "bg-destructive/10 text-destructive",
   };
-  return map[status] || map["Sent"];
+  return map[status] || map["sent"];
 };
+
 
 const daysUntilClass = (days: number) => {
   if (days <= 7) return "bg-destructive-light text-destructive font-bold";
@@ -109,8 +137,14 @@ const WhatsApp = () => {
     const [settingsRes, customersRes, messagesRes] = await Promise.all([
       supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("customers").select("*").eq("user_id", user.id),
-      supabase.from("whatsapp_messages").select("*").eq("user_id", user.id).order("sent_at", { ascending: false }).limit(200),
+      // Read from the unified message_log (org-scoped via RLS) — same source as /message-log
+      supabase
+        .from("message_log")
+        .select("id, customer_id, message_type, content, sent_at, sent_by, status, channel")
+        .order("sent_at", { ascending: false })
+        .limit(500),
     ]);
+
 
     if (settingsRes.data) setSettings(settingsRes.data as any);
     const custs = (customersRes.data || []) as Customer[];
@@ -119,16 +153,28 @@ const WhatsApp = () => {
     custs.forEach((c) => (map[c.id] = c));
     setCustomerMap(map);
 
-    const msgs = (messagesRes.data || []) as WaMessage[];
+    const msgs: WaMessage[] = ((messagesRes.data as any[]) || []).map((r) => ({
+      id: r.id,
+      customer_id: r.customer_id,
+      message_type: r.message_type || "unknown",
+      message_body: r.content || "",
+      sent_at: r.sent_at || r.created_at,
+      sent_by: r.sent_by,
+      status: r.status || "sent",
+      customer_reply: null,
+      reply_received_at: null,
+      linked_quote_id: null,
+    }));
     setMessages(msgs);
 
     // KPIs
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthMsgs = msgs.filter((m) => new Date(m.sent_at) >= monthStart);
+    const thisMonthMsgs = msgs.filter((m) => m.sent_at && new Date(m.sent_at) >= monthStart);
     setKpiSent(thisMonthMsgs.length);
-    setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "Confirmed").length);
-    setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "No Response").length);
+    setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "delivered").length);
+    setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "pending").length);
+
 
     const dueCount = custs.filter((c) => {
       if (!c.next_service_due || c.reminder_30_days_sent) return false;
@@ -146,7 +192,8 @@ const WhatsApp = () => {
   useEffect(() => {
     const channel = supabase
       .channel("whatsapp-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_messages" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_log" }, () => fetchAll())
+
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchAll]);
@@ -190,8 +237,9 @@ const WhatsApp = () => {
     return diff >= 0 && diff <= 7;
   }).length;
 
-  const messageTypes = ["All", "30 Day Reminder", "7 Day Reminder", "Quote Sent", "Booking Confirmation", "Payment Request", "Custom"];
-  const statusTypes = ["All", "Sent", "Confirmed", "No Response", "Opted Out"];
+  const messageTypes = ["All", "appointment_reminder", "renewal", "quote", "booking_confirmation", "invoice", "receipt", "payment_link", "certificate", "job_update", "broadcast"];
+  const statusTypes = ["All", "sent", "delivered", "pending", "failed"];
+
 
 
   const messagesContent = (
@@ -311,7 +359,8 @@ const WhatsApp = () => {
                     logTypeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
                   }`}
                 >
-                  {t === "All" ? "All Types" : t}
+                  {t === "All" ? "All Types" : friendlyType(t)}
+
                 </button>
               ))}
             </div>
@@ -358,7 +407,8 @@ const WhatsApp = () => {
                         <td className="px-4 py-2.5 font-medium">{c?.name || "—"}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${typeBadgeClass(m.message_type)}`}>
-                            {m.message_type}
+                            {friendlyType(m.message_type)}
+
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground text-xs">{m.sent_by || "—"}</td>
