@@ -47,8 +47,8 @@ export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null);
-  const soundEnabledRef = useRef<boolean | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(true);
+  const soundEnabledRef = useRef<boolean | null>(true);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
   const initialLoadDone = useRef(false);
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
@@ -82,12 +82,14 @@ export function useNotifications() {
   // Fetch sound preference
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
+        if (cancelled) return;
         if (data) {
           const val = (data as any).sound_alerts_enabled;
           if (val === null) {
@@ -101,6 +103,9 @@ export function useNotifications() {
           setSoundEnabled(true);
         }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
 
