@@ -156,10 +156,13 @@ export function unlockAudio() {
 
 /** 880Hz square double-beep for high-priority notifications */
 export async function playDoubleBeep() {
+  // Synchronous HTMLAudio fallback first — guaranteed to fire if primed.
+  playHtml(getHtmlAudio()?.beep);
   try {
     const c = getCtx();
     if (!c) return;
     await ensureRunning(c);
+    if (c.state !== "running") return;
     [0, 0.15].forEach((delay) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -177,10 +180,12 @@ export async function playDoubleBeep() {
 
 /** 440Hz sine soft chime for completed notifications */
 export async function playSoftChime() {
+  playHtml(getHtmlAudio()?.chime);
   try {
     const c = getCtx();
     if (!c) return;
     await ensureRunning(c);
+    if (c.state !== "running") return;
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = "sine";
@@ -197,10 +202,12 @@ export async function playSoftChime() {
 
 /** 880Hz sine double-beep for message alerts */
 export async function playMessageBeep() {
+  playHtml(getHtmlAudio()?.message);
   try {
     const c = getCtx();
     if (!c) return;
     await ensureRunning(c);
+    if (c.state !== "running") return;
     [0, 0.23].forEach((delay) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -218,11 +225,13 @@ export async function playMessageBeep() {
 
 /** 1200Hz triangle triple-chirp for engineer message alerts — distinct from job notifications */
 export async function playEngineerMessageAlert() {
+  playHtml(getHtmlAudio()?.message);
   try {
     const c = getCtx();
     debugLog("Audio state at play:", c?.state ?? "no-ctx");
     if (!c) return;
     await ensureRunning(c);
+    if (c.state !== "running") return;
     [0, 0.12, 0.24].forEach((delay, i) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -237,3 +246,4 @@ export async function playEngineerMessageAlert() {
     console.warn("Audio play failed:", err);
   }
 }
+
