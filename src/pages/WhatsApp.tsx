@@ -192,7 +192,8 @@ const WhatsApp = () => {
   useEffect(() => {
     const channel = supabase
       .channel("whatsapp-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_messages" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_log" }, () => fetchAll())
+
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchAll]);
