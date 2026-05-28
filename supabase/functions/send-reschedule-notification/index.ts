@@ -203,6 +203,37 @@ serve(async (req) => {
       /* non-critical */
     }
 
+    // Notify assigned engineer in-app
+    try {
+      const engineerId = (job as any).assigned_engineer_id;
+      if (engineerId && orgId) {
+        const engRes = await fetch(
+          `${supabaseUrl}/rest/v1/engineers?id=eq.${engineerId}&select=auth_user_id,user_id&limit=1`,
+          { headers: dbHeaders },
+        );
+        const engRows = await engRes.json();
+        const recipient = Array.isArray(engRows)
+          ? (engRows[0]?.auth_user_id || engRows[0]?.user_id)
+          : null;
+        if (recipient) {
+          await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              recipient_user_id: recipient,
+              organisation_id: orgId,
+              notification_type: "rescheduled",
+              title: "Job Rescheduled",
+              body: `${customer.name || "Job"} moved to ${newDate} (${timeSlot})`,
+              role: "engineer",
+              job_id: service_call_id,
+              metadata: { service_call_id, scheduled_date: job.scheduled_date, time_block: job.time_block },
+            }),
+          });
+        }
+      }
+    } catch (_e) { /* non-critical */ }
+
     console.log("SUCCESS — reschedule notification sent");
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
