@@ -46,26 +46,54 @@ type WaMessage = {
 
 const typeBadgeClass = (type: string) => {
   const map: Record<string, string> = {
-    "30 Day Reminder": "bg-primary/10 text-primary",
-    "7 Day Reminder": "bg-warning-light text-warning",
-    "Quote Sent": "bg-[hsl(263,70%,94%)] text-[hsl(263,70%,46%)]",
-    "Booking Confirmation": "bg-success-light text-success",
-    "Payment Request": "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
-    "Custom": "bg-muted text-muted-foreground",
+    appointment_reminder: "bg-warning-light text-warning",
+    renewal: "bg-primary/10 text-primary",
+    reminder: "bg-warning-light text-warning",
+    quote: "bg-[hsl(263,70%,94%)] text-[hsl(263,70%,46%)]",
+    booking_confirmation: "bg-success-light text-success",
+    Booking_confirmation: "bg-success-light text-success",
+    invoice: "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    receipt: "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    payment_link: "bg-[hsl(24,94%,93%)] text-[hsl(24,94%,46%)]",
+    certificate: "bg-primary/10 text-primary",
+    part_arrived: "bg-muted text-muted-foreground",
+    Part_arrived: "bg-muted text-muted-foreground",
+    job_update: "bg-muted text-muted-foreground",
+    broadcast: "bg-muted text-muted-foreground",
   };
-  return map[type] || map["Custom"];
+  return map[type] || "bg-muted text-muted-foreground";
 };
+
+const TYPE_LABELS: Record<string, string> = {
+  appointment_reminder: "Appointment Reminder",
+  renewal: "Renewal Reminder",
+  reminder: "Reminder",
+  quote: "Quote Sent",
+  booking_confirmation: "Booking Confirmation",
+  Booking_confirmation: "Booking Confirmation",
+  invoice: "Invoice",
+  receipt: "Receipt",
+  payment_link: "Payment Link",
+  certificate: "Gas Certificate",
+  part_arrived: "Part Arrived",
+  Part_arrived: "Part Arrived",
+  job_update: "Job Update",
+  broadcast: "Broadcast",
+};
+
+const friendlyType = (raw: string) =>
+  TYPE_LABELS[raw] || raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 const statusBadgeClass = (status: string) => {
   const map: Record<string, string> = {
-    "Sent": "bg-primary/10 text-primary",
-    "Confirmed": "bg-success-light text-success",
-    "No Response": "bg-muted text-muted-foreground",
-    "Opted Out": "bg-destructive/10 text-destructive",
-    "Failed": "bg-destructive/10 text-destructive",
+    sent: "bg-primary/10 text-primary",
+    delivered: "bg-success-light text-success",
+    pending: "bg-muted text-muted-foreground",
+    failed: "bg-destructive/10 text-destructive",
   };
-  return map[status] || map["Sent"];
+  return map[status] || map["sent"];
 };
+
 
 const daysUntilClass = (days: number) => {
   if (days <= 7) return "bg-destructive-light text-destructive font-bold";
