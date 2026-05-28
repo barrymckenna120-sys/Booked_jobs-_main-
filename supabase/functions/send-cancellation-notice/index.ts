@@ -131,6 +131,37 @@ serve(async (req) => {
       });
     } catch (_e) { /* non-critical */ }
 
+    // Notify assigned engineer in-app
+    try {
+      const engineerId = (job as any).assigned_engineer_id;
+      if (engineerId && orgId) {
+        const engRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/engineers?id=eq.${engineerId}&select=auth_user_id,user_id,name&limit=1`,
+          { headers: sbHeaders },
+        );
+        const engRows = await engRes.json();
+        const recipient = Array.isArray(engRows)
+          ? (engRows[0]?.auth_user_id || engRows[0]?.user_id)
+          : null;
+        if (recipient) {
+          await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+            method: "POST",
+            headers: { ...sbHeaders, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipient_user_id: recipient,
+              organisation_id: orgId,
+              notification_type: "cancelled",
+              title: "Job Cancelled",
+              body: `Job for ${customer.name || "customer"} cancelled. Reason: ${cancellationReason}`,
+              role: "engineer",
+              job_id: service_call_id,
+              metadata: { service_call_id, cancellation_reason: cancellationReason },
+            }),
+          });
+        }
+      }
+    } catch (_e) { /* non-critical */ }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
