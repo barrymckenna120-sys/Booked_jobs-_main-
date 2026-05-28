@@ -330,7 +330,71 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         // Fire-and-forget: send WhatsApp payment-received confirmation
         supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
       }
+
+      // In-app notifications for office on engineer-side events
+      try {
+        const orgId = (job as any).organisation_id;
+        const customerName = (customer as any)?.name || "Customer";
+        const jobRef = (job as any).job_reference || "";
+        if (orgId) {
+          const { data: settingsRow } = await supabase
+            .from("settings")
+            .select("user_id")
+            .eq("organisation_id", orgId)
+            .limit(1)
+            .maybeSingle();
+          const recipient = (settingsRow as any)?.user_id;
+          if (recipient) {
+            const baseRow = {
+              recipient_user_id: recipient,
+              organisation_id: orgId,
+              job_id: job.id,
+              role: "office",
+            };
+            const statusTypeMap: Record<string, { type: string; title: string }> = {
+              "En Route": { type: "en_route", title: "Engineer En Route" },
+              "On Site": { type: "on_site", title: "Engineer On Site" },
+              "In Progress": { type: "in_progress", title: "Job In Progress" },
+            };
+            const statusMapped = statusTypeMap[patch.status as string];
+            if (statusMapped) {
+              await supabase.from("notifications").insert({
+                ...baseRow,
+                notification_type: statusMapped.type,
+                title: statusMapped.title,
+                body: `${customerName}${jobRef ? ` (${jobRef})` : ""}`,
+                metadata: { service_call_id: job.id, status: patch.status },
+              } as any);
+            }
+            if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
+              const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
+              const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+              const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
+              await supabase.from("notifications").insert({
+                ...baseRow,
+                notification_type: "payment_collected",
+                title: "Payment Collected",
+                body: `${customerName} — €${amountStr} (${methodLabel})`,
+                metadata: { service_call_id: job.id, amount: amountVal, method: paymentMethod },
+              } as any);
+            }
+            if (patch.status === "Completed" && followUp) {
+              await supabase.from("notifications").insert({
+                ...baseRow,
+                notification_type: "follow_up",
+                title: "Follow-up Required",
+                body: `${customerName}${jobRef ? ` (${jobRef})` : ""} — ${followUpNote || "Follow-up flagged by engineer"}`,
+                metadata: { service_call_id: job.id, follow_up_detail: followUpNote || null },
+              } as any);
+            }
+          }
+        }
+      } catch (notifyErr) {
+        console.error("[EngineerJobDetail] office notification insert failed", notifyErr);
+      }
+
       // Save selected tags on completion
+
       if (patch.status === "Completed") {
         try {
           const { data: existing } = await supabase
