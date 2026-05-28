@@ -104,7 +104,7 @@ export function useNotifications() {
       });
   }, [user]);
 
-  }, [user]);
+
 
   // Real-time subscription — supabase-js uses WebSocket under the hood
   // but the channel API auto-reconnects which is fine for iOS WebKit
