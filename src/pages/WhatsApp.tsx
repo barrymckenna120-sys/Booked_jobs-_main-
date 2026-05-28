@@ -237,8 +237,9 @@ const WhatsApp = () => {
     return diff >= 0 && diff <= 7;
   }).length;
 
-  const messageTypes = ["All", "30 Day Reminder", "7 Day Reminder", "Quote Sent", "Booking Confirmation", "Payment Request", "Custom"];
-  const statusTypes = ["All", "Sent", "Confirmed", "No Response", "Opted Out"];
+  const messageTypes = ["All", "appointment_reminder", "renewal", "quote", "booking_confirmation", "invoice", "receipt", "payment_link", "certificate", "job_update", "broadcast"];
+  const statusTypes = ["All", "sent", "delivered", "pending", "failed"];
+
 
 
   const messagesContent = (
