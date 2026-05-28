@@ -66,6 +66,8 @@ const typeBadgeClass = (type: string) => {
 
 const TYPE_LABELS: Record<string, string> = {
   appointment_reminder: "Appointment Reminder",
+  job_reminder_2day: "2-Day Reminder",
+  two_day_reminder: "2-Day Reminder",
   renewal: "Renewal Reminder",
   reminder: "Reminder",
   quote: "Quote Sent",
@@ -75,8 +77,15 @@ const TYPE_LABELS: Record<string, string> = {
   receipt: "Receipt",
   payment_link: "Payment Link",
   certificate: "Gas Certificate",
-  part_arrived: "Part Arrived",
-  Part_arrived: "Part Arrived",
+  part_arrived: "Parts Arrived",
+  parts_arrived: "Parts Arrived",
+  Part_arrived: "Parts Arrived",
+  cancellation: "Cancellation",
+  cancellation_notice: "Cancellation",
+  cancel_job_notify: "Cancellation",
+  deposit_reminder: "Deposit Request",
+  deposit_request: "Deposit Request",
+  inbound: "Inbound Reply",
   job_update: "Job Update",
   broadcast: "Broadcast",
 };
