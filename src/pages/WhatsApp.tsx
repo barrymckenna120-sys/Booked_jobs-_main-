@@ -280,8 +280,8 @@ const WhatsApp = () => {
     return diff >= 0 && diff <= 7;
   }).length;
 
-  const messageTypes = ["All", "appointment_reminder", "renewal", "quote", "booking_confirmation", "invoice", "receipt", "payment_link", "certificate", "job_update", "broadcast"];
-  const statusTypes = ["All", "sent", "delivered", "pending", "failed"];
+  const messageTypes = ["All", "two_day_reminder", "appointment_reminder", "renewal", "quote", "booking_confirmation", "invoice", "receipt", "payment_link", "deposit_request", "certificate", "parts_arrived", "cancellation", "inbound", "job_update", "broadcast"];
+  const statusTypes = ["All", "sent", "delivered", "received", "pending", "failed"];
 
 
 
