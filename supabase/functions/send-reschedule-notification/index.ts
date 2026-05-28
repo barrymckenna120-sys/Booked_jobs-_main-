@@ -33,10 +33,10 @@ serve(async (req) => {
 
     // Fetch service call
     const scRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,organisation_id`,
+    const scRes = await fetch(
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,assigned_engineer_id,organisation_id`,
       { headers: dbHeaders },
     );
-    const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
     if (!job) {
       console.log("Service call not found");
