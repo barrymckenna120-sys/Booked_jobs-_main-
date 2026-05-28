@@ -32,6 +32,10 @@ export interface AppNotification {
   role: string | null;
 }
 
+type ProfileSoundPreference = {
+  sound_alerts_enabled: boolean | null;
+};
+
 const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "new_video_uploaded"]);
 
 // Vibration for high-priority notifications (double pulse)
@@ -40,15 +44,17 @@ function vibrateHighPriority() {
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200]);
     }
-  } catch {}
+    } catch {
+      return;
+    }
 }
 
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null);
-  const soundEnabledRef = useRef<boolean | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(true);
+  const soundEnabledRef = useRef<boolean | null>(true);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
   const initialLoadDone = useRef(false);
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
@@ -82,18 +88,18 @@ export function useNotifications() {
   // Fetch sound preference
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
+        if (cancelled) return;
         if (data) {
-          const val = (data as any).sound_alerts_enabled;
+          const val = (data as ProfileSoundPreference).sound_alerts_enabled;
           if (val === null) {
             // Default to enabled so notification sounds play out of the box.
-            // Still surface the prompt so the user can explicitly opt out.
-            setSoundPromptShown(true);
             setSoundEnabled(true);
           } else {
             setSoundEnabled(val);
@@ -103,6 +109,9 @@ export function useNotifications() {
           setSoundEnabled(true);
         }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
 
@@ -194,7 +203,7 @@ export function useNotifications() {
       if (user) {
         await supabase
           .from("profiles")
-          .update({ sound_alerts_enabled: enabled } as any)
+          .update({ sound_alerts_enabled: enabled })
           .eq("user_id", user.id);
       }
     },
