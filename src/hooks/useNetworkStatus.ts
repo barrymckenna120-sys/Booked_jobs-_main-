@@ -9,17 +9,20 @@ const probe = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    const res = await fetch(PROBE_URL(), {
+    // Any HTTP response (200, 401, 404, etc.) proves the network is reachable.
+    // Only fetch/network failures or aborts mean we're truly offline.
+    await fetch(PROBE_URL(), {
       method: "HEAD",
       cache: "no-store",
       signal: controller.signal,
     });
     clearTimeout(timer);
-    return res.ok;
+    return true;
   } catch {
     return false;
   }
 };
+
 
 export const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState<boolean>(

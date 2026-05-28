@@ -66,6 +66,7 @@ const EngineerLayout = () => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
       try {
+        // Any HTTP response proves network reachability — even 401 means we're online.
         await fetch("https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/", {
           method: "HEAD",
           signal: controller.signal,
@@ -78,6 +79,7 @@ const EngineerLayout = () => {
         clearTimeout(timeout);
       }
     };
+
 
     checkConnectivity();
     const interval = setInterval(checkConnectivity, 30000);
