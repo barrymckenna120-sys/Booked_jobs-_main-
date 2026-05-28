@@ -556,7 +556,7 @@ export const useEngineerJobs = () => {
   // Refetch when tab becomes visible (engineer returning to app)
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && user && isOnline) fetchAll();
+      if (document.visibilityState === "visible" && user) fetchAll();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     // Re-fetch when coming back online so data is fresh
