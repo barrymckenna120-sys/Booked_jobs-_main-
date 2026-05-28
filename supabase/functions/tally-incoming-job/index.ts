@@ -278,6 +278,31 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Notify office of new incoming job
+    try {
+      const { data: officeSettings } = await supabase
+        .from("settings")
+        .select("user_id")
+        .eq("organisation_id", orgData.id)
+        .limit(1)
+        .maybeSingle();
+      const recipientId = (officeSettings as any)?.user_id || userId;
+      if (recipientId) {
+        await supabase.from("notifications").insert({
+          recipient_user_id: recipientId,
+          organisation_id: orgData.id,
+          notification_type: "new_job",
+          title: "New Job Request",
+          body: `${customerName} — ${jobIssue ?? "New booking from Tally"}`,
+          role: "office",
+          job_id: job.id,
+          metadata: { source: "Tally Form", customer_id: customerId, service_call_id: job.id },
+        });
+      }
+    } catch (notifyErr) {
+      console.error("tally-incoming-job: notification insert failed", notifyErr);
+    }
+
     // Handle photo/video uploads if provided as URLs
     if (photoVideoUpload) {
       const urls = Array.isArray(photoVideoUpload) ? photoVideoUpload : [photoVideoUpload];
