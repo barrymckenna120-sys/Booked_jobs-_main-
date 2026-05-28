@@ -180,6 +180,20 @@ Deno.serve(async (req) => {
     return json({ error: "provision_failed", step: "6b", detail: appMetaErr.message }, 500);
   }
 
+  // Step 6c: create/update profile for tenant owner
+  const { error: profileErr } = await supabase
+    .from("profiles")
+    .upsert({
+      user_id: newUserId,
+      organisation_id: newOrgId,
+      role: "admin",
+      display_name: owner_name,
+    }, { onConflict: "user_id" });
+  if (profileErr) {
+    await logFailure("step 6c", profileErr.message);
+    return json({ error: "Failed to create profile for tenant owner" }, 500);
+  }
+
   // Step 4: settings upsert (user may already have a settings row from a prior org)
   const { error: settingsErr } = await supabase
     .from("settings")
