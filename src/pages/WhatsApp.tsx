@@ -231,9 +231,31 @@ const WhatsApp = () => {
     })
     .sort((a, b) => new Date(a.next_service_due!).getTime() - new Date(b.next_service_due!).getTime());
 
+  // Filter tab key -> set of message_type values it matches (covers legacy + new labels)
+  const TYPE_FILTER_GROUPS: Record<string, string[]> = {
+    appointment_reminder: ["appointment_reminder"],
+    two_day_reminder: ["two_day_reminder", "job_reminder_2day"],
+    renewal: ["renewal"],
+    quote: ["quote"],
+    booking_confirmation: ["booking_confirmation", "Booking_confirmation"],
+    invoice: ["invoice"],
+    receipt: ["receipt"],
+    payment_link: ["payment_link"],
+    certificate: ["certificate"],
+    parts_arrived: ["parts_arrived", "part_arrived", "Part_arrived"],
+    cancellation: ["cancellation", "cancellation_notice", "cancel_job_notify"],
+    deposit_request: ["deposit_request", "deposit_reminder"],
+    inbound: ["inbound"],
+    job_update: ["job_update"],
+    broadcast: ["broadcast"],
+  };
+
   // Filtered message log
   const filteredMessages = messages.filter((m) => {
-    if (logTypeFilter !== "All" && m.message_type !== logTypeFilter) return false;
+    if (logTypeFilter !== "All") {
+      const allowed = TYPE_FILTER_GROUPS[logTypeFilter] || [logTypeFilter];
+      if (!allowed.includes(m.message_type)) return false;
+    }
     if (logStatusFilter !== "All" && m.status !== logStatusFilter) return false;
     if (searchQuery) {
       const c = customerMap[m.customer_id];
