@@ -51,8 +51,14 @@ Deno.serve(async (req: Request) => {
     .limit(1);
   const customer = customers?.[0] ?? null;
 
+  const inboundOrgId = customer?.organisation_id ?? null;
+  if (!inboundOrgId) {
+    console.error(`Inbound WhatsApp from ${from} could not be matched to a known customer/organisation — dropping message to avoid cross-tenant leakage. Body: ${messageText}`);
+    return earlyResponse;
+  }
+
   await supabase.from("whatsapp_messages").insert({
-    organisation_id: customer?.organisation_id ?? "8c37827f-ce2c-4507-a821-a5e807d89856",
+    organisation_id: inboundOrgId,
     customer_id: customer?.id ?? null,
     message_body: messageText,
     message_type: "Inbound Reply",
