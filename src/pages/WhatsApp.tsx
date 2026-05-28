@@ -134,55 +134,67 @@ const WhatsApp = () => {
   const fetchAll = useCallback(async () => {
     if (!user) return;
 
-    const [settingsRes, customersRes, messagesRes] = await Promise.all([
-      supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("customers").select("*").eq("user_id", user.id),
-      // Read from the unified message_log (org-scoped via RLS) — same source as /message-log
-      supabase
+    // Settings + customers (org-scoped via RLS). Don't let a failure here blank the inbox.
+    try {
+      const [settingsRes, customersRes] = await Promise.all([
+        supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle(),
+        // Use RLS to scope customers to the current org rather than the office user only.
+        supabase.from("customers").select("*"),
+      ]);
+      if (settingsRes.data) setSettings(settingsRes.data as any);
+      const custs = (customersRes.data || []) as Customer[];
+      setCustomers(custs);
+      const map: Record<string, Customer> = {};
+      custs.forEach((c) => (map[c.id] = c));
+      setCustomerMap(map);
+
+      const now = new Date();
+      const dueCount = custs.filter((c) => {
+        if (!c.next_service_due || c.reminder_30_days_sent) return false;
+        const diff = Math.ceil((new Date(c.next_service_due).getTime() - now.getTime()) / 86400000);
+        return diff >= 0 && diff <= 30;
+      }).length;
+      setKpiDueToSend(dueCount);
+    } catch (err) {
+      console.error("[WhatsApp] settings/customers fetch failed", err);
+    }
+
+    // Message log — same source as /message-log, scoped to org via RLS.
+    try {
+      const { data: logData, error: logErr } = await supabase
         .from("message_log")
         .select("id, customer_id, message_type, content, sent_at, sent_by, status, channel")
         .order("sent_at", { ascending: false })
-        .limit(500),
-    ]);
+        .limit(500);
+      if (logErr) {
+        console.error("[WhatsApp] message_log fetch error", logErr);
+      }
+      const msgs: WaMessage[] = ((logData as any[]) || []).map((r) => ({
+        id: r.id,
+        customer_id: r.customer_id,
+        message_type: r.message_type || "unknown",
+        message_body: r.content || "",
+        sent_at: r.sent_at,
+        sent_by: r.sent_by,
+        status: r.status || "sent",
+        customer_reply: null,
+        reply_received_at: null,
+        linked_quote_id: null,
+      }));
+      setMessages(msgs);
 
-
-    if (settingsRes.data) setSettings(settingsRes.data as any);
-    const custs = (customersRes.data || []) as Customer[];
-    setCustomers(custs);
-    const map: Record<string, Customer> = {};
-    custs.forEach((c) => (map[c.id] = c));
-    setCustomerMap(map);
-
-    const msgs: WaMessage[] = ((messagesRes.data as any[]) || []).map((r) => ({
-      id: r.id,
-      customer_id: r.customer_id,
-      message_type: r.message_type || "unknown",
-      message_body: r.content || "",
-      sent_at: r.sent_at || r.created_at,
-      sent_by: r.sent_by,
-      status: r.status || "sent",
-      customer_reply: null,
-      reply_received_at: null,
-      linked_quote_id: null,
-    }));
-    setMessages(msgs);
-
-    // KPIs
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthMsgs = msgs.filter((m) => m.sent_at && new Date(m.sent_at) >= monthStart);
-    setKpiSent(thisMonthMsgs.length);
-    setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "delivered").length);
-    setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "pending").length);
-
-
-    const dueCount = custs.filter((c) => {
-      if (!c.next_service_due || c.reminder_30_days_sent) return false;
-      const diff = Math.ceil((new Date(c.next_service_due).getTime() - now.getTime()) / 86400000);
-      return diff >= 0 && diff <= 30;
-    }).length;
-    setKpiDueToSend(dueCount);
+      // KPIs derived from message_log
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const thisMonthMsgs = msgs.filter((m) => m.sent_at && new Date(m.sent_at) >= monthStart);
+      setKpiSent(thisMonthMsgs.length);
+      setKpiConfirmed(thisMonthMsgs.filter((m) => m.status === "delivered").length);
+      setKpiNoResponse(thisMonthMsgs.filter((m) => m.status === "pending").length);
+    } catch (err) {
+      console.error("[WhatsApp] message_log fetch failed", err);
+    }
   }, [user]);
+
 
   useEffect(() => {
     fetchAll();
