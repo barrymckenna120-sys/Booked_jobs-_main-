@@ -32,6 +32,10 @@ export interface AppNotification {
   role: string | null;
 }
 
+type ProfileSoundPreference = {
+  sound_alerts_enabled: boolean | null;
+};
+
 const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "new_video_uploaded"]);
 
 // Vibration for high-priority notifications (double pulse)
@@ -40,7 +44,9 @@ function vibrateHighPriority() {
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200]);
     }
-  } catch {}
+    } catch {
+      return;
+    }
 }
 
 export function useNotifications() {
@@ -91,7 +97,7 @@ export function useNotifications() {
       .then(({ data }) => {
         if (cancelled) return;
         if (data) {
-          const val = (data as any).sound_alerts_enabled;
+          const val = (data as ProfileSoundPreference).sound_alerts_enabled;
           if (val === null) {
             // Default to enabled so notification sounds play out of the box.
             setSoundEnabled(true);
@@ -197,7 +203,7 @@ export function useNotifications() {
       if (user) {
         await supabase
           .from("profiles")
-          .update({ sound_alerts_enabled: enabled } as any)
+          .update({ sound_alerts_enabled: enabled })
           .eq("user_id", user.id);
       }
     },
