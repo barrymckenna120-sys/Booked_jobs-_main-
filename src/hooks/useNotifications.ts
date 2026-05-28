@@ -48,6 +48,7 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null);
+  const soundEnabledRef = useRef<boolean | null>(null);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
   const initialLoadDone = useRef(false);
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
