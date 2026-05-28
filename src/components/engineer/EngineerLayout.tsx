@@ -42,6 +42,9 @@ const EngineerLayout = () => {
   const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isEngineerNotLinked, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [browserOnline, setBrowserOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
 
   useEffect(() => {
     if (isOnline) setDismissed(false);
@@ -54,6 +57,38 @@ const EngineerLayout = () => {
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
+
+  // Active connectivity check against Supabase (avoids navigator.onLine lying on weak 5G)
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkConnectivity = async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        await fetch("https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/", {
+          method: "HEAD",
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!cancelled) setBrowserOnline(true);
+      } catch {
+        if (!cancelled) setBrowserOnline(false);
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
+    checkConnectivity();
+    const interval = setInterval(checkConnectivity, 30000);
+    window.addEventListener("online", checkConnectivity);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("online", checkConnectivity);
+    };
+  }, []);
 
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
@@ -145,17 +180,10 @@ const EngineerLayout = () => {
 
 
       {/* Offline banner */}
-      {!isOnline && !dismissed && (
+      {!browserOnline && (
         <div className="w-full bg-[hsl(var(--warning))] text-white pl-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm relative">
           <WifiOff className="w-4 h-4 flex-shrink-0" />
-          <span>You're offline — changes won't save until reconnected</span>
-          <button
-            onClick={() => setDismissed(true)}
-            aria-label="Dismiss offline banner"
-            className="ml-auto text-white font-bold text-lg px-3 min-h-[44px] flex items-center justify-center"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <span>No signal — changes won't save until you're back online</span>
         </div>
       )}
 

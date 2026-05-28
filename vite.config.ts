@@ -23,7 +23,17 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: "/offline.html",
-        navigateFallbackDenylist: [/^\/rest/, /^\/functions/, /^\/~oauth/],
+        navigateFallbackDenylist: [
+          /^\/rest/,
+          /^\/functions/,
+          /^\/~oauth/,
+          /^\/engineer/,
+          /^\/dashboard/,
+          /^\/admin/,
+          /^\/jobs/,
+          /^\/customers/,
+          /^\/certificates/,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === "navigate",

@@ -149,6 +149,16 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
   const [certId, setCertId] = useState<string | null>(null);
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
+  // Auto-navigate back to job detail 3s after success screen appears
+  useEffect(() => {
+    if (step !== 5) return;
+    const timer = setTimeout(() => {
+      onClose();
+      navigate('/engineer/today');
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [step, job.id, onClose, navigate]);
+
   // Step 1 — Details (pre-filled from customer + job data, fallback to customer record)
   const [details, setDetails] = useState({
     customerName: customer?.name || "",
