@@ -7,7 +7,6 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   new_job:           { icon: Wrench,         color: "text-emerald-500", bg: "bg-emerald-500/10", label: "New Job" },
   cancelled:         { icon: XCircle,        color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
   reassigned:        { icon: ArrowRightLeft, color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Reassigned" },
-  new_repair:        { icon: Zap,            color: "text-orange-500",  bg: "bg-orange-500/10",  label: "New Repair" },
   no_show:           { icon: Ban,            color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Completed" },
   parts_needed:      { icon: Wrench,        color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
