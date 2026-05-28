@@ -359,7 +359,8 @@ const WhatsApp = () => {
                     logTypeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
                   }`}
                 >
-                  {t === "All" ? "All Types" : t}
+                  {t === "All" ? "All Types" : friendlyType(t)}
+
                 </button>
               ))}
             </div>
