@@ -59,15 +59,15 @@ serve(async (req) => {
       );
     }
 
-    // Fetch message_footer from settings (by organisation_id)
-    let messageFooter = "K&N Gas Services";
+    // Fetch message_footer from settings (by organisation_id) with org-aware fallbacks
+    let messageFooter = "our team";
     const settingsRes = await fetch(
-      `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
+      `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer,business_name,company_name&limit=1`,
       { headers }
     );
     const settings = await settingsRes.json();
-    if (Array.isArray(settings) && settings[0]?.message_footer) {
-      messageFooter = settings[0].message_footer;
+    if (Array.isArray(settings) && settings[0]) {
+      messageFooter = settings[0].message_footer || settings[0].business_name || settings[0].company_name || messageFooter;
     }
 
     const firstName = customer_name.split(" ")[0];
