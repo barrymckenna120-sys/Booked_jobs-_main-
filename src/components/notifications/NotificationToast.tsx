@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Cog, Banknote, AlertTriangle } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Cog, Banknote, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { AnimatePresence, motion } from "framer-motion";
 
