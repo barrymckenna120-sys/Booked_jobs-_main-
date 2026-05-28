@@ -26,7 +26,7 @@ serve(async (req) => {
 
     // Fetch job + customer
     const jobRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id,cancellation_reason,assigned_engineer_id,assigned_engineer,customers(name,phone,opted_out)&limit=1`,
+      `${SUPABASE_URL}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id,customer_id,cancellation_reason,assigned_engineer_id,assigned_engineer,customers(name,phone,opted_out)&limit=1`,
       { headers: sbHeaders },
     );
     const jobRows = await jobRes.json();
