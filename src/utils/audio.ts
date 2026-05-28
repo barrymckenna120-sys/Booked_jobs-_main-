@@ -120,7 +120,33 @@ export function unlockAudio() {
       src.buffer = buf;
       src.connect(c.destination);
       src.start(0);
-    } catch {}
+    } catch {
+      // ignore
+    }
+    // Prime HTMLAudio fallback elements so .play() works later without gesture
+    const html = getHtmlAudio();
+    if (html) {
+      [html.beep, html.chime, html.message].forEach((el) => {
+        try {
+          el.muted = true;
+          const p = el.play();
+          if (p && typeof p.then === "function") {
+            p.then(() => {
+              el.pause();
+              el.currentTime = 0;
+              el.muted = false;
+            }).catch(() => { el.muted = false; });
+          } else {
+            el.pause();
+            el.currentTime = 0;
+            el.muted = false;
+          }
+        } catch {
+          el.muted = false;
+        }
+      });
+    }
+
   };
 
   document.addEventListener("pointerdown", handler, { capture: true, passive: true });
