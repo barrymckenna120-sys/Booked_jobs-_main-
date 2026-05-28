@@ -407,7 +407,8 @@ const WhatsApp = () => {
                         <td className="px-4 py-2.5 font-medium">{c?.name || "—"}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${typeBadgeClass(m.message_type)}`}>
-                            {m.message_type}
+                            {friendlyType(m.message_type)}
+
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground text-xs">{m.sent_by || "—"}</td>
