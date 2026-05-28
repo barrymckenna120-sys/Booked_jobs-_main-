@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getOrgBranding } from "../_shared/orgBranding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,7 +76,9 @@ serve(async (req) => {
     if (phone.startsWith("+")) phone = phone.slice(1);
     if (phone.startsWith("0")) phone = "353" + phone.slice(1);
 
-    const message = `Hi ${firstName}, your booking with K & N Gas Services has been cancelled.\n\nReason: ${cancellationReason}\n\nTo rebook please call us on 087 368 5252.\n\nK&N Gas Services`;
+    const branding = await getOrgBranding(SUPABASE_URL, SRK, orgId);
+    const rebookLine = branding.phone ? `To rebook please call us on ${branding.phone}.\n\n` : "";
+    const message = `Hi ${firstName}, your booking with ${branding.name} has been cancelled.\n\nReason: ${cancellationReason}\n\n${rebookLine}${branding.footer || branding.name}`;
 
     const fd = new FormData();
     fd.append("phonenumber", phone);

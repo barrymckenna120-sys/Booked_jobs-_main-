@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { logMessage } from "../_shared/logMessage.ts";
+import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,7 +114,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const text = `Hi ${firstName}, your booking with K&N Gas Services has been cancelled. Reason: ${cancellation_reason}. To rebook please call us on 087 3685252.`;
+    const branding = await getOrgBrandingClient(supabase, orgId);
+    const rebookLine = branding.phone ? ` To rebook please call us on ${branding.phone}.` : "";
+    const text = `Hi ${firstName}, your booking with ${branding.name} has been cancelled. Reason: ${cancellation_reason}.${rebookLine}`;
     const form = new FormData();
     form.append("phonenumber", to);
     form.append("text", text);
