@@ -92,71 +92,73 @@ export const useEngineerJobs = () => {
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
-    // Skip network requests when offline to avoid error modals/toasts
-    if (!isOnline) return;
     // Only show loading spinner on the very first fetch to avoid scroll resets
     if (!hasFetchedOnce.current) setLoading(true);
 
-    // First resolve the engineer record for this auth user
-    const { data: engData } = await supabase
-      .from("engineers")
-      .select("id, name")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+    try {
+      // First resolve the engineer record for this auth user
+      const { data: engData } = await supabase
+        .from("engineers")
+        .select("id, name")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
 
-    if (!engData) {
-      setIsEngineerNotLinked(true);
-      setEngineerName(null);
-    } else {
-      setIsEngineerNotLinked(false);
-      if (engData.name) setEngineerName(engData.name);
+      if (!engData) {
+        setIsEngineerNotLinked(true);
+        setEngineerName(null);
+      } else {
+        setIsEngineerNotLinked(false);
+        if (engData.name) setEngineerName(engData.name);
+      }
+
+      const engineerId = engData?.id;
+
+      console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
+      console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
+      console.log("[DEBUG] Upcoming query filters: scheduled_date >", todayISO(), '| statuses: ["Scheduled","Booked","En Route","On Site","In Progress","parts_needed","parts_ordered","parts_arrived"] | engineer_id =', engineerId || "NOT FILTERED");
+      console.log("[DEBUG] Completed query: status = Completed, limit 30 | engineer_id =", engineerId || "NOT FILTERED");
+
+      // Build queries — explicitly filter by assigned_engineer_id for reliability
+      let todayQuery = supabase
+        .from("service_calls")
+        .select("*")
+        .eq("scheduled_date", todayISO())
+        .neq("status", "Completed")
+        .order("created_at");
+      let upcomingQuery = supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress", "parts_needed", "parts_ordered", "parts_arrived"]).order("scheduled_date").limit(20);
+      let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
+
+      if (engineerId) {
+        todayQuery = todayQuery.eq("assigned_engineer_id", engineerId);
+        upcomingQuery = upcomingQuery.eq("assigned_engineer_id", engineerId);
+        completedQuery = completedQuery.eq("assigned_engineer_id", engineerId);
+      }
+
+      const [todayRes, upcomingRes, completedRes] = await Promise.all([
+        todayQuery,
+        upcomingQuery,
+        completedQuery,
+      ]);
+
+      console.log("[DEBUG] Today jobs returned:", (todayRes.data || []).length, (todayRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
+      console.log("[DEBUG] Upcoming jobs returned:", (upcomingRes.data || []).length, (upcomingRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
+      console.log("[DEBUG] Completed jobs returned:", (completedRes.data || []).length, (completedRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
+      if (todayRes.error) console.error("[DEBUG] Today query error:", todayRes.error);
+      if (upcomingRes.error) console.error("[DEBUG] Upcoming query error:", upcomingRes.error);
+      if (completedRes.error) console.error("[DEBUG] Completed query error:", completedRes.error);
+
+      const allJobs = [...(todayRes.data || []), ...(upcomingRes.data || []), ...(completedRes.data || [])];
+      setTodayJobs(todayRes.data || []);
+      setUpcomingJobs(upcomingRes.data || []);
+      setCompletedJobs(completedRes.data || []);
+      await Promise.all([fetchCustomers(allJobs), fetchJobPhotos(allJobs)]);
+      hasFetchedOnce.current = true;
+    } catch (error) {
+      console.error("[useEngineerJobs] fetchAll failed:", error);
+    } finally {
+      setLoading(false);
     }
-
-    const engineerId = engData?.id;
-
-    console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
-    console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
-    console.log("[DEBUG] Upcoming query filters: scheduled_date >", todayISO(), '| statuses: ["Scheduled","Booked","En Route","On Site","In Progress","parts_needed","parts_ordered","parts_arrived"] | engineer_id =', engineerId || "NOT FILTERED");
-    console.log("[DEBUG] Completed query: status = Completed, limit 30 | engineer_id =", engineerId || "NOT FILTERED");
-
-    // Build queries — explicitly filter by assigned_engineer_id for reliability
-    let todayQuery = supabase
-      .from("service_calls")
-      .select("*")
-      .eq("scheduled_date", todayISO())
-      .neq("status", "Completed")
-      .order("created_at");
-    let upcomingQuery = supabase.from("service_calls").select("*").gt("scheduled_date", todayISO()).in("status", ["Scheduled", "Booked", "En Route", "On Site", "In Progress", "parts_needed", "parts_ordered", "parts_arrived"]).order("scheduled_date").limit(20);
-    let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
-
-    if (engineerId) {
-      todayQuery = todayQuery.eq("assigned_engineer_id", engineerId);
-      upcomingQuery = upcomingQuery.eq("assigned_engineer_id", engineerId);
-      completedQuery = completedQuery.eq("assigned_engineer_id", engineerId);
-    }
-
-    const [todayRes, upcomingRes, completedRes] = await Promise.all([
-      todayQuery,
-      upcomingQuery,
-      completedQuery,
-    ]);
-
-    console.log("[DEBUG] Today jobs returned:", (todayRes.data || []).length, (todayRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
-    console.log("[DEBUG] Upcoming jobs returned:", (upcomingRes.data || []).length, (upcomingRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
-    console.log("[DEBUG] Completed jobs returned:", (completedRes.data || []).length, (completedRes.data || []).map((j: any) => ({ id: j.id, ref: j.job_reference, status: j.status, engineer_id: j.assigned_engineer_id })));
-    if (todayRes.error) console.error("[DEBUG] Today query error:", todayRes.error);
-    if (upcomingRes.error) console.error("[DEBUG] Upcoming query error:", upcomingRes.error);
-    if (completedRes.error) console.error("[DEBUG] Completed query error:", completedRes.error);
-
-    const allJobs = [...(todayRes.data || []), ...(upcomingRes.data || []), ...(completedRes.data || [])];
-    setTodayJobs(todayRes.data || []);
-    setUpcomingJobs(upcomingRes.data || []);
-    setCompletedJobs(completedRes.data || []);
-    await fetchCustomers(allJobs);
-    await fetchJobPhotos(allJobs);
-    hasFetchedOnce.current = true;
-    setLoading(false);
-  }, [user, fetchCustomers, fetchJobPhotos, isOnline]);
+  }, [user, fetchCustomers, fetchJobPhotos]);
 
   useEffect(() => {
     if (user) fetchAll();
@@ -554,7 +556,7 @@ export const useEngineerJobs = () => {
   // Refetch when tab becomes visible (engineer returning to app)
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && user && isOnline) fetchAll();
+      if (document.visibilityState === "visible" && user) fetchAll();
     };
     document.addEventListener("visibilitychange", handleVisibility);
     // Re-fetch when coming back online so data is fresh
