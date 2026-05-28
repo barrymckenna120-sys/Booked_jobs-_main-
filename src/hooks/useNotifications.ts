@@ -7,8 +7,8 @@ import { debugLog } from "@/utils/debugLog";
 export type NotificationType =
   | "new_job"
   | "cancelled"
+  | "rescheduled"
   | "reassigned"
-  | "new_repair"
   | "no_show"
   | "completed"
   | "parts_needed"
@@ -17,6 +17,9 @@ export type NotificationType =
   | "on_site"
   | "in_progress"
   | "new_video_uploaded"
+  | "quote_accepted"
+  | "follow_up"
+  | "schedule_update"
   | "message";
 
 export interface AppNotification {
