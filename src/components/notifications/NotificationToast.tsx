@@ -8,7 +8,6 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   new_job:           { icon: Wrench,         color: "text-emerald-500", label: "New Job" },
   cancelled:         { icon: XCircle,        color: "text-destructive", label: "Cancelled" },
   reassigned:        { icon: ArrowRightLeft, color: "text-amber-500",   label: "Reassigned" },
-  new_repair:        { icon: Zap,            color: "text-orange-500",  label: "New Repair" },
   no_show:           { icon: Ban,            color: "text-destructive", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", label: "Completed" },
   parts_needed:      { icon: Cog,            color: "text-amber-500",   label: "Parts Needed" },
