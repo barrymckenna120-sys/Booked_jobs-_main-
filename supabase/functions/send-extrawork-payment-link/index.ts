@@ -151,13 +151,18 @@ ${companyName} ☎ ${companyPhone}`;
     // Log customer activity
     try {
       const { data: jobForOrg } = await supabase.from("service_calls").select("organisation_id").eq("id", service_call_id).single();
-      await supabase.from("customer_activity").insert({
-        organisation_id: jobForOrg?.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
-        customer_id,
-        service_call_id,
-        event_type: "whatsapp_sent",
-        event_label: "WhatsApp sent — Extra Work Payment",
-      });
+      const orgId = jobForOrg?.organisation_id || null;
+      if (!orgId) {
+        console.error(`send-extrawork-payment-link: skipping customer_activity insert — job ${service_call_id} missing organisation_id`);
+      } else {
+        await supabase.from("customer_activity").insert({
+          organisation_id: orgId,
+          customer_id,
+          service_call_id,
+          event_type: "whatsapp_sent",
+          event_label: "WhatsApp sent — Extra Work Payment",
+        });
+      }
     } catch { /* non-critical */ }
 
     return new Response(JSON.stringify({

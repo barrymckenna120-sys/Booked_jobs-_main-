@@ -135,20 +135,22 @@ ${messageFooter}`;
           { headers: dbHeaders }
         );
         const custOrgRows = await custOrgRes.json();
-        const orgId = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id)
-          ? custOrgRows[0].organisation_id
-          : "8c37827f-ce2c-4507-a821-a5e807d89856";
+        const orgId = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id) || null;
 
-        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
-          method: "POST",
-          headers: dbHeaders,
-          body: JSON.stringify({
-            organisation_id: orgId,
-            customer_id: quote.customer_id,
-            event_type: "whatsapp_sent",
-            event_label: "WhatsApp sent — Quote Accepted Alert",
-          }),
-        });
+        if (!orgId) {
+          console.error(`quote-accepted-alert: skipping customer_activity insert — customer ${quote.customer_id} missing organisation_id`);
+        } else {
+          await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              organisation_id: orgId,
+              customer_id: quote.customer_id,
+              event_type: "whatsapp_sent",
+              event_label: "WhatsApp sent — Quote Accepted Alert",
+            }),
+          });
+        }
       } catch (_e) { /* non-critical */ }
     }
 
