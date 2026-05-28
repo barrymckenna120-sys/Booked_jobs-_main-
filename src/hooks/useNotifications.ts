@@ -92,8 +92,6 @@ export function useNotifications() {
           const val = (data as any).sound_alerts_enabled;
           if (val === null) {
             // Default to enabled so notification sounds play out of the box.
-            // Still surface the prompt so the user can explicitly opt out.
-            setSoundPromptShown(true);
             setSoundEnabled(true);
           } else {
             setSoundEnabled(val);
