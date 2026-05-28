@@ -73,6 +73,24 @@ Deno.serve(async (req: Request) => {
         .from("customers")
         .update({ opted_out: true })
         .eq("id", customer.id);
+
+      // Send opt-out confirmation reply
+      const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+      if (apiKey && from) {
+        const form = new FormData();
+        form.append("phonenumber", from);
+        form.append("text", "Got it — we've removed you from our reminder list. No further messages will be sent. K&N Gas Services.");
+        try {
+          await fetch("https://api.360messenger.com/v2/sendMessage", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}` },
+            body: form,
+          });
+        } catch (_e) {
+          // Non-critical: log but don't fail the webhook
+          console.error("Failed to send opt-out reply:", _e);
+        }
+      }
     }
   }
 
