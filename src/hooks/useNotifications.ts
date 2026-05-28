@@ -90,14 +90,21 @@ export function useNotifications() {
         if (data) {
           const val = (data as any).sound_alerts_enabled;
           if (val === null) {
+            // Default to enabled so notification sounds play out of the box.
+            // Still surface the prompt so the user can explicitly opt out.
             setSoundPromptShown(true);
-            setSoundEnabled(false);
+            setSoundEnabled(true);
           } else {
             setSoundEnabled(val);
           }
+        } else {
+          // No profile row yet — still allow sounds by default.
+          setSoundEnabled(true);
         }
       });
   }, [user]);
+
+
 
   // Real-time subscription — supabase-js uses WebSocket under the hood
   // but the channel API auto-reconnects which is fine for iOS WebKit
