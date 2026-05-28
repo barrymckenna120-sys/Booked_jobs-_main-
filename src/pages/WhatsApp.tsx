@@ -137,8 +137,14 @@ const WhatsApp = () => {
     const [settingsRes, customersRes, messagesRes] = await Promise.all([
       supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("customers").select("*").eq("user_id", user.id),
-      supabase.from("whatsapp_messages").select("*").eq("user_id", user.id).order("sent_at", { ascending: false }).limit(200),
+      // Read from the unified message_log (org-scoped via RLS) — same source as /message-log
+      supabase
+        .from("message_log")
+        .select("id, customer_id, message_type, content, sent_at, sent_by, status, channel")
+        .order("sent_at", { ascending: false })
+        .limit(500),
     ]);
+
 
     if (settingsRes.data) setSettings(settingsRes.data as any);
     const custs = (customersRes.data || []) as Customer[];
