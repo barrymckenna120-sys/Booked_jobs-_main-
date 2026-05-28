@@ -66,6 +66,8 @@ const typeBadgeClass = (type: string) => {
 
 const TYPE_LABELS: Record<string, string> = {
   appointment_reminder: "Appointment Reminder",
+  job_reminder_2day: "2-Day Reminder",
+  two_day_reminder: "2-Day Reminder",
   renewal: "Renewal Reminder",
   reminder: "Reminder",
   quote: "Quote Sent",
@@ -75,8 +77,15 @@ const TYPE_LABELS: Record<string, string> = {
   receipt: "Receipt",
   payment_link: "Payment Link",
   certificate: "Gas Certificate",
-  part_arrived: "Part Arrived",
-  Part_arrived: "Part Arrived",
+  part_arrived: "Parts Arrived",
+  parts_arrived: "Parts Arrived",
+  Part_arrived: "Parts Arrived",
+  cancellation: "Cancellation",
+  cancellation_notice: "Cancellation",
+  cancel_job_notify: "Cancellation",
+  deposit_reminder: "Deposit Request",
+  deposit_request: "Deposit Request",
+  inbound: "Inbound Reply",
   job_update: "Job Update",
   broadcast: "Broadcast",
 };
@@ -222,9 +231,31 @@ const WhatsApp = () => {
     })
     .sort((a, b) => new Date(a.next_service_due!).getTime() - new Date(b.next_service_due!).getTime());
 
+  // Filter tab key -> set of message_type values it matches (covers legacy + new labels)
+  const TYPE_FILTER_GROUPS: Record<string, string[]> = {
+    appointment_reminder: ["appointment_reminder"],
+    two_day_reminder: ["two_day_reminder", "job_reminder_2day"],
+    renewal: ["renewal"],
+    quote: ["quote"],
+    booking_confirmation: ["booking_confirmation", "Booking_confirmation"],
+    invoice: ["invoice"],
+    receipt: ["receipt"],
+    payment_link: ["payment_link"],
+    certificate: ["certificate"],
+    parts_arrived: ["parts_arrived", "part_arrived", "Part_arrived"],
+    cancellation: ["cancellation", "cancellation_notice", "cancel_job_notify"],
+    deposit_request: ["deposit_request", "deposit_reminder"],
+    inbound: ["inbound"],
+    job_update: ["job_update"],
+    broadcast: ["broadcast"],
+  };
+
   // Filtered message log
   const filteredMessages = messages.filter((m) => {
-    if (logTypeFilter !== "All" && m.message_type !== logTypeFilter) return false;
+    if (logTypeFilter !== "All") {
+      const allowed = TYPE_FILTER_GROUPS[logTypeFilter] || [logTypeFilter];
+      if (!allowed.includes(m.message_type)) return false;
+    }
     if (logStatusFilter !== "All" && m.status !== logStatusFilter) return false;
     if (searchQuery) {
       const c = customerMap[m.customer_id];
@@ -249,8 +280,8 @@ const WhatsApp = () => {
     return diff >= 0 && diff <= 7;
   }).length;
 
-  const messageTypes = ["All", "appointment_reminder", "renewal", "quote", "booking_confirmation", "invoice", "receipt", "payment_link", "certificate", "job_update", "broadcast"];
-  const statusTypes = ["All", "sent", "delivered", "pending", "failed"];
+  const messageTypes = ["All", "two_day_reminder", "appointment_reminder", "renewal", "quote", "booking_confirmation", "invoice", "receipt", "payment_link", "deposit_request", "certificate", "parts_arrived", "cancellation", "inbound", "job_update", "broadcast"];
+  const statusTypes = ["All", "sent", "delivered", "received", "pending", "failed"];
 
 
 

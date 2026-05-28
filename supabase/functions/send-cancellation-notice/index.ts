@@ -26,7 +26,7 @@ serve(async (req) => {
 
     // Fetch job + customer
     const jobRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id,cancellation_reason,assigned_engineer_id,assigned_engineer,customers(name,phone,opted_out)&limit=1`,
+      `${SUPABASE_URL}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id,customer_id,cancellation_reason,assigned_engineer_id,assigned_engineer,customers(name,phone,opted_out)&limit=1`,
       { headers: sbHeaders },
     );
     const jobRows = await jobRes.json();
@@ -92,21 +92,23 @@ serve(async (req) => {
     const waText = await waRes.text();
     const status = waRes.ok ? "sent" : "failed";
 
-    // log-message
+    // Log to message_log (same source as Message Log / Chat Inbox History)
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/log-message`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/message_log`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${SRK}`,
-        },
+        headers: { ...sbHeaders, "Content-Type": "application/json", Prefer: "return=minimal" },
         body: JSON.stringify({
-          service_call_id,
           organisation_id: orgId,
-          message_type: "cancellation_notice",
-          recipient_phone: phone,
-          message_body: message,
+          customer_id: (job as any).customer_id ?? null,
+          message_type: "cancellation",
+          channel: "whatsapp",
+          direction: "outbound",
+          content: message,
           status,
+          related_id: service_call_id,
+          related_type: "service_call",
+          sent_by: "system",
+          sent_at: new Date().toISOString(),
         }),
       });
     } catch (_e) { /* non-critical */ }
