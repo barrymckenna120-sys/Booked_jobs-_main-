@@ -2728,35 +2728,52 @@ export type Database = {
       whatsapp_templates: {
         Row: {
           body: string
-          created_at: string | null
+          category: string
+          created_at: string
           id: string
-          is_default: boolean | null
-          message_type: string
-          name: string
-          updated_at: string | null
-          user_id: string
+          is_master: boolean
+          meta_status: string
+          organisation_id: string | null
+          submitted_at: string | null
+          template_name: string
+          updated_at: string
+          variables: Json | null
         }
         Insert: {
           body: string
-          created_at?: string | null
+          category?: string
+          created_at?: string
           id?: string
-          is_default?: boolean | null
-          message_type?: string
-          name: string
-          updated_at?: string | null
-          user_id: string
+          is_master?: boolean
+          meta_status?: string
+          organisation_id?: string | null
+          submitted_at?: string | null
+          template_name: string
+          updated_at?: string
+          variables?: Json | null
         }
         Update: {
           body?: string
-          created_at?: string | null
+          category?: string
+          created_at?: string
           id?: string
-          is_default?: boolean | null
-          message_type?: string
-          name?: string
-          updated_at?: string | null
-          user_id?: string
+          is_master?: boolean
+          meta_status?: string
+          organisation_id?: string | null
+          submitted_at?: string | null
+          template_name?: string
+          updated_at?: string
+          variables?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
