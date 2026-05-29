@@ -140,7 +140,8 @@ Deno.serve(async (req) => {
       }
 
       // Send welcome/invite email to existing user via Resend
-      const actionLink = linkData?.properties?.action_link || `https://kngasservices.bookedjobs.ie`;
+      const actionLink = linkData?.properties?.action_link || tenantBaseUrl;
+
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
       if (RESEND_API_KEY) {
         try {
