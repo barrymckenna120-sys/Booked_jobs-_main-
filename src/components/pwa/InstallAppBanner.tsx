@@ -12,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const InstallAppBanner = () => {
+  const { pathname } = useLocation();
   const [visible, setVisible] = useState(false);
   const [animateIn, setAnimateIn] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
