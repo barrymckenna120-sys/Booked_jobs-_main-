@@ -3,8 +3,6 @@ import { useLocation } from "react-router-dom";
 import { X, Share2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-import { X, Share2, Globe } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 const DISMISSED_KEY = "install_banner_dismissed";
 
