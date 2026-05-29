@@ -961,7 +961,74 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      {/* WhatsApp Templates */}
+      {(() => {
+        const missing: string[] = [];
+        if (!templateForm.company_name.trim()) missing.push("Company Name");
+        if (!templateForm.domain.trim()) missing.push("Domain");
+        if (!templateForm.template_prefix.trim()) missing.push("Template Prefix");
+        const nonMaster = waTemplates.filter((t) => !t.is_master);
+        const hasProvisioned = nonMaster.length > 0;
+        const statusVariant = (s: string) => {
+          const v = (s || "").toLowerCase();
+          if (v === "approved") return "bg-green-100 text-green-800 border-green-200";
+          if (v === "rejected") return "bg-red-100 text-red-800 border-red-200";
+          return "bg-amber-100 text-amber-800 border-amber-200";
+        };
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>WhatsApp Templates</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={() => provisionTemplates(hasProvisioned)}
+                  disabled={provisioning || missing.length > 0}
+                >
+                  {provisioning ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1 h-3 w-3" />
+                  )}
+                  {hasProvisioned ? "Re-provision Templates" : "Provision Templates"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {missing.length > 0 && (
+                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Fill in {missing.join(", ")} in the Template Configuration card above before provisioning.
+                </div>
+              )}
+              {waTemplates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No templates provisioned yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {waTemplates.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-mono text-xs">{t.template_name}</div>
+                        <div className="text-[11px] text-muted-foreground">{t.category}</div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusVariant(t.meta_status)}`}
+                      >
+                        {t.meta_status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Actions */}
+
 
       <Card>
         <CardHeader>
