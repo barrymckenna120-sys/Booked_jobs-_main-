@@ -74,6 +74,46 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Resolve tenant domain from tenant_integrations (whatsapp.config.domain).
+    // Derive organisation_id from request body, falling back to caller's profile.
+    let resolvedOrgId: string | null = organisation_id || null;
+    if (!resolvedOrgId) {
+      const { data: callerProfileOrg } = await supabaseAdmin
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+      resolvedOrgId = (callerProfileOrg as any)?.organisation_id || null;
+    }
+
+    if (!resolvedOrgId) {
+      console.warn("invite-team-member: could not resolve organisation_id for tenant domain lookup");
+      return new Response(JSON.stringify({ error: "organisation_id not resolvable for this caller" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: waIntegration } = await supabaseAdmin
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", resolvedOrgId)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+
+    const tenantDomain = (waIntegration as any)?.config?.domain;
+    if (!tenantDomain) {
+      console.warn(`invite-team-member: missing whatsapp.config.domain for org ${resolvedOrgId}`);
+      return new Response(JSON.stringify({ error: "Tenant domain not configured for this organisation" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const tenantBaseUrl = `https://${tenantDomain}`;
+    const tenantAuthRedirect = `${tenantBaseUrl}/auth`;
+
+
     // Check if user already exists with this email
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     console.log("listUsers result:", JSON.stringify({ count: existingUsers?.users?.length, error: listError }));
