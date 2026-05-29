@@ -143,6 +143,20 @@ export default function TenantDetail() {
   });
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  // WhatsApp Templates
+  type WaTemplate = {
+    id: string;
+    template_name: string;
+    category: string;
+    meta_status: string;
+    is_master: boolean;
+  };
+  const [waTemplates, setWaTemplates] = useState<WaTemplate[]>([]);
+  const [provisioning, setProvisioning] = useState(false);
+  const MASTER_ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
+
+
+
 
   // Access check
   useEffect(() => {
