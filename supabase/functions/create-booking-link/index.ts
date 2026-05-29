@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
-const SHORT_BASE = "https://kngasservices.bookedjobs.ie/b";
+// SHORT_BASE is resolved per-request from tenant_integrations (whatsapp.config.domain).
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 function genToken(len = 6): string {
