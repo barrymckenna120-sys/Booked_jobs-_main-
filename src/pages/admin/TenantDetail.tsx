@@ -205,6 +205,9 @@ export default function TenantDetail() {
         .order("integration_type");
       setIntegrations(((ints as any[]) || []) as Integration[]);
 
+      await loadWaTemplates();
+
+
       const { data: settingsRow } = await supabase
         .from("settings")
         .select("business_name, business_email, business_phone, company_name, company_phone, owner_name")
