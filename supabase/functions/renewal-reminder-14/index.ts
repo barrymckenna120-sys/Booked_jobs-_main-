@@ -131,6 +131,14 @@ Deno.serve(async (req) => {
       const orgId = (c as any).organisation_id;
       const { tallyUrl, countryCode } = await loadOrgConfig(orgId);
 
+      if (!tallyUrl) {
+        console.warn(`Missing Tally renewal_form_url for org ${orgId}`);
+        return new Response(
+          JSON.stringify({ error: "Tally renewal_form_url not configured for this organisation" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       let digits = (c.phone || "").replace(/\D/g, "");
       const ccLen = countryCode.length;
       if (countryCode && digits.startsWith(countryCode) && digits.length === 9 + ccLen) {
