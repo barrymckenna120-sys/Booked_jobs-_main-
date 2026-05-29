@@ -37,9 +37,9 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 
 // Configuration
 const SITE_NAME = "BookedJobs"
-const SENDER_DOMAIN = "notify.kngasservices.bookedjobs.ie"
-const ROOT_DOMAIN = "kngasservices.bookedjobs.ie"
-const FROM_DOMAIN = "notify.kngasservices.bookedjobs.ie" // Domain shown in From address (may be root or sender subdomain)
+// Per-tenant sender/root/from domains are resolved at request time from
+// tenant_integrations (integration_type='whatsapp', config.domain).
+
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
