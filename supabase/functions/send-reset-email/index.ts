@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
 
-const REDIRECT_URL = "https://kngasservices.bookedjobs.ie/reset-password";
+// Tenant reset URL is resolved per-request from tenant_integrations.config.domain.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -42,12 +42,51 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Resolve tenant domain via the user's profile → tenant_integrations.whatsapp.config.domain
+    const { data: usersList, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listUsersError) {
+      console.error("listUsers failed:", listUsersError.message);
+    }
+    const matchedUser = usersList?.users?.find(
+      (u) => u.email?.toLowerCase() === String(email).toLowerCase()
+    );
+
+    let tenantDomain: string | null = null;
+    if (matchedUser) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", matchedUser.id)
+        .maybeSingle();
+      const orgId = (profile as any)?.organisation_id;
+      if (orgId) {
+        const { data: waIntegration } = await supabaseAdmin
+          .from("tenant_integrations")
+          .select("config")
+          .eq("organisation_id", orgId)
+          .eq("integration_type", "whatsapp")
+          .maybeSingle();
+        tenantDomain = (waIntegration as any)?.config?.domain || null;
+      }
+    }
+
+    if (!tenantDomain) {
+      console.warn(`send-reset-email: no tenant domain resolvable for ${email}`);
+      return new Response(JSON.stringify({ error: "Tenant domain not configured" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const redirectUrl = `https://${tenantDomain}/reset-password`;
+
     // Generate a recovery link WITHOUT sending an email (bypasses auth-email-hook)
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: { redirectTo: REDIRECT_URL },
+      options: { redirectTo: redirectUrl },
     });
+
 
     if (linkError) {
       console.error("generateLink error:", linkError.message);
