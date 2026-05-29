@@ -822,7 +822,59 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      {/* Template Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Template Configuration</CardTitle>
+            <Button size="sm" onClick={saveTemplateConfig} disabled={savingTemplate}>
+              {savingTemplate ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Save className="mr-1 h-3 w-3" />
+              )}
+              Save Configuration
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {[
+              { key: "company_name", label: "Company Name", source: "360messenger.company_name", placeholder: "K & N Gas Services" },
+              { key: "domain", label: "Domain", source: "whatsapp.domain", placeholder: "kngasservices.ie" },
+              { key: "template_prefix", label: "Template Prefix", source: "whatsapp.template_prefix", placeholder: "kn_gas" },
+              { key: "payment_link", label: "Stripe Payment Link", source: "stripe.payment_link", placeholder: "https://buy.stripe.com/..." },
+              { key: "new_booking_url", label: "Tally Booking Form URL", source: "tally.new_booking_url", placeholder: "https://book.example.com/" },
+              { key: "renewal_form_url", label: "Tally Renewal Form URL", source: "tally.renewal_form_url", placeholder: "https://rebook.example.com/" },
+            ].map((f) => {
+              const val = (templateForm as any)[f.key] as string;
+              const empty = !val || !val.trim();
+              return (
+                <div key={f.key}>
+                  <Label className="text-muted-foreground">{f.label}</Label>
+                  <Input
+                    value={val}
+                    placeholder={f.placeholder}
+                    onChange={(e) =>
+                      setTemplateForm({ ...templateForm, [f.key]: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground font-mono">{f.source}</span>
+                    {empty && (
+                      <span className="text-[11px] text-amber-600">Empty — will be saved as blank</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Actions */}
+
       <Card>
         <CardHeader>
           <CardTitle>Actions</CardTitle>
