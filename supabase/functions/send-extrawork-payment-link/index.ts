@@ -52,16 +52,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get payment link from service_calls or use fallback
+    // Get payment link: prefer job.payment_link, then tenant_integrations stripe config
     const { data: job } = await supabase
       .from("service_calls")
       .select("payment_link, user_id, organisation_id")
       .eq("id", service_call_id)
       .single();
 
-    const paymentLink = job?.payment_link || "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
     const userId = job?.user_id;
     const orgId = job?.organisation_id;
+
+    const { data: stripeIntegration } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "stripe")
+      .maybeSingle() : { data: null };
+
+    const paymentLink =
+      job?.payment_link ||
+      (stripeIntegration?.config as any)?.payment_link ||
+      null;
+    if (!paymentLink) {
+      console.warn(
+        `[send-extrawork-payment-link] No Stripe payment_link configured for organisation ${orgId}`,
+      );
+      return new Response(
+        JSON.stringify({ error: "Stripe payment link not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
 
     const { data: messengerConfig } = orgId ? await supabase
       .from("tenant_integrations")
