@@ -232,6 +232,78 @@ export default function TenantDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, orgId]);
 
+  // Populate Template Configuration form when integrations load
+  useEffect(() => {
+    const byType = (t: string) =>
+      integrations.find((i) => i.integration_type === t)?.config ?? {};
+    const m360 = byType("360messenger") as any;
+    const wa = byType("whatsapp") as any;
+    const stripe = byType("stripe") as any;
+    const tally = byType("tally") as any;
+    setTemplateForm({
+      company_name: m360.company_name ?? "",
+      domain: wa.domain ?? "",
+      template_prefix: wa.template_prefix ?? "",
+      payment_link: stripe.payment_link ?? "",
+      new_booking_url: tally.new_booking_url ?? "",
+      renewal_form_url: tally.renewal_form_url ?? "",
+    });
+  }, [integrations]);
+
+  const saveTemplateConfig = async () => {
+    if (!orgId) return;
+    setSavingTemplate(true);
+    try {
+      const updates: Array<{ type: string; patch: Record<string, any> }> = [
+        { type: "360messenger", patch: { company_name: templateForm.company_name } },
+        {
+          type: "whatsapp",
+          patch: {
+            domain: templateForm.domain,
+            template_prefix: templateForm.template_prefix,
+          },
+        },
+        { type: "stripe", patch: { payment_link: templateForm.payment_link } },
+        {
+          type: "tally",
+          patch: {
+            new_booking_url: templateForm.new_booking_url,
+            renewal_form_url: templateForm.renewal_form_url,
+          },
+        },
+      ];
+
+      for (const u of updates) {
+        const existing = integrations.find((i) => i.integration_type === u.type);
+        if (existing) {
+          const mergedConfig = { ...(existing.config ?? {}), ...u.patch };
+          const { error } = await supabase
+            .from("tenant_integrations" as any)
+            .update({ config: mergedConfig })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("tenant_integrations" as any)
+            .insert({
+              organisation_id: orgId,
+              integration_type: u.type,
+              config: u.patch,
+              is_active: true,
+            });
+          if (error) throw error;
+        }
+      }
+      toast.success("Template configuration saved");
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save configuration");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+
   const saveSettings = async () => {
     if (!orgId) return;
     setSavingSettings(true);
