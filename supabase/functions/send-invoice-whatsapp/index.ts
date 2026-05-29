@@ -63,20 +63,39 @@ Deno.serve(async (req) => {
       Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
 
-    // 4. Org settings: branding + payment link + cert prefix
+    // 4. Org settings: branding + cert prefix
     const { data: orgSettings } = await supabase
       .from("settings")
       .select("business_name, business_phone, template_payment_link, cert_prefix")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
+    // Stripe payment link from tenant_integrations (per-tenant)
+    const { data: stripeIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", job.organisation_id)
+      .eq("integration_type", "stripe")
+      .maybeSingle();
+
     const businessName = orgSettings?.business_name || "K & N Gas Services";
     const businessPhone = orgSettings?.business_phone || "087 368 5252";
     const stripePaymentLink =
+      (stripeIntegration?.config as any)?.payment_link ||
       orgSettings?.template_payment_link ||
       cfg.stripe_payment_link ||
-      "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+      null;
+    if (!stripePaymentLink) {
+      console.warn(
+        `[send-invoice-whatsapp] No Stripe payment_link configured for organisation ${job.organisation_id}`,
+      );
+      return json(
+        { error: "Stripe payment link not configured for this organisation" },
+        400,
+      );
+    }
     const certPrefix = orgSettings?.cert_prefix || "JOB";
+
 
     // 5. Normalise phone: strip +, leading 0 -> 353
     let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");
