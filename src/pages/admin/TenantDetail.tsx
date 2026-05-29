@@ -132,6 +132,18 @@ export default function TenantDetail() {
 
   const [sendingReset, setSendingReset] = useState(false);
 
+  // Template Configuration form (structured editor over tenant_integrations.config)
+  const [templateForm, setTemplateForm] = useState({
+    company_name: "",
+    domain: "",
+    template_prefix: "",
+    payment_link: "",
+    new_booking_url: "",
+    renewal_form_url: "",
+  });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+
   // Access check
   useEffect(() => {
     let cancelled = false;
