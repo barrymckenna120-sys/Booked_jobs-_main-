@@ -59,14 +59,15 @@ const SendReminderModal = ({ customer, defaultType = "30 Day Reminder", settings
   // Fetch user's saved templates
   useEffect(() => {
     if (!user) return;
-    supabase
+    (supabase as any)
       .from("whatsapp_templates")
       .select("*")
       .eq("user_id", user.id)
       .order("name")
-      .then(({ data }) => {
-        setTemplates((data || []) as Template[]);
+      .then(({ data }: any) => {
+        setTemplates((data || []) as unknown as Template[]);
       });
+
   }, [user]);
 
   // When type changes, pick the default template for that type, or fall back
