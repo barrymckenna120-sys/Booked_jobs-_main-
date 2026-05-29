@@ -143,6 +143,20 @@ export default function TenantDetail() {
   });
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  // WhatsApp Templates
+  type WaTemplate = {
+    id: string;
+    template_name: string;
+    category: string;
+    meta_status: string;
+    is_master: boolean;
+  };
+  const [waTemplates, setWaTemplates] = useState<WaTemplate[]>([]);
+  const [provisioning, setProvisioning] = useState(false);
+  const MASTER_ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
+
+
+
 
   // Access check
   useEffect(() => {
@@ -190,6 +204,9 @@ export default function TenantDetail() {
         .eq("organisation_id", orgId)
         .order("integration_type");
       setIntegrations(((ints as any[]) || []) as Integration[]);
+
+      await loadWaTemplates();
+
 
       const { data: settingsRow } = await supabase
         .from("settings")
@@ -302,6 +319,77 @@ export default function TenantDetail() {
       setSavingTemplate(false);
     }
   };
+
+  const loadWaTemplates = async () => {
+    if (!orgId) return;
+    const { data } = await (supabase as any)
+      .from("whatsapp_templates")
+      .select("id, template_name, category, meta_status, is_master")
+      .eq("organisation_id", orgId)
+      .order("template_name");
+    setWaTemplates(((data as any[]) || []) as WaTemplate[]);
+  };
+
+  const provisionTemplates = async (reprovision = false) => {
+    if (!orgId) return;
+    const { company_name, domain, template_prefix } = templateForm;
+    if (!company_name.trim() || !domain.trim() || !template_prefix.trim()) {
+      toast.error("Fill Company Name, Domain, and Template Prefix first");
+      return;
+    }
+    setProvisioning(true);
+    try {
+      const { data: masters, error: mErr } = await (supabase as any)
+        .from("whatsapp_templates")
+        .select("template_name, category, body, variables")
+        .eq("organisation_id", MASTER_ORG_ID)
+        .eq("is_master", true);
+      if (mErr) throw mErr;
+      if (!masters || masters.length === 0) {
+        toast.error("No master templates found");
+        return;
+      }
+
+      if (reprovision) {
+        const { error: delErr } = await (supabase as any)
+          .from("whatsapp_templates")
+          .delete()
+          .eq("organisation_id", orgId)
+          .eq("is_master", false);
+        if (delErr) throw delErr;
+      }
+
+      const rows = (masters as any[]).map((m) => {
+        const newName = (m.template_name || "").replace(/^kn_gas_/, `${template_prefix}_`);
+        const newBody = String(m.body || "")
+          .split("K & N Gas Services").join(company_name)
+          .split("kngasservices.bookedjobs.ie").join(domain);
+        return {
+          organisation_id: orgId,
+          template_name: newName,
+          category: m.category,
+          body: newBody,
+          variables: m.variables ?? [],
+          meta_status: "pending",
+          is_master: false,
+        };
+      });
+
+      const { error: insErr } = await (supabase as any)
+        .from("whatsapp_templates")
+        .insert(rows);
+      if (insErr) throw insErr;
+
+      toast.success(`${reprovision ? "Re-provisioned" : "Provisioned"} ${rows.length} templates`);
+      await loadWaTemplates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to provision templates");
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
+
 
 
   const saveSettings = async () => {
@@ -873,7 +961,74 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      {/* WhatsApp Templates */}
+      {(() => {
+        const missing: string[] = [];
+        if (!templateForm.company_name.trim()) missing.push("Company Name");
+        if (!templateForm.domain.trim()) missing.push("Domain");
+        if (!templateForm.template_prefix.trim()) missing.push("Template Prefix");
+        const nonMaster = waTemplates.filter((t) => !t.is_master);
+        const hasProvisioned = nonMaster.length > 0;
+        const statusVariant = (s: string) => {
+          const v = (s || "").toLowerCase();
+          if (v === "approved") return "bg-green-100 text-green-800 border-green-200";
+          if (v === "rejected") return "bg-red-100 text-red-800 border-red-200";
+          return "bg-amber-100 text-amber-800 border-amber-200";
+        };
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>WhatsApp Templates</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={() => provisionTemplates(hasProvisioned)}
+                  disabled={provisioning || missing.length > 0}
+                >
+                  {provisioning ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1 h-3 w-3" />
+                  )}
+                  {hasProvisioned ? "Re-provision Templates" : "Provision Templates"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {missing.length > 0 && (
+                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Fill in {missing.join(", ")} in the Template Configuration card above before provisioning.
+                </div>
+              )}
+              {waTemplates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No templates provisioned yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {waTemplates.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-mono text-xs">{t.template_name}</div>
+                        <div className="text-[11px] text-muted-foreground">{t.category}</div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusVariant(t.meta_status)}`}
+                      >
+                        {t.meta_status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Actions */}
+
 
       <Card>
         <CardHeader>
