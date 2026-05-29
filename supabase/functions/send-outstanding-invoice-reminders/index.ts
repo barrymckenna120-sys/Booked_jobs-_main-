@@ -11,7 +11,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const DEFAULT_STRIPE_LINK = "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -54,9 +54,31 @@ Deno.serve(async (req) => {
 
     const cfg = (integration?.config as any) || {};
     const apiKey = cfg.api_key;
-    const stripeLink = cfg.stripe_payment_link || DEFAULT_STRIPE_LINK;
+
+    // Stripe payment link from tenant_integrations (per-tenant)
+    const { data: stripeIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", organisation_id)
+      .eq("integration_type", "stripe")
+      .maybeSingle();
+
+    const stripeLink =
+      (stripeIntegration?.config as any)?.payment_link ||
+      cfg.stripe_payment_link ||
+      null;
+    if (!stripeLink) {
+      console.warn(
+        `[send-outstanding-invoice-reminders] No Stripe payment_link configured for organisation ${organisation_id}`,
+      );
+      return json(
+        { error: "Stripe payment link not configured for this organisation" },
+        400,
+      );
+    }
 
     if (!apiKey) return json({ error: "WhatsApp API key not configured" }, 400);
+
 
     let sent = 0;
     let skipped = 0;
