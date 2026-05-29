@@ -32,16 +32,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Always store with the canonical Tally form as the base, preserving query params.
-    const TALLY_BASE = "https://tally.so/r/RGJDy4";
-    const qIdx = String(full_url).indexOf("?");
-    const queryString = qIdx >= 0 ? String(full_url).slice(qIdx) : "";
-    const normalised_url = `${TALLY_BASE}${queryString}`;
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    const { data: tallyIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", organisation_id)
+      .eq("integration_type", "tally")
+      .maybeSingle();
+
+    const tallyBase = (tallyIntegration as any)?.config?.new_booking_url;
+    if (!tallyBase) {
+      console.warn(`Missing Tally new_booking_url for org ${organisation_id}`);
+      return new Response(
+        JSON.stringify({ error: "Tally new_booking_url not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const qIdx = String(full_url).indexOf("?");
+    const queryString = qIdx >= 0 ? String(full_url).slice(qIdx) : "";
+    const normalised_url = `${tallyBase}${queryString}`;
 
     let token = "";
     let inserted = false;
