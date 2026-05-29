@@ -26,7 +26,9 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [
           /^\/rest/,
           /^\/functions/,
-          /^\/~oauth/,
+          /^\/\~oauth/,
+          /^\/$/,
+          /^\/auth/,
           /^\/engineer/,
           /^\/dashboard/,
           /^\/admin/,
