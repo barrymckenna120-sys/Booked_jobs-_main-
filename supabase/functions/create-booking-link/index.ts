@@ -53,9 +53,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Resolve tenant domain for short link base
+    const { data: waIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", organisation_id)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+
+    const tenantDomain = (waIntegration as any)?.config?.domain;
+    if (!tenantDomain) {
+      console.warn(`Missing whatsapp.config.domain for org ${organisation_id}`);
+      return new Response(
+        JSON.stringify({ error: "Tenant domain not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const shortBase = `https://${tenantDomain}/b`;
+
     const qIdx = String(full_url).indexOf("?");
     const queryString = qIdx >= 0 ? String(full_url).slice(qIdx) : "";
     const normalised_url = `${tallyBase}${queryString}`;
+
 
     let token = "";
     let inserted = false;
@@ -82,7 +101,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ short_url: `${SHORT_BASE}/${token}`, token }),
+      JSON.stringify({ short_url: `${shortBase}/${token}`, token }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
