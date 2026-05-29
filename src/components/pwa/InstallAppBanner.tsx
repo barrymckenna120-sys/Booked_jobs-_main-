@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { X, Share2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
 
 const DISMISSED_KEY = "install_banner_dismissed";
 
@@ -10,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const InstallAppBanner = () => {
+  const { pathname } = useLocation();
   const [visible, setVisible] = useState(false);
   const [animateIn, setAnimateIn] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -24,6 +27,8 @@ const InstallAppBanner = () => {
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     // Don't show if dismissed
     if (localStorage.getItem(DISMISSED_KEY) === "true") return;
+    // Don't show on login/auth page
+    if (pathname === "/" || pathname.startsWith("/auth")) return;
 
     const ua = navigator.userAgent;
     const ios = /iPhone|iPad|iPod/.test(ua) && !(window as any).MSStream;
