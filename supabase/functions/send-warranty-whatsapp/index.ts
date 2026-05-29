@@ -72,7 +72,7 @@ serve(async (req) => {
       );
     }
 
-    let tallyFormBase = "https://tally.so/r/RGJDy4";
+    let tallyFormBase: string | null = null;
     try {
       const tiTallyRes = await fetch(
         `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.tally&select=config&limit=1`,
@@ -80,9 +80,17 @@ serve(async (req) => {
       );
       const tiTallyRows = await tiTallyRes.json();
       const cfg = Array.isArray(tiTallyRows) ? tiTallyRows[0]?.config : null;
-      if (cfg?.renewal_form_url) tallyFormBase = cfg.renewal_form_url;
+      if (cfg?.new_booking_url) tallyFormBase = cfg.new_booking_url;
     } catch (_lookupErr) {
-      // Non-critical — fall back to default
+      // Non-critical
+    }
+
+    if (!tallyFormBase) {
+      console.warn(`Missing Tally new_booking_url for org ${orgId}`);
+      return new Response(
+        JSON.stringify({ error: "Tally new_booking_url not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Fetch WhatsApp api_key from tenant_integrations
