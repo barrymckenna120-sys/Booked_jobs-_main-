@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => ({
             handler: "NetworkFirst",
             options: {
               cacheName: "html",
-              networkTimeoutSeconds: 3,
+              networkTimeoutSeconds: 8,
             },
           },
           {
