@@ -320,6 +320,77 @@ export default function TenantDetail() {
     }
   };
 
+  const loadWaTemplates = async () => {
+    if (!orgId) return;
+    const { data } = await (supabase as any)
+      .from("whatsapp_templates")
+      .select("id, template_name, category, meta_status, is_master")
+      .eq("organisation_id", orgId)
+      .order("template_name");
+    setWaTemplates(((data as any[]) || []) as WaTemplate[]);
+  };
+
+  const provisionTemplates = async (reprovision = false) => {
+    if (!orgId) return;
+    const { company_name, domain, template_prefix } = templateForm;
+    if (!company_name.trim() || !domain.trim() || !template_prefix.trim()) {
+      toast.error("Fill Company Name, Domain, and Template Prefix first");
+      return;
+    }
+    setProvisioning(true);
+    try {
+      const { data: masters, error: mErr } = await (supabase as any)
+        .from("whatsapp_templates")
+        .select("template_name, category, body, variables")
+        .eq("organisation_id", MASTER_ORG_ID)
+        .eq("is_master", true);
+      if (mErr) throw mErr;
+      if (!masters || masters.length === 0) {
+        toast.error("No master templates found");
+        return;
+      }
+
+      if (reprovision) {
+        const { error: delErr } = await (supabase as any)
+          .from("whatsapp_templates")
+          .delete()
+          .eq("organisation_id", orgId)
+          .eq("is_master", false);
+        if (delErr) throw delErr;
+      }
+
+      const rows = (masters as any[]).map((m) => {
+        const newName = (m.template_name || "").replace(/^kn_gas_/, `${template_prefix}_`);
+        const newBody = String(m.body || "")
+          .split("K & N Gas Services").join(company_name)
+          .split("kngasservices.bookedjobs.ie").join(domain);
+        return {
+          organisation_id: orgId,
+          template_name: newName,
+          category: m.category,
+          body: newBody,
+          variables: m.variables ?? [],
+          meta_status: "pending",
+          is_master: false,
+        };
+      });
+
+      const { error: insErr } = await (supabase as any)
+        .from("whatsapp_templates")
+        .insert(rows);
+      if (insErr) throw insErr;
+
+      toast.success(`${reprovision ? "Re-provisioned" : "Provisioned"} ${rows.length} templates`);
+      await loadWaTemplates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to provision templates");
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
+
+
 
   const saveSettings = async () => {
     if (!orgId) return;
