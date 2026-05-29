@@ -132,6 +132,18 @@ export default function TenantDetail() {
 
   const [sendingReset, setSendingReset] = useState(false);
 
+  // Template Configuration form (structured editor over tenant_integrations.config)
+  const [templateForm, setTemplateForm] = useState({
+    company_name: "",
+    domain: "",
+    template_prefix: "",
+    payment_link: "",
+    new_booking_url: "",
+    renewal_form_url: "",
+  });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+
   // Access check
   useEffect(() => {
     let cancelled = false;
@@ -219,6 +231,78 @@ export default function TenantDetail() {
     if (authChecked) loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, orgId]);
+
+  // Populate Template Configuration form when integrations load
+  useEffect(() => {
+    const byType = (t: string) =>
+      integrations.find((i) => i.integration_type === t)?.config ?? {};
+    const m360 = byType("360messenger") as any;
+    const wa = byType("whatsapp") as any;
+    const stripe = byType("stripe") as any;
+    const tally = byType("tally") as any;
+    setTemplateForm({
+      company_name: m360.company_name ?? "",
+      domain: wa.domain ?? "",
+      template_prefix: wa.template_prefix ?? "",
+      payment_link: stripe.payment_link ?? "",
+      new_booking_url: tally.new_booking_url ?? "",
+      renewal_form_url: tally.renewal_form_url ?? "",
+    });
+  }, [integrations]);
+
+  const saveTemplateConfig = async () => {
+    if (!orgId) return;
+    setSavingTemplate(true);
+    try {
+      const updates: Array<{ type: string; patch: Record<string, any> }> = [
+        { type: "360messenger", patch: { company_name: templateForm.company_name } },
+        {
+          type: "whatsapp",
+          patch: {
+            domain: templateForm.domain,
+            template_prefix: templateForm.template_prefix,
+          },
+        },
+        { type: "stripe", patch: { payment_link: templateForm.payment_link } },
+        {
+          type: "tally",
+          patch: {
+            new_booking_url: templateForm.new_booking_url,
+            renewal_form_url: templateForm.renewal_form_url,
+          },
+        },
+      ];
+
+      for (const u of updates) {
+        const existing = integrations.find((i) => i.integration_type === u.type);
+        if (existing) {
+          const mergedConfig = { ...(existing.config ?? {}), ...u.patch };
+          const { error } = await supabase
+            .from("tenant_integrations" as any)
+            .update({ config: mergedConfig })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("tenant_integrations" as any)
+            .insert({
+              organisation_id: orgId,
+              integration_type: u.type,
+              config: u.patch,
+              is_active: true,
+            });
+          if (error) throw error;
+        }
+      }
+      toast.success("Template configuration saved");
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save configuration");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
 
   const saveSettings = async () => {
     if (!orgId) return;
@@ -738,7 +822,59 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      {/* Template Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Template Configuration</CardTitle>
+            <Button size="sm" onClick={saveTemplateConfig} disabled={savingTemplate}>
+              {savingTemplate ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Save className="mr-1 h-3 w-3" />
+              )}
+              Save Configuration
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {[
+              { key: "company_name", label: "Company Name", source: "360messenger.company_name", placeholder: "K & N Gas Services" },
+              { key: "domain", label: "Domain", source: "whatsapp.domain", placeholder: "kngasservices.ie" },
+              { key: "template_prefix", label: "Template Prefix", source: "whatsapp.template_prefix", placeholder: "kn_gas" },
+              { key: "payment_link", label: "Stripe Payment Link", source: "stripe.payment_link", placeholder: "https://buy.stripe.com/..." },
+              { key: "new_booking_url", label: "Tally Booking Form URL", source: "tally.new_booking_url", placeholder: "https://book.example.com/" },
+              { key: "renewal_form_url", label: "Tally Renewal Form URL", source: "tally.renewal_form_url", placeholder: "https://rebook.example.com/" },
+            ].map((f) => {
+              const val = (templateForm as any)[f.key] as string;
+              const empty = !val || !val.trim();
+              return (
+                <div key={f.key}>
+                  <Label className="text-muted-foreground">{f.label}</Label>
+                  <Input
+                    value={val}
+                    placeholder={f.placeholder}
+                    onChange={(e) =>
+                      setTemplateForm({ ...templateForm, [f.key]: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground font-mono">{f.source}</span>
+                    {empty && (
+                      <span className="text-[11px] text-amber-600">Empty — will be saved as blank</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Actions */}
+
       <Card>
         <CardHeader>
           <CardTitle>Actions</CardTitle>
