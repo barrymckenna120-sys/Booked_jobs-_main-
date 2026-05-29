@@ -393,6 +393,43 @@ Deno.serve(async (req) => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
+    // Resolve tenant From address via caller's profile → tenant_integrations.whatsapp.config.domain
+    let RESEND_FROM_EMAIL: string | null = RESEND_FROM_EMAIL_OVERRIDE;
+    if (!RESEND_FROM_EMAIL) {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const callerUserId = (claimsData.claims as any).sub;
+      const { data: profile } = await adminClient
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", callerUserId)
+        .maybeSingle();
+      const orgId = (profile as any)?.organisation_id;
+      if (orgId) {
+        const { data: waIntegration } = await adminClient
+          .from("tenant_integrations")
+          .select("config")
+          .eq("organisation_id", orgId)
+          .eq("integration_type", "whatsapp")
+          .maybeSingle();
+        const tenantDomain = (waIntegration as any)?.config?.domain;
+        if (tenantDomain) {
+          RESEND_FROM_EMAIL = `noreply@notify.${tenantDomain}`;
+        }
+      }
+    }
+
+    if (!RESEND_FROM_EMAIL) {
+      console.warn("send-email: tenant domain not configured for caller");
+      return new Response(JSON.stringify({ error: "Tenant sender domain not configured" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     const { type, data } = await req.json();
 
     let subject: string;
