@@ -6,7 +6,11 @@ const corsHeaders = {
 const APP_URL = "https://plumb-on-call.lovable.app";
 
 const RESEND_FROM_NAME = Deno.env.get("RESEND_FROM_NAME") || "BookedJobs";
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@notify.kngasservices.bookedjobs.ie";
+// RESEND_FROM_EMAIL is resolved per-request from tenant_integrations
+// (integration_type='whatsapp', config.domain). The env var is still honored
+// as an explicit override when set.
+const RESEND_FROM_EMAIL_OVERRIDE = Deno.env.get("RESEND_FROM_EMAIL") || null;
+
 
 // ── Template: Welcome ─────────────────────────────────────
 function welcomeHtml(data: { name: string; email: string; role: string; loginUrl: string }): string {
