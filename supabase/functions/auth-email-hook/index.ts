@@ -217,6 +217,51 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
+  // Resolve tenant domain via recipient email → auth user → profile.organisation_id
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  let tenantDomain: string | null = null
+  try {
+    const { data: usersList } = await supabase.auth.admin.listUsers()
+    const matchedUser = usersList?.users?.find(
+      (u: any) => u.email?.toLowerCase() === String(payload.data.email).toLowerCase()
+    )
+    if (matchedUser) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organisation_id')
+        .eq('user_id', matchedUser.id)
+        .maybeSingle()
+      const orgId = (profile as any)?.organisation_id
+      if (orgId) {
+        const { data: waIntegration } = await supabase
+          .from('tenant_integrations')
+          .select('config')
+          .eq('organisation_id', orgId)
+          .eq('integration_type', 'whatsapp')
+          .maybeSingle()
+        tenantDomain = (waIntegration as any)?.config?.domain || null
+      }
+    }
+  } catch (lookupErr) {
+    console.error('auth-email-hook: tenant domain lookup failed', lookupErr)
+  }
+
+  if (!tenantDomain) {
+    console.warn(`auth-email-hook: no tenant domain resolvable for ${payload.data.email}`)
+    return new Response(
+      JSON.stringify({ error: 'Tenant domain not configured for recipient' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  const ROOT_DOMAIN = tenantDomain
+  const SENDER_DOMAIN = `notify.${tenantDomain}`
+  const FROM_DOMAIN = SENDER_DOMAIN
+
   // Build template props from payload.data (HookData structure)
   const templateProps = {
     siteName: SITE_NAME,
@@ -233,12 +278,6 @@ async function handleWebhook(req: Request): Promise<Response> {
   const text = await renderAsync(React.createElement(EmailTemplate, templateProps), {
     plainText: true,
   })
-
-  // Enqueue email for async processing by the dispatcher (process-email-queue).
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
 
   const messageId = crypto.randomUUID()
 
@@ -258,6 +297,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       to: payload.data.email,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
+
       subject: EMAIL_SUBJECTS[emailType] || 'Notification',
       html,
       text,
