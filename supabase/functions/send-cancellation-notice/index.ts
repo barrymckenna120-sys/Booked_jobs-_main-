@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getOrgBranding } from "../_shared/orgBranding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +26,7 @@ serve(async (req) => {
 
     // Fetch job + customer
     const jobRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id,cancellation_reason,customers(name,phone,opted_out)&limit=1`,
+      `${SUPABASE_URL}/rest/v1/service_calls?id=eq.${service_call_id}&select=organisation_id,customer_id,cancellation_reason,assigned_engineer_id,assigned_engineer,customers(name,phone,opted_out)&limit=1`,
       { headers: sbHeaders },
     );
     const jobRows = await jobRes.json();
@@ -75,7 +76,9 @@ serve(async (req) => {
     if (phone.startsWith("+")) phone = phone.slice(1);
     if (phone.startsWith("0")) phone = "353" + phone.slice(1);
 
-    const message = `Hi ${firstName}, your booking with K & N Gas Services has been cancelled.\n\nReason: ${cancellationReason}\n\nTo rebook please call us on 087 368 5252.\n\nK&N Gas Services`;
+    const branding = await getOrgBranding(SUPABASE_URL, SRK, orgId);
+    const rebookLine = branding.phone ? `To rebook please call us on ${branding.phone}.\n\n` : "";
+    const message = `Hi ${firstName}, your booking with ${branding.name} has been cancelled.\n\nReason: ${cancellationReason}\n\n${rebookLine}${branding.footer || branding.name}`;
 
     const fd = new FormData();
     fd.append("phonenumber", phone);
@@ -89,21 +92,23 @@ serve(async (req) => {
     const waText = await waRes.text();
     const status = waRes.ok ? "sent" : "failed";
 
-    // log-message
+    // Log to message_log (same source as Message Log / Chat Inbox History)
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/log-message`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/message_log`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${SRK}`,
-        },
+        headers: { ...sbHeaders, "Content-Type": "application/json", Prefer: "return=minimal" },
         body: JSON.stringify({
-          service_call_id,
           organisation_id: orgId,
-          message_type: "cancellation_notice",
-          recipient_phone: phone,
-          message_body: message,
+          customer_id: (job as any).customer_id ?? null,
+          message_type: "cancellation",
+          channel: "whatsapp",
+          direction: "outbound",
+          content: message,
           status,
+          related_id: service_call_id,
+          related_type: "service_call",
+          sent_by: "system",
+          sent_at: new Date().toISOString(),
         }),
       });
     } catch (_e) { /* non-critical */ }
@@ -126,6 +131,37 @@ serve(async (req) => {
         },
         body: JSON.stringify({ cancellation_notice_sent: true }),
       });
+    } catch (_e) { /* non-critical */ }
+
+    // Notify assigned engineer in-app
+    try {
+      const engineerId = (job as any).assigned_engineer_id;
+      if (engineerId && orgId) {
+        const engRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/engineers?id=eq.${engineerId}&select=auth_user_id,user_id,name&limit=1`,
+          { headers: sbHeaders },
+        );
+        const engRows = await engRes.json();
+        const recipient = Array.isArray(engRows)
+          ? (engRows[0]?.auth_user_id || engRows[0]?.user_id)
+          : null;
+        if (recipient) {
+          await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+            method: "POST",
+            headers: { ...sbHeaders, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              recipient_user_id: recipient,
+              organisation_id: orgId,
+              notification_type: "cancelled",
+              title: "Job Cancelled",
+              body: `Job for ${customer.name || "customer"} cancelled. Reason: ${cancellationReason}`,
+              role: "engineer",
+              job_id: service_call_id,
+              metadata: { service_call_id, cancellation_reason: cancellationReason },
+            }),
+          });
+        }
+      }
     } catch (_e) { /* non-critical */ }
 
     return new Response(JSON.stringify({ success: true }), {

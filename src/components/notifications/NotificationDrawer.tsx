@@ -7,7 +7,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Zap, Ban, CheckCircle2, Banknote, Video, AlertTriangle } from "lucide-react";
+import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Video, AlertTriangle } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
@@ -15,7 +15,6 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   new_job:       { icon: Wrench,         color: "text-success",     label: "New Job" },
   cancelled:     { icon: XCircle,        color: "text-destructive", label: "Cancelled" },
   reassigned:    { icon: ArrowRightLeft, color: "text-amber-500",   label: "Reassigned" },
-  new_repair:    { icon: Zap,            color: "text-orange-500",  label: "New Repair" },
   no_show:       { icon: Ban,            color: "text-destructive", label: "No Show" },
   completed:     { icon: CheckCircle2,   color: "text-success",     label: "Completed" },
   parts_needed:      { icon: Wrench,         color: "text-amber-500",   label: "Parts Needed" },

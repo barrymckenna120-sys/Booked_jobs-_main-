@@ -7,8 +7,8 @@ import { debugLog } from "@/utils/debugLog";
 export type NotificationType =
   | "new_job"
   | "cancelled"
+  | "rescheduled"
   | "reassigned"
-  | "new_repair"
   | "no_show"
   | "completed"
   | "parts_needed"
@@ -17,6 +17,9 @@ export type NotificationType =
   | "on_site"
   | "in_progress"
   | "new_video_uploaded"
+  | "quote_accepted"
+  | "follow_up"
+  | "schedule_update"
   | "message";
 
 export interface AppNotification {
@@ -32,6 +35,10 @@ export interface AppNotification {
   role: string | null;
 }
 
+type ProfileSoundPreference = {
+  sound_alerts_enabled: boolean | null;
+};
+
 const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "new_video_uploaded"]);
 
 // Vibration for high-priority notifications (double pulse)
@@ -40,14 +47,17 @@ function vibrateHighPriority() {
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200]);
     }
-  } catch {}
+    } catch {
+      return;
+    }
 }
 
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(true);
+  const soundEnabledRef = useRef<boolean | null>(true);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
   const initialLoadDone = useRef(false);
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
@@ -81,23 +91,33 @@ export function useNotifications() {
   // Fetch sound preference
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
+        if (cancelled) return;
         if (data) {
-          const val = (data as any).sound_alerts_enabled;
+          const val = (data as ProfileSoundPreference).sound_alerts_enabled;
           if (val === null) {
-            setSoundPromptShown(true);
-            setSoundEnabled(false);
+            // Default to enabled so notification sounds play out of the box.
+            setSoundEnabled(true);
           } else {
             setSoundEnabled(val);
           }
+        } else {
+          // No profile row yet — still allow sounds by default.
+          setSoundEnabled(true);
         }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+
+
 
   // Real-time subscription — supabase-js uses WebSocket under the hood
   // but the channel API auto-reconnects which is fine for iOS WebKit
@@ -122,10 +142,10 @@ export function useNotifications() {
             // Show banner
             setBannerNotifications((prev) => [n, ...prev]);
 
-            // Play sound + vibrate for high priority
-            if (soundEnabled) {
+            // Play sound + vibrate for high priority (read from ref to avoid re-subscribing)
+            if (soundEnabledRef.current) {
               if (n.notification_type === "message") {
-                debugLog("Sound trigger fired, soundEnabled:", soundEnabled, "type:", n.notification_type);
+                debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
                 playEngineerMessageAlert();
               } else if (n.notification_type === "completed") {
                 playSoftChime();
@@ -144,7 +164,12 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, soundEnabled]);
+  }, [user]);
+
+  // Keep ref in sync so the realtime handler always sees the latest preference
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -181,7 +206,7 @@ export function useNotifications() {
       if (user) {
         await supabase
           .from("profiles")
-          .update({ sound_alerts_enabled: enabled } as any)
+          .update({ sound_alerts_enabled: enabled })
           .eq("user_id", user.id);
       }
     },

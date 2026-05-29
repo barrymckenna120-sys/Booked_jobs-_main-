@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { logMessage } from "../_shared/logMessage.ts";
+import { getOrgBranding } from "../_shared/orgBranding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,11 +103,14 @@ serve(async (req) => {
     const tallyUrl = `${tallyFormBase}${sep}Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;
 
     // Build message based on type
+    const branding = await getOrgBranding(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, orgId);
+    const phoneLine = branding.phone ? `\n\nOr call us on 📞 ${branding.phone}` : "";
+    const footerLine = branding.footer || branding.name;
     let message: string;
     if (message_type === "warranty_day14") {
-      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here:\n👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
+      message = `Hi ${first_name}, this is ${branding.name}.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here:\n👉 ${tallyUrl}${phoneLine}\n\n${footerLine}`;
     } else if (message_type === "warranty_day28") {
-      message = `Hi ${first_name}, this is Nicole from K&N Gas Services.\n\nWe messaged you two weeks ago about your new ${boiler_brand} ${boiler_model} boiler warranty. We just wanted to follow up — booking your annual service is the best way to keep your warranty valid and your boiler running safely.\n\nBook here:\n👉 ${tallyUrl}\n\nOr call us on 📞 087 3685252\n\nK&N Gas Services`;
+      message = `Hi ${first_name}, this is ${branding.name}.\n\nWe messaged you two weeks ago about your new ${boiler_brand} ${boiler_model} boiler warranty. We just wanted to follow up — booking your annual service is the best way to keep your warranty valid and your boiler running safely.\n\nBook here:\n👉 ${tallyUrl}${phoneLine}\n\n${footerLine}`;
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid message_type. Must be warranty_day14 or warranty_day28" }),

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -50,8 +51,14 @@ Deno.serve(async (req: Request) => {
     .limit(1);
   const customer = customers?.[0] ?? null;
 
+  const inboundOrgId = customer?.organisation_id ?? null;
+  if (!inboundOrgId) {
+    console.error(`Inbound WhatsApp from ${from} could not be matched to a known customer/organisation — dropping message to avoid cross-tenant leakage. Body: ${messageText}`);
+    return earlyResponse;
+  }
+
   await supabase.from("whatsapp_messages").insert({
-    organisation_id: customer?.organisation_id ?? "8c37827f-ce2c-4507-a821-a5e807d89856",
+    organisation_id: inboundOrgId,
     customer_id: customer?.id ?? null,
     message_body: messageText,
     message_type: "Inbound Reply",
@@ -61,6 +68,24 @@ Deno.serve(async (req: Request) => {
     reply_received_at: createdAt,
     sent_at: createdAt,
   });
+
+  // Mirror inbound to message_log so it appears in Chat Inbox History
+  try {
+    await supabase.from("message_log").insert({
+      organisation_id: inboundOrgId,
+      customer_id: customer?.id ?? null,
+      message_type: "inbound",
+      channel: "whatsapp",
+      direction: "inbound",
+      content: messageText,
+      status: "received",
+      sent_by: "customer",
+      sent_at: createdAt,
+    });
+  } catch (_e) {
+    console.error("Failed to log inbound message_log:", _e);
+  }
+
 
   if (customer?.id) {
     await supabase
@@ -77,9 +102,12 @@ Deno.serve(async (req: Request) => {
       // Send opt-out confirmation reply
       const apiKey = Deno.env.get("THREESIXTY_API_KEY");
       if (apiKey && from) {
+        const branding = customer?.organisation_id
+          ? await getOrgBrandingClient(supabase, customer.organisation_id)
+          : { name: "our team", phone: "", footer: "" };
         const form = new FormData();
         form.append("phonenumber", from);
-        form.append("text", "Got it — we've removed you from our reminder list. No further messages will be sent. K&N Gas Services.");
+        form.append("text", `Got it — we've removed you from our reminder list. No further messages will be sent. ${branding.footer || branding.name}.`);
         try {
           await fetch("https://api.360messenger.com/v2/sendMessage", {
             method: "POST",

@@ -191,15 +191,19 @@ Deno.serve(async (req) => {
     }
 
     // Log customer activity
-    try {
-      await supabase.from("customer_activity").insert({
-        organisation_id: job.organisation_id || "8c37827f-ce2c-4507-a821-a5e807d89856",
-        customer_id: job.customer_id,
-        service_call_id: job_id,
-        event_type: "whatsapp_sent",
-        event_label: "WhatsApp sent — Receipt",
-      });
-    } catch { /* non-critical */ }
+    if (!job.organisation_id) {
+      console.error(`send-whatsapp-receipt: skipping customer_activity insert — job ${job_id} missing organisation_id`);
+    } else {
+      try {
+        await supabase.from("customer_activity").insert({
+          organisation_id: job.organisation_id,
+          customer_id: job.customer_id,
+          service_call_id: job_id,
+          event_type: "whatsapp_sent",
+          event_label: "WhatsApp sent — Receipt",
+        });
+      } catch { /* non-critical */ }
+    }
 
     return new Response(JSON.stringify({ success: true, customer_name: customer.name }), {
       status: 200,

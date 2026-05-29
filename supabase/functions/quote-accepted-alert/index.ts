@@ -135,22 +135,62 @@ ${messageFooter}`;
           { headers: dbHeaders }
         );
         const custOrgRows = await custOrgRes.json();
-        const orgId = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id)
-          ? custOrgRows[0].organisation_id
-          : "8c37827f-ce2c-4507-a821-a5e807d89856";
+        const orgId = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id) || null;
 
-        await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
-          method: "POST",
-          headers: dbHeaders,
-          body: JSON.stringify({
-            organisation_id: orgId,
-            customer_id: quote.customer_id,
-            event_type: "whatsapp_sent",
-            event_label: "WhatsApp sent — Quote Accepted Alert",
-          }),
-        });
+        if (!orgId) {
+          console.error(`quote-accepted-alert: skipping customer_activity insert — customer ${quote.customer_id} missing organisation_id`);
+        } else {
+          await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              organisation_id: orgId,
+              customer_id: quote.customer_id,
+              event_type: "whatsapp_sent",
+              event_label: "WhatsApp sent — Quote Accepted Alert",
+            }),
+          });
+        }
       } catch (_e) { /* non-critical */ }
     }
+
+    // Insert in-app notification for office
+    try {
+      let orgId: string | null = null;
+      if (quote.customer_id) {
+        const custOrgRes = await fetch(
+          `${supabaseUrl}/rest/v1/customers?id=eq.${quote.customer_id}&select=organisation_id`,
+          { headers: dbHeaders }
+        );
+        const custOrgRows = await custOrgRes.json();
+        orgId = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id) || null;
+      }
+      if (orgId) {
+        const settingsRecRes = await fetch(
+          `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=user_id&limit=1`,
+          { headers: dbHeaders }
+        );
+        const settingsRecRows = await settingsRecRes.json();
+        const recipientId = (Array.isArray(settingsRecRows) && settingsRecRows[0]?.user_id) || quote.user_id;
+        if (recipientId) {
+          await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              recipient_user_id: recipientId,
+              organisation_id: orgId,
+              notification_type: "quote_accepted",
+              title: "Quote Accepted",
+              body: `${customerName} accepted ${quoteRef} — €${totalAmount}`,
+              role: "office",
+              metadata: { quote_id, customer_id: quote.customer_id, total: totalAmount, deposit: depositAmount },
+            }),
+          });
+        }
+      } else {
+        console.error("quote-accepted-alert: skipping notification — missing organisation_id");
+      }
+    } catch (_e) { /* non-critical */ }
 
     return new Response(JSON.stringify({ success: true, sent: result.success }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

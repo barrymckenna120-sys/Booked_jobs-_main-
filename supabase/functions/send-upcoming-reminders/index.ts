@@ -46,16 +46,15 @@ serve(async (req) => {
       return null;
     }
 
-    let messageFooter = "K&N Gas Services";
+    let messageFooter = "";
     const { data: settings } = await supabase
       .from("settings")
-      .select("message_footer")
+      .select("message_footer,business_name,company_name")
       .eq("organisation_id", orgId)
       .limit(1)
       .maybeSingle();
-    if ((settings as any)?.message_footer) {
-      messageFooter = (settings as any).message_footer;
-    }
+    const s: any = settings;
+    messageFooter = s?.message_footer || s?.business_name || s?.company_name || "our team";
 
     const cfg = { apiKey, messageFooter };
     orgCache.set(orgId, cfg);
