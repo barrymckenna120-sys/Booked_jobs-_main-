@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
       const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
         type: "recovery",
         email,
-        options: { redirectTo: "https://kngasservices.bookedjobs.ie/auth" },
+        options: { redirectTo: tenantAuthRedirect },
       });
       console.log("generateLink response:", JSON.stringify({ data: linkData, error: resetError }));
       if (resetError) {
@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
       }
 
       // Send the welcome email via Resend with the action link
-      const actionLink = linkData?.properties?.action_link || `https://kngasservices.bookedjobs.ie`;
+      const actionLink = linkData?.properties?.action_link || tenantBaseUrl;
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
       if (RESEND_API_KEY) {
         try {
