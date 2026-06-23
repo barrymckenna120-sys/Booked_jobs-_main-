@@ -4,7 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgId } from "@/hooks/useOrgId";
-import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
+import { playDoubleBeep, playSoftChime, playEngineerMessageAlert, isAudioUnlocked, getAudioContextState, unlockAudioNow } from "@/utils/audio";
+import { useNotifications } from "@/hooks/useNotifications";
+import { toast } from "sonner";
+import { useEffect as useEffectState } from "react";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
   Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame, Volume2,
