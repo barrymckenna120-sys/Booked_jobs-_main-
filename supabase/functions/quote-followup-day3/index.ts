@@ -16,6 +16,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("[quote-followup-day3] function started", { ts: new Date().toISOString() });
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -34,7 +35,12 @@ Deno.serve(async (req) => {
       .gte("sent_at", fourDaysAgo)
       .lte("sent_at", threeDaysAgo);
 
-    if (qErr) return json({ error: qErr.message }, 500);
+    if (qErr) {
+      console.error("[quote-followup-day3] quote query error", qErr);
+      return json({ error: qErr.message }, 500);
+    }
+
+    console.log("[quote-followup-day3] eligible quotes found", { count: quotes?.length ?? 0 });
 
     let sent = 0;
     let skipped = 0;
@@ -43,6 +49,7 @@ Deno.serve(async (req) => {
     for (const q of quotes || []) {
       const customer: any = (q as any).customers;
       if (!customer || customer.opted_out || !customer.phone) {
+        console.log("[quote-followup-day3] skipped (no customer/opted-out/no phone)", { quote_id: q.id });
         skipped++;
         continue;
       }
@@ -59,6 +66,7 @@ Deno.serve(async (req) => {
         apiKeyCache.set(q.organisation_id, apiKey);
       }
       if (!apiKey) {
+        console.log("[quote-followup-day3] skipped (no 360messenger api key)", { quote_id: q.id, org: q.organisation_id });
         skipped++;
         continue;
       }
@@ -78,20 +86,26 @@ Deno.serve(async (req) => {
       formData.append("text", message);
 
       let ok = false;
+      let respStatus = 0;
+      let respBody = "";
+      console.log("[quote-followup-day3] WhatsApp message attempted", { quote_id: q.id, phone });
       try {
         const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}` },
           body: formData,
         });
-        await resp.text();
+        respStatus = resp.status;
+        respBody = await resp.text();
         ok = resp.ok;
-      } catch (_e) {
+      } catch (e) {
+        console.error("[quote-followup-day3] WhatsApp send threw", { quote_id: q.id, error: (e as Error).message });
         ok = false;
       }
+      console.log("[quote-followup-day3] WhatsApp response", { quote_id: q.id, ok, status: respStatus, body: respBody.slice(0, 300) });
 
       try {
-        await fetch(`${supabaseUrl}/functions/v1/log-message`, {
+        const logResp = await fetch(`${supabaseUrl}/functions/v1/log-message`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -106,8 +120,9 @@ Deno.serve(async (req) => {
             status: ok ? "success" : "fail",
           }),
         });
-      } catch (_e) {
-        console.error("log-message invoke failed", _e);
+        console.log("[quote-followup-day3] message saved to history", { quote_id: q.id, log_status: logResp.status });
+      } catch (e) {
+        console.error("[quote-followup-day3] log-message invoke failed", { quote_id: q.id, error: (e as Error).message });
       }
 
       if (ok) {
@@ -121,9 +136,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log("[quote-followup-day3] finished", { sent, skipped });
     return json({ success: true, sent, skipped });
   } catch (e) {
-    console.error("quote-followup-day3 error", e);
+    console.error("[quote-followup-day3] fatal error", e);
     return json({ error: (e as Error).message || "Unknown error" }, 500);
   }
 });
