@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
+import EnableSoundBanner from "@/components/EnableSoundBanner";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
@@ -254,6 +255,7 @@ const AppLayoutInner = () => {
         
         <Outlet />
       </main>
+      <EnableSoundBanner />
 
       {/* ═══════════ MOBILE BOTTOM NAV — 5 tabs, fixed ═══════════ */}
       <nav
