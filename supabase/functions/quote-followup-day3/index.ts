@@ -62,7 +62,8 @@ Deno.serve(async (req) => {
           .eq("organisation_id", q.organisation_id)
           .eq("integration_type", "360messenger")
           .maybeSingle();
-        apiKey = (integration?.config as any)?.api_key ?? null;
+        const cfg: any = integration?.config ?? {};
+        apiKey = cfg.api_key ?? (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) ?? null : null);
         apiKeyCache.set(q.organisation_id, apiKey);
       }
       if (!apiKey) {
