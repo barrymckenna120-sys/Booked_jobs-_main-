@@ -77,6 +77,8 @@ const InstallAppBanner = () => {
 
 
 
+
+
   return (
     <div
       className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-lg p-4 transition-transform duration-300 ease-out ${
