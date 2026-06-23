@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOrgId } from "@/hooks/useOrgId";
 import { playDoubleBeep, playSoftChime, playEngineerMessageAlert, isAudioUnlocked, getAudioContextState, unlockAudioNow } from "@/utils/audio";
 import { useNotifications } from "@/hooks/useNotifications";
-import { toast } from "sonner";
+import { toast as sonnerToast } from "sonner";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
   Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame, Volume2,
