@@ -34,6 +34,8 @@ const InstallAppBannerInner = () => {
   });
 
   useEffect(() => {
+    if (pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/dashboard") || pathname.startsWith("/engineer")) return;
+
     // Don't show on desktop
     if (window.innerWidth >= 768) return;
     // Don't show in standalone mode
@@ -74,7 +76,7 @@ const InstallAppBannerInner = () => {
       clearTimeout(timer);
       window.removeEventListener("beforeinstallprompt", handlePrompt);
     };
-  }, []);
+  }, [pathname]);
 
   const dismiss = useCallback(() => {
     setAnimateIn(false);
