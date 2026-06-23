@@ -649,7 +649,11 @@ export type Database = {
           user_id: string
           warranty_reminder_log: Json | null
           warranty_years: number | null
+          whatsapp_opt_in: boolean
+          whatsapp_opt_out_at: string | null
+          whatsapp_opt_out_source: string | null
           whatsapp_phone: string | null
+          whatsapp_reminders_enabled: boolean
         }
         Insert: {
           access_notes?: string | null
@@ -702,7 +706,11 @@ export type Database = {
           user_id: string
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
+          whatsapp_opt_in?: boolean
+          whatsapp_opt_out_at?: string | null
+          whatsapp_opt_out_source?: string | null
           whatsapp_phone?: string | null
+          whatsapp_reminders_enabled?: boolean
         }
         Update: {
           access_notes?: string | null
@@ -755,7 +763,11 @@ export type Database = {
           user_id?: string
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
+          whatsapp_opt_in?: boolean
+          whatsapp_opt_out_at?: string | null
+          whatsapp_opt_out_source?: string | null
           whatsapp_phone?: string | null
+          whatsapp_reminders_enabled?: boolean
         }
         Relationships: [
           {
