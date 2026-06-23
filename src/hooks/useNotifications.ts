@@ -88,10 +88,7 @@ export function useNotifications() {
 
   useEffect(() => {
     if (!user) return;
-    initialLoadDone.current = false;
-    fetchNotifications().then(() => {
-      setTimeout(() => { initialLoadDone.current = true; }, 1000);
-    });
+    fetchNotifications();
   }, [user, fetchNotifications]);
 
   // Fetch sound preference
