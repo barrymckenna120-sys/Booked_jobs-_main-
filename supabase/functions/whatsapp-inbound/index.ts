@@ -93,21 +93,36 @@ Deno.serve(async (req: Request) => {
       .update({ last_message_sent_at: createdAt })
       .eq("id", customer.id);
 
-    if (messageText.trim().toLowerCase() === "stop") {
-      await supabase
+    const normalisedText = messageText.trim().toUpperCase();
+    if (normalisedText === "STOP" || normalisedText === "UNSUBSCRIBE") {
+      console.log(`[whatsapp-inbound] STOP detected for customer ${customer.id}`);
+
+      const optOutAt = new Date().toISOString();
+      const { error: optErr } = await supabase
         .from("customers")
-        .update({ opted_out: true })
+        .update({
+          opted_out: true,
+          opted_out_date: optOutAt,
+          whatsapp_reminders_enabled: false,
+          whatsapp_opt_in: false,
+          whatsapp_opt_out_at: optOutAt,
+          whatsapp_opt_out_source: "STOP reply",
+        })
         .eq("id", customer.id);
+      if (optErr) console.error("[whatsapp-inbound] opt-out update failed:", optErr);
+      else console.log(`[whatsapp-inbound] customer opt-out updated: ${customer.id}`);
 
       // Send opt-out confirmation reply
       const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+      const branding = customer?.organisation_id
+        ? await getOrgBrandingClient(supabase, customer.organisation_id)
+        : { name: "our team", phone: "", footer: "" };
+      const confirmationText = `Got it — we've removed you from our reminder list. No further messages will be sent. ${branding.footer || branding.name}.`;
+
       if (apiKey && from) {
-        const branding = customer?.organisation_id
-          ? await getOrgBrandingClient(supabase, customer.organisation_id)
-          : { name: "our team", phone: "", footer: "" };
         const form = new FormData();
         form.append("phonenumber", from);
-        form.append("text", `Got it — we've removed you from our reminder list. No further messages will be sent. ${branding.footer || branding.name}.`);
+        form.append("text", confirmationText);
         try {
           await fetch("https://api.360messenger.com/v2/sendMessage", {
             method: "POST",
@@ -115,9 +130,37 @@ Deno.serve(async (req: Request) => {
             body: form,
           });
         } catch (_e) {
-          // Non-critical: log but don't fail the webhook
-          console.error("Failed to send opt-out reply:", _e);
+          console.error("[whatsapp-inbound] Failed to send opt-out reply:", _e);
         }
+      }
+
+      // Persist confirmation to history
+      try {
+        const outAt = new Date().toISOString();
+        await supabase.from("whatsapp_messages").insert({
+          organisation_id: inboundOrgId,
+          customer_id: customer.id,
+          message_body: confirmationText,
+          message_type: "opt_out_confirmation",
+          sent_by: "system",
+          status: "Sent",
+          sent_at: outAt,
+          phone_number: from,
+        });
+        await supabase.from("message_log").insert({
+          organisation_id: inboundOrgId,
+          customer_id: customer.id,
+          message_type: "opt_out_confirmation",
+          channel: "whatsapp",
+          direction: "outbound",
+          content: confirmationText,
+          status: "sent",
+          sent_by: "system",
+          sent_at: outAt,
+        });
+        console.log(`[whatsapp-inbound] opt-out confirmation saved for customer ${customer.id}`);
+      } catch (e) {
+        console.error("[whatsapp-inbound] failed to save opt-out confirmation:", e);
       }
     }
   }

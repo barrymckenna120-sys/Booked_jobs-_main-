@@ -68,24 +68,119 @@ Deno.serve(async (req) => {
     const phone = normalisePhone(fromRaw);
     const upper = text.toUpperCase();
 
-    // STOP — opt out customer (no service_call lookup required)
-    if (upper === "STOP") {
-      const { data: customer } = await supabase
-        .from("customers")
-        .select("id, name, phone")
-        .or(`phone.eq.${phone},phone.eq.+${phone},phone.eq.0${phone.slice(3)}`)
-        .limit(1)
-        .maybeSingle();
+    console.log(`[inbound-webhook] received from=${fromRaw} text="${text}"`);
 
-      if (customer) {
-        await supabase
+    // Always look up customer first (used for both STOP and other replies)
+    const { data: matchedCustomer } = await supabase
+      .from("customers")
+      .select("id, name, phone, organisation_id")
+      .or(`phone.eq.${phone},phone.eq.+${phone},phone.eq.0${phone.slice(3)}`)
+      .limit(1)
+      .maybeSingle();
+
+    console.log(`[inbound-webhook] customer matched: ${matchedCustomer?.id || "none"} (phone=${phone})`);
+
+    // ALWAYS persist inbound message to history first — including STOP, START, CANCEL, etc.
+    const inboundAt = new Date().toISOString();
+    if (matchedCustomer?.organisation_id) {
+      try {
+        await supabase.from("whatsapp_messages").insert({
+          organisation_id: matchedCustomer.organisation_id,
+          customer_id: matchedCustomer.id,
+          message_body: text,
+          message_type: "Inbound Reply",
+          sent_by: "customer",
+          status: "Received",
+          customer_reply: text,
+          reply_received_at: inboundAt,
+          sent_at: inboundAt,
+          phone_number: phone,
+        });
+        await supabase.from("message_log").insert({
+          organisation_id: matchedCustomer.organisation_id,
+          customer_id: matchedCustomer.id,
+          message_type: "inbound",
+          channel: "whatsapp",
+          direction: "inbound",
+          content: text,
+          status: "received",
+          sent_by: "customer",
+          sent_at: inboundAt,
+        });
+        console.log(`[inbound-webhook] inbound message saved for customer ${matchedCustomer.id}`);
+      } catch (e) {
+        console.error("[inbound-webhook] failed to persist inbound message:", e);
+      }
+    }
+
+    // STOP — opt out customer (no service_call lookup required)
+    if (upper === "STOP" || upper === "UNSUBSCRIBE") {
+      console.log(`[inbound-webhook] STOP detected for customer ${matchedCustomer?.id || "none"}`);
+
+      if (matchedCustomer) {
+        const { error: optErr } = await supabase
           .from("customers")
-          .update({ opted_out: true })
-          .eq("id", customer.id);
+          .update({
+            opted_out: true,
+            opted_out_date: inboundAt,
+            whatsapp_reminders_enabled: false,
+            whatsapp_opt_in: false,
+            whatsapp_opt_out_at: inboundAt,
+            whatsapp_opt_out_source: "STOP reply",
+          })
+          .eq("id", matchedCustomer.id);
+        if (optErr) console.error("[inbound-webhook] opt-out update failed:", optErr);
+        else console.log(`[inbound-webhook] customer opt-out updated: ${matchedCustomer.id}`);
+
+        // Send + persist outbound confirmation
+        try {
+          const { data: waIntegration } = await supabase
+            .from("tenant_integrations")
+            .select("config")
+            .eq("organisation_id", matchedCustomer.organisation_id)
+            .eq("integration_type", "whatsapp")
+            .maybeSingle();
+          const apiKey: string | undefined =
+            (waIntegration as any)?.config?.api_key ?? Deno.env.get("THREESIXTY_API_KEY") ?? undefined;
+
+          const confirmationText =
+            `You've been unsubscribed from WhatsApp reminders. Reply START at any time to opt back in.`;
+
+          if (apiKey) {
+            const sendRes = await sendWhatsApp(apiKey, phone, confirmationText);
+            console.log(`[inbound-webhook] opt-out confirmation send status=${sendRes.status}`);
+          }
+
+          const outAt = new Date().toISOString();
+          await supabase.from("whatsapp_messages").insert({
+            organisation_id: matchedCustomer.organisation_id,
+            customer_id: matchedCustomer.id,
+            message_body: confirmationText,
+            message_type: "opt_out_confirmation",
+            sent_by: "system",
+            status: "Sent",
+            sent_at: outAt,
+            phone_number: phone,
+          });
+          await supabase.from("message_log").insert({
+            organisation_id: matchedCustomer.organisation_id,
+            customer_id: matchedCustomer.id,
+            message_type: "opt_out_confirmation",
+            channel: "whatsapp",
+            direction: "outbound",
+            content: confirmationText,
+            status: "sent",
+            sent_by: "system",
+            sent_at: outAt,
+          });
+          console.log(`[inbound-webhook] opt-out confirmation saved for customer ${matchedCustomer.id}`);
+        } catch (e) {
+          console.error("[inbound-webhook] failed to send/save opt-out confirmation:", e);
+        }
       }
 
       await log(null, {
-        from: phone, text, action: "stop", customer_id: customer?.id || null,
+        from: phone, text, action: "stop", customer_id: matchedCustomer?.id || null,
       });
 
       return new Response(
@@ -129,20 +224,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Log inbound message to message_log (best-effort)
-    try {
-      await supabase.from("message_log").insert({
-        organisation_id: orgId,
-        customer_id: customer.id,
-        message_type: "inbound",
-        channel: "whatsapp",
-        direction: "inbound",
-        content: text,
-        status: "received",
-        sent_by: "customer",
-        sent_at: new Date().toISOString(),
-      });
-    } catch (_e) { /* non-critical */ }
+    // (Inbound already persisted above to whatsapp_messages + message_log)
+
+
 
 
     // Load tenant 360messenger integration for company branding (company_name, company_phone, country_code)
