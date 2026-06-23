@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { addToQueue } from "@/hooks/useRetryQueue";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
@@ -182,8 +183,14 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
 
     setSaving(false);
     if (error) {
-      console.error("❌ Certificate insert failed:", error.message, error);
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("❌ Certificate insert failed, queuing for retry:", error.message, error);
+      addToQueue({
+        table: "certificates",
+        operation: "insert",
+        payload: certData,
+      });
+      toast({ title: "No connection", description: "Certificate queued and will sync when back online" });
+      return;
     } else {
       const newCertId = (insertedRow as any)?.id;
       console.log("✅ Certificate inserted successfully. newCertId:", newCertId, "insertedRow:", insertedRow);

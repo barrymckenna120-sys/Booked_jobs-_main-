@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { addToQueue } from "@/hooks/useRetryQueue";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -183,10 +184,29 @@ const GasInstallationCertForm: React.FC<GasInstallationCertFormProps> = ({
 
       if (existingCert?.id) {
         const { error } = await supabase.from("cert2_certificates").update(payload).eq("id", existingCert.id);
-        if (error) throw error;
+        if (error) {
+          addToQueue({
+            table: "cert2_certificates",
+            operation: "update",
+            payload,
+            filter: { column: "id", value: existingCert.id },
+          });
+          toast({ title: "No connection", description: "Certificate saved and will sync automatically" });
+          onSaved();
+          return;
+        }
       } else {
         const { error } = await supabase.from("cert2_certificates").insert(payload as any);
-        if (error) throw error;
+        if (error) {
+          addToQueue({
+            table: "cert2_certificates",
+            operation: "insert",
+            payload,
+          });
+          toast({ title: "No connection", description: "Certificate saved and will sync automatically" });
+          onSaved();
+          return;
+        }
       }
 
       toast({ title: newStatus === "draft" ? "Draft saved" : "Certificate marked complete ✓" });
