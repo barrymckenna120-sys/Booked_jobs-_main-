@@ -20,6 +20,19 @@ const InstallAppBannerInner = () => {
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
   const [canInstallNative, setCanInstallNative] = useState(false);
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+
+  useEffect(() => {
+    console.log("[InstallAppBanner] mounted");
+    return () => console.log("[InstallAppBanner] unmounted");
+  }, []);
+
+  useEffect(() => {
+    console.log("[InstallAppBanner] re-rendered", { count: renderCount.current });
+  });
+
   useEffect(() => {
     // Don't show on desktop
     if (window.innerWidth >= 768) return;
@@ -43,8 +56,18 @@ const InstallAppBannerInner = () => {
     window.addEventListener("beforeinstallprompt", handlePrompt);
 
     const timer = setTimeout(() => {
+      console.log("[InstallAppBanner] becoming visible", {
+        heightBefore: rootRef.current?.offsetHeight ?? null,
+      });
       setVisible(true);
-      requestAnimationFrame(() => setAnimateIn(true));
+      requestAnimationFrame(() => {
+        setAnimateIn(true);
+        requestAnimationFrame(() => {
+          console.log("[InstallAppBanner] visible", {
+            heightAfter: rootRef.current?.offsetHeight ?? null,
+          });
+        });
+      });
     }, 3000);
 
     return () => {
