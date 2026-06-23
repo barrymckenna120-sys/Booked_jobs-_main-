@@ -1,8 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
+import {
+  playDoubleBeep,
+  playSoftChime,
+  playEngineerMessageAlert,
+  isAudioUnlocked,
+} from "@/utils/audio";
 import { debugLog } from "@/utils/debugLog";
+import { toast } from "sonner";
 
 export type NotificationType =
   | "new_job"
