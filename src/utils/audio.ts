@@ -156,6 +156,7 @@ export function unlockAudio() {
 
 /** 880Hz square double-beep for high-priority notifications */
 export async function playDoubleBeep() {
+  console.log("[audio] playDoubleBeep() called. ctx state:", ctx?.state ?? "no-ctx");
   // Synchronous HTMLAudio fallback first — guaranteed to fire if primed.
   playHtml(getHtmlAudio()?.beep);
   try {
