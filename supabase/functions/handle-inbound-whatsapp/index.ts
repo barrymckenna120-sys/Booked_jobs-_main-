@@ -224,20 +224,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Log inbound message to message_log (best-effort)
-    try {
-      await supabase.from("message_log").insert({
-        organisation_id: orgId,
-        customer_id: customer.id,
-        message_type: "inbound",
-        channel: "whatsapp",
-        direction: "inbound",
-        content: text,
-        status: "received",
-        sent_by: "customer",
-        sent_at: new Date().toISOString(),
-      });
-    } catch (_e) { /* non-critical */ }
+    // (Inbound already persisted above to whatsapp_messages + message_log)
+
+
 
 
     // Load tenant 360messenger integration for company branding (company_name, company_phone, country_code)
