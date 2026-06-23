@@ -73,6 +73,9 @@ const InstallAppBanner = () => {
   };
 
   if (!visible) return null;
+  if (pathname === "/" || pathname.startsWith("/auth")) return null;
+
+
 
   return (
     <div
