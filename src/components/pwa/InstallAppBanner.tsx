@@ -27,8 +27,6 @@ const InstallAppBanner = () => {
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     // Don't show if dismissed
     if (localStorage.getItem(DISMISSED_KEY) === "true") return;
-    // Don't show on login/auth page
-    if (pathname === "/" || pathname.startsWith("/auth")) return;
 
     const ua = navigator.userAgent;
     const ios = /iPhone|iPad|iPod/.test(ua) && !(window as any).MSStream;
@@ -75,6 +73,11 @@ const InstallAppBanner = () => {
   };
 
   if (!visible) return null;
+  if (pathname === "/" || pathname.startsWith("/auth")) return null;
+
+
+
+
 
   return (
     <div
