@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { X, Share2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-const InstallAppBanner = () => {
+const InstallAppBannerInner = () => {
   const { pathname } = useLocation();
   const [visible, setVisible] = useState(false);
   const [animateIn, setAnimateIn] = useState(false);
