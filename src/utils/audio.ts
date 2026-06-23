@@ -181,6 +181,7 @@ export async function playDoubleBeep() {
 
 /** 440Hz sine soft chime for completed notifications */
 export async function playSoftChime() {
+  console.log("[audio] playSoftChime() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.chime);
   try {
     const c = getCtx();
