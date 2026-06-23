@@ -81,9 +81,16 @@ const InstallAppBanner = () => {
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-lg p-4 transition-transform duration-300 ease-out ${
-        animateIn ? "translate-y-0" : "translate-y-full"
+      // Fixed position keeps the banner out of normal flow so the page never shifts.
+      // Transform-only entrance (translate + opacity) avoids height/margin reflow.
+      // Safe-area padding prevents the iOS dynamic bottom bar from making the
+      // card "jump" when the mobile viewport height changes.
+      // A stable min-height reserves space so adding the optional native
+      // "Install Now" button does not reflow the card itself.
+      className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-lg p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] transform-gpu will-change-transform transition-[transform,opacity] duration-300 ease-out ${
+        animateIn ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
       }`}
+      style={{ minHeight: 168, contain: "layout paint" }}
     >
       {/* Close button */}
       <button
@@ -99,7 +106,12 @@ const InstallAppBanner = () => {
         <img
           src="/icons/icon-192.png"
           alt="BookedJobs"
-          className="w-12 h-12 rounded-xl flex-shrink-0"
+          width={48}
+          height={48}
+          decoding="async"
+          loading="eager"
+          className="w-12 h-12 rounded-xl flex-shrink-0 block"
+          style={{ aspectRatio: "1 / 1" }}
         />
         <div>
           <p className="font-bold text-foreground text-sm">Install BookedJobs</p>
@@ -109,21 +121,20 @@ const InstallAppBanner = () => {
         </div>
       </div>
 
-      {/* Instructions */}
-      <div className="mt-3 space-y-2">
-        {isAndroid && (
+      {/* Instructions — reserve a fixed row height so the platform-specific
+          message swap never resizes the card. */}
+      <div className="mt-3 min-h-[20px] flex items-center">
+        {isAndroid ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Globe className="w-4 h-4 flex-shrink-0" />
             <span>Tap the menu ⋮ then "Add to Home Screen"</span>
           </div>
-        )}
-        {isIOS && (
+        ) : isIOS ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Share2 className="w-4 h-4 flex-shrink-0" />
             <span>Tap Share then "Add to Home Screen"</span>
           </div>
-        )}
-        {!isAndroid && !isIOS && (
+        ) : (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Globe className="w-4 h-4 flex-shrink-0" />
             <span>Use your browser menu to add to home screen</span>
@@ -131,15 +142,20 @@ const InstallAppBanner = () => {
         )}
       </div>
 
-      {/* Native install button (Android only) */}
-      {isAndroid && canInstallNative && (
-        <Button
-          onClick={handleNativeInstall}
-          className="w-full mt-3 text-white"
-          style={{ backgroundColor: "#4A86E8" }}
-        >
-          Install Now
-        </Button>
+      {/* Native install button slot — always reserved on Android so the late
+          `beforeinstallprompt` event never grows the card after it appears. */}
+      {isAndroid && (
+        <div className="mt-3 h-10">
+          {canInstallNative && (
+            <Button
+              onClick={handleNativeInstall}
+              className="w-full h-10 text-white"
+              style={{ backgroundColor: "#4A86E8" }}
+            >
+              Install Now
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
