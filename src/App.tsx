@@ -111,8 +111,11 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
 };
 function AppContent() {
   const { loading } = useAuth();
+  const location = useLocation();
 
-  if (loading) {
+  const isAuthRoute = location.pathname === '/auth' || location.pathname === '/';
+
+  if (loading && !isAuthRoute) {
     return (
       <div style={{
         display: "flex",
