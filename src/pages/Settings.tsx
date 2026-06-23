@@ -4,9 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgId } from "@/hooks/useOrgId";
+import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
-  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame, Volume2,
 } from "lucide-react";
 import Products from "@/pages/Products";
 import GeneralTab from "@/components/settings/GeneralTab";
