@@ -254,6 +254,7 @@ const AppLayoutInner = () => {
         
         <Outlet />
       </main>
+      <EnableSoundBanner />
 
       {/* ═══════════ MOBILE BOTTOM NAV — 5 tabs, fixed ═══════════ */}
       <nav
