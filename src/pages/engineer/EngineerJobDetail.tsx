@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { addToQueue } from "@/hooks/useRetryQueue";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -276,9 +277,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     console.log("[updateJob:detail] safeDbPatch keys:", Object.keys(safeDbPatch), "status:", safeDbPatch.status, "payment_method:", safeDbPatch.payment_method);
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
-      console.error("[updateJob:detail] DB update FAILED:", error.message, error);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return false;
+      console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
+      addToQueue({
+        table: "service_calls",
+        operation: "update",
+        payload: safeDbPatch,
+        filter: { column: "id", value: job.id },
+      });
+      toast({
+        title: "No connection",
+        description: "Job marked complete and will sync automatically",
+      });
+      return true;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
       if (cancelReason) {
