@@ -137,40 +137,57 @@ export function useNotifications() {
           table: "notifications",
           filter: `recipient_user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const n = payload.new as AppNotification;
           console.log("[notif] Realtime INSERT received:", {
             id: n.id,
             type: n.notification_type,
             title: n.title,
-            initialLoadDone: initialLoadDone.current,
             soundEnabled: soundEnabledRef.current,
+            audioUnlocked: isAudioUnlocked(),
           });
-          setNotifications((prev) => [n, ...prev]);
 
-          if (initialLoadDone.current) {
-            // Show banner
-            setBannerNotifications((prev) => [n, ...prev]);
+          // De-dupe in case the initial fetch already captured this row.
+          setNotifications((prev) =>
+            prev.some((p) => p.id === n.id) ? prev : [n, ...prev]
+          );
+          setBannerNotifications((prev) =>
+            prev.some((p) => p.id === n.id) ? prev : [n, ...prev]
+          );
 
-            // Play sound + vibrate for high priority (read from ref to avoid re-subscribing)
-            if (soundEnabledRef.current) {
-              console.log("[notif] About to call playNotificationSound for type:", n.notification_type);
-              if (n.notification_type === "message") {
-                debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
-                playEngineerMessageAlert();
-              } else if (n.notification_type === "completed") {
-                playSoftChime();
-              } else {
-                playDoubleBeep();
-              }
-            } else {
-              console.log("[notif] Sound NOT played — soundEnabled is", soundEnabledRef.current);
-            }
-            if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
-              vibrateHighPriority();
-            }
+          // Always surface a visible toast as a fallback when the device
+          // can't (or won't) play sound — autoplay block, muted device, etc.
+          toast(n.title, { description: n.body });
+
+          if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
+            vibrateHighPriority();
+          }
+
+          if (!soundEnabledRef.current) {
+            console.log("[notif] Sound NOT played — sound_alerts_enabled is false");
+            return;
+          }
+
+          console.log("[notif] About to call playNotificationSound for type:", n.notification_type);
+          let result;
+          if (n.notification_type === "message") {
+            debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
+            result = await playEngineerMessageAlert();
+          } else if (n.notification_type === "completed") {
+            result = await playSoftChime();
           } else {
-            console.log("[notif] Skipped sound — initial load not yet complete");
+            result = await playDoubleBeep();
+          }
+
+          if (!result?.played) {
+            console.warn("[notif] Sound did not play. reason:", result?.reason, "ctx state:", result?.state);
+            // Visual fallback so the user still notices, even without sound.
+            toast.warning("Notification sound blocked", {
+              description:
+                result?.reason === "audio-context-suspended" || result?.reason === "audio-context-interrupted"
+                  ? "Tap anywhere to re-enable sound alerts."
+                  : `Reason: ${result?.reason ?? "unknown"}`,
+            });
           }
         }
       )
