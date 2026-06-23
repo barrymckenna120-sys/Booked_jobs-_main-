@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { X, Share2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-const InstallAppBanner = () => {
+const InstallAppBannerInner = () => {
   const { pathname } = useLocation();
   const [visible, setVisible] = useState(false);
   const [animateIn, setAnimateIn] = useState(false);
@@ -19,6 +19,19 @@ const InstallAppBanner = () => {
   const [isAndroid, setIsAndroid] = useState(false);
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
   const [canInstallNative, setCanInstallNative] = useState(false);
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+
+  useEffect(() => {
+    console.log("[InstallAppBanner] mounted");
+    return () => console.log("[InstallAppBanner] unmounted");
+  }, []);
+
+  useEffect(() => {
+    console.log("[InstallAppBanner] re-rendered", { count: renderCount.current });
+  });
 
   useEffect(() => {
     // Don't show on desktop
@@ -43,8 +56,18 @@ const InstallAppBanner = () => {
     window.addEventListener("beforeinstallprompt", handlePrompt);
 
     const timer = setTimeout(() => {
+      console.log("[InstallAppBanner] becoming visible", {
+        heightBefore: rootRef.current?.offsetHeight ?? null,
+      });
       setVisible(true);
-      requestAnimationFrame(() => setAnimateIn(true));
+      requestAnimationFrame(() => {
+        setAnimateIn(true);
+        requestAnimationFrame(() => {
+          console.log("[InstallAppBanner] visible", {
+            heightAfter: rootRef.current?.offsetHeight ?? null,
+          });
+        });
+      });
     }, 3000);
 
     return () => {
@@ -53,15 +76,15 @@ const InstallAppBanner = () => {
     };
   }, []);
 
-  const dismiss = () => {
+  const dismiss = useCallback(() => {
     setAnimateIn(false);
     setTimeout(() => {
       setVisible(false);
       localStorage.setItem(DISMISSED_KEY, "true");
     }, 300);
-  };
+  }, []);
 
-  const handleNativeInstall = async () => {
+  const handleNativeInstall = useCallback(async () => {
     if (!deferredPrompt.current) return;
     await deferredPrompt.current.prompt();
     const { outcome } = await deferredPrompt.current.userChoice;
@@ -70,17 +93,14 @@ const InstallAppBanner = () => {
     }
     deferredPrompt.current = null;
     setCanInstallNative(false);
-  };
+  }, [dismiss]);
 
   if (!visible) return null;
   if (pathname === "/" || pathname.startsWith("/auth")) return null;
 
-
-
-
-
   return (
     <div
+      ref={rootRef}
       // Fixed position keeps the banner out of normal flow so the page never shifts.
       // Transform-only entrance (translate + opacity) avoids height/margin reflow.
       // Safe-area padding prevents the iOS dynamic bottom bar from making the
@@ -160,5 +180,9 @@ const InstallAppBanner = () => {
     </div>
   );
 };
+
+// memo prevents re-renders when parent layouts update with unrelated state,
+// so the fixed banner never remounts or shifts after first paint.
+const InstallAppBanner = memo(InstallAppBannerInner);
 
 export default InstallAppBanner;
