@@ -76,15 +76,15 @@ const InstallAppBannerInner = () => {
     };
   }, []);
 
-  const dismiss = () => {
+  const dismiss = useCallback(() => {
     setAnimateIn(false);
     setTimeout(() => {
       setVisible(false);
       localStorage.setItem(DISMISSED_KEY, "true");
     }, 300);
-  };
+  }, []);
 
-  const handleNativeInstall = async () => {
+  const handleNativeInstall = useCallback(async () => {
     if (!deferredPrompt.current) return;
     await deferredPrompt.current.prompt();
     const { outcome } = await deferredPrompt.current.userChoice;
@@ -93,17 +93,14 @@ const InstallAppBannerInner = () => {
     }
     deferredPrompt.current = null;
     setCanInstallNative(false);
-  };
+  }, [dismiss]);
 
   if (!visible) return null;
   if (pathname === "/" || pathname.startsWith("/auth")) return null;
 
-
-
-
-
   return (
     <div
+      ref={rootRef}
       // Fixed position keeps the banner out of normal flow so the page never shifts.
       // Transform-only entrance (translate + opacity) avoids height/margin reflow.
       // Safe-area padding prevents the iOS dynamic bottom bar from making the
