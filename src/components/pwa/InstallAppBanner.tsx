@@ -181,4 +181,8 @@ const InstallAppBannerInner = () => {
   );
 };
 
+// memo prevents re-renders when parent layouts update with unrelated state,
+// so the fixed banner never remounts or shifts after first paint.
+const InstallAppBanner = memo(InstallAppBannerInner);
+
 export default InstallAppBanner;
