@@ -10,6 +10,7 @@ import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
+import EnableSoundBanner from "@/components/EnableSoundBanner";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import { WifiOff, X } from "lucide-react";
