@@ -65,7 +65,8 @@ export function useNotifications() {
   const [soundEnabled, setSoundEnabled] = useState<boolean | null>(true);
   const soundEnabledRef = useRef<boolean | null>(true);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
-  const initialLoadDone = useRef(false);
+  // initialLoadDone guard removed — Realtime INSERT only fires for rows
+  // created after subscribe, so the 1s suppression skipped real alerts.
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
   const dismissBanner = useCallback((id: string) => {
     setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
