@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
     const { data: quotes, error: qErr } = await supabase
       .from("quotes")
-      .select("id, organisation_id, customer_id, customers(name, phone, opted_out)")
+      .select("id, organisation_id, customer_id, user_id, customers(name, phone, opted_out)")
       .eq("status", "sent")
       .eq("approved", false)
       .eq("follow_up_day3_sent", false)
