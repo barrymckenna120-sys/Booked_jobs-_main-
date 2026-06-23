@@ -4,9 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgId } from "@/hooks/useOrgId";
+import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
-  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame, Volume2,
 } from "lucide-react";
 import Products from "@/pages/Products";
 import GeneralTab from "@/components/settings/GeneralTab";
@@ -104,7 +105,35 @@ const Settings = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-2xl font-extrabold text-foreground mb-6">Settings</h1>
+      <h1 className="text-2xl font-extrabold text-foreground mb-3">Settings</h1>
+
+      {/* Diagnostics: test notification sounds (verifies audio chain end-to-end) */}
+      <div className="mb-6 flex flex-wrap items-center gap-2 p-3 rounded-lg border border-border bg-muted/30">
+        <Volume2 className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground mr-2">Test notification sound:</span>
+        <button
+          type="button"
+          onClick={() => { console.log("[test] Double beep button clicked"); playDoubleBeep(); }}
+          className="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:opacity-90"
+        >
+          Double beep (jobs)
+        </button>
+        <button
+          type="button"
+          onClick={() => { console.log("[test] Soft chime button clicked"); playSoftChime(); }}
+          className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-muted"
+        >
+          Soft chime (completed)
+        </button>
+        <button
+          type="button"
+          onClick={() => { console.log("[test] Message alert button clicked"); playEngineerMessageAlert(); }}
+          className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-muted"
+        >
+          Message alert
+        </button>
+      </div>
+
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar tabs (desktop) / Horizontal tabs (mobile) */}

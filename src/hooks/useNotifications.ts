@@ -136,6 +136,13 @@ export function useNotifications() {
         },
         (payload) => {
           const n = payload.new as AppNotification;
+          console.log("[notif] Realtime INSERT received:", {
+            id: n.id,
+            type: n.notification_type,
+            title: n.title,
+            initialLoadDone: initialLoadDone.current,
+            soundEnabled: soundEnabledRef.current,
+          });
           setNotifications((prev) => [n, ...prev]);
 
           if (initialLoadDone.current) {
@@ -144,6 +151,7 @@ export function useNotifications() {
 
             // Play sound + vibrate for high priority (read from ref to avoid re-subscribing)
             if (soundEnabledRef.current) {
+              console.log("[notif] About to call playNotificationSound for type:", n.notification_type);
               if (n.notification_type === "message") {
                 debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
                 playEngineerMessageAlert();
@@ -152,10 +160,14 @@ export function useNotifications() {
               } else {
                 playDoubleBeep();
               }
+            } else {
+              console.log("[notif] Sound NOT played — soundEnabled is", soundEnabledRef.current);
             }
             if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
               vibrateHighPriority();
             }
+          } else {
+            console.log("[notif] Skipped sound — initial load not yet complete");
           }
         }
       )

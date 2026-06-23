@@ -156,6 +156,7 @@ export function unlockAudio() {
 
 /** 880Hz square double-beep for high-priority notifications */
 export async function playDoubleBeep() {
+  console.log("[audio] playDoubleBeep() called. ctx state:", ctx?.state ?? "no-ctx");
   // Synchronous HTMLAudio fallback first — guaranteed to fire if primed.
   playHtml(getHtmlAudio()?.beep);
   try {
@@ -180,6 +181,7 @@ export async function playDoubleBeep() {
 
 /** 440Hz sine soft chime for completed notifications */
 export async function playSoftChime() {
+  console.log("[audio] playSoftChime() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.chime);
   try {
     const c = getCtx();
@@ -225,6 +227,7 @@ export async function playMessageBeep() {
 
 /** 1200Hz triangle triple-chirp for engineer message alerts — distinct from job notifications */
 export async function playEngineerMessageAlert() {
+  console.log("[audio] playEngineerMessageAlert() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.message);
   try {
     const c = getCtx();
