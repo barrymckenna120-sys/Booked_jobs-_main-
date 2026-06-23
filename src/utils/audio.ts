@@ -227,6 +227,7 @@ export async function playMessageBeep() {
 
 /** 1200Hz triangle triple-chirp for engineer message alerts — distinct from job notifications */
 export async function playEngineerMessageAlert() {
+  console.log("[audio] playEngineerMessageAlert() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.message);
   try {
     const c = getCtx();
