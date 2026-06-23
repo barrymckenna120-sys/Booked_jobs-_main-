@@ -51,6 +51,10 @@ const Settings = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
   const [saving, setSaving] = useState(false);
+  const [, forceTick] = useState(0);
+  const { soundEnabled, enableSound } = useNotifications();
+  const audioUnlocked = isAudioUnlocked();
+  const ctxState = getAudioContextState();
 
   const { orgId } = useOrgId();
 
