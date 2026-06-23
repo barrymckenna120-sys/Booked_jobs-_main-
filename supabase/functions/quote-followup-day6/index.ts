@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
     const { data: quotes, error: qErr } = await supabase
       .from("quotes")
-      .select("id, organisation_id, customer_id, customers(name, phone, opted_out)")
+      .select("id, organisation_id, customer_id, user_id, customers(name, phone, opted_out)")
       .eq("status", "sent")
       .eq("approved", false)
       .eq("follow_up_day3_sent", true)
@@ -63,7 +63,8 @@ Deno.serve(async (req) => {
           .eq("organisation_id", q.organisation_id)
           .eq("integration_type", "360messenger")
           .maybeSingle();
-        apiKey = (integration?.config as any)?.api_key ?? null;
+        const cfg: any = integration?.config ?? {};
+        apiKey = cfg.api_key ?? (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) ?? null : null);
         apiKeyCache.set(q.organisation_id, apiKey);
       }
       if (!apiKey) {
@@ -107,24 +108,38 @@ Deno.serve(async (req) => {
       console.log("[quote-followup-day6] WhatsApp response", { quote_id: q.id, ok, status: respStatus, body: respBody.slice(0, 300) });
 
       try {
-        const logResp = await fetch(`${supabaseUrl}/functions/v1/log-message`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({
-            service_call_id: q.id,
-            organisation_id: q.organisation_id,
-            message_type: "quote_followup_day6",
-            recipient_phone: phone,
-            message_body: message,
-            status: ok ? "success" : "fail",
-          }),
+        const { error: wmErr } = await supabase.from("whatsapp_messages").insert({
+          user_id: q.user_id ?? null,
+          customer_id: q.customer_id,
+          organisation_id: q.organisation_id,
+          phone_number: phone,
+          message_type: "quote_followup_day6",
+          message_body: message,
+          direction: "outbound",
+          status: ok ? "Sent" : "Failed",
+          linked_quote_id: q.id,
+          sent_by: "system",
         });
-        console.log("[quote-followup-day6] message saved to history", { quote_id: q.id, log_status: logResp.status });
+        const { error: mlErr } = await supabase.from("message_log").insert({
+          organisation_id: q.organisation_id,
+          customer_id: q.customer_id,
+          message_type: "quote_followup_day6",
+          channel: "whatsapp",
+          direction: "outbound",
+          content: message,
+          status: ok ? "success" : "fail",
+          related_id: q.id,
+          related_type: "quote",
+          sent_by: "system",
+          sent_at: new Date().toISOString(),
+        });
+        console.log("[quote-followup-day6] message saved to history", {
+          quote_id: q.id,
+          whatsapp_messages_error: wmErr?.message ?? null,
+          message_log_error: mlErr?.message ?? null,
+        });
       } catch (e) {
-        console.error("[quote-followup-day6] log-message invoke failed", { quote_id: q.id, error: (e as Error).message });
+        console.error("[quote-followup-day6] save-to-history failed", { quote_id: q.id, error: (e as Error).message });
       }
 
       if (ok) {
