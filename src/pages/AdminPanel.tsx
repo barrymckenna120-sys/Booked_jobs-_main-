@@ -402,6 +402,12 @@ export default function AdminPanel() {
     setOwnerEmail("");
     setOrgSlug("");
     setSlugDirty(false);
+    setBusinessAddress("");
+    setBusinessEmail("");
+    setRgiNumber("");
+    setWabaId("");
+    setApiKeySecret("");
+    setCountryCode("353");
     setErrors({});
   };
 
