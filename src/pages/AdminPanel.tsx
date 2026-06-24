@@ -113,6 +113,12 @@ export default function AdminPanel() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [slugDirty, setSlugDirty] = useState(false);
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [rgiNumber, setRgiNumber] = useState("");
+  const [wabaId, setWabaId] = useState("");
+  const [apiKeySecret, setApiKeySecret] = useState("");
+  const [countryCode, setCountryCode] = useState("353");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -396,6 +402,12 @@ export default function AdminPanel() {
     setOwnerEmail("");
     setOrgSlug("");
     setSlugDirty(false);
+    setBusinessAddress("");
+    setBusinessEmail("");
+    setRgiNumber("");
+    setWabaId("");
+    setApiKeySecret("");
+    setCountryCode("353");
     setErrors({});
   };
 
@@ -432,6 +444,12 @@ export default function AdminPanel() {
           owner_name: ownerName.trim(),
           owner_email: ownerEmail.trim(),
           org_slug: orgSlug.trim(),
+          business_address: businessAddress.trim(),
+          business_email: businessEmail.trim(),
+          rgi_number: rgiNumber.trim(),
+          waba_id: wabaId.trim(),
+          api_key_secret: apiKeySecret.trim(),
+          country_code: countryCode.trim(),
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -537,6 +555,62 @@ export default function AdminPanel() {
               {errors.org_slug && (
                 <p className="text-sm text-destructive">{errors.org_slug}</p>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="business_address">Business Address</Label>
+              <Input
+                id="business_address"
+                value={businessAddress}
+                onChange={(e) => setBusinessAddress(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="business_email">Business Email</Label>
+              <Input
+                id="business_email"
+                type="email"
+                value={businessEmail}
+                onChange={(e) => setBusinessEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rgi_number">RGI Number <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="rgi_number"
+                value={rgiNumber}
+                onChange={(e) => setRgiNumber(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="waba_id">WhatsApp WABA ID <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="waba_id"
+                value={wabaId}
+                onChange={(e) => setWabaId(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="api_key_secret">360dialog API Key Secret Name <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="api_key_secret"
+                value={apiKeySecret}
+                onChange={(e) => setApiKeySecret(e.target.value)}
+                placeholder="DUBLIN_GAS_THREESIXTY_API_KEY"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="country_code">Country Code</Label>
+              <Input
+                id="country_code"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+              />
             </div>
 
             {success && (
