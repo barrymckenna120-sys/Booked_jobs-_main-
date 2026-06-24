@@ -444,6 +444,12 @@ export default function AdminPanel() {
           owner_name: ownerName.trim(),
           owner_email: ownerEmail.trim(),
           org_slug: orgSlug.trim(),
+          business_address: businessAddress.trim(),
+          business_email: businessEmail.trim(),
+          rgi_number: rgiNumber.trim(),
+          waba_id: wabaId.trim(),
+          api_key_secret: apiKeySecret.trim(),
+          country_code: countryCode.trim(),
         }),
       });
       const json = await res.json().catch(() => ({}));
