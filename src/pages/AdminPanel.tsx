@@ -557,6 +557,62 @@ export default function AdminPanel() {
               )}
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="business_address">Business Address</Label>
+              <Input
+                id="business_address"
+                value={businessAddress}
+                onChange={(e) => setBusinessAddress(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="business_email">Business Email</Label>
+              <Input
+                id="business_email"
+                type="email"
+                value={businessEmail}
+                onChange={(e) => setBusinessEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rgi_number">RGI Number <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="rgi_number"
+                value={rgiNumber}
+                onChange={(e) => setRgiNumber(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="waba_id">WhatsApp WABA ID <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="waba_id"
+                value={wabaId}
+                onChange={(e) => setWabaId(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="api_key_secret">360dialog API Key Secret Name <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                id="api_key_secret"
+                value={apiKeySecret}
+                onChange={(e) => setApiKeySecret(e.target.value)}
+                placeholder="DUBLIN_GAS_THREESIXTY_API_KEY"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="country_code">Country Code</Label>
+              <Input
+                id="country_code"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+              />
+            </div>
+
             {success && (
               <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
                 {success}
