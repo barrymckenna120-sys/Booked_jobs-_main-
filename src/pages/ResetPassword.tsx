@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -196,7 +195,7 @@ const ResetPassword = () => {
       <div className="min-h-screen bg-muted flex items-center justify-center px-4">
         <Card className="w-full max-w-md shadow-md border-border/60">
           <CardHeader className="text-center space-y-3 pb-2">
-            <img src={bookedJobsLogo} alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
+            <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
             <div>
               <CardTitle className="text-xl text-foreground">Link Expired</CardTitle>
               <CardDescription className="mt-1">
@@ -230,7 +229,7 @@ const ResetPassword = () => {
     <div className="min-h-screen bg-muted flex items-center justify-center px-4">
       <Card className="w-full max-w-md shadow-md border-border/60">
         <CardHeader className="text-center space-y-3 pb-2">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
+          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
           <div>
             <CardTitle className="text-xl text-foreground">Set New Password</CardTitle>
             <CardDescription className="mt-1">Choose a secure password for your account</CardDescription>
