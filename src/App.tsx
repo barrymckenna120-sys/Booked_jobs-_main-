@@ -163,10 +163,10 @@ function AppContent() {
         <Route path="/incoming" element={<Navigate to="/pipeline" replace />} />
         <Route path="/quotes" element={<Navigate to="/pipeline" replace />} />
         <Route path="/sales-ledger" element={<Navigate to="/finance" replace />} />
-        <Route path="/message-log" element={<MessageLog />} />
+        <Route path="/message-log" element={<OfficeRoute><MessageLog /></OfficeRoute>} />
         <Route path="/messages" element={<Navigate to="/inbox" replace />} />
-        <Route path="/system-logs" element={<SystemLogs />} />
-        <Route path="/debug/incoming-jobs" element={<IncomingJobsDebug />} />
+        <Route path="/system-logs" element={<OfficeRoute><SystemLogs /></OfficeRoute>} />
+        <Route path="/debug/incoming-jobs" element={<OfficeRoute><IncomingJobsDebug /></OfficeRoute>} />
 
         {/* Quote detail routes still work directly */}
         <Route path="/quotes/new" element={<QuoteNew />} />
