@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { WhatsAppConnectionProvider } from "@/hooks/useWhatsAppConnection";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import OfficeRoute from "./components/shared/OfficeRoute";
+import SuperAdminRoute from "./components/shared/SuperAdminRoute";
 import Jobs from "./pages/Jobs";
 import JobDetail from "./pages/JobDetail";
 import Customers from "./pages/Customers";
@@ -201,8 +202,10 @@ function AppContent() {
       <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
       <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
       <Route path="/debug/audio" element={<AudioDebug />} />
-      <Route path="/admin" element={<AdminPanel />} />
-      <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
+      <Route element={<SuperAdminRoute />}>
+        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
+      </Route>
       <Route path="/offline" element={<Offline />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
