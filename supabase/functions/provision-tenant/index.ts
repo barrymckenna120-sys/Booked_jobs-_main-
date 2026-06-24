@@ -64,7 +64,19 @@ Deno.serve(async (req) => {
     business_address,
     business_email,
     rgi_number,
+    waba_id,
+    api_key_secret,
+    country_code,
   } = body ?? {};
+
+  const resolvedApiKeySecret =
+    typeof api_key_secret === "string" && api_key_secret.trim()
+      ? api_key_secret.trim()
+      : "THREESIXTY_API_KEY";
+  const resolvedCountryCode =
+    typeof country_code === "string" && country_code.trim()
+      ? country_code.trim()
+      : "353";
 
   // Step 1: validate
   const required = { company_name, company_phone, owner_name, owner_email, org_slug };
@@ -254,10 +266,11 @@ Deno.serve(async (req) => {
         organisation_id: newOrgId,
         integration_type: "360messenger",
         config: {
-          api_key_secret: "THREESIXTY_API_KEY",
+          api_key_secret: resolvedApiKeySecret,
           company_name,
           company_phone,
-          country_code: "353",
+          country_code: resolvedCountryCode,
+          waba_id: waba_id ?? null,
         },
       },
       {
