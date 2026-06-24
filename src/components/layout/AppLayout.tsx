@@ -1,6 +1,4 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
-
-import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
@@ -135,7 +133,7 @@ const AppLayoutInner = () => {
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
+          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
             {canSwitchToEngineer && (
               <button
@@ -205,7 +203,7 @@ const AppLayoutInner = () => {
       {/* ═══════════ MOBILE TOP BAR ═══════════ */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
+          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
         </div>
         <div className="flex items-center gap-1.5">
           {canSwitchToEngineer && (

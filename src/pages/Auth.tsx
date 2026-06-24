@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -170,7 +169,7 @@ const Auth = () => {
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
+            <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-10 mx-auto mb-2" />
             <CardTitle className="text-lg">Reset Your Password</CardTitle>
             <CardDescription>
               {resetSent
@@ -234,7 +233,7 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
+          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-10 mx-auto mb-2" />
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
