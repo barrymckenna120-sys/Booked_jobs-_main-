@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
       message_footer,
       owner_name,
       cert_prefix: finalSlug.slice(0, 2).toUpperCase(),
-    }, { onConflict: "organisation_id" });
+    }, { onConflict: "user_id" });
   if (settingsErr) {
     await logFailure("step 4", settingsErr.message);
     return json({ error: "provision_failed", step: "4", detail: settingsErr.message }, 500);
