@@ -174,8 +174,8 @@ function AppContent() {
         <Route path="/quotes/:id/edit" element={<QuoteEdit />} />
 
         {/* WhatsApp direct routes still work */}
-        <Route path="/whatsapp" element={<WhatsApp />} />
-        <Route path="/whatsapp/templates" element={<WhatsAppTemplates />} />
+        <Route path="/whatsapp" element={<OfficeRoute><WhatsApp /></OfficeRoute>} />
+        <Route path="/whatsapp/templates" element={<OfficeRoute><WhatsAppTemplates /></OfficeRoute>} />
       </Route>
       {/* Engineer Mode */}
       <Route path="/engineer" element={<EngineerLayout />}>
