@@ -183,6 +183,30 @@ Deno.serve(async (req) => {
     newUserId = inviteData.user.id;
   }
 
+  // Guard: prevent hijacking an existing user's profile (e.g. superadmin or cross-org user)
+  {
+    const { data: existingProfile, error: existingProfileErr } = await supabase
+      .from("profiles")
+      .select("user_id, organisation_id, role")
+      .eq("user_id", newUserId)
+      .maybeSingle();
+    if (existingProfileErr) {
+      await logFailure("step 6-guard", existingProfileErr.message);
+      return json({ error: "provision_failed", step: "6-guard", detail: existingProfileErr.message }, 500);
+    }
+    if (existingProfile) {
+      if (existingProfile.role === "superadmin") {
+        await logFailure("step 6-guard", "email belongs to superadmin");
+        return json({ error: "This email belongs to a superadmin account and cannot be used for tenant provisioning." }, 400);
+      }
+      if (existingProfile.organisation_id && existingProfile.organisation_id !== newOrgId) {
+        await logFailure("step 6-guard", `email belongs to org ${existingProfile.organisation_id}`);
+        return json({ error: "A user with this email already exists in another organisation. Please use a different email address." }, 400);
+      }
+    }
+  }
+
+
   // Ensure organisation_id + role are present in raw_app_meta_data (JWT claims)
   const { error: appMetaErr } = await supabase.auth.admin.updateUserById(newUserId, {
     app_metadata: { organisation_id: newOrgId, role: "admin" },
