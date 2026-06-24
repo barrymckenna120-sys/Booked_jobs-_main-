@@ -32,7 +32,7 @@ export const InviteEmail = ({
     <Body style={main}>
       <Container style={container}>
         <Img
-          src="https://ktkfuquqxbrmuqrmbmdj.supabase.co/storage/v1/object/public/email-assets/bookedjobs-logo.jpg"
+          src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png"
           width="140"
           height="auto"
           alt="BookedJobs"
