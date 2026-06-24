@@ -113,6 +113,12 @@ export default function AdminPanel() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [slugDirty, setSlugDirty] = useState(false);
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [rgiNumber, setRgiNumber] = useState("");
+  const [wabaId, setWabaId] = useState("");
+  const [apiKeySecret, setApiKeySecret] = useState("");
+  const [countryCode, setCountryCode] = useState("353");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
