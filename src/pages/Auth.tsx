@@ -22,7 +22,7 @@ const Auth = () => {
   const { toast } = useToast();
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const [failedAttempts, setFailedAttempts] = useState(0);
+  
   const [errorModalOpen, setErrorModalOpen] = useState(false);
   const [errorTitle, setErrorTitle] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
