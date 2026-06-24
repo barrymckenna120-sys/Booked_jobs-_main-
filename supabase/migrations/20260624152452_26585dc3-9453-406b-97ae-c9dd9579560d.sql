@@ -1,0 +1,1 @@
+UPDATE public.profiles SET role='superadmin' WHERE user_id='ed429061-7b76-4272-af4a-25249ee6d719';
