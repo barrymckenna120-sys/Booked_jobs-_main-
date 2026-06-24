@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
   // Step 5b: engineers row for owner (so IntegrationsTab + role checks resolve org)
   const { error: engErr } = await supabase
     .from("engineers")
-    .insert({
+    .upsert({
       organisation_id: newOrgId,
       auth_user_id: newUserId,
       name: owner_name,
@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
       can_access_office: true,
       status: "active",
       is_available: true,
-    });
+    }, { onConflict: "auth_user_id" });
   if (engErr) {
     await logFailure("step 5b", engErr.message);
     return json({ error: "provision_failed", step: "5b", detail: engErr.message }, 500);
