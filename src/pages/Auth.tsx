@@ -73,7 +73,7 @@ const Auth = () => {
     try {
       const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      setFailedAttempts(0);
+      supabase.functions.invoke("track-failed-login", { body: { email: email.trim(), reset: true } }).catch(() => {});
 
       let redirectPath = "/dashboard";
       const userId = signInData?.user?.id;
@@ -107,22 +107,22 @@ const Auth = () => {
       }
 
       if (msg.includes("invalid")) {
-        const newAttempts = failedAttempts + 1;
-        setFailedAttempts(newAttempts);
-
-        if (newAttempts >= 5) {
-          setErrorTitle("Account Blocked");
-          setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
-          setIsBlocked(true);
-          setFormError(BLOCKED_AUTH_ERROR);
-          setErrorModalOpen(true);
-          supabase.functions.invoke("lock-failed-login", {
+        try {
+          const { data } = await supabase.functions.invoke("track-failed-login", {
             body: { email: email.trim() },
-          }).catch(() => {});
-        } else if (newAttempts === 4) {
-          setErrorTitle("Incorrect Password");
-          setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
-          setErrorModalOpen(true);
+          });
+          if (data?.locked) {
+            setIsBlocked(true);
+            setFormError("Your account has been blocked due to too many failed attempts. Please contact your administrator.");
+            setErrorTitle("Account Blocked");
+            setErrorMessage("Your account has been blocked due to too many failed attempts. Please contact your administrator.");
+            setErrorModalOpen(true);
+          } else {
+            const remaining = 5 - (data?.attempts || 0);
+            setFormError(`Invalid email or password. ${remaining} attempt(s) remaining before lockout.`);
+          }
+        } catch (_e) {
+          setFormError(GENERIC_AUTH_ERROR);
         }
       }
     } finally {
