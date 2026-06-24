@@ -266,10 +266,11 @@ Deno.serve(async (req) => {
         organisation_id: newOrgId,
         integration_type: "360messenger",
         config: {
-          api_key_secret: "THREESIXTY_API_KEY",
+          api_key_secret: resolvedApiKeySecret,
           company_name,
           company_phone,
-          country_code: "353",
+          country_code: resolvedCountryCode,
+          waba_id: waba_id ?? null,
         },
       },
       {
