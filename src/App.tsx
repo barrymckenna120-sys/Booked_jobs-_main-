@@ -148,7 +148,7 @@ function AppContent() {
         <Route path="/customers" element={<Customers />} />
         <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/schedule" element={<Schedule />} />
-        <Route path="/finance" element={<FinancePage />} />
+        <Route path="/finance" element={<OfficeRoute><FinancePage /></OfficeRoute>} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/parts" element={<Parts />} />
         <Route path="/warranty" element={<OfficeRoute><WarrantyTracker /></OfficeRoute>} />
@@ -156,7 +156,7 @@ function AppContent() {
         <Route path="/warranty/:id" element={<OfficeRoute><WarrantyDetail /></OfficeRoute>} />
         <Route path="/products" element={<Products />} />
         <Route path="/settings" element={<OfficeRoute><Settings /></OfficeRoute>} />
-        <Route path="/settings/import" element={<ImportCustomers />} />
+        <Route path="/settings/import" element={<OfficeRoute><ImportCustomers /></OfficeRoute>} />
 
         {/* Legacy routes — redirect to new locations */}
         <Route path="/renewals" element={<Navigate to="/pipeline" replace />} />
