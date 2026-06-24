@@ -64,7 +64,19 @@ Deno.serve(async (req) => {
     business_address,
     business_email,
     rgi_number,
+    waba_id,
+    api_key_secret,
+    country_code,
   } = body ?? {};
+
+  const resolvedApiKeySecret =
+    typeof api_key_secret === "string" && api_key_secret.trim()
+      ? api_key_secret.trim()
+      : "THREESIXTY_API_KEY";
+  const resolvedCountryCode =
+    typeof country_code === "string" && country_code.trim()
+      ? country_code.trim()
+      : "353";
 
   // Step 1: validate
   const required = { company_name, company_phone, owner_name, owner_email, org_slug };
