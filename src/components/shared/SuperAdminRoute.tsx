@@ -2,10 +2,6 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-/**
- * Route guard that only allows superadmin users.
- * Renders <Outlet /> for superadmins, otherwise redirects to /dashboard.
- */
 const SuperAdminRoute = () => {
   const navigate = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
@@ -13,7 +9,6 @@ const SuperAdminRoute = () => {
 
   useEffect(() => {
     let cancelled = false;
-
     const check = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
@@ -24,13 +19,11 @@ const SuperAdminRoute = () => {
         }
         return;
       }
-
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("user_id", user.id)
         .maybeSingle();
-
       if (profileError || !profile) {
         if (!cancelled) {
           setAuthorized(false);
@@ -39,7 +32,6 @@ const SuperAdminRoute = () => {
         }
         return;
       }
-
       if (profile.role === "superadmin") {
         if (!cancelled) {
           setAuthorized(true);
@@ -53,23 +45,11 @@ const SuperAdminRoute = () => {
         }
       }
     };
-
     check();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [navigate]);
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="text-muted-foreground text-sm">Checking access...</span>
-      </div>
-    );
-  }
-
-  if (!authorized) {
+  if (!authChecked || !authorized) {
     return null;
   }
 
