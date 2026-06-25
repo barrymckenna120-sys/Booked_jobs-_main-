@@ -144,32 +144,22 @@ export default function AdminPanel() {
   const [archiveTypedName, setArchiveTypedName] = useState("");
   const [archiving, setArchiving] = useState(false);
 
-  // Access check
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    const checkSuperAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        if (!cancelled) navigate("/dashboard", { replace: true });
+        setIsSuperAdmin(false);
         return;
       }
-      const { data, error } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
-        .select("role" as any)
+        .select("role")
         .eq("user_id", user.id)
         .maybeSingle();
-      if (cancelled) return;
-      const role = (data as any)?.role;
-      if (error || role !== "superadmin") {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-      setAuthChecked(true);
-    })();
-    return () => {
-      cancelled = true;
+      setIsSuperAdmin(profile?.role === "superadmin");
     };
-  }, [navigate]);
+    checkSuperAdmin();
+  }, []);
 
   const loadTenants = async () => {
     setLoadingTenants(true);
