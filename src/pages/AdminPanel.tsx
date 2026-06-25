@@ -157,6 +157,7 @@ export default function AdminPanel() {
         .eq("user_id", user.id)
         .maybeSingle();
       setIsSuperAdmin(profile?.role === "superadmin");
+      setAuthChecked(true);
     };
     checkSuperAdmin();
   }, []);
