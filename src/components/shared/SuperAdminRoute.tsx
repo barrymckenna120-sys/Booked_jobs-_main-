@@ -29,7 +29,7 @@ const SuperAdminRoute = () => {
         .from("profiles")
         .select("role")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError || !profile) {
         if (!cancelled) {
@@ -61,7 +61,15 @@ const SuperAdminRoute = () => {
     };
   }, [navigate]);
 
-  if (!authChecked || !authorized) {
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="text-muted-foreground text-sm">Checking access...</span>
+      </div>
+    );
+  }
+
+  if (!authorized) {
     return null;
   }
 
