@@ -86,6 +86,38 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Hard superadmin protection: block provisioning if owner_email belongs to any superadmin account
+  const normalizedOwnerEmail = String(owner_email).trim().toLowerCase();
+  {
+    const { data: superadminRows, error: superadminErr } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("role", "superadmin");
+    if (superadminErr) {
+      return json({ error: "provision_failed", step: "0-superadmin-check", detail: superadminErr.message }, 500);
+    }
+    const superadminIds = new Set((superadminRows ?? []).map((r: any) => r.user_id));
+    if (superadminIds.size > 0) {
+      // Page through auth users to find any superadmin matching the owner_email
+      for (let page = 1; page <= 20; page++) {
+        const { data: listPage, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+        if (listErr) {
+          return json({ error: "provision_failed", step: "0-superadmin-check", detail: listErr.message }, 500);
+        }
+        const users = listPage?.users ?? [];
+        for (const u of users) {
+          if (
+            superadminIds.has(u.id) &&
+            (u.email ?? "").trim().toLowerCase() === normalizedOwnerEmail
+          ) {
+            return json({ error: "This email belongs to a superadmin account and cannot be used for tenant provisioning." }, 400);
+          }
+        }
+        if (users.length < 200) break;
+      }
+    }
+  }
+
   const addressPart = (business_address ?? "").toString().trim();
   const message_footer = [company_name, addressPart, company_phone]
     .filter((v) => v && String(v).trim())
