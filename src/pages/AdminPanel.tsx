@@ -466,7 +466,10 @@ export default function AdminPanel() {
     }
   };
 
-  if (!authChecked) {
+  if (isSuperAdmin === null) return null; // still loading — do not redirect yet
+
+  if (isSuperAdmin === false) {
+    window.location.replace("/dashboard");
     return null;
   }
 
