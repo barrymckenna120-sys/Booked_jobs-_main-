@@ -92,13 +92,6 @@ const StatusBadge = ({ status }: { status: string | null }) => {
 export default function AdminPanel() {
   const navigate = useNavigate();
   const { setViewingOrg, viewingOrgId } = useAdminViewAs();
-  const { profile, authLoading } = useAuth();
-
-  if (authLoading) return null;
-
-  if (!profile || profile.role !== "superadmin") {
-    return <Navigate to="/dashboard" replace />;
-  }
   const [authChecked, setAuthChecked] = useState(false);
 
   // On mount, push the currently selected org override into the Supabase session
