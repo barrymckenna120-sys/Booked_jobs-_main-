@@ -93,6 +93,7 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const { setViewingOrg, viewingOrgId } = useAdminViewAs();
   const [authChecked, setAuthChecked] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
 
   // On mount, push the currently selected org override into the Supabase session
   // so all subsequent queries resolve data for the selected tenant.
@@ -143,32 +144,23 @@ export default function AdminPanel() {
   const [archiveTypedName, setArchiveTypedName] = useState("");
   const [archiving, setArchiving] = useState(false);
 
-  // Access check
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    const checkSuperAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        if (!cancelled) navigate("/dashboard", { replace: true });
+        setIsSuperAdmin(false);
         return;
       }
-      const { data, error } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
-        .select("role" as any)
+        .select("role")
         .eq("user_id", user.id)
         .maybeSingle();
-      if (cancelled) return;
-      const role = (data as any)?.role;
-      if (error || role !== "superadmin") {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
+      setIsSuperAdmin(profile?.role === "superadmin");
       setAuthChecked(true);
-    })();
-    return () => {
-      cancelled = true;
     };
-  }, [navigate]);
+    checkSuperAdmin();
+  }, []);
 
   const loadTenants = async () => {
     setLoadingTenants(true);
@@ -474,7 +466,10 @@ export default function AdminPanel() {
     }
   };
 
-  if (!authChecked) {
+  if (isSuperAdmin === null) return null; // still loading — do not redirect yet
+
+  if (isSuperAdmin === false) {
+    window.location.replace("/dashboard");
     return null;
   }
 
