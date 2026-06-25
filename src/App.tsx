@@ -203,6 +203,7 @@ function AppContent() {
       <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
       <Route path="/debug/audio" element={<AudioDebug />} />
       <Route element={<SuperAdminRoute />}>
+        {/* @lovable-page Admin Panel */}
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
       </Route>
