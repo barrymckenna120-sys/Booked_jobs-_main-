@@ -215,6 +215,25 @@ Deno.serve(async (req) => {
     newUserId = inviteData.user.id;
   }
 
+  // Post-resolution superadmin guard: if the resolved user is a superadmin, abort and clean up the org
+  {
+    const { data: saProfile, error: saErr } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("user_id", newUserId)
+      .eq("role", "superadmin")
+      .maybeSingle();
+    if (saErr) {
+      await supabase.from("organisations").delete().eq("id", newOrgId);
+      await logFailure("6-superadmin-guard", saErr.message);
+      return json({ error: "provision_failed", step: "6-superadmin-guard", detail: saErr.message }, 500);
+    }
+    if (saProfile) {
+      await supabase.from("organisations").delete().eq("id", newOrgId);
+      return json({ error: "This email belongs to a superadmin account and cannot be used for tenant provisioning." }, 400);
+    }
+  }
+
   // Guard: prevent hijacking an existing user's profile (e.g. superadmin or cross-org user)
   {
     const { data: existingProfile, error: existingProfileErr } = await supabase
