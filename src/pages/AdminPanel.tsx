@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -92,13 +92,6 @@ const StatusBadge = ({ status }: { status: string | null }) => {
 export default function AdminPanel() {
   const navigate = useNavigate();
   const { setViewingOrg, viewingOrgId } = useAdminViewAs();
-  const { profile, authLoading } = useAuth();
-
-  if (authLoading) return null;
-
-  if (!profile || profile.role !== "superadmin") {
-    return <Navigate to="/dashboard" replace />;
-  }
   const [authChecked, setAuthChecked] = useState(false);
 
   // On mount, push the currently selected org override into the Supabase session
