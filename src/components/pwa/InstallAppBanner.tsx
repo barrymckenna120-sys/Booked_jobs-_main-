@@ -23,6 +23,8 @@ const InstallAppBannerInner = () => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const renderCount = useRef(0);
   renderCount.current += 1;
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     console.log("[InstallAppBanner] mounted");
@@ -34,7 +36,7 @@ const InstallAppBannerInner = () => {
   });
 
   useEffect(() => {
-    if (pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/dashboard") || pathname.startsWith("/engineer")) return;
+    if (['/auth', '/', '/dashboard', '/engineer'].some(p => pathname.startsWith(p))) return;
 
     // Don't show on desktop
     if (window.innerWidth >= 768) return;
@@ -58,6 +60,7 @@ const InstallAppBannerInner = () => {
     window.addEventListener("beforeinstallprompt", handlePrompt);
 
     const timer = setTimeout(() => {
+      if (['/auth', '/', '/dashboard', '/engineer'].some(p => pathnameRef.current.startsWith(p))) return;
       console.log("[InstallAppBanner] becoming visible", {
         heightBefore: rootRef.current?.offsetHeight ?? null,
       });
@@ -97,6 +100,7 @@ const InstallAppBannerInner = () => {
     setCanInstallNative(false);
   }, [dismiss]);
 
+  if (['/auth', '/', '/dashboard', '/engineer'].some(p => pathname.startsWith(p))) return null;
   if (!visible) return null;
   if (pathname === "/" || pathname.startsWith("/auth")) return null;
 
