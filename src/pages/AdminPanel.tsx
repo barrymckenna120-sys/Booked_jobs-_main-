@@ -93,6 +93,7 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const { setViewingOrg, viewingOrgId } = useAdminViewAs();
   const [authChecked, setAuthChecked] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
 
   // On mount, push the currently selected org override into the Supabase session
   // so all subsequent queries resolve data for the selected tenant.
