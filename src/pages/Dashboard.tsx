@@ -51,6 +51,17 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
+
+  const [showAuthLoader, setShowAuthLoader] = useState(false);
+  useEffect(() => {
+    if (!authLoading) {
+      setShowAuthLoader(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowAuthLoader(true), 300);
+    return () => clearTimeout(timer);
+  }, [authLoading]);
+
   const mountedRef = useRef(false);
 
   // Toast alert when a new incoming job notification arrives
