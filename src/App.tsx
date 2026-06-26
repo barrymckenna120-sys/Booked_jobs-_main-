@@ -44,6 +44,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import DataProcessingAgreement from "./pages/DataProcessingAgreement";
 import ResetPassword from "./pages/ResetPassword";
+import ResetAdmin from "./pages/ResetAdmin";
 import ServiceReceipt from "./pages/ServiceReceipt";
 import InvoicePreview from "./pages/InvoicePreview";
 import Messages from "./pages/Messages";
@@ -140,6 +141,7 @@ function AppContent() {
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/reset-admin" element={<ResetAdmin />} />
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
         <Route path="/jobs" element={<Jobs />} />
