@@ -164,11 +164,16 @@ export default function AdminPanel() {
 
   const loadTenants = async () => {
     setLoadingTenants(true);
-    const { data } = await supabase
-      .from("organisations")
-      .select("id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked, is_archived, archived_at" as any)
-      .order("created_at", { ascending: false });
-    const list = (data as any[]) || [];
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || "";
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-tenants`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    const json = await res.json();
+    const list = (json.organisations as any[]) || [];
     setTenants(list as any);
     setLoadingTenants(false);
 
