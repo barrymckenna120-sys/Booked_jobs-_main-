@@ -141,6 +141,7 @@ function AppContent() {
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/reset-admin" element={<ResetAdmin />} />
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
         <Route path="/jobs" element={<Jobs />} />
