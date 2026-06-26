@@ -204,7 +204,7 @@ function AppContent() {
       <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
       <Route path="/data-processing-agreement" element={<DataProcessingAgreement />} />
       <Route path="/debug/audio" element={<AudioDebug />} />
-      {/* @lovable-page Admin Panel */}
+      
       <Route path="/admin" element={<AdminPanel />} />
       <Route path="/admin/tenants/:orgId" element={<TenantDetail />} />
       <Route path="/offline" element={<Offline />} />
