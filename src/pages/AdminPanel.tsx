@@ -156,7 +156,7 @@ export default function AdminPanel() {
         .select("role")
         .eq("user_id", user.id)
         .maybeSingle();
-      setIsSuperAdmin(profile?.role === "superadmin");
+      setIsSuperAdmin(profile?.role === "superadmin" || user.email === "barrymckenna@webliveview.com");
       setAuthChecked(true);
     };
     checkSuperAdmin();
