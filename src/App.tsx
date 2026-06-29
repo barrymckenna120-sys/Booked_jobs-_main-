@@ -218,6 +218,7 @@ function AppContent() {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
+    <DevConsole />
     <TooltipProvider>
       <WhatsAppConnectionProvider>
       <Toaster />
