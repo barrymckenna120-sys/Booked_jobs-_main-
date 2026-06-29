@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
@@ -61,6 +62,7 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useAdminViewAs();
   const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   // Show "Switch to Engineer View" for office/admin users (owners/managers)
   const canSwitchToEngineer = !isEngineer;
@@ -188,6 +190,19 @@ const AppLayoutInner = () => {
               )}
             </button>
           ))}
+          {isSuperAdmin && (
+            <button
+              onClick={() => guardedNavigate("/admin")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                isActive("/admin")
+                  ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Shield className="w-5 h-5 shrink-0" />
+              <span className="flex-1 text-left">Admin</span>
+            </button>
+          )}
         </nav>
         <div className="px-3 py-3 border-t border-border">
           <button
