@@ -71,14 +71,23 @@ Deno.serve(async (req) => {
     }
 
     if (!tenantDomain) {
-      console.warn(`send-reset-email: no tenant domain resolvable for ${email}`);
-      return new Response(JSON.stringify({ error: "Tenant domain not configured" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Fallback: try request Origin, then env default, then published default
+      try {
+        const origin = req.headers.get("origin") || req.headers.get("referer");
+        if (origin) {
+          const u = new URL(origin);
+          tenantDomain = u.host;
+        }
+      } catch (_e) { /* ignore */ }
+      tenantDomain =
+        tenantDomain ||
+        Deno.env.get("DEFAULT_RESET_DOMAIN") ||
+        "kngasservices.bookedjobs.ie";
+      console.warn(`send-reset-email: using fallback domain ${tenantDomain} for ${email}`);
     }
 
     const redirectUrl = `https://${tenantDomain}/reset-password`;
+
 
     // Generate a recovery link WITHOUT sending an email (bypasses auth-email-hook)
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
