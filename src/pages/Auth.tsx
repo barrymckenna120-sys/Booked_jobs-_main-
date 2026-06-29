@@ -110,6 +110,28 @@ const Auth = () => {
           const { data } = await supabase.functions.invoke("track-failed-login", {
             body: { email: email.trim() },
           });
+          const attemptNum = data?.attempts || 0;
+
+          // Fire-and-forget failed-login notification email (do not block UI)
+          (async () => {
+            let companyName = "";
+            try {
+              const { data: settingsRow } = await supabase
+                .from("settings")
+                .select("business_name")
+                .maybeSingle();
+              companyName = (settingsRow as any)?.business_name || "";
+            } catch (_e) { /* ignore */ }
+            supabase.functions.invoke("notify-failed-login", {
+              body: {
+                email: email.trim(),
+                attempt: attemptNum,
+                timestamp: new Date().toISOString(),
+                companyName,
+              },
+            }).catch(() => {});
+          })();
+
           if (data?.locked) {
             setIsBlocked(true);
             setFormError("Your account has been blocked due to too many failed attempts. Please contact your administrator.");
@@ -117,13 +139,14 @@ const Auth = () => {
             setErrorMessage("Your account has been blocked due to too many failed attempts. Please contact your administrator.");
             setErrorModalOpen(true);
           } else {
-            const remaining = 5 - (data?.attempts || 0);
+            const remaining = 5 - attemptNum;
             setFormError(`Invalid email or password. ${remaining} attempt(s) remaining before lockout.`);
           }
         } catch (_e) {
           setFormError(GENERIC_AUTH_ERROR);
         }
       }
+
     } finally {
       setLoading(false);
     }
