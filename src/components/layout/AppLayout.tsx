@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
