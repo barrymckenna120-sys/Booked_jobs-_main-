@@ -73,6 +73,7 @@ import AdminPanel from "./pages/AdminPanel";
 import TenantDetail from "./pages/admin/TenantDetail";
 import { AdminViewAsProvider } from "@/hooks/useAdminViewAs";
 import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
+import DevConsole from "@/components/dev/DevConsole";
 
 
 
@@ -217,6 +218,7 @@ function AppContent() {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
+    <DevConsole />
     <TooltipProvider>
       <WhatsAppConnectionProvider>
       <Toaster />
