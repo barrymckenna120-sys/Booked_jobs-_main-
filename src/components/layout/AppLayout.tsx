@@ -62,6 +62,7 @@ const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useAdminViewAs();
   const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   // Show "Switch to Engineer View" for office/admin users (owners/managers)
   const canSwitchToEngineer = !isEngineer;
