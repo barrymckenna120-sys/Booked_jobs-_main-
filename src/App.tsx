@@ -115,10 +115,17 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
 function AppContent() {
   const { loading } = useAuth();
   const location = useLocation();
+  const [initialAuthChecked, setInitialAuthChecked] = useState(!loading);
+
+  useEffect(() => {
+    if (!loading && !initialAuthChecked) {
+      setInitialAuthChecked(true);
+    }
+  }, [loading, initialAuthChecked]);
 
   const isAuthRoute = location.pathname === '/auth' || location.pathname === '/';
 
-  if (loading && !isAuthRoute) {
+  if (!initialAuthChecked && !isAuthRoute) {
     return (
       <div style={{
         display: "flex",
