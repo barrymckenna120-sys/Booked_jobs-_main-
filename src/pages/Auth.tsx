@@ -310,11 +310,13 @@ const Auth = () => {
                 </span>
               ) : "Sign In"}
             </Button>
-            {formError && (
-              <p role="alert" className="text-sm text-destructive text-center mt-2">
-                {formError}
-              </p>
-            )}
+            <div className="min-h-[1.5rem] mt-2">
+              {formError && (
+                <p role="alert" className="text-sm text-destructive text-center">
+                  {formError}
+                </p>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

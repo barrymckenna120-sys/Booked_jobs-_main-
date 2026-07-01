@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { RefreshCw, X } from "lucide-react";
 
@@ -8,6 +9,7 @@ import { RefreshCw, X } from "lucide-react";
  * never receive updates.
  */
 export default function PWAUpdateBanner() {
+  const { pathname } = useLocation();
   const [dismissed, setDismissed] = useState(false);
 
   // Guard: don't register the SW in Lovable preview iframes / preview hosts.
@@ -37,6 +39,7 @@ export default function PWAUpdateBanner() {
     },
   });
 
+  if (pathname.startsWith("/auth")) return null;
   if (!shouldRegister || !needRefresh || dismissed) return null;
 
   const handleRefresh = () => {
