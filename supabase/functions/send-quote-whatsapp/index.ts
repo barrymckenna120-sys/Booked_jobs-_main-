@@ -66,6 +66,17 @@ serve(async (req) => {
     const orgRows = await orgRes.json();
     const slug = (Array.isArray(orgRows) && orgRows[0]?.slug) || "kngasservices";
 
+    // Resolve tenant domain from tenant_integrations.whatsapp.config.domain,
+    // falling back to `${slug}.bookedjobs.ie` if not configured.
+    const waDomainRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.whatsapp&select=config&limit=1`,
+      { headers: dbHeaders },
+    );
+    const waDomainRows = await waDomainRes.json();
+    const tenantDomain =
+      (Array.isArray(waDomainRows) && waDomainRows[0]?.config?.domain) ||
+      `${slug}.bookedjobs.ie`;
+
     // Fetch tenant WhatsApp integration config (api_key)
     const tiRes = await fetch(
       `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
@@ -100,7 +111,7 @@ serve(async (req) => {
     const refNumber = quote_number || `Q-${quote_id.substring(0, 4).toUpperCase()}`;
     const deposit = Number(deposit_amount || 0);
 
-    const acceptUrl = `https://${slug}.bookedjobs.ie/quote/${refNumber}`;
+    const acceptUrl = `https://${tenantDomain}/quote/${refNumber}`;
 
     let message = `Hi ${firstName},
 
@@ -123,7 +134,7 @@ View and approve here:
 ${acceptUrl}`;
 
     if (pdf_url) {
-      message += `\n\n📄 View your full quote PDF:\nhttps://${slug}.bookedjobs.ie/pdf/${refNumber}`;
+      message += `\n\n📄 View your full quote PDF:\nhttps://${tenantDomain}/pdf/${refNumber}`;
     }
 
     message += `\n\n${messageFooter}`;
