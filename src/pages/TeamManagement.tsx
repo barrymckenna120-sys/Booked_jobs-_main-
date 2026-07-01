@@ -113,6 +113,7 @@ const TeamManagement = () => {
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
+  const [lockedEmails, setLockedEmails] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
