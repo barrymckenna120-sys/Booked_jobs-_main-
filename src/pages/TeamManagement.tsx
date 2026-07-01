@@ -368,15 +368,19 @@ const TeamManagement = () => {
 
   const handleUnblock = async (id: string) => {
     const member = members.find((m) => m.id === id);
+    const emailLc = member?.email?.trim().toLowerCase() || undefined;
 
-    // Clear ban in auth if user has an auth account
-    if (member?.auth_user_id) {
+    // Clear auth ban and/or login_attempts lockout via edge function
+    if (member?.auth_user_id || emailLc) {
       const { error } = await supabase.functions.invoke("unblock-user", {
-        body: { userId: member.auth_user_id },
+        body: {
+          userId: member?.auth_user_id ?? undefined,
+          email: emailLc,
+        },
       });
       if (error) {
         console.error("[TeamManagement] unblock-user error:", error);
-        toast({ title: "Failed to clear auth lockout", variant: "destructive" });
+        toast({ title: "Failed to clear lockout", variant: "destructive" });
       }
     }
 
@@ -387,6 +391,13 @@ const TeamManagement = () => {
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
+    if (emailLc) {
+      setLockedEmails((prev) => {
+        const next = new Set(prev);
+        next.delete(emailLc);
+        return next;
+      });
+    }
     toast({ title: `${member?.name} has been unblocked` });
     logAudit({
       action_type: "user_unblocked",
@@ -397,6 +408,7 @@ const TeamManagement = () => {
     // Refresh auth users list
     fetchAuthUsers();
   };
+
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
