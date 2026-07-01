@@ -102,7 +102,7 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
       if (event === "PASSWORD_RECOVERY" && location.pathname !== "/reset-password") {
         navigate("/reset-password", { replace: true });
       }
-      if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT" && location.pathname !== "/reset-password") {
         navigate("/auth", { replace: true });
       }
     });
