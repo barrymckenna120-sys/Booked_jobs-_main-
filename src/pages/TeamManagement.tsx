@@ -587,7 +587,13 @@ const TeamManagement = () => {
     return new Date(authUser.banned_until) > new Date();
   };
 
-  const isEffectivelyBlocked = (m: TeamMember) => m.status === "blocked" || isAuthLocked(m);
+  const isLoginLocked = (member: TeamMember): boolean => {
+    const emailLc = member.email?.trim().toLowerCase();
+    return !!emailLc && lockedEmails.has(emailLc);
+  };
+
+  const isEffectivelyBlocked = (m: TeamMember) =>
+    m.status === "blocked" || isAuthLocked(m) || isLoginLocked(m);
 
   // ── Filter / search ─────────────────────────────────────────────
   const filtered = members.filter((m) => {
