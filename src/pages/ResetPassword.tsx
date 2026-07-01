@@ -43,11 +43,22 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     // iOS Chrome fix: if recovery intent is detected, show form immediately
     // without waiting for session establishment
     if (hasRecoveryIntent()) {
       setShowForm(true);
     }
+
+    const stripTokenFromUrl = () => {
+      try {
+        window.history.replaceState({}, "", "/reset-password");
+      } catch {
+        /* noop */
+      }
+    };
 
     const establish = async () => {
       const { access_token, refresh_token, type, token, token_hash, email } = parseTokensFromUrl();
@@ -55,7 +66,7 @@ const ResetPassword = () => {
       // Method 1: OTP token + email
       if (token && email) {
         const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
-        if (!otpError) { setSessionReady(true); setShowForm(true); return; }
+        if (!otpError) { stripTokenFromUrl(); setSessionReady(true); setShowForm(true); return; }
         if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
         return;
       }
@@ -63,7 +74,7 @@ const ResetPassword = () => {
       // Method 2: PKCE token_hash
       if (token_hash && type === "recovery") {
         const { error: hashError } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
-        if (!hashError) { setSessionReady(true); setShowForm(true); return; }
+        if (!hashError) { stripTokenFromUrl(); setSessionReady(true); setShowForm(true); return; }
         if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
         return;
       }
@@ -71,7 +82,7 @@ const ResetPassword = () => {
       // Method 3: Explicit access_token + refresh_token
       if (access_token && refresh_token) {
         const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (!sessionError) { setSessionReady(true); setShowForm(true); return; }
+        if (!sessionError) { stripTokenFromUrl(); setSessionReady(true); setShowForm(true); return; }
         if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
         return;
       }
@@ -81,25 +92,30 @@ const ResetPassword = () => {
       if (session?.user) { setSessionReady(true); setShowForm(true); return; }
 
       // Fallback: listen for PASSWORD_RECOVERY event
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      const { data } = supabase.auth.onAuthStateChange((event) => {
         if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+          stripTokenFromUrl();
           setSessionReady(true);
           setShowForm(true);
         }
       });
+      subscription = data.subscription;
 
       // Timeout — only show error if form isn't already visible
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setShowForm((prev) => {
           if (!prev) setError("This link has expired. Please request a new password reset.");
           return prev;
         });
       }, 5000);
-
-      return () => subscription.unsubscribe();
     };
 
     establish();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const establishSessionIfNeeded = async (): Promise<boolean> => {

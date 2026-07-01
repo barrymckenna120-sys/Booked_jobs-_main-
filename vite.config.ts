@@ -44,7 +44,11 @@ export default defineConfig(({ mode }) => ({
         ],
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ request, url }: { request: Request; url: URL }) => {
+              if (request.mode !== "navigate") return false;
+              if (/^\/(reset-password|reset-admin|auth|~oauth)/.test(url.pathname)) return false;
+              return true;
+            },
             handler: "NetworkFirst",
             options: {
               cacheName: "html",
