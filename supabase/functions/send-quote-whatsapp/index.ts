@@ -143,6 +143,37 @@ ${acceptUrl}`;
       message += `\n📞 ${business_phone}`;
     }
 
+    // Domain regression guard: block any hyphenated *-*.bookedjobs.ie subdomain
+    // from going out. Live tenant subdomains are single-token (no hyphen).
+    // If tripped, log to debug_logs and abort — do NOT create a message_log row.
+    const badDomainMatch = message.match(/https?:\/\/([a-z0-9-]+)\.bookedjobs\.ie/i);
+    if (badDomainMatch && badDomainMatch[1].includes("-")) {
+      await fetch(`${supabaseUrl}/rest/v1/debug_logs`, {
+        method: "POST",
+        headers: dbHeaders,
+        body: JSON.stringify({
+          event: "send-quote-whatsapp:hyphenated_domain_blocked",
+          job_id: refNumber,
+          payload: {
+            blocked_url: badDomainMatch[0],
+            offending_subdomain: badDomainMatch[1],
+            quote_id,
+            quote_number: refNumber,
+            organisation_id: orgId,
+            slug,
+            tenant_domain: tenantDomain,
+          },
+        }),
+      }).catch(() => {});
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Domain regression detected: ${badDomainMatch[0]}. Fix tenant_integrations.whatsapp.config.domain for this organisation.`,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
+      );
+    }
+
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
       method: "POST",
