@@ -179,6 +179,7 @@ ${acceptUrl}`;
       method: "POST",
       headers: { ...dbHeaders, Prefer: "return=representation" },
       body: JSON.stringify({
+        organisation_id: orgId,
         customer_id: resolvedCustomerId,
         message_type: "quote",
         channel: "whatsapp",
