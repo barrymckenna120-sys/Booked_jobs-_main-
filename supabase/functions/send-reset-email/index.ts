@@ -71,19 +71,12 @@ Deno.serve(async (req) => {
     }
 
     if (!tenantDomain) {
-      // Fallback: try request Origin, then env default, then published default
-      try {
-        const origin = req.headers.get("origin") || req.headers.get("referer");
-        if (origin) {
-          const u = new URL(origin);
-          tenantDomain = u.host;
-        }
-      } catch (_e) { /* ignore */ }
-      tenantDomain =
-        tenantDomain ||
-        Deno.env.get("DEFAULT_RESET_DOMAIN") ||
-        "kngasservices.bookedjobs.ie";
+      tenantDomain = "kngasservices.bookedjobs.ie";
       console.warn(`send-reset-email: using fallback domain ${tenantDomain} for ${email}`);
+    }
+
+    if (tenantDomain !== "kngasservices.bookedjobs.ie") {
+      console.warn(`send-reset-email: resolved non-K&N domain ${tenantDomain} for ${email} — multi-tenant fallback may need review`);
     }
 
     const redirectUrl = `https://${tenantDomain}/reset-password`;
