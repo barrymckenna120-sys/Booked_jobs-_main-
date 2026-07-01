@@ -177,6 +177,7 @@ function AppContent() {
         <Route path="/message-log" element={<OfficeRoute><MessageLog /></OfficeRoute>} />
         <Route path="/messages" element={<Navigate to="/inbox" replace />} />
         <Route path="/system-logs" element={<OfficeRoute><SystemLogs /></OfficeRoute>} />
+        <Route path="/diagnostics/whatsapp" element={<OfficeRoute><WhatsAppDiagnostics /></OfficeRoute>} />
         <Route path="/debug/incoming-jobs" element={<OfficeRoute><IncomingJobsDebug /></OfficeRoute>} />
 
         {/* Quote detail routes still work directly */}
