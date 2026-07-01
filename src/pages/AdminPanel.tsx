@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
+import UnblockUserCard from "@/components/admin/UnblockUserCard";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import { Loader2, History, Ban, ShieldCheck, Trash2 } from "lucide-react";
