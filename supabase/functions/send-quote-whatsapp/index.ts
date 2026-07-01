@@ -152,16 +152,16 @@ ${acceptUrl}`;
         method: "POST",
         headers: dbHeaders,
         body: JSON.stringify({
-          source: "send-quote-whatsapp",
-          level: "error",
-          message: `Blocked hyphenated bookedjobs.ie domain in outbound quote: ${badDomainMatch[0]}`,
-          metadata: {
+          event: "send-quote-whatsapp:hyphenated_domain_blocked",
+          job_id: refNumber,
+          payload: {
+            blocked_url: badDomainMatch[0],
+            offending_subdomain: badDomainMatch[1],
             quote_id,
             quote_number: refNumber,
             organisation_id: orgId,
             slug,
             tenant_domain: tenantDomain,
-            offending_subdomain: badDomainMatch[1],
           },
         }),
       }).catch(() => {});
