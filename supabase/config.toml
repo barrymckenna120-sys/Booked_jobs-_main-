@@ -99,3 +99,6 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.whatsapp-inbound]
     verify_jwt = false
+  [functions.superadmin-unblock-user]
+    verify_jwt = false
+
