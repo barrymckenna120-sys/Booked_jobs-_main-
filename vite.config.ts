@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => ({
           {
             urlPattern: ({ request, url }) => {
               if (request.mode !== "navigate") return false;
-              if (url.origin !== self.location.origin) return false;
+              if (url.origin !== location.origin) return false;
               if (/^\/(reset-password|reset-admin|auth|~oauth)/.test(url.pathname)) return false;
               return true;
             },
