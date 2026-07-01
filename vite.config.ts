@@ -41,12 +41,15 @@ export default defineConfig(({ mode }) => ({
           /^\/certificates/,
           /^\/reset-password/,
           /^\/reset-admin/,
+          /^\/quote/,
+          /^\/pdf/,
+          /^\/b/,
         ],
         runtimeCaching: [
           {
             urlPattern: ({ request, url }: { request: Request; url: URL }) => {
               if (request.mode !== "navigate") return false;
-              if (/^\/(reset-password|reset-admin|auth|~oauth)/.test(url.pathname)) return false;
+              if (/^\/(reset-password|reset-admin|auth|~oauth|quote|pdf|b)/.test(url.pathname)) return false;
               return true;
             },
             handler: "NetworkFirst",
