@@ -220,12 +220,41 @@ const TeamManagement = () => {
     }
   }, [toast]);
 
+  const fetchLoginLockouts = useCallback(async (emails: string[]) => {
+    const cleaned = Array.from(
+      new Set(
+        emails
+          .filter((e): e is string => !!e)
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+    if (cleaned.length === 0) {
+      setLockedEmails(new Set());
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke("unblock-user", {
+      body: { emails: cleaned },
+    });
+    if (error) {
+      console.error("[TeamManagement] fetchLoginLockouts error:", error);
+      return;
+    }
+    const locked = ((data as any)?.locked_emails ?? []) as string[];
+    setLockedEmails(new Set(locked.map((e) => e.toLowerCase())));
+  }, []);
+
   useEffect(() => {
     if (user) {
       fetchMembers();
       fetchAuthUsers();
     }
   }, [user, fetchMembers, fetchAuthUsers]);
+
+  useEffect(() => {
+    fetchLoginLockouts(members.map((m) => m.email || "").filter(Boolean));
+  }, [members, fetchLoginLockouts]);
+
 
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
