@@ -47,7 +47,155 @@ Deno.serve(async (req) => {
     }
     if (!authorized) return json({ error: "Insufficient permissions" }, 403);
 
-    const { action, email: rawEmail } = await req.json();
+    const body = await req.json();
+    const { action, email: rawEmail } = body;
+
+    // ---- list_blocked: return all currently blocked/locked accounts across tenants ----
+    if (action === "list_blocked") {
+      const supabaseAdmin2 = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      const [usersRes, engRes, laRes] = await Promise.all([
+        supabaseAdmin2.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+        supabaseAdmin2
+          .from("engineers")
+          .select("id, name, email, role, status, organisation_id, auth_user_id, updated_at")
+          .eq("status", "blocked"),
+        supabaseAdmin2
+          .from("login_attempts")
+          .select("id, email, attempts, locked_at, last_attempt_at")
+          .not("locked_at", "is", null),
+      ]);
+
+      const nowMs = Date.now();
+      const bannedUsers = (usersRes.data?.users ?? []).filter((u: any) => {
+        const bu = u.banned_until;
+        return bu && new Date(bu).getTime() > nowMs;
+      });
+
+      // Aggregate by lowercased email
+      type Row = {
+        email: string;
+        organisation_id: string | null;
+        organisation_name: string | null;
+        role: string | null;
+        name: string | null;
+        reasons: string[];
+        blocked_at: string | null;
+      };
+      const byEmail = new Map<string, Row>();
+      const ensure = (email: string) => {
+        const k = email.toLowerCase();
+        let r = byEmail.get(k);
+        if (!r) {
+          r = {
+            email: k,
+            organisation_id: null,
+            organisation_name: null,
+            role: null,
+            name: null,
+            reasons: [],
+            blocked_at: null,
+          };
+          byEmail.set(k, r);
+        }
+        return r;
+      };
+      const bumpBlockedAt = (r: Row, ts: string | null | undefined) => {
+        if (!ts) return;
+        if (!r.blocked_at || new Date(ts).getTime() > new Date(r.blocked_at).getTime()) {
+          r.blocked_at = ts;
+        }
+      };
+
+      for (const e of engRes.data ?? []) {
+        if (!e.email) continue;
+        const r = ensure(e.email);
+        r.organisation_id = e.organisation_id ?? r.organisation_id;
+        r.role = e.role ?? r.role;
+        r.name = e.name ?? r.name;
+        r.reasons.push("Manually blocked");
+        bumpBlockedAt(r, (e as any).updated_at);
+      }
+
+      for (const la of laRes.data ?? []) {
+        if (!la.email) continue;
+        const r = ensure(la.email);
+        r.reasons.push("Failed login lockout");
+        bumpBlockedAt(r, la.locked_at);
+      }
+
+      for (const u of bannedUsers) {
+        if (!u.email) continue;
+        const r = ensure(u.email);
+        r.reasons.push("Auth banned");
+        bumpBlockedAt(r, (u as any).banned_until);
+      }
+
+      // Enrich with profile/org for rows only known via login_attempts / auth ban
+      const emails = Array.from(byEmail.keys());
+      if (emails.length > 0) {
+        // Match auth users by email → profile → org
+        const authByEmail = new Map<string, any>();
+        for (const u of usersRes.data?.users ?? []) {
+          if (u.email) authByEmail.set(u.email.toLowerCase(), u);
+        }
+        const userIds = emails
+          .map((e) => authByEmail.get(e)?.id)
+          .filter(Boolean) as string[];
+        let profiles: any[] = [];
+        if (userIds.length) {
+          const { data } = await supabaseAdmin2
+            .from("profiles")
+            .select("user_id, display_name, role, organisation_id")
+            .in("user_id", userIds);
+          profiles = data ?? [];
+        }
+        const profileByUserId = new Map(profiles.map((p) => [p.user_id, p]));
+
+        for (const [email, r] of byEmail.entries()) {
+          const au = authByEmail.get(email);
+          if (au) {
+            const p = profileByUserId.get(au.id);
+            if (p) {
+              r.organisation_id = r.organisation_id ?? p.organisation_id;
+              r.role = r.role ?? p.role;
+              r.name = r.name ?? p.display_name;
+            }
+          }
+        }
+
+        // Resolve org names
+        const orgIds = Array.from(
+          new Set(
+            Array.from(byEmail.values())
+              .map((r) => r.organisation_id)
+              .filter(Boolean) as string[],
+          ),
+        );
+        if (orgIds.length) {
+          const { data: orgs } = await supabaseAdmin2
+            .from("organisations")
+            .select("id, name")
+            .in("id", orgIds);
+          const orgMap = new Map((orgs ?? []).map((o) => [o.id, o.name]));
+          for (const r of byEmail.values()) {
+            if (r.organisation_id) r.organisation_name = orgMap.get(r.organisation_id) ?? null;
+          }
+        }
+      }
+
+      const rows = Array.from(byEmail.values()).sort((a, b) => {
+        const at = a.blocked_at ? new Date(a.blocked_at).getTime() : 0;
+        const bt = b.blocked_at ? new Date(b.blocked_at).getTime() : 0;
+        return bt - at;
+      });
+
+      return json({ rows, count: rows.length });
+    }
+
     if (!rawEmail || typeof rawEmail !== "string") return json({ error: "Email required" }, 400);
     const email = rawEmail.trim().toLowerCase();
     if (!email) return json({ error: "Email required" }, 400);
