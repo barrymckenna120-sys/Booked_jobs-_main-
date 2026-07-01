@@ -39,6 +39,7 @@ export default function PWAUpdateBanner() {
     },
   });
 
+  if (pathname.startsWith("/auth")) return null;
   if (!shouldRegister || !needRefresh || dismissed) return null;
 
   const handleRefresh = () => {
