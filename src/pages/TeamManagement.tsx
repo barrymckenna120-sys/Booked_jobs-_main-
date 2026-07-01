@@ -113,6 +113,7 @@ const TeamManagement = () => {
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
+  const [lockedEmails, setLockedEmails] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -162,14 +163,14 @@ const TeamManagement = () => {
       // Pull all profiles in this org and surface any that aren't already an engineer
       const { data: profs } = await (supabase as any)
         .from("profiles")
-        .select("id, display_name, created_at")
+        .select("id, user_id, display_name, created_at")
         .eq("organisation_id", orgId);
 
       const existingAuthIds = new Set(
         combined.map((m) => m.auth_user_id).filter(Boolean) as string[]
       );
       const extras: TeamMember[] = ((profs as any[]) || [])
-        .filter((p) => p.id && !existingAuthIds.has(p.id))
+        .filter((p) => p.user_id && !existingAuthIds.has(p.user_id))
         .map((p) => ({
           id: `profile-${p.id}`,
           name: p.display_name || "Owner",
@@ -180,7 +181,7 @@ const TeamManagement = () => {
           blocked_reason: null,
           is_available: true,
           created_at: p.created_at,
-          auth_user_id: p.id,
+          auth_user_id: p.user_id,
           rgi_number: null,
         }));
       combined = [...combined, ...extras];
@@ -219,12 +220,41 @@ const TeamManagement = () => {
     }
   }, [toast]);
 
+  const fetchLoginLockouts = useCallback(async (emails: string[]) => {
+    const cleaned = Array.from(
+      new Set(
+        emails
+          .filter((e): e is string => !!e)
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+    if (cleaned.length === 0) {
+      setLockedEmails(new Set());
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke("unblock-user", {
+      body: { emails: cleaned },
+    });
+    if (error) {
+      console.error("[TeamManagement] fetchLoginLockouts error:", error);
+      return;
+    }
+    const locked = ((data as any)?.locked_emails ?? []) as string[];
+    setLockedEmails(new Set(locked.map((e) => e.toLowerCase())));
+  }, []);
+
   useEffect(() => {
     if (user) {
       fetchMembers();
       fetchAuthUsers();
     }
   }, [user, fetchMembers, fetchAuthUsers]);
+
+  useEffect(() => {
+    fetchLoginLockouts(members.map((m) => m.email || "").filter(Boolean));
+  }, [members, fetchLoginLockouts]);
+
 
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
@@ -338,15 +368,19 @@ const TeamManagement = () => {
 
   const handleUnblock = async (id: string) => {
     const member = members.find((m) => m.id === id);
+    const emailLc = member?.email?.trim().toLowerCase() || undefined;
 
-    // Clear ban in auth if user has an auth account
-    if (member?.auth_user_id) {
+    // Clear auth ban and/or login_attempts lockout via edge function
+    if (member?.auth_user_id || emailLc) {
       const { error } = await supabase.functions.invoke("unblock-user", {
-        body: { userId: member.auth_user_id },
+        body: {
+          userId: member?.auth_user_id ?? undefined,
+          email: emailLc,
+        },
       });
       if (error) {
         console.error("[TeamManagement] unblock-user error:", error);
-        toast({ title: "Failed to clear auth lockout", variant: "destructive" });
+        toast({ title: "Failed to clear lockout", variant: "destructive" });
       }
     }
 
@@ -357,6 +391,13 @@ const TeamManagement = () => {
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
+    if (emailLc) {
+      setLockedEmails((prev) => {
+        const next = new Set(prev);
+        next.delete(emailLc);
+        return next;
+      });
+    }
     toast({ title: `${member?.name} has been unblocked` });
     logAudit({
       action_type: "user_unblocked",
@@ -367,6 +408,7 @@ const TeamManagement = () => {
     // Refresh auth users list
     fetchAuthUsers();
   };
+
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -545,7 +587,13 @@ const TeamManagement = () => {
     return new Date(authUser.banned_until) > new Date();
   };
 
-  const isEffectivelyBlocked = (m: TeamMember) => m.status === "blocked" || isAuthLocked(m);
+  const isLoginLocked = (member: TeamMember): boolean => {
+    const emailLc = member.email?.trim().toLowerCase();
+    return !!emailLc && lockedEmails.has(emailLc);
+  };
+
+  const isEffectivelyBlocked = (m: TeamMember) =>
+    m.status === "blocked" || isAuthLocked(m) || isLoginLocked(m);
 
   // ── Filter / search ─────────────────────────────────────────────
   const filtered = members.filter((m) => {
@@ -664,7 +712,8 @@ const TeamManagement = () => {
             {filtered.map((member) => {
               const role = ROLES[member.role] || ROLES.engineer;
               const authLockedOut = isAuthLocked(member);
-              const isBlocked = member.status === "blocked" || authLockedOut;
+              const loginLockedOut = isLoginLocked(member);
+              const isBlocked = member.status === "blocked" || authLockedOut || loginLockedOut;
 
               return (
                 <div
@@ -708,9 +757,13 @@ const TeamManagement = () => {
                         ✓ Login linked
                       </div>
                     )}
-                    {isBlocked && (member.blocked_reason || authLockedOut) && (
+                    {isBlocked && (member.blocked_reason || authLockedOut || loginLockedOut) && (
                       <div className="text-xs text-destructive font-medium mt-0.5">
-                        🚫 {authLockedOut && member.status !== "blocked" ? "Locked out (failed login attempts)" : `Blocked: ${member.blocked_reason || "No reason"}`}
+                        🚫 {member.status === "blocked"
+                          ? `Blocked: ${member.blocked_reason || "No reason"}`
+                          : loginLockedOut
+                            ? "Locked out (failed login attempts)"
+                            : "Locked out (auth ban)"}
                       </div>
                     )}
                   </div>
