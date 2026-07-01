@@ -134,7 +134,7 @@ View and approve here:
 ${acceptUrl}`;
 
     if (pdf_url) {
-      message += `\n\n📄 View your full quote PDF:\nhttps://${slug}.bookedjobs.ie/pdf/${refNumber}`;
+      message += `\n\n📄 View your full quote PDF:\nhttps://${tenantDomain}/pdf/${refNumber}`;
     }
 
     message += `\n\n${messageFooter}`;
