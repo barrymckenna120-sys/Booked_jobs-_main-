@@ -712,7 +712,8 @@ const TeamManagement = () => {
             {filtered.map((member) => {
               const role = ROLES[member.role] || ROLES.engineer;
               const authLockedOut = isAuthLocked(member);
-              const isBlocked = member.status === "blocked" || authLockedOut;
+              const loginLockedOut = isLoginLocked(member);
+              const isBlocked = member.status === "blocked" || authLockedOut || loginLockedOut;
 
               return (
                 <div
