@@ -489,6 +489,8 @@ export default function AdminPanel() {
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-6">
+      <UnblockUserCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Create New Account</CardTitle>
