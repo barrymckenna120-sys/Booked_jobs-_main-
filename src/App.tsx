@@ -57,6 +57,7 @@ import QuoteNew from "./pages/QuoteNew";
 import QuoteEdit from "./pages/QuoteEdit";
 import QuoteDetail from "./pages/QuoteDetail";
 import MessageLog from "./pages/MessageLog";
+import WhatsAppDiagnostics from "./pages/WhatsAppDiagnostics";
 import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
 import CertificateViewer from "./pages/CertificateViewer";
