@@ -491,7 +491,9 @@ export default function AdminPanel() {
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-6">
+      <BlockedUsersCard />
       <UnblockUserCard />
+
 
       <Card>
         <CardHeader>
