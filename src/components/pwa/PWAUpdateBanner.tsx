@@ -31,7 +31,6 @@ export default function PWAUpdateBanner() {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    immediate: shouldRegister,
     onRegisterError(err) {
       console.warn("App shell SW registration failed:", err);
     },
