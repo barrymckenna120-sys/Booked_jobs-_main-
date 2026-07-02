@@ -38,6 +38,7 @@ const QuoteAcceptance = () => {
   const [depositTapped, setDepositTapped] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [approveError, setApproveError] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => { if (quoteNumber) fetchQuote(); }, [quoteNumber]);
 
