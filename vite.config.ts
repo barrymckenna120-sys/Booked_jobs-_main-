@@ -35,10 +35,23 @@ export default defineConfig(({ mode }) => ({
           /^\/jobs/,
           /^\/customers/,
           /^\/certificates/,
+          /^\/quote/,
+          /^\/reset-password/,
+          /^\/pdf/,
+          /^\/b/,
         ],
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ url, request }) => {
+              if (request.mode !== "navigate") return false;
+              const denied = [
+                /^\/rest/, /^\/functions/, /^\/\~oauth/, /^\/\$/,
+                /^\/auth/, /^\/engineer/, /^\/dashboard/, /^\/admin/,
+                /^\/jobs/, /^\/customers/, /^\/certificates/,
+                /^\/quote/, /^\/reset-password/, /^\/pdf/, /^\/b/,
+              ];
+              return !denied.some((re) => re.test(url.pathname));
+            },
             handler: "NetworkFirst",
             options: {
               cacheName: "html",
