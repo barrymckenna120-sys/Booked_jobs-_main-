@@ -135,6 +135,7 @@ export function useNotifications() {
           filter: `recipient_user_id=eq.${user.id}`,
         },
         (payload) => {
+          console.log("notification INSERT received:", payload);
           const n = payload.new as AppNotification;
           setNotifications((prev) => [n, ...prev]);
 
