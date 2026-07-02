@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
       devOptions: { enabled: false },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        maximumFileSizeToCacheInBytes: 20000,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: "/offline.html",
         navigateFallbackDenylist: [
           /^\/rest/,
@@ -38,7 +38,16 @@ export default defineConfig(({ mode }) => ({
         ],
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ url, request }) => {
+              if (request.mode !== "navigate") return false;
+              const denied = [
+                /^\/rest/, /^\/functions/, /^\/\~oauth/, /^\/\$/,
+                /^\/auth/, /^\/engineer/, /^\/dashboard/, /^\/admin/,
+                /^\/jobs/, /^\/customers/, /^\/certificates/,
+                /^\/quote/, /^\/reset-password/, /^\/pdf/, /^\/b/,
+              ];
+              return !denied.some((re) => re.test(url.pathname));
+            },
             handler: "NetworkFirst",
             options: {
               cacheName: "html",
