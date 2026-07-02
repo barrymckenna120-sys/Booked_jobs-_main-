@@ -110,7 +110,7 @@ const WhatsAppTemplates = ({ embedded = false }: { embedded?: boolean }) => {
 
     // If setting as default, unset others of same type
     if (formDefault) {
-      await supabase
+      await (supabase as any)
         .from("whatsapp_templates")
         .update({ is_default: false } as any)
         .eq("user_id", user.id)
