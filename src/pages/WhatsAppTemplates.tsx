@@ -64,13 +64,13 @@ const WhatsAppTemplates = ({ embedded = false }: { embedded?: boolean }) => {
   const fetchTemplates = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("whatsapp_templates")
       .select("*")
       .eq("user_id", user.id)
       .order("message_type")
       .order("name");
-    setTemplates((data || []) as Template[]);
+    setTemplates((data || []) as unknown as Template[]);
     setLoading(false);
   };
 
@@ -110,7 +110,7 @@ const WhatsAppTemplates = ({ embedded = false }: { embedded?: boolean }) => {
 
     // If setting as default, unset others of same type
     if (formDefault) {
-      await supabase
+      await (supabase as any)
         .from("whatsapp_templates")
         .update({ is_default: false } as any)
         .eq("user_id", user.id)
