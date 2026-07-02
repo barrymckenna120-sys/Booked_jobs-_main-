@@ -52,6 +52,7 @@ export default defineConfig(({ mode }) => ({
                 /^\/auth/, /^\/engineer/, /^\/dashboard/, /^\/admin/,
                 /^\/jobs/, /^\/customers/, /^\/certificates/,
                 /^\/quote/, /^\/reset-password/, /^\/pdf/, /^\/b/,
+                /^\/receipt/, /^\/r/, /^\/invoice/,
               ];
               return !denied.some((re) => re.test(url.pathname));
             },
