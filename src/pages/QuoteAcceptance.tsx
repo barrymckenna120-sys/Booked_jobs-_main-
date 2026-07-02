@@ -91,6 +91,16 @@ const QuoteAcceptance = () => {
     </div>
   );
 
+  /* ── Error loading quote ── */
+  if (fetchError) return (
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center" }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: "#111" }}>Something went wrong</p>
+        <p style={{ fontSize: 14, color: "#6b7280", marginTop: 8 }}>We couldn&apos;t load this quote — please try again.</p>
+      </div>
+    </div>
+  );
+
   /* ── Not found ── */
   if (!quote) return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
