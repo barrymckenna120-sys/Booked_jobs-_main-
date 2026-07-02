@@ -46,6 +46,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Superadmin exemption: locking out the platform-wide superadmin is a
+    // bigger operational risk than a brute-force attempt against them.
+    // Regular office/engineer/customer accounts remain protected.
+    const { data: profileRow } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", targetUser.id)
+      .maybeSingle();
+
+    if ((profileRow as any)?.role === "superadmin") {
+      console.log(`Skipping auto-ban for superadmin ${email} (${targetUser.id})`);
+      return new Response(JSON.stringify({ success: true, skipped: "superadmin" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Ban for 24 hours
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(
       targetUser.id,
