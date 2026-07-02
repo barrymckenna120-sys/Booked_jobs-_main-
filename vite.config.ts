@@ -35,6 +35,10 @@ export default defineConfig(({ mode }) => ({
           /^\/jobs/,
           /^\/customers/,
           /^\/certificates/,
+          /^\/quote/,
+          /^\/reset-password/,
+          /^\/pdf/,
+          /^\/b/,
         ],
         runtimeCaching: [
           {
