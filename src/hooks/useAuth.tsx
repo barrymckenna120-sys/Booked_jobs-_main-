@@ -42,6 +42,31 @@ const linkEngineerAndCaptureFcm = async (user: User) => {
   }
 };
 
+// Public route prefixes that must NEVER trigger an auth redirect,
+// even when the visitor has no session. Keep in sync with public
+// routes declared in src/App.tsx.
+const PUBLIC_PATH_PREFIXES = [
+  "/certificates/",
+  "/certificate/",
+  "/cert/",
+  "/quote/",
+  "/pdf/",
+  "/invoice/",
+  "/receipt/",
+  "/r/",
+  "/b/",
+  "/reset-password",
+  "/privacy-policy",
+  "/terms-and-conditions",
+  "/data-processing-agreement",
+  "/offline",
+];
+
+const isPublicPath = (pathname: string) =>
+  PUBLIC_PATH_PREFIXES.some(
+    (p) => pathname === p || pathname === p.replace(/\/$/, "") || pathname.startsWith(p)
+  );
+
 export const useAuth = (redirectTo = "/auth") => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +82,7 @@ export const useAuth = (redirectTo = "/auth") => {
       if (session?.user) {
         linkEngineerAndCaptureFcm(session.user);
       }
-      if (!session?.user && redirectTo) {
+      if (!session?.user && redirectTo && !isPublicPath(window.location.pathname)) {
         navigate(redirectTo, { replace: true });
       }
     });
@@ -71,7 +96,7 @@ export const useAuth = (redirectTo = "/auth") => {
         }
         setUser(session?.user ?? null);
         setLoading(false);
-        if (!session?.user && redirectTo) {
+        if (!session?.user && redirectTo && !isPublicPath(window.location.pathname)) {
           navigate(redirectTo, { replace: true });
         }
       }
