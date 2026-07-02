@@ -339,21 +339,22 @@ const TeamManagement = () => {
   const handleUnblock = async (id: string) => {
     const member = members.find((m) => m.id === id);
 
-    // Clear ban in auth if user has an auth account
-    if (member?.auth_user_id) {
-      const { error } = await supabase.functions.invoke("unblock-user", {
-        body: { userId: member.auth_user_id },
-      });
-      if (error) {
-        console.error("[TeamManagement] unblock-user error:", error);
-        toast({ title: "Failed to clear auth lockout", variant: "destructive" });
-      }
+    // Clear auth ban AND reset engineers.status server-side.
+    // engineers.status writes are restricted to admin/owner by RLS, so this
+    // must run via the edge function (service-role) so office/manager callers
+    // don't silently fail with a 409/permission error.
+    const { error } = await supabase.functions.invoke("unblock-user", {
+      body: {
+        userId: member?.auth_user_id ?? undefined,
+        engineerId: id,
+      },
+    });
+    if (error) {
+      console.error("[TeamManagement] unblock-user error:", error);
+      toast({ title: "Failed to unblock user", variant: "destructive" });
+      return;
     }
 
-    await supabase
-      .from("engineers")
-      .update({ status: "active", blocked_reason: null, is_available: true } as any)
-      .eq("id", id);
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
@@ -367,6 +368,7 @@ const TeamManagement = () => {
     // Refresh auth users list
     fetchAuthUsers();
   };
+
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
