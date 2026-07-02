@@ -120,22 +120,26 @@ export function useNotifications() {
 
 
   // Real-time subscription — supabase-js uses WebSocket under the hood
-  // but the channel API auto-reconnects which is fine for iOS WebKit
+  // but the channel API auto-reconnects which is fine for iOS WebKit.
+  // Depend on user?.id (stable) rather than the full user object so
+  // token-refresh events don't tear down and rebuild the subscription.
+  // Channel name is user-scoped to prevent silent no-op collisions when
+  // multiple layouts (AppLayout/EngineerLayout) mount concurrently.
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const channel = supabase
-      .channel("notifications-realtime")
+      .channel(`notifications-realtime-${userId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `recipient_user_id=eq.${user.id}`,
+          filter: `recipient_user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("notification INSERT received:", payload);
           const n = payload.new as AppNotification;
           setNotifications((prev) => [n, ...prev]);
 
@@ -165,7 +169,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [userId]);
 
   // Keep ref in sync so the realtime handler always sees the latest preference
   useEffect(() => {
