@@ -67,25 +67,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { userId } = await req.json();
-    if (!userId) {
-      return new Response(JSON.stringify({ error: "userId is required" }), {
+    const { userId, engineerId } = await req.json();
+    if (!userId && !engineerId) {
+      return new Response(JSON.stringify({ error: "userId or engineerId is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      ban_duration: "none",
-    });
-
-    if (updateError) {
-      console.error("unblock error:", updateError);
-      return new Response(JSON.stringify({ error: "Failed to unblock user" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Clear auth-side ban if a userId was provided
+    if (userId) {
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: "none",
       });
+
+      if (updateError) {
+        console.error("unblock error:", updateError);
+        return new Response(JSON.stringify({ error: "Failed to unblock user" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
+
+    // Also clear engineers.status server-side (RLS restricts client-side status
+    // writes to admin/owner; service role bypasses so office/manager unblock works).
+    if (engineerId) {
+      const { error: engErr } = await supabaseAdmin
+        .from("engineers")
+        .update({ status: "active", blocked_reason: null, is_available: true })
+        .eq("id", engineerId);
+      if (engErr) {
+        console.error("engineers status reset error:", engErr);
+        return new Response(JSON.stringify({ error: "Failed to reset engineer status" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
