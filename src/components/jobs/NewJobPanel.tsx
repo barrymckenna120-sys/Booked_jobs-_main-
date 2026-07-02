@@ -1229,6 +1229,49 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         detail: `New ${finalData.job.jobType} for ${finalData.customer.name} on ${finalData.schedule.date}`,
       });
 
+      // Notify the assigned engineer — push + in-app notification row
+      // Mirrors the pattern used in Schedule.tsx (lines 372–400) for reschedules.
+      if (newJob?.id && finalData.schedule.engineerId) {
+        try {
+          const { data: engRow } = await supabase
+            .from("engineers")
+            .select("auth_user_id")
+            .eq("id", finalData.schedule.engineerId)
+            .maybeSingle();
+          const authUserId = (engRow as any)?.auth_user_id as string | undefined;
+          if (authUserId) {
+            const customerName = finalData.customer?.name || "Customer";
+            let formattedDate = "TBC";
+            try {
+              formattedDate = format(new Date(`${finalData.schedule.date}T12:00:00`), "dd/MM/yyyy");
+            } catch { /* fallback keeps TBC */ }
+            const timeBlockLabel =
+              buildTimeBlocks(settingsBlocks).find((t) => t.id === finalData.schedule.timeBlock)?.dbValue ||
+              finalData.schedule.timeBlock ||
+              "TBC";
+            const knNumber = `KN-${newJob.id.slice(0, 6).toUpperCase()}`;
+            const title = "New Job Assigned";
+            const body = `${customerName} | ${knNumber} | ${formattedDate} at ${timeBlockLabel}`;
+
+            supabase.functions.invoke("send-push-notification", {
+              body: { recipient_user_id: authUserId, title, body, job_id: newJob.id },
+            }).catch((err) => console.error("send-push-notification failed:", err));
+
+            await supabase.from("notifications").insert({
+              recipient_user_id: authUserId,
+              notification_type: "new_job",
+              title,
+              body,
+              job_id: newJob.id,
+              role: "engineer",
+              organisation_id: orgId,
+            } as any);
+          }
+        } catch (notifyErr) {
+          console.error("[NewJobPanel] Engineer notify error:", notifyErr);
+        }
+      }
+
       // Send booking confirmation via WhatsApp Edge Function if toggle is ON
       if (finalData.sendWhatsApp && newJob?.id) {
         try {
