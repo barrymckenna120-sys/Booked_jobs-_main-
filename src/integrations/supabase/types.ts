@@ -649,7 +649,11 @@ export type Database = {
           user_id: string
           warranty_reminder_log: Json | null
           warranty_years: number | null
+          whatsapp_opt_in: boolean
+          whatsapp_opt_out_at: string | null
+          whatsapp_opt_out_source: string | null
           whatsapp_phone: string | null
+          whatsapp_reminders_enabled: boolean
         }
         Insert: {
           access_notes?: string | null
@@ -702,7 +706,11 @@ export type Database = {
           user_id: string
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
+          whatsapp_opt_in?: boolean
+          whatsapp_opt_out_at?: string | null
+          whatsapp_opt_out_source?: string | null
           whatsapp_phone?: string | null
+          whatsapp_reminders_enabled?: boolean
         }
         Update: {
           access_notes?: string | null
@@ -755,7 +763,11 @@ export type Database = {
           user_id?: string
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
+          whatsapp_opt_in?: boolean
+          whatsapp_opt_out_at?: string | null
+          whatsapp_opt_out_source?: string | null
           whatsapp_phone?: string | null
+          whatsapp_reminders_enabled?: boolean
         }
         Relationships: [
           {
@@ -1430,6 +1442,33 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      login_attempts: {
+        Row: {
+          attempts: number
+          created_at: string
+          email: string
+          id: string
+          last_attempt_at: string
+          locked_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          email: string
+          id?: string
+          last_attempt_at?: string
+          locked_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          email?: string
+          id?: string
+          last_attempt_at?: string
+          locked_at?: string | null
         }
         Relationships: []
       }
@@ -2728,35 +2767,52 @@ export type Database = {
       whatsapp_templates: {
         Row: {
           body: string
-          created_at: string | null
+          category: string
+          created_at: string
           id: string
-          is_default: boolean | null
-          message_type: string
-          name: string
-          updated_at: string | null
-          user_id: string
+          is_master: boolean
+          meta_status: string
+          organisation_id: string | null
+          submitted_at: string | null
+          template_name: string
+          updated_at: string
+          variables: Json | null
         }
         Insert: {
           body: string
-          created_at?: string | null
+          category?: string
+          created_at?: string
           id?: string
-          is_default?: boolean | null
-          message_type?: string
-          name: string
-          updated_at?: string | null
-          user_id: string
+          is_master?: boolean
+          meta_status?: string
+          organisation_id?: string | null
+          submitted_at?: string | null
+          template_name: string
+          updated_at?: string
+          variables?: Json | null
         }
         Update: {
           body?: string
-          created_at?: string | null
+          category?: string
+          created_at?: string
           id?: string
-          is_default?: boolean | null
-          message_type?: string
-          name?: string
-          updated_at?: string | null
-          user_id?: string
+          is_master?: boolean
+          meta_status?: string
+          organisation_id?: string | null
+          submitted_at?: string | null
+          template_name?: string
+          updated_at?: string
+          variables?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -2767,6 +2823,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
