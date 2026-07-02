@@ -1229,8 +1229,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         detail: `New ${finalData.job.jobType} for ${finalData.customer.name} on ${finalData.schedule.date}`,
       });
 
-      // Notify the assigned engineer — push + in-app notification row
-      // Mirrors the pattern used in Schedule.tsx (lines 372–400) for reschedules.
+      // Notify the assigned engineer — push only (in-app notification row handled by DB trigger)
       if (newJob?.id && finalData.schedule.engineerId) {
         try {
           const { data: engRow } = await supabase
@@ -1256,16 +1255,6 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
             supabase.functions.invoke("send-push-notification", {
               body: { recipient_user_id: authUserId, title, body, job_id: newJob.id },
             }).catch((err) => console.error("send-push-notification failed:", err));
-
-            await supabase.from("notifications").insert({
-              recipient_user_id: authUserId,
-              notification_type: "new_job",
-              title,
-              body,
-              job_id: newJob.id,
-              role: "engineer",
-              organisation_id: orgId,
-            } as any);
           }
         } catch (notifyErr) {
           console.error("[NewJobPanel] Engineer notify error:", notifyErr);
