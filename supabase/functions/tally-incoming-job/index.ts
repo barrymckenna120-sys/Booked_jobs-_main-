@@ -42,8 +42,8 @@ Deno.serve(async (req) => {
     const body = JSON.parse(cleanText);
 
     // Extract and sanitize fields
-    const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
-    const mobileNumber = sanitize(body.mobile_number, MAX_SHORT_LEN);
+    const customerName = sanitize(body.customer_name, MAX_NAME_LEN) ?? "";
+    const mobileNumber = sanitize(body.mobile_number, MAX_SHORT_LEN) ?? "";
     const email = sanitize(body.email, MAX_NAME_LEN);
     const jobIssue = sanitize(body.job_issue, MAX_TEXT_LEN);
     const extraDetails = sanitize(body.extra_details, MAX_TEXT_LEN);
