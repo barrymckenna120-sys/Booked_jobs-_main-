@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (mobileNumber && !isValidPhone(mobileNumber)) {
+    if (!isValidPhone(mobileNumber)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid mobile number format" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
