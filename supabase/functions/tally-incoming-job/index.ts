@@ -95,11 +95,13 @@ Deno.serve(async (req) => {
     }
 
     // Normalise phone to E.164 (+353XXXXXXXXX)
-    const normalisedPhone = mobileNumber.startsWith("+")
-      ? mobileNumber
-      : mobileNumber.startsWith("353")
-      ? "+" + mobileNumber
-      : "+353" + mobileNumber.replace(/^0/, "");
+    const normalisedPhone = mobileNumber
+      ? mobileNumber.startsWith("+")
+        ? mobileNumber
+        : mobileNumber.startsWith("353")
+        ? "+" + mobileNumber
+        : "+353" + mobileNumber.replace(/^0/, "")
+      : "";
 
     // Resolve organisation dynamically from the Tally payload.
     // Accept either an explicit organisation_id (UUID) or an org slug field.
