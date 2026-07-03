@@ -42,8 +42,8 @@ Deno.serve(async (req) => {
     const body = JSON.parse(cleanText);
 
     // Extract and sanitize fields
-    const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
-    const mobileNumber = sanitize(body.mobile_number, MAX_SHORT_LEN);
+    const customerName = sanitize(body.customer_name, MAX_NAME_LEN) ?? "";
+    const mobileNumber = sanitize(body.mobile_number, MAX_SHORT_LEN) ?? "";
     const email = sanitize(body.email, MAX_NAME_LEN);
     const jobIssue = sanitize(body.job_issue, MAX_TEXT_LEN);
     const extraDetails = sanitize(body.extra_details, MAX_TEXT_LEN);
@@ -52,12 +52,12 @@ Deno.serve(async (req) => {
     const boilerModel = sanitize(body.boiler_model, MAX_SHORT_LEN);
     const boilerErrorCode = sanitize(body.boiler_error_code, MAX_SHORT_LEN);
     const boilerWorking = body.boiler_working;
-    const fullAddress = sanitize(body.full_address, MAX_ADDRESS_LEN);
+    const fullAddress = sanitize(body.full_address, MAX_ADDRESS_LEN) ?? "";
     const areaCode = (() => {
       const raw = sanitize(body.area_code, MAX_SHORT_LEN);
       return raw ? raw.replace(/^dublin\s+/i, "D").toUpperCase() : null;
     })();
-    const eircode = sanitize(body.eircode, 10);
+    const eircode = sanitize(body.eircode, 10) ?? "";
     const preferredDay = sanitize(body.preferred_day, MAX_SHORT_LEN);
     const preferredTime = sanitize(body.preferred_time, MAX_SHORT_LEN);
     const ownerOrTenant = sanitize(body.owner_or_tenant, MAX_SHORT_LEN);
@@ -66,10 +66,6 @@ Deno.serve(async (req) => {
 
     // Validate required fields
     const missingFields: string[] = [];
-    if (!customerName) missingFields.push("customer_name");
-    if (!mobileNumber) missingFields.push("mobile_number");
-    if (!fullAddress) missingFields.push("full_address");
-    if (!eircode) missingFields.push("eircode");
     if (!jobIssue) missingFields.push("job_issue");
     if (!preferredDay) missingFields.push("preferred_day");
     if (!preferredTime) missingFields.push("preferred_time");
@@ -84,7 +80,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!isValidPhone(mobileNumber)) {
+    if (mobileNumber && !isValidPhone(mobileNumber)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid mobile number format" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -99,11 +95,13 @@ Deno.serve(async (req) => {
     }
 
     // Normalise phone to E.164 (+353XXXXXXXXX)
-    const normalisedPhone = mobileNumber.startsWith("+")
-      ? mobileNumber
-      : mobileNumber.startsWith("353")
-      ? "+" + mobileNumber
-      : "+353" + mobileNumber.replace(/^0/, "");
+    const normalisedPhone = mobileNumber
+      ? mobileNumber.startsWith("+")
+        ? mobileNumber
+        : mobileNumber.startsWith("353")
+        ? "+" + mobileNumber
+        : "+353" + mobileNumber.replace(/^0/, "")
+      : "";
 
     // Resolve organisation dynamically from the Tally payload.
     // Accept either an explicit organisation_id (UUID) or an org slug field.
