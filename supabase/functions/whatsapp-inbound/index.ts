@@ -48,6 +48,7 @@ Deno.serve(async (req: Request) => {
     .from("customers")
     .select("id, organisation_id")
     .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
+    .order("created_at", { ascending: false })
     .limit(1);
   const customer = customers?.[0] ?? null;
 
