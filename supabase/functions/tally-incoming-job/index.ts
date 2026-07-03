@@ -66,6 +66,10 @@ Deno.serve(async (req) => {
 
     // Validate required fields
     const missingFields: string[] = [];
+    if (!customerName) missingFields.push("customer_name");
+    if (!mobileNumber) missingFields.push("mobile_number");
+    if (!fullAddress) missingFields.push("full_address");
+    if (!eircode) missingFields.push("eircode");
     if (!jobIssue) missingFields.push("job_issue");
     if (!preferredDay) missingFields.push("preferred_day");
     if (!preferredTime) missingFields.push("preferred_time");
