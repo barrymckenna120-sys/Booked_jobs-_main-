@@ -22,6 +22,28 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
+    // Optional org_id param — from JSON body (POST) or ?org_id= (GET)
+    let orgIdParam: string | null = null;
+    try {
+      if (req.method === "POST") {
+        const body = await req.clone().json().catch(() => null);
+        if (body && typeof body.org_id === "string") orgIdParam = body.org_id;
+      }
+      if (!orgIdParam) {
+        const url = new URL(req.url);
+        const q = url.searchParams.get("org_id");
+        if (q) orgIdParam = q;
+      }
+    } catch (_e) {
+      orgIdParam = null;
+    }
+    if (orgIdParam && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgIdParam)) {
+      return new Response(JSON.stringify({ error: "Invalid org_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Verify caller identity by passing the JWT explicitly
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -46,14 +68,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Determine caller role once
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", callerId)
+      .maybeSingle();
+    const callerRole = (callerProfile as any)?.role ?? null;
+    const isSuperadmin = callerRole === "superadmin";
+
     // Platform owner bypass
     const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
-    let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+    let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail) || isSuperadmin;
 
     // Check caller has admin/office role OR is the organisation owner
     if (!isAuthorized) {
-      const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: callerId });
-      isAuthorized = callerRole === "admin" || callerRole === "office";
+      const { data: legacyRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: callerId });
+      isAuthorized = legacyRole === "admin" || legacyRole === "office";
     }
 
     if (!isAuthorized) {
@@ -72,6 +103,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // List all auth users (needed for email lookup in both branches)
     const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
 
     if (listError) {
@@ -82,7 +114,75 @@ Deno.serve(async (req) => {
       });
     }
 
-    const users = (usersData?.users || []).map((u) => ({
+    const authUsers = usersData?.users || [];
+    const emailByUserId = new Map<string, string | null>();
+    for (const u of authUsers) {
+      emailByUserId.set(u.id, u.email ?? null);
+    }
+
+    // Org-scoped branch — superadmin only
+    if (orgIdParam) {
+      if (!isSuperadmin) {
+        return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const [profilesRes, engineersRes] = await Promise.all([
+        supabaseAdmin
+          .from("profiles")
+          .select("user_id, display_name, role")
+          .eq("organisation_id", orgIdParam),
+        supabaseAdmin
+          .from("engineers")
+          .select("auth_user_id, name, role")
+          .eq("organisation_id", orgIdParam),
+      ]);
+
+      if (profilesRes.error && engineersRes.error) {
+        console.error("org list error:", profilesRes.error, engineersRes.error);
+        return new Response(JSON.stringify({ error: "Failed to load org users" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const map = new Map<string, { userId: string; email: string | null; name: string; role: string }>();
+      for (const p of (profilesRes.data as any[]) || []) {
+        if (!p?.user_id) continue;
+        map.set(p.user_id, {
+          userId: p.user_id,
+          email: emailByUserId.get(p.user_id) ?? null,
+          name: p.display_name || "—",
+          role: p.role || "—",
+        });
+      }
+      for (const e of (engineersRes.data as any[]) || []) {
+        if (!e?.auth_user_id) continue;
+        const existing = map.get(e.auth_user_id);
+        if (existing) {
+          if (!existing.name || existing.name === "—") existing.name = e.name || existing.name;
+          if (existing.role === "—") existing.role = e.role || existing.role;
+        } else {
+          map.set(e.auth_user_id, {
+            userId: e.auth_user_id,
+            email: emailByUserId.get(e.auth_user_id) ?? null,
+            name: e.name || "—",
+            role: e.role || "engineer",
+          });
+        }
+      }
+
+      const orgUsers = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+      return new Response(JSON.stringify({ users: orgUsers }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Default (unchanged) behaviour — list all auth users
+    const users = authUsers.map((u) => ({
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
