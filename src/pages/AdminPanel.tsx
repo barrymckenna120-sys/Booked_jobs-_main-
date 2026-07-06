@@ -89,6 +89,146 @@ const StatusBadge = ({ status }: { status: string | null }) => {
   return <Badge className={cls} variant="secondary">{status || "—"}</Badge>;
 };
 
+type OrgUser = { userId: string; email: string | null; name: string; role: string };
+
+function UnblockUserPopover({
+  orgId,
+  ownerEmails,
+  unblockingEmail,
+  onUnblock,
+}: {
+  orgId: string;
+  ownerEmails: Record<string, string>;
+  unblockingEmail: string | null;
+  onUnblock: (email: string) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [users, setUsers] = useState<OrgUser[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const [profilesRes, engineersRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("user_id, display_name, role" as any)
+            .eq("organisation_id" as any, orgId),
+          supabase
+            .from("engineers")
+            .select("auth_user_id, name, role" as any)
+            .eq("organisation_id" as any, orgId),
+        ]);
+        if (cancelled) return;
+        if (profilesRes.error && engineersRes.error) {
+          setError("Failed to load users for this organisation");
+          setUsers([]);
+          return;
+        }
+        const map = new Map<string, OrgUser>();
+        for (const p of ((profilesRes.data as any[]) || [])) {
+          if (!p?.user_id) continue;
+          map.set(p.user_id, {
+            userId: p.user_id,
+            email: ownerEmails[p.user_id] ?? null,
+            name: p.display_name || "—",
+            role: p.role || "—",
+          });
+        }
+        for (const e of ((engineersRes.data as any[]) || [])) {
+          if (!e?.auth_user_id) continue;
+          const existing = map.get(e.auth_user_id);
+          if (existing) {
+            if (!existing.name || existing.name === "—") existing.name = e.name || existing.name;
+            if (existing.role === "—") existing.role = e.role || existing.role;
+          } else {
+            map.set(e.auth_user_id, {
+              userId: e.auth_user_id,
+              email: ownerEmails[e.auth_user_id] ?? null,
+              name: e.name || "—",
+              role: e.role || "engineer",
+            });
+          }
+        }
+        setUsers(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
+      } catch (_e) {
+        if (!cancelled) {
+          setError("Failed to load users for this organisation");
+          setUsers([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, orgId, ownerEmails]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" title="Unblock a user in this organisation">
+          <Unlock className="mr-1 h-3 w-3" />
+          Unblock User
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-2" align="end">
+        <div className="text-xs font-medium text-muted-foreground px-2 py-1">
+          Select a user to clear their auth block
+        </div>
+        {loading ? (
+          <div className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" /> Loading users…
+          </div>
+        ) : error ? (
+          <div className="px-2 py-3 text-sm text-red-600">{error}</div>
+        ) : users.length === 0 ? (
+          <div className="px-2 py-3 text-sm text-muted-foreground">
+            No users found for this organisation
+          </div>
+        ) : (
+          <div className="max-h-72 overflow-y-auto">
+            {users.map((u) => {
+              const busy = unblockingEmail !== null;
+              const isThisOne = unblockingEmail === u.email;
+              const disabled = !u.email || busy;
+              return (
+                <button
+                  key={u.userId}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => u.email && onUnblock(u.email)}
+                  className="w-full text-left px-2 py-2 rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-2"
+                  title={u.email || "Email unavailable"}
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{u.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {u.email || "email unavailable"}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary" className="text-[10px]">{u.role}</Badge>
+                    {isThisOne && <Loader2 className="h-3 w-3 animate-spin" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
+
 export default function AdminPanel() {
   const navigate = useNavigate();
   const { setViewingOrg, viewingOrgId } = useAdminViewAs();
