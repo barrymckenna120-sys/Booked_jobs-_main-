@@ -117,12 +117,12 @@ function UnblockUserPopover({
         const [profilesRes, engineersRes] = await Promise.all([
           supabase
             .from("profiles")
-            .select("user_id, display_name, role" as any)
-            .eq("organisation_id" as any, orgId),
+            .select("*")
+            .eq("organisation_id", orgId),
           supabase
             .from("engineers")
-            .select("auth_user_id, name, role" as any)
-            .eq("organisation_id" as any, orgId),
+            .select("*")
+            .eq("organisation_id", orgId),
         ]);
         if (cancelled) return;
         if (profilesRes.error && engineersRes.error) {
