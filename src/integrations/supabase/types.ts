@@ -2819,6 +2819,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_impersonation_hmac: {
+        Args: { _secret: string }
+        Returns: undefined
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -2870,6 +2874,7 @@ export type Database = {
         Args: { p_accepted: boolean; p_quote_id: string }
         Returns: undefined
       }
+      verify_impersonation_token: { Args: { _token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
