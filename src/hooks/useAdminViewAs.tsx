@@ -1,6 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { setAdminSelectedOrgId } from "@/integrations/supabase/orgHeaderInterceptor";
+import {
+  setAdminSelectedOrgId,
+  setImpersonationToken,
+  clearImpersonationToken,
+  getImpersonationTokenState,
+} from "@/integrations/supabase/orgHeaderInterceptor";
 
 const STORAGE_KEY = "adminViewingOrgId";
 const STORAGE_NAME_KEY = "adminViewingOrgName";
@@ -20,6 +25,23 @@ const AdminViewAsContext = createContext<Ctx>({
   setViewingOrg: () => {},
 });
 
+async function mintImpersonationToken(orgId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke("impersonate-org", {
+      body: { org_id: orgId },
+    });
+    if (error || !data?.token || !data?.exp) {
+      console.error("[impersonate-org] mint failed", error);
+      return false;
+    }
+    setImpersonationToken(orgId, data.token as string, data.exp as number);
+    return true;
+  } catch (e) {
+    console.error("[impersonate-org] mint threw", e);
+    return false;
+  }
+}
+
 export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
   const [email, setEmail] = useState<string | null>(null);
   const [viewingOrgId, setViewingOrgIdState] = useState<string | null>(
@@ -28,6 +50,7 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
   const [viewingOrgName, setViewingOrgNameState] = useState<string | null>(
     () => (typeof window !== "undefined" ? localStorage.getItem(STORAGE_NAME_KEY) : null)
   );
+  const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +68,18 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
 
   const isSuperAdmin = email?.toLowerCase() === SUPER_ADMIN_EMAIL;
 
+  const scheduleRefresh = useCallback((orgId: string) => {
+    if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
+    const { exp } = getImpersonationTokenState();
+    const now = Math.floor(Date.now() / 1000);
+    // Refresh 2 minutes before expiry (min 10s from now)
+    const secondsUntilRefresh = Math.max(10, exp - now - 120);
+    refreshTimer.current = window.setTimeout(async () => {
+      const ok = await mintImpersonationToken(orgId);
+      if (ok) scheduleRefresh(orgId);
+    }, secondsUntilRefresh * 1000);
+  }, []);
+
   const setViewingOrg = useCallback((orgId: string | null, orgName?: string | null) => {
     if (orgId) {
       localStorage.setItem(STORAGE_KEY, orgId);
@@ -52,15 +87,24 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
       setAdminSelectedOrgId(orgId);
       setViewingOrgIdState(orgId);
       setViewingOrgNameState(orgName ?? null);
+
+      // Mint token BEFORE reloading so the first requests after reload send it.
+      mintImpersonationToken(orgId).finally(() => {
+        setTimeout(() => window.location.reload(), 50);
+      });
     } else {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_NAME_KEY);
       setAdminSelectedOrgId(null);
+      clearImpersonationToken();
       setViewingOrgIdState(null);
       setViewingOrgNameState(null);
+      if (refreshTimer.current) {
+        window.clearTimeout(refreshTimer.current);
+        refreshTimer.current = null;
+      }
+      setTimeout(() => window.location.reload(), 50);
     }
-    // Hard reload to ensure all queries refetch with new org context
-    setTimeout(() => window.location.reload(), 50);
   }, []);
 
   // If somehow set but user is not super-admin, clear it
@@ -69,10 +113,33 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_NAME_KEY);
       setAdminSelectedOrgId(null);
+      clearImpersonationToken();
       setViewingOrgIdState(null);
       setViewingOrgNameState(null);
     }
   }, [email, isSuperAdmin, viewingOrgId]);
+
+  // On mount / when viewing org changes, ensure we have a valid token and
+  // schedule auto-refresh.
+  useEffect(() => {
+    if (!isSuperAdmin || !viewingOrgId) return;
+    const { token, exp, org } = getImpersonationTokenState();
+    const now = Math.floor(Date.now() / 1000);
+    const isStale = !token || org !== viewingOrgId || exp - now < 60;
+    if (isStale) {
+      mintImpersonationToken(viewingOrgId).then((ok) => {
+        if (ok) scheduleRefresh(viewingOrgId);
+      });
+    } else {
+      scheduleRefresh(viewingOrgId);
+    }
+    return () => {
+      if (refreshTimer.current) {
+        window.clearTimeout(refreshTimer.current);
+        refreshTimer.current = null;
+      }
+    };
+  }, [isSuperAdmin, viewingOrgId, scheduleRefresh]);
 
   const value = useMemo(
     () => ({
