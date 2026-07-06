@@ -819,6 +819,14 @@ export default function AdminPanel() {
                               </>
                             )}
                           </Button>
+                          <UnblockUserPopover
+                            orgId={t.id}
+                            ownerEmails={ownerEmails}
+                            unblockingEmail={unblockingEmail}
+                            onUnblock={async (email) => {
+                              await handleUnblock(email);
+                            }}
+                          />
                           <Button
                             size="sm"
                             variant="ghost"
