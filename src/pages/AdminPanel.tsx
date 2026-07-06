@@ -26,7 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
-import { Loader2, History, Ban, ShieldCheck, Trash2 } from "lucide-react";
+import { Loader2, History, Ban, ShieldCheck, Trash2, Unlock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Tenant = {
   id: string;
