@@ -114,48 +114,17 @@ function UnblockUserPopover({
     setError(null);
     (async () => {
       try {
-        const [profilesRes, engineersRes] = await Promise.all([
-          supabase
-            .from("profiles")
-            .select("*")
-            .eq("organisation_id", orgId),
-          supabase
-            .from("engineers")
-            .select("*")
-            .eq("organisation_id", orgId),
-        ]);
+        const { data, error: invokeError } = await supabase.functions.invoke("list-users", {
+          body: { org_id: orgId },
+        });
         if (cancelled) return;
-        if (profilesRes.error && engineersRes.error) {
+        if (invokeError || (data as any)?.error) {
           setError("Failed to load users for this organisation");
           setUsers([]);
           return;
         }
-        const map = new Map<string, OrgUser>();
-        for (const p of ((profilesRes.data as any[]) || [])) {
-          if (!p?.user_id) continue;
-          map.set(p.user_id, {
-            userId: p.user_id,
-            email: ownerEmails[p.user_id] ?? null,
-            name: p.display_name || "—",
-            role: p.role || "—",
-          });
-        }
-        for (const e of ((engineersRes.data as any[]) || [])) {
-          if (!e?.auth_user_id) continue;
-          const existing = map.get(e.auth_user_id);
-          if (existing) {
-            if (!existing.name || existing.name === "—") existing.name = e.name || existing.name;
-            if (existing.role === "—") existing.role = e.role || existing.role;
-          } else {
-            map.set(e.auth_user_id, {
-              userId: e.auth_user_id,
-              email: ownerEmails[e.auth_user_id] ?? null,
-              name: e.name || "—",
-              role: e.role || "engineer",
-            });
-          }
-        }
-        setUsers(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
+        const list = ((data as any)?.users as any[]) || [];
+        setUsers(list as OrgUser[]);
       } catch (_e) {
         if (!cancelled) {
           setError("Failed to load users for this organisation");
