@@ -8,6 +8,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import { playSoftChime } from "@/utils/audio";
 import { Volume2 } from "lucide-react";
 
 interface Props {
