@@ -1,0 +1,1 @@
+ALTER TABLE public.boiler_brands ALTER COLUMN organisation_id DROP DEFAULT;
