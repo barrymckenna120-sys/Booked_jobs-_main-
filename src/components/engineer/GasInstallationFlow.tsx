@@ -182,8 +182,17 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
 
     setSaving(false);
     if (error) {
-      console.error("❌ Certificate insert failed:", error.message, error);
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("❌ Certificate insert failed, queuing for retry:", error.message, error);
+      addToQueue({
+        table: "certificates",
+        operation: "insert",
+        payload: certData as any,
+      });
+      toast({
+        title: "No connection",
+        description: "Certificate saved and will sync automatically when back online",
+        variant: "destructive",
+      });
     } else {
       const newCertId = (insertedRow as any)?.id;
       console.log("✅ Certificate inserted successfully. newCertId:", newCertId, "insertedRow:", insertedRow);
