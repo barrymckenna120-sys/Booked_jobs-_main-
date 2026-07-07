@@ -1,46 +1,19 @@
-# Fix silent login failures on the sign-in page
+This was a read-only audit request. Findings are in the chat response above; no code changes are proposed.
 
-The login page (`src/pages/Auth.tsx`) is shared by office staff and engineers. Today, only errors whose message contains "invalid" trigger a visible modal — every other auth failure (user not found, email not confirmed, network error, etc.) falls through to a toast that engineers report as "silent". We'll add a clear inline error directly under the Sign In button, plus a spinner and clear-on-typing behaviour, without altering routing, lockout, or auth logic.
+**Summary of findings**
 
-## Changes — `src/pages/Auth.tsx`
+- Route: `/schedule` → `src/pages/Schedule.tsx` (single component, both viewports). Declared at `src/App.tsx:143` inside the `<AppLayout />` route.
+- Desktop "Full Schedule" (`src/components/dashboard/TodayTimeline.tsx:68`) uses a plain `<a href="/schedule">` — full page reload.
+- Desktop header "Schedule" button (`src/pages/Dashboard.tsx:168`) and `WeekSnapshot` (`src/components/dashboard/WeekSnapshot.tsx:97`) use `navigate("/schedule")` — soft nav.
+- Mobile bottom nav (`src/components/layout/AppLayout.tsx:53-59`, `MOBILE_NAV`) does NOT include `/schedule`. The `CalendarDays → /schedule` item lives only in `DESKTOP_NAV` (line 41). Mobile users reach Schedule via the Dashboard header button.
+- Guards before Schedule renders (all viewport-agnostic, no `useIsMobile`, no feature flag):
+  1. `useAuth` loading gate — `src/App.tsx` `AppContent`
+  2. `RecoveryRedirectGuard` — `src/App.tsx:83-107`
+  3. `AppLayoutInner` engineer redirect: `isEngineer && !canAccessOffice → /engineer/today` — `src/components/layout/AppLayout.tsx:123-125`
+  4. `useOrgId()` `ready` gate inside `Schedule.tsx:115`
+- No `<OfficeRoute>` wrapper on `/schedule` (contrast lines 138-146 in `App.tsx`).
+- Notable: only the `TodayTimeline` `<a href>` path forces a cold-start auth/role bootstrap; the other entry points do not. Relevant if the "bounces to homepage" symptom is reproducible only from that button.
 
-1. **Add a single inline error state** (`formError: string | null`) used for all sign-in failures.
+**Next step**
 
-2. **Catch block in `handleSubmit`**: keep the existing 3-strike lockout behaviour (failed-attempt counter + modal + `lock-failed-login` invocation on attempt 3 — preserved exactly), but ALSO set `formError` to the generic message:
-
-   > "Incorrect email or password. Please try again."
-
-   This message is used for every auth failure — invalid credentials, user not found, email not confirmed, network/unknown — so we never disclose which case it is. The existing toast fallback for non-"invalid" errors is removed in favour of the inline message (toast still used for the forgot-password flow).
-
-3. **Inline error rendering**: directly below the Sign In button, render
-
-   ```tsx
-   {formError && (
-     <p role="alert" className="text-sm text-destructive text-center mt-2">
-       {formError}
-     </p>
-   )}
-   ```
-
-   Uses the existing `text-destructive` token for the red style.
-
-4. **Loading spinner on submit button**: while `loading` is true, disable the button (already disabled) and show a `Loader2` icon from `lucide-react` spinning next to "Signing in…":
-
-   ```tsx
-   {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>) : "Sign In"}
-   ```
-
-5. **Clear error on typing**: in the email and password `onChange` handlers, call `setFormError(null)` alongside the existing `setEmail` / `setPassword`. Per project memory, `onChange` must pass the raw event value directly — we keep that pattern.
-
-## What stays the same
-
-- Route, redirect targets, and `navigate("/dashboard")` on success.
-- 3-strike lockout sequence and `lock-failed-login` edge function call.
-- Existing error modal (kept — it carries the lockout copy on attempts 2 and 3).
-- Forgot-password flow, password recovery handling, and all `useEffect` auth listeners.
-- No changes to `useAuth`, engineer linking, FCM token capture, or any other file.
-
-## Out of scope
-
-- No new route or separate engineer login page.
-- No changes to Supabase, RLS, edge functions, or styling tokens beyond `text-destructive` and `Loader2`.
+Awaiting user direction on which (if any) of the above to act on. No plan to implement yet.
