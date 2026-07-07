@@ -59,7 +59,7 @@ export function useNotifications() {
   const [soundEnabled, setSoundEnabled] = useState<boolean | null>(true);
   const soundEnabledRef = useRef<boolean | null>(true);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
-  const initialLoadDone = useRef(false);
+  const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
   const dismissBanner = useCallback((id: string) => {
     setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -82,10 +82,7 @@ export function useNotifications() {
 
   useEffect(() => {
     if (!user) return;
-    initialLoadDone.current = false;
-    fetchNotifications().then(() => {
-      setTimeout(() => { initialLoadDone.current = true; }, 1000);
-    });
+    fetchNotifications();
   }, [user, fetchNotifications]);
 
   // Fetch sound preference
@@ -143,24 +140,23 @@ export function useNotifications() {
           const n = payload.new as AppNotification;
           setNotifications((prev) => [n, ...prev]);
 
-          if (initialLoadDone.current) {
-            // Show banner
-            setBannerNotifications((prev) => [n, ...prev]);
+          // initialLoadDone guard removed — Realtime INSERT only fires for rows
+          // created after subscribe, so the 1s suppression skipped real alerts.
+          setBannerNotifications((prev) => [n, ...prev]);
 
-            // Play sound + vibrate for high priority (read from ref to avoid re-subscribing)
-            if (soundEnabledRef.current) {
-              if (n.notification_type === "message") {
-                debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
-                playEngineerMessageAlert();
-              } else if (n.notification_type === "completed") {
-                playSoftChime();
-              } else {
-                playDoubleBeep();
-              }
+          // Play sound + vibrate for high priority (read from ref to avoid re-subscribing)
+          if (soundEnabledRef.current) {
+            if (n.notification_type === "message") {
+              debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
+              playEngineerMessageAlert();
+            } else if (n.notification_type === "completed") {
+              playSoftChime();
+            } else {
+              playDoubleBeep();
             }
-            if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
-              vibrateHighPriority();
-            }
+          }
+          if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
+            vibrateHighPriority();
           }
         }
       )
