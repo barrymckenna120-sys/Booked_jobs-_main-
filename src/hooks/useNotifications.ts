@@ -60,7 +60,6 @@ export function useNotifications() {
   const soundEnabledRef = useRef<boolean | null>(true);
   const [soundPromptShown, setSoundPromptShown] = useState(false);
   const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
-  const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
   const dismissBanner = useCallback((id: string) => {
     setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
