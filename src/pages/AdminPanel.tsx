@@ -98,6 +98,7 @@ function UnblockUserPopover({
   onUnblock,
   hasBlockedUsers = false,
   checkingBlocked = false,
+  closeSignal = 0,
 }: {
   orgId: string;
   ownerEmails: Record<string, string>;
@@ -105,12 +106,18 @@ function UnblockUserPopover({
   onUnblock: (email: string) => Promise<void> | void;
   hasBlockedUsers?: boolean;
   checkingBlocked?: boolean;
+  closeSignal?: number;
 }) {
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<OrgUser[]>([]);
+
+  useEffect(() => {
+    if (closeSignal > 0) setOpen(false);
+  }, [closeSignal]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -311,6 +318,7 @@ export default function AdminPanel() {
   const [tabValue, setTabValue] = useState<string>("tenants");
   const [blockedStatus, setBlockedStatus] = useState<Record<string, { loading: boolean; hasBlocked: boolean }>>({});
   const [blockedStatusFetched, setBlockedStatusFetched] = useState(false);
+  const [closeSignals, setCloseSignals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (tabValue !== "unblock-users" || blockedStatusFetched || tenants.length === 0) return;
@@ -556,7 +564,7 @@ export default function AdminPanel() {
     }
   };
 
-  const handleUnblock = async (email: string) => {
+  const handleUnblock = async (email: string, orgId: string) => {
     setUnblockingEmail(email);
     try {
       const { data, error } = await supabase.functions.invoke("reset-auth-block", {
@@ -566,12 +574,36 @@ export default function AdminPanel() {
         throw new Error((data as any)?.error || error?.message || "Failed to unblock");
       }
       toast.success("User unblocked successfully");
+
+      // Re-fetch blocked status for this org
+      setBlockedStatus((prev) => ({
+        ...prev,
+        [orgId]: { loading: true, hasBlocked: prev[orgId]?.hasBlocked ?? false },
+      }));
+      try {
+        const { data: lu, error: luErr } = await supabase.functions.invoke("list-users", {
+          body: { org_id: orgId },
+        });
+        const users = ((lu as any)?.users as any[]) || [];
+        const hasBlocked =
+          !luErr && !(lu as any)?.error && users.some((u) => !!u?.blocked);
+        setBlockedStatus((prev) => ({ ...prev, [orgId]: { loading: false, hasBlocked } }));
+      } catch {
+        setBlockedStatus((prev) => ({
+          ...prev,
+          [orgId]: { loading: false, hasBlocked: prev[orgId]?.hasBlocked ?? false },
+        }));
+      }
+
+      // Close the popover for this org
+      setCloseSignals((prev) => ({ ...prev, [orgId]: (prev[orgId] ?? 0) + 1 }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to unblock user");
     } finally {
       setUnblockingEmail(null);
     }
   };
+
 
   const handleSendMagicLink = async (tenantId: string, email: string, orgName: string) => {
     setSendingMagicLinkFor(tenantId);
@@ -967,8 +999,9 @@ export default function AdminPanel() {
                         hasBlockedUsers={blockedStatus[t.id]?.hasBlocked ?? false}
                         checkingBlocked={blockedStatus[t.id]?.loading ?? false}
                         onUnblock={async (email) => {
-                          await handleUnblock(email);
+                          await handleUnblock(email, t.id);
                         }}
+                        closeSignal={closeSignals[t.id] ?? 0}
                       />
 
                     </div>
