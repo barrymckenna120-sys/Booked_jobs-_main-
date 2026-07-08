@@ -33,6 +33,7 @@ const MessageAlertBanner = () => {
         },
         (payload) => {
           const n = payload.new as any;
+          console.log("[MessageAlertBanner] notif received", { type: n.notification_type, id: n.id, recipient: n.recipient_user_id });
           if (n.notification_type !== "message") return;
 
           playMessageBeep();
