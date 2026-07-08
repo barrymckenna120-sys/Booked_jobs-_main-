@@ -217,9 +217,11 @@ Deno.serve(async (req) => {
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
+      blocked: blockedByUserId.get(u.id) ?? false,
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at,
     }));
+
 
     return new Response(JSON.stringify({ users }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
