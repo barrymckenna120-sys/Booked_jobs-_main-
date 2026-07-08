@@ -992,8 +992,9 @@ export default function AdminPanel() {
                         hasBlockedUsers={blockedStatus[t.id]?.hasBlocked ?? false}
                         checkingBlocked={blockedStatus[t.id]?.loading ?? false}
                         onUnblock={async (email) => {
-                          await handleUnblock(email);
+                          await handleUnblock(email, t.id);
                         }}
+                        closeSignal={closeSignals[t.id] ?? 0}
                       />
 
                     </div>
