@@ -88,44 +88,69 @@ const Jobs = () => {
 
   const fetchJobs = async () => {
     setLoading(true);
-    const { data: jobsData } = await supabase
-      .from("service_calls")
-      .select("*")
-      .order("scheduled_date", { ascending: false });
+    const CACHE_KEY = "bookedjobs_jobs_cache";
 
-    if (jobsData) {
-      const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
-      const { data: customers } = await supabase
-        .from("customers")
-        .select("id, name, phone, address, eircode")
-        .in("id", customerIds);
-      const cMap: Record<string, any> = {};
-      (customers || []).forEach(c => { cMap[c.id] = c; });
-      setCustomersMap(cMap);
-
-      // Fetch all quotes to build lookup maps
-      const { data: allQuotes } = await supabase
-        .from("quotes")
-        .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
-        .neq("status", "Draft")
-        .order("created_at", { ascending: false });
-
-      if (allQuotes) {
-        // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
-        const jqMap: Record<string, string> = {};
-        const quotesWithJobs = jobsData.filter(j => j.has_quote);
-        for (const job of quotesWithJobs) {
-          const match = allQuotes.find(q => q.converted_job_id === job.id)
-            || allQuotes.find(q => q.job_id === job.id)
-            || allQuotes.find(q => q.customer_id === job.customer_id);
-          if (match) jqMap[job.id] = match.id;
-        }
-        setJobQuotesMap(jqMap);
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setJobs(parsed.jobs || []);
+        setCustomersMap(parsed.customersMap || {});
+        setLoading(false);
       }
+    } catch (e) {}
 
-      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[]);
+    try {
+      const { data: jobsData } = await supabase
+        .from("service_calls")
+        .select("*")
+        .order("scheduled_date", { ascending: false });
+
+      if (jobsData) {
+        const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
+        const { data: customers } = await supabase
+          .from("customers")
+          .select("id, name, phone, address, eircode")
+          .in("id", customerIds);
+        const cMap: Record<string, any> = {};
+        (customers || []).forEach(c => { cMap[c.id] = c; });
+        setCustomersMap(cMap);
+
+        // Fetch all quotes to build lookup maps
+        const { data: allQuotes } = await supabase
+          .from("quotes")
+          .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
+          .neq("status", "Draft")
+          .order("created_at", { ascending: false });
+
+        if (allQuotes) {
+          // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
+          const jqMap: Record<string, string> = {};
+          const quotesWithJobs = jobsData.filter(j => j.has_quote);
+          for (const job of quotesWithJobs) {
+            const match = allQuotes.find(q => q.converted_job_id === job.id)
+              || allQuotes.find(q => q.job_id === job.id)
+              || allQuotes.find(q => q.customer_id === job.customer_id);
+            if (match) jqMap[job.id] = match.id;
+          }
+          setJobQuotesMap(jqMap);
+        }
+
+        const jobs = jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[];
+        setJobs(jobs);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            jobs,
+            customersMap: cMap,
+            cachedAt: new Date().toISOString()
+          }));
+        } catch (e) {}
+      }
+    } catch (error) {
+      setTimeout(() => fetchJobs(), 5000);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const toggleSort = (col: typeof sortCol) => {
