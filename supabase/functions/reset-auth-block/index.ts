@@ -100,31 +100,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Clear ban and confirm email
+    // Clear ban and confirm email — treat "already clear" as success.
+    let clearedAuthBan = true;
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
       ban_duration: "none",
       email_confirm: true,
     });
 
     if (updateError) {
-      console.error("update error:", updateError);
-      return new Response(JSON.stringify({ error: "Failed to clear auth block: " + updateError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const msg = (updateError.message || "").toLowerCase();
+      const benign = msg.includes("not banned") || msg.includes("no ban") || msg.includes("nothing to update");
+      if (!benign) {
+        console.error("update error:", updateError);
+        return new Response(JSON.stringify({ error: "Failed to clear auth block: " + updateError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.warn(`Auth ban already clear for ${email}:`, updateError.message);
+      clearedAuthBan = false;
     }
 
     console.log(`Auth block cleared for ${email} (${targetUser.id})`);
 
-    // Also clear the matching engineers row so the engineer app sees the user as active
-    const { error: engErr } = await supabaseAdmin
+    // Reset any matching engineers row. Zero matches is NOT an error — the
+    // user may not have an engineers profile in this org.
+    const { data: engUpdated, error: engErr } = await supabaseAdmin
       .from("engineers")
       .update({
         status: "active",
         blocked_reason: null,
         is_available: true,
       })
-      .eq("auth_user_id", targetUser.id);
+      .eq("auth_user_id", targetUser.id)
+      .select("id");
 
     if (engErr) {
       console.error("engineers status reset error:", engErr);
@@ -134,7 +143,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, userId: targetUser.id }), {
+    const clearedEngineerRow = Array.isArray(engUpdated) && engUpdated.length > 0;
+
+    return new Response(JSON.stringify({
+      success: true,
+      userId: targetUser.id,
+      clearedAuthBan,
+      clearedEngineerRow,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
