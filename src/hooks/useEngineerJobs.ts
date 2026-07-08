@@ -95,6 +95,19 @@ export const useEngineerJobs = () => {
     // Only show loading spinner on the very first fetch to avoid scroll resets
     if (!hasFetchedOnce.current) setLoading(true);
 
+    const CACHE_KEY = "bookedjobs_engineer_jobs_cache";
+
+    // Load from cache immediately so UI shows something on weak signal
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setTodayJobs(parsed.todayJobs || []);
+        setUpcomingJobs(parsed.upcomingJobs || []);
+        setCompletedJobs(parsed.completedJobs || []);
+      }
+    } catch (e) {}
+
     try {
       // First resolve the engineer record for this auth user
       const { data: engData } = await supabase
@@ -151,10 +164,22 @@ export const useEngineerJobs = () => {
       setTodayJobs(todayRes.data || []);
       setUpcomingJobs(upcomingRes.data || []);
       setCompletedJobs(completedRes.data || []);
+
+      // Update cache with fresh data
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          todayJobs: todayRes.data || [],
+          upcomingJobs: upcomingRes.data || [],
+          completedJobs: completedRes.data || [],
+          cachedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+
       await Promise.all([fetchCustomers(allJobs), fetchJobPhotos(allJobs)]);
       hasFetchedOnce.current = true;
     } catch (error) {
       console.error("[useEngineerJobs] fetchAll failed:", error);
+      setTimeout(() => fetchAll(), 5000);
     } finally {
       setLoading(false);
     }
