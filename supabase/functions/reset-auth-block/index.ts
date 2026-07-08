@@ -1,12 +1,35 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
-};
+const ALLOWED_ORIGINS = [
+  "https://kngasservices.bookedjobs.ie",
+  "https://dublin-gas.bookedjobs.ie",
+];
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname.endsWith(".lovableproject.com") || hostname.endsWith(".lovable.app");
+  } catch {
+    return false;
+  }
+}
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin");
+  const allowOrigin = isAllowedOrigin(origin) ? origin! : "";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, content-type, apikey, x-client-info, x-org-id, x-org-impersonation-token",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
