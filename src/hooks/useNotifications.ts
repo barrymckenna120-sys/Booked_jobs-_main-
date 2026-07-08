@@ -76,6 +76,7 @@ export function useNotifications() {
       .order("created_at", { ascending: false })
       .limit(50);
     setNotifications((data as AppNotification[]) || []);
+    console.log("[useNotifications] initial fetch", { userId: user.id, rows: (data ?? []).length, unread: (data ?? []).filter((n: any) => !n.is_read).length });
     setLoading(false);
   }, [user]);
 
