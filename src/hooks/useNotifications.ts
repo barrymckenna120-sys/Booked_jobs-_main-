@@ -138,6 +138,7 @@ export function useNotifications() {
         },
         (payload) => {
           const n = payload.new as AppNotification;
+          console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
           setNotifications((prev) => [n, ...prev]);
 
           // initialLoadDone guard removed — Realtime INSERT only fires for rows
