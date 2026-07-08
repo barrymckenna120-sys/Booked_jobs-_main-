@@ -311,6 +311,7 @@ export default function AdminPanel() {
   const [tabValue, setTabValue] = useState<string>("tenants");
   const [blockedStatus, setBlockedStatus] = useState<Record<string, { loading: boolean; hasBlocked: boolean }>>({});
   const [blockedStatusFetched, setBlockedStatusFetched] = useState(false);
+  const [closeSignals, setCloseSignals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (tabValue !== "unblock-users" || blockedStatusFetched || tenants.length === 0) return;
