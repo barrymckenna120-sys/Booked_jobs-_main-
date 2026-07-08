@@ -96,12 +96,17 @@ function UnblockUserPopover({
   ownerEmails,
   unblockingEmail,
   onUnblock,
+  hasBlockedUsers = false,
+  checkingBlocked = false,
 }: {
   orgId: string;
   ownerEmails: Record<string, string>;
   unblockingEmail: string | null;
   onUnblock: (email: string) => Promise<void> | void;
+  hasBlockedUsers?: boolean;
+  checkingBlocked?: boolean;
 }) {
+
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
