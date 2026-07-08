@@ -123,8 +123,42 @@ function UnblockUserPopover({
           setUsers([]);
           return;
         }
-        const list = ((data as any)?.users as any[]) || [];
-        setUsers(list as OrgUser[]);
+        const rawList = ((data as any)?.users as any[]) || [];
+        const ownerEmail = (ownerEmails?.[orgId] || "").toLowerCase();
+
+        // Normalise to a common shape — the org-scoped EF returns
+        // { userId, email, name, role } while the default branch (or older
+        // deploys) returns { id, email, ... }.
+        const normalised = rawList
+          .map((item: any) => {
+            const userId = item?.userId ?? item?.id ?? null;
+            const email = item?.email ?? null;
+            return {
+              userId,
+              email,
+              name: item?.name || email || "—",
+              role: item?.role || "—",
+              organisation_id: item?.organisation_id ?? null,
+            };
+          })
+          .filter((u) => !!u.userId && !!u.email);
+
+        // If the response already looks org-scoped (has name/role fields),
+        // trust it. Otherwise fall back to a client-side filter so we don't
+        // display every platform auth user by accident.
+        const looksOrgScoped = rawList.some(
+          (item: any) => item && ("name" in item || "role" in item)
+        );
+
+        const finalList = looksOrgScoped
+          ? normalised
+          : normalised.filter(
+              (u) =>
+                (u.organisation_id && u.organisation_id === orgId) ||
+                (ownerEmail && u.email?.toLowerCase() === ownerEmail)
+            );
+
+        setUsers(finalList as OrgUser[]);
       } catch (_e) {
         if (!cancelled) {
           setError("Failed to load users for this organisation");
