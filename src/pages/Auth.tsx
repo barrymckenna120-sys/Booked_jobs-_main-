@@ -111,18 +111,17 @@ const Auth = () => {
         "status:", error?.status,
         "name:", error?.name
       );
-      // Check for network failure first
       const isNetworkError =
-        error instanceof TypeError ||
+        error?.message === "REQUEST_TIMEOUT" ||
         (error?.message || "").toLowerCase().includes("failed to fetch") ||
         (error?.message || "").toLowerCase().includes("network") ||
-        (error?.message || "").toLowerCase().includes("not connected") ||
         navigator.onLine === false;
 
       if (isNetworkError) {
         setFormError("No internet connection. Please check your signal and try again.");
         return;
       }
+
 
       const msg = (error?.message || "").toLowerCase();
       const code = (error?.code || "").toLowerCase();
