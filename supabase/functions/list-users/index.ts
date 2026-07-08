@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const map = new Map<string, { userId: string; email: string | null; name: string; role: string }>();
+      const map = new Map<string, { userId: string; email: string | null; name: string; role: string; blocked: boolean }>();
       for (const p of (profilesRes.data as any[]) || []) {
         if (!p?.user_id) continue;
         map.set(p.user_id, {
@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
           email: emailByUserId.get(p.user_id) ?? null,
           name: p.display_name || "—",
           role: p.role || "—",
+          blocked: blockedByUserId.get(p.user_id) ?? false,
         });
       }
       for (const e of (engineersRes.data as any[]) || []) {
@@ -198,11 +199,13 @@ Deno.serve(async (req) => {
             email: emailByUserId.get(e.auth_user_id) ?? null,
             name: e.name || "—",
             role: e.role || "engineer",
+            blocked: blockedByUserId.get(e.auth_user_id) ?? false,
           });
         }
       }
 
       const orgUsers = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
 
       return new Response(JSON.stringify({ users: orgUsers }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
