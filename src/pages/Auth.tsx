@@ -32,7 +32,19 @@ const Auth = () => {
   const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
   const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
 
+  const [showUnblockedNotice, setShowUnblockedNotice] = useState(false);
+
   useEffect(() => {
+    // Clear any legacy cached "blocked" state so an unblocked user is never
+    // stuck behind a stale UI lock after their admin unblocks them.
+    try {
+      ["auth_blocked", "blocked_email", "is_blocked"].forEach((k) => localStorage.removeItem(k));
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("auth_blocked_")) localStorage.removeItem(key);
+      }
+    } catch { /* ignore storage errors */ }
+
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const isRecovery = params.get("type") === "recovery" || hash.includes("type=recovery");
@@ -64,11 +76,14 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  const prevBlockedKey = (addr: string) => `bj_prev_blocked:${addr.trim().toLowerCase()}`;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isBlocked) return;
+    // Never hard-disable submit from cached state — the server is source of truth.
     setLoading(true);
     setFormError(null);
+    setShowUnblockedNotice(false);
 
     try {
       const authPromise = supabase.auth.signInWithPassword({
@@ -81,6 +96,8 @@ const Auth = () => {
       const { data: signInData, error } = await Promise.race([authPromise, timeoutPromise]) as any;
       if (error) throw error;
       setFailedAttempts(0);
+      setIsBlocked(false);
+      try { localStorage.removeItem(prevBlockedKey(email)); } catch { /* ignore */ }
 
       let redirectPath = "/dashboard";
       const userId = signInData?.user?.id;
@@ -120,7 +137,9 @@ const Auth = () => {
 
       if (isBanned) {
         setFormError(BLOCKED_AUTH_ERROR);
-        setIsBlocked(true);
+        // Remember that this address was blocked so we can show a green
+        // "you can now sign in" notice once the admin unblocks them.
+        try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
       } else {
         setFormError(GENERIC_AUTH_ERROR);
       }
@@ -132,9 +151,9 @@ const Auth = () => {
         if (newAttempts >= 5) {
           setErrorTitle("Account Blocked");
           setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
-          setIsBlocked(true);
           setFormError(BLOCKED_AUTH_ERROR);
           setErrorModalOpen(true);
+          try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
           }).catch(() => {});
@@ -264,10 +283,23 @@ const Auth = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEmail(v);
+                  setFormError(null);
+                  try {
+                    const wasBlocked = !!localStorage.getItem(prevBlockedKey(v));
+                    setShowUnblockedNotice(wasBlocked && v.trim().length > 0);
+                  } catch { /* ignore */ }
+                }}
                 placeholder="you@example.com"
                 required
               />
+              {showUnblockedNotice && !formError && (
+                <p className="text-sm text-green-600">
+                  Your account has been unblocked. You can now sign in.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -282,7 +314,6 @@ const Auth = () => {
                   required
                   minLength={6}
                   className="pr-10"
-                  disabled={isBlocked}
                 />
                 <button
                   type="button"
@@ -300,7 +331,7 @@ const Auth = () => {
                 Forgot your password?
               </button>
             </div>
-            <Button type="submit" className="w-full" disabled={loading || isBlocked}>
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" /> Signing in…

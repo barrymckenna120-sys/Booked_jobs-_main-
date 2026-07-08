@@ -164,9 +164,17 @@ Deno.serve(async (req) => {
           .eq("organisation_id", orgIdParam),
         supabaseAdmin
           .from("engineers")
-          .select("auth_user_id, name, role")
+          .select("auth_user_id, name, role, status")
           .eq("organisation_id", orgIdParam),
       ]);
+
+      const engineerBlockedAuthIds = new Set<string>(
+        ((engineersRes.data as any[]) || [])
+          .filter((e) => e?.auth_user_id && e?.status === "blocked")
+          .map((e) => e.auth_user_id as string)
+      );
+      const isBlockedFor = (userId: string): boolean =>
+        (blockedByUserId.get(userId) ?? false) || engineerBlockedAuthIds.has(userId);
 
       if (profilesRes.error && engineersRes.error) {
         console.error("org list error:", profilesRes.error, engineersRes.error);
@@ -184,7 +192,7 @@ Deno.serve(async (req) => {
           email: emailByUserId.get(p.user_id) ?? null,
           name: p.display_name || "—",
           role: p.role || "—",
-          blocked: blockedByUserId.get(p.user_id) ?? false,
+          blocked: isBlockedFor(p.user_id),
         });
       }
       for (const e of (engineersRes.data as any[]) || []) {
@@ -193,13 +201,14 @@ Deno.serve(async (req) => {
         if (existing) {
           if (!existing.name || existing.name === "—") existing.name = e.name || existing.name;
           if (existing.role === "—") existing.role = e.role || existing.role;
+          if (e.status === "blocked") existing.blocked = true;
         } else {
           map.set(e.auth_user_id, {
             userId: e.auth_user_id,
             email: emailByUserId.get(e.auth_user_id) ?? null,
             name: e.name || "—",
             role: e.role || "engineer",
-            blocked: blockedByUserId.get(e.auth_user_id) ?? false,
+            blocked: isBlockedFor(e.auth_user_id),
           });
         }
       }
@@ -212,12 +221,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Default (unchanged) behaviour — list all auth users
+    // Default behaviour — list all auth users. Merge in engineers.status='blocked'
+    // so blocked engineers show as blocked even when auth ban is unset.
+    const { data: blockedEngRows } = await supabaseAdmin
+      .from("engineers")
+      .select("auth_user_id")
+      .eq("status", "blocked");
+    const engineerBlockedIds = new Set<string>(
+      ((blockedEngRows as any[]) || [])
+        .filter((r) => !!r?.auth_user_id)
+        .map((r) => r.auth_user_id as string)
+    );
+
     const users = authUsers.map((u) => ({
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
-      blocked: blockedByUserId.get(u.id) ?? false,
+      blocked: (blockedByUserId.get(u.id) ?? false) || engineerBlockedIds.has(u.id),
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at,
     }));
