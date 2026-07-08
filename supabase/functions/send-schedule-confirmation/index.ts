@@ -46,7 +46,13 @@ Deno.serve(async (req) => {
       return json({ message: "Customer opted out" });
     }
 
-    if (!customer.phone) return json({ error: "Customer has no phone number" }, 400);
+    if (!customer.phone) {
+      console.warn("send-schedule-confirmation skipped: customer has no phone", {
+        service_call_id,
+        customer_id: job.customer_id,
+      });
+      return json({ success: true, skipped: true, reason: "no_phone" });
+    }
 
     // Engineer
     let engineerName = job.assigned_engineer || "TBC";
