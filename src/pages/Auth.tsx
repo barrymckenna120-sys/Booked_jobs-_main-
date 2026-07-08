@@ -76,7 +76,7 @@ const Auth = () => {
         password: password,
       });
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), 8000)
+        setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), 15000)
       );
       const { data: signInData, error } = await Promise.race([authPromise, timeoutPromise]) as any;
       if (error) throw error;
