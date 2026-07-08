@@ -116,6 +116,24 @@ Deno.serve(async (req) => {
 
     console.log(`Auth block cleared for ${email} (${targetUser.id})`);
 
+    // Also clear the matching engineers row so the engineer app sees the user as active
+    const { error: engErr } = await supabaseAdmin
+      .from("engineers")
+      .update({
+        status: "active",
+        blocked_reason: null,
+        is_available: true,
+      })
+      .eq("auth_user_id", targetUser.id);
+
+    if (engErr) {
+      console.error("engineers status reset error:", engErr);
+      return new Response(JSON.stringify({ error: "Auth block cleared but failed to reset engineer status: " + engErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, userId: targetUser.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
