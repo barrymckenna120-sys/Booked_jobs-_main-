@@ -283,10 +283,23 @@ const Auth = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEmail(v);
+                  setFormError(null);
+                  try {
+                    const wasBlocked = !!localStorage.getItem(prevBlockedKey(v));
+                    setShowUnblockedNotice(wasBlocked && v.trim().length > 0);
+                  } catch { /* ignore */ }
+                }}
                 placeholder="you@example.com"
                 required
               />
+              {showUnblockedNotice && !formError && (
+                <p className="text-sm text-green-600">
+                  Your account has been unblocked. You can now sign in.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -301,7 +314,6 @@ const Auth = () => {
                   required
                   minLength={6}
                   className="pr-10"
-                  disabled={isBlocked}
                 />
                 <button
                   type="button"
@@ -319,7 +331,7 @@ const Auth = () => {
                 Forgot your password?
               </button>
             </div>
-            <Button type="submit" className="w-full" disabled={loading || isBlocked}>
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" /> Signing in…
