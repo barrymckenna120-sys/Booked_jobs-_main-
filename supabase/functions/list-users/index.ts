@@ -221,12 +221,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Default (unchanged) behaviour — list all auth users
+    // Default behaviour — list all auth users. Merge in engineers.status='blocked'
+    // so blocked engineers show as blocked even when auth ban is unset.
+    const { data: blockedEngRows } = await supabaseAdmin
+      .from("engineers")
+      .select("auth_user_id")
+      .eq("status", "blocked");
+    const engineerBlockedIds = new Set<string>(
+      ((blockedEngRows as any[]) || [])
+        .filter((r) => !!r?.auth_user_id)
+        .map((r) => r.auth_user_id as string)
+    );
+
     const users = authUsers.map((u) => ({
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
-      blocked: blockedByUserId.get(u.id) ?? false,
+      blocked: (blockedByUserId.get(u.id) ?? false) || engineerBlockedIds.has(u.id),
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at,
     }));
