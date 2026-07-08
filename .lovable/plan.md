@@ -1,68 +1,58 @@
 
 ## Scope
 
-Three files change, plus a one-off data update for Nicole. No other files touched.
+One new migration + notification-insert removal in 5 files. No other changes.
 
 ---
 
-### 1) `supabase/functions/list-users/index.ts`
+## 1) New migration — `notify_on_job_message` trigger
 
-In the org-scoped branch (the only branch that returns users to the Unblock UI):
+Creates a SECURITY DEFINER function + AFTER INSERT trigger on `public.job_messages` that mirrors the current client-side behavior:
 
-- Extend the `engineers` select to include `status`: `.select("auth_user_id, name, role, status")`.
-- Build a `blockedByEngineerAuthId` set from rows where `status === 'blocked'`.
-- When populating the returned user object, set `blocked = (authBanned) || (engineerStatusBlocked)`.
-- Apply the same combined check in the default (all-auth-users) branch by best-effort joining engineers on `auth_user_id` (single `engineers.select('auth_user_id, status').eq('status','blocked')` call, build a Set, OR into `blocked`).
-- Re-deploy `list-users`.
+- If `NEW.sender_role = 'engineer'` → fan out to **all** users in the org where `engineers.role IN ('admin','office','owner')` and `auth_user_id IS NOT NULL AND auth_user_id != NEW.sender_id`. Notification `role = 'office'`.
+- Else (sender is office/admin/owner or anything non-engineer) → notify **only the assigned engineer**: look up `service_calls.assigned_engineer_id` → `engineers.auth_user_id`. Insert one notification with `role = 'engineer'`. Skip if the assigned engineer is the sender or unassigned.
 
-Org scoping is already enforced via `organisation_id` on the engineers query; roles are not filtered so engineer/office/admin/owner all included.
-
----
-
-### 2) `supabase/functions/reset-auth-block/index.ts`
-
-Make it idempotent and non-fatal for either side being already clear:
-
-- Keep `updateUserById(..., { ban_duration: "none", email_confirm: true })`. Treat any error whose message indicates "not banned"/no-op as success; only fail on other errors. In practice `ban_duration:"none"` already succeeds when the user isn't banned, so just log and continue instead of returning 500.
-- Keep the engineers UPDATE (status/blocked_reason/is_available). A zero-row match is NOT an error — do not treat `data:[]` as failure. Only return 500 on a real Postgres error.
-- Return `{ success: true, userId, clearedAuthBan: boolean, clearedEngineerRow: boolean }` so the UI can reflect what happened, but the response stays 200 as long as neither call errored.
-- Re-deploy `reset-auth-block`.
-
-Auth check (admin/superadmin) and org scoping already work for all tenants since the update targets `auth_user_id` which is globally unique.
-
----
-
-### 3) `src/pages/Auth.tsx`
-
-- On mount (inside the existing `useEffect`), remove any legacy cached-block keys:
-  `localStorage.removeItem("auth_blocked")`, `"blocked_email"`, `"is_blocked"`, plus iterate keys starting with `"auth_blocked_"` and delete them. This ensures no stale UI state from prior versions.
-- Remove `isBlocked` from the Sign-In button's `disabled` prop and from the password input's `disabled` prop, and drop the `if (isBlocked) return;` guard in `handleSubmit`. Users can always attempt login; server is source of truth.
-- When a `user_banned` error is caught, write `localStorage.setItem("bj_prev_blocked:" + emailLower, "1")` (so we can detect a later "unblocked" state), keep showing the red `BLOCKED_AUTH_ERROR` message, but do NOT permanently disable the form.
-- Add a small green helper below the email field: when the current `email` (lowercased, trimmed) has a `bj_prev_blocked:<email>` flag AND `formError` is null, render `"Your account has been unblocked. You can now sign in."` in `text-green-600`. Clear the flag on successful sign-in.
-- Keep the 5-failed-attempts lock-out flow as-is (that is a separate mechanism), but stop hard-disabling the button afterwards — the modal already communicates the state, and the server will reject if truly locked.
-
----
-
-### 4) Immediate data fix — Nicole
-
-Run one UPDATE via the insert tool:
-
-```sql
-UPDATE public.engineers
-SET status = 'active',
-    blocked_reason = NULL,
-    is_available = true
-WHERE auth_user_id = '574c0743-d9f4-4b7e-a1c5-0c5768cff881';
+Each notification row:
+```
+organisation_id     = service_calls.organisation_id
+recipient_user_id   = <resolved above>
+notification_type   = 'message'
+title               = 'New Message – ' || COALESCE(job_reference, 'Job')
+body                = LEFT(NEW.message, 100)
+job_id              = NEW.job_id
+role                = 'office' | 'engineer'
+is_read             = false
+created_at          = now()
 ```
 
-Also call `reset-auth-block` (or `auth.admin.updateUserById`) to clear any auth ban for the same user for safety.
+Notes:
+- `SECURITY DEFINER`, `SET search_path = public`.
+- Skips silently when `NEW.job_id` is NULL, when the service_call is missing, or when there are no eligible recipients (no error).
+- Idempotent trigger name: `DROP TRIGGER IF EXISTS on_job_message_insert ON public.job_messages` before `CREATE TRIGGER`.
 
 ---
 
-## Deployment
+## 2) Client-side notification inserts to remove
 
-After edits: deploy `list-users` and `reset-auth-block`, then verify with `curl_edge_functions` that `list-users` returns `blocked:true` for an engineers-only-blocked user, and `reset-auth-block` returns 200 for a user with no engineers row.
+In each file below, remove **only** the `supabase.from("notifications").insert({...})` call (and any local variables that exist solely to build that payload, e.g. `officeUserId` lookups, `engineerName`, `invoiceNumber`, `fullName` computations that are only used for the notification). Do NOT touch the `job_messages.insert()` call, toasts, form state, navigation, or error handling.
+
+- `src/components/engineer/MessageOfficeModal.tsx` — remove the `if (officeUserId) { await supabase.from("notifications").insert(...) }` block (around line 86-99).
+- `src/components/messages/EngineerJobMessages.tsx` — remove the notifications.insert around line 68.
+- `src/components/messages/InlineOfficeReply.tsx` — remove the notifications.insert around line 68.
+- `src/components/messages/MessageEngineerModal.tsx` — remove the notifications.insert around line 79.
+- `src/components/messages/DirectMessageThread.tsx` — remove the notifications.insert around line 122.
+
+Any `officeUserId` / recipient props on these components stay in the type signatures for now (removing them would ripple into other files); only the actual insert call is deleted.
+
+---
+
+## 3) Verify
+
+After the migration + edits:
+- Send an engineer→office test message via `job_messages` → confirm one notification row per office/admin/owner in the org (excluding the sender).
+- Send an office→engineer message → confirm one notification row for the assigned engineer only.
+- Check `MessageAlertBanner` still fires in both apps (unchanged file).
 
 ## Out of scope
 
-`AdminPanel.tsx`, `UnblockUserPopover`, and every other file remain untouched.
+Every other file. The `MessageAlertBanner`, notification RLS/GRANTs, and existing `notify_on_job_change` trigger remain untouched.
