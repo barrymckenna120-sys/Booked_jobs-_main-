@@ -203,7 +203,7 @@ function UnblockUserPopover({
               const disabled = !u.email || busy;
               return (
                 <button
-                  key={u.userId}
+                  key={u.userId || u.email || u.name}
                   type="button"
                   disabled={disabled}
                   onClick={() => u.email && onUnblock(u.email)}
