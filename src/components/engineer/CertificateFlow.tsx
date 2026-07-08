@@ -271,7 +271,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
         cert_number: cn,
         checks,
         notes: { details, work_carried_out: readings.work_carried_out },
-        readings: { co_ppm, co2_pct, ratio, combustion_co, combustion_ratio, inlet_pressure, working_pressure },
+        readings: { co_ppm: readings.co_ppm, co2_pct: readings.co2_pct, ratio: readings.ratio, combustion_co: readings.combustion_co, combustion_ratio: readings.combustion_ratio, inlet_pressure: readings.inlet_pressure, working_pressure: readings.working_pressure },
         customer_sig_url: customerSig,
         engineer_sig_url: engSigUrl,
       }});
