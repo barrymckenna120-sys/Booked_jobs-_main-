@@ -1,24 +1,17 @@
-## Audit Finding — No Change Required
+## Objective
+Remove two specific runtimeCaching handlers from `vite.config.ts` so the Workbox service worker no longer caches the `service_calls` and `engineers` REST endpoints with `StaleWhileRevalidate`.
 
-This was an audit-only request. Findings for `vite.config.ts`:
+## Changes
+Edit `vite.config.ts` only:
+- Delete lines 58–64 (the `supabase.co/rest/v1/service_calls` handler, `StaleWhileRevalidate`, `cacheName: "supabase-service-calls"`).
+- Delete lines 66–72 (the `supabase.co/rest/v1/engineers` handler, `StaleWhileRevalidate`, `cacheName: "supabase-engineers"`).
+- Leave the rest of the file unchanged, including the broader `supabase.co/rest` `NetworkFirst` handler and the navigation `NetworkFirst` handler.
 
-### 1. URL patterns matching `supabase.co`
-- **Line 58**: `/^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/service_calls/` → `StaleWhileRevalidate` (cache: `supabase-service-calls`)
-- **Line 66**: `/^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/engineers/` → `StaleWhileRevalidate` (cache: `supabase-engineers`)
-- **Line 74**: `/^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest/` → `NetworkFirst`, 5s timeout (cache: `supabase-api`)
+## Verification
+After editing, confirm:
+1. `vite.config.ts` compiles and the Vite PWA plugin still generates a service worker.
+2. No `StaleWhileRevalidate` handlers remain for `service_calls` or `engineers`.
+3. The remaining runtimeCaching handlers are intact.
 
-### 2. Is `/auth` or `/auth/v1` explicitly excluded?
-No explicit exclusion exists, but all three supabase handlers are scoped to `/rest` — they do not match `/auth/v1/*`. There is no need for an explicit exclusion because no pattern reaches that path.
-
-### 3. Catch-all handler for `supabase.co`
-None. The broadest is line 74 (`/rest` prefix only). There is no wildcard `supabase.co` handler.
-
-### `navigateFallback` / POST handling
-- **Line 27**: `navigateFallback: "/offline.html"`, denylist lines 28–37 (includes `/^\/auth/` at line 32, `/^\/rest/`, `/^\/functions/`). Applies only to navigation requests.
-- **Lines 40–50**: HTML navigation handler, guarded by `request.mode !== "navigate"` at line 41. GET navigations only.
-- Workbox `runtimeCaching` matches only GET requests by default; no entry sets `method: 'POST'`.
-
-### Conclusion
-A POST to `https://<ref>.supabase.co/auth/v1/token` (i.e. `signInWithPassword`) is **not intercepted** by any Workbox handler, and `navigateFallback` never applies to POSTs. The service worker in `sw.js` is not the source of any auth POST hanging/failing.
-
-No files to change.
+## Risk
+Requests to these two endpoints will fall through to the broader `NetworkFirst` Supabase REST handler (5-second timeout, 50 entries, 5-minute max age). This removes the 24-hour stale-while-revalidate cache and may increase perceived load time or network dependency on weak signals.
