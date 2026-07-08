@@ -89,21 +89,21 @@ const Jobs = () => {
   const fetchJobs = async () => {
     setLoading(true);
     const CACHE_KEY = "bookedjobs_jobs_cache";
-
     const isAdminViewing = !!localStorage.getItem("adminViewingOrgId");
-    if (isAdminViewing) {
-      localStorage.removeItem("bookedjobs_jobs_cache");
-    }
 
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setJobs(parsed.jobs || []);
-        setCustomersMap(parsed.customersMap || {});
-        setLoading(false);
-      }
-    } catch (e) {}
+    // Only read cache for regular users. Admins viewing another org must
+    // wait for a fresh fetch to avoid showing the previous tenant's data.
+    if (!isAdminViewing) {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setJobs(parsed.jobs || []);
+          setCustomersMap(parsed.customersMap || {});
+          setLoading(false);
+        }
+      } catch (e) {}
+    }
 
     try {
       const { data: jobsData } = await supabase
