@@ -76,11 +76,14 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  const prevBlockedKey = (addr: string) => `bj_prev_blocked:${addr.trim().toLowerCase()}`;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isBlocked) return;
+    // Never hard-disable submit from cached state — the server is source of truth.
     setLoading(true);
     setFormError(null);
+    setShowUnblockedNotice(false);
 
     try {
       const authPromise = supabase.auth.signInWithPassword({
@@ -93,6 +96,8 @@ const Auth = () => {
       const { data: signInData, error } = await Promise.race([authPromise, timeoutPromise]) as any;
       if (error) throw error;
       setFailedAttempts(0);
+      setIsBlocked(false);
+      try { localStorage.removeItem(prevBlockedKey(email)); } catch { /* ignore */ }
 
       let redirectPath = "/dashboard";
       const userId = signInData?.user?.id;
@@ -132,7 +137,9 @@ const Auth = () => {
 
       if (isBanned) {
         setFormError(BLOCKED_AUTH_ERROR);
-        setIsBlocked(true);
+        // Remember that this address was blocked so we can show a green
+        // "you can now sign in" notice once the admin unblocks them.
+        try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
       } else {
         setFormError(GENERIC_AUTH_ERROR);
       }
@@ -144,9 +151,9 @@ const Auth = () => {
         if (newAttempts >= 5) {
           setErrorTitle("Account Blocked");
           setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
-          setIsBlocked(true);
           setFormError(BLOCKED_AUTH_ERROR);
           setErrorModalOpen(true);
+          try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
           }).catch(() => {});
