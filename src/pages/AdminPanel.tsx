@@ -875,6 +875,39 @@ export default function AdminPanel() {
         <TabsContent value="integrations">
           <CustomerIntegrationsTab />
         </TabsContent>
+
+        <TabsContent value="unblock-users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Unblock Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingTenants ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : tenants.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No tenants yet</p>
+              ) : (
+                <div className="divide-y">
+                  {tenants.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between py-3 gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{t.name}</div>
+                      </div>
+                      <UnblockUserPopover
+                        orgId={t.id}
+                        ownerEmails={ownerEmails}
+                        unblockingEmail={unblockingEmail}
+                        onUnblock={async (email) => {
+                          await handleUnblock(email);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <Dialog open={!!activityModalOrg} onOpenChange={(open) => !open && setActivityModalOrg(null)}>
