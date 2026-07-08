@@ -98,6 +98,7 @@ function UnblockUserPopover({
   onUnblock,
   hasBlockedUsers = false,
   checkingBlocked = false,
+  closeSignal = 0,
 }: {
   orgId: string;
   ownerEmails: Record<string, string>;
@@ -105,12 +106,18 @@ function UnblockUserPopover({
   onUnblock: (email: string) => Promise<void> | void;
   hasBlockedUsers?: boolean;
   checkingBlocked?: boolean;
+  closeSignal?: number;
 }) {
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<OrgUser[]>([]);
+
+  useEffect(() => {
+    if (closeSignal > 0) setOpen(false);
+  }, [closeSignal]);
+
 
   useEffect(() => {
     if (!open) return;
