@@ -71,7 +71,14 @@ const Auth = () => {
     setFormError(null);
 
     try {
-      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+      const authPromise = supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), 8000)
+      );
+      const { data: signInData, error } = await Promise.race([authPromise, timeoutPromise]) as any;
       if (error) throw error;
       setFailedAttempts(0);
 
@@ -104,18 +111,17 @@ const Auth = () => {
         "status:", error?.status,
         "name:", error?.name
       );
-      // Check for network failure first
       const isNetworkError =
-        error instanceof TypeError ||
+        error?.message === "REQUEST_TIMEOUT" ||
         (error?.message || "").toLowerCase().includes("failed to fetch") ||
         (error?.message || "").toLowerCase().includes("network") ||
-        (error?.message || "").toLowerCase().includes("not connected") ||
         navigator.onLine === false;
 
       if (isNetworkError) {
         setFormError("No internet connection. Please check your signal and try again.");
         return;
       }
+
 
       const msg = (error?.message || "").toLowerCase();
       const code = (error?.code || "").toLowerCase();
