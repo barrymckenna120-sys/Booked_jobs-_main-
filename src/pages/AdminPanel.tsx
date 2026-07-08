@@ -89,7 +89,7 @@ const StatusBadge = ({ status }: { status: string | null }) => {
   return <Badge className={cls} variant="secondary">{status || "—"}</Badge>;
 };
 
-type OrgUser = { userId: string; email: string | null; name: string; role: string };
+type OrgUser = { userId: string; email: string | null; name: string; role: string; blocked?: boolean };
 
 function UnblockUserPopover({
   orgId,
