@@ -964,10 +964,13 @@ export default function AdminPanel() {
                         orgId={t.id}
                         ownerEmails={ownerEmails}
                         unblockingEmail={unblockingEmail}
+                        hasBlockedUsers={blockedStatus[t.id]?.hasBlocked ?? false}
+                        checkingBlocked={blockedStatus[t.id]?.loading ?? false}
                         onUnblock={async (email) => {
                           await handleUnblock(email);
                         }}
                       />
+
                     </div>
                   ))}
                 </div>
