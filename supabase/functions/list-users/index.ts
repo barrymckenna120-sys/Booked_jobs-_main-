@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
           email: emailByUserId.get(p.user_id) ?? null,
           name: p.display_name || "—",
           role: p.role || "—",
-          blocked: blockedByUserId.get(p.user_id) ?? false,
+          blocked: isBlockedFor(p.user_id),
         });
       }
       for (const e of (engineersRes.data as any[]) || []) {
@@ -201,13 +201,14 @@ Deno.serve(async (req) => {
         if (existing) {
           if (!existing.name || existing.name === "—") existing.name = e.name || existing.name;
           if (existing.role === "—") existing.role = e.role || existing.role;
+          if (e.status === "blocked") existing.blocked = true;
         } else {
           map.set(e.auth_user_id, {
             userId: e.auth_user_id,
             email: emailByUserId.get(e.auth_user_id) ?? null,
             name: e.name || "—",
             role: e.role || "engineer",
-            blocked: blockedByUserId.get(e.auth_user_id) ?? false,
+            blocked: isBlockedFor(e.auth_user_id),
           });
         }
       }
