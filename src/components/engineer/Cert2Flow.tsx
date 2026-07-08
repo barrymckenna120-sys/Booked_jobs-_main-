@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRetryQueue } from "@/hooks/useRetryQueue";
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Appliance", "Readings", "Customer", "Engineer"];
@@ -112,6 +113,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engineerRgi, engineerPhone, onClose }) => {
   const { toast } = useToast();
+  const { addToQueue } = useRetryQueue();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [certNumber, setCertNumber] = useState<string | null>(null);
@@ -207,7 +209,9 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
 
     setSaving(false);
     if (error) {
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("Cert2 insert failed, queuing for retry:", error.message);
+      addToQueue({ table: "certificates", operation: "insert", payload: certData });
+      toast({ title: "No connection", description: "Certificate saved and will sync automatically when back online", variant: "destructive" });
     } else {
       setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
