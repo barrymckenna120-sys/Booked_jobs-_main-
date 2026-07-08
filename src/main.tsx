@@ -46,7 +46,7 @@ if ("serviceWorker" in navigator) {
     // Register Firebase messaging SW (background push).
     // App shell SW (/sw.js) is registered via useRegisterSW in PWAUpdateBanner
     // so we can surface an update prompt when a new version is detected.
-    navigator.serviceWorker.register("/firebase-messaging-sw.js").catch((err) => {
+    navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/firebase-cloud-messaging-push-scope" }).catch((err) => {
       console.warn("Firebase SW registration failed:", err);
     });
   }
