@@ -91,7 +91,16 @@ const AppLayoutInner = () => {
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
   const mobileNavRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { unlockAudio(); }, []);
+  useEffect(() => {
+    unlockAudio();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        unlockAudio();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   useEffect(() => {
     const nav = mobileNavRef.current;
