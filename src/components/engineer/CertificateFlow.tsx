@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRetryQueue } from "@/hooks/useRetryQueue";
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Checks", "Readings", "Customer", "Engineer"];
@@ -141,6 +142,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engineerName, engineerRgi, onClose }) => {
   const { toast } = useToast();
+  const { addToQueue } = useRetryQueue();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -261,7 +263,19 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
 
     setSaving(false);
     if (error) {
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("Certificate insert failed, queuing for retry:", error.message);
+      addToQueue({ table: "certificates", operation: "insert", payload: {
+        organisation_id: job.organisation_id,
+        job_id: job.id,
+        customer_id: customer.id,
+        cert_number: cn,
+        checks,
+        notes: { details, work_carried_out: readings.work_carried_out },
+        readings: { co_ppm: readings.co_ppm, co2_pct: readings.co2_pct, ratio: readings.ratio, combustion_co: readings.combustion_co, combustion_ratio: readings.combustion_ratio, inlet_pressure: readings.inlet_pressure, working_pressure: readings.working_pressure },
+        customer_sig_url: customerSig,
+        engineer_sig_url: engSigUrl,
+      }});
+      toast({ title: "No connection", description: "Certificate saved and will sync automatically when back online", variant: "destructive" });
     } else {
       setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
