@@ -102,15 +102,6 @@ const Auth = () => {
       }
       navigate(redirectPath);
     } catch (error: any) {
-      console.error("AUTH ERROR FULL:", JSON.stringify(error),
-        "onLine:", navigator.onLine,
-        "type:", typeof error,
-        "instanceof TypeError:", error instanceof TypeError,
-        "message:", error?.message,
-        "code:", error?.code,
-        "status:", error?.status,
-        "name:", error?.name
-      );
       const isNetworkError =
         error?.message === "REQUEST_TIMEOUT" ||
         (error?.message || "").toLowerCase().includes("failed to fetch") ||
