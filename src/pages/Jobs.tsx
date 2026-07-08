@@ -90,9 +90,12 @@ const Jobs = () => {
     setLoading(true);
     const CACHE_KEY = "bookedjobs_jobs_cache";
 
+    const isAdminViewing = !!localStorage.getItem("adminViewingOrgId");
+    if (isAdminViewing) {
+      localStorage.removeItem("bookedjobs_jobs_cache");
+    }
+
     try {
-      const adminOrgId = localStorage.getItem("adminViewingOrgId");
-      const CACHE_KEY = adminOrgId ? `bookedjobs_jobs_cache_${adminOrgId}` : "bookedjobs_jobs_cache";
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
@@ -141,10 +144,7 @@ const Jobs = () => {
         const jobs = jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[];
         setJobs(jobs);
         try {
-          // Clear cache on org switch
-          const currentOrgId = jobsData?.[0]?.organisation_id || "unknown";
-          const orgScopedKey = `bookedjobs_jobs_cache_${currentOrgId}`;
-          localStorage.setItem(orgScopedKey, JSON.stringify({
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
             jobs,
             customersMap: cMap,
             cachedAt: new Date().toISOString()
