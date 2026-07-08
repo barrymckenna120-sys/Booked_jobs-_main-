@@ -141,10 +141,12 @@ function UnblockUserPopover({
               email,
               name: item?.name || email || "—",
               role: item?.role || "—",
+              blocked: !!item?.blocked,
               organisation_id: item?.organisation_id ?? null,
             };
           })
           .filter((u) => !!u.userId && !!u.email);
+
 
         // If the response already looks org-scoped (has name/role fields),
         // trust it. Otherwise fall back to a client-side filter so we don't
