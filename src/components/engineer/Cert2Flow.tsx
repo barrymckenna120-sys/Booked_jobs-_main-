@@ -113,6 +113,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engineerRgi, engineerPhone, onClose }) => {
   const { toast } = useToast();
+  const { addToQueue } = useRetryQueue();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [certNumber, setCertNumber] = useState<string | null>(null);
