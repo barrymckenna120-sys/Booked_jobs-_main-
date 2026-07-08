@@ -556,7 +556,7 @@ export default function AdminPanel() {
     }
   };
 
-  const handleUnblock = async (email: string) => {
+  const handleUnblock = async (email: string, orgId: string) => {
     setUnblockingEmail(email);
     try {
       const { data, error } = await supabase.functions.invoke("reset-auth-block", {
@@ -566,12 +566,36 @@ export default function AdminPanel() {
         throw new Error((data as any)?.error || error?.message || "Failed to unblock");
       }
       toast.success("User unblocked successfully");
+
+      // Re-fetch blocked status for this org
+      setBlockedStatus((prev) => ({
+        ...prev,
+        [orgId]: { loading: true, hasBlocked: prev[orgId]?.hasBlocked ?? false },
+      }));
+      try {
+        const { data: lu, error: luErr } = await supabase.functions.invoke("list-users", {
+          body: { org_id: orgId },
+        });
+        const users = ((lu as any)?.users as any[]) || [];
+        const hasBlocked =
+          !luErr && !(lu as any)?.error && users.some((u) => !!u?.blocked);
+        setBlockedStatus((prev) => ({ ...prev, [orgId]: { loading: false, hasBlocked } }));
+      } catch {
+        setBlockedStatus((prev) => ({
+          ...prev,
+          [orgId]: { loading: false, hasBlocked: prev[orgId]?.hasBlocked ?? false },
+        }));
+      }
+
+      // Close the popover for this org
+      setCloseSignals((prev) => ({ ...prev, [orgId]: (prev[orgId] ?? 0) + 1 }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to unblock user");
     } finally {
       setUnblockingEmail(null);
     }
   };
+
 
   const handleSendMagicLink = async (tenantId: string, email: string, orgName: string) => {
     setSendingMagicLinkFor(tenantId);
