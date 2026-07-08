@@ -308,6 +308,36 @@ export default function AdminPanel() {
   const [togglingBlockFor, setTogglingBlockFor] = useState<string | null>(null);
   const [latestActivity, setLatestActivity] = useState<Record<string, ActivityEntry>>({});
   const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
+  const [tabValue, setTabValue] = useState<string>("tenants");
+  const [blockedStatus, setBlockedStatus] = useState<Record<string, { loading: boolean; hasBlocked: boolean }>>({});
+  const [blockedStatusFetched, setBlockedStatusFetched] = useState(false);
+
+  useEffect(() => {
+    if (tabValue !== "unblock-users" || blockedStatusFetched || tenants.length === 0) return;
+    setBlockedStatusFetched(true);
+    setBlockedStatus((prev) => {
+      const next = { ...prev };
+      for (const t of tenants) next[t.id] = { loading: true, hasBlocked: false };
+      return next;
+    });
+    (async () => {
+      await Promise.all(
+        tenants.map(async (t) => {
+          try {
+            const { data, error } = await supabase.functions.invoke("list-users", {
+              body: { org_id: t.id },
+            });
+            const users = ((data as any)?.users as any[]) || [];
+            const hasBlocked = !error && !(data as any)?.error && users.some((u) => !!u?.blocked);
+            setBlockedStatus((prev) => ({ ...prev, [t.id]: { loading: false, hasBlocked } }));
+          } catch {
+            setBlockedStatus((prev) => ({ ...prev, [t.id]: { loading: false, hasBlocked: false } }));
+          }
+        })
+      );
+    })();
+  }, [tabValue, tenants, blockedStatusFetched]);
+
   const [activityModalEntries, setActivityModalEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivityModal, setLoadingActivityModal] = useState(false);
   const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
