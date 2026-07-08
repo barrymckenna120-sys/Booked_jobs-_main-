@@ -142,6 +142,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engineerName, engineerRgi, onClose }) => {
   const { toast } = useToast();
+  const { addToQueue } = useRetryQueue();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -262,7 +263,19 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
 
     setSaving(false);
     if (error) {
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("Certificate insert failed, queuing for retry:", error.message);
+      addToQueue({ table: "certificates", operation: "insert", payload: {
+        organisation_id: job.organisation_id,
+        job_id: job.id,
+        customer_id: customer.id,
+        cert_number: cn,
+        checks,
+        notes: { details, work_carried_out: readings.work_carried_out },
+        readings: { co_ppm, co2_pct, ratio, combustion_co, combustion_ratio, inlet_pressure, working_pressure },
+        customer_sig_url: customerSig,
+        engineer_sig_url: engSigUrl,
+      }});
+      toast({ title: "No connection", description: "Certificate saved and will sync automatically when back online", variant: "destructive" });
     } else {
       setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
