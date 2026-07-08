@@ -123,21 +123,40 @@ const Customers = () => {
   const fetchCustomers = async () => {
     if (!orgId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("organisation_id", orgId)
-      .order("name");
-    if (data) {
-      // Sort by surname (last word of name) A-Z
-      data.sort((a: any, b: any) => {
-        const surnameA = (a.name || "").trim().split(/\s+/).pop()?.toLowerCase() || "";
-        const surnameB = (b.name || "").trim().split(/\s+/).pop()?.toLowerCase() || "";
-        return surnameA.localeCompare(surnameB);
-      });
-      setCustomers(data);
+    const CACHE_KEY = "bookedjobs_customers_cache";
+
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setCustomers(parsed || []);
+        setLoading(false);
+      }
+    } catch (e) {}
+
+    try {
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("organisation_id", orgId)
+        .order("name");
+      if (data) {
+        // Sort by surname (last word of name) A-Z
+        data.sort((a: any, b: any) => {
+          const surnameA = (a.name || "").trim().split(/\s+/).pop()?.toLowerCase() || "";
+          const surnameB = (b.name || "").trim().split(/\s+/).pop()?.toLowerCase() || "";
+          return surnameA.localeCompare(surnameB);
+        });
+        setCustomers(data);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data || []));
+        } catch (e) {}
+      }
+    } catch (error) {
+      setTimeout(() => fetchCustomers(), 5000);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const areaCounts = useMemo(() => {
