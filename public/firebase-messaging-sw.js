@@ -1,3 +1,4 @@
+// Scope: /firebase-cloud-messaging-push-scope — isolated from Workbox app-shell SW at /
 /* eslint-disable no-undef */
 // SW cache version: v2026-04-29-1 — bump to force clients to fetch latest build
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
