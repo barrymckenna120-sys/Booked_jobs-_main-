@@ -94,17 +94,9 @@ export const installOrgHeaderInterceptor = () => {
           cachedTokenExp - now > 30
         ) {
           headers.set("x-org-impersonation-token", cachedToken);
-          console.log("[interceptor] using impersonation token for org:", adminSelectedOrgId, "expires in:", cachedTokenExp - now, "seconds");
         } else {
           // LEGACY fallback: raw header. Removed in Turn 2 once verified.
           headers.set("x-org-id", adminSelectedOrgId);
-          console.log("[interceptor] FALLBACK x-org-id used. Token state:",
-            "cachedToken:", !!cachedToken,
-            "cachedTokenOrg:", cachedTokenOrg,
-            "adminSelectedOrgId:", adminSelectedOrgId,
-            "tokenExp:", cachedTokenExp,
-            "now:", now,
-            "diff:", cachedTokenExp - now);
         }
 
         return originalFetch(input, { ...(init || {}), headers });

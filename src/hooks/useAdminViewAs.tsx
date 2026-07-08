@@ -35,7 +35,6 @@ async function mintImpersonationToken(orgId: string): Promise<boolean> {
       return false;
     }
     setImpersonationToken(orgId, data.token as string, data.exp as number);
-    console.log("[impersonate-org] token minted successfully for org:", orgId, "exp:", data.exp);
     return true;
   } catch (e) {
     console.error("[impersonate-org] mint threw", e);
