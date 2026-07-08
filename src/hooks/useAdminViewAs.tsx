@@ -88,6 +88,12 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
       setViewingOrgIdState(orgId);
       setViewingOrgNameState(orgName ?? null);
 
+      // Clear job cache for previous org to prevent cross-tenant leak
+      localStorage.removeItem("bookedjobs_jobs_cache_" + 
+        (localStorage.getItem("adminViewingOrgId") || "default"));
+      localStorage.removeItem("bookedjobs_engineer_jobs_cache");
+      localStorage.removeItem("bookedjobs_customers_cache");
+
       // Mint token BEFORE reloading so the first requests after reload send it.
       mintImpersonationToken(orgId).finally(() => {
         setTimeout(() => window.location.reload(), 50);
