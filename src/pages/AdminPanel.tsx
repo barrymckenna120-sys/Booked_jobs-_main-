@@ -206,28 +206,45 @@ function UnblockUserPopover({
               const busy = unblockingEmail !== null;
               const isThisOne = unblockingEmail === u.email;
               const disabled = !u.email || busy;
+              const blocked = !!u.blocked;
               return (
                 <button
                   key={u.userId || u.email || u.name}
                   type="button"
                   disabled={disabled}
                   onClick={() => u.email && onUnblock(u.email)}
-                  className="w-full text-left px-2 py-2 rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-2"
+                  className={`w-full text-left px-2 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-2 border-l-4 ${
+                    blocked
+                      ? "bg-red-50 border-red-500 hover:bg-red-100"
+                      : "border-transparent hover:bg-muted"
+                  }`}
                   title={u.email || "Email unavailable"}
                 >
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{u.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className={`text-sm font-medium truncate ${blocked ? "text-red-700" : "text-muted-foreground"}`}>
+                      {u.name}
+                    </div>
+                    <div className={`text-xs truncate ${blocked ? "text-red-600" : "text-muted-foreground"}`}>
                       {u.email || "email unavailable"}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="secondary" className="text-[10px]">{u.role}</Badge>
+                    {blocked ? (
+                      <Badge className="text-[10px] bg-red-100 text-red-800 hover:bg-red-100" variant="secondary">
+                        Blocked
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground">
+                        Active
+                      </Badge>
+                    )}
                     {isThisOne && <Loader2 className="h-3 w-3 animate-spin" />}
                   </div>
                 </button>
               );
             })}
+
           </div>
         )}
       </PopoverContent>
