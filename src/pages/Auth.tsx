@@ -71,7 +71,14 @@ const Auth = () => {
     setFormError(null);
 
     try {
-      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+      const authPromise = supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("REQUEST_TIMEOUT")), 8000)
+      );
+      const { data: signInData, error } = await Promise.race([authPromise, timeoutPromise]) as any;
       if (error) throw error;
       setFailedAttempts(0);
 
