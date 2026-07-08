@@ -672,7 +672,7 @@ export default function AdminPanel() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-6 p-6">
-      <Tabs defaultValue="tenants" className="space-y-6">
+      <Tabs value={tabValue} onValueChange={setTabValue} className="space-y-6">
         <TabsList>
           <TabsTrigger value="tenants">Tenants</TabsTrigger>
           <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
