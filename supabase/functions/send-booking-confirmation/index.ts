@@ -80,11 +80,21 @@ serve(async (req) => {
     });
     const custRows = await custRes.json();
     const customer = Array.isArray(custRows) ? custRows[0] : null;
-    if (!customer || !customer.phone) {
-      return new Response(JSON.stringify({ success: false, error: "Customer not found or missing phone" }), {
+    if (!customer) {
+      return new Response(JSON.stringify({ success: false, error: "Customer not found" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
+        status: 404,
       });
+    }
+    if (!customer.phone) {
+      console.warn("send-booking-confirmation skipped: customer has no phone", {
+        service_call_id,
+        customer_id: job.customer_id,
+      });
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "no_phone" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
     }
 
     // Fetch settings (message_footer / business_name) by organisation_id
