@@ -3,7 +3,34 @@
 // token via vault-stored secret; nothing here is trusted client-side.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+const ALLOWED_ORIGINS = [
+  "https://kngasservices.bookedjobs.ie",
+  "https://dublin-gas.bookedjobs.ie",
+];
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname.endsWith(".lovableproject.com") || hostname.endsWith(".lovable.app");
+  } catch {
+    return false;
+  }
+}
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin");
+  const allowOrigin = isAllowedOrigin(origin) ? origin : ""; // empty string omits the header
+  return {
+    "Access-Control-Allow-Origin": allowOrigin ?? "",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, content-type, apikey, x-client-info, x-org-id, x-org-impersonation-token",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -40,6 +67,7 @@ async function signHmac(payloadB64: string, secret: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
