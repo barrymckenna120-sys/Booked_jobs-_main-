@@ -88,7 +88,9 @@ const Jobs = () => {
 
   const fetchJobs = async () => {
     setLoading(true);
-    const CACHE_KEY = "bookedjobs_jobs_cache";
+    const adminOrgId = localStorage.getItem("adminViewingOrgId");
+    const activeOrgId = adminOrgId || "default";
+    const CACHE_KEY = `bookedjobs_jobs_cache_${activeOrgId}`;
 
     try {
       const cached = localStorage.getItem(CACHE_KEY);
