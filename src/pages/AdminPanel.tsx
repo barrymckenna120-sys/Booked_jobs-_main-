@@ -96,12 +96,17 @@ function UnblockUserPopover({
   ownerEmails,
   unblockingEmail,
   onUnblock,
+  hasBlockedUsers = false,
+  checkingBlocked = false,
 }: {
   orgId: string;
   ownerEmails: Record<string, string>;
   unblockingEmail: string | null;
   onUnblock: (email: string) => Promise<void> | void;
+  hasBlockedUsers?: boolean;
+  checkingBlocked?: boolean;
 }) {
+
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,11 +186,21 @@ function UnblockUserPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline" title="Unblock a user in this organisation">
-          <Unlock className="mr-1 h-3 w-3" />
+        <Button
+          size="sm"
+          variant={hasBlockedUsers ? "destructive" : "outline"}
+          disabled={checkingBlocked}
+          title="Unblock a user in this organisation"
+        >
+          {checkingBlocked ? (
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          ) : (
+            <Unlock className="mr-1 h-3 w-3" />
+          )}
           Unblock User
         </Button>
       </PopoverTrigger>
+
       <PopoverContent className="w-80 p-2" align="end">
         <div className="text-xs font-medium text-muted-foreground px-2 py-1">
           Select a user to clear their auth block
@@ -293,6 +308,36 @@ export default function AdminPanel() {
   const [togglingBlockFor, setTogglingBlockFor] = useState<string | null>(null);
   const [latestActivity, setLatestActivity] = useState<Record<string, ActivityEntry>>({});
   const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
+  const [tabValue, setTabValue] = useState<string>("tenants");
+  const [blockedStatus, setBlockedStatus] = useState<Record<string, { loading: boolean; hasBlocked: boolean }>>({});
+  const [blockedStatusFetched, setBlockedStatusFetched] = useState(false);
+
+  useEffect(() => {
+    if (tabValue !== "unblock-users" || blockedStatusFetched || tenants.length === 0) return;
+    setBlockedStatusFetched(true);
+    setBlockedStatus((prev) => {
+      const next = { ...prev };
+      for (const t of tenants) next[t.id] = { loading: true, hasBlocked: false };
+      return next;
+    });
+    (async () => {
+      await Promise.all(
+        tenants.map(async (t) => {
+          try {
+            const { data, error } = await supabase.functions.invoke("list-users", {
+              body: { org_id: t.id },
+            });
+            const users = ((data as any)?.users as any[]) || [];
+            const hasBlocked = !error && !(data as any)?.error && users.some((u) => !!u?.blocked);
+            setBlockedStatus((prev) => ({ ...prev, [t.id]: { loading: false, hasBlocked } }));
+          } catch {
+            setBlockedStatus((prev) => ({ ...prev, [t.id]: { loading: false, hasBlocked: false } }));
+          }
+        })
+      );
+    })();
+  }, [tabValue, tenants, blockedStatusFetched]);
+
   const [activityModalEntries, setActivityModalEntries] = useState<ActivityEntry[]>([]);
   const [loadingActivityModal, setLoadingActivityModal] = useState(false);
   const [blockModalTenant, setBlockModalTenant] = useState<Tenant | null>(null);
@@ -627,7 +672,7 @@ export default function AdminPanel() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-6 p-6">
-      <Tabs defaultValue="tenants" className="space-y-6">
+      <Tabs value={tabValue} onValueChange={setTabValue} className="space-y-6">
         <TabsList>
           <TabsTrigger value="tenants">Tenants</TabsTrigger>
           <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
@@ -919,10 +964,13 @@ export default function AdminPanel() {
                         orgId={t.id}
                         ownerEmails={ownerEmails}
                         unblockingEmail={unblockingEmail}
+                        hasBlockedUsers={blockedStatus[t.id]?.hasBlocked ?? false}
+                        checkingBlocked={blockedStatus[t.id]?.loading ?? false}
                         onUnblock={async (email) => {
                           await handleUnblock(email);
                         }}
                       />
+
                     </div>
                   ))}
                 </div>
