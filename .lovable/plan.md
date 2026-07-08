@@ -1,75 +1,88 @@
-## Problem
 
-Two independent regressions in the notification bell/sound path:
+# Audit — `role IN ('admin','office')` occurrences
 
-1. **DB triggers missing.** `pg_trigger` has no triggers bound to `public.service_calls` or `public.job_media`. The functions `notify_on_job_change`, `notify_on_video_upload`, and `log_job_completed_activity` exist but are never invoked. Combined with today's deletion of client-side notification inserts in `useEngineerJobs.ts` / `EngineerJobDetail.tsx`, engineers no longer receive "New Job Assigned", "Reassigned", "Cancelled" alerts, and the office no longer receives status-change fan-out (En Route, On Site, In Progress, Completed, Payment, No Show, Parts Needed, Follow-up), Tally new-job fan-out, or new-video alerts. Quote-related notifications still work because they are inserted directly by `respond_to_quote` / `mark_quote_viewed`.
+Read-only report. No changes proposed. Grouped by risk of incorrectly excluding `owner` / `manager` / `superadmin`.
 
-2. **Autoplay unlock runs without a user gesture.** `AppLayout.tsx:94` and `EngineerLayout.tsx:59` call `unlockAudio()` inside a mount-time `useEffect`. Browsers require a real user interaction to unlock audio, so first-of-session Realtime chimes are silently dropped until the user clicks something.
+Note on role model: `useUserRole.ts:68` and `Auth.tsx:90` treat `owner`, `manager`, `admin`, `office` as the "elevated / office-capable" set. Any check that lists only `admin, office` is therefore narrower than the app's own definition of "office user" and is a candidate bug for owners.
 
-## Fix 1 — Re-attach the trigger bindings
+---
 
-One migration that binds the existing functions to the correct tables. No function bodies change.
+## 1. RLS policies — CURRENT DB STATE (from `pg_policies`)
+
+### 1a. HIGH RISK — owner denied
+
+| Table | Policy | Cmd | Gates |
+|---|---|---|---|
+| `boiler_brands` | Admin/office can insert/update/delete | I/U/D | Owner cannot add/edit/delete boiler brand catalog. |
+| `debug_logs` | Admin/office can read/delete | S/D | Owner cannot view debug logs. |
+| `edge_function_logs` | Admins can read / delete logs | S/D | Owner cannot view edge function logs (SystemLogs page). |
+| `notifications` | `notifications_select` — org-wide read fallback is `('admin','owner','office')` | S | ✅ includes owner. **Missing `manager`** — a manager can only see own notifications, not org-wide. |
+
+### 1b. LOW RISK — owner/manager already included
+
+- `categories` (I/U/D) — includes `admin, office, owner, manager`. OK.
+- `products` (I/U/D) — includes `admin, office, owner, manager`. OK.
+- `conversations` SELECT — includes `admin, office, owner, manager`. OK.
+- `engineers` insert/update — includes `admin, owner, office, manager, superadmin`. OK.
+
+---
+
+## 2. Database functions (SECURITY DEFINER — bypass RLS but drive notifications)
+
+### 2a. HIGH RISK — owner never receives office fan-out notifications
+
+`public.notify_on_job_change()` — 10 recipient-selection blocks, all use:
 
 ```sql
-DROP TRIGGER IF EXISTS trg_service_calls_notify ON public.service_calls;
-CREATE TRIGGER trg_service_calls_notify
-AFTER INSERT OR UPDATE ON public.service_calls
-FOR EACH ROW EXECUTE FUNCTION public.notify_on_job_change();
-
-DROP TRIGGER IF EXISTS trg_service_calls_log_completed ON public.service_calls;
-CREATE TRIGGER trg_service_calls_log_completed
-AFTER UPDATE ON public.service_calls
-FOR EACH ROW EXECUTE FUNCTION public.log_job_completed_activity();
-
-DROP TRIGGER IF EXISTS trg_job_media_notify_video ON public.job_media;
-CREATE TRIGGER trg_job_media_notify_video
-AFTER INSERT ON public.job_media
-FOR EACH ROW EXECUTE FUNCTION public.notify_on_video_upload();
+FROM public.engineers
+WHERE organisation_id = NEW.organisation_id
+  AND role IN ('admin', 'office')
+  AND auth_user_id IS NOT NULL
+  AND auth_user_id != NEW.user_id
 ```
 
-Not re-attaching `log_job_booked_activity` — its call site was previously explicit and I don't want to change activity-log semantics in this migration. Flag if you want it restored too.
+Gates the following office notifications for every non-actor recipient:
+- `new_job` (Tally Form intake)
+- `new_repair` (Repair/Emergency intake)
+- `reassigned` (engineer reassignment fan-out)
+- `en_route`, `on_site`, `in_progress`
+- `cancelled`, `no_show`, `parts_needed`
+- `completed`, `payment_collected`, `follow_up`
 
-## Fix 2 — Gesture-bind `unlockAudio`
+If the organisation owner is stored as `engineers.role = 'owner'` (or `manager`), they **do not** receive any of these bell/toast notifications. This matches the "office bell silence" symptom.
 
-Replace the mount-time call with a one-shot listener on the first user gesture. Do it in one small shared helper and call it from both layouts.
+Same pattern in `public.respond_to_quote()` and `public.mark_quote_viewed()` — quote-accepted and quote-viewed fan-out to other office users uses `role IN ('admin','office')`. Owner is excluded.
 
-`src/utils/audio.ts` — add:
+---
 
-```ts
-export function armAudioUnlockOnFirstGesture() {
-  if (typeof window === "undefined") return;
-  const events: (keyof WindowEventMap)[] = ["pointerdown", "keydown", "touchstart"];
-  const handler = () => {
-    unlockAudio();
-    events.forEach((e) => window.removeEventListener(e, handler));
-  };
-  events.forEach((e) => window.addEventListener(e, handler, { once: true, passive: true }));
-}
-```
+## 3. Edge functions
 
-In `AppLayout.tsx:94` and `EngineerLayout.tsx:59`, swap:
+| File:line | Check | Gates | Owner impact |
+|---|---|---|---|
+| `supabase/functions/list-users/index.ts:87` | `legacyRole === "admin" \|\| legacyRole === "office"` | Auth to call list-users | Mitigated by later fallback that also authorises `organisations.owner_user_id = callerId`, so owner still passes. Low risk. |
+| `supabase/functions/invite-team-member/index.ts:60` | `['admin','office','owner','owner_manager','superadmin']` | Invite team members | Owner included. OK. |
+| `supabase/functions/unblock-user/index.ts:51` | `["admin","office","owner","manager"]` | Unblock user | Owner included. OK. |
+| `supabase/functions/send-email/index.ts:13` | Role label mapping | Cosmetic email label only | Owner would render as "Engineer" label. Cosmetic only. |
 
-```ts
-useEffect(() => { unlockAudio(); }, []);
-```
+---
 
-for:
+## 4. Client-side (React)
 
-```ts
-useEffect(() => { armAudioUnlockOnFirstGesture(); }, []);
-```
+| File:line | Check | Gates | Owner impact |
+|---|---|---|---|
+| `src/hooks/useUserRole.ts:68` | `["owner","manager","admin","office"].includes(rawRole)` → `canAccessOffice` | Office route access | Owner included. OK — this is the canonical definition. |
+| `src/pages/Auth.tsx:90` | Same set | Post-login redirect to office | OK. |
+| `src/components/engineer/EngineerLayout.tsx:40` | `canAccessOffice \|\| role === "admin" \|\| role === "office"` | "Switch to Office" button in engineer layout | Owner covered via `canAccessOffice`. OK. |
+| `src/components/jobs/ExtraWorkPendingCard.tsx:167` | `role === "admin" \|\| role === "office"` | Shows Approve/Reject extra-work buttons | **HIGH RISK** — owner logged in as owner role sees the card but cannot approve/reject. |
+| `src/components/notifications/NotificationDrawer.tsx:67` | `n.role === "office" \|\| n.role === "admin"` | Filters notifications into the "Office" tab | Filter is on the notification row's `role` field (which is always `'office'` or `'engineer'` per the trigger), not the viewer's role. **Not** an owner-exclusion bug. OK. |
 
-`SoundPrompt`'s "Enable sounds" click already plays a chime (a real gesture), so once the user interacts anywhere in the tab, subsequent Realtime chimes will play.
+---
 
-## Out of scope (unchanged)
+## Summary of owner-exclusion bugs (candidates for a follow-up fix)
 
-- `useNotifications.ts` sound-gate logic, Realtime channel, and notification payloads.
-- `NotificationBell`, `NotificationBanner`, `NotificationDrawer`, `NotificationToast` — all remain the shared components used by both office and engineer layouts.
-- Quote/receipt/booking notification code paths.
+1. **DB triggers/functions** — `notify_on_job_change`, `respond_to_quote`, `mark_quote_viewed` fan-out lists exclude `owner` and `manager`. This is the most likely cause of the reported "office bell doesn't fire" symptom for owner accounts.
+2. **RLS on `boiler_brands`, `debug_logs`, `edge_function_logs`** — owner cannot manage boiler brands or view logs.
+3. **RLS on `notifications`** — owner is included, but `manager` is not (org-wide read).
+4. **`ExtraWorkPendingCard.tsx:167`** — owner cannot approve/reject extra work from the UI.
 
-## Verification after apply
-
-1. `SELECT tgname, tgrelid::regclass FROM pg_trigger WHERE NOT tgisinternal AND tgrelid::regclass::text IN ('public.service_calls','public.job_media');` returns the three new triggers.
-2. Assign an engineer to a job in office view → engineer's bell increments and (after any click in the tab) chimes.
-3. Change a job to `En Route` → other office users' bells increment.
-4. Upload a video as engineer → job owner's bell increments.
+No files will be modified until you approve a fix plan.
