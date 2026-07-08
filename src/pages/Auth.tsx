@@ -95,6 +95,15 @@ const Auth = () => {
       }
       navigate(redirectPath);
     } catch (error: any) {
+      console.error("AUTH ERROR FULL:", JSON.stringify(error),
+        "onLine:", navigator.onLine,
+        "type:", typeof error,
+        "instanceof TypeError:", error instanceof TypeError,
+        "message:", error?.message,
+        "code:", error?.code,
+        "status:", error?.status,
+        "name:", error?.name
+      );
       // Check for network failure first
       const isNetworkError =
         error instanceof TypeError ||
