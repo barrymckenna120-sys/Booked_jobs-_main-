@@ -1,58 +1,48 @@
+## Scope (approved additions + one correction)
 
-## Scope
+### Correction: `useNotifications.ts` already fetches on mount
+`src/hooks/useNotifications.ts:70-85` already runs `fetchNotifications()` on mount — it selects the latest 50 rows for `recipient_user_id = user.id` ordered by `created_at DESC`, and `unreadCount` is derived from `notifications.filter(n => !n.is_read).length`. So the "bell doesn't show 78" symptom is **not** caused by a missing initial fetch. Adding a second fetch would be duplicative.
 
-One new migration + notification-insert removal in 5 files. No other changes.
+Two real possibilities remain for the "no badge" observation:
+- **A)** Nicole is signed into the app under her `admin` engineer row (`auth_user_id = b646f6de-843e-4d3f-ab1d-245573f38d94`), NOT the `office` row (`574c0743…`). All 78 unread rows belong to the `574c0743…` account. Under `b646f6de…` the bell would legitimately be empty. There are two `nicole` engineer rows in org `8c37827f…`:
+  - `5473f748…` role=admin, auth=`b646f6de…`
+  - `1d836c8a…` role=office, auth=`574c0743…`
+- **B)** The office session's `user` is briefly `null` on paint, and the badge only renders when `unreadCount > 0` — but a subsequent render should still show the count after the fetch resolves.
 
----
+The diagnostic `console.log`s below will confirm which user id the office session is actually running under.
 
-## 1) New migration — `notify_on_job_message` trigger
+## Changes to apply
 
-Creates a SECURITY DEFINER function + AFTER INSERT trigger on `public.job_messages` that mirrors the current client-side behavior:
+1. **`src/components/messages/MessageAlertBanner.tsx`** — add one line as the first statement in the postgres_changes callback, before the type filter:
+   ```ts
+   console.log("[MessageAlertBanner] notif received", { type: n.notification_type, id: n.id, recipient: n.recipient_user_id });
+   ```
 
-- If `NEW.sender_role = 'engineer'` → fan out to **all** users in the org where `engineers.role IN ('admin','office','owner')` and `auth_user_id IS NOT NULL AND auth_user_id != NEW.sender_id`. Notification `role = 'office'`.
-- Else (sender is office/admin/owner or anything non-engineer) → notify **only the assigned engineer**: look up `service_calls.assigned_engineer_id` → `engineers.auth_user_id`. Insert one notification with `role = 'engineer'`. Skip if the assigned engineer is the sender or unassigned.
+2. **`src/hooks/useNotifications.ts`** — add two lines:
+   - Inside the postgres_changes handler, first line:
+     ```ts
+     console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
+     ```
+   - Inside `fetchNotifications`, after `setNotifications(...)`:
+     ```ts
+     console.log("[useNotifications] initial fetch", { userId: user.id, rows: (data ?? []).length, unread: (data ?? []).filter((n: any) => !n.is_read).length });
+     ```
 
-Each notification row:
-```
-organisation_id     = service_calls.organisation_id
-recipient_user_id   = <resolved above>
-notification_type   = 'message'
-title               = 'New Message – ' || COALESCE(job_reference, 'Job')
-body                = LEFT(NEW.message, 100)
-job_id              = NEW.job_id
-role                = 'office' | 'engineer'
-is_read             = false
-created_at          = now()
-```
+3. **Insert one test `job_messages` row** to exercise the trigger end-to-end:
+   ```sql
+   INSERT INTO job_messages (job_id, sender_id, sender_role, message)
+   VALUES ('7aedc214-7639-4ca9-ba2f-96615664cc82',
+           '57ebf8de-b2d3-44bc-90b0-071d750a3f46',
+           'engineer',
+           'Trigger test — please ignore');
+   ```
+   (KN-402 job id / Karl's auth id.)
 
-Notes:
-- `SECURITY DEFINER`, `SET search_path = public`.
-- Skips silently when `NEW.job_id` is NULL, when the service_call is missing, or when there are no eligible recipients (no error).
-- Idempotent trigger name: `DROP TRIGGER IF EXISTS on_job_message_insert ON public.job_messages` before `CREATE TRIGGER`.
+4. **Verify** by reading `notifications` immediately after the insert for `notification_type='message'` and `job_id=7aedc214…`. Report:
+   - Row ids + which recipients received it (expect both nicole rows plus any other admin/office/owner with `auth_user_id` in the org).
+   - Any error surfaced by the trigger.
 
----
-
-## 2) Client-side notification inserts to remove
-
-In each file below, remove **only** the `supabase.from("notifications").insert({...})` call (and any local variables that exist solely to build that payload, e.g. `officeUserId` lookups, `engineerName`, `invoiceNumber`, `fullName` computations that are only used for the notification). Do NOT touch the `job_messages.insert()` call, toasts, form state, navigation, or error handling.
-
-- `src/components/engineer/MessageOfficeModal.tsx` — remove the `if (officeUserId) { await supabase.from("notifications").insert(...) }` block (around line 86-99).
-- `src/components/messages/EngineerJobMessages.tsx` — remove the notifications.insert around line 68.
-- `src/components/messages/InlineOfficeReply.tsx` — remove the notifications.insert around line 68.
-- `src/components/messages/MessageEngineerModal.tsx` — remove the notifications.insert around line 79.
-- `src/components/messages/DirectMessageThread.tsx` — remove the notifications.insert around line 122.
-
-Any `officeUserId` / recipient props on these components stay in the type signatures for now (removing them would ripple into other files); only the actual insert call is deleted.
-
----
-
-## 3) Verify
-
-After the migration + edits:
-- Send an engineer→office test message via `job_messages` → confirm one notification row per office/admin/owner in the org (excluding the sender).
-- Send an office→engineer message → confirm one notification row for the assigned engineer only.
-- Check `MessageAlertBanner` still fires in both apps (unchanged file).
-
-## Out of scope
-
-Every other file. The `MessageAlertBanner`, notification RLS/GRANTs, and existing `notify_on_job_change` trigger remain untouched.
+### Not changing
+- No trigger changes (`notify_on_job_message` and `notify_on_job_change` are correct and firing).
+- No fetch logic changes in `useNotifications.ts` — initial fetch already exists.
+- No other files.
