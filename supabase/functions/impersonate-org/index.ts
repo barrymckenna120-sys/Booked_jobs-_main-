@@ -67,6 +67,7 @@ async function signHmac(payloadB64: string, secret: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
