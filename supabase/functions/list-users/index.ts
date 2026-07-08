@@ -139,9 +139,14 @@ Deno.serve(async (req) => {
 
     const authUsers = usersData?.users || [];
     const emailByUserId = new Map<string, string | null>();
+    const blockedByUserId = new Map<string, boolean>();
     for (const u of authUsers) {
       emailByUserId.set(u.id, u.email ?? null);
+      const bu = (u as any).banned_until;
+      const isBlocked = !!bu && bu !== "none" && new Date(bu).getTime() > Date.now();
+      blockedByUserId.set(u.id, isBlocked);
     }
+
 
     // Org-scoped branch — superadmin only
     if (orgIdParam) {
@@ -171,7 +176,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const map = new Map<string, { userId: string; email: string | null; name: string; role: string }>();
+      const map = new Map<string, { userId: string; email: string | null; name: string; role: string; blocked: boolean }>();
       for (const p of (profilesRes.data as any[]) || []) {
         if (!p?.user_id) continue;
         map.set(p.user_id, {
@@ -179,6 +184,7 @@ Deno.serve(async (req) => {
           email: emailByUserId.get(p.user_id) ?? null,
           name: p.display_name || "—",
           role: p.role || "—",
+          blocked: blockedByUserId.get(p.user_id) ?? false,
         });
       }
       for (const e of (engineersRes.data as any[]) || []) {
@@ -193,11 +199,13 @@ Deno.serve(async (req) => {
             email: emailByUserId.get(e.auth_user_id) ?? null,
             name: e.name || "—",
             role: e.role || "engineer",
+            blocked: blockedByUserId.get(e.auth_user_id) ?? false,
           });
         }
       }
 
       const orgUsers = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
 
       return new Response(JSON.stringify({ users: orgUsers }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -209,9 +217,11 @@ Deno.serve(async (req) => {
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
+      blocked: blockedByUserId.get(u.id) ?? false,
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at,
     }));
+
 
     return new Response(JSON.stringify({ users }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
