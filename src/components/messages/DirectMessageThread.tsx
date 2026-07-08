@@ -115,15 +115,8 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      // Send notification to engineer
-      await supabase.from("notifications").insert({
-        organisation_id: orgId!,
-        recipient_user_id: recipientAuthId,
-        notification_type: "message",
-        title: `Direct message from ${senderName}`,
-        body: newMessage.trim(),
-        role: "engineer",
-      } as any);
+      // notifications row is now inserted by the notify_on_job_message DB trigger.
+
       setNewMessage("");
     }
     setSending(false);

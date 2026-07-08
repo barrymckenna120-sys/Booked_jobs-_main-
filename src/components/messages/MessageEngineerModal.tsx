@@ -64,26 +64,8 @@ const MessageEngineerModal = ({ open, onOpenChange, jobId, engineerName, enginee
       } as any);
       if (error) throw error;
 
-      // Insert notification for engineer
-      if (engineerAuthUserId) {
-        const { data: jobInfo } = await supabase
-          .from("service_calls")
-          .select("job_reference, customers(name)")
-          .eq("id", jobId)
-          .maybeSingle();
-        const fullName = (jobInfo as any)?.customers?.name || "Customer";
-        const invoiceNumber = (jobInfo as any)?.job_reference || "";
-        await supabase.from("notifications").insert({
-          organisation_id: orgId!,
-          recipient_user_id: engineerAuthUserId,
-          notification_type: "message",
-          title: `New message – ${fullName} (${invoiceNumber})`,
-          body: message.trim(),
-          job_id: jobId,
-          role: "engineer",
-          metadata: { customer_name: fullName, job_reference: invoiceNumber },
-        } as any);
-      }
+      // notifications row is now inserted by the notify_on_job_message DB trigger.
+
 
       toast({ title: `Message sent to ${engineerName}` });
       setMessage("");
