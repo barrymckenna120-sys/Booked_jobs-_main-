@@ -164,9 +164,17 @@ Deno.serve(async (req) => {
           .eq("organisation_id", orgIdParam),
         supabaseAdmin
           .from("engineers")
-          .select("auth_user_id, name, role")
+          .select("auth_user_id, name, role, status")
           .eq("organisation_id", orgIdParam),
       ]);
+
+      const engineerBlockedAuthIds = new Set<string>(
+        ((engineersRes.data as any[]) || [])
+          .filter((e) => e?.auth_user_id && e?.status === "blocked")
+          .map((e) => e.auth_user_id as string)
+      );
+      const isBlockedFor = (userId: string): boolean =>
+        (blockedByUserId.get(userId) ?? false) || engineerBlockedAuthIds.has(userId);
 
       if (profilesRes.error && engineersRes.error) {
         console.error("org list error:", profilesRes.error, engineersRes.error);
