@@ -115,7 +115,16 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      // notifications row is now inserted by the notify_on_job_message DB trigger.
+      // Direct messages have job_id = null, so the notify_on_job_message trigger
+      // short-circuits. Insert the notification client-side for DMs only.
+      await supabase.from("notifications").insert({
+        organisation_id: orgId!,
+        user_id: recipientAuthId,
+        role: "engineer",
+        type: "message",
+        title: "New direct message",
+        body: newMessage.trim().slice(0, 140),
+      } as any);
 
       setNewMessage("");
     }
