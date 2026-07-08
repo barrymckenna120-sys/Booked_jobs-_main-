@@ -196,7 +196,9 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
 
     setSaving(false);
     if (error) {
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("Cert3 insert failed, queuing for retry:", error.message);
+      addToQueue({ table: "certificates", operation: "insert", payload: certData });
+      toast({ title: "No connection", description: "Certificate saved and will sync automatically when back online", variant: "destructive" });
     } else {
       setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
