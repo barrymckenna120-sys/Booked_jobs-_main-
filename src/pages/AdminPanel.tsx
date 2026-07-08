@@ -119,6 +119,9 @@ function UnblockUserPopover({
         });
         if (cancelled) return;
         if (invokeError || (data as any)?.error) {
+          console.error("[list-users] error:", invokeError,
+            "data error:", (data as any)?.error,
+            "org_id:", orgId);
           setError("Failed to load users for this organisation");
           setUsers([]);
           return;
