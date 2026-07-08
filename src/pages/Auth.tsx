@@ -32,7 +32,19 @@ const Auth = () => {
   const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
   const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
 
+  const [showUnblockedNotice, setShowUnblockedNotice] = useState(false);
+
   useEffect(() => {
+    // Clear any legacy cached "blocked" state so an unblocked user is never
+    // stuck behind a stale UI lock after their admin unblocks them.
+    try {
+      ["auth_blocked", "blocked_email", "is_blocked"].forEach((k) => localStorage.removeItem(k));
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("auth_blocked_")) localStorage.removeItem(key);
+      }
+    } catch { /* ignore storage errors */ }
+
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const isRecovery = params.get("type") === "recovery" || hash.includes("type=recovery");
