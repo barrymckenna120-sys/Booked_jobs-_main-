@@ -139,9 +139,14 @@ Deno.serve(async (req) => {
 
     const authUsers = usersData?.users || [];
     const emailByUserId = new Map<string, string | null>();
+    const blockedByUserId = new Map<string, boolean>();
     for (const u of authUsers) {
       emailByUserId.set(u.id, u.email ?? null);
+      const bu = (u as any).banned_until;
+      const isBlocked = !!bu && bu !== "none" && new Date(bu).getTime() > Date.now();
+      blockedByUserId.set(u.id, isBlocked);
     }
+
 
     // Org-scoped branch — superadmin only
     if (orgIdParam) {
