@@ -186,11 +186,21 @@ function UnblockUserPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline" title="Unblock a user in this organisation">
-          <Unlock className="mr-1 h-3 w-3" />
+        <Button
+          size="sm"
+          variant={hasBlockedUsers ? "destructive" : "outline"}
+          disabled={checkingBlocked}
+          title="Unblock a user in this organisation"
+        >
+          {checkingBlocked ? (
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          ) : (
+            <Unlock className="mr-1 h-3 w-3" />
+          )}
           Unblock User
         </Button>
       </PopoverTrigger>
+
       <PopoverContent className="w-80 p-2" align="end">
         <div className="text-xs font-medium text-muted-foreground px-2 py-1">
           Select a user to clear their auth block
