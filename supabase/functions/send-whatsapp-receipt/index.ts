@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,13 +88,15 @@ Deno.serve(async (req) => {
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    // Fetch organisation slug for tenant-specific URL
-    const { data: orgRow } = await supabase
-      .from("organisations")
-      .select("slug")
-      .eq("id", job.organisation_id)
-      .maybeSingle();
-    const orgSlug = orgRow?.slug || "kngasservices";
+    // Resolve tenant public URL for the receipt; null when the org
+    // has no public_domain configured — we still send the message,
+    // just omitting the receipt link line.
+    const tenantReceiptUrl = job.receipt_number
+      ? await getTenantPublicUrl(supabaseUrl, job.organisation_id, `/receipt/${encodeURIComponent(job.receipt_number)}`)
+      : null;
+    if (job.receipt_number && !tenantReceiptUrl) {
+      console.warn(`[send-whatsapp-receipt] organisation ${job.organisation_id} has no public_domain; omitting receipt link`);
+    }
 
     const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
