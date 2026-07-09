@@ -634,6 +634,17 @@ export default function AdminPanel() {
     if (!slugDirty) setOrgSlug(slugify(companyName));
   }, [companyName, slugDirty]);
 
+  // Auto-suggest job_reference_prefix from company name unless user has edited it
+  useEffect(() => {
+    if (!prefixDirty) {
+      const suggested = companyName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2);
+      setJobReferencePrefix(suggested);
+    }
+  }, [companyName, prefixDirty]);
+
+  const PREFIX_RE = /^[A-Z0-9]{2,6}$/;
+  const prefixValid = PREFIX_RE.test(jobReferencePrefix);
+
   const resetForm = () => {
     setCompanyName("");
     setCompanyPhone("");
@@ -641,6 +652,8 @@ export default function AdminPanel() {
     setOwnerEmail("");
     setOrgSlug("");
     setSlugDirty(false);
+    setJobReferencePrefix("");
+    setPrefixDirty(false);
     setErrors({});
   };
 
