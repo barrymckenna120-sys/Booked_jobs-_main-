@@ -34,6 +34,10 @@ export default defineConfig(({ mode }) => ({
           /^\/pdf/,
           /^\/receipt/,
           /^\/invoice/,
+          /^\/certificates/,
+          /^\/certificate/,
+          /^\/cert/,
+          /^\/quote/,
         ],
         runtimeCaching: [
           {
