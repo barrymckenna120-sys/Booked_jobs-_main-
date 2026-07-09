@@ -1696,6 +1696,7 @@ export type Database = {
           owner_phone: string | null
           owner_user_id: string | null
           prompt_template: string | null
+          public_domain: string | null
           slug: string
           stripe_customer_id: string | null
           subscription_status: string
@@ -1722,6 +1723,7 @@ export type Database = {
           owner_phone?: string | null
           owner_user_id?: string | null
           prompt_template?: string | null
+          public_domain?: string | null
           slug: string
           stripe_customer_id?: string | null
           subscription_status?: string
@@ -1748,6 +1750,7 @@ export type Database = {
           owner_phone?: string | null
           owner_user_id?: string | null
           prompt_template?: string | null
+          public_domain?: string | null
           slug?: string
           stripe_customer_id?: string | null
           subscription_status?: string
