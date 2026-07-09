@@ -695,6 +695,7 @@ export default function AdminPanel() {
           owner_name: ownerName.trim(),
           owner_email: ownerEmail.trim(),
           org_slug: orgSlug.trim(),
+          job_reference_prefix: jobReferencePrefix.trim(),
         }),
       });
       const json = await res.json().catch(() => ({}));
