@@ -157,15 +157,20 @@ serve(async (req) => {
     if (cert.cert_number && !tenantCertUrl) {
       console.warn(`[send-certificate-whatsapp] organisation ${orgId} has no public_domain; omitting certificate link`);
     }
-    const cleanCertUrl = tenantCertUrl ?? cert.pdf_url ?? "";
-    let message = messageTemplate
+    // If no tenant URL, strip the whole line containing {{certificate_url}}
+    // from the template so the message doesn't render an empty "View Certificate:" line.
+    let effectiveTemplate = messageTemplate;
+    if (!tenantCertUrl) {
+      effectiveTemplate = effectiveTemplate.replace(/\n?[^\n]*\{\{certificate_url\}\}[^\n]*/g, "");
+    }
+    let message = effectiveTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
       .replace(/\{\{certificate_type\}\}/g, certTypeLabel)
       .replace(/Gas Service Certificate/gi, certTypeLabel)
       .replace(/Gas Safety Certificate/gi, certTypeLabel)
       .replace(/Boiler Service Certificate/gi, certTypeLabel)
-      .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
+      .replace(/\{\{certificate_url\}\}/g, tenantCertUrl || "");
 
     // Append dynamic footer
     message += `\n\n${messageFooter}`;
