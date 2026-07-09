@@ -129,6 +129,7 @@ Deno.serve(async (req) => {
       owner_name,
       owner_phone: company_phone,
       industry: "gas_heating",
+      job_reference_prefix: job_reference_prefix.trim(),
     })
     .select("id")
     .single();
