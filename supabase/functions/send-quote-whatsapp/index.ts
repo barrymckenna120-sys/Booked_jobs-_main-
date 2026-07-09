@@ -97,7 +97,19 @@ serve(async (req) => {
     const refNumber = quote_number || `Q-${quote_id.substring(0, 4).toUpperCase()}`;
     const deposit = Number(deposit_amount || 0);
 
-    const acceptUrl = `https://${slug}.bookedjobs.ie/quote/${refNumber}`;
+    // Resolve tenant public URLs for the quote-accept page and PDF viewer.
+    // Null = no public_domain for this org → we omit the link line rather
+    // than construct a URL from an unrelated slug.
+    const acceptUrl = await getTenantPublicUrl(supabaseUrl, orgId, `/quote/${refNumber}`);
+    const quotePdfUrl = pdf_url
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/pdf/${refNumber}`)
+      : null;
+    if (!acceptUrl) {
+      console.warn(`[send-quote-whatsapp] organisation ${orgId} has no public_domain; omitting quote accept link`);
+    }
+    if (pdf_url && !quotePdfUrl) {
+      console.warn(`[send-quote-whatsapp] organisation ${orgId} has no public_domain; omitting quote PDF link`);
+    }
 
     let message = `Hi ${firstName},
 
@@ -114,13 +126,14 @@ Total: €${Number(quote_amount).toFixed(2)}`;
     message += `
 
 To accept this quote, reply:
-YES ${refNumber}
+YES ${refNumber}`;
 
-View and approve here:
-${acceptUrl}`;
+    if (acceptUrl) {
+      message += `\n\nView and approve here:\n${acceptUrl}`;
+    }
 
-    if (pdf_url) {
-      message += `\n\n📄 View your full quote PDF:\nhttps://${slug}.bookedjobs.ie/pdf/${refNumber}`;
+    if (quotePdfUrl) {
+      message += `\n\n📄 View your full quote PDF:\n${quotePdfUrl}`;
     }
 
     message += `\n\n${messageFooter}`;
