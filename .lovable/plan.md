@@ -1,48 +1,85 @@
-## Scope (approved additions + one correction)
+## Goal
+Gate `/` so authenticated users skip the marketing page and land on their proper home. Logged-out users keep seeing `<Index />`. No flash of marketing before redirect.
 
-### Correction: `useNotifications.ts` already fetches on mount
-`src/hooks/useNotifications.ts:70-85` already runs `fetchNotifications()` on mount — it selects the latest 50 rows for `recipient_user_id = user.id` ordered by `created_at DESC`, and `unreadCount` is derived from `notifications.filter(n => !n.is_read).length`. So the "bell doesn't show 78" symptom is **not** caused by a missing initial fetch. Adding a second fetch would be duplicative.
+## Changes
 
-Two real possibilities remain for the "no badge" observation:
-- **A)** Nicole is signed into the app under her `admin` engineer row (`auth_user_id = b646f6de-843e-4d3f-ab1d-245573f38d94`), NOT the `office` row (`574c0743…`). All 78 unread rows belong to the `574c0743…` account. Under `b646f6de…` the bell would legitimately be empty. There are two `nicole` engineer rows in org `8c37827f…`:
-  - `5473f748…` role=admin, auth=`b646f6de…`
-  - `1d836c8a…` role=office, auth=`574c0743…`
-- **B)** The office session's `user` is briefly `null` on paint, and the badge only renders when `unreadCount > 0` — but a subsequent render should still show the count after the fetch resolves.
+### 1. New file: `src/lib/resolveLandingPath.ts`
+Extract the exact role-lookup currently inlined in `src/pages/Auth.tsx` (lines 102–119) into one shared helper so `Auth.tsx` and the new `RootRoute` cannot diverge.
 
-The diagnostic `console.log`s below will confirm which user id the office session is actually running under.
+```ts
+import { supabase } from "@/integrations/supabase/client";
 
-## Changes to apply
+export async function resolveLandingPath(userId: string): Promise<string> {
+  const { data: engineerRow } = await supabase
+    .from("engineers")
+    .select("role, can_access_office")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+  const role = (engineerRow as any)?.role;
+  const canOffice = !!(engineerRow as any)?.can_access_office;
+  const elevated = ["owner", "manager", "admin", "office"].includes(role);
+  if (role === "engineer" && !canOffice && !elevated) {
+    return "/engineer/today";
+  }
+  return "/dashboard";
+}
+```
 
-1. **`src/components/messages/MessageAlertBanner.tsx`** — add one line as the first statement in the postgres_changes callback, before the type filter:
-   ```ts
-   console.log("[MessageAlertBanner] notif received", { type: n.notification_type, id: n.id, recipient: n.recipient_user_id });
-   ```
+### 2. `src/pages/Auth.tsx` (lines 102–120)
+Replace the inline lookup with:
+```ts
+let redirectPath = "/dashboard";
+const userId = signInData?.user?.id;
+if (userId) {
+  redirectPath = await resolveLandingPath(userId);
+}
+navigate(redirectPath);
+```
+Add the import. No other logic changes — the catch block, timeout race, and everything else stay identical.
 
-2. **`src/hooks/useNotifications.ts`** — add two lines:
-   - Inside the postgres_changes handler, first line:
-     ```ts
-     console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
-     ```
-   - Inside `fetchNotifications`, after `setNotifications(...)`:
-     ```ts
-     console.log("[useNotifications] initial fetch", { userId: user.id, rows: (data ?? []).length, unread: (data ?? []).filter((n: any) => !n.is_read).length });
-     ```
+### 3. `src/App.tsx`
+Add a `RootRoute` component (near `RecoveryRedirectGuard`) and swap line 133.
 
-3. **Insert one test `job_messages` row** to exercise the trigger end-to-end:
-   ```sql
-   INSERT INTO job_messages (job_id, sender_id, sender_role, message)
-   VALUES ('7aedc214-7639-4ca9-ba2f-96615664cc82',
-           '57ebf8de-b2d3-44bc-90b0-071d750a3f46',
-           'engineer',
-           'Trigger test — please ignore');
-   ```
-   (KN-402 job id / Karl's auth id.)
+```tsx
+const RootRoute = () => {
+  const { user, loading } = useAuth("");   // "" disables useAuth's own redirect
+  const [target, setTarget] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
 
-4. **Verify** by reading `notifications` immediately after the insert for `notification_type='message'` and `job_id=7aedc214…`. Report:
-   - Row ids + which recipients received it (expect both nicole rows plus any other admin/office/owner with `auth_user_id` in the org).
-   - Any error surfaced by the trigger.
+  useEffect(() => {
+    if (loading || !user) return;
+    setResolving(true);
+    resolveLandingPath(user.id)
+      .then(setTarget)
+      .finally(() => setResolving(false));
+  }, [loading, user]);
 
-### Not changing
-- No trigger changes (`notify_on_job_message` and `notify_on_job_change` are correct and firing).
-- No fetch logic changes in `useNotifications.ts` — initial fetch already exists.
-- No other files.
+  if (loading || (user && (resolving || !target))) {
+    // Match AppContent's loading visual, minimal — no marketing flash.
+    return (
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", backgroundColor:"#ffffff" }}>
+        <img src="/icons/icon-192.png" style={{ width: 80, height: 80 }} />
+      </div>
+    );
+  }
+
+  if (!user) return <Index />;
+  return <Navigate to={target!} replace />;
+};
+```
+
+Line 133 becomes:
+```tsx
+<Route path="/" element={<RootRoute />} />
+```
+
+Note: `useAuth("")` — passing an empty `redirectTo` avoids the hook's own `navigate("/auth")` for logged-out users, which we need since `/` is a valid logged-out destination. Verified in `src/hooks/useAuth.tsx` — the redirect guard is `if (!session?.user && redirectTo && !isPublicPath(...))`, so a falsy `redirectTo` is a clean opt-out and doesn't require touching the hook.
+
+## Not touching
+`*` catch-all, `AppContent`, `RecoveryRedirectGuard`, `Auth.tsx`'s post-login navigate call itself, `useAuth`, any other route, styling, or unrelated logic.
+
+## Verification (post-build)
+1. Superadmin logged in → visit `/` → lands on `/dashboard`.
+2. Engineer (no office access) logged in → visit `/` → lands on `/engineer/today`.
+3. Logged out → visit `/` → marketing page renders as before.
+4. No visible flash of marketing before redirect in cases 1 & 2.
