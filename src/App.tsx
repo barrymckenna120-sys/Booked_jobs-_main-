@@ -4,8 +4,10 @@ import { WhatsAppConnectionProvider } from "@/hooks/useWhatsAppConnection";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveLandingPath } from "@/lib/resolveLandingPath";
+
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import AppLayout from "./components/layout/AppLayout";
@@ -106,6 +108,38 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+
+const RootRoute = () => {
+  const { user, loading } = useAuth("");
+  const [target, setTarget] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
+
+  useEffect(() => {
+    if (loading || !user) return;
+    setResolving(true);
+    resolveLandingPath(user.id)
+      .then(setTarget)
+      .finally(() => setResolving(false));
+  }, [loading, user]);
+
+  if (loading || (user && (resolving || !target))) {
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        backgroundColor: "#ffffff",
+      }}>
+        <img src="/icons/icon-192.png" style={{ width: 80, height: 80 }} />
+      </div>
+    );
+  }
+
+  if (!user) return <Index />;
+  return <Navigate to={target!} replace />;
+};
+
 function AppContent() {
   const { loading } = useAuth();
 
@@ -130,7 +164,7 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={<RootRoute />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<AppLayout />}>

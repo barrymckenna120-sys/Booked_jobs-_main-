@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLandingPath } from "@/lib/resolveLandingPath";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,22 +104,10 @@ const Auth = () => {
       let redirectPath = "/dashboard";
       const userId = signInData?.user?.id;
       if (userId) {
-        // Always read the role fresh from the engineers table — never trust
-        // cached JWT claims, since role updates in the DB don't refresh the JWT.
-        const { data: engineerRow } = await supabase
-          .from("engineers")
-          .select("role, can_access_office")
-          .eq("auth_user_id", userId)
-          .maybeSingle();
-        const role = (engineerRow as any)?.role;
-        const canOffice = !!(engineerRow as any)?.can_access_office;
-        const elevated = ["owner", "manager", "admin", "office"].includes(role);
-        // Only true engineers without office access go to the engineer app.
-        if (role === "engineer" && !canOffice && !elevated) {
-          redirectPath = "/engineer/today";
-        }
+        redirectPath = await resolveLandingPath(userId);
       }
       navigate(redirectPath);
+
     } catch (error: any) {
       const isNetworkError =
         error?.message === "REQUEST_TIMEOUT" ||
