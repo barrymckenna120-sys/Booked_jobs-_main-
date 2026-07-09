@@ -301,6 +301,8 @@ export default function AdminPanel() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [slugDirty, setSlugDirty] = useState(false);
+  const [jobReferencePrefix, setJobReferencePrefix] = useState("");
+  const [prefixDirty, setPrefixDirty] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
