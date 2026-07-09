@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,20 +148,16 @@ serve(async (req) => {
 
     const firstName = customer.name.split(" ")[0];
 
-    // Fetch organisation slug for tenant-specific URL
-    let orgSlug = "kngasservices";
-    {
-      const orgRes = await fetch(
-        `${supabaseUrl}/rest/v1/organisations?id=eq.${orgId}&select=slug&limit=1`,
-        { headers }
-      );
-      const orgRows = await orgRes.json();
-      if (Array.isArray(orgRows) && orgRows[0]?.slug) orgSlug = orgRows[0].slug;
+    // Resolve tenant public URL for the certificate; null when the org
+    // has no public_domain configured — we still send the message, just
+    // without the "View Certificate" link.
+    const tenantCertUrl = cert.cert_number
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/certificates/${encodeURIComponent(cert.cert_number)}`)
+      : null;
+    if (cert.cert_number && !tenantCertUrl) {
+      console.warn(`[send-certificate-whatsapp] organisation ${orgId} has no public_domain; omitting certificate link`);
     }
-
-    const cleanCertUrl = cert.cert_number
-      ? `https://${orgSlug}.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
-      : cert.pdf_url;
+    const cleanCertUrl = tenantCertUrl ?? cert.pdf_url ?? "";
     let message = messageTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
