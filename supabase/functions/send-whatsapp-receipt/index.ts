@@ -111,7 +111,9 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://${orgSlug}.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
+    const receiptLink = tenantReceiptUrl
+      ? `\n\n📄 View your receipt here: ${tenantReceiptUrl}`
+      : "";
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
