@@ -668,6 +668,11 @@ export default function AdminPanel() {
     if (!ownerName.trim()) next.owner_name = "Required";
     if (!ownerEmail.trim()) next.owner_email = "Required";
     if (!orgSlug.trim()) next.org_slug = "Required";
+    if (!jobReferencePrefix.trim()) {
+      next.job_reference_prefix = "Required";
+    } else if (!PREFIX_RE.test(jobReferencePrefix)) {
+      next.job_reference_prefix = "2–6 characters, uppercase letters or digits only";
+    }
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
