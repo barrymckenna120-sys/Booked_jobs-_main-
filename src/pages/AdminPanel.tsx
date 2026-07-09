@@ -804,6 +804,23 @@ export default function AdminPanel() {
               )}
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="job_reference_prefix">Job Reference Prefix (e.g. DG, KN)</Label>
+              <Input
+                id="job_reference_prefix"
+                value={jobReferencePrefix}
+                onChange={(e) => {
+                  setPrefixDirty(true);
+                  setJobReferencePrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6));
+                }}
+                maxLength={6}
+                placeholder="DG"
+              />
+              {errors.job_reference_prefix && (
+                <p className="text-sm text-destructive">{errors.job_reference_prefix}</p>
+              )}
+            </div>
+
             {success && (
               <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
                 {success}
