@@ -832,7 +832,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button type="submit" className="w-full" disabled={submitting || !prefixValid}>
               {submitting ? "Creating..." : "Create Account"}
             </Button>
           </form>
