@@ -301,6 +301,8 @@ export default function AdminPanel() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [slugDirty, setSlugDirty] = useState(false);
+  const [jobReferencePrefix, setJobReferencePrefix] = useState("");
+  const [prefixDirty, setPrefixDirty] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -632,6 +634,17 @@ export default function AdminPanel() {
     if (!slugDirty) setOrgSlug(slugify(companyName));
   }, [companyName, slugDirty]);
 
+  // Auto-suggest job_reference_prefix from company name unless user has edited it
+  useEffect(() => {
+    if (!prefixDirty) {
+      const suggested = companyName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2);
+      setJobReferencePrefix(suggested);
+    }
+  }, [companyName, prefixDirty]);
+
+  const PREFIX_RE = /^[A-Z0-9]{2,6}$/;
+  const prefixValid = PREFIX_RE.test(jobReferencePrefix);
+
   const resetForm = () => {
     setCompanyName("");
     setCompanyPhone("");
@@ -639,6 +652,8 @@ export default function AdminPanel() {
     setOwnerEmail("");
     setOrgSlug("");
     setSlugDirty(false);
+    setJobReferencePrefix("");
+    setPrefixDirty(false);
     setErrors({});
   };
 
@@ -653,6 +668,11 @@ export default function AdminPanel() {
     if (!ownerName.trim()) next.owner_name = "Required";
     if (!ownerEmail.trim()) next.owner_email = "Required";
     if (!orgSlug.trim()) next.org_slug = "Required";
+    if (!jobReferencePrefix.trim()) {
+      next.job_reference_prefix = "Required";
+    } else if (!PREFIX_RE.test(jobReferencePrefix)) {
+      next.job_reference_prefix = "2–6 characters, uppercase letters or digits only";
+    }
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -675,6 +695,7 @@ export default function AdminPanel() {
           owner_name: ownerName.trim(),
           owner_email: ownerEmail.trim(),
           org_slug: orgSlug.trim(),
+          job_reference_prefix: jobReferencePrefix.trim(),
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -783,6 +804,23 @@ export default function AdminPanel() {
               )}
             </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="job_reference_prefix">Job Reference Prefix (e.g. DG, KN)</Label>
+              <Input
+                id="job_reference_prefix"
+                value={jobReferencePrefix}
+                onChange={(e) => {
+                  setPrefixDirty(true);
+                  setJobReferencePrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6));
+                }}
+                maxLength={6}
+                placeholder="DG"
+              />
+              {errors.job_reference_prefix && (
+                <p className="text-sm text-destructive">{errors.job_reference_prefix}</p>
+              )}
+            </div>
+
             {success && (
               <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
                 {success}
@@ -794,7 +832,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button type="submit" className="w-full" disabled={submitting || !prefixValid}>
               {submitting ? "Creating..." : "Create Account"}
             </Button>
           </form>
