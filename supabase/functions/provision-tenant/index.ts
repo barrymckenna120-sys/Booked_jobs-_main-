@@ -64,14 +64,22 @@ Deno.serve(async (req) => {
     business_address,
     business_email,
     rgi_number,
+    job_reference_prefix,
   } = body ?? {};
 
   // Step 1: validate
-  const required = { company_name, company_phone, owner_name, owner_email, org_slug };
+  const required = { company_name, company_phone, owner_name, owner_email, org_slug, job_reference_prefix };
   for (const [field, value] of Object.entries(required)) {
     if (!value || typeof value !== "string" || !value.trim()) {
       return json({ error: "missing_field", field }, 400);
     }
+  }
+
+  if (!/^[A-Z0-9]{2,6}$/.test(job_reference_prefix.trim())) {
+    return json({
+      error: "invalid_job_reference_prefix",
+      detail: "job_reference_prefix must be 2–6 characters, uppercase letters or digits only",
+    }, 400);
   }
 
   const addressPart = (business_address ?? "").toString().trim();
