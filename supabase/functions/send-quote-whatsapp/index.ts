@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 serve(async (req) => {
   const corsHeaders = {
@@ -59,12 +60,8 @@ serve(async (req) => {
       });
     }
 
-    // Fetch organisation slug for building tenant-specific URLs
-    const orgRes = await fetch(`${supabaseUrl}/rest/v1/organisations?id=eq.${orgId}&select=slug&limit=1`, {
-      headers: dbHeaders,
-    });
-    const orgRows = await orgRes.json();
-    const slug = (Array.isArray(orgRows) && orgRows[0]?.slug) || "kngasservices";
+    // (Tenant public URLs are resolved below via getTenantPublicUrl —
+    // no slug fallback: if public_domain is unset, the link is omitted.)
 
     // Fetch tenant WhatsApp integration config (api_key)
     const tiRes = await fetch(
