@@ -1,85 +1,55 @@
-## Goal
-Gate `/` so authenticated users skip the marketing page and land on their proper home. Logged-out users keep seeing `<Index />`. No flash of marketing before redirect.
+# Plan: Explicit `organisations.job_reference_prefix`
 
-## Changes
+Make the per-tenant job reference prefix an explicit, stable column — never derived from slug — so a future slug rename can't silently split a tenant's numbering series again.
 
-### 1. New file: `src/lib/resolveLandingPath.ts`
-Extract the exact role-lookup currently inlined in `src/pages/Auth.tsx` (lines 102–119) into one shared helper so `Auth.tsx` and the new `RootRoute` cannot diverge.
+## 1. Schema change (migration)
 
-```ts
-import { supabase } from "@/integrations/supabase/client";
-
-export async function resolveLandingPath(userId: string): Promise<string> {
-  const { data: engineerRow } = await supabase
-    .from("engineers")
-    .select("role, can_access_office")
-    .eq("auth_user_id", userId)
-    .maybeSingle();
-  const role = (engineerRow as any)?.role;
-  const canOffice = !!(engineerRow as any)?.can_access_office;
-  const elevated = ["owner", "manager", "admin", "office"].includes(role);
-  if (role === "engineer" && !canOffice && !elevated) {
-    return "/engineer/today";
-  }
-  return "/dashboard";
-}
+Add column:
+```sql
+ALTER TABLE public.organisations
+  ADD COLUMN job_reference_prefix text;
 ```
 
-### 2. `src/pages/Auth.tsx` (lines 102–120)
-Replace the inline lookup with:
-```ts
-let redirectPath = "/dashboard";
-const userId = signInData?.user?.id;
-if (userId) {
-  redirectPath = await resolveLandingPath(userId);
-}
-navigate(redirectPath);
-```
-Add the import. No other logic changes — the catch block, timeout race, and everything else stay identical.
+No NOT NULL yet — we set it in step 2, then enforce.
 
-### 3. `src/App.tsx`
-Add a `RootRoute` component (near `RecoveryRedirectGuard`) and swap line 133.
+## 2. Backfill (same migration)
 
-```tsx
-const RootRoute = () => {
-  const { user, loading } = useAuth("");   // "" disables useAuth's own redirect
-  const [target, setTarget] = useState<string | null>(null);
-  const [resolving, setResolving] = useState(false);
+Set each existing org's prefix explicitly:
 
-  useEffect(() => {
-    if (loading || !user) return;
-    setResolving(true);
-    resolveLandingPath(user.id)
-      .then(setTarget)
-      .finally(() => setResolving(false));
-  }, [loading, user]);
+| Org           | Prefix |
+|---------------|--------|
+| K&N Gas       | `KN`   |
+| Dublin Gas    | `DG`   |
+| Cavan Gas / Wexford / Webliveview (test tenants) | current derived value: `upper(left(regexp_replace(slug,'[^a-zA-Z0-9]','','g'),2))` — can be corrected later |
+| Any other existing org | same derived fallback |
 
-  if (loading || (user && (resolving || !target))) {
-    // Match AppContent's loading visual, minimal — no marketing flash.
-    return (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", backgroundColor:"#ffffff" }}>
-        <img src="/icons/icon-192.png" style={{ width: 80, height: 80 }} />
-      </div>
-    );
-  }
-
-  if (!user) return <Index />;
-  return <Navigate to={target!} replace />;
-};
+Then enforce:
+```sql
+ALTER TABLE public.organisations
+  ALTER COLUMN job_reference_prefix SET NOT NULL;
+ALTER TABLE public.organisations
+  ADD CONSTRAINT job_reference_prefix_format
+  CHECK (job_reference_prefix ~ '^[A-Z0-9]{2,6}$');
 ```
 
-Line 133 becomes:
-```tsx
-<Route path="/" element={<RootRoute />} />
-```
+## 3. Rewrite `generate_job_reference`
 
-Note: `useAuth("")` — passing an empty `redirectTo` avoids the hook's own `navigate("/auth")` for logged-out users, which we need since `/` is a valid logged-out destination. Verified in `src/hooks/useAuth.tsx` — the redirect guard is `if (!session?.user && redirectTo && !isPublicPath(...))`, so a falsy `redirectTo` is a clean opt-out and doesn't require touching the hook.
+- Remove all slug parsing (`regexp_replace` / `left(slug, 2)`).
+- Read `organisations.job_reference_prefix` directly.
+- If `NEW.organisation_id` is null OR the prefix column is null/empty → `RAISE EXCEPTION` with a clear message (`'organisations.job_reference_prefix not set for org %'`). No silent fallback to `KN-` legacy sequence for org-scoped inserts.
+- Keep everything else identical: same per-org `pg_advisory_xact_lock`, same `MAX(...)+1` scoped to `organisation_id` AND matching `'^' || v_prefix || '-\d+$'`, same `LPAD(v_next::text, 3, '0')` formatting.
+- Dublin Gas result: next insert uses prefix `DG`, `MAX(DG-*)+1` = **DG-388** (continues the historical series; the 13 `DU-*` rows are untouched and simply orphaned under the old prefix).
 
-## Not touching
-`*` catch-all, `AppContent`, `RecoveryRedirectGuard`, `Auth.tsx`'s post-login navigate call itself, `useAuth`, any other route, styling, or unrelated logic.
+## 4. Non-goals / guarantees
 
-## Verification (post-build)
-1. Superadmin logged in → visit `/` → lands on `/dashboard`.
-2. Engineer (no office access) logged in → visit `/` → lands on `/engineer/today`.
-3. Logged out → visit `/` → marketing page renders as before.
-4. No visible flash of marketing before redirect in cases 1 & 2.
+- **No existing `job_reference` values are modified.** Additive/forward-only.
+- No code changes required in edge functions or the frontend — the trigger is still the single source of truth; only its input changed from `slug` to a dedicated column.
+- `provision-tenant` will need a follow-up (set `job_reference_prefix` on org creation) — flagged here but out of scope for this migration; new tenant creation will fail loudly until that's done, which is the intended safety behavior.
+
+## Technical notes
+
+- Single migration file: `ADD COLUMN` → `UPDATE` backfill → `SET NOT NULL` + `CHECK` → `CREATE OR REPLACE FUNCTION generate_job_reference`.
+- Trigger binding on `service_calls` stays as-is (function replacement only).
+- Legacy `job_reference_seq` fallback path is dropped for org-scoped inserts; sequence itself is left in place untouched in case any historical code references it.
+
+Confirm to proceed and I'll switch to build mode and issue the migration.
