@@ -108,6 +108,38 @@ const RecoveryRedirectGuard = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+
+const RootRoute = () => {
+  const { user, loading } = useAuth("");
+  const [target, setTarget] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
+
+  useEffect(() => {
+    if (loading || !user) return;
+    setResolving(true);
+    resolveLandingPath(user.id)
+      .then(setTarget)
+      .finally(() => setResolving(false));
+  }, [loading, user]);
+
+  if (loading || (user && (resolving || !target))) {
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        backgroundColor: "#ffffff",
+      }}>
+        <img src="/icons/icon-192.png" style={{ width: 80, height: 80 }} />
+      </div>
+    );
+  }
+
+  if (!user) return <Index />;
+  return <Navigate to={target!} replace />;
+};
+
 function AppContent() {
   const { loading } = useAuth();
 
