@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .select(
-        "id, organisation_id, job_reference, job_type, scheduled_date, revenue, customer_id"
+        "id, organisation_id, job_reference, job_type, scheduled_date, revenue, customer_id, access_token"
       )
       .eq("id", service_call_id)
       .single();
@@ -91,11 +91,16 @@ Deno.serve(async (req) => {
 
     const { data: orgRow } = await supabase
       .from("organisations")
-      .select("slug")
+      .select("public_domain")
       .eq("id", job.organisation_id)
       .maybeSingle();
-    const orgSlug = orgRow?.slug || "kngasservices";
-    const receiptUrl = `https://${orgSlug}.bookedjobs.ie/receipt/${invoiceNumber}`;
+    const orgDomain = orgRow?.public_domain || "";
+    const receiptUrl = orgDomain && job.access_token
+      ? `https://${orgDomain}/receipt/${job.access_token}`
+      : null;
+    if (!receiptUrl) {
+      console.warn(`[send-payment-received] organisation ${job.organisation_id} missing public_domain or job missing access_token; omitting receipt link`);
+    }
 
     // 5. Normalise phone
     let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");
@@ -109,7 +114,7 @@ Deno.serve(async (req) => {
       `Service: ${job.job_type || "—"}\n` +
       `Date: ${scheduledDate}\n` +
       `Amount Paid: ${amountPaid}\n\n` +
-      `View your receipt here: ${receiptUrl}\n\n` +
+      (receiptUrl ? `View your receipt here: ${receiptUrl}\n\n` : "") +
       `Thanks,\n` +
       `K & N Gas Services`;
 
