@@ -220,6 +220,7 @@ export type Database = {
       }
       cert2_certificates: {
         Row: {
+          access_token: string
           address_premises: string | null
           adequate_ventilation: boolean | null
           appliance_location_correct: boolean | null
@@ -261,6 +262,7 @@ export type Database = {
           work_carried_out: string | null
         }
         Insert: {
+          access_token?: string
           address_premises?: string | null
           adequate_ventilation?: boolean | null
           appliance_location_correct?: boolean | null
@@ -302,6 +304,7 @@ export type Database = {
           work_carried_out?: string | null
         }
         Update: {
+          access_token?: string
           address_premises?: string | null
           adequate_ventilation?: boolean | null
           appliance_location_correct?: boolean | null
@@ -368,6 +371,7 @@ export type Database = {
       }
       certificates: {
         Row: {
+          access_token: string
           cert_number: string | null
           checks: Json | null
           created_at: string | null
@@ -382,6 +386,7 @@ export type Database = {
           readings: Json | null
         }
         Insert: {
+          access_token?: string
           cert_number?: string | null
           checks?: Json | null
           created_at?: string | null
@@ -396,6 +401,7 @@ export type Database = {
           readings?: Json | null
         }
         Update: {
+          access_token?: string
           cert_number?: string | null
           checks?: Json | null
           created_at?: string | null
@@ -1216,6 +1222,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          access_token: string
           balance_due: number | null
           created_at: string
           customer_id: string
@@ -1234,6 +1241,7 @@ export type Database = {
           vat_enabled: boolean | null
         }
         Insert: {
+          access_token?: string
           balance_due?: number | null
           created_at?: string
           customer_id: string
@@ -1252,6 +1260,7 @@ export type Database = {
           vat_enabled?: boolean | null
         }
         Update: {
+          access_token?: string
           balance_due?: number | null
           created_at?: string
           customer_id?: string
@@ -1912,6 +1921,7 @@ export type Database = {
       quotes: {
         Row: {
           accepted_at: string | null
+          access_token: string
           approved: boolean | null
           approved_at: string | null
           balance_due: number | null
@@ -1957,6 +1967,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          access_token?: string
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
@@ -2002,6 +2013,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          access_token?: string
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
@@ -2125,6 +2137,7 @@ export type Database = {
       service_calls: {
         Row: {
           access_notes: string | null
+          access_token: string
           area_code: string | null
           assigned_engineer: string | null
           assigned_engineer_id: string | null
@@ -2214,6 +2227,7 @@ export type Database = {
         }
         Insert: {
           access_notes?: string | null
+          access_token?: string
           area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
@@ -2303,6 +2317,7 @@ export type Database = {
         }
         Update: {
           access_notes?: string | null
+          access_token?: string
           area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
