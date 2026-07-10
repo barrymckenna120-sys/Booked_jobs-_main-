@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
-const ReceiptRedirect = () => {
+const HazardRedirect = () => {
   const { token } = useParams<{ token: string }>();
   const [error, setError] = useState(false);
 
@@ -11,7 +11,7 @@ const ReceiptRedirect = () => {
     if (!token) return;
     (async () => {
       const { data, error: err } = await supabase.functions.invoke("resolve-document-link", {
-        body: { type: "receipt", token },
+        body: { type: "hazard", token },
       });
       const signed = (data as any)?.signed_url;
       if (err || !signed) { setError(true); return; }
@@ -24,7 +24,7 @@ const ReceiptRedirect = () => {
       <div className="border border-border rounded-xl max-w-md w-full p-8 text-center">
         <p className="text-lg font-bold text-foreground">Link not found</p>
         <p className="text-sm text-muted-foreground mt-2">
-          This receipt link is no longer valid or the PDF has not been generated yet.
+          This hazard notification link is no longer valid.
         </p>
       </div>
     </div>
@@ -37,4 +37,4 @@ const ReceiptRedirect = () => {
   );
 };
 
-export default ReceiptRedirect;
+export default HazardRedirect;
