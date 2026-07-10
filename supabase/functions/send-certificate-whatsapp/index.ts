@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +31,7 @@ serve(async (req) => {
 
     // Fetch certificate (incl. organisation_id)
     const certRes = await fetch(
-      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes,organisation_id`,
+      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes,organisation_id,access_token`,
       { headers }
     );
     const certs = await certRes.json();
@@ -148,13 +149,13 @@ serve(async (req) => {
 
     const firstName = customer.name.split(" ")[0];
 
-    // Resolve tenant public URL for the certificate; null when the org
-    // has no public_domain configured — we still send the message, just
-    // without the "View Certificate" link.
-    const tenantCertUrl = cert.cert_number
-      ? await getTenantPublicUrl(supabaseUrl, orgId, `/certificates/${encodeURIComponent(cert.cert_number)}`)
+    // Resolve tenant public URL for the certificate using the unguessable
+    // access_token; null when the org has no public_domain configured — we
+    // still send the message, just without the "View Certificate" link.
+    const tenantCertUrl = cert.access_token
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/certificates/${cert.access_token}`)
       : null;
-    if (cert.cert_number && !tenantCertUrl) {
+    if (cert.access_token && !tenantCertUrl) {
       console.warn(`[send-certificate-whatsapp] organisation ${orgId} has no public_domain; omitting certificate link`);
     }
     // If no tenant URL, strip the whole line containing {{certificate_url}}
@@ -209,12 +210,19 @@ serve(async (req) => {
       });
     }
 
-    // Send via 360Messenger
+    // Send via 360Messenger. Mint a short-lived signed URL for the PDF
+    // attachment so we work whether the bucket is public or private.
+    const certObjectPath = extractStoragePath("certificates", cert.pdf_url);
+    const signedDocUrl = certObjectPath
+      ? await signDocumentUrl("certificates", certObjectPath, 3600)
+      : null;
+    const docUrl = signedDocUrl || cert.pdf_url;
+
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
-    formData.append("doc_url", cert.pdf_url);
+    formData.append("doc_url", docUrl);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
