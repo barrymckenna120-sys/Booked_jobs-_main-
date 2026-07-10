@@ -1078,6 +1078,7 @@ export type Database = {
       }
       hazard_notifications: {
         Row: {
+          access_token: string
           appliance: string | null
           appliance_notes: string | null
           created_at: string | null
@@ -1104,6 +1105,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          access_token?: string
           appliance?: string | null
           appliance_notes?: string | null
           created_at?: string | null
@@ -1130,6 +1132,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          access_token?: string
           appliance?: string | null
           appliance_notes?: string | null
           created_at?: string | null
