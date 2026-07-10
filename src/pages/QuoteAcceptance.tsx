@@ -30,7 +30,9 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const BLUE = "#4A86E8";
 
 const QuoteAcceptance = () => {
-  const { quoteNumber } = useParams<{ quoteNumber: string }>();
+  // Route param renamed from :quoteNumber to :token — the URL now carries
+  // an unguessable access_token instead of a sequential quote_number.
+  const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<PublicQuoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -40,12 +42,12 @@ const QuoteAcceptance = () => {
   const [approveError, setApproveError] = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
-  useEffect(() => { if (quoteNumber) fetchQuote(); }, [quoteNumber]);
+  useEffect(() => { if (token) fetchQuote(); }, [token]);
 
   const fetchQuote = async () => {
     try {
-      // Resolve quote_number to UUID first
-      const { data: lookup } = await supabase.rpc("get_quote_by_number", { p_quote_number: quoteNumber });
+      // Resolve access_token to quote UUID via the public RPC.
+      const { data: lookup } = await supabase.rpc("get_quote_by_token", { p_token: token as string });
       const quoteId = (lookup as any)?.quote_id;
       if (!quoteId) { return; }
 
