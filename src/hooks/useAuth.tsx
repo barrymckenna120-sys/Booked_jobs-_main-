@@ -75,6 +75,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/pdf/",
   "/invoice/",
   "/receipt/",
+  "/hazard/",
   "/r/",
   "/b/",
   "/reset-password",

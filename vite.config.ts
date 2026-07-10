@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => ({
           /^\/certificate/,
           /^\/cert/,
           /^\/quote/,
+          /^\/hazard/,
         ],
         runtimeCaching: [
           {
@@ -48,7 +49,7 @@ export default defineConfig(({ mode }) => ({
                 /^\/auth/, /^\/engineer/, /^\/dashboard/, /^\/admin/,
                 /^\/jobs/, /^\/customers/, /^\/certificates/,
                 /^\/certificate/, /^\/cert/, /^\/quote/, /^\/reset-password/, /^\/pdf/, /^\/b/,
-                /^\/receipt/, /^\/r/, /^\/invoice/,
+                /^\/receipt/, /^\/r/, /^\/invoice/, /^\/hazard/,
               ];
               return !denied.some((re) => re.test(url.pathname));
             },

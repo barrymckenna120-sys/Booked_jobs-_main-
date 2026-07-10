@@ -371,8 +371,13 @@ Deno.serve(async (req) => {
 
     // ── Upload PDF ──
     const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
+    if (!job.organisation_id) {
+      return new Response(JSON.stringify({ error: "Job missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `invoice-${invNum.replace(/\s/g, "")}.pdf`;
-    const storagePath = `${job.user_id}/${fileName}`;
+    const storagePath = `${job.organisation_id}/${fileName}`;
 
     const { error: uploadErr } = await sb.storage
       .from("quote-pdfs")
@@ -385,10 +390,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: urlData } = sb.storage.from("quote-pdfs").getPublicUrl(storagePath);
-    const pdfUrl = urlData.publicUrl;
-
-    // Update invoice with PDF URL
+    // Store raw object path — bucket flips private in Stage 2 and signed
+    // URLs are minted on demand by resolve-document-link.
+    const pdfUrl = storagePath;
     await sb.from("invoices").update({ pdf_url: pdfUrl }).eq("id", invoice.id);
 
     // ── Send WhatsApp ──
@@ -398,12 +402,12 @@ Deno.serve(async (req) => {
 
     const { data: invOrgRow } = await sb
       .from("organisations")
-      .select("slug")
+      .select("public_domain")
       .eq("id", job.organisation_id)
       .maybeSingle();
-    const invOrgSlug = (invOrgRow as any)?.slug || "";
-    const invoiceUrl = invOrgSlug
-      ? `https://${invOrgSlug}.bookedjobs.ie/invoice/${encodeURIComponent(invNum)}`
+    const invOrgDomain = (invOrgRow as any)?.public_domain || "";
+    const invoiceUrl = invOrgDomain && (invoice as any).access_token
+      ? `https://${invOrgDomain}/invoice/${(invoice as any).access_token}`
       : null;
     const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.${invoiceUrl ? `\n\n📄 View invoice:\n${invoiceUrl}` : ""}${messageFooter ? `\n\nThank you, ${messageFooter}` : ""}`;
 

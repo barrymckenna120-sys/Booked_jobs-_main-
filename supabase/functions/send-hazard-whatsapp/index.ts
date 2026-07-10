@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +31,7 @@ serve(async (req) => {
 
     // Fetch hazard notification
     const hazardRes = await fetch(
-      `${supabaseUrl}/rest/v1/hazard_notifications?id=eq.${hazard_id}&select=id,ref_number,pdf_url,customer_id,job_id`,
+      `${supabaseUrl}/rest/v1/hazard_notifications?id=eq.${hazard_id}&select=id,ref_number,pdf_url,customer_id,job_id,organisation_id,access_token`,
       { headers }
     );
     const hazards = await hazardRes.json();
@@ -110,11 +112,25 @@ serve(async (req) => {
     }
 
     const firstName = customer.name.split(" ")[0];
-    const pdfLink = hazard.ref_number
-      ? `https://ktkfuquqxbrmuqrmbmdj.supabase.co/storage/v1/object/public/certificates/${encodeURIComponent(hazard.ref_number)}.pdf`
-      : hazard.pdf_url;
 
-    const message = `Hi ${firstName}, please find attached your Gas Installation Notification of Hazard/Non-Conformance from ${engineerName}.\n\n📄 View Document:\n${pdfLink}\n\n${messageFooter}`;
+    // Public tenant link keyed by access_token (null if org has no public_domain)
+    const tenantHazardUrl = hazard.access_token
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/hazard/${hazard.access_token}`)
+      : null;
+    if (hazard.access_token && !tenantHazardUrl) {
+      console.warn(`[send-hazard-whatsapp] organisation ${orgId} has no public_domain; omitting hazard link`);
+    }
+
+    // Signed URL for the 360Messenger doc attachment (works when bucket is
+    // public or private).
+    const hazardObjectPath = extractStoragePath("certificates", hazard.pdf_url);
+    const signedDocUrl = hazardObjectPath
+      ? await signDocumentUrl("certificates", hazardObjectPath, 3600)
+      : null;
+    const docUrl = signedDocUrl || hazard.pdf_url;
+
+    const linkLine = tenantHazardUrl ? `\n\n📄 View Document:\n${tenantHazardUrl}` : "";
+    const message = `Hi ${firstName}, please find attached your Gas Installation Notification of Hazard/Non-Conformance from ${engineerName}.${linkLine}\n\n${messageFooter}`;
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
@@ -141,7 +157,7 @@ serve(async (req) => {
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
-    formData.append("doc_url", hazard.pdf_url);
+    formData.append("doc_url", docUrl);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",

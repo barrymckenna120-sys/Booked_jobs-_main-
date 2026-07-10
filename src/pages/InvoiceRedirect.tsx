@@ -4,33 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const InvoiceRedirect = () => {
-  const { invoiceNumber } = useParams<{ invoiceNumber: string }>();
+  const { token } = useParams<{ token: string }>();
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!invoiceNumber) return;
+    if (!token) return;
     (async () => {
-      const cleanNumber = decodeURIComponent(invoiceNumber).replace(/\.pdf$/i, "");
-
-      const { data } = await supabase
-        .from("invoices")
-        .select("pdf_url")
-        .eq("invoice_number", cleanNumber)
-        .maybeSingle();
-
-      if (data?.pdf_url) {
-        window.location.replace(data.pdf_url);
-      } else {
-        setError(true);
-      }
+      const { data, error: err } = await supabase.functions.invoke("resolve-document-link", {
+        body: { type: "invoice", token },
+      });
+      const signed = (data as any)?.signed_url;
+      if (err || !signed) { setError(true); return; }
+      window.location.replace(signed);
     })();
-  }, [invoiceNumber]);
+  }, [token]);
 
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
       <div className="border border-border rounded-xl max-w-md w-full p-8 text-center">
-        <p className="text-lg font-bold text-foreground">Invoice Not Found</p>
-        <p className="text-sm text-muted-foreground mt-2">This invoice link is no longer valid or the PDF has not been generated yet.</p>
+        <p className="text-lg font-bold text-foreground">Link not found</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          This invoice link is no longer valid or the PDF has not been generated yet.
+        </p>
       </div>
     </div>
   );

@@ -198,11 +198,17 @@ Deno.serve(async (req) => {
     const pdfOutput = doc.output("arraybuffer");
     const pdfBytes = new Uint8Array(pdfOutput);
 
-    // Upload to certificates bucket
+    // Upload to certificates bucket under <organisation_id>/<filename>
+    if (!job.organisation_id) {
+      return new Response(JSON.stringify({ error: "Service call missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `receipt-${receiptNum || job.id.slice(0, 8)}.pdf`;
+    const storagePath = `${job.organisation_id}/${fileName}`;
     const { error: uploadError } = await supabase.storage
       .from("certificates")
-      .upload(fileName, pdfBytes, {
+      .upload(storagePath, pdfBytes, {
         contentType: "application/pdf",
         upsert: true,
       });
@@ -215,20 +221,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get permanent public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("certificates")
-      .getPublicUrl(fileName);
-
-    const pdfUrl = publicUrlData.publicUrl;
-
-    // Save URL to service_calls
+    // Save the raw storage object path (Stage 2 flips bucket private —
+    // signed URLs are minted on demand by resolve-document-link).
     await supabase
       .from("service_calls")
-      .update({ receipt_pdf_url: pdfUrl })
+      .update({ receipt_pdf_url: storagePath })
       .eq("id", job_id);
 
-    return new Response(JSON.stringify({ pdf_url: pdfUrl }), {
+    return new Response(JSON.stringify({ pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

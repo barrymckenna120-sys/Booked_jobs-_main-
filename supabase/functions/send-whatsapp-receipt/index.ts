@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, receipt_pdf_url")
+      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, receipt_pdf_url, access_token")
       .eq("id", job_id)
       .single();
 
@@ -88,13 +88,13 @@ Deno.serve(async (req) => {
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    // Resolve tenant public URL for the receipt; null when the org
-    // has no public_domain configured — we still send the message,
-    // just omitting the receipt link line.
-    const tenantReceiptUrl = job.receipt_number
-      ? await getTenantPublicUrl(supabaseUrl, job.organisation_id, `/receipt/${encodeURIComponent(job.receipt_number)}`)
+    // Resolve tenant public URL for the receipt keyed by access_token;
+    // null when the org has no public_domain configured — we still send
+    // the message, just omitting the receipt link line.
+    const tenantReceiptUrl = job.access_token
+      ? await getTenantPublicUrl(supabaseUrl, job.organisation_id, `/receipt/${job.access_token}`)
       : null;
-    if (job.receipt_number && !tenantReceiptUrl) {
+    if (job.access_token && !tenantReceiptUrl) {
       console.warn(`[send-whatsapp-receipt] organisation ${job.organisation_id} has no public_domain; omitting receipt link`);
     }
 

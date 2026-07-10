@@ -616,8 +616,13 @@ Deno.serve(async (req) => {
 
     // ── Output & Upload ─────────────────────────────────
     const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
+    if (!quote.organisation_id) {
+      return new Response(JSON.stringify({ error: "Quote missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `quote-${qNum.replace(/\s/g, "")}.pdf`;
-    const storagePath = `${quote.user_id}/${fileName}`;
+    const storagePath = `${quote.organisation_id}/${fileName}`;
 
     const { error: uploadErr } = await sb.storage
       .from("quote-pdfs")
@@ -630,12 +635,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: urlData } = sb.storage.from("quote-pdfs").getPublicUrl(storagePath);
-    const publicUrl = urlData.publicUrl;
+    // Store the raw object path — bucket flips private in Stage 2 and
+    // signed URLs are minted on demand by resolve-document-link.
+    await sb.from("quotes").update({ pdf_url: storagePath }).eq("id", quote_id);
 
-    await sb.from("quotes").update({ pdf_url: publicUrl }).eq("id", quote_id);
-
-    return new Response(JSON.stringify({ success: true, pdf_url: publicUrl }), {
+    return new Response(JSON.stringify({ success: true, pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
