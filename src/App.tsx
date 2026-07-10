@@ -60,6 +60,7 @@ import MessageLog from "./pages/MessageLog";
 import PdfRedirect from "./pages/PdfRedirect";
 import CertificateRedirect from "./pages/CertificateRedirect";
 import CertificateViewer from "./pages/CertificateViewer";
+import HazardRedirect from "./pages/HazardRedirect";
 import Parts from "./pages/Parts";
 import WarrantyTracker from "./pages/WarrantyTracker";
 import WarrantyDetail from "./pages/WarrantyDetail";
@@ -216,14 +217,16 @@ function AppContent() {
       <Route path="/receipt-view/:id" element={<ServiceReceipt />} />
       <Route path="/invoice-view/:id" element={<InvoicePreview />} />
       <Route path="/engineer-app" element={<Navigate to="/engineer/today" replace />} />
-      <Route path="/quote/:quoteNumber" element={<QuoteAcceptance />} />
-      <Route path="/pdf/:quoteNumber" element={<PdfRedirect />} />
-      <Route path="/certificates/:certNumber" element={<CertificateRedirect />} />
-      <Route path="/certificate/:certNumber" element={<CertificateRedirect />} />
-      <Route path="/cert/:certNumber" element={<CertificateViewer />} />
+      {/* Public document links — routed by unguessable access_token. */}
+      <Route path="/quote/:token" element={<QuoteAcceptance />} />
+      <Route path="/pdf/:token" element={<PdfRedirect />} />
+      <Route path="/certificates/:token" element={<CertificateRedirect />} />
+      <Route path="/certificate/:token" element={<CertificateRedirect />} />
+      <Route path="/cert/:token" element={<CertificateRedirect />} />
       <Route path="/r/:receiptNumber" element={<PublicReceipt />} />
-      <Route path="/invoice/:invoiceNumber" element={<InvoiceRedirect />} />
-      <Route path="/receipt/:receiptNumber" element={<ReceiptRedirect />} />
+      <Route path="/invoice/:token" element={<InvoiceRedirect />} />
+      <Route path="/receipt/:token" element={<ReceiptRedirect />} />
+      <Route path="/hazard/:token" element={<HazardRedirect />} />
       <Route path="/b/:token" element={<BookingRedirect />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
