@@ -45,14 +45,15 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Derive organisation_id and customer_id from quote
+    // Derive organisation_id, customer_id, and access_token from quote
     const quoteRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=organisation_id,customer_id&limit=1`,
+      `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&select=organisation_id,customer_id,access_token&limit=1`,
       { headers: dbHeaders },
     );
     const quoteRows = await quoteRes.json();
     const orgId = Array.isArray(quoteRows) && quoteRows[0]?.organisation_id;
     const resolvedCustomerId = (Array.isArray(quoteRows) && quoteRows[0]?.customer_id) || customer_id || null;
+    const quoteToken = Array.isArray(quoteRows) ? quoteRows[0]?.access_token : null;
     if (!orgId) {
       return new Response(JSON.stringify({ success: false, error: "Quote missing organisation_id" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -97,18 +98,21 @@ serve(async (req) => {
     const refNumber = quote_number || `Q-${quote_id.substring(0, 4).toUpperCase()}`;
     const deposit = Number(deposit_amount || 0);
 
-    // Resolve tenant public URLs for the quote-accept page and PDF viewer.
-    // Null = no public_domain for this org → we omit the link line rather
-    // than construct a URL from an unrelated slug.
-    const acceptUrl = await getTenantPublicUrl(supabaseUrl, orgId, `/quote/${refNumber}`);
-    const quotePdfUrl = pdf_url
-      ? await getTenantPublicUrl(supabaseUrl, orgId, `/pdf/${refNumber}`)
+    // Resolve tenant public URLs for the quote-accept page and PDF viewer,
+    // both keyed by the unguessable access_token. Null = no public_domain
+    // for this org → we omit the link line rather than construct a URL
+    // from an unrelated slug.
+    const acceptUrl = quoteToken
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/quote/${quoteToken}`)
+      : null;
+    const quotePdfUrl = pdf_url && quoteToken
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/pdf/${quoteToken}`)
       : null;
     if (!acceptUrl) {
-      console.warn(`[send-quote-whatsapp] organisation ${orgId} has no public_domain; omitting quote accept link`);
+      console.warn(`[send-quote-whatsapp] organisation ${orgId} has no public_domain or quote has no access_token; omitting quote accept link`);
     }
     if (pdf_url && !quotePdfUrl) {
-      console.warn(`[send-quote-whatsapp] organisation ${orgId} has no public_domain; omitting quote PDF link`);
+      console.warn(`[send-quote-whatsapp] organisation ${orgId} has no public_domain or quote has no access_token; omitting quote PDF link`);
     }
 
     let message = `Hi ${firstName},
