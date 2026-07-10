@@ -66,14 +66,25 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    // Simple auth guard: caller must be service role.
+    // Auth guard: caller must be service role OR an authenticated superadmin.
     const auth = req.headers.get("authorization") || "";
-    if (!auth.includes(serviceKey)) {
+    let authorized = auth.includes(serviceKey);
+    if (!authorized && auth.startsWith("Bearer ")) {
+      const token = auth.slice(7);
+      const { data: claimsData } = await sb.auth.getClaims(token);
+      const uid = claimsData?.claims?.sub;
+      if (uid) {
+        const { data: prof } = await sb.from("profiles").select("role").eq("user_id", uid).maybeSingle();
+        if (prof?.role === "superadmin") authorized = true;
+      }
+    }
+    if (!authorized) {
       return new Response(JSON.stringify({ error: "unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     const body = await req.json().catch(() => ({}));
     const dryRun = body?.dry_run !== false; // default = dry run
