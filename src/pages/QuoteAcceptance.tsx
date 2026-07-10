@@ -421,7 +421,12 @@ const QuoteAcceptance = () => {
                 onClick={async () => {
                   setDownloadingPdf(true);
                   try {
-                    const response = await fetch(quote.pdf_url!);
+                    const { data: resolved } = await supabase.functions.invoke("resolve-document-link", {
+                      body: { type: "quote", token },
+                    });
+                    const signed = (resolved as any)?.signed_url;
+                    if (!signed) throw new Error("no signed url");
+                    const response = await fetch(signed);
                     if (!response.ok) throw new Error("Failed");
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -466,7 +471,12 @@ const QuoteAcceptance = () => {
               onClick={async () => {
                 setDownloadingPdf(true);
                 try {
-                  const response = await fetch(quote.pdf_url!);
+                  const { data: resolved } = await supabase.functions.invoke("resolve-document-link", {
+                    body: { type: "quote", token },
+                  });
+                  const signed = (resolved as any)?.signed_url;
+                  if (!signed) throw new Error("no signed url");
+                  const response = await fetch(signed);
                   if (!response.ok) throw new Error("Failed");
                   const blob = await response.blob();
                   const url = window.URL.createObjectURL(blob);
