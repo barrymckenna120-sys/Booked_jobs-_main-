@@ -316,9 +316,15 @@ Deno.serve(async (req) => {
     const pdfOutput = doc.output("arraybuffer");
     const pdfBytes = new Uint8Array(pdfOutput);
 
+    if (!cert.organisation_id) {
+      return new Response(JSON.stringify({ error: "Certificate missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `${cert.cert_number}.pdf`;
+    const storagePath = `${cert.organisation_id}/${fileName}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from("certificates").upload(fileName, pdfBytes, { contentType: "application/pdf", upsert: true });
+      .from("certificates").upload(storagePath, pdfBytes, { contentType: "application/pdf", upsert: true });
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
@@ -327,12 +333,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: publicUrl } = supabaseAdmin.storage.from("certificates").getPublicUrl(fileName);
-    const pdfUrl = publicUrl.publicUrl;
+    await supabaseAdmin.from("certificates").update({ pdf_url: storagePath }).eq("id", certificate_id);
 
-    await supabaseAdmin.from("certificates").update({ pdf_url: pdfUrl }).eq("id", certificate_id);
-
-    return new Response(JSON.stringify({ pdf_url: pdfUrl }), {
+    return new Response(JSON.stringify({ pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
