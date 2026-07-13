@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`User ${targetUser.id} (${email}) banned for 24h due to failed login attempts`);
+    console.log(`User ${targetUser.id} (${email}) banned for 1h due to failed login attempts`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
