@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
+import UserActivityOverview from "@/components/admin/UserActivityOverview";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import { Loader2, History, Ban, ShieldCheck, Trash2, Unlock } from "lucide-react";
@@ -1050,7 +1051,30 @@ export default function AdminPanel() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="user-activity" className="space-y-6">
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="login-events">Login Events</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview">
+              <UserActivityOverview />
+            </TabsContent>
+            <TabsContent value="login-events">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Login Events</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Coming soon.</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
       </Tabs>
+
 
       <Dialog open={!!activityModalOrg} onOpenChange={(open) => !open && setActivityModalOrg(null)}>
         <DialogContent className="max-w-lg">
