@@ -62,10 +62,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Ban for 24 hours
+    // Ban for 1 hour (auto-unlock). UI copy in src/lib/authLockout.ts must match.
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(
       targetUser.id,
-      { ban_duration: "24h" }
+      { ban_duration: "1h" }
     );
 
     if (banError) {
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`User ${targetUser.id} (${email}) banned for 24h due to failed login attempts`);
+    console.log(`User ${targetUser.id} (${email}) banned for 1h due to failed login attempts`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
