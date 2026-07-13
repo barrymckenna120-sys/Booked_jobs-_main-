@@ -1780,6 +1780,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          organisation_id: string
           unit_price: number
         }
         Insert: {
@@ -1789,6 +1790,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          organisation_id: string
           unit_price?: number
         }
         Update: {
@@ -1798,9 +1800,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          organisation_id?: string
           unit_price?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
