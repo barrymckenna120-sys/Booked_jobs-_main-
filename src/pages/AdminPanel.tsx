@@ -730,6 +730,7 @@ export default function AdminPanel() {
           <TabsTrigger value="tenants">Tenants</TabsTrigger>
           <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
           <TabsTrigger value="unblock-users">Unblock Users</TabsTrigger>
+          <TabsTrigger value="user-activity">User Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-6">
