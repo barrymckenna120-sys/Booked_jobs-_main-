@@ -145,19 +145,21 @@ const Auth = () => {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
 
-        if (newAttempts >= 5) {
-          setErrorTitle("Account Blocked");
-          setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
-          setFormError(BLOCKED_AUTH_ERROR);
+        // Inline attempts-remaining messaging (attempts 1-2 stay generic).
+        setFormError(attemptsRemainingMessage(newAttempts));
+
+        const modal = lockoutModalCopy(newAttempts);
+        if (modal) {
+          setErrorTitle(modal.title);
+          setErrorMessage(modal.message);
           setErrorModalOpen(true);
+        }
+
+        if (newAttempts >= LOCKOUT_MAX_ATTEMPTS) {
           try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
           }).catch(() => {});
-        } else if (newAttempts === 4) {
-          setErrorTitle("Incorrect Password");
-          setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
-          setErrorModalOpen(true);
         }
       }
     } finally {
