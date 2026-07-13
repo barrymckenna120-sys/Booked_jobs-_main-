@@ -46,11 +46,14 @@ Deno.serve(async (req) => {
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
     // Optional org_id param — from JSON body (POST) or ?org_id= (GET)
+    // Optional scope param — { scope: "all_orgs" } (POST body only, superadmin-only cross-tenant listing)
     let orgIdParam: string | null = null;
+    let allOrgsScope = false;
     try {
       if (req.method === "POST") {
         const body = await req.clone().json().catch(() => null);
         if (body && typeof body.org_id === "string") orgIdParam = body.org_id;
+        if (body && body.scope === "all_orgs") allOrgsScope = true;
       }
       if (!orgIdParam) {
         const url = new URL(req.url);
@@ -66,6 +69,13 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (allOrgsScope && orgIdParam) {
+      return new Response(JSON.stringify({ error: "scope=all_orgs and org_id are mutually exclusive" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     // Verify caller identity by passing the JWT explicitly
     const supabaseUser = createClient(
