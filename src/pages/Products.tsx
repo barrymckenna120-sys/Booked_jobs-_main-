@@ -102,7 +102,8 @@ const Products = () => {
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Product updated" });
     } else {
-      const { error } = await supabase.from("products").insert(payload);
+      if (!orgId) { toast({ title: "Organisation not ready", description: "Please retry in a moment.", variant: "destructive" }); setSaving(false); return; }
+      const { error } = await supabase.from("products").insert({ ...payload, organisation_id: orgId });
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Product added" });
     }
