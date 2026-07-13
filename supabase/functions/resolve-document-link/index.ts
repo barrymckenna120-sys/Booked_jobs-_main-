@@ -34,6 +34,10 @@ const DOC_CONFIG: Record<DocType, DocConfig> = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Legacy certificate-number format used in pre-migration WhatsApp links,
+// e.g. "DG-2026-5204". Only honoured for the "certificate" doc type — other
+// document types were never exposed with cert-number-style URLs.
+const LEGACY_CERT_NUMBER_RE = /^[A-Z]{2,4}-\d{4}-\d+$/;
 
 function notFound(): Response {
   return new Response(JSON.stringify({ error: "not_found" }), {
