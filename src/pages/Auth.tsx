@@ -12,6 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import {
+  LOCKOUT_MAX_ATTEMPTS,
+  GENERIC_AUTH_ERROR as LOCKOUT_GENERIC_ERROR,
+  BLOCKED_AUTH_ERROR as LOCKOUT_BLOCKED_ERROR,
+  attemptsRemainingMessage,
+  lockoutModalCopy,
+} from "@/lib/authLockout";
 
 const Auth = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
