@@ -1,33 +1,45 @@
-## Fresh certificate generation test — Dublin Gas (throwaway data)
+# Legacy cert-number fallback in resolve-document-link
 
-Live-fire test that the deployed `generate-certificate-pdf` writes to the new org-scoped storage path end-to-end. Uses a throwaway customer + job on the Dublin Gas org so no real record is touched. Test cert row will be left in place.
+Additive-only change, scoped to `type === "certificate"`.
 
-### Steps
+## Edit: `supabase/functions/resolve-document-link/index.ts`
 
-1. **Create throwaway test data on Dublin Gas org**
-   - Resolve `organisation_id` for slug `dublin-gas`.
-   - Insert a `customers` row (e.g. name `ZZ Stage2 Test`, dummy phone/address).
-   - Insert a `service_calls` row against that customer (status `Completed`, job_type appropriate for a cert). Capture `job_id`, `organisation_id`, `customer_id`.
+1. Add regex next to `UUID_RE`:
+   ```ts
+   const LEGACY_CERT_NUMBER_RE = /^[A-Z]{2,4}-\d{4}-\d+$/;
+   ```
+2. Replace the current token gate:
+   ```ts
+   if (!UUID_RE.test(token)) return notFound();
+   ```
+   with:
+   ```ts
+   const isUuid = UUID_RE.test(token);
+   const isLegacyCertNumber =
+     type === "certificate" && LEGACY_CERT_NUMBER_RE.test(token);
+   if (!isUuid && !isLegacyCertNumber) return notFound();
+   ```
+3. Choose lookup column based on the matched format:
+   ```ts
+   const lookupColumn = isUuid ? "access_token" : "cert_number";
+   const { data: row, error } = await sb
+     .from(cfg.table)
+     .select(`${cfg.urlColumn}, organisation_id`)
+     .eq(lookupColumn, token)
+     .maybeSingle();
+   ```
 
-2. **Invoke `generate-certificate-pdf` fresh**
-   - Read `supabase/functions/generate-certificate-pdf/index.ts` to confirm the current request payload shape.
-   - Call via `supabase--curl_edge_functions` with valid cert fields.
-   - Expect 200 with `{ cert_number, pdf_url, access_token }` (or equivalent).
+Everything after the lookup (missing row → 404, `extractStoragePath`, `signDocumentUrl`, JSON response) is unchanged.
 
-3. **Verify storage object path**
-   - Read the new `certificates` row: confirm `pdf_url` starts with `<organisation_id>/` (not a bare filename).
-   - Round-trip via `resolve-document-link` to confirm the object physically exists at that org-scoped path.
+## Scope guarantees
 
-4. **Verify token link end-to-end**
-   - `POST /resolve-document-link` with the new `access_token` → expect 200 + signed URL.
-   - `curl` the signed URL → expect HTTP 200, `application/pdf`, `%PDF` magic bytes.
+- Only the `certificate` doc type accepts the legacy format. `quote`, `receipt`, `invoice`, `hazard` still require a UUID token.
+- Non-matching tokens still return the existing `{ "error": "not_found" }` 404.
+- No schema, RLS, client, or other edge-function changes.
 
-5. **Report back**
-   - Test cert number, org_id-prefixed object path, resolver status, PDF byte count.
-   - If any step fails: exact failure surface (function log excerpt + DB row), no attempted fix in this pass.
+## Verification after deploy
 
-### Non-goals
-- No code changes.
-- No bucket privacy flip.
-- No backfill.
-- No cleanup of the throwaway customer / job / cert row — you'll decide later.
+- `curl` with UUID token → 200 signed URL (regression check).
+- `curl` with `DG-2026-5204` → 200 signed URL (the failing legacy link).
+- `curl` with `not-a-token` → 404.
+- `curl` with `DG-2026-5204` against `type=quote` → 404 (scope check).

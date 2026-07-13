@@ -34,6 +34,10 @@ const DOC_CONFIG: Record<DocType, DocConfig> = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Legacy certificate-number format used in pre-migration WhatsApp links,
+// e.g. "DG-2026-5204". Only honoured for the "certificate" doc type — other
+// document types were never exposed with cert-number-style URLs.
+const LEGACY_CERT_NUMBER_RE = /^[A-Z]{2,4}-\d{4}-\d+$/;
 
 function notFound(): Response {
   return new Response(JSON.stringify({ error: "not_found" }), {
@@ -61,17 +65,21 @@ Deno.serve(async (req) => {
     }
 
     if (!type || !DOC_CONFIG[type]) return notFound();
-    if (!UUID_RE.test(token)) return notFound();
+    const isUuid = UUID_RE.test(token);
+    const isLegacyCertNumber =
+      type === "certificate" && LEGACY_CERT_NUMBER_RE.test(token);
+    if (!isUuid && !isLegacyCertNumber) return notFound();
 
     const cfg = DOC_CONFIG[type];
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
+    const lookupColumn = isUuid ? "access_token" : "cert_number";
     const { data: row, error } = await sb
       .from(cfg.table)
       .select(`${cfg.urlColumn}, organisation_id`)
-      .eq("access_token", token)
+      .eq(lookupColumn, token)
       .maybeSingle();
 
     if (error) {
