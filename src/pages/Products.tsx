@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, Loader2, Package } from "lucide-react";
 import CategoriesTab from "@/components/products/CategoriesTab";
+import { useOrgId } from "@/hooks/useOrgId";
 
 type Product = {
   id: string;
@@ -33,6 +34,7 @@ type Category = {
 const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { orgId } = useOrgId();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
@@ -100,7 +102,8 @@ const Products = () => {
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Product updated" });
     } else {
-      const { error } = await supabase.from("products").insert(payload);
+      if (!orgId) { toast({ title: "Organisation not ready", description: "Please retry in a moment.", variant: "destructive" }); setSaving(false); return; }
+      const { error } = await supabase.from("products").insert({ ...payload, organisation_id: orgId });
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Product added" });
     }
