@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, Loader2, Package } from "lucide-react";
 import CategoriesTab from "@/components/products/CategoriesTab";
+import { useOrgId } from "@/hooks/useOrgId";
 
 type Product = {
   id: string;
