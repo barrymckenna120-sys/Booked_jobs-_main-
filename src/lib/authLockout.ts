@@ -24,10 +24,10 @@ export function attemptsRemainingMessage(attempts: number): string {
     return `Account locked. Too many failed attempts — try again in ${LOCKOUT_DURATION_LABEL} or reset your password.`;
   }
   if (attempts === 4) {
-    return `Incorrect password. 1 attempt remaining before your account is locked for ${LOCKOUT_DURATION_LABEL}.`;
+    return `Incorrect email or password. 1 attempt remaining before your account is locked for ${LOCKOUT_DURATION_LABEL}.`;
   }
   if (attempts === 3) {
-    return `Incorrect password. ${remaining} attempts remaining before your account is locked.`;
+    return `Incorrect email or password. ${remaining} attempts remaining before your account is locked.`;
   }
   return GENERIC_AUTH_ERROR;
 }
@@ -42,13 +42,13 @@ export function lockoutModalCopy(
   if (attempts >= LOCKOUT_MAX_ATTEMPTS) {
     return {
       title: "Account Locked",
-      message: `Too many incorrect password attempts. Your account has been locked for ${LOCKOUT_DURATION_LABEL}. You can reset your password to sign in sooner.`,
+      message: `Too many incorrect email or password attempts. Your account has been locked for ${LOCKOUT_DURATION_LABEL}. You can reset your password to sign in sooner.`,
     };
   }
   if (attempts === 4) {
     return {
       title: "One attempt remaining",
-      message: `If you enter the wrong password again your account will be locked for ${LOCKOUT_DURATION_LABEL}. You can reset your password instead.`,
+      message: `If you enter the wrong email or password again your account will be locked for ${LOCKOUT_DURATION_LABEL}. You can reset your password instead.`,
     };
   }
   return null;
