@@ -12,6 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import {
+  LOCKOUT_MAX_ATTEMPTS,
+  GENERIC_AUTH_ERROR as LOCKOUT_GENERIC_ERROR,
+  BLOCKED_AUTH_ERROR as LOCKOUT_BLOCKED_ERROR,
+  attemptsRemainingMessage,
+  lockoutModalCopy,
+} from "@/lib/authLockout";
 
 const Auth = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -31,8 +38,8 @@ const Auth = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
-  const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
+  const GENERIC_AUTH_ERROR = LOCKOUT_GENERIC_ERROR;
+  const BLOCKED_AUTH_ERROR = LOCKOUT_BLOCKED_ERROR;
 
   const [showUnblockedNotice, setShowUnblockedNotice] = useState(false);
 
@@ -138,19 +145,21 @@ const Auth = () => {
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
 
-        if (newAttempts >= 5) {
-          setErrorTitle("Account Blocked");
-          setErrorMessage("Your account has been blocked due to too many incorrect password attempts. Please contact your office administrator.");
-          setFormError(BLOCKED_AUTH_ERROR);
+        // Inline attempts-remaining messaging (attempts 1-2 stay generic).
+        setFormError(attemptsRemainingMessage(newAttempts));
+
+        const modal = lockoutModalCopy(newAttempts);
+        if (modal) {
+          setErrorTitle(modal.title);
+          setErrorMessage(modal.message);
           setErrorModalOpen(true);
+        }
+
+        if (newAttempts >= LOCKOUT_MAX_ATTEMPTS) {
           try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
           supabase.functions.invoke("lock-failed-login", {
             body: { email: email.trim() },
           }).catch(() => {});
-        } else if (newAttempts === 4) {
-          setErrorTitle("Incorrect Password");
-          setErrorMessage("Incorrect password. If you enter the wrong password again your account will be blocked. Please contact your office administrator.");
-          setErrorModalOpen(true);
         }
       }
     } finally {
@@ -343,9 +352,23 @@ const Auth = () => {
             <DialogTitle>{errorTitle}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{errorMessage}</p>
-          <Button className="w-full mt-2" onClick={closeErrorModal}>
-            {isBlocked ? "Close" : "Try Again"}
-          </Button>
+          <div className="flex flex-col gap-2 mt-2">
+            <Button className="w-full" onClick={closeErrorModal}>
+              {failedAttempts >= LOCKOUT_MAX_ATTEMPTS ? "Close" : "Try Again"}
+            </Button>
+            {failedAttempts >= 4 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setErrorModalOpen(false);
+                  setIsForgotPassword(true);
+                }}
+              >
+                Reset password
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
