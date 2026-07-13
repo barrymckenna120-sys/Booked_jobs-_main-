@@ -65,17 +65,21 @@ Deno.serve(async (req) => {
     }
 
     if (!type || !DOC_CONFIG[type]) return notFound();
-    if (!UUID_RE.test(token)) return notFound();
+    const isUuid = UUID_RE.test(token);
+    const isLegacyCertNumber =
+      type === "certificate" && LEGACY_CERT_NUMBER_RE.test(token);
+    if (!isUuid && !isLegacyCertNumber) return notFound();
 
     const cfg = DOC_CONFIG[type];
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
+    const lookupColumn = isUuid ? "access_token" : "cert_number";
     const { data: row, error } = await sb
       .from(cfg.table)
       .select(`${cfg.urlColumn}, organisation_id`)
-      .eq("access_token", token)
+      .eq(lookupColumn, token)
       .maybeSingle();
 
     if (error) {
