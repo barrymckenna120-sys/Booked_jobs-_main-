@@ -47,22 +47,37 @@ Deno.serve(async (req) => {
 
     // Optional org_id param — from JSON body (POST) or ?org_id= (GET)
     // Optional scope param — { scope: "all_orgs" } (POST body only, superadmin-only cross-tenant listing)
+    // Defensive parse: read raw text once and JSON.parse under an explicit try/catch
+    // so a silent body-parse failure can never route to the wrong branch again.
     let orgIdParam: string | null = null;
     let allOrgsScope = false;
-    try {
-      if (req.method === "POST") {
-        const body = await req.clone().json().catch(() => null);
-        if (body && typeof body.org_id === "string") orgIdParam = body.org_id;
-        if (body && body.scope === "all_orgs") allOrgsScope = true;
+    if (req.method === "POST") {
+      let raw = "";
+      try {
+        raw = await req.text();
+      } catch (e) {
+        console.error("list-users: failed to read request body", e);
       }
-      if (!orgIdParam) {
+      if (raw && raw.trim().length > 0) {
+        try {
+          const body = JSON.parse(raw);
+          if (body && typeof body.org_id === "string") orgIdParam = body.org_id;
+          if (body && body.scope === "all_orgs") allOrgsScope = true;
+        } catch (e) {
+          console.error("list-users: failed to JSON.parse body", e, "raw=", raw.slice(0, 200));
+        }
+      }
+    }
+    if (!orgIdParam) {
+      try {
         const url = new URL(req.url);
         const q = url.searchParams.get("org_id");
         if (q) orgIdParam = q;
+      } catch (_e) {
+        // ignore
       }
-    } catch (_e) {
-      orgIdParam = null;
     }
+
     if (orgIdParam && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgIdParam)) {
       return new Response(JSON.stringify({ error: "Invalid org_id" }), {
         status: 400,
