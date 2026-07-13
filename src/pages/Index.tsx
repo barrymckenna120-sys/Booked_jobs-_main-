@@ -1,5 +1,6 @@
 import { HeaderSection } from "@/components/landing/HeaderSection";
 import { StickyHeader } from "@/components/landing/StickyHeader";
+import MarketingOfflineGate from "@/components/landing/MarketingOfflineGate";
 
 import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { HeroSection } from "@/components/landing/HeroSection";
@@ -12,6 +13,7 @@ import { FooterSection } from "@/components/landing/FooterSection";
 const Index = () => {
   return (
     <main className="min-h-screen bg-background">
+      <MarketingOfflineGate />
       <ScrollProgress />
       <StickyHeader />
       
