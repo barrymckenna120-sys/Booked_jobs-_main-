@@ -1,3 +1,6 @@
+// NOTE: profiles.last_login (text column) exists but is unused/superseded by
+// auth.users.last_sign_in_at (surfaced via the list-users edge function). Do
+// not read or write profiles.last_login — it is not live data.
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
