@@ -242,6 +242,92 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Cross-tenant Overview branch — superadmin only.
+    // `isSuperadmin` was derived from the caller's verified JWT
+    // (getUser(token) → profiles.role lookup); it never trusts the request body.
+    if (allOrgsScope) {
+      if (!isSuperadmin) {
+        return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const [profilesRes, engineersRes, orgsRes] = await Promise.all([
+        supabaseAdmin.from("profiles").select("user_id, display_name, role, organisation_id"),
+        supabaseAdmin.from("engineers").select("auth_user_id, name, role, organisation_id"),
+        supabaseAdmin.from("organisations").select("id, name"),
+      ]);
+
+      if (profilesRes.error || engineersRes.error || orgsRes.error) {
+        console.error("all_orgs list error:", profilesRes.error, engineersRes.error, orgsRes.error);
+        return new Response(JSON.stringify({ error: "Failed to load users" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const orgNameById = new Map<string, string>();
+      for (const o of (orgsRes.data as any[]) || []) {
+        if (o?.id) orgNameById.set(o.id, o.name ?? null);
+      }
+
+      type Row = {
+        user_id: string;
+        email: string | null;
+        name: string;
+        role: string;
+        organisation_id: string | null;
+        organisation_name: string | null;
+        last_sign_in_at: string | null;
+        created_at: string;
+      };
+
+      const byUser = new Map<string, Row>();
+      for (const u of authUsers) {
+        byUser.set(u.id, {
+          user_id: u.id,
+          email: u.email ?? null,
+          name: "—",
+          role: "—",
+          organisation_id: null,
+          organisation_name: null,
+          last_sign_in_at: u.last_sign_in_at ?? null,
+          created_at: u.created_at,
+        });
+      }
+
+      for (const p of (profilesRes.data as any[]) || []) {
+        if (!p?.user_id) continue;
+        const row = byUser.get(p.user_id);
+        if (!row) continue;
+        if (p.display_name) row.name = p.display_name;
+        if (p.role) row.role = p.role;
+        if (p.organisation_id) {
+          row.organisation_id = p.organisation_id;
+          row.organisation_name = orgNameById.get(p.organisation_id) ?? null;
+        }
+      }
+
+      for (const e of (engineersRes.data as any[]) || []) {
+        if (!e?.auth_user_id) continue;
+        const row = byUser.get(e.auth_user_id);
+        if (!row) continue;
+        if ((!row.name || row.name === "—") && e.name) row.name = e.name;
+        if ((!row.role || row.role === "—") && e.role) row.role = e.role;
+        if (!row.organisation_id && e.organisation_id) {
+          row.organisation_id = e.organisation_id;
+          row.organisation_name = orgNameById.get(e.organisation_id) ?? null;
+        }
+      }
+
+      return new Response(JSON.stringify({ users: Array.from(byUser.values()) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
+
     // Default behaviour — list all auth users. Merge in engineers.status='blocked'
     // so blocked engineers show as blocked even when auth ban is unset.
     const { data: blockedEngRows } = await supabaseAdmin
