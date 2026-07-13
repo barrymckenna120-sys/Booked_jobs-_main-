@@ -38,8 +38,8 @@ const Auth = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
-  const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
+  const GENERIC_AUTH_ERROR = LOCKOUT_GENERIC_ERROR;
+  const BLOCKED_AUTH_ERROR = LOCKOUT_BLOCKED_ERROR;
 
   const [showUnblockedNotice, setShowUnblockedNotice] = useState(false);
 
