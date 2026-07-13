@@ -1,45 +1,18 @@
-# Legacy cert-number fallback in resolve-document-link
+No code changes required — this was a read-only verification of the already-deployed `resolve-document-link` function.
 
-Additive-only change, scoped to `type === "certificate"`.
+## Verification results
 
-## Edit: `supabase/functions/resolve-document-link/index.ts`
+| # | Token | Type | Status | Body |
+|---|---|---|---|---|
+| 1 | `63eb4b36-a18e-40f5-99f0-569654feac11` (valid UUID access_token) | certificate | 200 | `{"signed_url":"https://…/storage/v1/object/sign/certificates/KN-2026-3951.pdf?token=…"}` |
+| 2 | `DG-2026-5204` (legacy cert number) | certificate | 200 | `{"signed_url":"https://…/storage/v1/object/sign/certificates/DG-2026-5204.pdf?token=…"}` |
+| 3 | `not-a-token` | certificate | 404 | `{"error":"not_found"}` |
+| 4 | `DG-2026-5204` | quote | 404 | `{"error":"not_found"}` |
 
-1. Add regex next to `UUID_RE`:
-   ```ts
-   const LEGACY_CERT_NUMBER_RE = /^[A-Z]{2,4}-\d{4}-\d+$/;
-   ```
-2. Replace the current token gate:
-   ```ts
-   if (!UUID_RE.test(token)) return notFound();
-   ```
-   with:
-   ```ts
-   const isUuid = UUID_RE.test(token);
-   const isLegacyCertNumber =
-     type === "certificate" && LEGACY_CERT_NUMBER_RE.test(token);
-   if (!isUuid && !isLegacyCertNumber) return notFound();
-   ```
-3. Choose lookup column based on the matched format:
-   ```ts
-   const lookupColumn = isUuid ? "access_token" : "cert_number";
-   const { data: row, error } = await sb
-     .from(cfg.table)
-     .select(`${cfg.urlColumn}, organisation_id`)
-     .eq(lookupColumn, token)
-     .maybeSingle();
-   ```
+All four outcomes match expectations:
+- UUID access_token path resolves normally.
+- Legacy cert-number fallback resolves only when `type=certificate`.
+- Malformed tokens still 404.
+- The legacy fallback is correctly scoped — the same legacy string under `type=quote` does not leak into a signed URL.
 
-Everything after the lookup (missing row → 404, `extractStoragePath`, `signDocumentUrl`, JSON response) is unchanged.
-
-## Scope guarantees
-
-- Only the `certificate` doc type accepts the legacy format. `quote`, `receipt`, `invoice`, `hazard` still require a UUID token.
-- Non-matching tokens still return the existing `{ "error": "not_found" }` 404.
-- No schema, RLS, client, or other edge-function changes.
-
-## Verification after deploy
-
-- `curl` with UUID token → 200 signed URL (regression check).
-- `curl` with `DG-2026-5204` → 200 signed URL (the failing legacy link).
-- `curl` with `not-a-token` → 404.
-- `curl` with `DG-2026-5204` against `type=quote` → 404 (scope check).
+No plan to implement; awaiting further instruction.
