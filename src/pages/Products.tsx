@@ -34,6 +34,7 @@ type Category = {
 const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { orgId } = useOrgId();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
