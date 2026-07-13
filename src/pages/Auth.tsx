@@ -352,9 +352,23 @@ const Auth = () => {
             <DialogTitle>{errorTitle}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{errorMessage}</p>
-          <Button className="w-full mt-2" onClick={closeErrorModal}>
-            {isBlocked ? "Close" : "Try Again"}
-          </Button>
+          <div className="flex flex-col gap-2 mt-2">
+            <Button className="w-full" onClick={closeErrorModal}>
+              {failedAttempts >= LOCKOUT_MAX_ATTEMPTS ? "Close" : "Try Again"}
+            </Button>
+            {failedAttempts >= 4 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setErrorModalOpen(false);
+                  setIsForgotPassword(true);
+                }}
+              >
+                Reset password
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
