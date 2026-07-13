@@ -24,39 +24,30 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallback: "/offline.html",
+        navigateFallback: "/index.html",
+        navigateFallbackAllowlist: [
+          /^\/(?!(?:rest|functions|~oauth|storage|realtime|sw\.js|firebase-messaging-sw\.js|assets|icons|manifest\.json|offline\.html|robots\.txt|placeholder\.svg)).*/,
+        ],
         navigateFallbackDenylist: [
           /^\/rest/,
           /^\/functions/,
-          /^\/\~oauth/,
-          /^\/auth/,
-          /^\/reset-password/,
-          /^\/pdf/,
-          /^\/receipt/,
-          /^\/invoice/,
-          /^\/certificates/,
-          /^\/certificate/,
-          /^\/cert/,
-          /^\/quote/,
-          /^\/hazard/,
+          /^\/~oauth/,
+          /^\/storage/,
+          /^\/realtime/,
         ],
         runtimeCaching: [
           {
             urlPattern: ({ url, request }) => {
               if (request.mode !== "navigate") return false;
               const denied = [
-                /^\/rest/, /^\/functions/, /^\/\~oauth/, /^\/\$/,
-                /^\/auth/, /^\/engineer/, /^\/dashboard/, /^\/admin/,
-                /^\/jobs/, /^\/customers/, /^\/certificates/,
-                /^\/certificate/, /^\/cert/, /^\/quote/, /^\/reset-password/, /^\/pdf/, /^\/b/,
-                /^\/receipt/, /^\/r/, /^\/invoice/, /^\/hazard/,
+                /^\/rest/, /^\/functions/, /^\/~oauth/, /^\/storage/, /^\/realtime/,
               ];
               return !denied.some((re) => re.test(url.pathname));
             },
             handler: "NetworkFirst",
             options: {
               cacheName: "html",
-              networkTimeoutSeconds: 8,
+              networkTimeoutSeconds: 15,
             },
           },
           {
