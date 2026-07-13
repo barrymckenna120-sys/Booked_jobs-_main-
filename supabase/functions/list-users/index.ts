@@ -136,18 +136,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // List all auth users (needed for email lookup in both branches)
-    const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-
-    if (listError) {
-      console.error("listUsers error:", listError);
-      return new Response(JSON.stringify({ error: "Failed to list users" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // List all auth users (needed for email lookup in both branches).
+    // supabase-js `auth.admin.listUsers` is paginated (default perPage=50);
+    // loop through every page so counts never silently truncate.
+    const PER_PAGE = 200;
+    const authUsers: any[] = [];
+    for (let page = 1; ; page++) {
+      const { data: pageData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage: PER_PAGE,
       });
+      if (listError) {
+        console.error("listUsers error:", listError);
+        return new Response(JSON.stringify({ error: "Failed to list users" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const batch = pageData?.users ?? [];
+      authUsers.push(...batch);
+      if (batch.length < PER_PAGE) break;
+      if (page > 500) break; // hard safety cap (~100k users)
     }
 
-    const authUsers = usersData?.users || [];
     const emailByUserId = new Map<string, string | null>();
     const blockedByUserId = new Map<string, boolean>();
     for (const u of authUsers) {
