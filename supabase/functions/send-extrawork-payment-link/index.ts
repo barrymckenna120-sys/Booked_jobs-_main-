@@ -14,9 +14,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
