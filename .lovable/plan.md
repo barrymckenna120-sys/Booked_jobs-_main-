@@ -1,42 +1,38 @@
 
-## Fix 1 — K&N WhatsApp branding
+## Fix 3 revised — clean up orphan profile + reconcile role source
 
-`settings.business_name` for organisation `8c37827f…` (K&N Gas Services) currently reads `"Dublin gas "`. Every WhatsApp receipt/invoice sent from K&N is signed with the wrong company name.
+Based on the evidence: `c9de0c69-f913-47ca-847c-e6d862000279` is **an orphaned profile row pointing at a non-existent auth user**. Not in `auth.users` (verified via `list-users`), zero activity, never modified since insert. Safe to delete — cannot be signed into, cannot escalate.
 
-- Data update via the insert (data) tool:
-  - `UPDATE settings SET business_name='K & N Gas Services' WHERE organisation_id='8c37827f-ce2c-4507-a821-a5e807d89856';`
-- Spot-check `settings.message_footer` and `brand_settings` for the same org for the same wrong string; correct if present.
-- No code change — the resolver is correct (branding and API key both keyed off `service_calls.organisation_id`).
+### Step 1 — Delete the orphan profile row
 
-## Fix 2 — Role gating consistency (Karl)
+- Via the insert (data) tool:
+  - `DELETE FROM public.profiles WHERE id='67a5d82c-4697-48e4-9ada-a97ebed82286' AND user_id='c9de0c69-f913-47ca-847c-e6d862000279';`
+- Nothing else to touch — no auth.users row exists to delete, no service_calls/notifications/audit rows reference it.
 
-Karl has `engineers.role='engineer'` + `can_access_office=true`, but the three code paths disagree on what that means. Result: he is redirected to `/dashboard` after login while `OfficeRoute` (used on some pages) would bounce him. Pick **one rule** and apply it everywhere:
+### Step 2 — Prevent recurrence
 
-**Rule:** an engineer with `can_access_office=true` is allowed into office views. This matches how the flag is described in `useUserRole` and how `resolveLandingPath` already behaves.
+Add `ON DELETE CASCADE` semantics so profile rows can't outlive their auth user. Two options:
 
-- `src/components/shared/OfficeRoute.tsx`
-  - Change gate from `role === "engineer"` to `role === "engineer" && !canAccessOffice`.
-  - Pull `canAccessOffice` from `useUserRole` (already exposed).
-- `src/lib/resolveLandingPath.ts` — no change (already correct).
-- Grep for any other place that treats `role === 'engineer'` as "must go to engineer app" and align with the same rule (expected: `App.tsx` routing, `EngineerLayout` guard). Read-only pass first, then adjust only sites that would wrongly bounce Karl.
+- **Preferred:** add a FK `profiles.user_id → auth.users(id) ON DELETE CASCADE` (via migration). Requires that no *other* current orphans exist — verify with a `LEFT JOIN` first; abort if any surface.
+- **Fallback if any other orphans exist:** delete them in the same migration after listing them for the user's approval.
 
-## Fix 3 — Duplicate "Karl" profile
+### Step 3 — Reconcile "who is really an admin"
 
-Two profile rows both display_name="Karl", both `role='admin'`:
-- `57ebf8de…` — linked to the `engapp@bookedjobs.ie` engineer row. Legitimate.
-- `c9de0c69…` — no engineer link, full admin. Orphan/duplicate; if signed into, gives Karl unrestricted admin with no engineer gating.
+The K&N admin listing shows Karl as `admin` because it reads `profiles.role`, but his `engineers.role='engineer'`. Two paths:
 
-- Confirm with user which auth user `c9de0c69…` maps to (via list-users edge function) before deleting.
-- If it is an unused duplicate: delete the auth user (cascades to profile). If it is a real second account Karl uses, downgrade `profiles.role` to `engineer` and add an engineer row (or merge).
-- Also downgrade `profiles.role` for `57ebf8de…` from `admin` to `engineer` so profile role matches engineer role — office access continues to flow through `engineers.can_access_office`, not `profiles.role`.
+- **A (surgical, low risk):** downgrade only Karl's `profiles.role` from `admin` → `engineer`. Office access continues via `engineers.can_access_office=true` (Fix 2 already makes this work in `OfficeRoute`).
+  - `UPDATE profiles SET role='engineer' WHERE user_id='57ebf8de-b2d3-44bc-90b0-071d750a3f46';`
+- **B (broader):** run the same reconciliation for every profile where `profiles.role='admin'` but the linked engineers row is `role='engineer'`. Report the list to the user first; only then update.
 
-## Verification
+Recommend **A** now and **B** as a separate audit later.
 
-- Re-run login in a **clean incognito** as Karl (`engapp@…`). Expected: lands on `/dashboard`, can access office pages, no bounce.
-- Send a test invoice from a K&N job → WhatsApp message signs off with "K & N Gas Services".
-- Confirm Dublin Gas / Cavan Gas branding unaffected (their `settings.business_name` values are already correct).
+### Step 4 — Verify
 
-## Out of scope
+- `list-users` no longer returns a "Karl" admin duplicate.
+- Karl (`engapp@…`) can still sign in (incognito), still lands on `/dashboard`, still reaches office pages (relies on Fix 2's `OfficeRoute` change + `can_access_office=true`).
+- Nothing else in the admin listing changed.
 
-- No changes to `tenant_integrations`, secrets, or the WhatsApp helper.
-- No schema changes.
+### Out of scope
+
+- Not touching `handle_new_user()` — root cause of the original orphan was likely a manual auth.users deletion, not the trigger.
+- Not migrating every other org's admin/engineer profile mismatch — user should approve that as a separate pass (Step 3 option B).
