@@ -115,8 +115,11 @@ Deno.serve(async (req) => {
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
-    // Strip leading + from phone for 360 Messenger
-    const cleanNumber = customer.phone.replace(/^\+/, "");
+    // Normalise recipient number (E.164 digits, no +)
+    const cleanNumber = normalisePhone(customer.phone);
+
+    // Resolve tenant-scoped WhatsApp API key
+    const { apiKey: messengerKey } = await getWhatsAppConfig(supabase, job.organisation_id);
 
     // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
