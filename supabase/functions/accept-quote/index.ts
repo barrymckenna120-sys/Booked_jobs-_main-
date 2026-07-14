@@ -217,7 +217,19 @@ async function sendWhatsAppAlert(
           body: formData,
         });
       } catch (e) {
-        console.error("Office WhatsApp alert failed:", (e as Error).message);
+        const msg = (e as Error).message;
+        console.error("Office WhatsApp alert failed:", msg);
+        try {
+          const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+          await logWhatsAppFailure(sb, {
+            organisation_id: alertOrgId,
+            customer_id: null,
+            message_type: "quote",
+            content: `Office alert — Quote ${quoteRef} accepted (${customerName})`,
+            sent_by: userId,
+            error_message: msg,
+          });
+        } catch { /* non-critical */ }
       }
     }
   } catch (e) {
