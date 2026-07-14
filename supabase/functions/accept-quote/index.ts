@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -217,7 +217,19 @@ async function sendWhatsAppAlert(
           body: formData,
         });
       } catch (e) {
-        console.error("Office WhatsApp alert failed:", (e as Error).message);
+        const msg = (e as Error).message;
+        console.error("Office WhatsApp alert failed:", msg);
+        try {
+          const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+          await logWhatsAppFailure(sb, {
+            organisation_id: alertOrgId,
+            customer_id: null,
+            message_type: "quote",
+            content: `Office alert — Quote ${quoteRef} accepted (${customerName})`,
+            sent_by: userId,
+            error_message: msg,
+          });
+        } catch { /* non-critical */ }
       }
     }
   } catch (e) {
@@ -354,7 +366,21 @@ async function sendDepositPaymentWhatsApp(
       const wa = await getWhatsAppConfig(sb, orgId);
       apiKey = wa.apiKey;
     } catch (e) {
-      console.error("Deposit WhatsApp: no tenant-scoped API key:", (e as Error).message);
+      const msg = (e as Error).message;
+      console.error("Deposit WhatsApp: no tenant-scoped API key:", msg);
+      try {
+        const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await logWhatsAppFailure(sb, {
+          organisation_id: orgId,
+          customer_id: quote.customer_id || null,
+          message_type: "payment_link",
+          content: `Deposit payment link for job ${serviceCallId} — config unavailable`,
+          related_id: serviceCallId,
+          related_type: "service_call",
+          sent_by: "system",
+          error_message: msg,
+        });
+      } catch { /* non-critical */ }
       return;
     }
 

@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
-import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -115,9 +115,17 @@ Deno.serve(async (req: Request) => {
             body: form,
           });
         }
-      } catch (_e) {
-        // Non-critical: log but don't fail the webhook
-        console.error("Failed to send opt-out reply:", _e);
+      } catch (e) {
+        const msg = (e as Error).message;
+        console.error("Failed to send opt-out reply:", msg);
+        await logWhatsAppFailure(supabase, {
+          organisation_id: inboundOrgId,
+          customer_id: customer?.id ?? null,
+          message_type: "opt_out_reply",
+          content: "STOP opt-out confirmation",
+          sent_by: "system",
+          error_message: msg,
+        });
       }
     }
   }

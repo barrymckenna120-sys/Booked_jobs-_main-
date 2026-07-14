@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
-import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,11 +115,33 @@ Deno.serve(async (req) => {
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
-    // Normalise recipient number (E.164 digits, no +)
-    const cleanNumber = normalisePhone(customer.phone);
-
-    // Resolve tenant-scoped WhatsApp API key
-    const { apiKey: messengerKey } = await getWhatsAppConfig(supabase, job.organisation_id);
+    // Wrap all WhatsApp send/config resolution in a local try/catch so that
+    // any failure logs to message_log and returns 200 with success:false —
+    // never a hard 5xx that a caller might treat as fatal.
+    let cleanNumber: string;
+    let messengerKey: string;
+    try {
+      cleanNumber = normalisePhone(customer.phone);
+      const wa = await getWhatsAppConfig(supabase, job.organisation_id);
+      messengerKey = wa.apiKey;
+    } catch (waErr) {
+      const msg = (waErr as Error).message;
+      console.error("send-whatsapp-receipt: pre-send failure:", msg);
+      await logWhatsAppFailure(supabase, {
+        organisation_id: job.organisation_id,
+        customer_id: job.customer_id,
+        message_type: "receipt",
+        content: message,
+        related_id: job_id,
+        related_type: "service_call",
+        sent_by: "system",
+        error_message: msg,
+      });
+      return new Response(JSON.stringify({ success: false, whatsapp_sent: false, reason: msg }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
@@ -144,42 +166,52 @@ Deno.serve(async (req) => {
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    // Send via 360 Messenger
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${messengerKey}` },
-      body: formData,
-    });
-
-    const resultText = await response.text();
-    let result: Record<string, unknown>;
+    let sendResult: { success: boolean; error?: string; status?: number } = { success: false };
     try {
-      result = JSON.parse(resultText);
-    } catch (_e) {
-      result = { success: false };
+      const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${messengerKey}` },
+        body: formData,
+      });
+
+      const resultText = await response.text();
+      let result: Record<string, unknown>;
+      try {
+        result = JSON.parse(resultText);
+      } catch (_e) {
+        result = { success: false };
+      }
+
+      sendResult = {
+        success: !!(result as any).success,
+        error: (result as any).success ? undefined : `360Messenger HTTP ${response.status}: ${resultText.substring(0, 300)}`,
+        status: response.status,
+      };
+    } catch (waErr) {
+      const msg = (waErr as Error).message;
+      console.error("send-whatsapp-receipt: send fetch failed:", msg);
+      sendResult = { success: false, error: msg };
     }
 
     const sentAt = new Date().toISOString();
 
     // Update message_log with outcome
     if (logId) {
-      const updateBody = (result as any).success
+      const updateBody = sendResult.success
         ? { status: "sent", sent_at: sentAt }
-        : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
-
+        : { status: "failed", error_message: sendResult.error || "unknown" };
       await supabase.from("message_log").update(updateBody).eq("id", logId);
     }
 
-    // Log failure to edge_function_logs
-    if (!(result as any).success) {
+    if (!sendResult.success) {
       await supabase.from("edge_function_logs").insert({
         function_name: "send-whatsapp-receipt",
-        error_message: `360Messenger API failed. HTTP ${response.status}`,
+        error_message: `360Messenger send failed: ${sendResult.error}`,
         payload: { sent_to: cleanNumber, job_id },
       });
 
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp send failed" }), {
-        status: 502,
+      return new Response(JSON.stringify({ success: false, whatsapp_sent: false, reason: sendResult.error }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -211,7 +243,7 @@ Deno.serve(async (req) => {
       } catch { /* non-critical */ }
     }
 
-    return new Response(JSON.stringify({ success: true, customer_name: customer.name }), {
+    return new Response(JSON.stringify({ success: true, whatsapp_sent: true, customer_name: customer.name }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
