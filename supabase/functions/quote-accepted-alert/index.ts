@@ -259,8 +259,9 @@ ${messageFooter}`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500,
+    console.error("quote-accepted-alert unexpected error:", error);
+    return new Response(JSON.stringify({ success: false, sent: false, error: (error as Error).message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200,
     });
   }
 });
