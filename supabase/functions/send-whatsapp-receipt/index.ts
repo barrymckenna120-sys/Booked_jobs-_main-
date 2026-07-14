@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
       } catch { /* non-critical */ }
     }
 
-    return new Response(JSON.stringify({ success: true, customer_name: customer.name }), {
+    return new Response(JSON.stringify({ success: true, whatsapp_sent: true, customer_name: customer.name }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
