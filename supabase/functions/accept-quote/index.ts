@@ -323,12 +323,6 @@ async function sendDepositPaymentWhatsApp(
       body: JSON.stringify({ payment_link: paymentLink }),
     });
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
-    if (!apiKey) {
-      console.log("No WhatsApp API key — skipping deposit WhatsApp");
-      return;
-    }
-
     // Resolve organisation + branding from service_call
     const jobOrgRes = await fetch(
       `${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}&select=organisation_id&limit=1`,
@@ -337,22 +331,36 @@ async function sendDepositPaymentWhatsApp(
     const jobOrgRows = await jobOrgRes.json();
     const orgId = Array.isArray(jobOrgRows) ? jobOrgRows[0]?.organisation_id : null;
 
+    if (!orgId) {
+      console.log("No organisation_id on service_call — skipping deposit WhatsApp");
+      return;
+    }
+
     let companyName = "K & N Gas Services";
     let companyPhone = "087 3686252";
-    if (orgId) {
-      const tiRes = await fetch(
-        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-        { headers }
-      );
-      const tiRows = await tiRes.json();
-      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-      if (cfg?.company_name) companyName = cfg.company_name;
-      if (cfg?.company_phone) companyPhone = cfg.company_phone;
+    const tiRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+      { headers }
+    );
+    const tiRows = await tiRes.json();
+    const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+    if (cfg?.company_name) companyName = cfg.company_name;
+    if (cfg?.company_phone) companyPhone = cfg.company_phone;
+
+    // Resolve tenant-scoped 360Messenger API key
+    let apiKey: string;
+    try {
+      const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const wa = await getWhatsAppConfig(sb, orgId);
+      apiKey = wa.apiKey;
+    } catch (e) {
+      console.error("Deposit WhatsApp: no tenant-scoped API key:", (e as Error).message);
+      return;
     }
 
     const message = `Hi ${customerName},\n\nThank you for approving your quote with ${companyName}.\n\nTo confirm your booking and secure the parts for your job, a 50% deposit of €${depositAmount.toFixed(2)} is required.\n\nPay securely here: ${paymentLink}\n\nIf you have any questions please reply to this message.\n\n${companyName} ☎ ${companyPhone}`;
 
-    const cleanNumber = customerPhone.replace(/^\+/, "");
+    const cleanNumber = normalisePhone(customerPhone);
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
