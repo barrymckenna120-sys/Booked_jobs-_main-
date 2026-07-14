@@ -1,45 +1,43 @@
+## DU-011 WhatsApp Send — Audit Results
 
-## Approved plan — executing on build-mode switch
+### 1. Job / Org confirmation ✅
+- `service_calls.id` = `b07e2832-cbd1-4222-bded-bf42ce01ce1c`
+- `job_reference` = `DU-011`
+- `organisation_id` = `f1950683-e8b9-41cf-8972-2aa59516850d` → **matches Dublin Gas**
+- `payment_method` = `card`, `completed_at` = null, `receipt_sent` = false
 
-### Step 1 — Flip Karl's `can_access_office` to false
-
-```sql
-UPDATE public.engineers
-SET can_access_office = false, updated_at = now()
-WHERE auth_user_id = '57ebf8de-b2d3-44bc-90b0-071d750a3f46'
-  AND organisation_id = '8c37827f-ce2c-4507-a821-a5e807d89856';
+### 2. `message_log` row (exists — good) ⚠️ but wrong failure reason
+```
+id:            1c80dbe3-6bcb-40cc-8c93-fda22dbf868c
+created_at:    2026-07-14 17:23:57 UTC
+channel:       whatsapp
+message_type:  receipt
+status:        failed
+organisation_id: f1950683-e8b9-41cf-8972-2aa59516850d (Dublin Gas)
+customer_id:   556a48cf-… (Paul Blue)
+related_id:    b07e2832-… (DU-011)
+error_message: Unrecognised phone format: "+892109224"
 ```
 
-Then verify by reselecting Karl's `profiles.role` (`engineer`), `engineers.role` (`engineer`), `engineers.can_access_office` (`false`).
-
-### Step 2 — Audit other engineers with office access
-
-Read-only query across all orgs, report only (no bulk update):
-
-```sql
-SELECT o.name AS organisation, e.id AS engineer_id, e.name, e.role,
-       e.can_access_office, e.auth_user_id, p.role AS profile_role, e.updated_at
-FROM public.engineers e
-LEFT JOIN public.organisations o ON o.id = e.organisation_id
-LEFT JOIN public.profiles p ON p.user_id = e.auth_user_id
-WHERE e.role = 'engineer' AND e.can_access_office = true
-ORDER BY o.name, e.name;
+### 3. Edge function log (send-whatsapp-receipt, same window)
 ```
+level: error
+msg:   send-whatsapp-receipt: pre-send failure: Unrecognised phone format: "+892109224"
+timestamp: 2026-07-14 17:23:57 UTC
+```
+No HTTP 500 / no crash — function returned `200 { success:false, whatsapp_sent:false, reason:"Unrecognised phone format…" }` via the pre-send failure branch, then logged to `message_log`.
 
-Present the full list; wait for user to nominate which (if any) to also flip.
+### 4. Root cause of the failure
+- Customer `Paul Blue` (id `556a48cf-…`) has `phone = "+892109224"` — **9 digits, invalid country code `+89`**. Almost certainly a mistyped `+353 892109224` (Irish mobile) with a missing `353`.
+- `normalisePhone()` in `_shared/whatsapp.ts` correctly rejected it before any 360Messenger call was made.
+- The tenant secret path (`THREESIXTY_API_KEY_DUBLIN_GAS`) was **never reached** — the phone check runs first.
 
-### Step 3 — Live login proof (Option A, temporary password)
+### Verdict
+**Designed behavior on the wrong axis.** The "fail loudly" gate did fire (200 + `success:false`, `message_log` row with `status='failed'` and an `error_message`), so the plumbing from the recent fix is working end-to-end. However, this specific failure is a **bad customer phone number**, not a missing per-tenant secret. We have NOT actually proven that the Dublin Gas missing-secret path fails the way we intended.
 
-1. Use the admin API to set a temporary password for `engapp@bookedjobs.ie` (via a one-shot edge function call or `supabase.auth.admin.updateUserById`).
-2. Playwright, fresh Chromium context, no stored session:
-   - Navigate to `/auth`, sign in as Karl with the temp password.
-   - Capture post-login landing URL — expect `/engineer/today`.
-   - Attempt direct nav to `/dashboard`, `/schedule`, `/customers`, `/warranty`, `/insights`, `/settings`, `/admin`. Screenshot each. Expect all office/admin routes to bounce him back to the engineer app (or `/dashboard` → engineer, per `RootRoute` + `OfficeRoute`).
-   - Confirm no office UI is reachable and no admin banner surfaces.
-3. Rotate the password again immediately after — set to a fresh random value so the temp password can't be reused. Karl uses "forgot password" next time he needs in.
+### Recommended next steps (no changes yet — awaiting approval)
+1. **Fix Paul Blue's phone** (`+892109224` → `+353892109224`) in `customers`, then re-trigger the receipt on DU-011. Expected result then: `message_log.error_message = 'Missing WhatsApp API key secret: THREESIXTY_API_KEY_DUBLIN_GAS'` (or the exact string thrown by `getWhatsAppConfig`).
+2. Optional data hygiene: query `customers` for other rows where `phone` doesn't match `^\+353\d{9}$` (or the org's expected country pattern) to surface more mistyped numbers before they cause silent send failures.
+3. Optional UX: surface the pre-send failure reason as a toast on `ServiceReceipt.tsx` auto-send (currently it swallows the `success:false` 200 because it only toasts on thrown errors) — right now the engineer sees nothing when the number is malformed.
 
-Report: screenshots, final observed routes, and confirmation the temp password was rotated out.
-
-### Out of scope
-
-Bulk-flipping other engineer flags, changing `profiles.role` / `engineers.role`, or any routing/gating code changes.
+Awaiting your call on whether to (a) just fix Paul's phone and re-test, (b) also add the phone-format audit query, and/or (c) also add the toast on `success:false`.
