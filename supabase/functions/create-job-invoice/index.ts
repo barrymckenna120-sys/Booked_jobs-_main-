@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
-import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
