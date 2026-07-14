@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -396,7 +397,13 @@ Deno.serve(async (req) => {
     await sb.from("invoices").update({ pdf_url: pdfUrl }).eq("id", invoice.id);
 
     // ── Send WhatsApp ──
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+    let apiKey: string | null = null;
+    try {
+      const wa = await getWhatsAppConfig(sb, job.organisation_id);
+      apiKey = wa.apiKey;
+    } catch (e) {
+      console.error("create-job-invoice: WhatsApp config unavailable:", (e as Error).message);
+    }
     const firstName = cust.name.split(" ")[0];
     let messageFooter = biz?.message_footer || biz?.business_name || "";
 
@@ -414,7 +421,7 @@ Deno.serve(async (req) => {
     let whatsappSent = false;
 
     if (apiKey && cust.phone) {
-      const cleanNumber = cust.phone.replace(/^\+/, "").replace(/[^0-9]/g, "");
+      const cleanNumber = normalisePhone(cust.phone);
 
       // Log pending message
       const { data: logRows } = await sb.from("message_log").insert({
