@@ -1,6 +1,8 @@
 project_id = "ktkfuquqxbrmuqrmbmdj"
 
 [functions]
+  [functions.oneshot-set-karl-password]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.list-users]
