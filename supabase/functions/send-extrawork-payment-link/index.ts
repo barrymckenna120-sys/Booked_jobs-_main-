@@ -98,10 +98,31 @@ ${companyName} ☎ ${companyPhone}`;
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { apiKey: messengerKey } = await getWhatsAppConfig(supabase, orgId);
 
-    // Send via 360Messenger
-    const cleanNumber = normalisePhone(customer.phone);
+    let messengerKey: string;
+    let cleanNumber: string;
+    try {
+      const wa = await getWhatsAppConfig(supabase, orgId);
+      messengerKey = wa.apiKey;
+      cleanNumber = normalisePhone(customer.phone);
+    } catch (waErr) {
+      const msg = (waErr as Error).message;
+      console.error("send-extrawork-payment-link: pre-send failure:", msg);
+      await logWhatsAppFailure(supabase, {
+        organisation_id: orgId,
+        customer_id,
+        message_type: "extra_work_payment",
+        content: message,
+        related_id: service_call_id,
+        related_type: "service_call",
+        sent_by: "system",
+        error_message: msg,
+      });
+      return new Response(JSON.stringify({ success: false, whatsapp_sent: false, reason: msg }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
@@ -121,33 +142,46 @@ ${companyName} ☎ ${companyPhone}`;
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${messengerKey}` },
-      body: formData,
-    });
+    let sendResult: { success: boolean; error?: string; status?: number } = { success: false };
+    try {
+      const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${messengerKey}` },
+        body: formData,
+      });
 
-    const resultText = await response.text();
-    let result: any;
-    try { result = JSON.parse(resultText); } catch (_e) { result = { success: false }; }
+      const resultText = await response.text();
+      let result: any;
+      try { result = JSON.parse(resultText); } catch (_e) { result = { success: false }; }
+
+      sendResult = {
+        success: !!result.success,
+        error: result.success ? undefined : `360Messenger HTTP ${response.status}: ${resultText.substring(0, 300)}`,
+        status: response.status,
+      };
+    } catch (waErr) {
+      const msg = (waErr as Error).message;
+      console.error("send-extrawork-payment-link: send fetch failed:", msg);
+      sendResult = { success: false, error: msg };
+    }
 
     // Update message log
     if (logId) {
-      const updateBody = result.success
+      const updateBody = sendResult.success
         ? { status: "sent", sent_at: new Date().toISOString() }
-        : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
+        : { status: "failed", error_message: sendResult.error || "unknown" };
       await supabase.from("message_log").update(updateBody).eq("id", logId);
     }
 
-    if (!result.success) {
+    if (!sendResult.success) {
       await supabase.from("edge_function_logs").insert({
         function_name: "send-extrawork-payment-link",
-        error_message: `360Messenger API failed. HTTP ${response.status}`,
+        error_message: `360Messenger send failed: ${sendResult.error}`,
         payload: { sent_to: cleanNumber, quote_id, service_call_id },
       });
 
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp send failed" }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ success: false, whatsapp_sent: false, reason: sendResult.error }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
