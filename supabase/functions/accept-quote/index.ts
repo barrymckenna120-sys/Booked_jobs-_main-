@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -187,18 +189,24 @@ async function sendWhatsAppAlert(
   if (!userId) return;
   try {
     const settingsRes = await fetch(
-      `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=whatsapp_number,business_phone&limit=1`,
+      `${supabaseUrl}/rest/v1/settings?user_id=eq.${userId}&select=whatsapp_number,business_phone,organisation_id&limit=1`,
       { headers }
     );
     const settingsData = await settingsRes.json();
-    const officeNumber = Array.isArray(settingsData) ? (settingsData[0]?.whatsapp_number || settingsData[0]?.business_phone) : null;
+    const settingsRow = Array.isArray(settingsData) ? settingsData[0] : null;
+    const officeNumber = settingsRow?.whatsapp_number || settingsRow?.business_phone;
+    const alertOrgId = settingsRow?.organisation_id;
 
-    if (officeNumber) {
-      const apiKey = Deno.env.get("THREESIXTY_API_KEY");
-      if (apiKey) {
+    if (officeNumber && alertOrgId) {
+      try {
+        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKeyEnv = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const sb = createClient(supabaseUrlEnv, supabaseKeyEnv);
+        const { apiKey } = await getWhatsAppConfig(sb, alertOrgId);
+
         const alertMsg = `✅ Quote Accepted\n\nCustomer: ${customerName}\nQuote: ${quoteRef}\nTotal: €${totalAmount}\nDeposit: €${depositAmount}\n\nJob has been created — open BookedJobs to schedule.`;
 
-        const cleanNumber = officeNumber.replace(/^\+/, "");
+        const cleanNumber = normalisePhone(officeNumber);
         const formData = new FormData();
         formData.append("phonenumber", cleanNumber);
         formData.append("text", alertMsg);
@@ -208,6 +216,8 @@ async function sendWhatsAppAlert(
           headers: { "Authorization": `Bearer ${apiKey}` },
           body: formData,
         });
+      } catch (e) {
+        console.error("Office WhatsApp alert failed:", (e as Error).message);
       }
     }
   } catch (e) {
