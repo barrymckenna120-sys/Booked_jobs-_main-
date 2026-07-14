@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,9 +14,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const body = await req.json();
@@ -94,8 +92,16 @@ If you have any questions please call us on ${companyPhone}.
 
 ${companyName} ☎ ${companyPhone}`;
 
+    // Resolve tenant-scoped WhatsApp API key
+    if (!orgId) {
+      return new Response(JSON.stringify({ error: "Job missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { apiKey: messengerKey } = await getWhatsAppConfig(supabase, orgId);
+
     // Send via 360Messenger
-    const cleanNumber = customer.phone.replace(/^\+/, "");
+    const cleanNumber = normalisePhone(customer.phone);
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);

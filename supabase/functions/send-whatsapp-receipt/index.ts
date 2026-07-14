@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +16,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { job_id } = await req.json();
@@ -117,8 +115,11 @@ Deno.serve(async (req) => {
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
-    // Strip leading + from phone for 360 Messenger
-    const cleanNumber = customer.phone.replace(/^\+/, "");
+    // Normalise recipient number (E.164 digits, no +)
+    const cleanNumber = normalisePhone(customer.phone);
+
+    // Resolve tenant-scoped WhatsApp API key
+    const { apiKey: messengerKey } = await getWhatsAppConfig(supabase, job.organisation_id);
 
     // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
