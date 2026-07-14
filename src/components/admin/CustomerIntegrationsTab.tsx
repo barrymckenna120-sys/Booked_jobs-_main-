@@ -18,7 +18,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 type Org = { id: string; name: string; slug: string };
 
 // Field defs: [integration_type, key, label, isSecret?]
-type Field = { type: string; key: string; label: string; secret?: boolean; placeholder?: string };
+type Field = { type: string; key: string; label: string; secret?: boolean; placeholder?: string; help?: string };
 
 const SECTIONS: { title: string; fields: Field[] }[] = [
   {
@@ -37,7 +37,7 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
   {
     title: "WhatsApp / 360Messenger",
     fields: [
-      { type: "whatsapp", key: "api_key", label: "360dialog API Key", secret: true },
+      { type: "360messenger", key: "api_key_secret", label: "360Messenger Secret Name", secret: true, placeholder: "THREESIXTY_API_KEY_DUBLIN_GAS", help: "Name of the Supabase secret that holds the raw 360Messenger API key for this tenant (not the key value itself). The secret must be added separately in Backend → Secrets." },
       { type: "whatsapp", key: "phone_number_id", label: "WhatsApp Phone Number ID" },
       { type: "whatsapp", key: "waba_id", label: "WABA ID" },
     ],
@@ -219,6 +219,9 @@ export default function CustomerIntegrationsTab() {
                             </Button>
                           )}
                         </div>
+                        {f.help && (
+                          <p className="text-xs text-muted-foreground">{f.help}</p>
+                        )}
                       </div>
                     );
                   })}
