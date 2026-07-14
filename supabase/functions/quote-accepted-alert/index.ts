@@ -78,8 +78,22 @@ serve(async (req) => {
       const wa = await getWhatsAppConfig(supabaseClient, orgIdForKey);
       apiKey = wa.apiKey;
     } catch (e) {
-      console.error("quote-accepted-alert: WhatsApp config unavailable:", (e as Error).message);
-      return new Response(JSON.stringify({ success: true, sent: false, reason: (e as Error).message }), {
+      const msg = (e as Error).message;
+      console.error("quote-accepted-alert: WhatsApp config unavailable:", msg);
+      try {
+        const sb = createClient(supabaseUrl, supabaseKey);
+        await logWhatsAppFailure(sb, {
+          organisation_id: orgIdForKey,
+          customer_id: quote.customer_id || null,
+          message_type: "quote",
+          content: `Quote-accepted alert for ${quote_id} — config unavailable`,
+          related_id: quote_id,
+          related_type: "quote",
+          sent_by: "system",
+          error_message: msg,
+        });
+      } catch { /* non-critical */ }
+      return new Response(JSON.stringify({ success: true, sent: false, reason: msg }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
