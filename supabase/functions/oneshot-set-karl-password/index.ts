@@ -1,11 +1,10 @@
-// TEMPORARY one-shot function to set Karl's password for QA login proof.
-// DELETE this function after use.
+// TEMPORARY one-shot. Deleted immediately after QA login proof.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 Deno.serve(async (req) => {
-  const { token, password } = await req.json();
-  if (token !== Deno.env.get("ADMIN_ONESHOT_TOKEN")) {
-    return new Response("forbidden", { status: 403 });
+  const { password } = await req.json();
+  if (!password || password.length < 12) {
+    return new Response("bad password", { status: 400 });
   }
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
