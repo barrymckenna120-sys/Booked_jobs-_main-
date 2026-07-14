@@ -115,9 +115,17 @@ Deno.serve(async (req: Request) => {
             body: form,
           });
         }
-      } catch (_e) {
-        // Non-critical: log but don't fail the webhook
-        console.error("Failed to send opt-out reply:", _e);
+      } catch (e) {
+        const msg = (e as Error).message;
+        console.error("Failed to send opt-out reply:", msg);
+        await logWhatsAppFailure(supabase, {
+          organisation_id: inboundOrgId,
+          customer_id: customer?.id ?? null,
+          message_type: "opt_out_reply",
+          content: "STOP opt-out confirmation",
+          sent_by: "system",
+          error_message: msg,
+        });
       }
     }
   }
