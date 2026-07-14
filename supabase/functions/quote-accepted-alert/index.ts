@@ -83,6 +83,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const customerName = quote.customers?.name || "Customer";
     const quoteRef = quote.quote_number || `Q-${quote_id.slice(0, 4).toUpperCase()}`;
     const totalAmount = Number(quote.total_amount || 0).toFixed(2);
     const depositAmount = Number(quote.deposit || quote.deposit_amount || 0).toFixed(2);
@@ -118,7 +119,7 @@ ${messageFooter}`;
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const cleanNumber = officeNumber.replace(/^\+/, "");
+    const cleanNumber = normalisePhone(officeNumber);
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", alertMsg);
