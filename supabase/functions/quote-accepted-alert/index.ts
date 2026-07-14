@@ -119,33 +119,61 @@ ${messageFooter}`;
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const cleanNumber = normalisePhone(officeNumber);
-    const formData = new FormData();
-    formData.append("phonenumber", cleanNumber);
-    formData.append("text", alertMsg);
+    let sendSucceeded = false;
+    let sendError: string | null = null;
+    try {
+      const cleanNumber = normalisePhone(officeNumber);
+      const formData = new FormData();
+      formData.append("phonenumber", cleanNumber);
+      formData.append("text", alertMsg);
 
-    const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}` },
-      body: formData,
-    });
+      const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${apiKey}` },
+        body: formData,
+      });
 
-    const resultText = await res.text();
-    let result: any;
-    try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+      const resultText = await res.text();
+      let result: any;
+      try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+      sendSucceeded = !!result.success;
+      if (!sendSucceeded) {
+        sendError = `360Messenger HTTP ${res.status}: ${resultText.substring(0, 300)}`;
+      }
+    } catch (e) {
+      sendError = (e as Error).message;
+      console.error("quote-accepted-alert: send failed:", sendError);
+    }
 
     // Update message_log status
     if (logId) {
-      const updateBody = result.success
+      const updateBody = sendSucceeded
         ? { status: "sent" }
-        : { status: "failed", error_message: `360Messenger HTTP ${res.status}: ${resultText.substring(0, 500)}` };
+        : { status: "failed", error_message: sendError || "unknown" };
 
       await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
         method: "PATCH",
         headers: dbHeaders,
         body: JSON.stringify(updateBody),
       });
+    } else if (!sendSucceeded) {
+      // No log row existed — write a fresh failure row so nothing is lost.
+      try {
+        const sb = createClient(supabaseUrl, supabaseKey);
+        await logWhatsAppFailure(sb, {
+          organisation_id: orgIdForKey,
+          customer_id: quote.customer_id || null,
+          message_type: "quote",
+          content: alertMsg,
+          related_id: quote_id,
+          related_type: "quote",
+          sent_by: "system",
+          error_message: sendError || "unknown",
+        });
+      } catch { /* non-critical */ }
     }
+
+    const result = { success: sendSucceeded };
 
     // Log customer activity on successful send
     if (result.success && quote.customer_id) {
