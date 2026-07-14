@@ -207,6 +207,7 @@ ${companyName} ☎ ${companyPhone}`;
 
     return new Response(JSON.stringify({
       success: true,
+      whatsapp_sent: true,
       customer_name: customer.name,
       payment_link: paymentLink,
     }), {
