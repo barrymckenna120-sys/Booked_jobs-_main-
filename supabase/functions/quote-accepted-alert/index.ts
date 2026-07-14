@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,14 +57,32 @@ serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
-    if (!apiKey) {
-      return new Response(JSON.stringify({ success: true, sent: false, reason: "No WhatsApp API key" }), {
+    // Resolve tenant-scoped WhatsApp API key via customer.organisation_id
+    let orgIdForKey: string | null = null;
+    if (quote.customer_id) {
+      const custOrgRes = await fetch(
+        `${supabaseUrl}/rest/v1/customers?id=eq.${quote.customer_id}&select=organisation_id`,
+        { headers: dbHeaders }
+      );
+      const custOrgRows = await custOrgRes.json();
+      orgIdForKey = (Array.isArray(custOrgRows) && custOrgRows[0]?.organisation_id) || null;
+    }
+    if (!orgIdForKey) {
+      return new Response(JSON.stringify({ success: true, sent: false, reason: "No organisation_id for quote" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const customerName = quote.customers?.name || "Customer";
+    let apiKey: string;
+    try {
+      const supabaseClient = createClient(supabaseUrl, supabaseKey);
+      const wa = await getWhatsAppConfig(supabaseClient, orgIdForKey);
+      apiKey = wa.apiKey;
+    } catch (e) {
+      console.error("quote-accepted-alert: WhatsApp config unavailable:", (e as Error).message);
+      return new Response(JSON.stringify({ success: true, sent: false, reason: (e as Error).message }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const quoteRef = quote.quote_number || `Q-${quote_id.slice(0, 4).toUpperCase()}`;
     const totalAmount = Number(quote.total_amount || 0).toFixed(2);
     const depositAmount = Number(quote.deposit || quote.deposit_amount || 0).toFixed(2);
