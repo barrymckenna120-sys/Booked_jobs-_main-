@@ -92,8 +92,16 @@ If you have any questions please call us on ${companyPhone}.
 
 ${companyName} ☎ ${companyPhone}`;
 
+    // Resolve tenant-scoped WhatsApp API key
+    if (!orgId) {
+      return new Response(JSON.stringify({ error: "Job missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { apiKey: messengerKey } = await getWhatsAppConfig(supabase, orgId);
+
     // Send via 360Messenger
-    const cleanNumber = customer.phone.replace(/^\+/, "");
+    const cleanNumber = normalisePhone(customer.phone);
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
