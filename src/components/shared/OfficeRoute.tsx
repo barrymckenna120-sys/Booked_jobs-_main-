@@ -11,11 +11,14 @@ import { Loader2 } from "lucide-react";
  */
 const OfficeRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
-  const { role, loading: roleLoading } = useUserRole(user);
+  const { role, canAccessOffice, loading: roleLoading } = useUserRole(user);
   const { toast } = useToast();
   const toastShown = useRef(false);
 
-  const isRestricted = !authLoading && !roleLoading && role === "engineer";
+  // Engineers with can_access_office=true are permitted into office views.
+  // Aligns with resolveLandingPath's post-login rule.
+  const isRestricted =
+    !authLoading && !roleLoading && role === "engineer" && !canAccessOffice;
 
   useEffect(() => {
     if (isRestricted && !toastShown.current) {
