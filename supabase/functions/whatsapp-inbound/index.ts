@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
-import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
