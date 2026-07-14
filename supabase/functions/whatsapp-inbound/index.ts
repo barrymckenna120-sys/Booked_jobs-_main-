@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
+import { getWhatsAppConfig, normalisePhone } from "../_shared/whatsapp.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -100,25 +101,23 @@ Deno.serve(async (req: Request) => {
         .update({ opted_out: true })
         .eq("id", customer.id);
 
-      // Send opt-out confirmation reply
-      const apiKey = Deno.env.get("THREESIXTY_API_KEY");
-      if (apiKey && from) {
-        const branding = customer?.organisation_id
-          ? await getOrgBrandingClient(supabase, customer.organisation_id)
-          : { name: "our team", phone: "", footer: "" };
-        const form = new FormData();
-        form.append("phonenumber", from);
-        form.append("text", `Got it — we've removed you from our reminder list. No further messages will be sent. ${branding.footer || branding.name}.`);
-        try {
+      // Send opt-out confirmation reply — uses tenant-scoped 360Messenger key
+      try {
+        const { apiKey } = await getWhatsAppConfig(supabase, inboundOrgId);
+        if (from) {
+          const branding = await getOrgBrandingClient(supabase, inboundOrgId);
+          const form = new FormData();
+          form.append("phonenumber", normalisePhone(from));
+          form.append("text", `Got it — we've removed you from our reminder list. No further messages will be sent. ${branding.footer || branding.name}.`);
           await fetch("https://api.360messenger.com/v2/sendMessage", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}` },
             body: form,
           });
-        } catch (_e) {
-          // Non-critical: log but don't fail the webhook
-          console.error("Failed to send opt-out reply:", _e);
         }
+      } catch (_e) {
+        // Non-critical: log but don't fail the webhook
+        console.error("Failed to send opt-out reply:", _e);
       }
     }
   }
