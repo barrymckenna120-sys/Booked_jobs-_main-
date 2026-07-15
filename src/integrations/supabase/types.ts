@@ -1494,8 +1494,7 @@ export type Database = {
           error_message: string | null
           id: string
           message_type: string | null
-          organisation_id: string | null
-          organisation_id_ref: string | null
+          organisation_id: string
           related_id: string | null
           related_type: string | null
           sent_at: string | null
@@ -1511,8 +1510,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           message_type?: string | null
-          organisation_id?: string | null
-          organisation_id_ref?: string | null
+          organisation_id: string
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -1528,8 +1526,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           message_type?: string | null
-          organisation_id?: string | null
-          organisation_id_ref?: string | null
+          organisation_id?: string
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -1542,13 +1539,6 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_log_organisation_id_ref_fkey"
-            columns: ["organisation_id_ref"]
-            isOneToOne: false
-            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
