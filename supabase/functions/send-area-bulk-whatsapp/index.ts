@@ -161,6 +161,7 @@ ${companyName}`;
           method: "POST",
           headers: { ...dbHeaders, "Prefer": "return=representation" },
           body: JSON.stringify({
+            organisation_id: orgId,
             customer_id,
             message_type: "renewal",
             channel: "whatsapp",

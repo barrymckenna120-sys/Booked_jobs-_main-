@@ -396,6 +396,7 @@ async function sendDepositPaymentWhatsApp(
       method: "POST",
       headers: { ...headers, "Prefer": "return=representation" },
       body: JSON.stringify({
+        organisation_id: orgId,
         customer_id: quote.customer_id || null,
         message_type: "payment_link",
         channel: "whatsapp",

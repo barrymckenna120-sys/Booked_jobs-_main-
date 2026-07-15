@@ -137,6 +137,7 @@ serve(async (req) => {
       method: "POST",
       headers: { ...headers, "Prefer": "return=representation" },
       body: JSON.stringify({
+        organisation_id: orgId,
         customer_id: hazard.customer_id,
         message_type: "hazard_notification",
         channel: "whatsapp",

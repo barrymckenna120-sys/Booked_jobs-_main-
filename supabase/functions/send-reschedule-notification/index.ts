@@ -113,6 +113,7 @@ serve(async (req) => {
       method: "POST",
       headers: { ...dbHeaders, Prefer: "return=representation" },
       body: JSON.stringify({
+        organisation_id: orgId,
         customer_id: job.customer_id,
         message_type: "reschedule_notification",
         channel: "whatsapp",

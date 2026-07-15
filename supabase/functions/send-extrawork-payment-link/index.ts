@@ -129,6 +129,7 @@ ${companyName} ☎ ${companyPhone}`;
 
     // Log to message_log
     const { data: logRows } = await supabase.from("message_log").insert({
+      organisation_id: orgId,
       channel: "whatsapp",
       message_type: "extra_work_payment",
       customer_id,

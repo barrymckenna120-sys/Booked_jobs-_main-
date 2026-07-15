@@ -29,8 +29,35 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Resolve organisation_id: prefer explicit body value; otherwise
+    // derive from customer_id → customers.organisation_id. This keeps
+    // legacy Make.com scenarios working while message_log now enforces
+    // NOT NULL on organisation_id at the DB level.
+    let organisationId: string | null = body.organisation_id ?? null;
+    const customerId =
+      body.customer_id === "" || body.customer_id == null ? null : body.customer_id;
+
+    if (!organisationId && customerId) {
+      const { data: cust } = await supabase
+        .from("customers")
+        .select("organisation_id")
+        .eq("id", customerId)
+        .maybeSingle();
+      organisationId = cust?.organisation_id ?? null;
+    }
+
+    if (!organisationId) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "organisation_id required — pass it explicitly, or supply a customer_id that resolves to one.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { error } = await supabase.from("message_log").insert({
-      customer_id: body.customer_id === "" || body.customer_id == null ? null : body.customer_id,
+      customer_id: customerId,
       message_type: body.message_type,
       channel: body.channel,
       direction: body.direction,
@@ -39,8 +66,7 @@ Deno.serve(async (req) => {
       related_type: body.related_type,
       sent_by: body.sent_by,
       sent_at: body.sent_at,
-      organisation_id: body.organisation_id,
-      organisation_id_ref: body.organisation_id_ref,
+      organisation_id: organisationId,
     });
 
     if (error) throw error;
