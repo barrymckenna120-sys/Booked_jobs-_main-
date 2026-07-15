@@ -2,7 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-webhook-secret",
 };
 
 const MAX_NAME_LEN = 200;
@@ -29,6 +30,19 @@ Deno.serve(async (req) => {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Shared-secret auth: require x-webhook-secret matching MAKE_WEBHOOK_SECRET.
+  const providedSecret = req.headers.get("x-webhook-secret");
+  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -167,6 +181,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Idempotency: if this Tally submission was already processed, return the
+    // existing job rather than creating a duplicate. Falls back through the
+    // known field names Tally/Make send.
+    const submissionId = sanitize(
+      body.tally_submission_id ?? body.eventId ?? body.id ?? null,
+      MAX_SHORT_LEN,
+    );
+
+    if (submissionId) {
+      const { data: existingJob } = await supabase
+        .from("service_calls")
+        .select("id, customer_id")
+        .eq("tally_submission_id", submissionId)
+        .eq("organisation_id", orgData.id)
+        .maybeSingle();
+      if (existingJob) {
+        console.log("[tally-incoming-job] duplicate submission:", submissionId);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            id: existingJob.id,
+            customer_id: existingJob.customer_id,
+            duplicate: true,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
+
     // Upsert customer (match by phone)
     let customerId: string;
 
@@ -268,11 +314,37 @@ Deno.serve(async (req) => {
         owner_or_tenant: ownerOrTenant,
         access_notes: accessNotes,
         notes: extraDetails,
+        tally_submission_id: submissionId,
       })
       .select("id")
       .single();
 
     if (jobErr || !job) {
+      // If two requests raced past the pre-check, the unique partial index on
+      // tally_submission_id will reject the second one (Postgres 23505).
+      // Re-query and return the existing row so the caller sees success.
+      if (submissionId && (jobErr as { code?: string } | null)?.code === "23505") {
+        const { data: raceRow } = await supabase
+          .from("service_calls")
+          .select("id, customer_id")
+          .eq("tally_submission_id", submissionId)
+          .eq("organisation_id", orgData.id)
+          .maybeSingle();
+        if (raceRow) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              id: raceRow.id,
+              customer_id: raceRow.customer_id,
+              duplicate: true,
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
       console.error("Job creation failed:", jobErr);
       return new Response(JSON.stringify({ success: false, error: "Unable to process submission." }), {
         status: 500,

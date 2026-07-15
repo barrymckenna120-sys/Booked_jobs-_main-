@@ -1,27 +1,103 @@
-## No further batches needed
 
-Of the 11 files you listed, all already correctly set `organisation_id` on their `message_log` inserts:
+# Step 10 — Tally Intake Hardening
 
-- `whatsapp-inbound` — `inboundOrgId`
-- `handle-inbound-whatsapp` — `orgId`
-- `handle-whatsapp-opt-out` — `customer.organisation_id`
-- `send-certificate-whatsapp` — `orgId`
-- `send-booking-confirmation` — `orgId`
-- `send-upcoming-reminders` — `orgId`
-- `send-renewal-reminder` — `orgId`
-- `send-cancellation-notice` — `orgId`
-- `create-job-invoice` — `job.organisation_id`
-- `src/components/whatsapp/SendReminderModal.tsx` — `orgId!`
-- `src/components/renewals/SendServiceReminders.tsx` — `orgId!`
+Scope: 3 edge functions + 1 migration. Diff-first, no deploy until approved.
 
-The "17 files" figure I quoted earlier was an over-count from grepping every file touching `message_log`. The actual set of broken inserters was 9, all fixed in Batch 1 + Batch 2. No third batch is needed for the `NOT NULL` migration to hold.
+## 1. Shared-secret auth (`tally-incoming-job`, `tally-boiler-rebook`)
 
-### Recommended next step (separate turn, your call)
+Add at the top of each handler (after CORS preflight, before body parse):
 
-Move on to one of the previously-scoped follow-ups:
+```ts
+const providedSecret = req.headers.get("x-webhook-secret");
+const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
+if (!expectedSecret || providedSecret !== expectedSecret) {
+  return new Response(
+    JSON.stringify({ success: false, error: "Unauthorized" }),
+    { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+}
+```
 
-1. `brand_settings.organisation_id_ref` — same collapse pattern as `message_log`
-2. Drop hardcoded K&N defaults on `profiles.organisation_id`, `settings.organisation_id`, `whatsapp_messages.organisation_id`
-3. Fix Cavan Gas `settings.message_footer` (currently `"K&N Gas Services"`)
+Also add `x-webhook-secret` to `Access-Control-Allow-Headers` in `corsHeaders`.
 
-No code changes are proposed in this plan — it's a confirmation-only response. Approve to close the loop, or tell me which follow-up to plan next.
+**Caller impact check**: Both functions are called only from Make.com scenarios (confirmed in prior audit — zero in-app references). Make scenarios must be updated in parallel to send the header. Flag this in the report so the user can update Make before deploy.
+
+## 2. Idempotency (`tally-incoming-job`)
+
+**Payload field**: `tally-webhook` (the orphan) reads `body.eventId ?? body.id`. `tally-incoming-job` currently reads neither. Extract with same fallback:
+
+```ts
+const submissionId = sanitize(
+  body.tally_submission_id ?? body.eventId ?? body.id ?? null,
+  MAX_SHORT_LEN,
+);
+```
+
+**Pre-insert check** (after org resolution, before customer upsert):
+
+```ts
+if (submissionId) {
+  const { data: existingJob } = await supabase
+    .from("service_calls")
+    .select("id, customer_id")
+    .eq("tally_submission_id", submissionId)
+    .eq("organisation_id", orgData.id)
+    .maybeSingle();
+  if (existingJob) {
+    return new Response(
+      JSON.stringify({ success: true, id: existingJob.id, customer_id: existingJob.customer_id, duplicate: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+}
+```
+
+**Write on insert**: Add `tally_submission_id: submissionId` to the `service_calls.insert(...)` payload.
+
+**Race note**: Pre-check + unique index is the correct pattern. The pre-check handles the common case (Make retry seconds/minutes later). The unique index handles the true race (two concurrent requests) — if the second insert violates the unique constraint, catch it and re-query to return the existing row rather than 500. Added to the insert error handler.
+
+## 3. Unique index migration
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS service_calls_tally_submission_id_key
+  ON public.service_calls (tally_submission_id)
+  WHERE tally_submission_id IS NOT NULL;
+```
+
+Partial index — NULLs (historical rows and non-Tally jobs) are unaffected.
+
+## 4. Phone normalization (`tally-boiler-rebook`)
+
+Extract the current inline normalization from `tally-incoming-job` (lines 101–108) into a local helper in each file (or inline copy — no shared module to keep scope tight). Apply to `body.phone` before the `customers` lookup. Use the normalized value in the `.eq("phone", ...)` query.
+
+## 5. Disable `tally-webhook`
+
+Replace the entire handler body with:
+
+```ts
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  return new Response(
+    JSON.stringify({
+      error: "Gone",
+      message: "tally-webhook is retired. Use tally-incoming-job.",
+    }),
+    { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+});
+```
+
+Keep the file so any stray caller gets a loud 410 rather than a 404.
+
+## Deliverable order
+
+1. Write file changes + migration.
+2. Post full diff to chat.
+3. Wait for approval (user wants to review idempotency + auth-header impact).
+4. On approval: run migration, deploy the 3 functions.
+
+## Out of scope
+
+- Deleting `tally-webhook` from Supabase (keep as 410 gone).
+- Refactoring shared helpers across the two live functions.
+- Changing `tally-webhook` payload parsing (dead code path).
