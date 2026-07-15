@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
 
       // Log to message_log (pending)
       const { data: logRows } = await supabase.from("message_log").insert({
+        organisation_id: orgId,
         channel: "whatsapp",
         message_type: "deposit_reminder",
         customer_id: job.customer_id,
