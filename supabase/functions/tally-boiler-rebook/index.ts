@@ -2,7 +2,19 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-webhook-secret",
+};
+
+// Normalise IE mobile numbers to E.164 (+353XXXXXXXXX). Mirrors the logic
+// used in tally-incoming-job so we no longer depend on Make's slicing step.
+const normalisePhone = (raw: unknown): string => {
+  if (!raw || typeof raw !== "string") return "";
+  const trimmed = raw.replace(/[\s\-()]/g, "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("+")) return trimmed;
+  if (trimmed.startsWith("353")) return "+" + trimmed;
+  return "+353" + trimmed.replace(/^0/, "");
 };
 
 Deno.serve(async (req) => {
@@ -15,6 +27,19 @@ Deno.serve(async (req) => {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Shared-secret auth: require x-webhook-secret matching MAKE_WEBHOOK_SECRET.
+  const providedSecret = req.headers.get("x-webhook-secret");
+  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   try {
@@ -31,6 +56,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const normalisedPhone = normalisePhone(phone);
+    if (!normalisedPhone) {
+      return new Response(JSON.stringify({ error: "Invalid phone" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     // Look up customer by phone + organisation_id
     const { data: customer, error: custErr } = await supabase
