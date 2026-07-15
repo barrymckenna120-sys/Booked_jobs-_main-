@@ -71,12 +71,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build message
-    const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on ${companyPhone}.\n\nReply STOP to unsubscribe.\n${companyName}`;
-    console.log("Message built for:", first_name);
-
-
-    // Format phone — strip +, ensure 353 prefix
+    // Format phone — strip +, ensure 353 prefix (needed before message build for Tally prefill)
     let cleanPhone = phone.replace(/[^0-9]/g, "");
     if (cleanPhone.startsWith("0")) {
       cleanPhone = "353" + cleanPhone.slice(1);
@@ -84,6 +79,24 @@ Deno.serve(async (req) => {
       cleanPhone = "353" + cleanPhone;
     }
     console.log("Phone formatted:", cleanPhone, "(original:", phone, ")");
+
+    // Resolve per-tenant Tally rebooking URL. Only include link if a real URL is
+    // configured for this organisation — never fall back to another tenant's URL.
+    const { data: tallyIntegration } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "tally")
+      .maybeSingle() : { data: null };
+    const renewalFormUrl = (tallyIntegration?.config as any)?.renewal_form_url;
+    const hasRebookLink = typeof renewalFormUrl === "string" && renewalFormUrl.trim().length > 0;
+
+    // Build message — link variant if configured, otherwise fall back to reply/call wording
+    const bookLine = hasRebookLink
+      ? `Book online: ${renewalFormUrl}?customer_phone=${encodeURIComponent(cleanPhone)}\n\nOr reply here or call us on ${companyPhone}.`
+      : `Reply here to book your service or call us on ${companyPhone}.`;
+    const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\n${bookLine}\n\nReply STOP to unsubscribe.\n${companyName}`;
+    console.log("Message built for:", first_name, "with rebook link:", hasRebookLink);
 
     // Log pending message
     console.log("Inserting pending message_log entry...");
