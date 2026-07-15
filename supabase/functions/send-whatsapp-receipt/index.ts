@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
     const { data: logRows } = await supabase
       .from("message_log")
       .insert({
+        organisation_id: job.organisation_id,
         channel: "whatsapp",
         message_type: "receipt",
         customer_id: job.customer_id,
