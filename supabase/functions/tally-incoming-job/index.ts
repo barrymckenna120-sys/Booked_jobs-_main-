@@ -181,6 +181,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Idempotency: if this Tally submission was already processed, return the
+    // existing job rather than creating a duplicate. Falls back through the
+    // known field names Tally/Make send.
+    const submissionId = sanitize(
+      body.tally_submission_id ?? body.eventId ?? body.id ?? null,
+      MAX_SHORT_LEN,
+    );
+
+    if (submissionId) {
+      const { data: existingJob } = await supabase
+        .from("service_calls")
+        .select("id, customer_id")
+        .eq("tally_submission_id", submissionId)
+        .eq("organisation_id", orgData.id)
+        .maybeSingle();
+      if (existingJob) {
+        console.log("[tally-incoming-job] duplicate submission:", submissionId);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            id: existingJob.id,
+            customer_id: existingJob.customer_id,
+            duplicate: true,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
+
     // Upsert customer (match by phone)
     let customerId: string;
 
