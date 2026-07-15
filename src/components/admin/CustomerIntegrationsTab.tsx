@@ -24,8 +24,8 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
   {
     title: "Booking & Rebooking",
     fields: [
-      { type: "tally_new_booking", key: "form_url", label: "New Booking Form URL", placeholder: "https://tally.so/r/..." },
-      { type: "tally_rebook", key: "form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." },
+      { type: "tally", key: "new_booking_url", label: "New Booking Form URL", placeholder: "https://tally.so/r/..." },
+      { type: "tally", key: "renewal_form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." },
     ],
   },
   {
