@@ -314,11 +314,37 @@ Deno.serve(async (req) => {
         owner_or_tenant: ownerOrTenant,
         access_notes: accessNotes,
         notes: extraDetails,
+        tally_submission_id: submissionId,
       })
       .select("id")
       .single();
 
     if (jobErr || !job) {
+      // If two requests raced past the pre-check, the unique partial index on
+      // tally_submission_id will reject the second one (Postgres 23505).
+      // Re-query and return the existing row so the caller sees success.
+      if (submissionId && (jobErr as { code?: string } | null)?.code === "23505") {
+        const { data: raceRow } = await supabase
+          .from("service_calls")
+          .select("id, customer_id")
+          .eq("tally_submission_id", submissionId)
+          .eq("organisation_id", orgData.id)
+          .maybeSingle();
+        if (raceRow) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              id: raceRow.id,
+              customer_id: raceRow.customer_id,
+              duplicate: true,
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
       console.error("Job creation failed:", jobErr);
       return new Response(JSON.stringify({ success: false, error: "Unable to process submission." }), {
         status: 500,
