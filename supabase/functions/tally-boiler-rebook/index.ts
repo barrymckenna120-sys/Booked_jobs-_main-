@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     const { data: customer, error: custErr } = await supabase
       .from("customers")
       .select("id, name, phone, user_id")
-      .eq("phone", phone)
+      .eq("phone", normalisedPhone)
       .eq("organisation_id", organisation_id)
       .limit(1)
       .maybeSingle();
@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
           recipient_user_id: recipientId,
           notification_type: "unmatched_rebook",
           title: "Unmatched Rebook",
-          body: "Tally rebook: phone number not matched — " + phone,
+          body: "Tally rebook: phone number not matched — " + normalisedPhone,
           organisation_id,
           role: "office",
         });

@@ -2,7 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-webhook-secret",
 };
 
 const MAX_NAME_LEN = 200;
