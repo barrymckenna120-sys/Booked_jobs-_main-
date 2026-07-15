@@ -32,6 +32,19 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Shared-secret auth: require x-webhook-secret matching MAKE_WEBHOOK_SECRET.
+  const providedSecret = req.headers.get("x-webhook-secret");
+  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   try {
