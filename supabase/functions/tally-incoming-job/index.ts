@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
       ch === "\n" || ch === "\r" || ch === "\t" ? " " : "",
     );
     const body = JSON.parse(cleanText);
+    console.log("[tally-incoming-job] RAW BODY:", JSON.stringify(body));
 
     // Extract and sanitize fields
     const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
