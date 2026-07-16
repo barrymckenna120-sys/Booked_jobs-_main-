@@ -1,17 +1,19 @@
-## Verification (read-only)
+## Diagnostic: Re-test accept-quote directly
 
-**Source `src/pages/QuoteAcceptance.tsx` line 165:**
-```ts
-body: JSON.stringify({ quote_id: quote.id, access_token: token }),
+Run a direct `curl` POST against the `accept-quote` Edge Function with the exact body you provided, then report status code + full body verbatim.
+
+```bash
+curl -isS -X POST \
+  https://ktkfuquqxbrmuqrmbmdj.supabase.co/functions/v1/accept-quote \
+  -H "Content-Type: application/json" \
+  -H "apikey: <anon>" \
+  -H "Authorization: Bearer <anon>" \
+  -d '{"quote_id":"3ed0f71e-e047-417c-b649-f319aabaddcf","access_token":"568ea32e-5606-403e-ad5b-8986ec7527ed"}'
 ```
-✅ `access_token` is present in the invoke body alongside `quote_id`. Source is correct.
 
-**Publish status:** I can't introspect what bundle the CDN is currently serving from plan mode. Frontend changes only go live after an explicit Publish action — Edge Function deploys don't ship them. Since the previous session only redeployed the `accept-quote` and `generate-quote-pdf` edge functions, this frontend change is almost certainly still unpublished.
+Then pull the matching `accept-quote` edge logs for that request to capture any RPC error text.
 
-## Plan
+### Note on expected result
+Last test of this exact quote returned **HTTP 500** with body `{"success":false,"error":"Failed to accept quote"}`, caused by the `respond_to_quote` SQL function writing `status = 'accepted'` (lowercase) which violates `quotes_status_check` (expects `'Accepted'`). The row is already in the bad `accepted` state from a prior partial run, so re-running will most likely reproduce the same 500 until the SQL function is fixed. This plan does **not** include that fix — it's a diagnostic re-run only, as requested.
 
-1. Run `preview_ui--publish` to ship the current frontend (includes the updated `QuoteAcceptance.tsx`).
-2. After publish is scheduled, fetch `https://kalrsgas.lovable.app/` with cache-bust and grep the built JS bundle for the `access_token` string in the accept-quote call site to confirm the live bundle contains the fix (not a stale cached one).
-3. Report the live bundle hash and grep result back to you.
-
-No code changes. Approve to run publish + verification.
+Approve to run the curl and paste the raw response.
