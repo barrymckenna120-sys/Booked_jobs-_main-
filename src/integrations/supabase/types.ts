@@ -1926,6 +1926,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           access_token: string
+          access_token_used_at: string | null
           approved: boolean | null
           approved_at: string | null
           balance_due: number | null
@@ -1972,6 +1973,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           access_token?: string
+          access_token_used_at?: string | null
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
@@ -2018,6 +2020,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           access_token?: string
+          access_token_used_at?: string | null
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
@@ -2897,8 +2900,12 @@ export type Database = {
         }[]
       }
       respond_to_quote: {
-        Args: { p_accepted: boolean; p_quote_id: string }
-        Returns: undefined
+        Args: {
+          p_accepted: boolean
+          p_access_token: string
+          p_quote_id: string
+        }
+        Returns: Json
       }
       verify_impersonation_token: { Args: { _token: string }; Returns: Json }
     }
