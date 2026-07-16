@@ -23,18 +23,34 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // ── MODE 1: Direct quote approval by ID (from public quote page) ──
+    // ── MODE 1: Direct quote approval by ID + access_token ──
+    // Token supplied by caller (public quote page URL param, or staff extra-work
+    // card reading it from their RLS-scoped quote row). Never fetched here.
     if (body.quote_id) {
       const quoteId = body.quote_id;
+      const accessToken = body.access_token;
+
+      if (!accessToken || typeof accessToken !== "string") {
+        console.error("accept-quote: missing access_token for quote_id:", quoteId);
+        return new Response(
+          JSON.stringify({ success: false, error: "missing_quote_id_or_access_token" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
       console.log("accept-quote called with quote_id:", quoteId);
 
-      // Call respond_to_quote RPC with service role (bypasses RLS)
+      // Token check is enforced inside respond_to_quote against quotes.access_token.
       const rpcRes = await fetch(
         `${supabaseUrl}/rest/v1/rpc/respond_to_quote`,
         {
           method: "POST",
           headers,
-          body: JSON.stringify({ p_quote_id: quoteId, p_accepted: true }),
+          body: JSON.stringify({
+            p_quote_id: quoteId,
+            p_accepted: true,
+            p_access_token: accessToken,
+          }),
         }
       );
 
@@ -46,7 +62,19 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
-      await rpcRes.text(); // consume body
+      const rpcBody = await rpcRes.text();
+
+      // RPC returns jsonb with success flag — surface token/status rejections.
+      try {
+        const parsed = JSON.parse(rpcBody);
+        if (parsed && parsed.success === false) {
+          console.error("respond_to_quote rejected:", parsed.error);
+          return new Response(
+            JSON.stringify({ success: false, error: parsed.error || "rejected" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+          );
+        }
+      } catch { /* non-json response, treat as success */ }
 
       console.log("respond_to_quote succeeded for:", quoteId);
 
@@ -64,10 +92,8 @@ serve(async (req) => {
         const totalAmount = Number(updatedQuote.total_amount || 0).toFixed(2);
         const depositAmount = Number(updatedQuote.deposit || updatedQuote.deposit_amount || 0).toFixed(2);
 
-        // Send WhatsApp office alert (best-effort)
         await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote.user_id, customerName, quoteRef, totalAmount, depositAmount);
 
-        // Send deposit payment request to customer (fire-and-forget)
         sendDepositPaymentWhatsApp(
           supabaseUrl, headers, updatedQuote, customerName
         ).catch((e) => console.error("Deposit WhatsApp send failed:", e));
@@ -84,89 +110,10 @@ serve(async (req) => {
       );
     }
 
-    // ── MODE 2: WhatsApp auto-reply acceptance by phone number ──
-    const { customer_mobile_number } = body;
-
-    if (!customer_mobile_number || typeof customer_mobile_number !== "string") {
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing quote_id or customer_mobile_number" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
-    const digits = customer_mobile_number.replace(/\D/g, "");
-
-    const searchRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?status=eq.Sent&order=created_at.desc&limit=20&select=id,total_amount,description,customer_id,quote_number,deposit,deposit_amount,payment_link,customers!inner(phone,name,opted_out)`,
-      { headers }
-    );
-
-    const quotes = await searchRes.json();
-
-    const match = Array.isArray(quotes)
-      ? quotes.find((q: any) => {
-          const custPhone = (q.customers?.phone || "").replace(/\D/g, "");
-          return custPhone.length >= 9 && digits.length >= 9 &&
-            custPhone.slice(-9) === digits.slice(-9);
-        })
-      : null;
-
-    if (!match) {
-      return new Response(
-        JSON.stringify({ success: false, error: "No matching Sent quote found for this mobile number" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-      );
-    }
-
-    const quoteRef = match.quote_number || `Q-${match.id.slice(0, 4).toUpperCase()}`;
-
-    const rpcRes = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/respond_to_quote`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ p_quote_id: match.id, p_accepted: true }),
-      }
-    );
-
-    if (!rpcRes.ok) {
-      const errText = await rpcRes.text();
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to accept quote: " + errText }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-    await rpcRes.text();
-
-    const updatedQuoteRes = await fetch(
-      `${supabaseUrl}/rest/v1/quotes?id=eq.${match.id}&select=converted_job_id,user_id,deposit,deposit_amount,payment_link`,
-      { headers }
-    );
-    const updatedQuotes2 = await updatedQuoteRes.json();
-    const updatedQuote2 = Array.isArray(updatedQuotes2) ? updatedQuotes2[0] : null;
-
-    const customerName = match.customers?.name || "Customer";
-    const totalAmount = Number(match.total_amount || 0).toFixed(2);
-    const depositAmount = Number(match.deposit || match.deposit_amount || 0).toFixed(2);
-
-    await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote2?.user_id, customerName, quoteRef, totalAmount, depositAmount);
-
-    // Send deposit payment request to customer (fire-and-forget)
-    const mergedQuoteData = {
-      ...match,
-      converted_job_id: updatedQuote2?.converted_job_id,
-      user_id: updatedQuote2?.user_id,
-      payment_link: updatedQuote2?.payment_link || match.payment_link,
-      deposit: updatedQuote2?.deposit || match.deposit,
-      deposit_amount: updatedQuote2?.deposit_amount || match.deposit_amount,
-    };
-    sendDepositPaymentWhatsApp(
-      supabaseUrl, headers, mergedQuoteData, customerName
-    ).catch((e) => console.error("Deposit WhatsApp send failed (mode 2):", e));
-
+    // Legacy phone-number fallback removed — no callers exist.
     return new Response(
-      JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: match.id, job_id: updatedQuote2?.converted_job_id }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, error: "Missing quote_id or access_token" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
     );
   } catch (error) {
     console.error("accept-quote error:", error);

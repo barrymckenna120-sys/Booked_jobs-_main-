@@ -1,47 +1,58 @@
-src/pages/QuoteDetail.tsx — narrow fix for respond_to_quote RPC
+## RLS check — PASSED
 
-Implement only steps 1, 2, and 4 as requested:
-
-1. Rename the existing `markAccepted` handler to `respondToQuote(accepted: boolean)` and pass the boolean through to the RPC:
-
-```typescript
-const respondToQuote = async (accepted: boolean) => {
-  if (!id) return;
-  try {
-    const { error } = await supabase.rpc("respond_to_quote", {
-      p_quote_id: id,
-      p_accepted: accepted,
-      p_access_token: quote?.access_token,
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: accepted ? "Quote accepted — job created ✅" : "Quote rejected" });
-    queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-    if (accepted) {
-      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
-    }
-  } catch (err: any) {
-    toast({ title: "Error", description: err.message, variant: "destructive" });
-  }
-};
+```
+quotes_select | SELECT | (organisation_id = get_my_org_id()) | {authenticated}
 ```
 
-2. Add a local `QuoteWithCustomer` type using the generated Supabase `Database` row types and remove the `as any` cast on `access_token`:
+Staff-side reads of `quotes.access_token` in `ExtraWorkPendingCard` are tenant-scoped by RLS. Safe to proceed.
 
-```typescript
-import type { Database } from "@/integrations/supabase/types";
+---
 
-type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
-type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
-type QuoteWithCustomer = QuoteRow & { customers: CustomerRow };
-```
+## Task 1 — caller-supplied `access_token`
 
-Replace `const q: any = quote;` with `const q = quote as QuoteWithCustomer;`.
+**`src/pages/QuoteAcceptance.tsx`** (public route, token in URL)
+- In `handleApprove` (~line 157), change the `accept-quote` invoke body to:
+  ```ts
+  body: { quote_id: quote.id, access_token: token }
+  ```
+  `token` comes from `useParams()` and is already used to load the quote.
 
-3. Do NOT add a Reject button; keep the existing Accept button calling `respondToQuote(true)`.
+**`supabase/functions/accept-quote/index.ts`** — Mode 1 (`quote_id` branch, ~line 33)
+- Read `access_token` from the request body alongside `quote_id`.
+- If either is missing/blank → return `400 { success: false, error: "missing_quote_id_or_access_token" }`; do NOT call the RPC.
+- Call the 3-arg RPC: `respond_to_quote({ p_quote_id: quote_id, p_accepted: true, p_access_token: access_token })`. No server-side token lookup.
+- Keep existing post-RPC quote fetch and downstream side effects (`sendWhatsAppAlert`, `sendDepositPaymentWhatsApp`, invoice generation) unchanged — they run only after the RPC succeeds, so token validation gates them.
 
-4. Keep all other RPC calls, styling, calculations, and UI unchanged.
+## Task 2 — Mode 2 (phone-number fallback)
 
-What will be reported back: the corrected `respond_to_quote` call, the type change, and confirmation that the Accept button still works end-to-end.
+No callers found (frontend, edge functions, webhooks). **Delete the `customer_mobile_number` branch entirely** from `accept-quote/index.ts`. Trailing branch returns `400 { error: "Missing quote_id or access_token" }`.
+
+## Task 3 — `generate-quote-pdf/index.ts` accept URL
+
+- Ensure `access_token` and `organisation_id` are in the quote select used earlier in the function (add if missing).
+- Import `getTenantPublicUrl` from `../_shared/tenantDomain.ts`.
+- Replace slug + `quote_number` construction (~lines 554-562) with:
+  ```ts
+  const acceptUrl = quote.access_token
+    ? await getTenantPublicUrl(supabaseUrl, quote.organisation_id, `/quote/${quote.access_token}`)
+    : null;
+  ```
+- Guard the two consumers of `acceptUrl` (PDF footer ~line 566 and WhatsApp body ~line 590) — omit the accept-link line when `acceptUrl` is null.
+- Remove the now-unused `orgSlug` lookup.
+
+## ExtraWorkPendingCard wiring (in scope now that RLS is confirmed)
+
+- Add `access_token` to the quote select in `fetchData()` (~line 64) and to the `PendingQuote` type.
+- Update the `accept-quote` invoke to send `{ quote_id: pq.id, access_token: pq.access_token }`.
+
+## Verification
+
+- `tsgo` clean.
+- Manual: `/quote/:token` Accept → RPC accepts, notifications fire.
+- Manual: JobDetail extra-work Accept → same.
+- Manual: regenerate one PDF → URL renders and resolves against `/quote/:token`.
+
+## Out of scope
+
+- 2-arg `respond_to_quote` overload stays live until all call sites verified.
+- `src/pages/Quotes.tsx:1162` email-link fix (separate task).

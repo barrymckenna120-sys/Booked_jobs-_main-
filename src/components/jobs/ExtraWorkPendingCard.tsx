@@ -26,6 +26,7 @@ type PendingQuote = {
   deposit_amount: number | null;
   deposit: number | null;
   pdf_url: string | null;
+  access_token: string;
 };
 
 type OriginalQuote = {
@@ -64,7 +65,7 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
 
     const { data: pending } = await supabase
       .from("quotes")
-      .select("id, total_amount, line_items, created_at, customer_id, user_id, quote_number, description, deposit_amount, deposit, pdf_url")
+      .select("id, total_amount, line_items, created_at, customer_id, user_id, quote_number, description, deposit_amount, deposit, pdf_url, access_token")
       .eq("job_id", jobId)
       .eq("status", "Pending Approval");
 
@@ -110,7 +111,7 @@ const ExtraWorkPendingCard = ({ jobId, onQuoteChange }: Props) => {
       // Step 2: If Send Payment Link, call accept-quote for Stripe link first
       if (method === "invoice") {
         const { data: acceptData, error: acceptError } = await supabase.functions.invoke("accept-quote", {
-          body: { quote_id: pq.id },
+          body: { quote_id: pq.id, access_token: pq.access_token },
         });
         if (acceptError) throw new Error(`Accept quote failed: ${acceptError.message}`);
         if (acceptData && !acceptData.success) throw new Error(acceptData.error || "Accept quote returned an error");
