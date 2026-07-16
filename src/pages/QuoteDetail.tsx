@@ -72,7 +72,7 @@ const QuoteDetail = () => {
   const markAccepted = async () => {
     if (!id) return;
     try {
-      const { error } = await supabase.rpc("respond_to_quote", { p_quote_id: id, p_accepted: true });
+      const { error } = await supabase.rpc("respond_to_quote", { p_quote_id: id, p_accepted: true, p_access_token: (quote as any)?.access_token });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
