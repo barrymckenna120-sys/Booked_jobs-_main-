@@ -414,7 +414,7 @@ const QuoteDetail = () => {
           Resend WhatsApp
         </Button>
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
-          <Button onClick={markAccepted}>
+          <Button onClick={() => respondToQuote(true)}>
             <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
           </Button>
         )}
