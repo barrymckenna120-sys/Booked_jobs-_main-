@@ -589,8 +589,8 @@ Deno.serve(async (req) => {
       "",
       `To accept this quote, reply: YES ${qNum}`,
       "",
-      `Or view and approve online:`,
-      acceptUrl,
+      acceptUrl ? `Or view and approve online:` : "",
+      acceptUrl || "",
     ].filter((l) => l !== undefined && l !== "").join("\n");
 
     const waLines = doc.splitTextToSize(waMsg, CW - 16);
