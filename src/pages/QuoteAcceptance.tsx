@@ -162,7 +162,7 @@ const QuoteAcceptance = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quote_id: quote.id }),
+          body: JSON.stringify({ quote_id: quote.id, access_token: token }),
         }
       );
       const result = await response.json();
