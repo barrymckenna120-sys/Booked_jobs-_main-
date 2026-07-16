@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,10 @@ import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileT
 import { format } from "date-fns";
 import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
+
+type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
+type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
+type QuoteWithCustomer = QuoteRow & { customers: CustomerRow };
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",

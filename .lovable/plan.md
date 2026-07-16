@@ -1,42 +1,47 @@
+src/pages/QuoteDetail.tsx — narrow fix for respond_to_quote RPC
 
-## One-line debug log in `tally-incoming-job`
+Implement only steps 1, 2, and 4 as requested:
 
-Add a single unconditional `console.log` of the raw parsed body, then deploy the Edge Function.
+1. Rename the existing `markAccepted` handler to `respondToQuote(accepted: boolean)` and pass the boolean through to the RPC:
 
-### The diff
-
-`supabase/functions/tally-incoming-job/index.ts` — insert one line immediately after `body` is parsed (line 56). This is the earliest point in the `try` block where `body` exists; validation, org lookup, and everything else run after it.
-
-```diff
-     const body = JSON.parse(cleanText);
-+    console.log("[tally-incoming-job] RAW BODY:", JSON.stringify(body));
- 
-     // Extract and sanitize fields
-     const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
+```typescript
+const respondToQuote = async (accepted: boolean) => {
+  if (!id) return;
+  try {
+    const { error } = await supabase.rpc("respond_to_quote", {
+      p_quote_id: id,
+      p_accepted: accepted,
+      p_access_token: quote?.access_token,
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: accepted ? "Quote accepted — job created ✅" : "Quote rejected" });
+    queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+    if (accepted) {
+      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
+    }
+  } catch (err: any) {
+    toast({ title: "Error", description: err.message, variant: "destructive" });
+  }
+};
 ```
 
-That's the only change to the file. Nothing else touched.
+2. Add a local `QuoteWithCustomer` type using the generated Supabase `Database` row types and remove the `as any` cast on `access_token`:
 
-### Scope confirmation
+```typescript
+import type { Database } from "@/integrations/supabase/types";
 
-- `tally-boiler-rebook`: not touched.
-- `tally-webhook`: not touched.
-- No other logging, comments, refactors, or conditional wrapping added.
-
-### Deploy
-
-After the edit, explicitly deploy `tally-incoming-job` (Publish does not redeploy Edge Functions).
-
-### Note on placement
-
-You wrote "the absolute first statement in the try block, before any other logic runs." The `try` block currently starts with three lines that produce `body`:
-
-```ts
-const rawText = await req.text();
-const cleanText = rawText.replace(/[\x00-\x1F\x7F]/g, ...);
-const body = JSON.parse(cleanText);
+type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
+type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
+type QuoteWithCustomer = QuoteRow & { customers: CustomerRow };
 ```
 
-The log has to come after `body` exists, so it goes on the line immediately after `JSON.parse` — before validation, org lookup, sanitization, everything. That's the earliest point where there's anything to log. Flag if you'd rather also log `rawText` (pre-sanitization) as well — say the word and I'll add that as a second line above it. Otherwise proceeding with just the one line as specified.
+Replace `const q: any = quote;` with `const q = quote as QuoteWithCustomer;`.
 
-Switch to build mode to apply.
+3. Do NOT add a Reject button; keep the existing Accept button calling `respondToQuote(true)`.
+
+4. Keep all other RPC calls, styling, calculations, and UI unchanged.
+
+What will be reported back: the corrected `respond_to_quote` call, the type change, and confirmation that the Accept button still works end-to-end.
