@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,10 @@ import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileT
 import { format } from "date-fns";
 import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
+
+type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
+type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
+type QuoteWithCustomer = QuoteRow & { customers: CustomerRow };
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",
@@ -69,19 +74,25 @@ const QuoteDetail = () => {
     enabled: !!id,
   });
 
-  const markAccepted = async () => {
+  const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
     try {
-      const { error } = await supabase.rpc("respond_to_quote", { p_quote_id: id, p_accepted: true, p_access_token: (quote as any)?.access_token });
+      const { error } = await supabase.rpc("respond_to_quote", {
+        p_quote_id: id,
+        p_accepted: accepted,
+        p_access_token: quote?.access_token,
+      });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Quote accepted — job created ✅" });
+      toast({ title: accepted ? "Quote accepted — job created ✅" : "Quote rejected" });
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
 
       // Send WhatsApp office alert (best-effort)
-      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
+      if (accepted) {
+        supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -135,7 +146,7 @@ const QuoteDetail = () => {
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   if (!quote) return <div className="text-center py-20 text-muted-foreground">Quote not found</div>;
 
-  const q: any = quote;
+  const q = quote as QuoteWithCustomer;
   const customer: any = q.customers;
 
   // Use quote_line_items table rows if available, otherwise fall back to JSONB line_items column
@@ -403,7 +414,7 @@ const QuoteDetail = () => {
           Resend WhatsApp
         </Button>
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
-          <Button onClick={markAccepted}>
+          <Button onClick={() => respondToQuote(true)}>
             <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
           </Button>
         )}
