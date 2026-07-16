@@ -146,7 +146,7 @@ const QuoteDetail = () => {
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   if (!quote) return <div className="text-center py-20 text-muted-foreground">Quote not found</div>;
 
-  const q: any = quote;
+  const q = quote as QuoteWithCustomer;
   const customer: any = q.customers;
 
   // Use quote_line_items table rows if available, otherwise fall back to JSONB line_items column
