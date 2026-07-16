@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -551,19 +552,21 @@ Deno.serve(async (req) => {
     );
     doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
 
-    // Accept URL — tenant-specific slug
-    const quoteNum = quote.quote_number || `Q-${quote.id.substring(0, 4).toUpperCase()}`;
-    const { data: orgRow } = await sb
-      .from("organisations")
-      .select("slug")
-      .eq("id", (quote as any).organisation_id)
-      .maybeSingle();
-    const orgSlug = (orgRow as any)?.slug || "kngasservices";
-    const acceptUrl = `https://${orgSlug}.bookedjobs.ie/quote/${quoteNum}`;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...headerTextRgb);
-    doc.text(acceptUrl, M + CW / 2, y + 38, { align: "center" });
+    // Accept URL — tenant public domain + access_token (fail-closed: omit link if either missing)
+    const acceptUrl =
+      (quote as any).access_token && (quote as any).organisation_id
+        ? await getTenantPublicUrl(
+            Deno.env.get("SUPABASE_URL")!,
+            (quote as any).organisation_id,
+            `/quote/${(quote as any).access_token}`,
+          )
+        : null;
+    if (acceptUrl) {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...headerTextRgb);
+      doc.text(acceptUrl, M + CW / 2, y + 38, { align: "center" });
+    }
 
     y += 60;
 
