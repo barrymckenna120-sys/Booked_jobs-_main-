@@ -74,19 +74,25 @@ const QuoteDetail = () => {
     enabled: !!id,
   });
 
-  const markAccepted = async () => {
+  const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
     try {
-      const { error } = await supabase.rpc("respond_to_quote", { p_quote_id: id, p_accepted: true, p_access_token: (quote as any)?.access_token });
+      const { error } = await supabase.rpc("respond_to_quote", {
+        p_quote_id: id,
+        p_accepted: accepted,
+        p_access_token: quote?.access_token,
+      });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Quote accepted — job created ✅" });
+      toast({ title: accepted ? "Quote accepted — job created ✅" : "Quote rejected" });
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
 
       // Send WhatsApp office alert (best-effort)
-      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
+      if (accepted) {
+        supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
