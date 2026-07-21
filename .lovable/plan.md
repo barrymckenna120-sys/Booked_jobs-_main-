@@ -1,52 +1,52 @@
 
-# Scope
+Scoped change: customer form + import write the new `boiler_brand` / `boiler_model` columns AND keep syncing the legacy `boiler_make_model` for backward compat. Nothing else touched.
 
-Modify **only** `supabase/functions/tally-boiler-rebook/index.ts`. No other file, no schema change, no frontend touch.
+## 1. `src/pages/CustomerDetail.tsx`
 
-# Preconditions verified
-- `service_calls.tally_submission_id` — exists (text). No migration needed.
-- `edge_function_logs` columns: `function_name, error_message, payload, created_at`. Matches the shape `tally-incoming-job` already uses.
+- Brand/Model dropdowns already bind correctly — no UI change.
+- On save (lines 220-223), KEEP the derivation:
+  ```ts
+  // TEMP: keep boiler_make_model in sync until downstream consumers
+  // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
+  // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
+  // BoilerBrandsTab, IncomingJobCard, DataTab export).
+  const brand = (updates.boiler_brand || "").trim();
+  const model = (updates.boiler_model || "").trim();
+  updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+  ```
+- Only change here is adding the TEMP comment above the existing block. No other edits.
 
-# Changes
+## 2. `src/pages/ImportCustomers.tsx`
 
-## 1. Phone matching — last-9-digit
-- Add `last9Digits(raw)` → strips all non-digits, returns final 9 chars (or "" if <9).
-- Replace the current `.eq("phone", normalisedPhone).eq("organisation_id", org)` `.maybeSingle()` with:
-  - `SELECT id, name, phone, user_id FROM customers WHERE organisation_id = org`
-  - In-memory `.find(c => last9Digits(c.phone) === last9Digits(normalisedPhone))`
-- Org scope preserved. Normalisation of incoming phone preserved.
-- Trade-off: pulls the org's customers list; DG/KN scale is fine (few thousand rows). No index change requested/needed.
+`HEADER_TO_FIELD` (lines 28-29): replace the two combined entries with:
+```ts
+"boiler brand": "boiler_brand",
+"boiler make":  "boiler_brand",   // alias
+"boiler model": "boiler_model",
+```
 
-## 2. Response codes
-- Missing `phone`/`organisation_id` → **400** (unchanged).
-- Invalid phone (fails normalise or <9 digits) → **400** (unchanged shape).
-- No customer match → **422** with `{success:false, reason:"not_found"}` (body unchanged; status was 200).
-- Duplicate submission (idempotency hit) → **200** with `{success:true, duplicate:true, job_id, customer_id}`.
-- Success → **200** (unchanged).
-- Auth fail → **401** (unchanged). DB/insert errors → **500** (unchanged).
+Row-builder (line 251): replace the single `boiler_make_model: field(row, "boiler_make_model")` with:
+```ts
+boiler_brand: field(row, "boiler_brand"),
+boiler_model: field(row, "boiler_model"),
+// TEMP: keep boiler_make_model in sync until downstream consumers
+// migrate to boiler_brand/boiler_model.
+boiler_make_model: [field(row, "boiler_brand"), field(row, "boiler_model")]
+  .filter(Boolean).join(" ") || null,
+```
 
-## 3. Idempotency
-- Read `tally_submission_id ?? eventId ?? id` from payload (matches `tally-incoming-job:188-191`).
-- Before customer lookup: `SELECT id, customer_id FROM service_calls WHERE tally_submission_id = ? AND organisation_id = ?`. If found → return 200 duplicate.
-- On insert, also write `tally_submission_id`. Handle Postgres `23505` race by re-querying and returning the winning row (same pattern as `tally-incoming-job:324-347`).
+No changes to date parsing, phone handling, validation, or any other field.
 
-## 4. Logging
-- New helper `logInvocation(supabase, payload, organisation_id, outcome)` inserts into `edge_function_logs`:
-  - `function_name: "tally-boiler-rebook"`
-  - `error_message: "outcome=<code> org=<uuid>"` (reuses existing column; matches how `tally-incoming-job` uses it)
-  - `payload: <raw body>`
-- Called on every terminal path: `bad_request_missing_fields`, `bad_request_invalid_phone`, `duplicate_submission`, `duplicate_submission_race`, `db_error:<msg>`, `not_found`, `job_insert_failed:<msg>`, `success:job=<uuid>`, `exception:<msg>`.
-- Best-effort try/catch inside helper; never blocks the response.
+## 3. `src/lib/generateTemplate.ts`
 
-# Explicitly NOT changing
-- `organisation_id` resolution (still `body.organisation_id` — separate planned work).
-- "Unmatched Rebook" `notifications` insert (unchanged copy, unchanged trigger conditions).
-- Auth (shared secret), CORS, method allowlist.
-- `tally-incoming-job`, `tally-webhook`, any frontend code, DB schema.
+- Category header row: expand `BOILER INFO` group from 4 → 5 columns.
+- Column header row: replace `"Boiler Make / Model"` with `"Boiler Brand"`, `"Boiler Model"`.
+- Sample data rows (4): split combined values into two cells (e.g. `"Vaillant"`, `"ecoTEC Plus"`; `"Worcester"`, `"Greenstar"`; `"Baxi"`, `"600"`; `"Ideal"`, `"Logic+"`).
+- `ws["!cols"]`: insert one extra `{ wch: 22 }` entry so widths stay aligned.
+- Title merge: `e.c: 18` → `19`.
 
-# Verification after switch to build mode
-1. Show full diff.
-2. Wait for user to run real rebook submissions on `kngasservices.bookedjobs.ie` AND `dublin-gas.bookedjobs.ie`.
-3. On confirmation, query `edge_function_logs` + `service_calls` for both orgs to prove: submission → 200 success row, unmatched → 422 + log row + notification, replay → 200 duplicate (no second row).
+## Out of scope
+The 8 downstream components that still read `boiler_make_model` are intentionally left untouched.
 
-Switch to build mode to apply.
+## Delivery
+After approval, apply the three edits and paste the diffs before you test.

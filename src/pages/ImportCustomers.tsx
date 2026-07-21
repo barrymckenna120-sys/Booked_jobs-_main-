@@ -25,8 +25,9 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "area code": "area_code",
   "area": "area_code",
   "access notes": "access_notes",
-  "boiler make / model": "boiler_make_model",
-  "boiler make/model": "boiler_make_model",
+  "boiler brand": "boiler_brand",
+  "boiler make": "boiler_brand",
+  "boiler model": "boiler_model",
   "boiler type": "boiler_type",
   "installation date": "boiler_installation_date",
   "under warranty": "under_warranty",
@@ -248,7 +249,12 @@ const ImportCustomers = () => {
           eircode,
           area_code: (() => { const ac = field(row, "area_code"); return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac; })(),
           access_notes: field(row, "access_notes"),
-          boiler_make_model: field(row, "boiler_make_model"),
+          boiler_brand: field(row, "boiler_brand"),
+          boiler_model: field(row, "boiler_model"),
+          // TEMP: keep boiler_make_model in sync until downstream consumers
+          // migrate to boiler_brand/boiler_model.
+          boiler_make_model: [field(row, "boiler_brand"), field(row, "boiler_model")]
+            .filter(Boolean).join(" ") || null,
           boiler_type: boilerType || null,
           boiler_installation_date: parseDate(rawField(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
