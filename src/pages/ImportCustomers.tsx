@@ -324,7 +324,7 @@ const ImportCustomers = () => {
           .from("customers")
           .select("id")
           .eq("phone", cleaned.phone)
-          .eq("user_id", user.id)
+          .eq("organisation_id", orgId)
           .maybeSingle();
 
         if (existing) {

@@ -322,7 +322,7 @@ const Quotes = () => {
     const { data } = await supabase
       .from("quotes")
       .select("*, customers!inner(id, name, phone, email, address, eircode), service_calls!quotes_job_id_fkey!inner(id, job_type, assigned_engineer, assigned_engineer_id, scheduled_date, time_block)")
-      .eq("user_id", user.id)
+      .eq("organisation_id", orgId)
       .order("created_at", { ascending: false });
     setQuotes((data || []) as unknown as Quote[]);
     setLoading(false);
@@ -463,7 +463,7 @@ const Quotes = () => {
     setFormPartsCost(""); setFormLabourCost(""); setFormCalloutCost("");
     setFormTotal(""); setShowBreakdown(false);
 
-    const { data: c } = await supabase.from("customers").select("id, name, phone").eq("user_id", user.id).order("name");
+    const { data: c } = await supabase.from("customers").select("id, name, phone").eq("organisation_id", orgId).order("name");
     setCustomers(c || []);
     setJobs([]);
     setCreateOpen(true);
