@@ -217,7 +217,10 @@ const CustomerDetail = () => {
     // Ensure required fields are never null
     if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
     if (!updates.address && updates.address !== undefined) updates.address = "";
-    // Sync boiler_make_model from brand + model
+    // TEMP: keep boiler_make_model in sync until downstream consumers
+    // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
+    // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
+    // BoilerBrandsTab, IncomingJobCard, DataTab export).
     const brand = (updates.boiler_brand || "").trim();
     const model = (updates.boiler_model || "").trim();
     updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
