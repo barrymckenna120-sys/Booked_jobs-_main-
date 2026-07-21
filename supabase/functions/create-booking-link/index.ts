@@ -53,8 +53,12 @@ Deno.serve(async (req) => {
 
     // Resolve the tenant's public domain BEFORE any insert. If unavailable,
     // return 500 immediately without writing a row to booking_links.
-    const tenantHostProbe = await getTenantPublicUrl(SUPABASE_URL, organisation_id, "/b");
-    if (!tenantHostProbe) {
+    const shortUrlTemplate = await getTenantPublicUrl(
+      SUPABASE_URL,
+      organisation_id,
+      "/b/__TOKEN__",
+    );
+    if (!shortUrlTemplate) {
       return new Response(
         JSON.stringify({
           error: "Tenant public_domain not configured — cannot mint short link",
@@ -92,15 +96,7 @@ Deno.serve(async (req) => {
       throw lastError ?? new Error("Failed to generate unique token");
     }
 
-    const short_url = await getTenantPublicUrl(SUPABASE_URL, organisation_id, `/b/${token}`);
-    if (!short_url) {
-      return new Response(
-        JSON.stringify({
-          error: "Tenant public_domain not configured — cannot mint short link",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const short_url = shortUrlTemplate.replace("__TOKEN__", token);
 
     return new Response(
       JSON.stringify({ short_url, token }),
