@@ -343,6 +343,11 @@ const ImportCustomers = () => {
               ...cleaned,
               user_id: user.id,
               organisation_id: orgId!,
+              // Defaults for new customer creation only. If the spreadsheet
+              // provided a value, cleanData() kept it and it wins here.
+              boiler_type: cleaned.boiler_type || "Gas",
+              owner_or_tenant: cleaned.owner_or_tenant || "Owner",
+              warranty_years: cleaned.warranty_years ?? 10,
               next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
               renewal_stage: cleaned.renewal_stage || "none",
               service_status: cleaned.service_status || "active",
