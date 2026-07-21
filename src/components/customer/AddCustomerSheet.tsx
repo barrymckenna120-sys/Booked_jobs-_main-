@@ -66,7 +66,11 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     if (err) setErrors((e) => ({ ...e, [field]: err! }));
   };
 
-  const isDirty = Object.values(form).some((v) => v.trim() !== "");
+  // A field with a default is "dirty" only once the user changes it away from that default.
+  const isDirty = (Object.entries(form) as [keyof typeof form, string][]).some(([k, v]) => {
+    const defaultVal = (EMPTY_FORM as Record<string, string>)[k] ?? "";
+    return v.trim() !== defaultVal.trim();
+  });
 
   const validateAll = (): boolean => {
     const e: CustomerFieldErrors = {};
