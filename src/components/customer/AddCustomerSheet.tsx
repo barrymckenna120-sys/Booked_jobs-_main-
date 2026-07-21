@@ -5,6 +5,9 @@ import { useOrgId } from "@/hooks/useOrgId";
 import { toast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
@@ -14,6 +17,23 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { AlertTriangle } from "lucide-react";
+
+// Defaults applied on new-customer creation only. See isDirty comparison below.
+const DEFAULT_BOILER_TYPE = "Gas";
+const DEFAULT_OWNER_OR_TENANT = "Owner";
+const DEFAULT_WARRANTY_YEARS = "10";
+
+const EMPTY_FORM = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+  eircode: "",
+  area_code: "",
+  boiler_type: DEFAULT_BOILER_TYPE,
+  owner_or_tenant: DEFAULT_OWNER_OR_TENANT,
+  warranty_years: DEFAULT_WARRANTY_YEARS,
+};
 
 interface AddCustomerSheetProps {
   open: boolean;
