@@ -149,6 +149,36 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     onOpenChange(false);
   };
 
+  const updateExistingFromDuplicate = async () => {
+    if (!duplicate) return;
+    setSaving(true);
+    const cleanPhone = formatPhoneInternational(form.phone);
+    const cleanEircode = formatEircode(form.eircode);
+    const parsedWarranty = parseInt(form.warranty_years, 10);
+    const { error } = await supabase.from("customers").update({
+      name: form.name.trim(),
+      phone: cleanPhone,
+      email: form.email.trim() || null,
+      address: form.address.trim(),
+      eircode: cleanEircode,
+      area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
+      boiler_type: form.boiler_type || DEFAULT_BOILER_TYPE,
+      owner_or_tenant: form.owner_or_tenant || DEFAULT_OWNER_OR_TENANT,
+      warranty_years: Number.isFinite(parsedWarranty) ? parsedWarranty : Number(DEFAULT_WARRANTY_YEARS),
+    }).eq("id", duplicate.id);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Failed to update customer", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Customer updated" });
+    setDuplicate(null);
+    setForm({ ...EMPTY_FORM });
+    setErrors({});
+    onOpenChange(false);
+    onSuccess();
+  };
+
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
@@ -221,6 +251,26 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
           <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
             <Button variant="ghost" onClick={doLeave} className="order-2 sm:order-1">Leave anyway</Button>
             <Button onClick={() => setShowLeaveGuard(false)} className="order-1 sm:order-2">Stay</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!duplicate} onOpenChange={(o) => { if (!o) setDuplicate(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              Customer already exists
+            </DialogTitle>
+            <DialogDescription className="text-sm pt-1">
+              A customer named <span className="font-semibold">"{duplicate?.name}"</span> in your organisation already has this phone number. Would you like to update their record with the details you entered, or cancel?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setDuplicate(null)} className="order-2 sm:order-1" disabled={saving}>Cancel</Button>
+            <Button onClick={updateExistingFromDuplicate} className="order-1 sm:order-2" disabled={saving}>
+              {saving ? "Updating..." : "Update existing"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
