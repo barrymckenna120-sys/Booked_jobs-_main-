@@ -46,6 +46,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
   const { orgId } = useOrgId();
   const [saving, setSaving] = useState(false);
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<CustomerFieldErrors>({});
 
@@ -90,6 +91,20 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     setSaving(true);
     const cleanPhone = formatPhoneInternational(form.phone);
     const cleanEircode = formatEircode(form.eircode);
+
+    // Duplicate check: same normalised phone within same org.
+    const { data: dupe } = await supabase
+      .from("customers")
+      .select("id, name")
+      .eq("phone", cleanPhone)
+      .eq("organisation_id", orgId!)
+      .maybeSingle();
+    if (dupe) {
+      setSaving(false);
+      setDuplicate({ id: dupe.id, name: dupe.name });
+      return;
+    }
+
     const nextServiceDue = new Date();
     nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
     const parsedWarranty = parseInt(form.warranty_years, 10);
