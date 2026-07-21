@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { generateImportTemplate } from "@/lib/generateTemplate";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,11 +46,43 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "customer since": "customer_since",
 };
 
+/** Friendly display label for each internal field (used in mapping UI + error messages) */
+const FIELD_LABEL: Record<string, string> = {
+  name: "Customer Name",
+  phone: "Phone Number",
+  email: "Email",
+  address: "Address",
+  eircode: "Eircode",
+  area_code: "Area Code",
+  access_notes: "Access Notes",
+  boiler_brand: "Boiler Brand",
+  boiler_model: "Boiler Model",
+  boiler_type: "Boiler Type",
+  boiler_installation_date: "Installation Date",
+  under_warranty: "Under Warranty",
+  warranty_years: "Warranty Years",
+  owner_or_tenant: "Owner or Tenant",
+  last_service_date: "Last Service Date",
+  last_service_engineer: "Last Service Engineer",
+  engineer_notes: "Engineer Notes",
+  next_service_due: "Next Service Due",
+  service_status: "Service Status",
+  assigned_engineer: "Assigned Engineer",
+  notes: "Customer Notes",
+  customer_since: "Customer Since",
+};
+
+const REQUIRED_FIELDS = ["name", "phone", "address", "eircode"] as const;
+const ALL_FIELDS = Array.from(new Set(Object.values(HEADER_TO_FIELD)));
+const OPTIONAL_FIELDS = ALL_FIELDS.filter((f) => !REQUIRED_FIELDS.includes(f as any));
+
 /** Headers we look for to identify the header row */
 const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
 
 /** Scan the first N rows to find the header row index and build a column map */
-function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<string, number> } | null {
+function detectHeaderRow(
+  allRows: any[][]
+): { headerIdx: number; colMap: Record<string, number>; rawHeaders: string[] } | null {
   const scanLimit = Math.min(10, allRows.length);
   for (let i = 0; i < scanLimit; i++) {
     const row = allRows[i];
@@ -58,13 +90,13 @@ function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<
     const lowered = row.map((c: any) => String(c ?? "").trim().toLowerCase());
     const matchCount = KNOWN_HEADERS.filter((h) => lowered.includes(h)).length;
     if (matchCount >= 3) {
-      // Build column map from this row
       const colMap: Record<string, number> = {};
       for (let col = 0; col < lowered.length; col++) {
         const field = HEADER_TO_FIELD[lowered[col]];
         if (field && !(field in colMap)) colMap[field] = col;
       }
-      return { headerIdx: i, colMap };
+      const rawHeaders = row.map((c: any) => String(c ?? "").trim());
+      return { headerIdx: i, colMap, rawHeaders };
     }
   }
   return null;
@@ -72,7 +104,6 @@ function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<
 
 function parseDate(val: any): string | null {
   if (!val) return null;
-  // If SheetJS has already parsed this as a Date object, use it directly
   if (val instanceof Date) {
     const yyyy = val.getFullYear();
     const mm = String(val.getMonth() + 1).padStart(2, "0");
@@ -80,10 +111,8 @@ function parseDate(val: any): string | null {
     return `${yyyy}-${mm}-${dd}`;
   }
   const str = String(val).trim();
-  // DD/MM/YYYY
   const irish = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (irish) return `${irish[3]}-${irish[2].padStart(2, "0")}-${irish[1].padStart(2, "0")}`;
-  // YYYY-MM-DD (with optional time portion e.g. "2026-10-01 00:00:00")
   const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   return null;
@@ -93,13 +122,9 @@ function parseDate(val: any): string | null {
 function validateImportPhone(val: any): { valid: boolean; normalized: string | null; error?: string } {
   if (!val) return { valid: false, normalized: null, error: "Phone Number is required" };
   let str = String(val).trim().replace(/\s/g, "");
-  // Strip leading + for uniform processing
   if (str.startsWith("+")) str = str.slice(1);
-  // Strip leading 353 country code
   if (str.startsWith("353")) str = str.slice(3);
-  // Strip leading 0
   if (str.startsWith("0")) str = str.slice(1);
-  // Should now be 8-9 digits (Irish mobile without leading 0)
   if (!/^\d{7,9}$/.test(str)) {
     return { valid: false, normalized: null, error: "Invalid phone number format" };
   }
@@ -139,6 +164,35 @@ const ImportCustomers = () => {
     failedRows: { name: string; reason: string }[];
   } | null>(null);
 
+  // Column mapping state
+  const [rawHeaders, setRawHeaders] = useState<string[]>([]);
+  const [autoColMap, setAutoColMap] = useState<Record<string, number>>({});
+  const [manualMap, setManualMap] = useState<Record<string, number>>({});
+  const [headerIdx, setHeaderIdx] = useState<number>(0);
+  const [dataRows, setDataRows] = useState<any[][]>([]);
+
+  const effectiveColMap = useMemo(
+    () => ({ ...autoColMap, ...manualMap }),
+    [autoColMap, manualMap]
+  );
+
+  const missingRequired = useMemo(
+    () => REQUIRED_FIELDS.filter((f) => !(f in effectiveColMap)),
+    [effectiveColMap]
+  );
+  const missingOptional = useMemo(
+    () => OPTIONAL_FIELDS.filter((f) => !(f in effectiveColMap)),
+    [effectiveColMap]
+  );
+
+  const resetMapping = () => {
+    setRawHeaders([]);
+    setAutoColMap({});
+    setManualMap({});
+    setHeaderIdx(0);
+    setDataRows([]);
+  };
+
   const handleFile = (f: File) => {
     if (!f.name.endsWith(".xlsx")) {
       toast({ title: "Invalid format", description: "Only .xlsx files are accepted.", variant: "destructive" });
@@ -152,6 +206,7 @@ const ImportCustomers = () => {
     setParsedRows([]);
     setValidated(false);
     setImportResult(null);
+    resetMapping();
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -165,9 +220,11 @@ const ImportCustomers = () => {
     setParsedRows([]);
     setValidated(false);
     setImportResult(null);
+    resetMapping();
   };
 
-  const validateFile = async () => {
+  /** Step 1: read file, detect header, cache raw headers + data rows. No row validation yet. */
+  const readFile = async () => {
     if (!file) return;
     const data = await file.arrayBuffer();
     const wb = XLSX.read(new Uint8Array(data), { type: "array", cellDates: true });
@@ -175,28 +232,43 @@ const ImportCustomers = () => {
     const sheet = wb.Sheets[sheetName];
     const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    // Dynamically find the header row
     const detected = detectHeaderRow(allRows);
     if (!detected) {
-      toast({ title: "Header row not found", description: "Could not find a row with recognisable column headers (Customer Name, Address, Eircode, etc).", variant: "destructive" });
+      toast({
+        title: "Header row not found",
+        description:
+          "Could not find a row with recognisable column headers (Customer Name, Address, Eircode, etc).",
+        variant: "destructive",
+      });
       return;
     }
-    const { headerIdx, colMap } = detected;
+    setRawHeaders(detected.rawHeaders);
+    setAutoColMap(detected.colMap);
+    setManualMap({});
+    setHeaderIdx(detected.headerIdx);
+    setDataRows(allRows.slice(detected.headerIdx + 1));
+    setValidated(true);
+  };
 
-    // Helper to get a field value from a row using the dynamic column map
+  /** Step 2: pure function of dataRows + effective colMap. Re-runs on remap. */
+  const runRowValidation = useCallback(() => {
+    if (!validated || dataRows.length === 0) {
+      setParsedRows([]);
+      return;
+    }
+
+    const colMap = effectiveColMap;
     const field = (row: any[], key: string): string => {
       const idx = colMap[key];
       return idx !== undefined ? cellStr(row, idx) : "";
     };
-    // Raw field accessor that preserves Date objects for date columns
     const rawField = (row: any[], key: string): any => {
       const idx = colMap[key];
       if (idx === undefined) return undefined;
       return row[idx];
     };
+    const hasCol = (key: string) => key in colMap;
 
-    // Data rows start immediately after the header row
-    const dataRows = allRows.slice(headerIdx + 1);
     const results: ParsedRow[] = [];
 
     for (let i = 0; i < dataRows.length; i++) {
@@ -205,7 +277,6 @@ const ImportCustomers = () => {
       const phone = field(row, "phone");
       const address = field(row, "address");
 
-      // Stop at empty rows
       if (!name && !phone && !address) break;
 
       const errors: string[] = [];
@@ -214,17 +285,31 @@ const ImportCustomers = () => {
       const underWarranty = field(row, "under_warranty");
       const serviceStatus = field(row, "service_status");
 
-      if (!name) errors.push("Customer Name is required");
-      const phoneValidation = validateImportPhone(phone);
-      if (!phoneValidation.valid) {
-        errors.push(phoneValidation.error || "Phone Number is required");
+      // Required-field checks: only when the column is present in the effective map.
+      // Missing columns are surfaced by the mapping banner, not per-row.
+      if (hasCol("name") && !name) errors.push("Customer Name is missing for this row");
+
+      if (hasCol("phone")) {
+        const rawPhone = phone;
+        if (!rawPhone) {
+          errors.push("Phone is missing for this row");
+        } else {
+          const phoneValidation = validateImportPhone(rawPhone);
+          if (!phoneValidation.valid) {
+            errors.push(`Phone '${rawPhone}' isn't a valid format`);
+          }
+        }
       }
-      if (!address) errors.push("Address is required");
-      if (!eircode) errors.push("Eircode is required");
-      if (boilerType && !["Gas", "Oil"].includes(boilerType)) errors.push("Boiler Type must be Gas or Oil");
-      if (underWarranty && !["Yes", "No"].includes(underWarranty)) errors.push("Under Warranty must be Yes or No");
+
+      if (hasCol("address") && !address) errors.push("Address is missing for this row");
+      if (hasCol("eircode") && !eircode) errors.push("Eircode is missing for this row");
+
+      if (boilerType && !["Gas", "Oil"].includes(boilerType))
+        errors.push(`Boiler Type '${boilerType}' must be Gas or Oil`);
+      if (underWarranty && !["Yes", "No"].includes(underWarranty))
+        errors.push(`Under Warranty '${underWarranty}' must be Yes or No`);
       if (serviceStatus && !["Overdue", "Due Soon", "Up to Date"].includes(serviceStatus))
-        errors.push("Status must be: Overdue, Due Soon, or Up to Date");
+        errors.push(`Status '${serviceStatus}' must be: Overdue, Due Soon, or Up to Date`);
 
       // Date validations
       const dateFieldKeys = [
@@ -235,30 +320,41 @@ const ImportCustomers = () => {
       ];
       for (const df of dateFieldKeys) {
         const rawVal = rawField(row, df.key);
-        // Skip if empty, already a Date object, or parseable
         if (!rawVal) continue;
         if (rawVal instanceof Date) continue;
         if (!parseDate(rawVal)) {
-          errors.push(`${df.label} must be a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`);
+          errors.push(
+            `${df.label} '${String(rawVal)}' isn't a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`
+          );
         }
       }
 
+      // Compute normalised phone only when valid (for the preview + insert)
+      const normalisedPhone = hasCol("phone")
+        ? (validateImportPhone(phone).normalized || phone)
+        : "";
+
       results.push({
-        rowNum: headerIdx + 2 + i, // 1-based Excel row number
+        rowNum: headerIdx + 2 + i,
         data: {
           name,
-          phone: phoneValidation.normalized || phone,
+          phone: normalisedPhone,
           email: field(row, "email"),
           address,
           eircode,
-          area_code: (() => { const ac = field(row, "area_code"); return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac; })(),
+          area_code: (() => {
+            const ac = field(row, "area_code");
+            return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac;
+          })(),
           access_notes: field(row, "access_notes"),
           boiler_brand: field(row, "boiler_brand"),
           boiler_model: field(row, "boiler_model"),
           // TEMP: keep boiler_make_model in sync until downstream consumers
           // migrate to boiler_brand/boiler_model.
-          boiler_make_model: [field(row, "boiler_brand"), field(row, "boiler_model")]
-            .filter(Boolean).join(" ") || null,
+          boiler_make_model:
+            [field(row, "boiler_brand"), field(row, "boiler_model")]
+              .filter(Boolean)
+              .join(" ") || null,
           boiler_type: boilerType || null,
           boiler_installation_date: parseDate(rawField(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
@@ -284,10 +380,13 @@ const ImportCustomers = () => {
     }
 
     setParsedRows(results);
-    setValidated(true);
-  };
+  }, [validated, dataRows, effectiveColMap, headerIdx]);
 
-  /** Strip null/empty optional fields so we don't send null values that may violate constraints */
+  // Re-validate whenever the effective mapping (auto + manual) or data changes.
+  useEffect(() => {
+    runRowValidation();
+  }, [runRowValidation]);
+
   const cleanData = (raw: Record<string, any>): Record<string, any> => {
     const required = ["name", "phone", "address", "eircode"];
     const cleaned: Record<string, any> = {};
@@ -297,13 +396,13 @@ const ImportCustomers = () => {
       } else if (value !== null && value !== undefined && value !== "") {
         cleaned[key] = value;
       }
-      // skip null/empty optional fields entirely
     }
     return cleaned;
   };
 
   const handleImport = async () => {
     if (!user) return;
+    if (missingRequired.length > 0) return;
     const validRows = parsedRows.filter((r) => r.isValid);
     if (validRows.length === 0) return;
 
@@ -319,7 +418,6 @@ const ImportCustomers = () => {
       try {
         const cleaned = cleanData(row.data);
 
-        // Check if customer with same phone exists
         const { data: existing } = await supabase
           .from("customers")
           .select("id")
@@ -343,8 +441,6 @@ const ImportCustomers = () => {
               ...cleaned,
               user_id: user.id,
               organisation_id: orgId!,
-              // Defaults for new customer creation only. If the spreadsheet
-              // provided a value, cleanData() kept it and it wins here.
               boiler_type: cleaned.boiler_type || "Gas",
               owner_or_tenant: cleaned.owner_or_tenant || "Owner",
               warranty_years: cleaned.warranty_years ?? 10,
@@ -373,12 +469,66 @@ const ImportCustomers = () => {
   const validCount = parsedRows.filter((r) => r.isValid).length;
   const errorCount = parsedRows.filter((r) => !r.isValid).length;
   const displayRows = parsedRows.slice(0, 20);
+  const importBlocked = missingRequired.length > 0;
+
+  // For dropdowns: which raw-header indices are already assigned to some field
+  const assignedIndices = useMemo(() => {
+    const s = new Set<number>();
+    for (const idx of Object.values(effectiveColMap)) s.add(idx);
+    return s;
+  }, [effectiveColMap]);
+
+  // Field → header display: which raw header maps to a field currently
+  const fieldToHeader = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const [fieldKey, colIdx] of Object.entries(effectiveColMap)) {
+      m[fieldKey] = rawHeaders[colIdx] || `Column ${colIdx + 1}`;
+    }
+    return m;
+  }, [effectiveColMap, rawHeaders]);
+
+  const setFieldMapping = (fieldKey: string, value: string) => {
+    if (value === "") {
+      // Leave blank / clear manual override
+      setManualMap((prev) => {
+        const next = { ...prev };
+        delete next[fieldKey];
+        return next;
+      });
+      return;
+    }
+    const idx = parseInt(value, 10);
+    if (!Number.isFinite(idx)) return;
+    setManualMap((prev) => ({ ...prev, [fieldKey]: idx }));
+  };
+
+  const MappingDropdown = ({ fieldKey }: { fieldKey: string }) => {
+    const currentIdx = effectiveColMap[fieldKey];
+    return (
+      <select
+        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+        value={currentIdx !== undefined ? String(currentIdx) : ""}
+        onChange={(e) => setFieldMapping(fieldKey, e.target.value)}
+      >
+        <option value="">— Leave blank —</option>
+        {rawHeaders.map((h, i) => {
+          if (!h) return null;
+          const takenByOther = assignedIndices.has(i) && effectiveColMap[fieldKey] !== i;
+          return (
+            <option key={i} value={String(i)} disabled={takenByOther}>
+              {h}
+              {takenByOther ? " (used)" : ""}
+            </option>
+          );
+        })}
+      </select>
+    );
+  };
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  // Import complete screen
   if (importResult) {
     return (
       <div className="min-h-screen bg-background">
@@ -414,7 +564,6 @@ const ImportCustomers = () => {
             </CardContent>
           </Card>
 
-          {/* Failed rows detail */}
           {importResult.failedRows.length > 0 && (
             <Card>
               <CardContent className="pt-6 space-y-3">
@@ -506,28 +655,112 @@ const ImportCustomers = () => {
 
         {/* Validate button */}
         {file && !validated && (
-          <Button onClick={validateFile} className="w-full">
+          <Button onClick={readFile} className="w-full">
             Validate File
           </Button>
         )}
 
-        {/* Validation results */}
+        {/* Column mapping + validation results */}
         {validated && (
           <>
-            {/* Summary banner */}
-            {errorCount === 0 && validCount > 0 && (
+            {/* Column Mapping Card */}
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Columns found in your file</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rawHeaders.filter(Boolean).map((h, i) => (
+                      <Badge key={i} variant="secondary" className="font-normal">{h}</Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Recognised fields</h3>
+                  {Object.keys(effectiveColMap).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">None yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                      {Object.entries(effectiveColMap).map(([fieldKey, idx]) => (
+                        <div key={fieldKey} className="flex items-center gap-2">
+                          <span className="text-muted-foreground truncate">{rawHeaders[idx] || `Column ${idx + 1}`}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-medium">{FIELD_LABEL[fieldKey] || fieldKey}</span>
+                          {manualMap[fieldKey] !== undefined && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">manual</Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Missing required — blocking */}
+                {missingRequired.length > 0 && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-destructive">
+                          Import blocked: {missingRequired.length} required column
+                          {missingRequired.length === 1 ? "" : "s"} missing.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          We couldn't find a column for the field(s) below. Map them manually or fix your file's headers.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {missingRequired.map((f) => (
+                        <div key={f} className="flex items-center gap-2 text-xs">
+                          <span className="w-32 font-medium">{FIELD_LABEL[f]}</span>
+                          <MappingDropdown fieldKey={f} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing optional — non-blocking */}
+                {missingOptional.length > 0 && (
+                  <details className="rounded-lg border border-border bg-muted/30 p-3">
+                    <summary className="cursor-pointer text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4 text-muted-foreground" />
+                      <span>
+                        {missingOptional.length} optional field
+                        {missingOptional.length === 1 ? "" : "s"} not matched — will be left blank
+                      </span>
+                    </summary>
+                    <p className="text-xs text-muted-foreground mt-2 mb-3">
+                      These fields aren't required, but if your file has them under different header names you can map them manually.
+                    </p>
+                    <div className="space-y-2">
+                      {missingOptional.map((f) => (
+                        <div key={f} className="flex items-center gap-2 text-xs">
+                          <span className="w-40 truncate">{FIELD_LABEL[f] || f}</span>
+                          <MappingDropdown fieldKey={f} />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Summary banner — only when required columns are all mapped */}
+            {!importBlocked && errorCount === 0 && validCount > 0 && (
               <div className="flex items-center gap-2 bg-success/10 border border-success/30 text-success rounded-lg p-3">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="text-sm font-medium">{validCount} rows ready to import. No errors found.</span>
               </div>
             )}
-            {errorCount > 0 && validCount > 0 && (
+            {!importBlocked && errorCount > 0 && validCount > 0 && (
               <div className="flex items-center gap-2 bg-accent/10 border border-accent/30 text-accent-foreground rounded-lg p-3">
                 <AlertTriangle className="w-5 h-5" />
                 <span className="text-sm font-medium">{validCount} rows ready · {errorCount} rows have errors (shown in red below)</span>
               </div>
             )}
-            {validCount === 0 && (
+            {!importBlocked && validCount === 0 && parsedRows.length > 0 && (
               <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-3">
                 <XCircle className="w-5 h-5" />
                 <span className="text-sm font-medium">No rows can be imported. Fix errors and re-upload.</span>
@@ -535,52 +768,54 @@ const ImportCustomers = () => {
             )}
 
             {/* Preview table */}
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Row</TableHead>
-                        <TableHead>Customer Name</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead className="hidden md:table-cell">Address</TableHead>
-                        <TableHead className="hidden md:table-cell">Eircode</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Validation</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayRows.map((r) => (
-                        <TableRow
-                          key={r.rowNum}
-                          className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
-                        >
-                          <TableCell className="text-muted-foreground">{r.rowNum}</TableCell>
-                          <TableCell className="font-medium">{r.data.name}</TableCell>
-                          <TableCell>{r.data.phone}</TableCell>
-                          <TableCell className="hidden md:table-cell">{r.data.address}</TableCell>
-                          <TableCell className="hidden md:table-cell">{r.data.eircode}</TableCell>
-                          <TableCell>{r.data.service_status}</TableCell>
-                          <TableCell>
-                            {r.isValid ? (
-                              <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
-                            ) : (
-                              <Badge variant="destructive">✕ {r.errors[0]}</Badge>
-                            )}
-                          </TableCell>
+            {parsedRows.length > 0 && (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Row</TableHead>
+                          <TableHead>Customer Name</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead className="hidden md:table-cell">Address</TableHead>
+                          <TableHead className="hidden md:table-cell">Eircode</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Validation</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {parsedRows.length > 20 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    Showing first 20 of {parsedRows.length} rows
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {displayRows.map((r) => (
+                          <TableRow
+                            key={r.rowNum}
+                            className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
+                          >
+                            <TableCell className="text-muted-foreground">{r.rowNum}</TableCell>
+                            <TableCell className="font-medium">{r.data.name}</TableCell>
+                            <TableCell>{r.data.phone}</TableCell>
+                            <TableCell className="hidden md:table-cell">{r.data.address}</TableCell>
+                            <TableCell className="hidden md:table-cell">{r.data.eircode}</TableCell>
+                            <TableCell>{r.data.service_status}</TableCell>
+                            <TableCell>
+                              {r.isValid ? (
+                                <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
+                              ) : (
+                                <Badge variant="destructive" title={r.errors.join(" · ")}>✕ {r.errors[0]}</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {parsedRows.length > 20 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Showing first 20 of {parsedRows.length} rows
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Import button / progress */}
             {importing ? (
@@ -589,8 +824,14 @@ const ImportCustomers = () => {
                 <p className="text-sm text-center text-muted-foreground">Importing... {importProgress}%</p>
               </div>
             ) : (
-              <Button onClick={handleImport} disabled={validCount === 0} className="w-full">
-                Import {validCount} Customers
+              <Button
+                onClick={handleImport}
+                disabled={importBlocked || validCount === 0}
+                className="w-full"
+              >
+                {importBlocked
+                  ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
+                  : `Import ${validCount} Customers`}
               </Button>
             )}
           </>
