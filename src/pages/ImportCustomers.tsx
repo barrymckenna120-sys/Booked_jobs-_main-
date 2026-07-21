@@ -262,6 +262,13 @@ const ImportCustomers = () => {
           boiler_type: boilerType || null,
           boiler_installation_date: parseDate(rawField(row, "boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
+          warranty_years: (() => {
+            const raw = field(row, "warranty_years");
+            if (!raw) return null;
+            const n = parseInt(raw, 10);
+            return Number.isFinite(n) ? n : null;
+          })(),
+          owner_or_tenant: field(row, "owner_or_tenant") || null,
           last_service_date: parseDate(rawField(row, "last_service_date")),
           last_service_engineer: field(row, "last_service_engineer"),
           engineer_notes: field(row, "engineer_notes"),
