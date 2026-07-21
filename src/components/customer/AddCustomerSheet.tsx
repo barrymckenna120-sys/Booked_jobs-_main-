@@ -92,6 +92,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     const cleanEircode = formatEircode(form.eircode);
     const nextServiceDue = new Date();
     nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
+    const parsedWarranty = parseInt(form.warranty_years, 10);
     const { error } = await supabase.from("customers").insert({
       user_id: user.id,
       organisation_id: orgId!,
@@ -101,6 +102,9 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       address: form.address.trim(),
       eircode: cleanEircode,
       area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
+      boiler_type: form.boiler_type || DEFAULT_BOILER_TYPE,
+      owner_or_tenant: form.owner_or_tenant || DEFAULT_OWNER_OR_TENANT,
+      warranty_years: Number.isFinite(parsedWarranty) ? parsedWarranty : Number(DEFAULT_WARRANTY_YEARS),
       next_service_due: nextServiceDue.toISOString().split("T")[0],
       renewal_stage: "none",
       service_status: "active",
@@ -111,7 +115,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       toast({ title: "Failed to add customer", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Customer added" });
-      setForm({ name: "", phone: "", email: "", address: "", eircode: "", area_code: "" });
+      setForm({ ...EMPTY_FORM });
       setErrors({});
       onOpenChange(false);
       onSuccess();
@@ -125,7 +129,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
 
   const doLeave = () => {
     setShowLeaveGuard(false);
-    setForm({ name: "", phone: "", email: "", address: "", eircode: "", area_code: "" });
+    setForm({ ...EMPTY_FORM });
     setErrors({});
     onOpenChange(false);
   };
@@ -147,12 +151,46 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
               <CustomerFormField label="Eircode" id="eircode" value={form.eircode} onChange={(v) => update("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
               <CustomerFormField label="Area Code" id="area_code" value={form.area_code} onChange={(v) => update("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Boiler Type</Label>
+                <Select value={form.boiler_type} onValueChange={(v) => update("boiler_type", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Gas">Gas</SelectItem>
+                    <SelectItem value="Oil">Oil</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Owner or Tenant</Label>
+                <Select value={form.owner_or_tenant} onValueChange={(v) => update("owner_or_tenant", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Owner">Owner</SelectItem>
+                    <SelectItem value="Tenant">Tenant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="warranty_years" className="text-xs text-muted-foreground">Warranty Years</Label>
+              <Input
+                id="warranty_years"
+                type="number"
+                min={0}
+                step={1}
+                value={form.warranty_years}
+                onChange={(e) => update("warranty_years", e.target.value)}
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={saving}>
               {saving ? "Saving..." : "Add Customer"}
             </Button>
           </form>
         </SheetContent>
       </Sheet>
+
 
       <Dialog open={showLeaveGuard} onOpenChange={(o) => { if (!o) setShowLeaveGuard(false); }}>
         <DialogContent className="sm:max-w-md">
