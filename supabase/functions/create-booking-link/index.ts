@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-org-id",
 };
 
-const SHORT_BASE = "https://kngasservices.bookedjobs.ie/b";
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 function genToken(len = 6): string {
@@ -15,6 +15,16 @@ function genToken(len = 6): string {
   crypto.getRandomValues(bytes);
   for (let i = 0; i < len; i++) s += ALPHABET[bytes[i] % ALPHABET.length];
   return s;
+}
+
+function isValidAbsoluteHttpsUrl(url: unknown): boolean {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch (_e) {
+    return false;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -32,14 +42,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Always store with the canonical Tally form as the base, preserving query params.
-    const TALLY_BASE = "https://tally.so/r/RGJDy4";
-    const qIdx = String(full_url).indexOf("?");
-    const queryString = qIdx >= 0 ? String(full_url).slice(qIdx) : "";
-    const normalised_url = `${TALLY_BASE}${queryString}`;
+    if (!isValidAbsoluteHttpsUrl(full_url)) {
+      return new Response(
+        JSON.stringify({ error: "full_url must be a well-formed absolute https:// URL" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+
+    // Resolve the tenant's public domain BEFORE any insert. If unavailable,
+    // return 500 immediately without writing a row to booking_links.
+    const tenantHostProbe = await getTenantPublicUrl(SUPABASE_URL, organisation_id, "/b");
+    if (!tenantHostProbe) {
+      return new Response(
+        JSON.stringify({
+          error: "Tenant public_domain not configured — cannot mint short link",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      SUPABASE_URL,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
@@ -51,7 +76,7 @@ Deno.serve(async (req) => {
       token = genToken(6);
       const { error } = await supabase.from("booking_links").insert({
         token,
-        full_url: normalised_url,
+        full_url,
         customer_id: customer_id ?? null,
         organisation_id,
       });
@@ -67,8 +92,18 @@ Deno.serve(async (req) => {
       throw lastError ?? new Error("Failed to generate unique token");
     }
 
+    const short_url = await getTenantPublicUrl(SUPABASE_URL, organisation_id, `/b/${token}`);
+    if (!short_url) {
+      return new Response(
+        JSON.stringify({
+          error: "Tenant public_domain not configured — cannot mint short link",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ short_url: `${SHORT_BASE}/${token}`, token }),
+      JSON.stringify({ short_url, token }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
