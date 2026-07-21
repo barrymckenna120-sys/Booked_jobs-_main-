@@ -1,118 +1,35 @@
-# Fix create-booking-link Edge Function
+# Fix `create-booking-link` to respect tenant Tally URL and public domain
+
+Live test confirmed the bug is still in production:
+- Dublin Gas link (`tally.so/r/Zjgxva`) was stored as `tally.so/r/RGJDy4` (K&N's form).
+- Cavan Gas link (`tally.so/r/somefakeform`) was also stored as `tally.so/r/RGJDy4`.
+- Both short URLs returned on `kngasservices.bookedjobs.ie/b/...` regardless of tenant.
+
+The previously-proposed code was written to `.lovable/plan.md` only; `supabase/functions/create-booking-link/index.ts` itself is unchanged on disk. This plan applies the change for real and redeploys the Edge Function.
 
 ## Scope
-Only `supabase/functions/create-booking-link/index.ts` will be modified.
+Only `supabase/functions/create-booking-link/index.ts`. No other Edge Functions, no schema, no frontend.
 
 ## Changes
-1. Remove the hardcoded `TALLY_BASE` constant and the logic that rewrites `full_url` to it. Validate that `full_url` is a well-formed absolute `https://` URL and store it exactly as received.
-2. Remove the hardcoded `SHORT_BASE` constant. Import `getTenantPublicUrl` from `../_shared/tenantDomain.ts` and use the tenant's `public_domain` to build the short link. If `getTenantPublicUrl` returns null, return HTTP 500 with the message "Tenant public_domain not configured — cannot mint short link".
-3. Leave token generation, the 5-attempt retry loop, and the response shape unchanged.
+1. Remove the hardcoded `TALLY_BASE` constant and the logic that strips `full_url` down to its query string and re-anchors it. Store `full_url` verbatim after basic `https://` validation.
+2. Remove the hardcoded `SHORT_BASE = "https://kngasservices.bookedjobs.ie/b"`.
+3. **Order of operations (per latest requirement):**
+   a. Parse + validate request body (`full_url`, `organisation_id` required; `full_url` must be a well-formed absolute `https://` URL).
+   b. Call `getTenantPublicUrl(SUPABASE_URL, organisation_id, "/b/<placeholder>")` — or resolve the host once — **before** any insert.
+   c. If it returns `null`, return HTTP 500 `{"error":"Tenant public_domain not configured — cannot mint short link"}` immediately. **No row is written to `booking_links`.**
+   d. Only after a non-null tenant URL is resolved, run token generation and the 5-attempt uniqueness retry loop and insert the row.
+   e. Return `{ short_url, token }` where `short_url` is built from the resolved tenant host + `/b/${token}`.
+4. Keep unchanged: token alphabet/length, 5-attempt retry loop logic, response shape, CORS headers, auth handling.
 
-## Proposed file content
+## Deploy step
+After writing the file, redeploy via `supabase--deploy_edge_functions` with `function_names: ["create-booking-link"]`. Lovable "Publish" only ships frontend assets and does not redeploy Edge Functions, so this explicit deploy call is required.
 
-```ts
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+## Reporting requirements
+When reporting completion I will:
+1. Paste the full, current on-disk contents of `supabase/functions/create-booking-link/index.ts`.
+2. State explicitly: "Edge Function `create-booking-link` redeployed via `supabase--deploy_edge_functions`." No use of the word "published" or generic "done".
+3. Leave curl and SQL verification results for Barry to fill in — I will not describe verification outcomes myself.
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id",
-};
-
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-
-function genToken(len = 6): string {
-  let s = "";
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  for (let i = 0; i < len; i++) s += ALPHABET[bytes[i] % ALPHABET.length];
-  return s;
-}
-
-function isValidAbsoluteHttpsUrl(url: unknown): boolean {
-  if (typeof url !== "string") return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:";
-  } catch (_e) {
-    return false;
-  }
-}
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { customer_id, full_url, organisation_id } = await req.json();
-
-    if (!full_url || !organisation_id) {
-      return new Response(
-        JSON.stringify({ error: "full_url and organisation_id are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!isValidAbsoluteHttpsUrl(full_url)) {
-      return new Response(
-        JSON.stringify({ error: "full_url must be a well-formed absolute https:// URL" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    let token = "";
-    let inserted = false;
-    let lastError: unknown = null;
-
-    for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
-      token = genToken(6);
-      const { error } = await supabase.from("booking_links").insert({
-        token,
-        full_url,
-        customer_id: customer_id ?? null,
-        organisation_id,
-      });
-      if (!error) {
-        inserted = true;
-      } else if (!String(error.message || "").toLowerCase().includes("duplicate")) {
-        lastError = error;
-        break;
-      }
-    }
-
-    if (!inserted) {
-      throw lastError ?? new Error("Failed to generate unique token");
-    }
-
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const short_url = await getTenantPublicUrl(SUPABASE_URL, organisation_id, `/b/${token}`);
-    if (!short_url) {
-      return new Response(
-        JSON.stringify({ error: "Tenant public_domain not configured — cannot mint short link" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ short_url, token }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
-```
-
-## Deployment
-After the file is written in build mode, deploy the Edge Function.
+## Out of scope
+- Adding `public_domain` for Cavan Gas or any other tenant.
+- Any changes to `send-renewal-reminder`, `renewal-reminder-14/30`, `send-warranty-whatsapp`, or the `/b/{token}` resolver route.
