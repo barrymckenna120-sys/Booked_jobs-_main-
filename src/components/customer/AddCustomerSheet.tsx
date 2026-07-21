@@ -46,14 +46,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
   const { orgId } = useOrgId();
   const [saving, setSaving] = useState(false);
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-    eircode: "",
-    area_code: "",
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<CustomerFieldErrors>({});
 
   const update = (field: string, value: string) => {
