@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
       .from("customers")
       .select("id")
       .eq("phone", normalisedPhone)
-      .eq("user_id", userId)
+      .eq("organisation_id", orgData.id)
       .limit(1)
       .maybeSingle();
 
