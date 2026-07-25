@@ -132,7 +132,7 @@ const Schedule = () => {
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("engineers").select("id, name").order("name");
+      const { data } = await supabase.from("engineers").select("id, name").eq("status", "active").order("name");
       return data || [];
     },
     enabled: !!user && ready,
