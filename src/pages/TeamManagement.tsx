@@ -373,65 +373,47 @@ const TeamManagement = () => {
   const handleDelete = async () => {
     if (!deleteTarget) return;
 
-    const { data: activeJobs, error: activeJobsError } = await supabase
-      .from("service_calls")
-      .select("id, status")
-      .eq("assigned_engineer_id", deleteTarget.id)
-      .not("status", "in", "(completed,cancelled)");
+    // Soft-delete via edge function: bans auth login, marks profile inactive,
+    // and sets engineers.status='deactivated'. Reversible via Reactivate.
+    const { data, error } = await supabase.functions.invoke("deactivate-user", {
+      body: { engineerId: deleteTarget.id },
+    });
 
-    if (activeJobsError) {
-      console.error("Active jobs check error:", activeJobsError);
-      toast({
-        title: "Failed to remove user",
-        description: activeJobsError.message,
-        variant: "destructive",
-      });
+    if (error || data?.error) {
+      if (data?.error === "active_jobs") {
+        const count = data.count ?? 0;
+        toast({
+          title: `Cannot deactivate ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Failed to deactivate user",
+          description: data?.error || error?.message,
+          variant: "destructive",
+        });
+      }
       setDeleteTarget(null);
       return;
     }
 
-    if (activeJobs && activeJobs.length > 0) {
-      const count = activeJobs.length;
-      toast({
-        title: `Cannot remove ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("engineers")
-      .delete()
-      .eq("id", deleteTarget.id);
-
-    if (error) {
-      console.error("Delete error:", error);
-      toast({
-        title: "Failed to remove user",
-        description: error.message,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-      return;
-    }
-
-    if (deleteTarget.auth_user_id) {
-      await supabase
-        .from("profiles")
-        .delete()
-        .eq("user_id", deleteTarget.auth_user_id);
-    }
-
-    setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
-    toast({ title: `${deleteTarget.name} has been removed` });
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.id === deleteTarget.id
+          ? { ...m, status: "deactivated", is_available: false, blocked_reason: "Deactivated" }
+          : m,
+      ),
+    );
+    toast({ title: `${deleteTarget.name} has been deactivated` });
     logAudit({
-      action_type: "user_removed",
+      action_type: "user_deactivated",
       entity_type: "user",
       entity_id: deleteTarget.id,
-      detail: `Removed: ${deleteTarget.name}`,
+      detail: `Deactivated: ${deleteTarget.name}`,
+      metadata: { auth_user_id: deleteTarget.auth_user_id },
     });
     setDeleteTarget(null);
+    fetchAuthUsers();
   };
 
   const handleSendInvite = async (member: TeamMember) => {
