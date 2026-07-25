@@ -1806,8 +1806,11 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           display_name: string | null
           id: string
+          is_active: boolean
           onboarding_complete: boolean | null
           organisation_id: string | null
           role: string | null
@@ -1817,8 +1820,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           display_name?: string | null
           id?: string
+          is_active?: boolean
           onboarding_complete?: boolean | null
           organisation_id?: string | null
           role?: string | null
@@ -1828,8 +1834,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           display_name?: string | null
           id?: string
+          is_active?: boolean
           onboarding_complete?: boolean | null
           organisation_id?: string | null
           role?: string | null
