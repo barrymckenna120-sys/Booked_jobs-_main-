@@ -88,6 +88,16 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Reactivate the profile row so soft-deleted users are restored.
+      await supabaseAdmin
+        .from("profiles")
+        .update({
+          is_active: true,
+          deactivated_at: null,
+          deactivated_by: null,
+        } as any)
+        .eq("user_id", userId);
     }
 
     // Also clear engineers.status server-side (RLS restricts client-side status

@@ -65,7 +65,7 @@ const EngineerAvailability = () => {
     if (!user) return;
     setLoading(true);
     const [engRes, wdRes, blRes] = await Promise.all([
-      supabase.from("engineers").select("*").order("name"),
+      supabase.from("engineers").select("*").eq("status", "active").order("name"),
       supabase.from("engineer_working_days").select("*"),
       supabase.from("engineer_blocks").select("*").order("block_date", { ascending: true }),
     ]);
