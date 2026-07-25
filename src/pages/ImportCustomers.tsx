@@ -551,7 +551,7 @@ const ImportCustomers = () => {
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
   const errorCount = parsedRows.filter((r) => !r.isValid).length;
-  const needsCheckCount = 0; // placeholder: no non-blocking warning severity yet
+  
   const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
   const pageStart = (clampedPage - 1) * PAGE_SIZE;
