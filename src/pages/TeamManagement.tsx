@@ -700,15 +700,21 @@ const TeamManagement = () => {
                   </div>
 
                   {/* Role badge */}
-                  <Badge
-                    variant="outline"
-                    className={`shrink-0 gap-1 ${isBlocked ? "bg-destructive/10 text-destructive border-destructive/20" : ROLE_COLORS[member.role] || ""}`}
-                  >
-                    {isBlocked ? <Ban className="w-3 h-3" /> : role.icon}
-                    {isBlocked ? "Blocked" : role.label}
-                  </Badge>
+                  {(() => {
+                    const isDeactivated = member.status === "deactivated";
+                    const pillLabel = isDeactivated ? "Deactivated" : isBlocked ? "Blocked" : role.label;
+                    return (
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 gap-1 ${isBlocked ? "bg-destructive/10 text-destructive border-destructive/20" : ROLE_COLORS[member.role] || ""}`}
+                      >
+                        {isBlocked ? <Ban className="w-3 h-3" /> : role.icon}
+                        {pillLabel}
+                      </Badge>
+                    );
+                  })()}
 
-                  {/* Inline Unblock button */}
+                  {/* Inline Reactivate / Unblock button */}
                   {isBlocked && (
                     <Button
                       size="sm"
@@ -717,7 +723,7 @@ const TeamManagement = () => {
                       onClick={() => handleUnblock(member.id)}
                     >
                       <UserCheck className="w-3.5 h-3.5" />
-                      Unblock
+                      {member.status === "deactivated" ? "Reactivate" : "Unblock"}
                     </Button>
                   )}
 
