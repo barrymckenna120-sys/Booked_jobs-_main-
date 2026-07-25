@@ -782,7 +782,7 @@ const TeamManagement = () => {
                       {isBlocked ? (
                         <DropdownMenuItem onClick={() => handleUnblock(member.id)}>
                           <UserCheck className="w-4 h-4 mr-2 text-green-600" />
-                          Unblock
+                          {member.status === "deactivated" ? "Reactivate" : "Unblock"}
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
@@ -793,14 +793,15 @@ const TeamManagement = () => {
                           Block User
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteTarget(member)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
+                      {member.status !== "deactivated" && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(member)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Deactivate
+                        </DropdownMenuItem>
+                      )}
                   </DropdownMenu>
                 </div>
               );
