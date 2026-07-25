@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
+import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
 /** Map recognisable Excel header names (lower-cased, trimmed) → internal field */
@@ -75,6 +75,7 @@ const FIELD_LABEL: Record<string, string> = {
 const REQUIRED_FIELDS = ["name", "phone", "address", "eircode"] as const;
 const ALL_FIELDS = Array.from(new Set(Object.values(HEADER_TO_FIELD)));
 const OPTIONAL_FIELDS = ALL_FIELDS.filter((f) => !REQUIRED_FIELDS.includes(f as any));
+const PAGE_SIZE = 10;
 
 /** Headers we look for to identify the header row */
 const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
@@ -137,10 +138,14 @@ function cellStr(row: any[], idx: number): string {
   return String(v).trim();
 }
 
+type FieldErrors = Record<string, string>;
+
 type ParsedRow = {
   rowNum: number;
+  srcIndex: number;
   data: Record<string, any>;
   errors: string[];
+  fieldErrors: FieldErrors;
   isValid: boolean;
 };
 
@@ -171,6 +176,10 @@ const ImportCustomers = () => {
   const [headerIdx, setHeaderIdx] = useState<number>(0);
   const [dataRows, setDataRows] = useState<any[][]>([]);
 
+  // Session-only overrides keyed by srcIndex (index into dataRows), then by field key.
+  const [rowEdits, setRowEdits] = useState<Record<number, Record<string, string>>>({});
+  const [page, setPage] = useState(1);
+
   const effectiveColMap = useMemo(
     () => ({ ...autoColMap, ...manualMap }),
     [autoColMap, manualMap]
@@ -191,6 +200,8 @@ const ImportCustomers = () => {
     setManualMap({});
     setHeaderIdx(0);
     setDataRows([]);
+    setRowEdits({});
+    setPage(1);
   };
 
   const handleFile = (f: File) => {
@@ -247,71 +258,93 @@ const ImportCustomers = () => {
     setManualMap({});
     setHeaderIdx(detected.headerIdx);
     setDataRows(allRows.slice(detected.headerIdx + 1));
+    setRowEdits({});
+    setPage(1);
     setValidated(true);
   };
 
-  /** Step 2: pure function of dataRows + effective colMap. Re-runs on remap. */
-  const runRowValidation = useCallback(() => {
-    if (!validated || dataRows.length === 0) {
-      setParsedRows([]);
-      return;
-    }
+  /** Build a single ParsedRow from a raw row + column map + optional per-field overrides. */
+  const buildRow = useCallback(
+    (
+      row: any[],
+      srcIndex: number,
+      colMap: Record<string, number>,
+      overrides: Record<string, string> | undefined,
+      hdrIdx: number
+    ): ParsedRow | null => {
+      const hasCol = (key: string) => key in colMap;
 
-    const colMap = effectiveColMap;
-    const field = (row: any[], key: string): string => {
-      const idx = colMap[key];
-      return idx !== undefined ? cellStr(row, idx) : "";
-    };
-    const rawField = (row: any[], key: string): any => {
-      const idx = colMap[key];
-      if (idx === undefined) return undefined;
-      return row[idx];
-    };
-    const hasCol = (key: string) => key in colMap;
+      // rawField returns the raw cell value (may be Date, number, string) unless overridden.
+      const rawField = (key: string): any => {
+        if (overrides && overrides[key] !== undefined) return overrides[key];
+        const idx = colMap[key];
+        if (idx === undefined) return undefined;
+        return row[idx];
+      };
+      // field returns trimmed string, honouring overrides.
+      const field = (key: string): string => {
+        if (overrides && overrides[key] !== undefined) return String(overrides[key] ?? "").trim();
+        const idx = colMap[key];
+        return idx !== undefined ? cellStr(row, idx) : "";
+      };
 
-    const results: ParsedRow[] = [];
+      const name = field("name");
+      const phone = field("phone");
+      const address = field("address");
 
-    for (let i = 0; i < dataRows.length; i++) {
-      const row = dataRows[i];
-      const name = field(row, "name");
-      const phone = field(row, "phone");
-      const address = field(row, "address");
-
-      if (!name && !phone && !address) break;
+      const hasAnyOverride = overrides && Object.keys(overrides).length > 0;
+      // Skip only when the original row is empty AND user hasn't started editing it.
+      if (!name && !phone && !address && !hasAnyOverride) return null;
 
       const errors: string[] = [];
-      const eircode = field(row, "eircode");
-      const boilerType = field(row, "boiler_type");
-      const underWarranty = field(row, "under_warranty");
-      const serviceStatus = field(row, "service_status");
+      const fieldErrors: FieldErrors = {};
 
-      // Required-field checks: only when the column is present in the effective map.
-      // Missing columns are surfaced by the mapping banner, not per-row.
-      if (hasCol("name") && !name) errors.push("Customer Name is missing for this row");
+      const eircode = field("eircode");
+      const boilerType = field("boiler_type");
+      const underWarranty = field("under_warranty");
+      const serviceStatus = field("service_status");
+
+      if (hasCol("name") && !name) {
+        const msg = "Customer Name is missing for this row";
+        errors.push(msg);
+        fieldErrors.name = "Required";
+      }
 
       if (hasCol("phone")) {
-        const rawPhone = phone;
-        if (!rawPhone) {
+        if (!phone) {
           errors.push("Phone is missing for this row");
+          fieldErrors.phone = "Required";
         } else {
-          const phoneValidation = validateImportPhone(rawPhone);
+          const phoneValidation = validateImportPhone(phone);
           if (!phoneValidation.valid) {
-            errors.push(`Phone '${rawPhone}' isn't a valid format`);
+            errors.push(`Phone '${phone}' isn't a valid format`);
+            fieldErrors.phone = "Invalid phone format";
           }
         }
       }
 
-      if (hasCol("address") && !address) errors.push("Address is missing for this row");
-      if (hasCol("eircode") && !eircode) errors.push("Eircode is missing for this row");
+      if (hasCol("address") && !address) {
+        errors.push("Address is missing for this row");
+        fieldErrors.address = "Required";
+      }
+      if (hasCol("eircode") && !eircode) {
+        errors.push("Eircode is missing for this row");
+        fieldErrors.eircode = "Required";
+      }
 
-      if (boilerType && !["Gas", "Oil"].includes(boilerType))
+      if (boilerType && !["Gas", "Oil"].includes(boilerType)) {
         errors.push(`Boiler Type '${boilerType}' must be Gas or Oil`);
-      if (underWarranty && !["Yes", "No"].includes(underWarranty))
+        fieldErrors.boiler_type = "Must be Gas or Oil";
+      }
+      if (underWarranty && !["Yes", "No"].includes(underWarranty)) {
         errors.push(`Under Warranty '${underWarranty}' must be Yes or No`);
-      if (serviceStatus && !["Overdue", "Due Soon", "Up to Date"].includes(serviceStatus))
+        fieldErrors.under_warranty = "Must be Yes or No";
+      }
+      if (serviceStatus && !["Overdue", "Due Soon", "Up to Date"].includes(serviceStatus)) {
         errors.push(`Status '${serviceStatus}' must be: Overdue, Due Soon, or Up to Date`);
+        fieldErrors.service_status = "Must be Overdue, Due Soon, or Up to Date";
+      }
 
-      // Date validations
       const dateFieldKeys = [
         { key: "boiler_installation_date", label: "Installation Date" },
         { key: "last_service_date", label: "Last Service Date" },
@@ -319,73 +352,123 @@ const ImportCustomers = () => {
         { key: "customer_since", label: "Customer Since" },
       ];
       for (const df of dateFieldKeys) {
-        const rawVal = rawField(row, df.key);
+        const rawVal = rawField(df.key);
         if (!rawVal) continue;
         if (rawVal instanceof Date) continue;
         if (!parseDate(rawVal)) {
           errors.push(
             `${df.label} '${String(rawVal)}' isn't a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`
           );
+          fieldErrors[df.key] = "Invalid date";
         }
       }
 
-      // Compute normalised phone only when valid (for the preview + insert)
       const normalisedPhone = hasCol("phone")
         ? (validateImportPhone(phone).normalized || phone)
         : "";
 
-      results.push({
-        rowNum: headerIdx + 2 + i,
+      return {
+        rowNum: hdrIdx + 2 + srcIndex,
+        srcIndex,
         data: {
           name,
           phone: normalisedPhone,
-          email: field(row, "email"),
+          email: field("email"),
           address,
           eircode,
           area_code: (() => {
-            const ac = field(row, "area_code");
+            const ac = field("area_code");
             return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac;
           })(),
-          access_notes: field(row, "access_notes"),
-          boiler_brand: field(row, "boiler_brand"),
-          boiler_model: field(row, "boiler_model"),
-          // TEMP: keep boiler_make_model in sync until downstream consumers
-          // migrate to boiler_brand/boiler_model.
+          access_notes: field("access_notes"),
+          boiler_brand: field("boiler_brand"),
+          boiler_model: field("boiler_model"),
           boiler_make_model:
-            [field(row, "boiler_brand"), field(row, "boiler_model")]
+            [field("boiler_brand"), field("boiler_model")]
               .filter(Boolean)
               .join(" ") || null,
           boiler_type: boilerType || null,
-          boiler_installation_date: parseDate(rawField(row, "boiler_installation_date")),
+          boiler_installation_date: parseDate(rawField("boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
           warranty_years: (() => {
-            const raw = field(row, "warranty_years");
+            const raw = field("warranty_years");
             if (!raw) return null;
             const n = parseInt(raw, 10);
             return Number.isFinite(n) ? n : null;
           })(),
-          owner_or_tenant: field(row, "owner_or_tenant") || null,
-          last_service_date: parseDate(rawField(row, "last_service_date")),
-          last_service_engineer: field(row, "last_service_engineer"),
-          engineer_notes: field(row, "engineer_notes"),
-          next_service_due: parseDate(rawField(row, "next_service_due")),
+          owner_or_tenant: field("owner_or_tenant") || null,
+          last_service_date: parseDate(rawField("last_service_date")),
+          last_service_engineer: field("last_service_engineer"),
+          engineer_notes: field("engineer_notes"),
+          next_service_due: parseDate(rawField("next_service_due")),
           service_status: serviceStatus || "Up to Date",
-          assigned_engineer: field(row, "assigned_engineer"),
-          notes: field(row, "notes"),
-          customer_since: parseDate(rawField(row, "customer_since")),
+          assigned_engineer: field("assigned_engineer"),
+          notes: field("notes"),
+          customer_since: parseDate(rawField("customer_since")),
         },
         errors,
+        fieldErrors,
         isValid: errors.length === 0,
-      });
+      };
+    },
+    []
+  );
+
+  /** Step 2: pure function of dataRows + effective colMap + rowEdits. Re-runs on remap. */
+  const runRowValidation = useCallback(() => {
+    if (!validated || dataRows.length === 0) {
+      setParsedRows([]);
+      return;
     }
-
+    const results: ParsedRow[] = [];
+    for (let i = 0; i < dataRows.length; i++) {
+      const built = buildRow(dataRows[i], i, effectiveColMap, rowEdits[i], headerIdx);
+      if (!built) break; // stop at first empty row (same behaviour as before)
+      results.push(built);
+    }
     setParsedRows(results);
-  }, [validated, dataRows, effectiveColMap, headerIdx]);
+  }, [validated, dataRows, effectiveColMap, headerIdx, rowEdits, buildRow]);
 
-  // Re-validate whenever the effective mapping (auto + manual) or data changes.
+  // Full re-validate whenever mapping/data changes. rowEdits are handled per-row below,
+  // but we include them so remaps still see current edits.
   useEffect(() => {
     runRowValidation();
-  }, [runRowValidation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validated, dataRows, effectiveColMap, headerIdx]);
+
+  // Reset page whenever mapping or data changes
+  useEffect(() => {
+    setPage(1);
+  }, [dataRows, effectiveColMap]);
+
+  /** Re-validate a single row in place after an edit. */
+  const revalidateRow = useCallback(
+    (srcIndex: number, nextEdits: Record<string, string>) => {
+      const row = dataRows[srcIndex];
+      if (!row) return;
+      const built = buildRow(row, srcIndex, effectiveColMap, nextEdits, headerIdx);
+      if (!built) return;
+      setParsedRows((prev) => {
+        const idx = prev.findIndex((r) => r.srcIndex === srcIndex);
+        if (idx === -1) return prev;
+        const next = prev.slice();
+        next[idx] = built;
+        return next;
+      });
+    },
+    [dataRows, effectiveColMap, headerIdx, buildRow]
+  );
+
+  const updateEdit = (srcIndex: number, fieldKey: string, value: string) => {
+    setRowEdits((prev) => {
+      const rowMap = { ...(prev[srcIndex] || {}) };
+      rowMap[fieldKey] = value;
+      const next = { ...prev, [srcIndex]: rowMap };
+      // Re-validate on next tick so state has settled.
+      queueMicrotask(() => revalidateRow(srcIndex, rowMap));
+      return next;
+    });
+  };
 
   const cleanData = (raw: Record<string, any>): Record<string, any> => {
     const required = ["name", "phone", "address", "eircode"];
@@ -468,7 +551,11 @@ const ImportCustomers = () => {
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
   const errorCount = parsedRows.filter((r) => !r.isValid).length;
-  const displayRows = parsedRows.slice(0, 20);
+  const needsCheckCount = 0; // placeholder: no non-blocking warning severity yet
+  const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
+  const pageStart = (clampedPage - 1) * PAGE_SIZE;
+  const displayRows = parsedRows.slice(pageStart, pageStart + PAGE_SIZE);
   const importBlocked = missingRequired.length > 0;
 
   // For dropdowns: which raw-header indices are already assigned to some field
@@ -478,18 +565,8 @@ const ImportCustomers = () => {
     return s;
   }, [effectiveColMap]);
 
-  // Field → header display: which raw header maps to a field currently
-  const fieldToHeader = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const [fieldKey, colIdx] of Object.entries(effectiveColMap)) {
-      m[fieldKey] = rawHeaders[colIdx] || `Column ${colIdx + 1}`;
-    }
-    return m;
-  }, [effectiveColMap, rawHeaders]);
-
   const setFieldMapping = (fieldKey: string, value: string) => {
     if (value === "") {
-      // Leave blank / clear manual override
       setManualMap((prev) => {
         const next = { ...prev };
         delete next[fieldKey];
@@ -522,6 +599,45 @@ const ImportCustomers = () => {
           );
         })}
       </select>
+    );
+  };
+
+  /** Session-only editable cell for the preview table. */
+  const EditableCell = ({
+    row,
+    fieldKey,
+    display,
+  }: {
+    row: ParsedRow;
+    fieldKey: string;
+    display: string;
+  }) => {
+    const editValue = rowEdits[row.srcIndex]?.[fieldKey];
+    const shownValue = editValue !== undefined ? editValue : display;
+    const err = row.fieldErrors[fieldKey];
+    const [local, setLocal] = useState(shownValue);
+
+    // Keep local in sync when upstream row changes (remap, page change).
+    useEffect(() => {
+      setLocal(shownValue);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shownValue]);
+
+    return (
+      <div className="space-y-1">
+        <input
+          type="text"
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          onBlur={() => {
+            if (local !== shownValue) updateEdit(row.srcIndex, fieldKey, local);
+          }}
+          className={`h-8 w-full rounded-md border bg-background px-2 text-xs ${
+            err ? "border-destructive ring-1 ring-destructive/40" : "border-input"
+          }`}
+        />
+        {err && <p className="text-[10px] text-destructive">{err}</p>}
+      </div>
     );
   };
 
@@ -587,8 +703,16 @@ const ImportCustomers = () => {
     );
   }
 
+  const importLabel = importBlocked
+    ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
+    : errorCount > 0
+    ? `Fix ${errorCount} row${errorCount === 1 ? "" : "s"} to continue`
+    : `Import ${validCount} customer${validCount === 1 ? "" : "s"}`;
+
+  const importDisabled = importBlocked || errorCount > 0 || validCount === 0;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <header className="border-b border-border bg-card">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
@@ -757,13 +881,15 @@ const ImportCustomers = () => {
             {!importBlocked && errorCount > 0 && validCount > 0 && (
               <div className="flex items-center gap-2 bg-accent/10 border border-accent/30 text-accent-foreground rounded-lg p-3">
                 <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm font-medium">{validCount} rows ready · {errorCount} rows have errors (shown in red below)</span>
+                <span className="text-sm font-medium">
+                  {validCount} rows ready · {errorCount} rows have errors — edit the red cells below to fix.
+                </span>
               </div>
             )}
             {!importBlocked && validCount === 0 && parsedRows.length > 0 && (
               <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-3">
                 <XCircle className="w-5 h-5" />
-                <span className="text-sm font-medium">No rows can be imported. Fix errors and re-upload.</span>
+                <span className="text-sm font-medium">No rows can be imported. Fix the red cells below.</span>
               </div>
             )}
 
@@ -775,13 +901,12 @@ const ImportCustomers = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Row</TableHead>
+                          <TableHead className="w-14">Row</TableHead>
                           <TableHead>Customer Name</TableHead>
                           <TableHead>Phone</TableHead>
                           <TableHead className="hidden md:table-cell">Address</TableHead>
                           <TableHead className="hidden md:table-cell">Eircode</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Validation</TableHead>
+                          <TableHead className="w-24">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -790,17 +915,24 @@ const ImportCustomers = () => {
                             key={r.rowNum}
                             className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
                           >
-                            <TableCell className="text-muted-foreground">{r.rowNum}</TableCell>
-                            <TableCell className="font-medium">{r.data.name}</TableCell>
-                            <TableCell>{r.data.phone}</TableCell>
-                            <TableCell className="hidden md:table-cell">{r.data.address}</TableCell>
-                            <TableCell className="hidden md:table-cell">{r.data.eircode}</TableCell>
-                            <TableCell>{r.data.service_status}</TableCell>
-                            <TableCell>
+                            <TableCell className="text-muted-foreground align-top pt-3">{r.rowNum}</TableCell>
+                            <TableCell className="min-w-[160px] align-top">
+                              <EditableCell row={r} fieldKey="name" display={r.data.name || ""} />
+                            </TableCell>
+                            <TableCell className="min-w-[140px] align-top">
+                              <EditableCell row={r} fieldKey="phone" display={r.data.phone || ""} />
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="address" display={r.data.address || ""} />
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell min-w-[120px] align-top">
+                              <EditableCell row={r} fieldKey="eircode" display={r.data.eircode || ""} />
+                            </TableCell>
+                            <TableCell className="align-top pt-3">
                               {r.isValid ? (
                                 <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
                               ) : (
-                                <Badge variant="destructive" title={r.errors.join(" · ")}>✕ {r.errors[0]}</Badge>
+                                <Badge variant="destructive" title={r.errors.join(" · ")}>✕ Error</Badge>
                               )}
                             </TableCell>
                           </TableRow>
@@ -808,35 +940,70 @@ const ImportCustomers = () => {
                       </TableBody>
                     </Table>
                   </div>
-                  {parsedRows.length > 20 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      Showing first 20 of {parsedRows.length} rows
-                    </p>
+
+                  {/* Pagination */}
+                  {parsedRows.length > PAGE_SIZE && (
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-border text-xs text-muted-foreground">
+                      <span>
+                        Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, parsedRows.length)} of {parsedRows.length}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          disabled={clampedPage <= 1}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                        </Button>
+                        <span>Page {clampedPage} of {totalPages}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={clampedPage >= totalPages}
+                        >
+                          Next <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
             )}
 
-            {/* Import button / progress */}
-            {importing ? (
+            {/* In-progress bar (footer hides while importing) */}
+            {importing && (
               <div className="space-y-2">
                 <Progress value={importProgress} className="h-1.5" />
                 <p className="text-sm text-center text-muted-foreground">Importing... {importProgress}%</p>
               </div>
-            ) : (
-              <Button
-                onClick={handleImport}
-                disabled={importBlocked || validCount === 0}
-                className="w-full"
-              >
-                {importBlocked
-                  ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
-                  : `Import ${validCount} Customers`}
-              </Button>
             )}
           </>
         )}
       </div>
+
+      {/* Sticky footer summary */}
+      {validated && parsedRows.length > 0 && !importing && (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-40">
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className="bg-success/10 text-success border border-success/30">
+                Ready: {validCount}
+              </Badge>
+              <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
+                Blocked: {errorCount}
+              </Badge>
+              <Badge variant="outline" className="text-muted-foreground">
+                Needs check: {needsCheckCount}
+              </Badge>
+            </div>
+            <Button onClick={handleImport} disabled={importDisabled}>
+              {importLabel}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
