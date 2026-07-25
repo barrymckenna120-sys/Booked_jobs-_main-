@@ -802,6 +802,7 @@ const TeamManagement = () => {
                           Deactivate
                         </DropdownMenuItem>
                       )}
+                    </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               );
