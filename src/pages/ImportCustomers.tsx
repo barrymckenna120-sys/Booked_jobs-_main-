@@ -994,9 +994,6 @@ const ImportCustomers = () => {
               <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
                 Blocked: {errorCount}
               </Badge>
-              <Badge variant="outline" className="text-muted-foreground">
-                Needs check: {needsCheckCount}
-              </Badge>
             </div>
             <Button onClick={handleImport} disabled={importDisabled}>
               {importLabel}
