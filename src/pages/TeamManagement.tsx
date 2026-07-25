@@ -338,6 +338,7 @@ const TeamManagement = () => {
 
   const handleUnblock = async (id: string) => {
     const member = members.find((m) => m.id === id);
+    const wasDeactivated = member?.status === "deactivated";
 
     // Clear auth ban AND reset engineers.status server-side.
     // engineers.status writes are restricted to admin/owner by RLS, so this
@@ -351,19 +352,26 @@ const TeamManagement = () => {
     });
     if (error) {
       console.error("[TeamManagement] unblock-user error:", error);
-      toast({ title: "Failed to unblock user", variant: "destructive" });
+      toast({
+        title: wasDeactivated ? "Failed to reactivate user" : "Failed to unblock user",
+        variant: "destructive",
+      });
       return;
     }
 
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
-    toast({ title: `${member?.name} has been unblocked` });
+    toast({
+      title: wasDeactivated
+        ? `${member?.name} has been reactivated`
+        : `${member?.name} has been unblocked`,
+    });
     logAudit({
-      action_type: "user_unblocked",
+      action_type: wasDeactivated ? "user_reactivated" : "user_unblocked",
       entity_type: "user",
       entity_id: id,
-      detail: `Unblocked: ${member?.name}`,
+      detail: `${wasDeactivated ? "Reactivated" : "Unblocked"}: ${member?.name}`,
     });
     // Refresh auth users list
     fetchAuthUsers();
