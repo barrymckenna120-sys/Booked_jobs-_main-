@@ -45,6 +45,19 @@ Deno.serve(async (req) => {
     const callerEmail = caller.email?.toLowerCase() ?? "";
     const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
     let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+    let bypassOrgCheck = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+    let callerOrgId: string | null = null;
+
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, organisation_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    if ((callerProfile as any)?.role === "superadmin") {
+      isAuthorized = true;
+      bypassOrgCheck = true;
+    }
+    callerOrgId = (callerProfile as any)?.organisation_id ?? null;
 
     if (!isAuthorized) {
       const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: caller.id });
@@ -73,6 +86,31 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Resolve target's organisation_id for cross-tenant guard.
+    let targetOrgId: string | null = null;
+    if (engineerId) {
+      const { data: engRow } = await supabaseAdmin
+        .from("engineers")
+        .select("organisation_id")
+        .eq("id", engineerId)
+        .maybeSingle();
+      targetOrgId = (engRow as any)?.organisation_id ?? null;
+    } else if (userId) {
+      const { data: profRow } = await supabaseAdmin
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      targetOrgId = (profRow as any)?.organisation_id ?? null;
+    }
+
+    if (!bypassOrgCheck && (!callerOrgId || !targetOrgId || callerOrgId !== targetOrgId)) {
+      return new Response(
+        JSON.stringify({ error: "Cross-tenant action not permitted" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Clear auth-side ban if a userId was provided
