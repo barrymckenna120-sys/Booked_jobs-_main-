@@ -11,6 +11,9 @@ const MAX_ADDRESS_LEN = 500;
 const MAX_TEXT_LEN = 1000;
 const MAX_SHORT_LEN = 100;
 
+const CLOUDINARY_CLOUD_NAME = Deno.env.get("CLOUDINARY_CLOUD_NAME") ?? "ddx2gnklt";
+const CLOUDINARY_TALLY_PRESET = Deno.env.get("CLOUDINARY_TALLY_UPLOAD_PRESET");
+
 const sanitize = (val: unknown, maxLen: number): string | null => {
   if (!val || typeof val !== "string") return null;
   return val.trim().substring(0, maxLen) || null;
@@ -387,30 +390,54 @@ Deno.serve(async (req) => {
         try {
           const fileUrl = typeof fileEntry === "string" ? fileEntry : fileEntry?.url;
           if (!fileUrl || typeof fileUrl !== "string") continue;
+          if (!CLOUDINARY_TALLY_PRESET) {
+            console.error("CLOUDINARY_TALLY_UPLOAD_PRESET secret not set — skipping upload");
+            continue;
+          }
 
           const fileResponse = await fetch(fileUrl);
-          const fileBuffer = await fileResponse.arrayBuffer();
-          const rawName =
-            typeof fileEntry === "object" && fileEntry?.name
-              ? (sanitize(fileEntry.name, MAX_SHORT_LEN) ?? `upload-${Date.now()}`)
-              : `upload-${Date.now()}`;
-          const fileName = rawName.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const storagePath = `customers/${customerId}/${job.id}/${fileName}`;
-          const isVideo = /\.(mp4|mov|avi|webm)$/i.test(fileName);
+          const contentLength = Number(fileResponse.headers.get("content-length") ?? 0);
+          const MAX_BYTES = 25 * 1024 * 1024;
+          if (contentLength > MAX_BYTES) {
+            console.error("File exceeds 25MB, skipping:", fileUrl, contentLength);
+            continue;
+          }
 
-          await supabase.storage.from("job-media").upload(storagePath, fileBuffer, {
-            contentType: fileResponse.headers.get("content-type") ?? "image/jpeg",
-            upsert: true,
-          });
+          const fileBuffer = await fileResponse.arrayBuffer();
+          const contentType = fileResponse.headers.get("content-type") ?? "application/octet-stream";
+          const allowedTypes = ["image/jpeg", "image/png", "image/heic", "image/webp", "video/mp4", "video/quicktime"];
+          if (!allowedTypes.includes(contentType)) {
+            console.error("Disallowed content type, skipping:", contentType);
+            continue;
+          }
+
+          const cloudinaryForm = new FormData();
+          cloudinaryForm.append("file", new Blob([fileBuffer], { type: contentType }));
+          cloudinaryForm.append("upload_preset", CLOUDINARY_TALLY_PRESET);
+          cloudinaryForm.append("folder", `tally-uploads/${orgData.id}/${job.id}`);
+          cloudinaryForm.append("tags", `org:${orgData.id},job:${job.id},source:tally`);
+
+          const cloudinaryRes = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+            { method: "POST", body: cloudinaryForm },
+          );
+          const cloudinaryData = await cloudinaryRes.json();
+
+          if (!cloudinaryRes.ok || !cloudinaryData.secure_url) {
+            console.error("Cloudinary upload failed:", cloudinaryData);
+            continue;
+          }
 
           await supabase.from("job_media").insert({
             job_id: job.id,
             customer_id: customerId,
             user_id: userId,
-            file_name: fileName,
-            file_type: isVideo ? "video" : "image",
-            storage_path: storagePath,
-            public_url: null,
+            organisation_id: orgData.id,
+            file_name: cloudinaryData.public_id,
+            file_type: cloudinaryData.resource_type === "video" ? "video" : "image",
+            storage_path: cloudinaryData.public_id,
+            storage_bucket: "cloudinary",
+            public_url: cloudinaryData.secure_url,
             uploaded_by: "customer",
           });
           fileCount++;
