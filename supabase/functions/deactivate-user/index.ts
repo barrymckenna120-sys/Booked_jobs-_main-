@@ -47,15 +47,19 @@ Deno.serve(async (req) => {
     const callerEmail = caller.email?.toLowerCase() ?? "";
     const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
     let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+    let bypassOrgCheck = PLATFORM_OWNER_EMAILS.includes(callerEmail);
+    let callerOrgId: string | null = null;
 
-    if (!isAuthorized) {
-      const { data: callerProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("user_id", caller.id)
-        .maybeSingle();
-      if ((callerProfile as any)?.role === "superadmin") isAuthorized = true;
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, organisation_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    if ((callerProfile as any)?.role === "superadmin") {
+      isAuthorized = true;
+      bypassOrgCheck = true;
     }
+    callerOrgId = (callerProfile as any)?.organisation_id ?? null;
 
     if (!isAuthorized) {
       const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: caller.id });
