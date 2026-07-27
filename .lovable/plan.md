@@ -1,23 +1,24 @@
-Test the cross-tenant guard on `deactivate-user` by calling it from your current preview session (assumed K&N admin/office) against Dublin Gas engineer Paul.
+## Test unblock-user cross-tenant guard
 
-## Call
+Two curl invocations against `/unblock-user` from the current preview session (K&N admin/office), plus a read-only DB check.
 
-- Path: `/deactivate-user`
-- Method: POST
-- Body: `{"engineerId":"5cfe22c3-4a41-478b-9132-00d6e3b288e1"}` (Dublin Gas — Paul, auth_user_id `0a338021-…`)
-- Authorization: auto-injected preview session token (your logged-in user)
+### Test 1 — cross-tenant (expect 403)
+- POST `/unblock-user` with body `{ "engineerId": "5cfe22c3-4a41-478b-9132-00d6e3b288e1" }` (Paul, Dublin Gas)
+- Expected: HTTP 403, `{ "error": "Cross-tenant action not permitted" }`
+- Report exact status + body
 
-Expected: `403 { "error": "Cross-tenant action not permitted" }` and no ban / no writes to Paul's engineer or profile row.
+### Test 2 — same-tenant (expect non-403)
+- POST `/unblock-user` with body `{ "engineerId": "a6f0f56b-c2a3-4517-9856-f42614a7560d" }` (barry manager, K&N, no auth_user_id)
+- Expected: passes guard, proceeds to normal unblock flow (success or downstream error — not 403)
+- Report exact status + body
 
-## After the call
+### Post-test verification (read-only)
+Query the DB for Paul's target rows to confirm Test 1 made zero changes:
+- `engineers` row `5cfe22c3-4a41-478b-9132-00d6e3b288e1`: `status`, `is_available`, `blocked_reason`
+- `profiles` row for auth_user_id `0a338021-c056-4c5c-a617-6deaa3a19e2f`: `is_active`, `deactivated_at`, `deactivated_by`
+- `auth.users` row for `0a338021-c056-4c5c-a617-6deaa3a19e2f`: `banned_until` (compare vs pre-test value `2026-07-13 13:18:17.030636+00`)
 
-1. Report HTTP status + raw response body.
-2. Read-only verification that nothing changed:
-   - `auth.users.banned_until` for `0a338021-c056-4c5c-a617-6deaa3a19e2f` still null.
-   - `engineers.status` for `5cfe22c3-…` still `active`.
-   - `profiles.is_active` / `deactivated_at` for `0a338021-…` unchanged.
-3. If the response is anything other than 403 with that error, flag it and stop — do not retry with different inputs.
+### Deliverable
+Report both HTTP statuses + response bodies, plus the three verification row snapshots confirming no cross-tenant mutation occurred.
 
-## Note
-
-Only runs correctly if your current preview session is a K&N admin/office user (not superadmin / platform owner, which would bypass the guard). If the response comes back 200 success, first thing to check is whether the caller was actually a K&N-scoped role.
+No code changes.
