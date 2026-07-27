@@ -44,6 +44,7 @@ import {
   Wrench,
   Ban,
   Trash2,
+  UserX,
   UserCheck,
   Mail,
   Link,
@@ -378,7 +379,7 @@ const TeamManagement = () => {
   };
 
 
-  const handleDelete = async () => {
+  const handleDeactivate = async () => {
     if (!deleteTarget) return;
 
     // Soft-delete via edge function: bans auth login, marks profile inactive,
@@ -388,16 +389,21 @@ const TeamManagement = () => {
     });
 
     if (error || data?.error) {
-      if (data?.error === "active_jobs") {
+      const errCode = data?.error;
+      if (errCode === "active_jobs") {
         const count = data.count ?? 0;
         toast({
           title: `Cannot deactivate ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
           variant: "destructive",
         });
+      } else if (errCode === "Cross-tenant action not permitted") {
+        toast({
+          title: "Unable to complete this action",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Failed to deactivate user",
-          description: data?.error || error?.message,
           variant: "destructive",
         });
       }
@@ -412,7 +418,7 @@ const TeamManagement = () => {
           : m,
       ),
     );
-    toast({ title: `${deleteTarget.name} has been deactivated` });
+    toast({ title: `${deleteTarget.name} deactivated` });
     logAudit({
       action_type: "user_deactivated",
       entity_type: "user",
@@ -710,13 +716,23 @@ const TeamManagement = () => {
                   {/* Role badge */}
                   {(() => {
                     const isDeactivated = member.status === "deactivated";
-                    const pillLabel = isDeactivated ? "Deactivated" : isBlocked ? "Blocked" : role.label;
+                    const isHardBlocked = isBlocked && !isDeactivated;
+                    const pillLabel = isDeactivated ? "Deactivated" : isHardBlocked ? "Blocked" : role.label;
+                    const pillClass = isDeactivated
+                      ? "bg-muted text-muted-foreground border-border"
+                      : isHardBlocked
+                      ? "bg-destructive/10 text-destructive border-destructive/20"
+                      : ROLE_COLORS[member.role] || "";
+                    const pillIcon = isDeactivated ? (
+                      <UserX className="w-3 h-3" />
+                    ) : isHardBlocked ? (
+                      <Ban className="w-3 h-3" />
+                    ) : (
+                      role.icon
+                    );
                     return (
-                      <Badge
-                        variant="outline"
-                        className={`shrink-0 gap-1 ${isBlocked ? "bg-destructive/10 text-destructive border-destructive/20" : ROLE_COLORS[member.role] || ""}`}
-                      >
-                        {isBlocked ? <Ban className="w-3 h-3" /> : role.icon}
+                      <Badge variant="outline" className={`shrink-0 gap-1 ${pillClass}`}>
+                        {pillIcon}
                         {pillLabel}
                       </Badge>
                     );
@@ -962,14 +978,13 @@ const TeamManagement = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate {deleteTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              They will lose access immediately and be removed from assign dropdowns.
-              Their job history stays intact and you can reactivate them any time.
+              Their access will be revoked and they can be reactivated later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={handleDeactivate}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Deactivate
