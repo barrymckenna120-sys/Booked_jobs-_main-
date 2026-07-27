@@ -105,6 +105,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Cross-tenant guard: fail closed on null on either side.
+    const targetOrgId = (engineer as any).organisation_id ?? null;
+    if (!bypassOrgCheck && (!callerOrgId || !targetOrgId || callerOrgId !== targetOrgId)) {
+      return new Response(
+        JSON.stringify({ error: "Cross-tenant action not permitted" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Guard: active jobs assigned. Uses TitleCase to match service_calls.status.
     const { data: activeJobs, error: activeJobsError } = await supabaseAdmin
       .from("service_calls")
@@ -130,7 +139,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Mark engineer deactivated
+    // Write sequence: ban first (if there's an auth user), then engineers, then profiles.
+    // Any failure after a successful ban triggers a rollback of the ban.
+    let banIssued = false;
+
+    const reverseBan = async (reason: string) => {
+      if (!banIssued || !engineer.auth_user_id) return;
+      const { error: rbErr } = await supabaseAdmin.auth.admin.updateUserById(
+        engineer.auth_user_id,
+        { ban_duration: "none" },
+      );
+      if (rbErr) {
+        console.error(`[deactivate-user] ROLLBACK FAILED after ${reason}:`, rbErr);
+      }
+    };
+
+    // 1. Ban auth login FIRST (if linked to an auth user).
+    if (engineer.auth_user_id) {
+      const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(
+        engineer.auth_user_id,
+        { ban_duration: DEACTIVATE_BAN_DURATION },
+      );
+      if (banErr) {
+        console.error("[deactivate-user] BAN FAILED:", banErr);
+        return new Response(JSON.stringify({ error: "Failed to ban auth user" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      banIssued = true;
+    }
+
+    // 2. Mark engineer deactivated.
     const { error: updEngErr } = await supabaseAdmin
       .from("engineers")
       .update({
@@ -142,15 +182,16 @@ Deno.serve(async (req) => {
 
     if (updEngErr) {
       console.error("[deactivate-user] engineers update error:", updEngErr);
+      await reverseBan("engineers update error");
       return new Response(JSON.stringify({ error: "Failed to deactivate engineer" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 2. If linked to an auth user, mark profile inactive + ban auth login.
+    // 3. Mark profile inactive (only if linked to an auth user).
     if (engineer.auth_user_id) {
-      await supabaseAdmin
+      const { error: updProfErr } = await supabaseAdmin
         .from("profiles")
         .update({
           is_active: false,
@@ -159,13 +200,13 @@ Deno.serve(async (req) => {
         } as any)
         .eq("user_id", engineer.auth_user_id);
 
-      const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(
-        engineer.auth_user_id,
-        { ban_duration: DEACTIVATE_BAN_DURATION },
-      );
-      if (banErr) {
-        console.error("[deactivate-user] auth ban error:", banErr);
-        // Non-fatal — status change is enough to hide them from listings.
+      if (updProfErr) {
+        console.error("[deactivate-user] profiles update error:", updProfErr);
+        await reverseBan("profiles update error");
+        return new Response(JSON.stringify({ error: "Failed to deactivate profile" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
