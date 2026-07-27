@@ -1,126 +1,55 @@
-# Cloudinary upload swap in `tally-incoming-job`
+## Plan
 
-Scope: single file — `supabase/functions/tally-incoming-job/index.ts`. No other file, no other logic touched.
+### 1. Migration (single call to `supabase--migration`)
 
-## Changes
+```sql
+-- Pre-flight checks: abort with clear error if bad data exists
+DO $$
+DECLARE
+  v_orphans int;
+  v_bad_status int;
+BEGIN
+  SELECT count(*) INTO v_orphans
+  FROM public.profiles p
+  WHERE p.deactivated_by IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = p.deactivated_by);
 
-### 1. Add two env reads near the top of the module
+  IF v_orphans > 0 THEN
+    RAISE EXCEPTION 'ABORT: % profiles.deactivated_by rows reference missing auth.users. Report offending rows before proceeding.', v_orphans;
+  END IF;
 
-Insert immediately after the existing constants block (after line 12, before `sanitize`):
+  SELECT count(*) INTO v_bad_status
+  FROM public.engineers
+  WHERE status NOT IN ('active','blocked','deactivated');
 
-```ts
-const CLOUDINARY_CLOUD_NAME = Deno.env.get("CLOUDINARY_CLOUD_NAME") ?? "ddx2gnklt";
-const CLOUDINARY_TALLY_PRESET = Deno.env.get("CLOUDINARY_TALLY_UPLOAD_PRESET");
+  IF v_bad_status > 0 THEN
+    RAISE EXCEPTION 'ABORT: % engineers rows have status outside (active,blocked,deactivated). Report offending rows before proceeding.', v_bad_status;
+  END IF;
+END $$;
+
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_deactivated_by_fkey
+  FOREIGN KEY (deactivated_by) REFERENCES auth.users(id);
+
+ALTER TABLE public.engineers
+  ADD CONSTRAINT engineers_status_check
+  CHECK (status IN ('active','blocked','deactivated'));
 ```
 
-### 2. Replace the per-file loop body (current lines 385–420)
+Behavior: if pre-flight finds orphan `deactivated_by` values or out-of-range `engineers.status` values, the migration raises and rolls back. I will then run a SELECT to enumerate the offending rows and report them — no data cleanup, no forced constraint.
 
-Current body writes to Supabase Storage (`job-media` bucket) and inserts a `job_media` row missing `organisation_id`. New body uploads to Cloudinary via unsigned preset with size + content-type gates, then inserts `job_media` with `organisation_id` set and `storage_bucket: "cloudinary"`.
+If pre-flight passes, both constraints are added.
 
-### Diff (unified)
+### 2. Report file contents
 
-```diff
-@@ near top of file, after MAX_SHORT_LEN
- const MAX_SHORT_LEN = 100;
-+
-+const CLOUDINARY_CLOUD_NAME = Deno.env.get("CLOUDINARY_CLOUD_NAME") ?? "ddx2gnklt";
-+const CLOUDINARY_TALLY_PRESET = Deno.env.get("CLOUDINARY_TALLY_UPLOAD_PRESET");
+After migration, I will paste back the full current source of:
+- `supabase/functions/deactivate-user/index.ts`
+- `supabase/functions/unblock-user/index.ts`
 
-@@ inside "Handle photo/video uploads if provided as URLs"
-   for (const fileEntry of urls) {
-     if (fileCount >= 10) break;
-     try {
-       const fileUrl = typeof fileEntry === "string" ? fileEntry : fileEntry?.url;
-       if (!fileUrl || typeof fileUrl !== "string") continue;
--
--      const fileResponse = await fetch(fileUrl);
--      const fileBuffer = await fileResponse.arrayBuffer();
--      const rawName =
--        typeof fileEntry === "object" && fileEntry?.name
--          ? (sanitize(fileEntry.name, MAX_SHORT_LEN) ?? `upload-${Date.now()}`)
--          : `upload-${Date.now()}`;
--      const fileName = rawName.replace(/[^a-zA-Z0-9._-]/g, "_");
--      const storagePath = `customers/${customerId}/${job.id}/${fileName}`;
--      const isVideo = /\.(mp4|mov|avi|webm)$/i.test(fileName);
--
--      await supabase.storage.from("job-media").upload(storagePath, fileBuffer, {
--        contentType: fileResponse.headers.get("content-type") ?? "image/jpeg",
--        upsert: true,
--      });
--
--      await supabase.from("job_media").insert({
--        job_id: job.id,
--        customer_id: customerId,
--        user_id: userId,
--        file_name: fileName,
--        file_type: isVideo ? "video" : "image",
--        storage_path: storagePath,
--        public_url: null,
--        uploaded_by: "customer",
--      });
--      fileCount++;
-+      if (!CLOUDINARY_TALLY_PRESET) {
-+        console.error("CLOUDINARY_TALLY_UPLOAD_PRESET secret not set — skipping upload");
-+        continue;
-+      }
-+
-+      const fileResponse = await fetch(fileUrl);
-+      const contentLength = Number(fileResponse.headers.get("content-length") ?? 0);
-+      const MAX_BYTES = 25 * 1024 * 1024;
-+      if (contentLength > MAX_BYTES) {
-+        console.error("File exceeds 25MB, skipping:", fileUrl, contentLength);
-+        continue;
-+      }
-+
-+      const fileBuffer = await fileResponse.arrayBuffer();
-+      const contentType = fileResponse.headers.get("content-type") ?? "application/octet-stream";
-+      const allowedTypes = ["image/jpeg", "image/png", "image/heic", "image/webp", "video/mp4", "video/quicktime"];
-+      if (!allowedTypes.includes(contentType)) {
-+        console.error("Disallowed content type, skipping:", contentType);
-+        continue;
-+      }
-+
-+      const cloudinaryForm = new FormData();
-+      cloudinaryForm.append("file", new Blob([fileBuffer], { type: contentType }));
-+      cloudinaryForm.append("upload_preset", CLOUDINARY_TALLY_PRESET);
-+      cloudinaryForm.append("folder", `tally-uploads/${orgData.id}/${job.id}`);
-+      cloudinaryForm.append("tags", `org:${orgData.id},job:${job.id},source:tally`);
-+
-+      const cloudinaryRes = await fetch(
-+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-+        { method: "POST", body: cloudinaryForm },
-+      );
-+      const cloudinaryData = await cloudinaryRes.json();
-+
-+      if (!cloudinaryRes.ok || !cloudinaryData.secure_url) {
-+        console.error("Cloudinary upload failed:", cloudinaryData);
-+        continue;
-+      }
-+
-+      await supabase.from("job_media").insert({
-+        job_id: job.id,
-+        customer_id: customerId,
-+        user_id: userId,
-+        organisation_id: orgData.id,
-+        file_name: cloudinaryData.public_id,
-+        file_type: cloudinaryData.resource_type === "video" ? "video" : "image",
-+        storage_path: cloudinaryData.public_id,
-+        storage_bucket: "cloudinary",
-+        public_url: cloudinaryData.secure_url,
-+        uploaded_by: "customer",
-+      });
-+      fileCount++;
-     } catch (fileErr) {
-       console.error("File upload error:", fileErr);
-     }
-   }
-```
+(Already in context; will render verbatim in the reply.)
 
-## Confirmation of untouched code
+### 3. Deliverable
 
-Nothing else in the file changes — CORS, auth (`x-webhook-secret`), sanitization, phone/email validation, org lookup, submission-idempotency, customer upsert, service_call insert, race-condition retry, and notification insert all remain byte-identical.
-
-## Follow-ups (not part of this change)
-
-- `CLOUDINARY_TALLY_UPLOAD_PRESET` secret must exist for uploads to run; without it uploads are skipped with a log line (job still created). I can request it via `add_secret` after you approve.
-- `job_media.storage_bucket` column must accept `"cloudinary"`. If it's a check-constrained enum, insert will fail — worth a one-line schema check before deploy.
+- Migration result (applied or aborted with offending row listing).
+- Both edge function sources in full.
+- No code changes to the edge functions.
