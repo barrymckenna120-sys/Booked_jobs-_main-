@@ -388,10 +388,20 @@ const TeamManagement = () => {
       body: { engineerId: deleteTarget.id },
     });
 
-    if (error || data?.error) {
-      const errCode = data?.error;
+    // supabase-js treats non-2xx as an error; parse the response body for the error code.
+    let payload: any = data;
+    if (error && (error as any).context?.response) {
+      try {
+        payload = await (error as any).context.response.clone().json();
+      } catch {
+        payload = null;
+      }
+    }
+
+    if (error || payload?.error) {
+      const errCode = payload?.error;
       if (errCode === "active_jobs") {
-        const count = data.count ?? 0;
+        const count = payload.count ?? 0;
         toast({
           title: `Cannot deactivate ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
           variant: "destructive",
@@ -410,6 +420,7 @@ const TeamManagement = () => {
       setDeleteTarget(null);
       return;
     }
+
 
     setMembers((prev) =>
       prev.map((m) =>
