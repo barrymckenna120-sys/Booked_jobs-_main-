@@ -1,55 +1,23 @@
-## Plan
+Test the cross-tenant guard on `deactivate-user` by calling it from your current preview session (assumed K&N admin/office) against Dublin Gas engineer Paul.
 
-### 1. Migration (single call to `supabase--migration`)
+## Call
 
-```sql
--- Pre-flight checks: abort with clear error if bad data exists
-DO $$
-DECLARE
-  v_orphans int;
-  v_bad_status int;
-BEGIN
-  SELECT count(*) INTO v_orphans
-  FROM public.profiles p
-  WHERE p.deactivated_by IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = p.deactivated_by);
+- Path: `/deactivate-user`
+- Method: POST
+- Body: `{"engineerId":"5cfe22c3-4a41-478b-9132-00d6e3b288e1"}` (Dublin Gas — Paul, auth_user_id `0a338021-…`)
+- Authorization: auto-injected preview session token (your logged-in user)
 
-  IF v_orphans > 0 THEN
-    RAISE EXCEPTION 'ABORT: % profiles.deactivated_by rows reference missing auth.users. Report offending rows before proceeding.', v_orphans;
-  END IF;
+Expected: `403 { "error": "Cross-tenant action not permitted" }` and no ban / no writes to Paul's engineer or profile row.
 
-  SELECT count(*) INTO v_bad_status
-  FROM public.engineers
-  WHERE status NOT IN ('active','blocked','deactivated');
+## After the call
 
-  IF v_bad_status > 0 THEN
-    RAISE EXCEPTION 'ABORT: % engineers rows have status outside (active,blocked,deactivated). Report offending rows before proceeding.', v_bad_status;
-  END IF;
-END $$;
+1. Report HTTP status + raw response body.
+2. Read-only verification that nothing changed:
+   - `auth.users.banned_until` for `0a338021-c056-4c5c-a617-6deaa3a19e2f` still null.
+   - `engineers.status` for `5cfe22c3-…` still `active`.
+   - `profiles.is_active` / `deactivated_at` for `0a338021-…` unchanged.
+3. If the response is anything other than 403 with that error, flag it and stop — do not retry with different inputs.
 
-ALTER TABLE public.profiles
-  ADD CONSTRAINT profiles_deactivated_by_fkey
-  FOREIGN KEY (deactivated_by) REFERENCES auth.users(id);
+## Note
 
-ALTER TABLE public.engineers
-  ADD CONSTRAINT engineers_status_check
-  CHECK (status IN ('active','blocked','deactivated'));
-```
-
-Behavior: if pre-flight finds orphan `deactivated_by` values or out-of-range `engineers.status` values, the migration raises and rolls back. I will then run a SELECT to enumerate the offending rows and report them — no data cleanup, no forced constraint.
-
-If pre-flight passes, both constraints are added.
-
-### 2. Report file contents
-
-After migration, I will paste back the full current source of:
-- `supabase/functions/deactivate-user/index.ts`
-- `supabase/functions/unblock-user/index.ts`
-
-(Already in context; will render verbatim in the reply.)
-
-### 3. Deliverable
-
-- Migration result (applied or aborted with offending row listing).
-- Both edge function sources in full.
-- No code changes to the edge functions.
+Only runs correctly if your current preview session is a K&N admin/office user (not superadmin / platform owner, which would bypass the guard). If the response comes back 200 success, first thing to check is whether the caller was actually a K&N-scoped role.
