@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS message_log_insert_dublin_gas ON public.message_log;
