@@ -264,15 +264,16 @@ const Auth = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
+          <h1 className="sr-only">Sign in to your BookedJobs account</h1>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
