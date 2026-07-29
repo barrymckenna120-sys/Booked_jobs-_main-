@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
+import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
 import { installOrgHeaderInterceptor } from "./integrations/supabase/orgHeaderInterceptor";
@@ -15,7 +16,9 @@ Sentry.init({
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>
-      <App />
+      <HelmetProvider>
+        <App />
+      </HelmetProvider>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );

@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import PageSeo from "@/components/seo/PageSeo";
 
 const TermsAndConditions = () => (
   <main className="min-h-screen bg-background">
+    <PageSeo
+      title="Terms & Conditions — BookedJobs"
+      description="Terms governing use of the BookedJobs platform by plumbing and heating businesses in Ireland."
+      path="/terms-and-conditions"
+    />
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8">
         <ArrowLeft className="w-4 h-4" /> Back to Home

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
+import PageSeo from "@/components/seo/PageSeo";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLandingPath } from "@/lib/resolveLandingPath";
@@ -205,6 +206,12 @@ const Auth = () => {
   if (isForgotPassword) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <PageSeo
+          title="Reset your password — BookedJobs"
+          description="Reset the password for your BookedJobs account."
+          path="/auth"
+          noindex
+        />
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
@@ -270,6 +277,12 @@ const Auth = () => {
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center px-4">
+      <PageSeo
+        title="Sign in — BookedJobs"
+        description="Sign in to your BookedJobs account to manage bookings, customers, service calls and scheduling."
+        path="/auth"
+        noindex
+      />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
@@ -328,7 +341,7 @@ const Auth = () => {
               <button
                 type="button"
                 onClick={() => setIsForgotPassword(true)}
-                className="text-xs text-primary hover:underline"
+                className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
               >
                 Forgot your password?
               </button>
