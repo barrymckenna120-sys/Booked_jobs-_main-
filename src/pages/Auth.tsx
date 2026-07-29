@@ -277,6 +277,12 @@ const Auth = () => {
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center px-4">
+      <PageSeo
+        title="Sign in — BookedJobs"
+        description="Sign in to your BookedJobs account to manage bookings, customers, service calls and scheduling."
+        path="/auth"
+        noindex
+      />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
