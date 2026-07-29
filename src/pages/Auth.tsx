@@ -204,10 +204,11 @@ const Auth = () => {
 
   if (isForgotPassword) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
+            <h1 className="sr-only">Reset your BookedJobs password</h1>
             <CardTitle className="text-lg">Reset Your Password</CardTitle>
             <CardDescription>
               {resetSent
