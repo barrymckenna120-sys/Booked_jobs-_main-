@@ -374,7 +374,7 @@ const Auth = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 };
 
