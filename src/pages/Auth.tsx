@@ -204,10 +204,11 @@ const Auth = () => {
 
   if (isForgotPassword) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
+            <h1 className="sr-only">Reset your BookedJobs password</h1>
             <CardTitle className="text-lg">Reset Your Password</CardTitle>
             <CardDescription>
               {resetSent
@@ -263,15 +264,16 @@ const Auth = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
+          <h1 className="sr-only">Sign in to your BookedJobs account</h1>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
@@ -317,6 +319,7 @@ const Auth = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -371,7 +374,7 @@ const Auth = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 };
 
