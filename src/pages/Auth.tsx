@@ -206,6 +206,12 @@ const Auth = () => {
   if (isForgotPassword) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <PageSeo
+          title="Reset your password — BookedJobs"
+          description="Reset the password for your BookedJobs account."
+          path="/auth"
+          noindex
+        />
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <img src={bookedJobsLogo} alt="BookedJobs" className="h-10 mx-auto mb-2" />
