@@ -16,7 +16,9 @@ Sentry.init({
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>
-      <App />
+      <HelmetProvider>
+        <App />
+      </HelmetProvider>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );
