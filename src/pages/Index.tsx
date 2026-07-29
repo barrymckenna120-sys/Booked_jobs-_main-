@@ -1,3 +1,4 @@
+import PageSeo from "@/components/seo/PageSeo";
 import { HeaderSection } from "@/components/landing/HeaderSection";
 import { StickyHeader } from "@/components/landing/StickyHeader";
 import MarketingOfflineGate from "@/components/landing/MarketingOfflineGate";
