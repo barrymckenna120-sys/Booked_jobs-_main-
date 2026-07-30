@@ -510,6 +510,20 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
 
         <div className="grid grid-cols-2 gap-3">
           <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">GPRN</Label>
+            <Input value={gprn} onChange={(e) => setGprn(e.target.value)} placeholder="e.g. 1234567" className="mt-1" />
+            {gprn.trim() && !isValidGprnFormat(gprn) && (
+              <p className="text-[11px] text-amber-600 mt-1">{GPRN_WARNING_MESSAGE}</p>
+            )}
+          </div>
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Location</Label>
+            <Input value={boilerLocation} onChange={(e) => setBoilerLocation(e.target.value)} placeholder="e.g. kitchen, attic, utility room" className="mt-1" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Area</Label>
             <Input value={areaCode} onChange={(e) => setAreaCode(e.target.value)} placeholder="e.g. Kilmainham, Dublin 8" className="mt-1" />
           </div>
