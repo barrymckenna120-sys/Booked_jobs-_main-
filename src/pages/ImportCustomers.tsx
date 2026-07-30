@@ -24,6 +24,8 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "eircode": "eircode",
   "area code": "area_code",
   "area": "area_code",
+  "gprn": "gprn",
+  "gas point reference number": "gprn",
   "access notes": "access_notes",
   "boiler brand": "boiler_brand",
   "boiler make": "boiler_brand",
@@ -54,6 +56,7 @@ const FIELD_LABEL: Record<string, string> = {
   address: "Address",
   eircode: "Eircode",
   area_code: "Area Code",
+  gprn: "GPRN",
   access_notes: "Access Notes",
   boiler_brand: "Boiler Brand",
   boiler_model: "Boiler Model",
@@ -380,6 +383,7 @@ const ImportCustomers = () => {
             const ac = field("area_code");
             return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac;
           })(),
+          gprn: field("gprn"),
           access_notes: field("access_notes"),
           boiler_brand: field("boiler_brand"),
           boiler_model: field("boiler_model"),
@@ -906,6 +910,7 @@ const ImportCustomers = () => {
                           <TableHead>Phone</TableHead>
                           <TableHead className="hidden md:table-cell">Address</TableHead>
                           <TableHead className="hidden md:table-cell">Eircode</TableHead>
+                          <TableHead className="hidden lg:table-cell">GPRN</TableHead>
                           <TableHead className="w-24">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -927,6 +932,9 @@ const ImportCustomers = () => {
                             </TableCell>
                             <TableCell className="hidden md:table-cell min-w-[120px] align-top">
                               <EditableCell row={r} fieldKey="eircode" display={r.data.eircode || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[130px] align-top">
+                              <EditableCell row={r} fieldKey="gprn" display={r.data.gprn || ""} />
                             </TableCell>
                             <TableCell className="align-top pt-3">
                               {r.isValid ? (
