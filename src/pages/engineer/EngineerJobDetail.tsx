@@ -64,6 +64,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [jobTags, setJobTags] = useState<{ name: string; colour: string }[]>([]);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [showComplete, setShowComplete] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -85,8 +86,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
 
   useEffect(() => {
-    if (user && id) fetchJob();
-  }, [user, id]);
+    if (authLoading) return;
+    if (!user || !id) { setLoading(false); return; }
+    fetchJob();
+  }, [user, id, authLoading]);
 
   useEffect(() => {
     if (!user) return;
@@ -95,39 +98,51 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       .select("name, rgi_number")
       .eq("auth_user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error: engErr }) => {
+        if (engErr) { console.error("[EngineerJobDetail] engineers fetch failed", engErr); return; }
         if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
       });
   }, [user]);
 
   const fetchJob = async () => {
     setLoading(true);
-    const { data: jobData } = await supabase
-      .from("service_calls")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    setError(null);
+    try {
+      const { data: jobData, error: jobError } = await supabase
+        .from("service_calls")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
 
-    if (!jobData) {
-      toast({ title: "Job not found", variant: "destructive" });
-      navigate("/engineer/today");
-      return;
+      if (jobError) { setError(jobError.message || "Couldn't load this job."); return; }
+
+      if (!jobData) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate("/engineer/today");
+        return;
+      }
+
+      setJob(jobData);
+
+      const [custRes, notesRes, certRes, tagsRes] = await Promise.all([
+        supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
+        supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
+        supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+        supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
+      ]);
+
+      const queryError = custRes.error || notesRes.error || certRes.error || tagsRes.error;
+      if (queryError) { setError(queryError.message || "Couldn't load this job."); return; }
+
+      if (custRes.data) setCustomer(custRes.data);
+      if (notesRes.data) setCallNotes(notesRes.data);
+      setCertificate(certRes.data || null);
+      setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong loading this job.");
+    } finally {
+      setLoading(false);
     }
-
-    setJob(jobData);
-
-    const [custRes, notesRes, certRes, tagsRes] = await Promise.all([
-      supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
-      supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
-      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
-      supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
-    ]);
-
-    if (custRes.data) setCustomer(custRes.data);
-    if (notesRes.data) setCallNotes(notesRes.data);
-    setCertificate(certRes.data || null);
-    setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
-    setLoading(false);
   };
 
   const handleSaveReply = async () => {
