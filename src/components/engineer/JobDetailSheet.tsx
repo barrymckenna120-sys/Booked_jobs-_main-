@@ -100,6 +100,7 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           {/* Boiler */}
           <InfoTile label="Boiler Brand" value={job.boiler_brand} icon="🔥" />
           <InfoTile label="Boiler Model" value={customer.boiler_make_model} icon="♨️" />
+          {customer.boiler_location?.trim() && <InfoTile label="Boiler Location" value={customer.boiler_location} icon="📍" />}
           {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} icon="⛽" />}
           {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} icon="⚠️" />}
           {job.boiler_working !== null && job.boiler_working !== undefined && (

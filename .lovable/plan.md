@@ -1,62 +1,35 @@
-## Goal
+## Audit: where customer GPRN is selected / rendered
 
-Add two optional fields — **GPRN** and **Boiler Location** — to Step 2 (Job Details) of the New Job wizard. Both live on the customer record, not the job. Plus extract the GPRN validation rule into a shared helper so it is defined once.
+Confirmed by search. Only `customers.gprn` surfaces are listed (certificate-level GPRN is separate).
 
-## 1. Shared validation helper (new)
+| # | Surface | Select | Render |
+|---|---------|--------|--------|
+| A | Jobs detail page — "Job Information" card | `src/pages/JobDetail.tsx:372` (type at :75-77) | `src/pages/JobDetail.tsx:568` (GPRN), boiler model at :599-600 |
+| B | Schedule slide-out panel | `src/pages/Schedule.tsx:171` (map :184, type :89) | `src/components/schedule/JobSlotDrawer.tsx:114-115` |
+| C | Incoming job review panel | `src/pages/IncomingJobs.tsx:83` | `src/components/incoming/JobReviewPanel.tsx:266` (boiler model :275) |
+| D | Engineer job detail | `EngineerJobDetail.tsx:128` uses `customers.select("*")` — already returns `boiler_location` | `src/pages/engineer/EngineerJobDetail.tsx:736` |
+| E | Engineer job detail sheet | `src/hooks/useEngineerJobs.ts:69` uses `customers.select("*")` — already returns it | `src/components/engineer/JobDetailSheet.tsx:98` |
 
-`src/lib/validation/gprn.ts`:
+Note: contrary to the earlier assumption, the Schedule panel (B) does **not** yet carry `boiler_location` — no reference to it exists anywhere outside `NewJobPanel.tsx` and the generated types. So all five surfaces need the display field.
 
-```ts
-export function isValidGprnFormat(value: string): boolean {
-  return /^\d{7}$/.test(value.trim());
-}
-export const GPRN_WARNING_MESSAGE = "Doesn't look like a GPRN (usually 7 digits) — will still save";
-```
+Not touched (out of scope): `CustomerDetail.tsx:396` (editable customer form), `ImportCustomers.tsx`, `NewJobPanel.tsx`, `Customers.tsx` search, and the cert-level GPRN in `JobCertsTab.tsx` / `EngineerCertificates.tsx` / cert flows.
 
-- `ImportCustomers.tsx:321-322` swaps its inline regex + literal for this import. Its call site currently strips inner spaces before testing (`gprn.replace(/\s/g, "")`), so that normalisation stays at the call site to keep behaviour identical.
-- The new NewJobPanel GPRN field imports the same helper — no second copy of the regex.
-- The queued engineer job-detail card version will import from here too rather than copy-pasting a third time.
+## Changes
 
-## 2. Database
+Every added field is read-only text, rendered only when the value is non-blank.
 
-`customers.gprn` already exists (text). `customers.boiler_location` does **not** — one migration:
+1. **A — `src/pages/JobDetail.tsx`**: add `boiler_location` to the customer type and to the `.select(...)` at line 372; render a `Boiler Location:` row in the same `<div><span className="text-muted-foreground">…` style directly after the Boiler Model row (line 600), wrapped in the same `{customer.boiler_location && (...)}` conditional.
 
-```sql
-ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS boiler_location text;
-```
+2. **B — `src/pages/Schedule.tsx` + `JobSlotDrawer.tsx`**: add `boiler_location` to the nested `customers(...)` select at line 171, map it to `customer_boiler_location` alongside line 184, add the field to the job type at line 89; in `JobSlotDrawer.tsx` render a label/value block matching lines 114-115, conditional on a non-blank value, placed next to the existing boiler fields.
 
-No new table, so existing customer RLS/grants cover it.
+3. **C — `src/pages/IncomingJobs.tsx` + `JobReviewPanel.tsx`**: add `boiler_location` to the nested customers select at line 83 and to the customer type in `JobReviewPanel.tsx:53`; render a `Boiler Location:` row after the Model row (line 275) in the same style, conditional.
 
-## 3. Step 2 UI (`src/components/jobs/NewJobPanel.tsx`)
+4. **D — `src/pages/engineer/EngineerJobDetail.tsx`**: no query change (uses `select("*")`). Add a conditional `<InfoTile label="Boiler Location" value={customer.boiler_location} Icon={…} />` near the existing boiler tiles, using an existing imported Lucide icon.
 
-New row directly below the existing Boiler Type / Boiler Error Code grid (lines ~500-509), identical `grid grid-cols-2 gap-3` + uppercase Label + `Input ... className="mt-1"` styling:
-
-- **GPRN** — prefilled from `prefilledCustomer?.gprn`, placeholder `e.g. 1234567`
-- **Boiler Location** — prefilled from `prefilledCustomer?.boiler_location`, placeholder `e.g. kitchen, attic, utility room`, no validation
-
-GPRN soft warning: when a value is present and `isValidGprnFormat` returns false, render `GPRN_WARNING_MESSAGE` as inline amber helper text. Purely advisory — `handleNext` is unchanged and never blocks.
-
-Both values join the `onNext({...})` payload alongside `boilerType` / `boilerErrorCode`.
-
-## 4. Prefill plumbing
-
-Add `gprn, boiler_location` to the Step 1 customer search `select()` (line 138) so the selected-customer object carries values to prefill. Read-only addition; no Step 1 UI change.
-
-## 5. Save path (submit handler)
-
-In the existing "Sync job fields back to existing customer profile" block (lines 1209-1223), add `gprn` and `boiler_location` to `custUpdate` following the same non-blank pattern — blank stays untouched/null, never `""`.
-
-For the new-customer insert branch (~line 1141), pass `gprn` and `boiler_location` with a `|| null` fallback. Nothing is written to `service_calls`.
-
-## Out of scope
-
-Import page beyond the single validation-import swap, Step 1 UI, customer edit page, wizard steps 3+.
+5. **E — `src/components/engineer/JobDetailSheet.tsx`**: no query change. Add a conditional `<InfoTile label="Boiler Location" value={customer.boiler_location} icon="📍" />` after Boiler Model (line 102), following the same `{job.boiler_type && …}` conditional pattern used nearby.
 
 ## Verification
 
 - Typecheck.
-- Existing customer with a GPRN → Step 2 shows it prefilled; edit both fields, finish wizard, confirm the customer row updates and the job row gains no new columns.
-- 5-digit GPRN shows the warning and still submits.
-- **Blank-field check:** submit with both GPRN and Boiler Location empty, then a real `SELECT gprn, boiler_location FROM customers WHERE id = …` to confirm both land as `null`, not `""`.
-- **Regression check:** confirm Boiler Type, Boiler Error Code, Area, Owner or Tenant, and Access Notes still save correctly now that the new fields share the same payload object.
-- Import page: re-run a GPRN import to confirm the shared helper produces the same warning as before.
+- Load a job with a populated `customers.boiler_location` and confirm it appears on each of the five surfaces; load one with a null value and confirm the row is absent (not "—").
+- Confirm no existing field on those cards shifted or disappeared.

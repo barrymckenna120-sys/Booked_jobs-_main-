@@ -51,6 +51,7 @@ type Customer = {
   gprn?: string | null;
   access_notes: string | null;
   boiler_make_model: string | null;
+  boiler_location?: string | null;
 };
 
 type Props = {
@@ -273,6 +274,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div><span className="text-muted-foreground">Brand:</span> <span className="font-semibold">{job.boiler_brand || "—"}</span></div>
               <div><span className="text-muted-foreground">Model:</span> <span className="font-semibold">{customer.boiler_make_model || "—"}</span></div>
+              {customer.boiler_location?.trim() && <div><span className="text-muted-foreground">Location:</span> <span className="font-semibold">{customer.boiler_location}</span></div>}
               {job.boiler_type && <div><span className="text-muted-foreground">Type:</span> <span className="font-semibold">{job.boiler_type}</span></div>}
               {job.boiler_error_code && <div><span className="text-muted-foreground">Error Code:</span> <span className="font-semibold">{job.boiler_error_code}</span></div>}
               <div>
