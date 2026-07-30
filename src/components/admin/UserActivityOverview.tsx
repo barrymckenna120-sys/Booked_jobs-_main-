@@ -42,18 +42,31 @@ const UserActivityOverview = () => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (!sessionData.session) {
+        setError("Your session has expired. Please sign in again.");
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("list-users", {
         body: { scope: "all_orgs" },
       });
       if (cancelled) return;
       if (error) {
-        setError(error.message ?? "Failed to load users");
+        const status = (error as any)?.context?.response?.status;
+        setError(
+          status === 401
+            ? "Your session has expired. Please sign in again."
+            : error.message ?? "Failed to load users",
+        );
         setLoading(false);
         return;
       }
       setRows((data?.users as Row[]) ?? []);
       setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
