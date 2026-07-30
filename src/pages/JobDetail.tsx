@@ -600,6 +600,9 @@ const JobDetail = () => {
             {customer.boiler_make_model && (
               <div><span className="text-muted-foreground">Boiler Model:</span> <span className="font-semibold">{customer.boiler_make_model}</span></div>
             )}
+            {customer.boiler_location?.trim() && (
+              <div><span className="text-muted-foreground">Boiler Location:</span> <span className="font-semibold">{customer.boiler_location}</span></div>
+            )}
             {(job as any).job_issue && (
               <div className="sm:col-span-2"><span className="text-muted-foreground">Job Issue:</span> <span className="font-semibold">{(job as any).job_issue}</span></div>
             )}
