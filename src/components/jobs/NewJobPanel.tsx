@@ -1168,6 +1168,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           boiler_model: finalData.job?.boilerModelField || null,
           boiler_make_model: [finalData.job?.boilerBrand, finalData.job?.boilerModelField].filter(Boolean).join(" ") || finalData.customer.boilerType || null,
           boiler_type: finalData.job?.boilerType || null,
+          gprn: finalData.job?.gprn?.trim() || null,
+          boiler_location: finalData.job?.boilerLocation?.trim() || null,
           next_service_due: nextServiceDue.toISOString().split("T")[0],
           renewal_stage: "none",
           service_status: "active",
