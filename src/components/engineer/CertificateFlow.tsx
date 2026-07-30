@@ -169,6 +169,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     customerAddress: customer?.address || "",
     eircode: customer?.eircode || "",
     gprn: customer?.gprn || "",
+
     applianceType: job?.boiler_type || customer?.boiler_type || "",
     boilerBrand: job?.boiler_brand || customer?.boiler_brand || "",
     boilerModel: customer?.boiler_model || customer?.boiler_make_model || "",

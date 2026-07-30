@@ -88,6 +88,11 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
 
   // Step 1 — Premises & Supply
   const [gprn, setGprn] = useState(customer?.gprn || "");
+  // Defensive: if customer loads after first render, adopt its GPRN — only while
+  // the field is still empty, so it can never clobber a value the engineer typed.
+  useEffect(() => {
+    if (!gprn && customer?.gprn) setGprn(customer.gprn);
+  }, [customer?.gprn]);
   const [gasType, setGasType] = useState("Nat Gas");
   const [meterSerial, setMeterSerial] = useState("");
   const [meterType, setMeterType] = useState("");

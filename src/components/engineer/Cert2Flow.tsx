@@ -125,6 +125,11 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
 
   // Step 1 — Pre-filled details (read-only) + Premises & Supply
   const [gprn, setGprn] = useState(customer?.gprn || "");
+  // Defensive: if customer loads after first render, adopt its GPRN — only while
+  // the field is still empty, so it can never clobber a value the engineer typed.
+  useEffect(() => {
+    if (!gprn && customer?.gprn) setGprn(customer.gprn);
+  }, [customer?.gprn]);
   const [workCarriedOut, setWorkCarriedOut] = useState("");
   const [workCarriedOutOther, setWorkCarriedOutOther] = useState("");
   const [gasType, setGasType] = useState("Nat Gas");
