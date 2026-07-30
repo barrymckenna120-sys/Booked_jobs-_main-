@@ -25,6 +25,8 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "area code": "area_code",
   "area": "area_code",
   "gprn": "gprn",
+  "gprn no": "gprn",
+  "gprn number": "gprn",
   "gas point reference number": "gprn",
   "access notes": "access_notes",
   "boiler brand": "boiler_brand",
