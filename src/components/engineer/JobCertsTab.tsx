@@ -18,7 +18,9 @@ interface CertDoc {
   status: string;
   pdf_url: string | null;
   created_at: string;
+  gprn: string | null;
 }
+
 
 const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }) => {
   const navigate = useNavigate();
