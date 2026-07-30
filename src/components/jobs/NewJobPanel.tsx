@@ -324,6 +324,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
   const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
   const [accessNotes, setAccessNotes] = useState(prefilledCustomer?.access_notes || "");
+  const [gprn, setGprn] = useState(prefilledCustomer?.gprn || "");
+  const [boilerLocation, setBoilerLocation] = useState(prefilledCustomer?.boiler_location || "");
   const isUrgent = jobType === "Emergency";
 
   const { data: brandSuggestions = [] } = useQuery({
