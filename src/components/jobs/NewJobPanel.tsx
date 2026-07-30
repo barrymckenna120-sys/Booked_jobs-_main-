@@ -386,7 +386,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
       return;
     }
     const combinedMakeModel = [boilerBrand.trim(), boilerModel.trim()].filter(Boolean).join(" ") || "";
-    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
+    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes, gprn: gprn.trim(), boilerLocation: boilerLocation.trim() });
   };
 
   return (
