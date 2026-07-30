@@ -25,6 +25,8 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "area code": "area_code",
   "area": "area_code",
   "gprn": "gprn",
+  "gprn no": "gprn",
+  "gprn number": "gprn",
   "gas point reference number": "gprn",
   "access notes": "access_notes",
   "boiler brand": "boiler_brand",
@@ -149,6 +151,8 @@ type ParsedRow = {
   data: Record<string, any>;
   errors: string[];
   fieldErrors: FieldErrors;
+  /** Non-blocking, informational per-field notes (row still imports). */
+  fieldWarnings: FieldErrors;
   isValid: boolean;
 };
 
@@ -301,11 +305,19 @@ const ImportCustomers = () => {
 
       const errors: string[] = [];
       const fieldErrors: FieldErrors = {};
+      const fieldWarnings: FieldErrors = {};
 
       const eircode = field("eircode");
       const boilerType = field("boiler_type");
       const underWarranty = field("under_warranty");
       const serviceStatus = field("service_status");
+
+      // GPRN is optional. If present but not a plausible reference (roughly 7 digits,
+      // purely numeric), warn on the cell without blocking the row.
+      const gprn = field("gprn");
+      if (gprn && !/^\d{7}$/.test(gprn.replace(/\s/g, ""))) {
+        fieldWarnings.gprn = "Doesn't look like a GPRN (usually 7 digits) — will still import";
+      }
 
       if (hasCol("name") && !name) {
         const msg = "Customer Name is missing for this row";
@@ -383,7 +395,7 @@ const ImportCustomers = () => {
             const ac = field("area_code");
             return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac;
           })(),
-          gprn: field("gprn"),
+          gprn: gprn || null,
           access_notes: field("access_notes"),
           boiler_brand: field("boiler_brand"),
           boiler_model: field("boiler_model"),
@@ -412,6 +424,7 @@ const ImportCustomers = () => {
         },
         errors,
         fieldErrors,
+        fieldWarnings,
         isValid: errors.length === 0,
       };
     },
@@ -619,6 +632,7 @@ const ImportCustomers = () => {
     const editValue = rowEdits[row.srcIndex]?.[fieldKey];
     const shownValue = editValue !== undefined ? editValue : display;
     const err = row.fieldErrors[fieldKey];
+    const warn = row.fieldWarnings?.[fieldKey];
     const [local, setLocal] = useState(shownValue);
 
     // Keep local in sync when upstream row changes (remap, page change).
@@ -637,10 +651,15 @@ const ImportCustomers = () => {
             if (local !== shownValue) updateEdit(row.srcIndex, fieldKey, local);
           }}
           className={`h-8 w-full rounded-md border bg-background px-2 text-xs ${
-            err ? "border-destructive ring-1 ring-destructive/40" : "border-input"
+            err
+              ? "border-destructive ring-1 ring-destructive/40"
+              : warn
+                ? "border-warning ring-1 ring-warning/40"
+                : "border-input"
           }`}
         />
         {err && <p className="text-[10px] text-destructive">{err}</p>}
+        {!err && warn && <p className="text-[10px] text-warning">{warn}</p>}
       </div>
     );
   };
