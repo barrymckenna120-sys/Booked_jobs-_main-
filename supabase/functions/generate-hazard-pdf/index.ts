@@ -224,6 +224,7 @@ Deno.serve(async (req) => {
     fieldPair("Customer", customer?.name || "", margin + 2);
     fieldPair("Address", customer?.address || "", margin + 2);
     fieldPair("Eircode", customer?.eircode || "", margin + 2);
+    if (customer?.gprn) fieldPair("GPRN", customer.gprn, margin + 2);
     fieldPair("Contact", customer?.phone || "", margin + 2);
     const pLeftEnd = y;
     y = py;
