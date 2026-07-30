@@ -305,11 +305,19 @@ const ImportCustomers = () => {
 
       const errors: string[] = [];
       const fieldErrors: FieldErrors = {};
+      const fieldWarnings: FieldErrors = {};
 
       const eircode = field("eircode");
       const boilerType = field("boiler_type");
       const underWarranty = field("under_warranty");
       const serviceStatus = field("service_status");
+
+      // GPRN is optional. If present but not a plausible reference (roughly 7 digits,
+      // purely numeric), warn on the cell without blocking the row.
+      const gprn = field("gprn");
+      if (gprn && !/^\d{7}$/.test(gprn.replace(/\s/g, ""))) {
+        fieldWarnings.gprn = "Doesn't look like a GPRN (usually 7 digits) — will still import";
+      }
 
       if (hasCol("name") && !name) {
         const msg = "Customer Name is missing for this row";
