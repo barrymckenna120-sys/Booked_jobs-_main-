@@ -1,65 +1,57 @@
-## Goal
+Both previous plan submissions were interrupted before reaching you, so the approval button never appeared and I'm still locked in plan mode. Approving this one switches me to build mode and I'll apply both parts immediately, then show the real diffs.
 
-Add an optional, free-text GPRN (Gas Point Reference Number) to the customer record and surface it everywhere Eircode currently appears in the app, so office staff and engineers can see a property's gas reference without opening a certificate.
+Nothing here is applied yet — `backfillCustomerGprn` does not exist in the codebase.
 
-GPRN already exists today as a per-certificate field (`cert2_certificates.gprn`, plus manual inputs in the Cert2 / Cert3 / Gas Install flows). That stays authoritative **on the certificate**; the new customer-level GPRN becomes the value that prefills those inputs.
+## Part A — GPRN write-back on certificate save
 
-**Out of scope:** quotes, invoices, and receipts. No changes to `generate-quote-pdf`, `create-job-invoice`, `generate-receipt-pdf`, `InvoicePreview.tsx`, `ServiceReceipt.tsx`, `TakePaymentModal.tsx`, `PublicReceipt.tsx`, or the `get_receipt_public` function.
+Only writes when the customer's `gprn` is null or empty. If the customer already has a GPRN and the cert value differs, the customer record is left alone.
 
-## Database
+New file `src/lib/backfillCustomerGprn.ts`:
 
-One migration, a single statement:
-- `ALTER TABLE public.customers ADD COLUMN gprn text;` — nullable, no default, no CHECK constraint (free text, per your call).
-- No RLS or grant changes: `customers` policies are column-agnostic and already scoped by `organisation_id`.
+```ts
+export async function backfillCustomerGprn(customerId?: string, gprn?: string) {
+  const value = (gprn || "").trim();
+  if (!customerId || !value) return;
+  try {
+    await supabase
+      .from("customers")
+      .update({ gprn: value })
+      .eq("id", customerId)
+      .or("gprn.is.null,gprn.eq.");   // never overwrites an existing value
+  } catch (_e) { /* non-blocking */ }
+}
+```
 
-## 1. Customer record
+The `.or(...)` filter does the "only if empty" test in the database — no read-then-write race, no path that can clobber an existing value.
 
-- `src/components/customer/AddCustomerSheet.tsx` — GPRN `CustomerFormField` next to Eircode / Area Code; add to `EMPTY_FORM` as an empty string so it doesn't affect the `isDirty` check, and include in both the insert and the "update existing duplicate" payloads.
-- `src/pages/CustomerDetail.tsx` — editable GPRN field in the same grid region as Eircode / Area Code; not wired into `blurField` since there's no validator.
-- `src/pages/Customers.tsx` — no new table column (the table is already dense on mobile); add `gprn` to the search predicate so staff can find a property by GPRN.
-- `src/components/settings/DataTab.tsx` — add a `"GPRN"` column to the customer CSV export.
+Called once, not awaited, in the insert-success branch of:
+- `src/components/engineer/Cert2Flow.tsx` (~L216)
+- `src/components/engineer/Cert3Flow.tsx` (~L196)
+- `src/components/engineer/GasInstallationFlow.tsx` (~L198)
+- `src/components/engineer/GasInstallationCertForm.tsx` — in `handleSave`, after a successful insert or update
 
-## 2. Job screens
+Not called on the offline retry-queue path (that fires only when the save itself failed).
 
-Each of these already selects customer fields and renders an Eircode row or tile — add GPRN immediately after Eircode, showing `—` when empty:
-- `src/pages/JobDetail.tsx` (select L371, render near L566)
-- `src/pages/engineer/EngineerJobDetail.tsx` (InfoTile after L680)
-- `src/components/engineer/JobDetailSheet.tsx` (InfoTile after L97)
-- `src/components/schedule/JobSlotDrawer.tsx` (field after L111), plus the `src/pages/Schedule.tsx` select and mapping (L170, L181)
-- `src/components/incoming/JobReviewPanel.tsx` (row after L262), plus the `src/pages/IncomingJobs.tsx` select (L83)
+## Part B — GPRN on certificate list rows
 
-Not changing: `EngineerJobCard`, `DayJobsPanel`, `Jobs.tsx` search results, `QuickActions` — compact list and navigation surfaces where GPRN adds noise and no value.
+GPRN sources: `certificates.notes.gprn` (JSONB) and `cert2_certificates.gprn` (column). Hazard notices don't store one, so no line for them.
 
-## 3. Certificate flows
+`src/components/engineer/JobCertsTab.tsx`
+- Add `gprn: string | null` to `CertDoc`.
+- cert1 rows read `(c.notes as any)?.gprn` — `notes` already selected, no query change.
+- cert2 rows: add `gprn` to the `cert2_certificates` select (L40) and map it.
+- Conditional `text-xs text-muted-foreground` line under the created date: `GPRN {value}`.
 
-Prefill only. The engineer can always overwrite, and the saved certificate keeps its own value:
-- `src/components/engineer/Cert2Flow.tsx` — seed `gprn` state from `customer.gprn`
-- `src/components/engineer/Cert3Flow.tsx` — same
-- `src/components/engineer/GasInstallationFlow.tsx` — same
-- `src/components/engineer/GasInstallationCertForm.tsx` — fall back to `customer.gprn` when `existingCert.gprn` is empty
+`src/pages/engineer/EngineerCertificates.tsx`
+- `fetchData()` already does `.select("*")` — no query change.
+- Add `gprn` to the `allDocs` mapping (~L88); render the same conditional line in the existing `text-[11px] text-muted-foreground` style.
 
-Each flow needs `gprn` added to the customer query feeding it. The three cert PDF generators (`generate-cert2-pdf`, `generate-cert3-pdf`, `generate-gas-install-pdf`) already print GPRN from cert notes — no change there. `generate-certificate-pdf` and `generate-hazard-pdf` have no GPRN line today; add one under Eircode, read from the customer record.
+Rows without a GPRN render exactly as today — line omitted, not a dash.
 
-## 4. Import
+## Unchanged
 
-- `src/lib/generateTemplate.ts` — add `"GPRN"` to the header row after "Area Code", with a matching column-width entry.
-- `src/pages/ImportCustomers.tsx` — header alias map (`"gprn"`), field label map, preview table head and `EditableCell`, row parse, insert payload. **Not** added to `REQUIRED_FIELDS` or `KNOWN_HEADERS` — it's optional, and touching `KNOWN_HEADERS` would change header-row detection for existing files.
-
-Existing customer files without a GPRN column continue to import unchanged.
-
-## 5. Messaging
-
-No changes. The only message path carrying property references is the renewal rebooking Tally prefill (`renewal-reminder-30` / `renewal-reminder-14`, `&Eircode=` / `&Areacode=`), and a GPRN isn't something a customer would confirm on a rebooking form. Booking and schedule confirmations carry no property references at all today.
-
-## Technical notes
-
-- `gprn` appears in the regenerated `src/integrations/supabase/types.ts` automatically after the migration.
-- `src/types/service-calls.ts` `SERVICE_CALL_BASE_SELECT` is unaffected — GPRN lives on `customers`, not `service_calls`.
-- Every render site guards on presence, so existing rows with `NULL` gprn show `—` in the UI or omit the line entirely in the two cert PDFs.
-- No validation, so no new entries in `src/lib/customerValidation.ts`.
+Cert payloads, validation, numbering, PDF generators, WhatsApp sending, offline queue, `CertificateViewer.tsx`, `CustomerHazardNotices.tsx`, quotes/invoices/receipts. No migration needed.
 
 ## Risk
 
-Low. With quotes/invoices/receipts excluded, this is an additive nullable column plus conditionally rendered read-only display. No financial documents, numbering, totals, or access-control paths are touched. The only behavioural change beyond display is the cert-flow prefill, which remains fully editable by the engineer.
-
-I'll finish with the full diff.
+Low — one guarded non-blocking UPDATE per cert save, two presentational additions, one extra selected column.
