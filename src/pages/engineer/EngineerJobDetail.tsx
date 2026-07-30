@@ -738,6 +738,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           {/* Boiler */}
           <InfoTile label="Boiler Brand" value={job.boiler_brand} Icon={Flame} />
           <InfoTile label="Boiler Model" value={customer.boiler_make_model} Icon={Flame} />
+          {customer.boiler_location?.trim() && <InfoTile label="Boiler Location" value={customer.boiler_location} Icon={MapPin} />}
           {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} Icon={Flame} />}
           {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} Icon={AlertTriangle} />}
           {job.boiler_working !== null && job.boiler_working !== undefined && (
