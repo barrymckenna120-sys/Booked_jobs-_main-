@@ -424,6 +424,7 @@ const ImportCustomers = () => {
         },
         errors,
         fieldErrors,
+        fieldWarnings,
         isValid: errors.length === 0,
       };
     },
