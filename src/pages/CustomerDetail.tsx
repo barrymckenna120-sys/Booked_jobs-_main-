@@ -220,7 +220,9 @@ const CustomerDetail = () => {
     // TEMP: keep boiler_make_model in sync until downstream consumers
     // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
     // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
-    // BoilerBrandsTab, IncomingJobCard, DataTab export).
+    // BoilerBrandsTab, IncomingJobCard, DataTab export,
+    // CertificateFlow.tsx, Cert2Flow.tsx,
+    // supabase/functions/generate-cert2-pdf/index.ts).
     const brand = (updates.boiler_brand || "").trim();
     const model = (updates.boiler_model || "").trim();
     updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
