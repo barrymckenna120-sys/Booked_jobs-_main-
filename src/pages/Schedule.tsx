@@ -87,6 +87,7 @@ export type ScheduleJob = {
   customer_eircode: string | null;
   customer_area_code: string | null;
   customer_gprn: string | null;
+  customer_boiler_location: string | null;
   customer_access_notes: string | null;
   job_type: string;
   status: string;
