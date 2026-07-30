@@ -422,7 +422,7 @@ const ImportCustomers = () => {
           next_service_due: parseDate(rawField("next_service_due")),
           service_status: serviceStatus || "Up to Date",
           assigned_engineer: field("assigned_engineer"),
-          notes: field("notes"),
+          notes: field("notes") || null,
           customer_since: parseDate(rawField("customer_since")),
         },
         errors,
