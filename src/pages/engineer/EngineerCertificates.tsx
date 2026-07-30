@@ -26,6 +26,8 @@ const EngineerCertificates = () => {
   const [certificates, setCertificates] = useState<any[]>([]);
   const [hazards, setHazards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
   const [showHazard, setShowHazard] = useState(false);
@@ -36,32 +38,50 @@ const EngineerCertificates = () => {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    if (user && id) {
-      fetchData();
-      supabase.from("engineers").select("name, rgi_number, phone").eq("auth_user_id", user.id).maybeSingle()
-        .then(({ data }) => { if (data) setEngineerInfo({ name: data.name || "", rgi_number: (data as any).rgi_number || null, phone: (data as any).phone || null }); });
-      supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle()
-        .then(({ data }) => { if (data) setSettings(data); });
-    }
-  }, [user, id]);
+    if (authLoading) return;
+    if (!user || !id) { setLoading(false); return; }
+
+    fetchData();
+    supabase.from("engineers").select("name, rgi_number, phone").eq("auth_user_id", user.id).maybeSingle()
+      .then(({ data, error: engErr }) => {
+        if (engErr) { console.error("[EngineerCertificates] engineers fetch failed", engErr); return; }
+        if (data) setEngineerInfo({ name: data.name || "", rgi_number: (data as any).rgi_number || null, phone: (data as any).phone || null });
+      });
+    supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle()
+      .then(({ data, error: setErr }) => {
+        if (setErr) { console.error("[EngineerCertificates] settings fetch failed", setErr); return; }
+        if (data) setSettings(data);
+      });
+  }, [user, id, authLoading]);
 
   const fetchData = async () => {
     setLoading(true);
-    const [jobRes, certRes, hazRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("certificates").select("*").eq("job_id", id),
-      supabase.from("hazard_notifications").select("*").eq("job_id", id).order("created_at", { ascending: false }),
-    ]);
+    setError(null);
+    try {
+      const [jobRes, certRes, hazRes] = await Promise.all([
+        supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
+        supabase.from("certificates").select("*").eq("job_id", id),
+        supabase.from("hazard_notifications").select("*").eq("job_id", id).order("created_at", { ascending: false }),
+      ]);
 
-    if (!jobRes.data) { toast({ title: "Job not found", variant: "destructive" }); navigate("/engineer/today"); return; }
-    setJob(jobRes.data);
-    setCertificates(certRes.data || []);
-    setHazards(hazRes.data || []);
+      const queryError = jobRes.error || certRes.error || hazRes.error;
+      if (queryError) { setError(queryError.message || "Couldn't load certificates."); return; }
 
-    const { data: custData } = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
-    if (custData) setCustomer(custData);
-    setLoading(false);
+      if (!jobRes.data) { toast({ title: "Job not found", variant: "destructive" }); navigate("/engineer/today"); return; }
+      setJob(jobRes.data);
+      setCertificates(certRes.data || []);
+      setHazards(hazRes.data || []);
+
+      const { data: custData, error: custError } = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+      if (custError) { setError(custError.message || "Couldn't load the customer for this job."); return; }
+      if (custData) setCustomer(custData);
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong loading this page.");
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   const handleResendCert = async (pdfUrl: string, customerName: string) => {
     if (!pdfUrl) { toast({ title: "No PDF available", variant: "destructive" }); return; }
