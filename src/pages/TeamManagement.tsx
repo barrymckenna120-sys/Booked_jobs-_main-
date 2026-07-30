@@ -207,8 +207,15 @@ const TeamManagement = () => {
   }, [user, orgId, ready]);
 
   const fetchAuthUsers = useCallback(async () => {
+    // Skip entirely when there's no live session — an expired/absent token
+    // makes the edge function return 401 and surfaces a spurious error toast.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) return;
+
     const { data, error } = await supabase.functions.invoke("list-users");
     if (error) {
+      const status = (error as any)?.context?.response?.status;
+      if (status === 401) return; // session went stale mid-flight — ignore
       console.error("[TeamManagement] list-users error:", error);
       toast({
         title: "Couldn't load auth status",
@@ -219,6 +226,7 @@ const TeamManagement = () => {
       setAuthUsers(data.users);
     }
   }, [toast]);
+
 
   useEffect(() => {
     if (user) {
