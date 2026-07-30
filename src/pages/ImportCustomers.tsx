@@ -151,6 +151,8 @@ type ParsedRow = {
   data: Record<string, any>;
   errors: string[];
   fieldErrors: FieldErrors;
+  /** Non-blocking, informational per-field notes (row still imports). */
+  fieldWarnings: FieldErrors;
   isValid: boolean;
 };
 
