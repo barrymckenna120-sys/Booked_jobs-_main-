@@ -63,24 +63,24 @@ export const generateImportTemplate = () => {
     { wch: 10 }, // F - Area Code
     { wch: 16 }, // G - GPRN
     { wch: 28 }, // H - Access Notes
-    { wch: 18 }, // H - Boiler Brand
-    { wch: 22 }, // I - Boiler Model
-    { wch: 12 }, // J - Boiler Type
-    { wch: 16 }, // K - Installation Date
-    { wch: 14 }, // L - Under Warranty
-    { wch: 14 }, // M - Warranty Years
-    { wch: 16 }, // N - Last Service Date
-    { wch: 20 }, // O - Last Service Engineer
-    { wch: 28 }, // P - Engineer Notes
-    { wch: 16 }, // Q - Next Service Due
-    { wch: 14 }, // R - Service Status
-    { wch: 20 }, // S - Assigned Engineer
-    { wch: 32 }, // T - Customer Notes
-    { wch: 16 }, // U - Customer Since
+    { wch: 18 }, // I - Boiler Brand
+    { wch: 22 }, // J - Boiler Model
+    { wch: 12 }, // K - Boiler Type
+    { wch: 16 }, // L - Installation Date
+    { wch: 14 }, // M - Under Warranty
+    { wch: 14 }, // N - Warranty Years
+    { wch: 16 }, // O - Last Service Date
+    { wch: 20 }, // P - Last Service Engineer
+    { wch: 28 }, // Q - Engineer Notes
+    { wch: 16 }, // R - Next Service Due
+    { wch: 14 }, // S - Service Status
+    { wch: 20 }, // T - Assigned Engineer
+    { wch: 32 }, // U - Customer Notes
+    { wch: 16 }, // V - Customer Since
   ];
 
   // Merge title row across all columns
-  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 20 } }];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 21 } }];
 
   XLSX.utils.book_append_sheet(wb, ws, "Customer Import");
   XLSX.writeFile(wb, "karls_gas_customer_import.xlsx");
