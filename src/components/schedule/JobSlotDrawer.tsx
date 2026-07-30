@@ -110,6 +110,10 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
                 <span className="text-xs text-muted-foreground">Eircode</span>
                 <p className="font-semibold mt-0.5">{job.customer_eircode || "—"}</p>
               </div>
+              <div>
+                <span className="text-xs text-muted-foreground">GPRN</span>
+                <p className="font-semibold mt-0.5">{job.customer_gprn || "—"}</p>
+              </div>
             </div>
           </div>
 

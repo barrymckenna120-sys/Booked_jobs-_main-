@@ -162,6 +162,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
       <div class="field"><span class="label">Customer</span><div class="value">${escapeHtml(customer?.name)}</div></div>
       <div class="field"><span class="label">Address</span><div class="value">${escapeHtml(customer?.address)}</div></div>
       <div class="field"><span class="label">Eircode</span><div class="value">${escapeHtml(customer?.eircode)}</div></div>
+      ${customer?.gprn ? `<div class="field"><span class="label">GPRN</span><div class="value">${escapeHtml(customer.gprn)}</div></div>` : ""}
       <div class="field"><span class="label">Contact</span><div class="value">${escapeHtml(customer?.phone)}</div></div>
     </div>
     <div>
@@ -410,6 +411,7 @@ Deno.serve(async (req) => {
     fieldPair("Customer", customer?.name || "", margin + 2);
     fieldPair("Address", customer?.address || "", margin + 2);
     fieldPair("Eircode", customer?.eircode || "", margin + 2);
+    if (customer?.gprn) fieldPair("GPRN", customer.gprn, margin + 2);
     fieldPair("Contact", customer?.phone || "", margin + 2);
     const pLeftEnd = y;
     y = py;

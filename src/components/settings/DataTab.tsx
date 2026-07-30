@@ -34,6 +34,7 @@ const DataTab = () => {
       "Address": c.address,
       "Eircode": c.eircode,
       "Area Code": c.area_code || "",
+      "GPRN": (c as any).gprn || "",
       "Access Notes": c.access_notes || "",
       "Boiler Make / Model": c.boiler_make_model || "",
       "Boiler Type": c.boiler_type || "",

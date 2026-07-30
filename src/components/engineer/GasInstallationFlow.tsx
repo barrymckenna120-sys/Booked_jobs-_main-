@@ -85,7 +85,7 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
   // Step 1 — Premises & Supply
-  const [gprn, setGprn] = useState("");
+  const [gprn, setGprn] = useState(customer?.gprn || "");
   const [gasType, setGasType] = useState("Nat Gas");
   const [meterSerial, setMeterSerial] = useState("");
   const [meterType, setMeterType] = useState("");

@@ -391,6 +391,7 @@ const CustomerDetail = () => {
             <PlainField label="Address" field="address" value={form.address} />
             <CustomerFormField label="Eircode" id="eircode" value={form.eircode ?? ""} onChange={(v) => handleChange("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
             <CustomerFormField label="Area Code" id="area_code" value={form.area_code ?? ""} onChange={(v) => handleChange("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
+            <CustomerFormField label="GPRN" id="gprn" value={form.gprn ?? ""} onChange={(v) => handleChange("gprn", v)} maxLength={30} placeholder="Gas Point Reference Number" />
             <div className="space-y-1.5">
               <Label htmlFor="owner_or_tenant" className="text-xs text-muted-foreground">Owner or Tenant</Label>
               <Select value={form.owner_or_tenant || ""} onValueChange={(v) => handleChange("owner_or_tenant", v)}>

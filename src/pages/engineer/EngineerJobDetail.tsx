@@ -678,6 +678,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           <InfoTile label="Full Address" value={customer.address} Icon={MapPin} full />
           <InfoTile label="Area Code" value={customer.area_code} Icon={MapPinned} />
           <InfoTile label="Eircode" value={customer.eircode} Icon={MapPin} />
+          <InfoTile label="GPRN" value={customer.gprn} Icon={MapPinned} />
 
           {/* Boiler */}
           <InfoTile label="Boiler Brand" value={job.boiler_brand} Icon={Flame} />

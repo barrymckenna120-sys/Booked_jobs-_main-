@@ -48,6 +48,7 @@ type Customer = {
   address: string;
   eircode: string;
   area_code: string | null;
+  gprn?: string | null;
   access_notes: string | null;
   boiler_make_model: string | null;
 };
@@ -260,6 +261,9 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
               </div>
               <div>
                 <span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">GPRN:</span> <span className="font-semibold">{customer.gprn || "—"}</span>
               </div>
             </div>
           </div>

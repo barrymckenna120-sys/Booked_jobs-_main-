@@ -30,6 +30,7 @@ const EMPTY_FORM = {
   address: "",
   eircode: "",
   area_code: "",
+  gprn: "",
   boiler_type: DEFAULT_BOILER_TYPE,
   owner_or_tenant: DEFAULT_OWNER_OR_TENANT,
   warranty_years: DEFAULT_WARRANTY_YEARS,
@@ -117,6 +118,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       address: form.address.trim(),
       eircode: cleanEircode,
       area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
+      gprn: form.gprn.trim() || null,
       boiler_type: form.boiler_type || DEFAULT_BOILER_TYPE,
       owner_or_tenant: form.owner_or_tenant || DEFAULT_OWNER_OR_TENANT,
       warranty_years: Number.isFinite(parsedWarranty) ? parsedWarranty : Number(DEFAULT_WARRANTY_YEARS),
@@ -162,6 +164,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       address: form.address.trim(),
       eircode: cleanEircode,
       area_code: form.area_code.trim() ? normalizeAreaCode(form.area_code) : null,
+      gprn: form.gprn.trim() || null,
       boiler_type: form.boiler_type || DEFAULT_BOILER_TYPE,
       owner_or_tenant: form.owner_or_tenant || DEFAULT_OWNER_OR_TENANT,
       warranty_years: Number.isFinite(parsedWarranty) ? parsedWarranty : Number(DEFAULT_WARRANTY_YEARS),
@@ -196,6 +199,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
               <CustomerFormField label="Eircode" id="eircode" value={form.eircode} onChange={(v) => update("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
               <CustomerFormField label="Area Code" id="area_code" value={form.area_code} onChange={(v) => update("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
             </div>
+            <CustomerFormField label="GPRN" id="gprn" value={form.gprn} onChange={(v) => update("gprn", v)} maxLength={30} placeholder="Gas Point Reference Number" />
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Boiler Type</Label>
