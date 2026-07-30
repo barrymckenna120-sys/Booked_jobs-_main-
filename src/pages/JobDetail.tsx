@@ -75,6 +75,7 @@ type Customer = {
   gprn: string | null;
   access_notes: string | null;
   boiler_make_model: string | null;
+  boiler_location: string | null;
 };
 
 const jobTypeBadge = (type: string) => {
