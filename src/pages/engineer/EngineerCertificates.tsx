@@ -97,11 +97,51 @@ const EngineerCertificates = () => {
     window.open(`https://wa.me/${customer?.phone?.replace(/[^0-9]/g, "")}?text=${msg}`, "_blank");
   };
 
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
+        <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
+        <button onClick={() => navigate(`/engineer/job/${id}`)} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="text-xl font-extrabold text-white">Certificates</div>
+      </div>
+      <div className="px-4 pt-4">{children}</div>
+    </div>
+  );
+
   if (authLoading || loading) {
     return <div className="max-w-[430px] mx-auto min-h-screen bg-secondary flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 
+  if (!user) {
+    return (
+      <Shell>
+        <div className="text-center py-12 bg-card rounded-2xl border border-border px-4 space-y-3">
+          <Lock className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+          <div className="text-sm font-bold text-foreground">Your session has expired</div>
+          <p className="text-xs text-muted-foreground">Please log in again to view certificates.</p>
+          <Button className="w-full h-11 font-bold" onClick={() => navigate("/auth")}>Log in again</Button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (error) {
+    return (
+      <Shell>
+        <div className="text-center py-12 bg-card rounded-2xl border border-border px-4 space-y-3">
+          <AlertTriangle className="w-10 h-10 text-destructive/60 mx-auto" />
+          <div className="text-sm font-bold text-foreground">Couldn't load certificates</div>
+          <p className="text-xs text-muted-foreground break-words">{error}</p>
+          <Button variant="outline" className="w-full h-11 font-bold" onClick={() => fetchData()}>Try again</Button>
+        </div>
+      </Shell>
+    );
+  }
+
   if (!job || !customer) return null;
+
 
   const allDocs = [
     ...certificates.map(c => {
