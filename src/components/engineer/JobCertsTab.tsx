@@ -114,6 +114,10 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
                 <div className="text-xs text-muted-foreground">
                   {new Date(doc.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                 </div>
+                {doc.gprn && (
+                  <div className="text-xs text-muted-foreground">GPRN {doc.gprn}</div>
+                )}
+
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${
                   doc.status === "complete" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                 }`}>
