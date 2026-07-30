@@ -1,57 +1,43 @@
-Both previous plan submissions were interrupted before reaching you, so the approval button never appeared and I'm still locked in plan mode. Approving this one switches me to build mode and I'll apply both parts immediately, then show the real diffs.
+## Follow-up read (answered)
 
-Nothing here is applied yet — `backfillCustomerGprn` does not exist in the codebase.
+`details` is saved into the `certificates.notes` JSONB as `{ details, work_carried_out }` (`CertificateFlow.tsx` handleSubmit, insert + retry-queue payload). The PDF generator `supabase/functions/generate-certificate-pdf/index.ts` reads `const details = notes.details || {}` (lines 72, 372) — but it renders GPRN from the **customer row**, not from `details`:
 
-## Part A — GPRN write-back on certificate save
+- HTML path, line 165: `${customer?.gprn ? ... }`
+- jsPDF path, line 414: `if (customer?.gprn) fieldPair("GPRN", customer.gprn, ...)`
 
-Only writes when the customer's `gprn` is null or empty. If the customer already has a GPRN and the cert value differs, the customer record is left alone.
+So GPRN already appears on the generated certificate **whenever `customers.gprn` is populated**. No edge-function change is needed. The one ordering requirement: the `backfillCustomerGprn` call must be awaited **before** `supabase.functions.invoke("generate-certificate-pdf")`, otherwise a first-time GPRN entered by the engineer may not be on the customer row when the PDF renders. Storing `details.gprn` in `notes` is still worth doing as an audit record of what the engineer typed.
 
-New file `src/lib/backfillCustomerGprn.ts`:
+## Changes to apply
 
-```ts
-export async function backfillCustomerGprn(customerId?: string, gprn?: string) {
-  const value = (gprn || "").trim();
-  if (!customerId || !value) return;
-  try {
-    await supabase
-      .from("customers")
-      .update({ gprn: value })
-      .eq("id", customerId)
-      .or("gprn.is.null,gprn.eq.");   // never overwrites an existing value
-  } catch (_e) { /* non-blocking */ }
-}
+### 1. `src/components/engineer/CertificateFlow.tsx`
+
+- Add import: `import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";`
+- `details` state (line 165-177):
+  - insert `gprn: customer?.gprn || "",` after `eircode`
+  - `boilerBrand: job?.boiler_brand || customer?.boiler_brand || ""`
+  - `boilerModel: customer?.boiler_model || customer?.boiler_make_model || ""`
+- Field array (line 408-419): insert `["gprn", "GPRN"]` between `["eircode", "Eircode"]` and `["applianceType", "Appliance Type"]`.
+- In `handleSubmit`, on the success branch, before invoking `generate-certificate-pdf`:
+  ```ts
+  await backfillCustomerGprn(customer?.id, details.gprn);
+  ```
+  (same pattern as `Cert2Flow.tsx:223`, but awaited so the PDF sees the value)
+
+### 2. `src/pages/CustomerDetail.tsx` (lines 220-223)
+
+Correct the incomplete TEMP list to add the three missed consumers:
+
+```
+// TEMP: keep boiler_make_model in sync until downstream consumers
+// migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
+// WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
+// BoilerBrandsTab, IncomingJobCard, DataTab export,
+// CertificateFlow.tsx, Cert2Flow.tsx,
+// supabase/functions/generate-cert2-pdf/index.ts).
 ```
 
-The `.or(...)` filter does the "only if empty" test in the database — no read-then-write race, no path that can clobber an existing value.
+### Verification
+- `tsgo --noEmit` on the two touched files.
+- Manual: open the cert flow for a customer with a GPRN (prefilled) and one without (blank, entered value writes back).
 
-Called once, not awaited, in the insert-success branch of:
-- `src/components/engineer/Cert2Flow.tsx` (~L216)
-- `src/components/engineer/Cert3Flow.tsx` (~L196)
-- `src/components/engineer/GasInstallationFlow.tsx` (~L198)
-- `src/components/engineer/GasInstallationCertForm.tsx` — in `handleSave`, after a successful insert or update
-
-Not called on the offline retry-queue path (that fires only when the save itself failed).
-
-## Part B — GPRN on certificate list rows
-
-GPRN sources: `certificates.notes.gprn` (JSONB) and `cert2_certificates.gprn` (column). Hazard notices don't store one, so no line for them.
-
-`src/components/engineer/JobCertsTab.tsx`
-- Add `gprn: string | null` to `CertDoc`.
-- cert1 rows read `(c.notes as any)?.gprn` — `notes` already selected, no query change.
-- cert2 rows: add `gprn` to the `cert2_certificates` select (L40) and map it.
-- Conditional `text-xs text-muted-foreground` line under the created date: `GPRN {value}`.
-
-`src/pages/engineer/EngineerCertificates.tsx`
-- `fetchData()` already does `.select("*")` — no query change.
-- Add `gprn` to the `allDocs` mapping (~L88); render the same conditional line in the existing `text-[11px] text-muted-foreground` style.
-
-Rows without a GPRN render exactly as today — line omitted, not a dash.
-
-## Unchanged
-
-Cert payloads, validation, numbering, PDF generators, WhatsApp sending, offline queue, `CertificateViewer.tsx`, `CustomerHazardNotices.tsx`, quotes/invoices/receipts. No migration needed.
-
-## Risk
-
-Low — one guarded non-blocking UPDATE per cert save, two presentational additions, one extra selected column.
+Risk: low — prefill/presentation plus one additive DB write already used by three other flows.

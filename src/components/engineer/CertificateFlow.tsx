@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRetryQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Checks", "Readings", "Customer", "Engineer"];
@@ -167,9 +168,10 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     customerMobile: customer?.phone || "",
     customerAddress: customer?.address || "",
     eircode: customer?.eircode || "",
+    gprn: customer?.gprn || "",
     applianceType: job?.boiler_type || customer?.boiler_type || "",
-    boilerBrand: job?.boiler_brand || "",
-    boilerModel: customer?.boiler_make_model || "",
+    boilerBrand: job?.boiler_brand || customer?.boiler_brand || "",
+    boilerModel: customer?.boiler_model || customer?.boiler_make_model || "",
     flueType: "",
     pipework: "",
     engineerName: engineerName || "",
@@ -281,6 +283,10 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
       const newCertId = (insertedRow as any)?.id;
       setCertId(newCertId);
       setStep(5);
+
+      // Write GPRN back to the customer record if they don't have one yet.
+      // Awaited so the value is on the row before the PDF is rendered.
+      await backfillCustomerGprn(customer?.id, details.gprn);
 
       // Trigger PDF generation
       if (newCertId) {
@@ -410,6 +416,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
               ["customerMobile", "Customer Mobile"],
               ["customerAddress", "Address"],
               ["eircode", "Eircode"],
+              ["gprn", "GPRN"],
               ["applianceType", "Appliance Type"],
               ["boilerBrand", "Boiler Brand"],
               ["boilerModel", "Boiler Make / Model"],
