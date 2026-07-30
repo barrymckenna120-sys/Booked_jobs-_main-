@@ -218,6 +218,9 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
       setCertId(newCertId);
       setStep(5);
 
+      backfillCustomerGprn(customer?.id, gprn);
+
+
       if (newCertId) {
         supabase.functions.invoke("generate-cert2-pdf", {
           body: { certificate_id: newCertId },
