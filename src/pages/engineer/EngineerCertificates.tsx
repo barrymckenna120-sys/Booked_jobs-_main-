@@ -158,6 +158,10 @@ const EngineerCertificates = () => {
                     {new Date(doc.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     {engineerInfo.name ? ` · ${engineerInfo.name}` : ""}
                   </div>
+                  {doc.gprn && (
+                    <div className="text-[11px] text-muted-foreground">GPRN {doc.gprn}</div>
+                  )}
+
                   {/* Hazard type badges */}
                   {doc.type === "hazard" && doc.hazardTypes && (
                     <div className="flex gap-1 mt-1">
