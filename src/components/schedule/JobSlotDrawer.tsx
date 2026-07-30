@@ -173,6 +173,12 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
               <span className="text-xs text-muted-foreground">Boiler Model</span>
               <p className="font-semibold mt-0.5">{job.boiler_model || "—"}</p>
             </div>
+            {job.customer_boiler_location?.trim() && (
+              <div>
+                <span className="text-xs text-muted-foreground">Boiler Location</span>
+                <p className="font-semibold mt-0.5">{job.customer_boiler_location}</p>
+              </div>
+            )}
             {job.boiler_error_code && (
               <div>
                 <span className="text-xs text-muted-foreground">Error Code</span>
