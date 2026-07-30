@@ -284,6 +284,10 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
       setCertId(newCertId);
       setStep(5);
 
+      // Write GPRN back to the customer record if they don't have one yet.
+      // Awaited so the value is on the row before the PDF is rendered.
+      await backfillCustomerGprn(customer?.id, details.gprn);
+
       // Trigger PDF generation
       if (newCertId) {
         supabase.functions.invoke("generate-certificate-pdf", {
