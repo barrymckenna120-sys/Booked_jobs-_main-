@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle, X } from "lucide-react";
 
@@ -200,6 +201,13 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
   const [make, setMake] = useState(job?.boiler_brand || customer?.boiler_brand || "");
   const [model, setModel] = useState(customer?.boiler_model || customer?.boiler_make_model || "");
   const [location, setLocation] = useState("");
+  const [gprn, setGprn] = useState(customer?.gprn || "");
+  // customer is normally loaded before this flow mounts, but if it arrives late,
+  // adopt its GPRN — only while the field is still empty, so it can never
+  // clobber a value the engineer has typed.
+  useEffect(() => {
+    if (!gprn && customer?.gprn) setGprn(customer.gprn);
+  }, [customer?.gprn]);
   const [isolationReasons, setIsolationReasons] = useState("");
   const [pressureReading, setPressureReading] = useState("");
   const [meterNumber, setMeterNumber] = useState("");
@@ -251,6 +259,7 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
     }
 
     const newId = (insertedRow as any)?.id;
+    await backfillCustomerGprn(customer?.id, gprn);
     setHazardId(newId);
     setPhase("success");
 
@@ -423,6 +432,7 @@ const HazardNotificationFlow: React.FC<HazardNotificationFlowProps> = ({ job, cu
           <ReadOnlyField label="Contact" value={customer?.phone || ""} />
           <div className="col-span-2"><ReadOnlyField label="Address" value={customer?.address || ""} /></div>
           <ReadOnlyField label="Eircode" value={customer?.eircode || ""} />
+          <EditField label="GPRN" value={gprn} onChange={setGprn} placeholder="e.g. 3445AB12" />
         </div>
         <div className="space-y-2">
           <Label className="text-[10px] font-bold text-[#888] uppercase tracking-wider">Gas Type</Label>
