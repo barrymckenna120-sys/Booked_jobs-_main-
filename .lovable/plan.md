@@ -1,43 +1,45 @@
-## Follow-up read (answered)
+## Goal
 
-`details` is saved into the `certificates.notes` JSONB as `{ details, work_carried_out }` (`CertificateFlow.tsx` handleSubmit, insert + retry-queue payload). The PDF generator `supabase/functions/generate-certificate-pdf/index.ts` reads `const details = notes.details || {}` (lines 72, 372) — but it renders GPRN from the **customer row**, not from `details`:
+No screen in the certificate flow should ever sit on a spinner forever. Every failure path ends in either loaded content, an actionable error, or a "sign in again" prompt.
 
-- HTML path, line 165: `${customer?.gprn ? ... }`
-- jsPDF path, line 414: `if (customer?.gprn) fieldPair("GPRN", customer.gprn, ...)`
+## 1. `src/components/engineer/JobCertsTab.tsx`
 
-So GPRN already appears on the generated certificate **whenever `customers.gprn` is populated**. No edge-function change is needed. The one ordering requirement: the `backfillCustomerGprn` call must be awaited **before** `supabase.functions.invoke("generate-certificate-pdf")`, otherwise a first-time GPRN entered by the engineer may not be on the customer row when the PDF renders. Storing `details.gprn` in `notes` is still worth doing as an audit record of what the engineer typed.
+- Add an `error: string | null` state alongside `loading`.
+- Wrap the `fetchDocs` body in `try / catch / finally`; `setLoading(false)` moves into `finally` so a thrown error can never strand the spinner.
+- Read the per-query `error` field on all three calls (`certificates`, `cert2_certificates`, `hazard_notifications`). If any returns an error, set the error state instead of silently rendering the empty state.
+- New error UI (replaces the spinner when `error` is set): alert icon, "Couldn't load certificates", the error message in muted text, and a **Try again** button calling `fetchDocs()`.
+- Keep the existing "No certificates issued yet" empty state strictly for a successful fetch with zero rows, so a failure never looks like "no data".
 
-## Changes to apply
+## 2. `src/pages/engineer/EngineerCertificates.tsx`
 
-### 1. `src/components/engineer/CertificateFlow.tsx`
+- Same `error` state + `try / catch / finally` treatment on `fetchData`, and read `error` on the `service_calls`, `certificates`, `hazard_notifications`, and `customers` queries.
+- Distinguish two cases that currently both redirect or hang:
+  - query error → error state with **Try again**
+  - query succeeded but no row → keep the existing "Job not found" toast + redirect to `/engineer/today`
+- **Session handling.** Today the fetch only runs when `user && id` are both truthy and `loading` starts as `true` — so when `authLoading` finishes with `user === null` (expired token, PWA cold start) the effect never fires and the spinner runs forever. Cover all three outcomes:
+  - `authLoading` → keep showing the spinner
+  - resolved, no `user` → clear `loading` and render "Your session has expired — please log in again" with a button to `/auth`
+  - resolved with `user` → fetch as today
+- Same treatment for the two side-effect queries in that effect (`engineers`, `settings`): read their `error` and fail soft — they only populate the header/branding, so log rather than block the page.
+- Error and session states render inside the existing page shell (header + back button) so the user is never trapped without navigation.
 
-- Add import: `import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";`
-- `details` state (line 165-177):
-  - insert `gprn: customer?.gprn || "",` after `eircode`
-  - `boilerBrand: job?.boiler_brand || customer?.boiler_brand || ""`
-  - `boilerModel: customer?.boiler_model || customer?.boiler_make_model || ""`
-- Field array (line 408-419): insert `["gprn", "GPRN"]` between `["eircode", "Eircode"]` and `["applianceType", "Appliance Type"]`.
-- In `handleSubmit`, on the success branch, before invoking `generate-certificate-pdf`:
-  ```ts
-  await backfillCustomerGprn(customer?.id, details.gprn);
-  ```
-  (same pattern as `Cert2Flow.tsx:223`, but awaited so the PDF sees the value)
+## 3. Shared behaviour
 
-### 2. `src/pages/CustomerDetail.tsx` (lines 220-223)
+Both screens: error text comes from the Supabase error where available, with a generic fallback. Retry clears the error first, then re-runs the same fetch function.
 
-Correct the incomplete TEMP list to add the three missed consumers:
+## Technical notes
 
-```
-// TEMP: keep boiler_make_model in sync until downstream consumers
-// migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
-// WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
-// BoilerBrandsTab, IncomingJobCard, DataTab export,
-// CertificateFlow.tsx, Cert2Flow.tsx,
-// supabase/functions/generate-cert2-pdf/index.ts).
-```
+- Supabase-js resolves with `{ data, error }` rather than throwing for most query failures, so the per-query `error` checks are what actually catch RLS denials and bad requests; the `try/catch` is belt-and-braces for network/transport throws inside `Promise.all`.
+- No schema, RLS, or edge-function changes. The `gprn` column addition from earlier today is confirmed valid and is not implicated.
+- No changes to the certificate flows themselves (`CertificateFlow`, `Cert2Flow`, `Cert3Flow`, `GasInstallationFlow`, `HazardNotificationFlow`).
 
-### Verification
-- `tsgo --noEmit` on the two touched files.
-- Manual: open the cert flow for a customer with a GPRN (prefilled) and one without (blank, entered value writes back).
+## Answer to the systemic question — flagged, not fixed
 
-Risk: low — prefill/presentation plus one additive DB write already used by three other flows.
+| File | Missing try/catch on fetch | Ignores per-query `error` | Auth-null stuck state |
+|---|---|---|---|
+| `pages/engineer/EngineerCertificates.tsx` | yes | yes | yes — spinner forever |
+| `components/engineer/JobCertsTab.tsx` | yes | yes | n/a (no auth gate) |
+| `pages/engineer/EngineerJobDetail.tsx` | `fetchJob` (L103) unguarded; the 9 `try` blocks are all in action handlers, not the load path | yes — destructures `data` only | same `if (user && id)` gate at L88 with `loading` starting `true` |
+| `pages/EngineerApp.tsx` | `fetchAll` (L82) unguarded | yes | partly protected: renders on `authLoading` only, so a null user leaves stale/empty lists rather than a spinner |
+
+Systemic rather than one-off — roughly four load paths share it. Worth a follow-up pass extracting a shared fetch wrapper (loading / error / retry / session-expired) instead of patching each screen; this plan deliberately covers only the two files you asked for.

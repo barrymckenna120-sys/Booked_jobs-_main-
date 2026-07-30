@@ -26,6 +26,8 @@ const EngineerCertificates = () => {
   const [certificates, setCertificates] = useState<any[]>([]);
   const [hazards, setHazards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
   const [showHazard, setShowHazard] = useState(false);
@@ -36,32 +38,50 @@ const EngineerCertificates = () => {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    if (user && id) {
-      fetchData();
-      supabase.from("engineers").select("name, rgi_number, phone").eq("auth_user_id", user.id).maybeSingle()
-        .then(({ data }) => { if (data) setEngineerInfo({ name: data.name || "", rgi_number: (data as any).rgi_number || null, phone: (data as any).phone || null }); });
-      supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle()
-        .then(({ data }) => { if (data) setSettings(data); });
-    }
-  }, [user, id]);
+    if (authLoading) return;
+    if (!user || !id) { setLoading(false); return; }
+
+    fetchData();
+    supabase.from("engineers").select("name, rgi_number, phone").eq("auth_user_id", user.id).maybeSingle()
+      .then(({ data, error: engErr }) => {
+        if (engErr) { console.error("[EngineerCertificates] engineers fetch failed", engErr); return; }
+        if (data) setEngineerInfo({ name: data.name || "", rgi_number: (data as any).rgi_number || null, phone: (data as any).phone || null });
+      });
+    supabase.from("settings").select("*").eq("user_id", user.id).maybeSingle()
+      .then(({ data, error: setErr }) => {
+        if (setErr) { console.error("[EngineerCertificates] settings fetch failed", setErr); return; }
+        if (data) setSettings(data);
+      });
+  }, [user, id, authLoading]);
 
   const fetchData = async () => {
     setLoading(true);
-    const [jobRes, certRes, hazRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("certificates").select("*").eq("job_id", id),
-      supabase.from("hazard_notifications").select("*").eq("job_id", id).order("created_at", { ascending: false }),
-    ]);
+    setError(null);
+    try {
+      const [jobRes, certRes, hazRes] = await Promise.all([
+        supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
+        supabase.from("certificates").select("*").eq("job_id", id),
+        supabase.from("hazard_notifications").select("*").eq("job_id", id).order("created_at", { ascending: false }),
+      ]);
 
-    if (!jobRes.data) { toast({ title: "Job not found", variant: "destructive" }); navigate("/engineer/today"); return; }
-    setJob(jobRes.data);
-    setCertificates(certRes.data || []);
-    setHazards(hazRes.data || []);
+      const queryError = jobRes.error || certRes.error || hazRes.error;
+      if (queryError) { setError(queryError.message || "Couldn't load certificates."); return; }
 
-    const { data: custData } = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
-    if (custData) setCustomer(custData);
-    setLoading(false);
+      if (!jobRes.data) { toast({ title: "Job not found", variant: "destructive" }); navigate("/engineer/today"); return; }
+      setJob(jobRes.data);
+      setCertificates(certRes.data || []);
+      setHazards(hazRes.data || []);
+
+      const { data: custData, error: custError } = await supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle();
+      if (custError) { setError(custError.message || "Couldn't load the customer for this job."); return; }
+      if (custData) setCustomer(custData);
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong loading this page.");
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   const handleResendCert = async (pdfUrl: string, customerName: string) => {
     if (!pdfUrl) { toast({ title: "No PDF available", variant: "destructive" }); return; }
@@ -77,11 +97,51 @@ const EngineerCertificates = () => {
     window.open(`https://wa.me/${customer?.phone?.replace(/[^0-9]/g, "")}?text=${msg}`, "_blank");
   };
 
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
+        <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
+        <button onClick={() => navigate(`/engineer/job/${id}`)} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="text-xl font-extrabold text-white">Certificates</div>
+      </div>
+      <div className="px-4 pt-4">{children}</div>
+    </div>
+  );
+
   if (authLoading || loading) {
     return <div className="max-w-[430px] mx-auto min-h-screen bg-secondary flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 
+  if (!user) {
+    return (
+      <Shell>
+        <div className="text-center py-12 bg-card rounded-2xl border border-border px-4 space-y-3">
+          <Lock className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+          <div className="text-sm font-bold text-foreground">Your session has expired</div>
+          <p className="text-xs text-muted-foreground">Please log in again to view certificates.</p>
+          <Button className="w-full h-11 font-bold" onClick={() => navigate("/auth")}>Log in again</Button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (error) {
+    return (
+      <Shell>
+        <div className="text-center py-12 bg-card rounded-2xl border border-border px-4 space-y-3">
+          <AlertTriangle className="w-10 h-10 text-destructive/60 mx-auto" />
+          <div className="text-sm font-bold text-foreground">Couldn't load certificates</div>
+          <p className="text-xs text-muted-foreground break-words">{error}</p>
+          <Button variant="outline" className="w-full h-11 font-bold" onClick={() => fetchData()}>Try again</Button>
+        </div>
+      </Shell>
+    );
+  }
+
   if (!job || !customer) return null;
+
 
   const allDocs = [
     ...certificates.map(c => {
