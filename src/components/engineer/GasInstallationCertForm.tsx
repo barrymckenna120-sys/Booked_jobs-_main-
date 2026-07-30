@@ -93,6 +93,11 @@ const GasInstallationCertForm: React.FC<GasInstallationCertFormProps> = ({
   const [gasType, setGasType] = useState(existingCert?.gas_type || "nat_gas");
   const [installType, setInstallType] = useState(existingCert?.install_type || "new");
   const [gprn, setGprn] = useState(existingCert?.gprn || customer?.gprn || "");
+  // Defensive: if customer loads after first render, adopt its GPRN — only while
+  // the field is still empty, so it can never clobber a value the engineer typed.
+  useEffect(() => {
+    if (!gprn && customer?.gprn) setGprn(customer.gprn);
+  }, [customer?.gprn]);
   const [premisesEircode, setPremisesEircode] = useState(existingCert?.eircode_premises || customer?.eircode || "");
   const [premisesAddress, setPremisesAddress] = useState(existingCert?.address_premises || customer?.address || "");
   const [premisesName, setPremisesName] = useState(existingCert?.customer_name_premises || customer?.name || "");
