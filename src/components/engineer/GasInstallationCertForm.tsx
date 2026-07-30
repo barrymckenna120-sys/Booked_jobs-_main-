@@ -219,8 +219,11 @@ const GasInstallationCertForm: React.FC<GasInstallationCertFormProps> = ({
         }
       }
 
+      backfillCustomerGprn(customer?.id, gprn);
+
       toast({ title: newStatus === "draft" ? "Draft saved" : "Certificate marked complete ✓" });
       onSaved();
+
     } catch (err: any) {
       toast({ title: "Error saving", description: err.message, variant: "destructive" });
     } finally {
