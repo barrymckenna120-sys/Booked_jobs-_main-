@@ -15,7 +15,7 @@ export const generateImportTemplate = () => {
       "OTHER", "",
     ],
     [
-      "Customer Name", "Phone Number", "Email", "Address", "Eircode", "Area Code",
+      "Customer Name", "Phone Number", "Email", "Address", "Eircode", "Area Code", "GPRN",
       "Access Notes",
       "Boiler Brand", "Boiler Model", "Boiler Type", "Installation Date", "Under Warranty", "Warranty Years",
       "Last Service Date", "Last Service Engineer", "Engineer Notes", "Next Service Due", "Service Status", "Assigned Engineer",

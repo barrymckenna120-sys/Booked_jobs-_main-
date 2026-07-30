@@ -122,7 +122,7 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
   // Step 1 — Pre-filled details (read-only) + Premises & Supply
-  const [gprn, setGprn] = useState("");
+  const [gprn, setGprn] = useState(customer?.gprn || "");
   const [workCarriedOut, setWorkCarriedOut] = useState("");
   const [workCarriedOutOther, setWorkCarriedOutOther] = useState("");
   const [gasType, setGasType] = useState("Nat Gas");

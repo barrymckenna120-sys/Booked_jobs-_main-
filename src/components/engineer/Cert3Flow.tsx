@@ -108,7 +108,7 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
   // Step 1 — Premises
-  const [gprn, setGprn] = useState("");
+  const [gprn, setGprn] = useState(customer?.gprn || "");
   const [eircode, setEircode] = useState(customer?.eircode || "");
   const [address, setAddress] = useState(customer?.address || "");
   const [custName, setCustName] = useState(customer?.name || "");
