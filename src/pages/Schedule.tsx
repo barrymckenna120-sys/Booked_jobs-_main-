@@ -183,6 +183,7 @@ const Schedule = () => {
         customer_eircode: j.customers?.eircode || null,
         customer_area_code: j.customers?.area_code || j.area_code || null,
         customer_gprn: j.customers?.gprn || null,
+        customer_boiler_location: j.customers?.boiler_location || null,
         customer_access_notes: j.customers?.access_notes || null,
         job_type: j.job_type,
         status: j.status,
