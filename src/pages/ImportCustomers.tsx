@@ -318,8 +318,8 @@ const ImportCustomers = () => {
       // GPRN is optional. If present but not a plausible reference (roughly 7 digits,
       // purely numeric), warn on the cell without blocking the row.
       const gprn = field("gprn");
-      if (gprn && !/^\d{7}$/.test(gprn.replace(/\s/g, ""))) {
-        fieldWarnings.gprn = "Doesn't look like a GPRN (usually 7 digits) — will still import";
+      if (gprn && !isValidGprnFormat(gprn.replace(/\s/g, ""))) {
+        fieldWarnings.gprn = GPRN_WARNING_MESSAGE.replace("save", "import");
       }
 
       if (hasCol("name") && !name) {
