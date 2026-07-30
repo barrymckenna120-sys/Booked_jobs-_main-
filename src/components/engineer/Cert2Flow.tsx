@@ -9,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRetryQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
+
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Appliance", "Readings", "Customer", "Engineer"];
@@ -217,6 +219,9 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
       const newCertId = (insertedRow as any)?.id;
       setCertId(newCertId);
       setStep(5);
+
+      backfillCustomerGprn(customer?.id, gprn);
+
 
       if (newCertId) {
         supabase.functions.invoke("generate-cert2-pdf", {

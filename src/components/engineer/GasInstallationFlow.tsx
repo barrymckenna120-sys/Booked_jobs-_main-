@@ -9,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { addToQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
+
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Appliance", "Readings", "Customer", "Engineer"];
@@ -200,6 +202,10 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
       setCertNumber(cn);
       setCertId(newCertId);
       setStep(5);
+
+      backfillCustomerGprn(customer?.id, gprn);
+
+
 
       if (newCertId) {
         console.log("🚀 Invoking generate-gas-install-pdf with certificate_id:", newCertId);

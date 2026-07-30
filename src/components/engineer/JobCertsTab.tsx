@@ -18,7 +18,9 @@ interface CertDoc {
   status: string;
   pdf_url: string | null;
   created_at: string;
+  gprn: string | null;
 }
+
 
 const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }) => {
   const navigate = useNavigate();
@@ -37,7 +39,7 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
     setLoading(true);
     const [cert1Res, cert2Res, hazardRes] = await Promise.all([
       supabase.from("certificates").select("id, pdf_url, cert_number, created_at, notes").eq("job_id", job.id),
-      supabase.from("cert2_certificates").select("id, pdf_url, status, created_at, cert_type").eq("service_call_id", job.id),
+      supabase.from("cert2_certificates").select("id, pdf_url, status, created_at, cert_type, gprn").eq("service_call_id", job.id),
       supabase.from("hazard_notifications").select("id, pdf_url, ref_number, created_at").eq("job_id", job.id),
     ]);
 
@@ -45,17 +47,18 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
       ...(cert1Res.data || []).map((c: any) => {
         const certType = (c.notes as any)?.cert_type;
         const label = certType === "gas_safety_service" ? "Domestic Safety / Service" : certType === "domestic_safety_service" ? "Domestic Safety / Service" : certType === "gas_installation_new_meter" ? "Gas Installation / New Meter" : "Boiler Service";
-        return { id: c.id, type: "cert1" as const, label, status: c.pdf_url ? "complete" : "draft", pdf_url: c.pdf_url, created_at: c.created_at };
+        return { id: c.id, type: "cert1" as const, label, status: c.pdf_url ? "complete" : "draft", pdf_url: c.pdf_url, created_at: c.created_at, gprn: (c.notes as any)?.gprn || null };
       }),
       ...(cert2Res.data || []).map((c: any) => ({
         id: c.id, type: "cert2" as const,
         label: c.cert_type === "declaration_of_conformance" ? "Declaration of Conformance" : c.cert_type === "gas_safety_service" ? "Declaration of Performance" : "Gas Installation / New Meter",
-        status: c.status || "draft", pdf_url: c.pdf_url, created_at: c.created_at,
+        status: c.status || "draft", pdf_url: c.pdf_url, created_at: c.created_at, gprn: c.gprn || null,
       })),
       ...(hazardRes.data || []).map((h: any) => ({
         id: h.id, type: "hazard" as const, label: "Notification of Hazard",
-        status: h.pdf_url ? "complete" : "draft", pdf_url: h.pdf_url, created_at: h.created_at,
+        status: h.pdf_url ? "complete" : "draft", pdf_url: h.pdf_url, created_at: h.created_at, gprn: null,
       })),
+
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     setDocs(allDocs);
@@ -111,6 +114,10 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
                 <div className="text-xs text-muted-foreground">
                   {new Date(doc.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                 </div>
+                {doc.gprn && (
+                  <div className="text-xs text-muted-foreground">GPRN {doc.gprn}</div>
+                )}
+
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${
                   doc.status === "complete" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                 }`}>

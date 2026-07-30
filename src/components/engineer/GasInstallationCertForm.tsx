@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { addToQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -217,8 +219,11 @@ const GasInstallationCertForm: React.FC<GasInstallationCertFormProps> = ({
         }
       }
 
+      backfillCustomerGprn(customer?.id, gprn);
+
       toast({ title: newStatus === "draft" ? "Draft saved" : "Certificate marked complete ✓" });
       onSaved();
+
     } catch (err: any) {
       toast({ title: "Error saving", description: err.message, variant: "destructive" });
     } finally {
