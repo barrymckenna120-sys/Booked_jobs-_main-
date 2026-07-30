@@ -47,6 +47,9 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "assigned engineer": "assigned_engineer",
   "customer notes": "notes",
   "notes": "notes",
+  "note": "notes",
+  "comments": "notes",
+  "comment": "notes",
   "customer since": "customer_since",
 };
 
@@ -419,7 +422,7 @@ const ImportCustomers = () => {
           next_service_due: parseDate(rawField("next_service_due")),
           service_status: serviceStatus || "Up to Date",
           assigned_engineer: field("assigned_engineer"),
-          notes: field("notes"),
+          notes: field("notes") || null,
           customer_since: parseDate(rawField("customer_since")),
         },
         errors,
@@ -930,6 +933,7 @@ const ImportCustomers = () => {
                           <TableHead className="hidden md:table-cell">Address</TableHead>
                           <TableHead className="hidden md:table-cell">Eircode</TableHead>
                           <TableHead className="hidden lg:table-cell">GPRN</TableHead>
+                          <TableHead className="hidden lg:table-cell">Notes</TableHead>
                           <TableHead className="w-24">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -954,6 +958,9 @@ const ImportCustomers = () => {
                             </TableCell>
                             <TableCell className="hidden lg:table-cell min-w-[130px] align-top">
                               <EditableCell row={r} fieldKey="gprn" display={r.data.gprn || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="notes" display={r.data.notes || ""} />
                             </TableCell>
                             <TableCell className="align-top pt-3">
                               {r.isValid ? (
