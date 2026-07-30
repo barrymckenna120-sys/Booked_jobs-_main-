@@ -207,6 +207,10 @@ const Cert3Flow: React.FC<Cert3FlowProps> = ({ job, customer, engineerName, engi
       setCertId(newCertId);
       setStep(5); // success screen
 
+      backfillCustomerGprn(customer?.id, gprn);
+
+
+
       // Trigger PDF generation
       if (newCertId) {
         supabase.functions.invoke("generate-cert3-pdf", {
