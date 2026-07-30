@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRetryQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Checks", "Readings", "Customer", "Engineer"];
