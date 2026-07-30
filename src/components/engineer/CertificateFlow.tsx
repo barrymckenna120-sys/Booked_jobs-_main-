@@ -416,6 +416,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
               ["customerMobile", "Customer Mobile"],
               ["customerAddress", "Address"],
               ["eircode", "Eircode"],
+              ["gprn", "GPRN"],
               ["applianceType", "Appliance Type"],
               ["boilerBrand", "Boiler Brand"],
               ["boilerModel", "Boiler Make / Model"],
