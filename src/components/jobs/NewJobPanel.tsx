@@ -1234,6 +1234,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
         if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
         if (finalData.job?.accessNotes?.trim()) custUpdate.access_notes = finalData.job.accessNotes.trim();
+        if (finalData.job?.gprn?.trim()) custUpdate.gprn = finalData.job.gprn.trim();
+        if (finalData.job?.boilerLocation?.trim()) custUpdate.boiler_location = finalData.job.boilerLocation.trim();
         if (Object.keys(custUpdate).length > 0) {
           await supabase.from("customers").update(custUpdate).eq("id", customerId);
         }
