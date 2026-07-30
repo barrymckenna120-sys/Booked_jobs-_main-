@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { generateImportTemplate } from "@/lib/generateTemplate";
+import { isValidGprnFormat, GPRN_WARNING_MESSAGE } from "@/lib/validation/gprn";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
