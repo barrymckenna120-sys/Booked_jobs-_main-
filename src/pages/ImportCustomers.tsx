@@ -933,6 +933,7 @@ const ImportCustomers = () => {
                           <TableHead className="hidden md:table-cell">Address</TableHead>
                           <TableHead className="hidden md:table-cell">Eircode</TableHead>
                           <TableHead className="hidden lg:table-cell">GPRN</TableHead>
+                          <TableHead className="hidden lg:table-cell">Notes</TableHead>
                           <TableHead className="w-24">Status</TableHead>
                         </TableRow>
                       </TableHeader>
