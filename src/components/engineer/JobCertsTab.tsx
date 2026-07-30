@@ -102,6 +102,20 @@ const JobCertsTab: React.FC<JobCertsTabProps> = ({ job, customer, engineerInfo }
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-8 space-y-3">
+        <AlertTriangle className="w-10 h-10 text-destructive/60 mx-auto" />
+        <p className="text-sm font-bold text-foreground">Couldn't load certificates</p>
+        <p className="text-xs text-muted-foreground break-words">{error}</p>
+        <Button variant="outline" className="w-full h-11 font-bold" onClick={() => fetchDocs()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+
   return (
     <div className="space-y-3">
       {docs.length === 0 ? (
