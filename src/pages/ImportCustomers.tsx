@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { generateImportTemplate } from "@/lib/generateTemplate";
+import { isValidGprnFormat, GPRN_WARNING_MESSAGE } from "@/lib/validation/gprn";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
@@ -318,8 +319,8 @@ const ImportCustomers = () => {
       // GPRN is optional. If present but not a plausible reference (roughly 7 digits,
       // purely numeric), warn on the cell without blocking the row.
       const gprn = field("gprn");
-      if (gprn && !/^\d{7}$/.test(gprn.replace(/\s/g, ""))) {
-        fieldWarnings.gprn = "Doesn't look like a GPRN (usually 7 digits) — will still import";
+      if (gprn && !isValidGprnFormat(gprn.replace(/\s/g, ""))) {
+        fieldWarnings.gprn = GPRN_WARNING_MESSAGE.replace("save", "import");
       }
 
       if (hasCol("name") && !name) {

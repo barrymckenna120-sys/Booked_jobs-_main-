@@ -1,42 +1,62 @@
-## Two corrections before building
+## Goal
 
-**1. The migration isn't needed.** `customers.notes` already exists — confirmed by querying the live schema:
+Add two optional fields — **GPRN** and **Boiler Location** — to Step 2 (Job Details) of the New Job wizard. Both live on the customer record, not the job. Plus extract the GPRN validation rule into a shared helper so it is defined once.
 
-```
-column_name: notes | data_type: text | is_nullable: YES
-```
+## 1. Shared validation helper (new)
 
-`ADD COLUMN IF NOT EXISTS` would be a no-op. Skipping it, since running a migration that changes nothing still puts an approval step in your way for no benefit. Say the word if you'd rather have it recorded anyway.
+`src/lib/validation/gprn.ts`:
 
-**2. Notes is already half-wired.** The alias map (`HEADER_TO_FIELD`, lines 48-49) already maps `"customer notes"` and `"notes"`, and the payload builder already writes `notes` (line 422). So the real work is the three gaps below, not a from-scratch field.
-
-Also a naming note: `KNOWN_HEADERS` (line 86) is the *header-row detection* list, not the alias map — it's a 5-entry list used to sniff which spreadsheet row is the header. Adding Notes there would be wrong (it would let a stray "Notes" column make a data row look like a header). The aliases belong in `HEADER_TO_FIELD`.
-
-## What changes
-
-All in `src/pages/ImportCustomers.tsx`.
-
-**1. Add the missing aliases** to `HEADER_TO_FIELD` alongside the existing two:
-
-```
-"note": "notes",
-"comments": "notes",
-"comment": "notes",
+```ts
+export function isValidGprnFormat(value: string): boolean {
+  return /^\d{7}$/.test(value.trim());
+}
+export const GPRN_WARNING_MESSAGE = "Doesn't look like a GPRN (usually 7 digits) — will still save";
 ```
 
-Header matching already lowercases and trims, so `Notes`, `Note`, `Comments`, `Comment` all resolve.
+- `ImportCustomers.tsx:321-322` swaps its inline regex + literal for this import. Its call site currently strips inner spaces before testing (`gprn.replace(/\s/g, "")`), so that normalisation stays at the call site to keep behaviour identical.
+- The new NewJobPanel GPRN field imports the same helper — no second copy of the regex.
+- The queued engineer job-detail card version will import from here too rather than copy-pasting a third time.
 
-**2. Blank becomes null.** Currently `notes: field("notes")` yields `""` for a blank cell, so empty notes are stored as an empty string rather than null. Change to `field("notes") || null`, matching how `gprn` and `owner_or_tenant` already do it.
+## 2. Database
 
-**3. Preview table column.** Add a `Notes` header after GPRN and a matching `EditableCell` cell with `fieldKey="notes"`. It'll use the same `hidden lg:table-cell` treatment as GPRN so the mobile preview stays readable.
+`customers.gprn` already exists (text). `customers.boiler_location` does **not** — one migration:
 
-## Explicitly untouched
+```sql
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS boiler_location text;
+```
 
-- `REQUIRED_FIELDS` — Notes stays optional.
-- `KNOWN_HEADERS` header-row detection.
-- GPRN aliases, its 7-digit soft warning, and all boiler field logic.
-- Every other validation rule, dedupe check, and default.
+No new table, so existing customer RLS/grants cover it.
 
-## Risk
+## 3. Step 2 UI (`src/components/jobs/NewJobPanel.tsx`)
 
-Low. Notes is optional and free-text, with no validation and no downstream parsing. The one behaviour change beyond additions is blank-to-null, which affects only newly imported rows and aligns with existing fields. No tests — this is alias/markup wiring, not logic. I'll typecheck and click through the import preview after.
+New row directly below the existing Boiler Type / Boiler Error Code grid (lines ~500-509), identical `grid grid-cols-2 gap-3` + uppercase Label + `Input ... className="mt-1"` styling:
+
+- **GPRN** — prefilled from `prefilledCustomer?.gprn`, placeholder `e.g. 1234567`
+- **Boiler Location** — prefilled from `prefilledCustomer?.boiler_location`, placeholder `e.g. kitchen, attic, utility room`, no validation
+
+GPRN soft warning: when a value is present and `isValidGprnFormat` returns false, render `GPRN_WARNING_MESSAGE` as inline amber helper text. Purely advisory — `handleNext` is unchanged and never blocks.
+
+Both values join the `onNext({...})` payload alongside `boilerType` / `boilerErrorCode`.
+
+## 4. Prefill plumbing
+
+Add `gprn, boiler_location` to the Step 1 customer search `select()` (line 138) so the selected-customer object carries values to prefill. Read-only addition; no Step 1 UI change.
+
+## 5. Save path (submit handler)
+
+In the existing "Sync job fields back to existing customer profile" block (lines 1209-1223), add `gprn` and `boiler_location` to `custUpdate` following the same non-blank pattern — blank stays untouched/null, never `""`.
+
+For the new-customer insert branch (~line 1141), pass `gprn` and `boiler_location` with a `|| null` fallback. Nothing is written to `service_calls`.
+
+## Out of scope
+
+Import page beyond the single validation-import swap, Step 1 UI, customer edit page, wizard steps 3+.
+
+## Verification
+
+- Typecheck.
+- Existing customer with a GPRN → Step 2 shows it prefilled; edit both fields, finish wizard, confirm the customer row updates and the job row gains no new columns.
+- 5-digit GPRN shows the warning and still submits.
+- **Blank-field check:** submit with both GPRN and Boiler Location empty, then a real `SELECT gprn, boiler_location FROM customers WHERE id = …` to confirm both land as `null`, not `""`.
+- **Regression check:** confirm Boiler Type, Boiler Error Code, Area, Owner or Tenant, and Access Notes still save correctly now that the new fields share the same payload object.
+- Import page: re-run a GPRN import to confirm the shared helper produces the same warning as before.

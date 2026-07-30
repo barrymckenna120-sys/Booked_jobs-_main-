@@ -613,6 +613,7 @@ export type Database = {
           boiler_age: number | null
           boiler_brand: string | null
           boiler_installation_date: string | null
+          boiler_location: string | null
           boiler_make_model: string | null
           boiler_model: string | null
           boiler_type: string | null
@@ -671,6 +672,7 @@ export type Database = {
           boiler_age?: number | null
           boiler_brand?: string | null
           boiler_installation_date?: string | null
+          boiler_location?: string | null
           boiler_make_model?: string | null
           boiler_model?: string | null
           boiler_type?: string | null
@@ -729,6 +731,7 @@ export type Database = {
           boiler_age?: number | null
           boiler_brand?: string | null
           boiler_installation_date?: string | null
+          boiler_location?: string | null
           boiler_make_model?: string | null
           boiler_model?: string | null
           boiler_type?: string | null

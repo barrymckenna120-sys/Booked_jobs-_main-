@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidGprnFormat, GPRN_WARNING_MESSAGE } from "@/lib/validation/gprn";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
@@ -135,7 +136,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model, access_notes")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model, access_notes, gprn, boiler_location")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -324,6 +325,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
   const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
   const [accessNotes, setAccessNotes] = useState(prefilledCustomer?.access_notes || "");
+  const [gprn, setGprn] = useState(prefilledCustomer?.gprn || "");
+  const [boilerLocation, setBoilerLocation] = useState(prefilledCustomer?.boiler_location || "");
   const isUrgent = jobType === "Emergency";
 
   const { data: brandSuggestions = [] } = useQuery({
@@ -383,7 +386,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
       return;
     }
     const combinedMakeModel = [boilerBrand.trim(), boilerModel.trim()].filter(Boolean).join(" ") || "";
-    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
+    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes, gprn: gprn.trim(), boilerLocation: boilerLocation.trim() });
   };
 
   return (
@@ -505,6 +508,20 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
           <div>
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Error Code</Label>
             <Input value={boilerErrorCode} onChange={(e) => setBoilerErrorCode(e.target.value)} placeholder="e.g. F28" className="mt-1" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">GPRN</Label>
+            <Input value={gprn} onChange={(e) => setGprn(e.target.value)} placeholder="e.g. 1234567" className="mt-1" />
+            {gprn.trim() && !isValidGprnFormat(gprn) && (
+              <p className="text-[11px] text-amber-600 mt-1">{GPRN_WARNING_MESSAGE}</p>
+            )}
+          </div>
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Location</Label>
+            <Input value={boilerLocation} onChange={(e) => setBoilerLocation(e.target.value)} placeholder="e.g. kitchen, attic, utility room" className="mt-1" />
           </div>
         </div>
 
@@ -1151,6 +1168,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           boiler_model: finalData.job?.boilerModelField || null,
           boiler_make_model: [finalData.job?.boilerBrand, finalData.job?.boilerModelField].filter(Boolean).join(" ") || finalData.customer.boilerType || null,
           boiler_type: finalData.job?.boilerType || null,
+          gprn: finalData.job?.gprn?.trim() || null,
+          boiler_location: finalData.job?.boilerLocation?.trim() || null,
           next_service_due: nextServiceDue.toISOString().split("T")[0],
           renewal_stage: "none",
           service_status: "active",
@@ -1217,6 +1236,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
         if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
         if (finalData.job?.accessNotes?.trim()) custUpdate.access_notes = finalData.job.accessNotes.trim();
+        if (finalData.job?.gprn?.trim()) custUpdate.gprn = finalData.job.gprn.trim();
+        if (finalData.job?.boilerLocation?.trim()) custUpdate.boiler_location = finalData.job.boilerLocation.trim();
         if (Object.keys(custUpdate).length > 0) {
           await supabase.from("customers").update(custUpdate).eq("id", customerId);
         }
