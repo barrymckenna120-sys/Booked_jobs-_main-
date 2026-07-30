@@ -624,6 +624,7 @@ export type Database = {
           eircode: string
           email: string | null
           engineer_notes: string | null
+          gprn: string | null
           id: string
           is_archived: boolean
           job_tag: string | null
@@ -681,6 +682,7 @@ export type Database = {
           eircode: string
           email?: string | null
           engineer_notes?: string | null
+          gprn?: string | null
           id?: string
           is_archived?: boolean
           job_tag?: string | null
@@ -738,6 +740,7 @@ export type Database = {
           eircode?: string
           email?: string | null
           engineer_notes?: string | null
+          gprn?: string | null
           id?: string
           is_archived?: boolean
           job_tag?: string | null
