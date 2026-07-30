@@ -632,6 +632,7 @@ const ImportCustomers = () => {
     const editValue = rowEdits[row.srcIndex]?.[fieldKey];
     const shownValue = editValue !== undefined ? editValue : display;
     const err = row.fieldErrors[fieldKey];
+    const warn = row.fieldWarnings?.[fieldKey];
     const [local, setLocal] = useState(shownValue);
 
     // Keep local in sync when upstream row changes (remap, page change).
@@ -650,10 +651,15 @@ const ImportCustomers = () => {
             if (local !== shownValue) updateEdit(row.srcIndex, fieldKey, local);
           }}
           className={`h-8 w-full rounded-md border bg-background px-2 text-xs ${
-            err ? "border-destructive ring-1 ring-destructive/40" : "border-input"
+            err
+              ? "border-destructive ring-1 ring-destructive/40"
+              : warn
+                ? "border-warning ring-1 ring-warning/40"
+                : "border-input"
           }`}
         />
         {err && <p className="text-[10px] text-destructive">{err}</p>}
+        {!err && warn && <p className="text-[10px] text-warning">{warn}</p>}
       </div>
     );
   };
