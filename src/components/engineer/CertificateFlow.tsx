@@ -179,6 +179,16 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     date: new Date().toISOString().split("T")[0],
   });
 
+  // Defensive: if customer loads after first render, adopt its GPRN — only while
+  // the field is still empty, so it can never clobber a value the engineer typed.
+  useEffect(() => {
+    if (customer?.gprn) {
+      setDetails((d) => (d.gprn ? d : { ...d, gprn: customer.gprn }));
+    }
+  }, [customer?.gprn]);
+
+
+
   // Step 2 — Checks
   type CheckResult = { status: "pass" | "fail" | null; note: string };
   const [checks, setChecks] = useState<Record<string, CheckResult>>({
