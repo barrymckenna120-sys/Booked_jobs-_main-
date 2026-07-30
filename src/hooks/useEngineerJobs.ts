@@ -196,7 +196,7 @@ export const useEngineerJobs = () => {
   const debugLog = async (event: string, payload?: Record<string, any>, stack?: string) => {
     try {
       await supabase.from('debug_logs').insert({
-        engineer_id: user?.id ?? null,
+        engineer_id: engineerIdRef.current,
         job_id: payload?.job_id ?? null,
         event,
         payload: payload ?? {},
