@@ -1,58 +1,42 @@
-## Goal
-Add GPRN to the Notification of Hazard flow, matching the other four cert flows, with a defensive sync for late-arriving `customer`.
+## Two corrections before building
 
-## 1. `src/components/engineer/HazardNotificationFlow.tsx`
+**1. The migration isn't needed.** `customers.notes` already exists — confirmed by querying the live schema:
 
-**Import** (L7):
-```diff
- import { supabase } from "@/integrations/supabase/client";
-+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
+```
+column_name: notes | data_type: text | is_nullable: YES
 ```
 
-**State** (~L202, beside the other form state):
-```diff
-   const [location, setLocation] = useState("");
-+  const [gprn, setGprn] = useState(customer?.gprn || "");
-```
-Editable rather than read-only, so an engineer can enter a GPRN the customer record doesn't have yet — that's what makes the back-fill meaningful.
+`ADD COLUMN IF NOT EXISTS` would be a no-op. Skipping it, since running a migration that changes nothing still puts an approval step in your way for no benefit. Say the word if you'd rather have it recorded anyway.
 
-**Async-customer safeguard** (immediately after the state):
-```diff
-+  // customer is normally loaded before this flow mounts, but if it arrives
-+  // late, adopt its GPRN — only while the field is still untouched/empty, so
-+  // it can never clobber something the engineer has typed.
-+  useEffect(() => {
-+    if (!gprn && customer?.gprn) setGprn(customer.gprn);
-+  }, [customer?.gprn]);
-```
+**2. Notes is already half-wired.** The alias map (`HEADER_TO_FIELD`, lines 48-49) already maps `"customer notes"` and `"notes"`, and the payload builder already writes `notes` (line 422). So the real work is the three gaps below, not a from-scratch field.
 
-**Property Details field list** (~L425), directly after Eircode in the existing 2-column grid:
-```diff
-           <ReadOnlyField label="Eircode" value={customer?.eircode || ""} />
-+          <EditField label="GPRN" value={gprn} onChange={setGprn} placeholder="e.g. 3445AB12" />
-         </div>
+Also a naming note: `KNOWN_HEADERS` (line 86) is the *header-row detection* list, not the alias map — it's a 5-entry list used to sniff which spreadsheet row is the header. Adding Notes there would be wrong (it would let a stray "Notes" column make a data row look like a header). The aliases belong in `HEADER_TO_FIELD`.
+
+## What changes
+
+All in `src/pages/ImportCustomers.tsx`.
+
+**1. Add the missing aliases** to `HEADER_TO_FIELD` alongside the existing two:
+
+```
+"note": "notes",
+"comments": "notes",
+"comment": "notes",
 ```
 
-**Save** — await the helper after a successful insert, before the PDF invoke:
-```diff
-     const newId = (insertedRow as any)?.id;
-+    await backfillCustomerGprn(customer?.id, gprn);
-     setHazardId(newId);
-     setPhase("success");
-```
-Awaiting matters: `generate-hazard-pdf` reads GPRN off the customer row, so the write must land before the function is invoked. The helper never throws and only writes when the customer's `gprn` is null/empty, so an existing value is never overwritten.
+Header matching already lowercases and trims, so `Notes`, `Note`, `Comments`, `Comment` all resolve.
 
-GPRN is not stored on `hazard_notifications` (no such column) — it lives on the customer record, which is where the PDF reads it. No schema change.
+**2. Blank becomes null.** Currently `notes: field("notes")` yields `""` for a blank cell, so empty notes are stored as an empty string rather than null. Change to `field("notes") || null`, matching how `gprn` and `owner_or_tenant` already do it.
 
-## 2. PDF generator — verified, no change needed
-`supabase/functions/generate-hazard-pdf/index.ts` L227, inside PROPERTY DETAILS right after Eircode:
-```ts
-if (customer?.gprn) fieldPair("GPRN", customer.gprn, margin + 2);
-```
-`customer` is the row fetched at L99 via `select("*")` on `hazard.customer_id` — live and wired, not dead code. Conditional, so certs for customers without a GPRN are unchanged.
+**3. Preview table column.** Add a `Notes` header after GPRN and a matching `EditableCell` cell with `fieldKey="notes"`. It'll use the same `hidden lg:table-cell` treatment as GPRN so the mobile preview stays readable.
 
-## Verification
-`bunx tsgo --noEmit`, then a manual pass: open the hazard flow for a customer with a GPRN (prefilled), and for one without (blank, entering a value writes it to the customer and it appears on the PDF).
+## Explicitly untouched
+
+- `REQUIRED_FIELDS` — Notes stays optional.
+- `KNOWN_HEADERS` header-row detection.
+- GPRN aliases, its 7-digit soft warning, and all boiler field logic.
+- Every other validation rule, dedupe check, and default.
 
 ## Risk
-Low — one flow, one added field, no schema/RLS/edge-function changes.
+
+Low. Notes is optional and free-text, with no validation and no downstream parsing. The one behaviour change beyond additions is blank-to-null, which affects only newly imported rows and aligns with existing fields. No tests — this is alias/markup wiring, not logic. I'll typecheck and click through the import preview after.
