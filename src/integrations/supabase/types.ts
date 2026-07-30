@@ -795,6 +795,7 @@ export type Database = {
           event: string
           id: string
           job_id: string | null
+          organisation_id: string
           payload: Json | null
           stack: string | null
         }
@@ -804,6 +805,7 @@ export type Database = {
           event: string
           id?: string
           job_id?: string | null
+          organisation_id?: string
           payload?: Json | null
           stack?: string | null
         }
@@ -813,6 +815,7 @@ export type Database = {
           event?: string
           id?: string
           job_id?: string | null
+          organisation_id?: string
           payload?: Json | null
           stack?: string | null
         }

@@ -59,6 +59,9 @@ export const useEngineerJobs = () => {
   const [fadingJobIds, setFadingJobIds] = useState<Set<string>>(new Set());
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
   const fadeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Resolved public.engineers.id for the signed-in auth user (NOT the auth uid).
+  // Used by debugLog so debug_logs.engineer_id references a real engineers row.
+  const engineerIdRef = useRef<string | null>(null);
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
@@ -125,6 +128,7 @@ export const useEngineerJobs = () => {
       }
 
       const engineerId = engData?.id;
+      engineerIdRef.current = engineerId ?? null;
 
       console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
       console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
@@ -192,7 +196,7 @@ export const useEngineerJobs = () => {
   const debugLog = async (event: string, payload?: Record<string, any>, stack?: string) => {
     try {
       await supabase.from('debug_logs').insert({
-        engineer_id: user?.id ?? null,
+        engineer_id: engineerIdRef.current,
         job_id: payload?.job_id ?? null,
         event,
         payload: payload ?? {},
