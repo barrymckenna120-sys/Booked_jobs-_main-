@@ -95,6 +95,7 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           <InfoTile label="Full Address" value={customer.address} icon="📍" full />
           <InfoTile label="Area Code" value={customer.area_code} icon="🗺️" />
           <InfoTile label="Eircode" value={customer.eircode} icon="📮" />
+          <InfoTile label="GPRN" value={customer.gprn} icon="🔢" />
 
           {/* Boiler */}
           <InfoTile label="Boiler Brand" value={job.boiler_brand} icon="🔥" />

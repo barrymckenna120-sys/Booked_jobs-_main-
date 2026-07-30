@@ -86,6 +86,7 @@ export type ScheduleJob = {
   customer_email: string | null;
   customer_eircode: string | null;
   customer_area_code: string | null;
+  customer_gprn: string | null;
   customer_access_notes: string | null;
   job_type: string;
   status: string;
@@ -167,7 +168,7 @@ const Schedule = () => {
       // Get scheduled jobs for the week + unallocated jobs
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
-        .select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
+        .select("*, customers(name, address, phone, email, eircode, area_code, gprn, access_notes, boiler_make_model)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
@@ -180,6 +181,7 @@ const Schedule = () => {
         customer_email: j.customers?.email || j.email || null,
         customer_eircode: j.customers?.eircode || null,
         customer_area_code: j.customers?.area_code || j.area_code || null,
+        customer_gprn: j.customers?.gprn || null,
         customer_access_notes: j.customers?.access_notes || null,
         job_type: j.job_type,
         status: j.status,

@@ -72,6 +72,7 @@ type Customer = {
   address: string;
   eircode: string;
   area_code: string | null;
+  gprn: string | null;
   access_notes: string | null;
   boiler_make_model: string | null;
 };
@@ -368,7 +369,7 @@ const JobDetail = () => {
 
     const { data: custData } = await supabase
       .from("customers")
-      .select("id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model")
+      .select("id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model")
       .eq("id", jobData.customer_id)
       .maybeSingle();
 
@@ -564,6 +565,7 @@ const JobDetail = () => {
             <div><span className="text-muted-foreground">Area Code:</span> <span className="font-semibold">{customer.area_code || "—"}</span></div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Address:</span> <span className="font-semibold">{customer.address}</span></div>
             <div><span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode}</span></div>
+            <div><span className="text-muted-foreground">GPRN:</span> <span className="font-semibold">{customer.gprn || "—"}</span></div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Engineer:</span>
               {!["Completed", "Cancelled"].includes(job.status) ? (
