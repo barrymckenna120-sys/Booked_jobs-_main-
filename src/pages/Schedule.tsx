@@ -326,13 +326,21 @@ const Schedule = () => {
     } else {
       logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
 
-      supabase.functions.invoke('send-booking-confirmation', {
-        body: { service_call_id: jobId }
-      }).catch(err => console.error('send-booking-confirmation failed:', err));
+      // Single WhatsApp confirmation (send-booking-confirmation handles both new + reschedule).
+      // Failures here must never break scheduling — surface as a soft warning only.
+      supabase.functions
+        .invoke('send-booking-confirmation', { body: { service_call_id: jobId } })
+        .then(({ error: waErr }) => {
+          if (waErr) {
+            console.error('send-booking-confirmation failed:', waErr);
+            toast({
+              title: "Job scheduled — WhatsApp not sent",
+              description: "The confirmation message could not be delivered. Check the WhatsApp connection in Settings.",
+            });
+          }
+        })
+        .catch((err) => console.error('send-booking-confirmation failed:', err));
 
-      supabase.functions.invoke('send-schedule-confirmation', {
-        body: { service_call_id: jobId }
-      }).catch(err => console.error('send-schedule-confirmation failed:', err));
 
       // ---- Push notifications: reassign / reschedule ----
       try {

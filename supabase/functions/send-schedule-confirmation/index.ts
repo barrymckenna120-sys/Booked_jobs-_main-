@@ -75,11 +75,15 @@ Deno.serve(async (req) => {
 
     const messengerSettings = (integration?.config as any) ?? {};
     const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
-    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
-      ?? messengerSettings.api_key
-      ?? Deno.env.get("THREESIXTY_API_KEY")
-      ?? Deno.env.get("MESSENGER_API_KEY");
+    // Never fall back to another tenant's key: if this org declares a secret name,
+    // that secret is the only acceptable credential.
+    const apiKey = apiKeySecretName
+      ? Deno.env.get(apiKeySecretName)
+      : (messengerSettings.api_key
+        ?? Deno.env.get("THREESIXTY_API_KEY")
+        ?? Deno.env.get("MESSENGER_API_KEY"));
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
+
 
     // 2b. Branding from settings
     const { data: settingsRow } = await supabase
