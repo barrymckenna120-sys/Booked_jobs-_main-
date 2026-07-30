@@ -91,9 +91,11 @@ const EngineerCertificates = () => {
         type: "certificate" as const,
         subType,
         id: c.id, ref: c.cert_number || "—", pdfUrl: c.pdf_url, createdAt: c.created_at, hazardTypes: null, sent: !!c.pdf_url,
+        gprn: ((c.notes as any)?.gprn as string) || null,
       };
     }),
-    ...hazards.map(h => ({ type: "hazard" as const, subType: "hazard", id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url })),
+    ...hazards.map(h => ({ type: "hazard" as const, subType: "hazard", id: h.id, ref: h.ref_number || "—", pdfUrl: h.pdf_url, createdAt: h.created_at, hazardTypes: h.hazard_types, sent: !!h.pdf_url, gprn: null as string | null })),
+
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const hasCert = certificates.length > 0;
