@@ -203,6 +203,10 @@ const GasInstallationFlow: React.FC<GasInstallationFlowProps> = ({ job, customer
       setCertId(newCertId);
       setStep(5);
 
+      backfillCustomerGprn(customer?.id, gprn);
+
+
+
       if (newCertId) {
         console.log("🚀 Invoking generate-gas-install-pdf with certificate_id:", newCertId);
         supabase.functions.invoke("generate-gas-install-pdf", {
