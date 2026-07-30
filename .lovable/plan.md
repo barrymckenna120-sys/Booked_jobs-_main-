@@ -1,30 +1,58 @@
-## Status: complete
+## Goal
+Add GPRN to the Notification of Hazard flow, matching the other four cert flows, with a defensive sync for late-arriving `customer`.
 
-All three files carry the fix in the live code (verified by re-reading them this turn; `tsgo --noEmit` exit 0 with no diagnostics after the last edit).
+## 1. `src/components/engineer/HazardNotificationFlow.tsx`
 
-### `src/components/engineer/JobCertsTab.tsx`
-- `error: string | null` state alongside `loading`.
-- `fetchDocs` body wrapped in `try / catch / finally`; `setLoading(false)` in `finally`.
-- Per-query `error` read on `certificates`, `cert2_certificates`, `hazard_notifications`; any error sets the error state and returns.
-- Error UI: alert icon, "Couldn't load certificates", muted message, **Try again** → `fetchDocs()`.
-- "No certificates issued yet" empty state now only reachable after a successful zero-row fetch.
+**Import** (L7):
+```diff
+ import { supabase } from "@/integrations/supabase/client";
++import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
+```
 
-### `src/pages/engineer/EngineerCertificates.tsx`
-- Same `error` state + `try / catch / finally`; per-query `error` on `service_calls`, `certificates`, `hazard_notifications`, and the follow-up `customers` query.
-- Query error → error state with **Try again**; successful query with no row → existing "Job not found" toast + redirect to `/engineer/today`.
-- Session handling: `authLoading` → spinner; resolved with no `user` → `setLoading(false)` and "Your session has expired" + "Log in again" → `/auth`; resolved with `user` → fetch.
-- `engineers` and `settings` side-effect queries read their `error` and `console.error` (fail soft).
-- Error and session states render inside `Shell` (header + Back).
+**State** (~L202, beside the other form state):
+```diff
+   const [location, setLocation] = useState("");
++  const [gprn, setGprn] = useState(customer?.gprn || "");
+```
+Editable rather than read-only, so an engineer can enter a GPRN the customer record doesn't have yet — that's what makes the back-fill meaningful.
 
-### `src/pages/engineer/EngineerJobDetail.tsx`
-- `error` state; load effect now returns early while `authLoading`, clears `loading` when resolved with no `user`/`id`, and has `authLoading` in its deps.
-- `fetchJob` wrapped in `try / catch / finally` with `setLoading(false)` in `finally`, so the "Job not found" redirect and any throw both clear the spinner.
-- Per-query `error` on `service_calls` plus all four `Promise.all` queries (`customers`, `customer_call_notes`, `certificates`, `service_call_tags`).
-- `engineers` side-effect query fails soft with `console.error`.
-- `Shell` wrapper with Back → `/engineer/today`; session-expired state (Key icon) and error state (**Try again** → `fetchJob()`) rendered before `if (!job || !customer) return null`.
+**Async-customer safeguard** (immediately after the state):
+```diff
++  // customer is normally loaded before this flow mounts, but if it arrives
++  // late, adopt its GPRN — only while the field is still untouched/empty, so
++  // it can never clobber something the engineer has typed.
++  useEffect(() => {
++    if (!gprn && customer?.gprn) setGprn(customer.gprn);
++  }, [customer?.gprn]);
+```
 
-## Not touched
-Action handlers (`updateJob`, complete/payment/cancel/reschedule) keep their existing `try` blocks. No schema, RLS, edge-function, or cert-flow changes. `src/pages/EngineerApp.tsx` remains flagged, not fixed.
+**Property Details field list** (~L425), directly after Eircode in the existing 2-column grid:
+```diff
+           <ReadOnlyField label="Eircode" value={customer?.eircode || ""} />
++          <EditField label="GPRN" value={gprn} onChange={setGprn} placeholder="e.g. 3445AB12" />
+         </div>
+```
 
-## Remaining manual check
-Open a job detail, its Certificates tab, and the standalone certificates route normally, then repeat with a cleared session — all three should show "session expired", never a spinner.
+**Save** — await the helper after a successful insert, before the PDF invoke:
+```diff
+     const newId = (insertedRow as any)?.id;
++    await backfillCustomerGprn(customer?.id, gprn);
+     setHazardId(newId);
+     setPhase("success");
+```
+Awaiting matters: `generate-hazard-pdf` reads GPRN off the customer row, so the write must land before the function is invoked. The helper never throws and only writes when the customer's `gprn` is null/empty, so an existing value is never overwritten.
+
+GPRN is not stored on `hazard_notifications` (no such column) — it lives on the customer record, which is where the PDF reads it. No schema change.
+
+## 2. PDF generator — verified, no change needed
+`supabase/functions/generate-hazard-pdf/index.ts` L227, inside PROPERTY DETAILS right after Eircode:
+```ts
+if (customer?.gprn) fieldPair("GPRN", customer.gprn, margin + 2);
+```
+`customer` is the row fetched at L99 via `select("*")` on `hazard.customer_id` — live and wired, not dead code. Conditional, so certs for customers without a GPRN are unchanged.
+
+## Verification
+`bunx tsgo --noEmit`, then a manual pass: open the hazard flow for a customer with a GPRN (prefilled), and for one without (blank, entering a value writes it to the customer and it appears on the PDF).
+
+## Risk
+Low — one flow, one added field, no schema/RLS/edge-function changes.
