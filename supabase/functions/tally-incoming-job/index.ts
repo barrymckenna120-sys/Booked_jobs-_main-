@@ -382,32 +382,135 @@ Deno.serve(async (req) => {
     }
 
     // Handle photo/video uploads if provided as URLs
+    const media: {
+      attempted: number;
+      uploaded: number;
+      skipped: { url: string | null; reason: string; content_type?: string; status?: number }[];
+    } = { attempted: 0, uploaded: 0, skipped: [] };
+
+    const logMediaFailure = async (reason: string, detail: Record<string, unknown>) => {
+      console.error("[tally-incoming-job] media skipped:", reason, detail);
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "tally-incoming-job",
+          error_message: `media skipped: ${reason}`,
+          payload: { job_id: job.id, organisation_id: orgData.id, ...detail },
+        });
+      } catch (_e) {
+        /* logging best-effort */
+      }
+    };
+
+    const EXT_MIME: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      heic: "image/heic",
+      heif: "image/heif",
+      webp: "image/webp",
+      gif: "image/gif",
+      mp4: "video/mp4",
+      mov: "video/quicktime",
+      m4v: "video/mp4",
+      "3gp": "video/3gpp",
+      webm: "video/webm",
+      avi: "video/x-msvideo",
+      pdf: "application/pdf",
+    };
+
+    const extensionOf = (url: string): string | null => {
+      try {
+        const path = new URL(url).pathname;
+        const m = path.match(/\.([a-z0-9]{2,4})$/i);
+        return m ? m[1].toLowerCase() : null;
+      } catch {
+        const m = url.split("?")[0].match(/\.([a-z0-9]{2,4})$/i);
+        return m ? m[1].toLowerCase() : null;
+      }
+    };
+
     if (photoVideoUpload) {
       const urls = Array.isArray(photoVideoUpload) ? photoVideoUpload : [photoVideoUpload];
-      let fileCount = 0;
       for (const fileEntry of urls) {
-        if (fileCount >= 10) break;
+        if (media.uploaded >= 10) break;
+        const fileUrl =
+          typeof fileEntry === "string" ? fileEntry : (fileEntry?.url ?? null);
+        media.attempted++;
         try {
-          const fileUrl = typeof fileEntry === "string" ? fileEntry : fileEntry?.url;
-          if (!fileUrl || typeof fileUrl !== "string") continue;
+          if (!fileUrl || typeof fileUrl !== "string") {
+            media.skipped.push({ url: null, reason: "no_url_in_entry" });
+            await logMediaFailure("no_url_in_entry", { entry: fileEntry });
+            continue;
+          }
           if (!CLOUDINARY_TALLY_PRESET) {
-            console.error("CLOUDINARY_TALLY_UPLOAD_PRESET secret not set — skipping upload");
+            media.skipped.push({ url: fileUrl, reason: "missing_cloudinary_preset" });
+            await logMediaFailure("missing_cloudinary_preset", { url: fileUrl });
             continue;
           }
 
           const fileResponse = await fetch(fileUrl);
+          const rawContentType = fileResponse.headers.get("content-type");
+          console.log(
+            "[tally-incoming-job] fetched file:",
+            fileUrl,
+            "status:", fileResponse.status,
+            "content-type:", rawContentType,
+            "content-length:", fileResponse.headers.get("content-length"),
+          );
+
+          if (!fileResponse.ok) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "fetch_failed",
+              status: fileResponse.status,
+              content_type: rawContentType ?? undefined,
+            });
+            await logMediaFailure("fetch_failed", {
+              url: fileUrl,
+              status: fileResponse.status,
+              status_text: fileResponse.statusText,
+              content_type: rawContentType,
+            });
+            continue;
+          }
+
           const contentLength = Number(fileResponse.headers.get("content-length") ?? 0);
           const MAX_BYTES = 25 * 1024 * 1024;
           if (contentLength > MAX_BYTES) {
-            console.error("File exceeds 25MB, skipping:", fileUrl, contentLength);
+            media.skipped.push({ url: fileUrl, reason: "file_too_large" });
+            await logMediaFailure("file_too_large", { url: fileUrl, bytes: contentLength });
             continue;
           }
 
           const fileBuffer = await fileResponse.arrayBuffer();
-          const contentType = fileResponse.headers.get("content-type") ?? "application/octet-stream";
-          const allowedTypes = ["image/jpeg", "image/png", "image/heic", "image/webp", "video/mp4", "video/quicktime"];
-          if (!allowedTypes.includes(contentType)) {
-            console.error("Disallowed content type, skipping:", contentType);
+          if (fileBuffer.byteLength > MAX_BYTES) {
+            media.skipped.push({ url: fileUrl, reason: "file_too_large" });
+            await logMediaFailure("file_too_large", { url: fileUrl, bytes: fileBuffer.byteLength });
+            continue;
+          }
+
+          // Resolve a usable mime type: trust image/* and video/* (and pdf) from the
+          // server; otherwise fall back to the file extension.
+          const ext = extensionOf(fileUrl);
+          const base = (rawContentType ?? "").split(";")[0].trim().toLowerCase();
+          let contentType: string | null = null;
+          if (base.startsWith("image/") || base.startsWith("video/") || base === "application/pdf") {
+            contentType = base;
+          } else if (ext && EXT_MIME[ext]) {
+            contentType = EXT_MIME[ext];
+          }
+
+          if (!contentType) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "unsupported_type",
+              content_type: rawContentType ?? undefined,
+            });
+            await logMediaFailure("unsupported_type", {
+              url: fileUrl,
+              content_type: rawContentType,
+              extension: ext,
+            });
             continue;
           }
 
@@ -421,14 +524,31 @@ Deno.serve(async (req) => {
             `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
             { method: "POST", body: cloudinaryForm },
           );
-          const cloudinaryData = await cloudinaryRes.json();
+          const cloudinaryText = await cloudinaryRes.text();
+          let cloudinaryData: any = null;
+          try {
+            cloudinaryData = JSON.parse(cloudinaryText);
+          } catch (_e) {
+            cloudinaryData = null;
+          }
 
-          if (!cloudinaryRes.ok || !cloudinaryData.secure_url) {
-            console.error("Cloudinary upload failed:", cloudinaryData);
+          if (!cloudinaryRes.ok || !cloudinaryData?.secure_url) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "cloudinary_upload_failed",
+              status: cloudinaryRes.status,
+              content_type: contentType,
+            });
+            await logMediaFailure("cloudinary_upload_failed", {
+              url: fileUrl,
+              status: cloudinaryRes.status,
+              content_type: contentType,
+              response: cloudinaryText.slice(0, 1000),
+            });
             continue;
           }
 
-          await supabase.from("job_media").insert({
+          const { error: mediaErr } = await supabase.from("job_media").insert({
             job_id: job.id,
             customer_id: customerId,
             user_id: userId,
@@ -440,17 +560,44 @@ Deno.serve(async (req) => {
             public_url: cloudinaryData.secure_url,
             uploaded_by: "customer",
           });
-          fileCount++;
+
+          if (mediaErr) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "job_media_insert_failed",
+              content_type: contentType,
+            });
+            await logMediaFailure("job_media_insert_failed", {
+              url: fileUrl,
+              error: mediaErr.message,
+              code: (mediaErr as { code?: string }).code ?? null,
+            });
+            continue;
+          }
+
+          media.uploaded++;
         } catch (fileErr) {
-          console.error("File upload error:", fileErr);
+          media.skipped.push({
+            url: fileUrl,
+            reason: "exception",
+          });
+          await logMediaFailure("exception", {
+            url: fileUrl,
+            error: fileErr instanceof Error ? fileErr.message : String(fileErr),
+          });
         }
       }
     }
-    // v2 - force redeploy
-    return new Response(JSON.stringify({ success: true, id: job.id, customer_id: customerId }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+
+    console.log("[tally-incoming-job] media summary:", JSON.stringify(media));
+
+    return new Response(
+      JSON.stringify({ success: true, id: job.id, customer_id: customerId, media }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
     console.error("tally-incoming-job error:", err);
     try {
