@@ -1,35 +1,56 @@
-## Audit: where customer GPRN is selected / rendered
+# Full technical audit + staged fixes
 
-Confirmed by search. Only `customers.gprn` surfaces are listed (certificate-level GPRN is separate).
+I scanned the project structure, `package.json`, `vite.config.ts`, `index.html`, `public/manifest.json`, the router in `src/App.tsx`, both service-worker registration paths, `useAuth`, and `useNetworkStatus`. TypeScript currently compiles clean (`tsgo --noEmit` produced no errors), so the real problems are in PWA wiring, first-load performance, and mobile/iOS behaviour.
 
-| # | Surface | Select | Render |
-|---|---------|--------|--------|
-| A | Jobs detail page — "Job Information" card | `src/pages/JobDetail.tsx:372` (type at :75-77) | `src/pages/JobDetail.tsx:568` (GPRN), boiler model at :599-600 |
-| B | Schedule slide-out panel | `src/pages/Schedule.tsx:171` (map :184, type :89) | `src/components/schedule/JobSlotDrawer.tsx:114-115` |
-| C | Incoming job review panel | `src/pages/IncomingJobs.tsx:83` | `src/components/incoming/JobReviewPanel.tsx:266` (boiler model :275) |
-| D | Engineer job detail | `EngineerJobDetail.tsx:128` uses `customers.select("*")` — already returns `boiler_location` | `src/pages/engineer/EngineerJobDetail.tsx:736` |
-| E | Engineer job detail sheet | `src/hooks/useEngineerJobs.ts:69` uses `customers.select("*")` — already returns it | `src/components/engineer/JobDetailSheet.tsx:98` |
+Below are the confirmed findings (each verified by reading the file), then the staged fix plan. Nothing is changed yet.
 
-Note: contrary to the earlier assumption, the Schedule panel (B) does **not** yet carry `boiler_location` — no reference to it exists anywhere outside `NewJobPanel.tsx` and the generated types. So all five surfaces need the display field.
+## Confirmed issues
 
-Not touched (out of scope): `CustomerDetail.tsx:396` (editable customer form), `ImportCustomers.tsx`, `NewJobPanel.tsx`, `Customers.tsx` search, and the cert-level GPRN in `JobCertsTab.tsx` / `EngineerCertificates.tsx` / cert flows.
+### 1. Published app never gets a service worker — Critical
+`src/main.tsx` (~line 40) and `src/components/pwa/PWAUpdateBanner.tsx` (~line 28) both treat any host containing `lovable.app` as a Lovable preview. The live app is served from `karlsgas.lovable.app`, so on the real published site the code takes the "preview" branch: it unregisters every service worker and never registers the Firebase messaging worker. Effect: no offline support, no update banner, and background push registration is skipped for the majority of users. Fix: match preview hosts precisely (`id-preview--`/`preview--` prefixes, `lovableproject.com`, `lovableproject-dev.com`, `beta.lovable.dev`) and stop treating plain `*.lovable.app` as preview.
 
-## Changes
+### 2. App-shell SW registers inside Lovable preview anyway — High
+`PWAUpdateBanner.tsx` computes `shouldRegister` but calls `useRegisterSW()` unconditionally and only uses the flag to decide whether to render the banner. Hooks cannot be conditional, so the registration still happens in preview iframes — the exact stale-shell situation the guard was written to prevent. Fix: move registration into a child component that is only mounted when `shouldRegister` is true, and unregister `/sw.js` when it is false.
 
-Every added field is read-only text, rendered only when the value is non-blank.
+### 3. Constant network polling on every page — High
+`src/hooks/useNetworkStatus.ts` polls the backend REST root every 3s indefinitely, and every 1s (up to 60 attempts) once a probe fails. It is mounted on the signed-out marketing home via `MarketingOfflineGate` and inside `useEngineerJobs`. On mobile this is a measurable battery/data drain, and a single failed probe redirects marketing visitors to `/offline`. Fix: drive state from `online`/`offline` events plus a visibility-change probe, only poll while offline, back off exponentially, and require two consecutive failures before declaring offline.
 
-1. **A — `src/pages/JobDetail.tsx`**: add `boiler_location` to the customer type and to the `.select(...)` at line 372; render a `Boiler Location:` row in the same `<div><span className="text-muted-foreground">…` style directly after the Boiler Model row (line 600), wrapped in the same `{customer.boiler_location && (...)}` conditional.
+### 4. Zero code splitting — High (first-visit performance)
+`src/App.tsx` eagerly imports all 58 pages, including heavy admin, finance, chart (`recharts`), spreadsheet (`xlsx-js-style`) and PDF screens. A first-time visitor on mobile downloads the entire app to read the landing page. Fix: keep `Index`, `Auth`, `NotFound`, `Offline` eager; convert the rest to `React.lazy` with a single `Suspense` fallback. Also add a manual chunk split for `recharts` and `xlsx-js-style`.
 
-2. **B — `src/pages/Schedule.tsx` + `JobSlotDrawer.tsx`**: add `boiler_location` to the nested `customers(...)` select at line 171, map it to `customer_boiler_location` alongside line 184, add the field to the job type at line 89; in `JobSlotDrawer.tsx` render a label/value block matching lines 114-115, conditional on a non-blank value, placed next to the existing boiler fields.
+### 5. Global auth gate blocks public routes — Medium
+`AppContent` calls `useAuth()` with the default `redirectTo="/auth"` at the router root, so every public document/quote/receipt route depends on the shared public-prefix allowlist in `useAuth.tsx`, and a full-screen white loader covers the landing page during session restore. Fix: call `useAuth("")` in `AppContent` (redirects already happen per protected layout) and render nothing/inline skeleton instead of a blocking full-screen state on public paths.
 
-3. **C — `src/pages/IncomingJobs.tsx` + `JobReviewPanel.tsx`**: add `boiler_location` to the nested customers select at line 83 and to the customer type in `JobReviewPanel.tsx:53`; render a `Boiler Location:` row after the Model row (line 275) in the same style, conditional.
+### 6. iOS standalone safe areas missing — Medium
+`index.html` viewport has no `viewport-fit=cover`, and there is no `env(safe-area-inset-*)` usage anywhere in `src/index.css`. In an installed iOS PWA the fixed bottom navigation sits under the home indicator. Fix: add `viewport-fit=cover`, safe-area padding utilities, and apply them to the bottom nav and fixed headers.
 
-4. **D — `src/pages/engineer/EngineerJobDetail.tsx`**: no query change (uses `select("*")`). Add a conditional `<InfoTile label="Boiler Location" value={customer.boiler_location} Icon={…} />` near the existing boiler tiles, using an existing imported Lucide icon.
+### 7. Manifest gaps — Medium
+`public/manifest.json` has no `id`, `scope`, `orientation`, no `purpose: "maskable"` icon, and no `screenshots`. Android shows a letterboxed adaptive icon and richer install UI is skipped. Description still says "Karl's Gas" while the app is branded BookedJobs. Fix: add `id`, `scope: "/"`, `orientation: "portrait"`, a maskable icon entry, and correct the description.
 
-5. **E — `src/components/engineer/JobDetailSheet.tsx`**: no query change. Add a conditional `<InfoTile label="Boiler Location" value={customer.boiler_location} icon="📍" />` after Boiler Model (line 102), following the same `{job.boiler_type && …}` conditional pattern used nearby.
+### 8. Type safety and dead imports — Low
+`tsconfig.json` disables `strictNullChecks`, `noImplicitAny`, `noUnusedLocals`. `App.tsx` imports pages that are no longer routed (`Renewals`, `Messages`, `SalesLedger`, `QuotesList`, `Finance`, `CertificateViewer`, `IncomingJobs`). Fix: remove the dead imports now; leave compiler-strictness changes as a separate, deliberate migration rather than flipping them in an audit pass.
 
-## Verification
+### 9. `100vh` loaders on iOS Safari — Low
+The loading screens in `App.tsx` use inline `height: "100vh"`, which overflows behind Safari's dynamic toolbars. Fix: use `100dvh` with a `100vh` fallback.
 
-- Typecheck.
-- Load a job with a populated `customers.boiler_location` and confirm it appears on each of the five surfaces; load one with a null value and confirm the row is absent (not "—").
-- Confirm no existing field on those cards shifted or disappeared.
+## Staged plan
+
+Stage A — PWA correctness (issues 1, 2, 7): fix the preview-host detection in both files, restructure `PWAUpdateBanner` so registration is genuinely conditional, and complete the manifest. This is the highest-value, lowest-risk block.
+
+Stage B — network + auth behaviour (issues 3, 5): rewrite `useNetworkStatus` to be event-driven with backoff, and stop the root-level auth redirect from gating public routes.
+
+Stage C — performance (issue 4): lazy-load routes and split vendor chunks; report before/after build output.
+
+Stage D — mobile/iOS polish and cleanup (issues 6, 8, 9): safe-area handling, `dvh` loaders, dead-import removal.
+
+After each stage: typecheck, production build, and a Playwright pass over first visit, login, a nested-route refresh, and the landing page at 390x844 and landscape. Final deliverable: prioritised issue list, fixes made, remaining risks, a mobile/PWA test checklist, and a release-readiness verdict.
+
+## Not covered by code changes
+
+Accessibility, contrast, and full journey testing (sign-up, session expiry, install prompt on real iOS/Android hardware) will be reported as findings with recommended fixes; some can only be finally confirmed on physical devices. No secrets are exposed in the client bundle — the Firebase web config, Sentry DSN, and the backend publishable key are all designed to be public; the only sensitive value in `.env` is absent from client code, which is correct.
+
+## Technical notes
+
+- Preview-host predicate will be extracted into one shared helper (`src/lib/isPreviewHost.ts`) so `main.tsx` and the PWA banner cannot drift apart again.
+- Service-worker changes only take effect on the published domain; the Lovable preview will still deliberately have no app-shell worker.
+- Lazy routes change chunk names, so any installed PWA will fetch a new precache manifest on next visit — expected, and the update banner will start working once Stage A lands.
