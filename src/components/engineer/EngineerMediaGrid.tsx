@@ -17,10 +17,14 @@ type MediaItem = {
   uploaded_by: string | null;
 };
 
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+
 const isVideoItem = (m: MediaItem) =>
   m.file_type === "video" ||
-  m.file_type?.startsWith("video/") ||
-  (m.public_url && m.public_url.includes("cloudinary.com"));
+  !!m.file_type?.startsWith("video/") ||
+  !!(m.public_url && m.public_url.includes("/video/upload/")) ||
+  VIDEO_EXT_RE.test(m.public_url || "") ||
+  VIDEO_EXT_RE.test(m.file_name || "");
 
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "Unknown date";

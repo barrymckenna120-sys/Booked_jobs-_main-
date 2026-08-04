@@ -24,11 +24,11 @@ interface MediaFile {
   type: string;
 }
 
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+
 const isVideo = (type: string) =>
   type?.startsWith("video/") || type === "video";
 
-const isCloudinaryVideo = (url: string) =>
-  url?.includes("cloudinary.com");
 
 const getCloudinaryThumbnail = (url: string): string => {
   if (!url || !url.includes("cloudinary.com")) return url;
@@ -120,7 +120,10 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   };
 
   const isMediaVideo = (m: MediaFile) =>
-    isVideo(m.type) || isCloudinaryVideo(m.url);
+    isVideo(m.type) ||
+    (m.url?.includes("/video/upload/") ?? false) ||
+    VIDEO_EXT_RE.test(m.url || "") ||
+    VIDEO_EXT_RE.test(m.name || "");
 
   const reloadMedia = async () => {
     const { data } = await supabase
