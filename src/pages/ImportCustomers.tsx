@@ -65,7 +65,6 @@ const FIELD_LABEL: Record<string, string> = {
   email: "Email",
   address: "Address",
   eircode: "Eircode",
-  area_code: "Area Code",
   gprn: "GPRN",
   access_notes: "Access Notes",
   boiler_brand: "Boiler Brand",
