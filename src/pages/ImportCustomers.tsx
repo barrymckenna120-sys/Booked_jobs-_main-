@@ -90,7 +90,7 @@ const OPTIONAL_FIELDS = ALL_FIELDS.filter((f) => !REQUIRED_FIELDS.includes(f as 
 const PAGE_SIZE = 10;
 
 /** Headers we look for to identify the header row */
-const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
+const KNOWN_HEADERS = ["customer name", "name", "mobile number", "phone number", "phone", "address", "eircode"];
 
 /** Scan the first N rows to find the header row index and build a column map */
 function detectHeaderRow(
@@ -100,7 +100,7 @@ function detectHeaderRow(
   for (let i = 0; i < scanLimit; i++) {
     const row = allRows[i];
     if (!row || row.length < 3) continue;
-    const lowered = row.map((c: any) => String(c ?? "").trim().toLowerCase());
+    const lowered = row.map((c: any) => normalizeHeader(c));
     const matchCount = KNOWN_HEADERS.filter((h) => lowered.includes(h)).length;
     if (matchCount >= 3) {
       const colMap: Record<string, number> = {};
