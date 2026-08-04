@@ -398,10 +398,6 @@ const ImportCustomers = () => {
           email: field("email"),
           address,
           eircode,
-          area_code: (() => {
-            const ac = field("area_code");
-            return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac;
-          })(),
           gprn: gprn || null,
           access_notes: field("access_notes"),
           boiler_brand: field("boiler_brand"),
