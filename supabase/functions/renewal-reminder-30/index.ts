@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { filterDueCustomers } from "../_shared/renewalDedup.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
