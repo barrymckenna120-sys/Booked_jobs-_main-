@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
 
     const bookedSet = new Set((bookedJobs || []).map((j) => j.customer_id));
 
-    const result = customers
-      .filter((c) => !bookedSet.has(c.id))
+    // Dedup on the customer-level flag (this cadence has no job-level column at all).
+    const result = filterDueCustomers(customers, bookedSet, new Map(), "7day")
       .filter((c: any) => {
         if (!c.organisation_id) {
           console.warn(`[renewal-reminder-7] customer ${c.id} missing organisation_id — skipping`);
