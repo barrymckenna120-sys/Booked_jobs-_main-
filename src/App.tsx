@@ -127,10 +127,11 @@ const RootRoute = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
+        height: "100dvh",
+        minHeight: "100vh",
         backgroundColor: "#ffffff",
       }}>
-        <img src="/icons/icon-192.png" style={{ width: 80, height: 80 }} />
+        <img src="/icons/icon-192.png" alt="" width={80} height={80} style={{ width: 80, height: 80 }} />
       </div>
     );
   }
@@ -139,29 +140,36 @@ const RootRoute = () => {
   return <Navigate to={target!} replace />;
 };
 
-function AppContent() {
-  const { loading } = useAuth();
+/** Full-screen brand loader, used only while the session is being restored. */
+const RouteFallback = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100dvh",
+      minHeight: "100vh",
+      backgroundColor: "#ffffff",
+    }}
+  >
+    <img src="/icons/icon-192.png" alt="" width={80} height={80} style={{ width: 80, height: 80, marginBottom: 16 }} />
+    <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
+  </div>
+);
 
-  if (loading) {
-    return (
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        backgroundColor: "#ffffff"
-      }}>
-        <img
-          src="/icons/icon-192.png"
-          style={{ width: 80, height: 80, marginBottom: 16 }}
-        />
-        <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
-      </div>
-    );
-  }
+function AppContent() {
+  // redirectTo is intentionally empty: protected areas (AppLayout, OfficeRoute,
+  // EngineerLayout) run their own auth redirects. A router-root redirect would
+  // race public document routes (/quote/:token, /cert/:token, ...).
+  const { loading } = useAuth("");
+
+  if (loading) return <RouteFallback />;
 
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/auth" element={<Auth />} />
