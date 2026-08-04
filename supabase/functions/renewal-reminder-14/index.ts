@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
 
     const { data: customers, error: custErr } = await supabase
       .from("customers")
-      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model")
+      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model, reminder_30_days_sent, reminder_14_days_sent")
       .eq("organisation_id", organisation_id)
       .eq("next_service_due", targetDate)
       .neq("opted_out", true);
