@@ -14,17 +14,21 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
-/** Map recognisable Excel header names (lower-cased, trimmed) → internal field */
+/** Normalise a header cell for alias comparison: trim, collapse internal
+ *  whitespace runs to a single space, lower-case. */
+const normalizeHeader = (val: any): string =>
+  String(val ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Map recognisable Excel header names (normalised) → internal field */
 const HEADER_TO_FIELD: Record<string, string> = {
   "customer name": "name",
+  "name": "name",
   "mobile number": "phone",
   "phone number": "phone",
   "phone": "phone",
   "email": "email",
   "address": "address",
   "eircode": "eircode",
-  "area code": "area_code",
-  "area": "area_code",
   "gprn": "gprn",
   "gprn no": "gprn",
   "gprn number": "gprn",
