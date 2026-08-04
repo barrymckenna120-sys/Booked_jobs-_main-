@@ -120,7 +120,10 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   };
 
   const isMediaVideo = (m: MediaFile) =>
-    isVideo(m.type) || isCloudinaryVideo(m.url);
+    isVideo(m.type) ||
+    (m.url?.includes("/video/upload/") ?? false) ||
+    VIDEO_EXT_RE.test(m.url || "") ||
+    VIDEO_EXT_RE.test(m.name || "");
 
   const reloadMedia = async () => {
     const { data } = await supabase
