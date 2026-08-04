@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     // Get customers due in 28-32 days who haven't opted out
     const { data: customers, error: custErr } = await supabase
       .from("customers")
-      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model")
+      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model, reminder_30_days_sent, reminder_14_days_sent")
       .eq("organisation_id", organisation_id)
       .gte("next_service_due", startDate)
       .lte("next_service_due", endDate)
