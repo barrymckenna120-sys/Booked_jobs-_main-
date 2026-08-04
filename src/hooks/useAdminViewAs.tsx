@@ -15,7 +15,7 @@ type Ctx = {
   isSuperAdmin: boolean;
   viewingOrgId: string | null;
   viewingOrgName: string | null;
-  setViewingOrg: (orgId: string | null, orgName?: string | null) => void;
+  setViewingOrg: (orgId: string | null, orgName?: string | null) => void | Promise<void>;
 };
 
 const AdminViewAsContext = createContext<Ctx>({
