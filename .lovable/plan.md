@@ -73,8 +73,13 @@ After the migration is applied, run a transaction-scoped test (inserted rows rol
 | Update non-Eircode field with existing `SCD` | (unchanged) | `SCD` |
 | Update to non-Dublin Eircode with existing `SCD` | `A94NY05` | `SCD` |
 
-Results reported back with the function/trigger definition read from the database.
+Results reported back alongside the function and trigger definitions read back out of the database (not just the submitted SQL), to confirm they match exactly.
+
+## Read-only side check (no change)
+
+Report whether the customer forms (`AddCustomerSheet.tsx`, `CustomerDetail.tsx`) pre-populate the Area Code input from the stored `area_code`, or render empty with placeholder text only — with the code reference. No behaviour change in this task.
 
 ## Not included
 
-No backfill of existing rows — that is a separate, explicitly approved step if wanted later.
+No backfill of existing rows — that is a separate, explicitly approved step if wanted later. No other table, no application code changes.
+
