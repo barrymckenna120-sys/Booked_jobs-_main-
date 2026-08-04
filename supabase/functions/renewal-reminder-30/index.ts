@@ -122,12 +122,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    const filtered = customers
-      .filter((c) => !bookedSet.has(c.id))
-      .filter((c) => {
-        const latest = latestJobMap.get(c.id);
-        return !latest || !latest.reminder_30day_sent;
-      });
+    // Dedup on the customer-level flag first: customers with no service_calls row
+    // have no job-level flag to check and were previously never suppressed.
+    const filtered = filterDueCustomers(customers, bookedSet, latestJobMap, "30day");
 
     const result = [];
     for (const c of filtered) {
