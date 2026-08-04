@@ -51,10 +51,10 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "service status": "service_status",
   "assigned engineer": "assigned_engineer",
   "customer notes": "notes",
-  "notes": "notes",
-  "note": "notes",
-  "comments": "notes",
-  "comment": "notes",
+  "notes": "engineer_notes",
+  "note": "engineer_notes",
+  "comments": "engineer_notes",
+  "comment": "engineer_notes",
   "customer since": "customer_since",
 };
 
