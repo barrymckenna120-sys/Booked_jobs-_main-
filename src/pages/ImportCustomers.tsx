@@ -14,17 +14,21 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
-/** Map recognisable Excel header names (lower-cased, trimmed) → internal field */
+/** Normalise a header cell for alias comparison: trim, collapse internal
+ *  whitespace runs to a single space, lower-case. */
+const normalizeHeader = (val: any): string =>
+  String(val ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Map recognisable Excel header names (normalised) → internal field */
 const HEADER_TO_FIELD: Record<string, string> = {
   "customer name": "name",
+  "name": "name",
   "mobile number": "phone",
   "phone number": "phone",
   "phone": "phone",
   "email": "email",
   "address": "address",
   "eircode": "eircode",
-  "area code": "area_code",
-  "area": "area_code",
   "gprn": "gprn",
   "gprn no": "gprn",
   "gprn number": "gprn",
@@ -47,10 +51,10 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "service status": "service_status",
   "assigned engineer": "assigned_engineer",
   "customer notes": "notes",
-  "notes": "notes",
-  "note": "notes",
-  "comments": "notes",
-  "comment": "notes",
+  "notes": "engineer_notes",
+  "note": "engineer_notes",
+  "comments": "engineer_notes",
+  "comment": "engineer_notes",
   "customer since": "customer_since",
 };
 
@@ -61,7 +65,6 @@ const FIELD_LABEL: Record<string, string> = {
   email: "Email",
   address: "Address",
   eircode: "Eircode",
-  area_code: "Area Code",
   gprn: "GPRN",
   access_notes: "Access Notes",
   boiler_brand: "Boiler Brand",
@@ -87,7 +90,7 @@ const OPTIONAL_FIELDS = ALL_FIELDS.filter((f) => !REQUIRED_FIELDS.includes(f as 
 const PAGE_SIZE = 10;
 
 /** Headers we look for to identify the header row */
-const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
+const KNOWN_HEADERS = ["customer name", "name", "mobile number", "phone number", "phone", "address", "eircode"];
 
 /** Scan the first N rows to find the header row index and build a column map */
 function detectHeaderRow(
@@ -97,7 +100,7 @@ function detectHeaderRow(
   for (let i = 0; i < scanLimit; i++) {
     const row = allRows[i];
     if (!row || row.length < 3) continue;
-    const lowered = row.map((c: any) => String(c ?? "").trim().toLowerCase());
+    const lowered = row.map((c: any) => normalizeHeader(c));
     const matchCount = KNOWN_HEADERS.filter((h) => lowered.includes(h)).length;
     if (matchCount >= 3) {
       const colMap: Record<string, number> = {};
@@ -395,10 +398,6 @@ const ImportCustomers = () => {
           email: field("email"),
           address,
           eircode,
-          area_code: (() => {
-            const ac = field("area_code");
-            return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac;
-          })(),
           gprn: gprn || null,
           access_notes: field("access_notes"),
           boiler_brand: field("boiler_brand"),
