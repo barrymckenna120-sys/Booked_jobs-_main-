@@ -145,9 +145,10 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  // If somehow set but user is not super-admin, clear it
+  // If somehow set but user is not super-admin, clear it. Only once the role
+  // has actually been resolved, so we never clear a valid selection early.
   useEffect(() => {
-    if (email && !isSuperAdmin && viewingOrgId) {
+    if (roleResolved && !isSuperAdmin && viewingOrgId) {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_NAME_KEY);
       setAdminSelectedOrgId(null);
@@ -155,7 +156,7 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
       setViewingOrgIdState(null);
       setViewingOrgNameState(null);
     }
-  }, [email, isSuperAdmin, viewingOrgId]);
+  }, [roleResolved, isSuperAdmin, viewingOrgId]);
 
   // On mount / when viewing org changes, ensure we have a valid token and
   // schedule auto-refresh.
