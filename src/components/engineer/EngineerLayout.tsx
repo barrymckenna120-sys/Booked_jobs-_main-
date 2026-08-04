@@ -189,8 +189,8 @@ const EngineerLayout = () => {
         </div>
       )}
 
-      {/* Page content */}
-      <div className="px-4 py-6 space-y-6">
+      {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
+      <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
         <Outlet context={engineerJobs} />
       </div>
 
@@ -198,7 +198,7 @@ const EngineerLayout = () => {
 
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50" style={{ minHeight: 64 }}>
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50 pb-[env(safe-area-inset-bottom)]" style={{ minHeight: 64 }}>
         {navItems.map((item) => {
           const active = currentTab === item.key;
           return (

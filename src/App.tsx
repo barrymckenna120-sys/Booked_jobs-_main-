@@ -4,76 +4,74 @@ import { WhatsAppConnectionProvider } from "@/hooks/useWhatsAppConnection";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveLandingPath } from "@/lib/resolveLandingPath";
 
 import { supabase } from "@/integrations/supabase/client";
+
+// Eager: shells and first-paint routes.
 import Auth from "./pages/Auth";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import Offline from "./pages/Offline";
 import AppLayout from "./components/layout/AppLayout";
-import Dashboard from "./pages/Dashboard";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import OfficeRoute from "./components/shared/OfficeRoute";
-import Jobs from "./pages/Jobs";
-import JobDetail from "./pages/JobDetail";
-import Customers from "./pages/Customers";
-import CustomerDetail from "./pages/CustomerDetail";
-import Renewals from "./pages/Renewals";
-import Settings from "./pages/Settings";
-import ImportCustomers from "./pages/ImportCustomers";
-import QuoteAcceptance from "./pages/QuoteAcceptance";
-import WhatsApp from "./pages/WhatsApp";
-import WhatsAppTemplates from "./pages/WhatsAppTemplates";
-import IncomingJobs from "./pages/IncomingJobs";
-import IncomingJobsDebug from "./pages/IncomingJobsDebug";
 import EngineerLayout from "./components/engineer/EngineerLayout";
-import EngineerToday from "./pages/engineer/EngineerToday";
-import EngineerUpcoming from "./pages/engineer/EngineerUpcoming";
-import EngineerCompleted from "./pages/engineer/EngineerCompleted";
-import EngineerJobDetail from "./pages/engineer/EngineerJobDetail";
-import EngineerCertificates from "./pages/engineer/EngineerCertificates";
-import NotFound from "./pages/NotFound";
-import Index from "./pages/Index";
-import BookingRedirect from "./pages/BookingRedirect";
-import Finance from "./pages/Finance";
-import FinancePage from "./pages/FinancePage";
-import SalesLedger from "./pages/SalesLedger";
-import Schedule from "./pages/Schedule";
-import Pipeline from "./pages/Pipeline";
-import InboxPage from "./pages/Inbox";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsAndConditions from "./pages/TermsAndConditions";
-import DataProcessingAgreement from "./pages/DataProcessingAgreement";
-import ResetPassword from "./pages/ResetPassword";
-import ServiceReceipt from "./pages/ServiceReceipt";
-import InvoicePreview from "./pages/InvoicePreview";
-import Messages from "./pages/Messages";
-import SystemLogs from "./pages/SystemLogs";
 import InstallAppBanner from "./components/pwa/InstallAppBanner";
 import PWAUpdateBanner from "./components/pwa/PWAUpdateBanner";
-import Products from "./pages/Products";
-import QuotesList from "./pages/QuotesList";
-import QuoteNew from "./pages/QuoteNew";
-import QuoteEdit from "./pages/QuoteEdit";
-import QuoteDetail from "./pages/QuoteDetail";
-import MessageLog from "./pages/MessageLog";
-import PdfRedirect from "./pages/PdfRedirect";
-import CertificateRedirect from "./pages/CertificateRedirect";
-import CertificateViewer from "./pages/CertificateViewer";
-import HazardRedirect from "./pages/HazardRedirect";
-import Parts from "./pages/Parts";
-import WarrantyTracker from "./pages/WarrantyTracker";
-import WarrantyDetail from "./pages/WarrantyDetail";
-import PublicReceipt from "./pages/PublicReceipt";
-import InvoiceRedirect from "./pages/InvoiceRedirect";
-import ReceiptRedirect from "./pages/ReceiptRedirect";
-import AudioDebug from "./pages/AudioDebug";
-import Offline from "./pages/Offline";
-import BusinessInsightsDashboard from "./pages/BusinessInsightsDashboard";
-import AdminPanel from "./pages/AdminPanel";
-import TenantDetail from "./pages/admin/TenantDetail";
 import { AdminViewAsProvider } from "@/hooks/useAdminViewAs";
 import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
+
+// Lazy: everything behind a navigation. Keeps the landing page and login
+// bundle small on first visit (mobile / slow connections).
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Jobs = lazy(() => import("./pages/Jobs"));
+const JobDetail = lazy(() => import("./pages/JobDetail"));
+const Customers = lazy(() => import("./pages/Customers"));
+const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
+const Settings = lazy(() => import("./pages/Settings"));
+const ImportCustomers = lazy(() => import("./pages/ImportCustomers"));
+const QuoteAcceptance = lazy(() => import("./pages/QuoteAcceptance"));
+const WhatsApp = lazy(() => import("./pages/WhatsApp"));
+const WhatsAppTemplates = lazy(() => import("./pages/WhatsAppTemplates"));
+const IncomingJobsDebug = lazy(() => import("./pages/IncomingJobsDebug"));
+const EngineerToday = lazy(() => import("./pages/engineer/EngineerToday"));
+const EngineerUpcoming = lazy(() => import("./pages/engineer/EngineerUpcoming"));
+const EngineerCompleted = lazy(() => import("./pages/engineer/EngineerCompleted"));
+const EngineerJobDetail = lazy(() => import("./pages/engineer/EngineerJobDetail"));
+const EngineerCertificates = lazy(() => import("./pages/engineer/EngineerCertificates"));
+const BookingRedirect = lazy(() => import("./pages/BookingRedirect"));
+const FinancePage = lazy(() => import("./pages/FinancePage"));
+const Schedule = lazy(() => import("./pages/Schedule"));
+const Pipeline = lazy(() => import("./pages/Pipeline"));
+const InboxPage = lazy(() => import("./pages/Inbox"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+const DataProcessingAgreement = lazy(() => import("./pages/DataProcessingAgreement"));
+const ServiceReceipt = lazy(() => import("./pages/ServiceReceipt"));
+const InvoicePreview = lazy(() => import("./pages/InvoicePreview"));
+const SystemLogs = lazy(() => import("./pages/SystemLogs"));
+const Products = lazy(() => import("./pages/Products"));
+const QuoteNew = lazy(() => import("./pages/QuoteNew"));
+const QuoteEdit = lazy(() => import("./pages/QuoteEdit"));
+const QuoteDetail = lazy(() => import("./pages/QuoteDetail"));
+const MessageLog = lazy(() => import("./pages/MessageLog"));
+const PdfRedirect = lazy(() => import("./pages/PdfRedirect"));
+const CertificateRedirect = lazy(() => import("./pages/CertificateRedirect"));
+const HazardRedirect = lazy(() => import("./pages/HazardRedirect"));
+const Parts = lazy(() => import("./pages/Parts"));
+const WarrantyTracker = lazy(() => import("./pages/WarrantyTracker"));
+const WarrantyDetail = lazy(() => import("./pages/WarrantyDetail"));
+const PublicReceipt = lazy(() => import("./pages/PublicReceipt"));
+const InvoiceRedirect = lazy(() => import("./pages/InvoiceRedirect"));
+const ReceiptRedirect = lazy(() => import("./pages/ReceiptRedirect"));
+const AudioDebug = lazy(() => import("./pages/AudioDebug"));
+const BusinessInsightsDashboard = lazy(() => import("./pages/BusinessInsightsDashboard"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const TenantDetail = lazy(() => import("./pages/admin/TenantDetail"));
 
 
 
@@ -129,10 +127,11 @@ const RootRoute = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
+        height: "100dvh",
+        minHeight: "100vh",
         backgroundColor: "#ffffff",
       }}>
-        <img src="/icons/icon-192.png" style={{ width: 80, height: 80 }} />
+        <img src="/icons/icon-192.png" alt="" width={80} height={80} style={{ width: 80, height: 80 }} />
       </div>
     );
   }
@@ -141,29 +140,36 @@ const RootRoute = () => {
   return <Navigate to={target!} replace />;
 };
 
-function AppContent() {
-  const { loading } = useAuth();
+/** Full-screen brand loader, used only while the session is being restored. */
+const RouteFallback = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100dvh",
+      minHeight: "100vh",
+      backgroundColor: "#ffffff",
+    }}
+  >
+    <img src="/icons/icon-192.png" alt="" width={80} height={80} style={{ width: 80, height: 80, marginBottom: 16 }} />
+    <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
+  </div>
+);
 
-  if (loading) {
-    return (
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        backgroundColor: "#ffffff"
-      }}>
-        <img
-          src="/icons/icon-192.png"
-          style={{ width: 80, height: 80, marginBottom: 16 }}
-        />
-        <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
-      </div>
-    );
-  }
+function AppContent() {
+  // redirectTo is intentionally empty: protected areas (AppLayout, OfficeRoute,
+  // EngineerLayout) run their own auth redirects. A router-root redirect would
+  // race public document routes (/quote/:token, /cert/:token, ...).
+  const { loading } = useAuth("");
+
+  if (loading) return <RouteFallback />;
 
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/auth" element={<Auth />} />
@@ -237,6 +243,7 @@ function AppContent() {
       <Route path="/offline" element={<Offline />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
   );
 }
 

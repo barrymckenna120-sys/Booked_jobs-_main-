@@ -63,6 +63,19 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Heavy, rarely-needed-on-first-paint libs get their own chunks so the
+          // landing page and login don't pay for them.
+          charts: ["recharts"],
+          spreadsheet: ["xlsx-js-style"],
+          firebase: ["firebase/app", "firebase/analytics", "firebase/messaging"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
