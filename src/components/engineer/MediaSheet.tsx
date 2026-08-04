@@ -24,11 +24,11 @@ interface MediaFile {
   type: string;
 }
 
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+
 const isVideo = (type: string) =>
   type?.startsWith("video/") || type === "video";
 
-const isCloudinaryVideo = (url: string) =>
-  url?.includes("cloudinary.com");
 
 const getCloudinaryThumbnail = (url: string): string => {
   if (!url || !url.includes("cloudinary.com")) return url;
