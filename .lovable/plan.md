@@ -1,45 +1,71 @@
-# Customer Import: GPRN & Notes mapping, Area Code exclusion
+# Findings: Area Code "01" and Paul Murphy's missing GPRN
 
-Scope: `src/pages/ImportCustomers.tsx` only. No UI restructure, no other files.
+## Part 1 — Area Code "01" is not saved data, it's a placeholder
 
-## What changes
+Verified in the database and the code:
 
-1. **GPRN aliases** — already present (`gprn`, `gprn no`, `gprn number`, `gas point reference number`). Verified: `'GPRN '` → `gprn`. No change needed.
+- `customers.area_code` has **no column default** (`column_default = null`, nullable).
+- No trigger writes it. No Edge Function writes `'01'`. Import deliberately omits `area_code`.
+- Paul Murphy's stored `area_code` is **NULL**.
 
-2. **Notes → Engineer Notes** — currently `notes`, `note`, `comments`, `comment` all map to the **Customer Notes** column (`customers.notes`); verified `'notes '` → `notes` today. Repoint `notes` / `note` / `comments` / `comment` to `engineer_notes`. `customer notes` keeps mapping to Customer Notes. Access Notes stays mapped only from an explicit "Access Notes" header.
+The "01" you see is the greyed-out placeholder text on the Area Code input:
 
-3. **Whitespace normalization** — source uses `.trim().toLowerCase()` only, with **no internal-whitespace collapsing**. Leading/trailing works (`' Boiler Make '` → `boiler_brand`). Add a single `normalizeHeader()` that also collapses runs of internal whitespace to one space, applied everywhere headers are compared, so real-world headers like `'Area  Code '` (double space) normalize predictably instead of silently missing every alias.
+- `src/components/customer/AddCustomerSheet.tsx:200` — `placeholder="01"`
+- `src/pages/CustomerDetail.tsx:395` — `placeholder="01"`
 
-4. **Area Code exclusion** — remove both `"area code"` **and** `"area"` from the auto-mapping map (verified `'Area '` currently maps to `area_code`), and drop `area_code` from the insert payload so raw source text is never written. With internal-space collapsing in place, `'Area  Code '` normalizes to `area code` and is excluded deliberately rather than by accident.
+Both flows only write a value when the user types one (`form.area_code.trim() ? normalizeAreaCode(...) : null`). So nothing is hardcoding `01` into the record — the field is genuinely empty and the placeholder just looks like a filled value.
 
-5. **Header-row detection blocker** — `detectHeaderRow` requires ≥3 hits from `KNOWN_HEADERS` (`customer name, mobile number, phone number, address, eircode`). The real file's headers (`Name , Address , Area , Eircode , Phone , Boiler Make , GPRN , notes , Area  Code `) score only **2** (`address`, `eircode`), so the file fails detection before any mapping runs. Add `"name"` and `"phone"` as recognised headers (`name` → `name`, `phone` already aliased) and include them in `KNOWN_HEADERS`.
+Optional cleanup (not required for correctness): change the placeholder to something clearly non-value-like, e.g. `e.g. D14`, so an empty field never reads as data.
 
-## Verification
+## Part 2 — Paul Murphy's GPRN
 
-Verified against the stated header row using the map extracted from the source:
+### What the data actually shows
 
-```
-'Name '         -> 'name'        -> None            (blocker, item 5)
-'Address '      -> 'address'     -> address
-'Area '         -> 'area'        -> area_code       (must be excluded)
-'Eircode '      -> 'eircode'     -> eircode
-'Phone '        -> 'phone'       -> phone
-' Boiler Make ' -> 'boiler make' -> boiler_brand    OK
-'GPRN '         -> 'gprn'        -> gprn            OK
-'notes '        -> 'notes'       -> notes           (must become engineer_notes)
-'Area  Code '   -> 'area  code'  -> None            (unmapped only by accident)
-KNOWN_HEADERS matched: 2 of required 3
-```
+| Record | created_at | updated_at | gprn | area_code |
+|---|---|---|---|---|
+| Paul Murphy (`7530ce82…`) | 2026-08-04 15:37:47 | 15:37:47 | NULL | NULL |
+| Shay De Bara (`073e25f8…`) | 2026-08-04 14:45:55 | 2026-08-04 15:37:46 | `1234567` | NULL |
 
-After implementation, the same script re-runs and must show: `name` → name, `notes` → engineer_notes, `area`/`area code` → unmapped, `gprn` → gprn, `boiler make` → boiler_brand, detection count ≥3.
+Two things contradict the assumption in the report:
 
-Note: `customer_list__kn_gas_04_08_2026.xlsx` is not present in uploads (only `karls_gas_customer_2.xlsx`). Upload it to re-verify end-to-end through the actual file parse rather than the header row alone.
+1. **Shay's stored GPRN is `1234567`, not `A96D1R0`.** So GPRN mapping was never demonstrated to work from that spreadsheet — that value is 7 plain digits, consistent with being typed in the app, not read from the `A96D1R0` cell.
+2. **Shay was updated at 15:37:46, one second before Paul was inserted at 15:37:47** — i.e. both rows were touched by the *same* import run. Shay matched on phone and took the update branch (`ImportCustomers.tsx:531-537`), Paul was new and took the insert branch (`:541-553`).
 
-## Note on the Area Code decision
+### Why that combination points at the mapping, not the row
 
-There is currently **no `derive_area_code()` trigger** on `public.customers` (only the `updated_at` trigger). Imported customers will therefore have `area_code` empty until that derivation exists, and area-code filters will show them as blank. Flagging so the gap is intentional.
+`cleanData()` (`ImportCustomers.tsx:493-504`) strips any key whose value is `null`/`""` for all non-required fields. Consequences:
 
-## Risk
+- On the **insert** path, an unread GPRN silently becomes NULL → Paul.
+- On the **update** path, an unread GPRN is simply omitted → Shay's pre-existing `1234567` survived untouched.
 
-Low. Import-only mapping/normalization logic; no bookings, payments, RLS or auth touched. Behaviour changes to call out: a plain "Notes" column now lands in Engineer Notes, and Area/Area Code columns are no longer imported.
+If the GPRN column had been mapped and read in that run, Shay's value would have been **overwritten with `A96D1R0`**. It wasn't. That is strong evidence the GPRN column was **not mapped (or read as empty) for the entire 15:37 run**, not that Paul's individual cell behaved differently.
 
+Also ruled out as causes:
+
+- **Value format** — `B96D1R0` fails `isValidGprnFormat` (7 digits), but that only sets a soft cell *warning* (`:324-327`); the value is still carried into the payload and the row still imports. So a non-numeric GPRN cannot by itself produce NULL.
+- **Partial insert failure** — the insert is a single row insert wrapped in try/catch; a failure would have counted the row as skipped and shown it in the failed-rows list, and no customer record would exist. Paul's record exists complete (name, phone, address, eircode, boiler brand, warranty), so the insert succeeded — GPRN was already absent from the payload before the write.
+
+### The remaining unknown
+
+Whether the GPRN column was left unmapped in the mapping UI for that run, or was mapped but read empty (header text mismatch, merged/shifted column, or the value living in a different column than expected in that specific file). The app keeps no import batch log, so this cannot be resolved from the database alone.
+
+## Recommended next step (verification, not a code change)
+
+Re-open the same spreadsheet in the importer and, **without clicking Import**, check:
+
+1. Does the column-mapping panel show GPRN mapped to the "GPRN" header, or is it unmapped?
+2. In the preview table, does Paul Murphy's GPRN cell show `B96D1R0` (with an amber warning) or blank?
+3. Does Shay De Bara's row show `A96D1R0` in the preview?
+
+- If the preview shows the values correctly, the 15:37 run simply had GPRN unmapped — a one-off operator/mapping issue, and re-running the import will fix Paul (and overwrite Shay's `1234567` with `A96D1R0`, worth confirming is desired).
+- If the preview shows GPRN blank or unmapped for that file, the header in that file isn't matching the alias list and we then fix header matching — I'd want the exact header string before touching the alias map.
+
+Either way, Paul's GPRN can be set directly on his customer record in the app in the meantime.
+
+## Technical notes
+
+- Files inspected: `src/pages/ImportCustomers.tsx`, `src/components/customer/AddCustomerSheet.tsx`, `src/pages/CustomerDetail.tsx`, `src/lib/validation/gprn.ts`.
+- Database checks run: `information_schema.columns` defaults for `area_code`/`gprn`/`source`, full row read for both customers, trigger and function listing for `customers`.
+- `customers.source` defaults to `'manual'`, and the importer never sets `source` — so `source = 'manual'` does **not** mean a record was created by hand. That field cannot be used to distinguish import-created rows.
+
+No code changes made.
