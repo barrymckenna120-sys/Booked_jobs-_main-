@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { filterDueCustomers } from "../_shared/renewalDedup.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,7 @@ Deno.serve(async (req) => {
 
     const { data: customers, error: custErr } = await supabase
       .from("customers")
-      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model")
+      .select("id, name, phone, next_service_due, organisation_id, address, eircode, area_code, boiler_brand, boiler_model, reminder_30_days_sent, reminder_14_days_sent")
       .eq("organisation_id", organisation_id)
       .eq("next_service_due", targetDate)
       .neq("opted_out", true);
@@ -118,12 +119,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    const filtered = customers
-      .filter((c) => !bookedSet.has(c.id))
-      .filter((c) => {
-        const latest = latestJobMap.get(c.id);
-        return !latest || !latest.reminder_14day_sent;
-      });
+    // Dedup on the customer-level flag first: customers with no service_calls row
+    // have no job-level flag to check and were previously never suppressed.
+    const filtered = filterDueCustomers(customers, bookedSet, latestJobMap, "14day");
 
     const result = [];
     for (const c of filtered) {

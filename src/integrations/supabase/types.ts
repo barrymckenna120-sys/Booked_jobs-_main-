@@ -644,6 +644,7 @@ export type Database = {
           organisation_id: string
           owner_or_tenant: string | null
           phone: string
+          reminder_14_days_sent: boolean
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
           reminders_consent: boolean | null
@@ -703,6 +704,7 @@ export type Database = {
           organisation_id: string
           owner_or_tenant?: string | null
           phone: string
+          reminder_14_days_sent?: boolean
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
           reminders_consent?: boolean | null
@@ -762,6 +764,7 @@ export type Database = {
           organisation_id?: string
           owner_or_tenant?: string | null
           phone?: string
+          reminder_14_days_sent?: boolean
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
           reminders_consent?: boolean | null
