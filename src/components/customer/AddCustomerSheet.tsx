@@ -197,7 +197,7 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
             <CustomerFormField label="Address" id="address" value={form.address} onChange={(v) => update("address", v)} maxLength={200} />
             <div className="grid grid-cols-2 gap-3">
               <CustomerFormField label="Eircode" id="eircode" value={form.eircode} onChange={(v) => update("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
-              <CustomerFormField label="Area Code" id="area_code" value={form.area_code} onChange={(v) => update("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
+              <CustomerFormField label="Area Code" id="area_code" value={form.area_code} onChange={(v) => update("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="e.g. D14" />
             </div>
             <CustomerFormField label="GPRN" id="gprn" value={form.gprn} onChange={(v) => update("gprn", v)} maxLength={30} placeholder="Gas Point Reference Number" />
             <div className="grid grid-cols-2 gap-3">
