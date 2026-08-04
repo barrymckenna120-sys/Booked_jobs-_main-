@@ -243,6 +243,7 @@ function AppContent() {
       <Route path="/offline" element={<Offline />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
   );
 }
 
