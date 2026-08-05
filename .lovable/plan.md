@@ -1,107 +1,60 @@
-# BookedJobs — PWA Technical Audit (Read-Only)
+# Findings: New Quote page + Products page (read-only)
 
-No code was changed. Every finding below cites a file inspected in this session. Where evidence was not available in code, it is marked "Not confirmed from code inspection."
+No code changed. `/quotes/new` renders `src/pages/QuoteNew.tsx`, which is a thin wrapper (header + back button) around `src/components/quotes/QuoteForm.tsx`. `QuoteForm` renders no custom child components — only shadcn primitives. `QuoteEdit.tsx` reuses the same component with `quoteId`.
 
-## Executive Summary
+## 1. Fields rendered, in order
 
-The app is a genuine, installable PWA with a correct manifest, valid icons, dual service workers (Workbox app shell + Firebase messaging), NetworkFirst HTML, safe-area handling and route-level code splitting. It works today on Android Chrome, installed Android PWA, iPhone Safari, installed iOS PWA and desktop.
+| # | Section (Card) | Label | Component | State | DB column |
+| --- | --- | --- | --- | --- | --- |
+| 0 | header | Quote number (read-only, edit mode only) | `<h2>` | `quoteNumber` | `quotes.quote_number` (DB-generated) |
+| 1 | Customer & Job Type | Customer * | `Select` | `customerId` | `quotes.customer_id` |
+| 2 | | Job Type | `Select` (hardcoded `JOB_TYPES` array, line 23) | `jobType` | `quotes.job_type` (falls back to `"other"`) |
+| 3 | | Job Description | `Textarea` rows=2 | `jobDescription` | `quotes.description` |
+| 4 | Line Items (repeating) | Description | `Input` + custom absolute-positioned product dropdown | `lineItems[].description` | `quote_line_items.description` |
+| 5 | | Qty | `Input type=number` | `lineItems[].qty` | `quote_line_items.qty` |
+| 6 | | Unit Price € | `Input type=number` | `lineItems[].unit_price` | `quote_line_items.unit_price` |
+| 7 | | Total (computed, read-only) | `<p>` | derived qty × unit_price | `quote_line_items.line_total` (generated in DB) |
+| 8 | | Delete row / Add Item | `Button` | — | — |
+| 9 | Pricing Summary | Subtotal (read-only) | `<span>` | `subtotal` memo | not stored |
+| 10 | | Discount € | `Input type=number` | `discount` | `quotes.discount` |
+| 11 | | VAT 23% | `Switch` | `vatEnabled` | `quotes.vat_enabled` |
+| 12 | | Total (read-only) | `<span>` | `total` (subtotal − discount + 23% VAT) | `quotes.total_amount` |
+| 13 | | Deposit € | `Input type=number` | `deposit` (auto = `settings.deposit_percentage`% of total until manually edited) | `quotes.deposit` |
+| 14 | | Balance Due (read-only) | `<span>` | `balanceDue` | `quotes.balance_due` |
+| 15 | Notes, Terms, Expiry | Notes | `Textarea` rows=3 | `notes` | `quotes.notes` |
+| 16 | | Terms & Conditions | `Textarea` rows=3 | `terms` | `quotes.terms` |
+| 17 | | Expiry Date | `Popover` + `Calendar` (mode="single") | `expiryDate` (Date) | `quotes.expiry_date` (`yyyy-MM-dd`) |
+| 18 | Actions | **Save Draft** — `variant="outline"` | `Button` → `handleSave(false)` | — | `quotes.status = "Draft"` |
+| 19 | | **Send & WhatsApp** — hardcoded `bg-[#25D366]` | `Button` → `handleSave(true, true)` | — | `quotes.status = "Sent"`, `sent_at` |
 
-Three structural issues hold it back: the update strategy is self-contradictory (`skipWaiting: true` with `registerType: "prompt"`), authenticated API responses are written to Cache Storage and never purged on logout, and `useAuth` is instantiated at 89 call sites, each opening its own session listener and redirect logic.
+Notes on the current implementation:
+- Product autocomplete groups matches by `products.category`, defaulting to the literal string `"Parts"` when null (line ~370).
+- There is **no** "Send" (non-WhatsApp) button — only Save Draft and Send & WhatsApp.
+- The Expiry Date uses a popover `Calendar`, which conflicts with the recorded preference for native date inputs on mobile/iOS.
+- `Command`/`CommandInput` and `Search`/`Send` icons are imported but unused (dead imports).
 
-### Scores
+## 2. Write path on save (`handleSave`, lines 165-300)
 
-| Area | Score |
-| --- | --- |
-| Production Readiness | 72/100 |
-| PWA Health | 74/100 |
-| Performance | 68/100 |
-| Security | 70/100 |
-| Mobile UX | 78/100 |
-| Installability | 82/100 |
-| Capacitor Readiness | 55/100 |
+1. Validation: customer required; at least one line item with a description.
+2. **New quote only** — finds the most recent `service_calls` row for that customer with `status = 'Pending'`; if none, inserts one (`job_type`, `job_issue` = job description, `status: 'Pending'`, `has_quote: true`, `source: 'Quote'`). `quotes.job_id` is set to that job id.
+3. `quotes` insert/update with: `user_id`, `organisation_id`, `customer_id`, `job_id`, `description`, `job_type`, `total_amount`, `discount`, `deposit`, `balance_due`, `vat_enabled`, `notes`, `terms`, `expiry_date`, `status`, and `sent_at` when sending.
+4. `quote_line_items`: on edit, **all existing rows are deleted then re-inserted** (`quote_id`, `product_id`, `description`, `qty`, `unit_price`, `sort_order`). Row ids are not stable across saves.
+5. `quotes.line_items` (the jsonb column) is **not** written by this form — only the child table is.
+6. No cost/margin fields exist anywhere in the payload; `quote_line_items` has `unit_price` only.
 
-**Verdict: Production Ready with Minor Fixes** — with the caveat that findings 1 and 2 below should be treated as pre-requisites, not optional polish.
+## 3. "Send & WhatsApp" end-to-end
 
-## Top Findings (highest priority first)
+1. `handleSave(true, true)` saves the quote as above with `status: "Sent"`.
+2. Best-effort PDF: raw `fetch` to `/functions/v1/generate-quote-pdf` with `{ quote_id }`, using the publishable key as bearer. On success, `quotes.pdf_url` is patched. Failures are swallowed.
+3. `supabase.functions.invoke("send-quote-whatsapp")` with `quote_id`, `customer_name`, `mobile_number`, `job_description`, `quote_amount`, `deposit_amount`, `quote_number`, and `pdf_url` when available. Note it does **not** pass `customer_id` or `sent_by_user_id`.
+4. Inside `supabase/functions/send-quote-whatsapp/index.ts`: re-reads `organisation_id`, `customer_id`, `access_token` from the quote → loads the org's 360messenger config from `tenant_integrations` (secret name → config key → `THREESIXTY_API_KEY` fallback) → reads `settings.message_footer` (falls back to the literal "K&N Gas Services") → builds tenant public links via `getTenantPublicUrl` for `/quote/{access_token}` and `/pdf/{access_token}`, omitting them when the org has no `public_domain`.
+5. Message text: greeting, job description, quote number, total, optional deposit line, `YES {ref}` reply instruction, accept link, PDF link, footer, optional business phone.
+6. Inserts `message_log` (`status: 'pending'`, `related_type: 'quote'`), POSTs to `https://api.360messenger.com/v2/sendMessage` (FormData, phone stripped of `+`), then patches `message_log` to `sent` or `failed`.
+7. On success it patches `quotes.status = 'Sent'` and `sent_at` again, and inserts a `customer_activity` row (`whatsapp_sent`) — but only when `customer_id` was passed in the body, which the form does not do, so that activity row is currently never written from this path.
 
-### 1. Cached authenticated API responses survive logout — Critical (security)
-`vite.config.ts` lines 54-61 register a `NetworkFirst` runtime cache (`supabase-api`) for `https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest`. Responses to authenticated REST calls (customers, jobs, finance) are stored in origin-scoped Cache Storage for up to 300s and are never deleted on sign-out (`src/hooks/useAuth.tsx` `signOut` only calls `supabase.auth.signOut()`). On a shared or handed-over device, or after "View as" org switching (`src/hooks/useAdminViewAs.tsx` clears only localStorage caches), previously fetched tenant data can be served from cache.
-**Fix:** delete the `supabase-api` cache on sign-out and on org switch, or drop that runtime cache entirely (the app already has its own localStorage caches in `useEngineerJobs`, `Jobs.tsx`, `Customers.tsx`).
+## 4. Settings > Products
 
-### 2. Update strategy is contradictory — users can land on a mixed build — High
-`vite.config.ts` sets `registerType: "prompt"` but also `workbox.skipWaiting: true` and `clientsClaim: true`. The new worker activates and claims clients immediately, so the "Update available" banner in `src/components/pwa/PWAUpdateBanner.tsx` may never render, while the page continues running old JS against a new precache — the classic source of `ReferenceError` on a function that "no longer exists in source" (the `existingPhones` production error fits this signature exactly).
-**Fix:** pick one model. Either `registerType: "autoUpdate"` with `skipWaiting: true`, or keep the prompt and set `skipWaiting: false`.
-
-### 3. Hardcoded backend host in the SW cache rule — High
-`vite.config.ts` line 54 hardcodes the project ref in the runtime-caching regex. Any backend rotation silently disables that rule; it also duplicates config that already lives in `VITE_SUPABASE_URL`.
-
-### 4. `useAuth` is called at 89 sites — High (reliability + performance)
-`rg -l "useAuth(" src` returns 89 files. `src/hooks/useAuth.tsx` calls `supabase.auth.getSession()` and `onAuthStateChange` per instance, each with its own `loading` state and redirect branch. Consequences: dozens of duplicate subscriptions per screen, repeated loading flashes on mount, and redirect races between siblings on session expiry. The module-level `linkAttempted` Set is a workaround for this fan-out, which confirms the problem.
-**Fix:** one `AuthProvider` context at the router root; `useAuth` becomes a context read.
-
-### 5. Inconsistent service-worker cleanup — Medium
-`src/main.tsx` lines 32-34 unregister **every** registration in refused contexts, including the Firebase messaging worker; `src/components/pwa/PWAUpdateBanner.tsx` lines 74-78 correctly excludes `firebase-cloud-messaging-push-scope`. Preview/dev loses push registration unnecessarily and behaviour differs between the two code paths.
-
-### 6. `100vh` without `dvh` fallback on key screens — Medium (iOS UX)
-`src/index.css` lines 199-205 define `.h-screen-dvh` / `.min-h-screen-dvh`, but they are unused in `src/App.tsx` (131, 154 — inline `100dvh` with `100vh` min), `src/components/engineer/EngineerLayout.tsx:108` (`height: "100vh"`) and `src/pages/QuoteAcceptance.tsx:190`. On iOS Safari the toolbar makes `100vh` taller than the visible viewport, pushing engineer bottom nav off-screen.
-
-### 7. Manifest missing rich-install and iOS launch fields — Medium (installability)
-`public/manifest.json` has no `shortcuts` and no `screenshots` (Chrome then shows the minimal install sheet, not the rich one), and the `maskable` entry reuses the same square 512 artwork as `purpose: "any"` — Android will crop into the logo. `index.html` declares no `apple-touch-startup-image` splash screens, so installed iOS launches show a white flash, and `apple-mobile-web-app-status-bar-style` is `default` rather than `black-translucent`, so the app does not render under the Dynamic Island.
-
-### 8. Expired social-preview image — Medium
-`index.html` `og:image` / `twitter:image` point at a signed GCS URL with `Expires=1772066061` (Feb 2026 — already elapsed). Shared links render with no preview image.
-
-### 9. Third-party script and blocking font CSS in `<head>` — Medium (performance)
-`index.html` injects the reb2b tracker and a blocking Google Fonts stylesheet (three families, 16 weights) before the app bundle. Both delay first paint on 3G; the font request is a render-blocking round trip with no `preload`. Manual chunks already isolate `recharts`, `xlsx-js-style` and `firebase` (`vite.config.ts` 66-78), so the app code itself is reasonably split.
-
-### 10. Precache volume vs mobile first visit — Medium
-The published `sw.js` precaches ~125 entries (verified in a previous audit against `karlsgas.lovable.app`), taking ~24s to fill on first visit. `globPatterns` includes every `png`, so `icon-1024.png` and `landing-page.html` assets are pulled down whether needed or not.
-
-### 11. Polling plus realtime on the same data — Medium (battery)
-`refetchInterval: 30000` in `src/components/layout/AppLayout.tsx:89`, `src/pages/Parts.tsx:38`, `src/components/dashboard/LiveActivityFeed.tsx:45`, 60s in `RenewalsCard.tsx:143`, plus `setInterval` in `src/pages/Renewals.tsx:165` and `EngineerLayout.tsx:85`. Separately, 18 files subscribe to `postgres_changes`. Several screens therefore poll and hold a websocket for the same rows.
-
-### 12. Error boundaries applied to one route only — Medium
-In `src/App.tsx`, `ErrorBoundary` wraps `/dashboard` only; other lazy routes fall through to the root `Sentry.ErrorBoundary` in `src/main.tsx`, whose fallback is a bare `<p>An error has occurred</p>` with no recovery action. `src/components/shared/ErrorBoundary.tsx` also hard-navigates to `/dashboard`, which is wrong for engineer-role users.
-
-### 13. `window.open` used in ~20 places — Medium now, High for Capacitor
-`src/pages/engineer/EngineerJobDetail.tsx` 612-615, `EngineerCertificates.tsx` 90/97/248, `src/components/engineer/job-card/QuickActions.tsx` 28-31, `PaymentHistory.tsx`, `SendReminderModal.tsx`, `printReceipt.ts:111` and others. iOS standalone PWAs block non-gesture `window.open`; project memory already records this and prescribes `openExternalUrl`, so these are drift from the agreed pattern.
-
-### 14. Hardcoded colours bypass the design system — Low
-`src/components/pwa/InstallAppBanner.tsx` uses `bg-white` and inline `#4A86E8`; `src/App.tsx` loaders inline `#ffffff` / `#4A86E8`. Breaks theming and dark mode.
-
-### 15. Auth token storage on iOS — Low/Medium
-`src/integrations/supabase/client.ts` uses `localStorage` with `persistSession: true`. Correct for a SPA, but iOS evicts localStorage for sites unused for 7 days, so installed-PWA engineers can be silently logged out. Behavioural mitigation only (no code fix available in-browser).
-
-### Not confirmed from code inspection
-- Lighthouse numeric scores (no build/audit run in this read-only pass).
-- CSP and security response headers (owned by hosting, not present in the repo).
-- Accessibility contrast ratios and screen-reader traversal (requires an interactive audit run).
-- Background sync: no `sync`/`periodicsync` handler exists — `src/hooks/useRetryQueue.ts` replays from `localStorage` on reconnect instead, which does not run while the app is closed.
-
-## Journey Assessment
-
-| Journey | State |
-| --- | --- |
-| First visit | Works; heavy head payload + 125-entry precache on mobile data |
-| Returning visitor | Works from precache |
-| Login / logout | Works; logout leaves the `supabase-api` cache populated (finding 1) |
-| Session expiry | Redirect handled per-`useAuth`-instance; race risk (finding 4) |
-| Refresh on nested route | Works — `navigateFallback: "/index.html"` plus allowlist in `vite.config.ts` |
-| Offline | Marketing route redirects via `MarketingOfflineGate`; authenticated routes rely on their own states |
-| Back online | `useNetworkStatus` probes with backoff and drains the retry queue — well implemented |
-| Install PWA | Works; minimal install sheet only (finding 7) |
-| Update PWA | Unreliable (finding 2) |
-| Push notifications | Web push wired via `firebase-messaging-sw.js`; token stored per engineer in `useAuth` |
-| Slow / no network | NetworkFirst with 15s HTML timeout, 5s API timeout — sane |
-
-## Capacitor Readiness — Medium difficulty
-
-No `@capacitor/*` dependency exists yet. Required work: `@capacitor/push-notifications` (Firebase web push does not function in an iOS WebView — APNs required), `@capacitor/browser` and `@capacitor/app` to replace the ~20 `window.open` calls, `@capacitor/camera` and `@capacitor/filesystem` for the Cloudinary media flow, `@capacitor/geolocation` if engineer location is added. `printReceipt.ts`'s `window.open('', '_blank')` print window will not work natively and needs `@capacitor/share` or a PDF viewer. Native permissions: notifications, camera, photo library, location.
-
-## Recommended Sequencing
-
-**Quick wins (under an hour each):** resolve the `skipWaiting`/`prompt` conflict; purge the `supabase-api` cache on sign-out and org switch; replace the hardcoded backend host with `VITE_SUPABASE_URL`; align `main.tsx` SW cleanup with the Firebase-scope exclusion; replace the expired `og:image`; swap `100vh` for the existing `dvh` utilities; add `shortcuts` and `screenshots` to the manifest.
-
-**Medium:** centralise auth in one provider; add a padded maskable icon and iOS splash screens; wrap all lazy routes in a role-aware error boundary; deduplicate polling where realtime already covers the data; defer the reb2b script and preload fonts.
-
-**Long-term:** replace remaining `window.open` calls with a single external-link helper (Capacitor prerequisite); trim precache scope; full interactive accessibility pass; decide native vs PWA before layering more browser-only APIs.
+- Rendered by `src/pages/Products.tsx` ("Products & Parts", route `/products`), with two tabs: **Products** (inline table + `Dialog` add/edit form) and **Categories** (`src/components/products/CategoriesTab.tsx`).
+- `products.category` **already exists** as a nullable `text` column. It is free text — not an enum, not an FK to `categories`.
+- Live data: 9 products, 0 with a null category. Values: `Parts` (3), `parts` (3, lowercase duplicate), `Boilers` (2), `Heat Controls` (1).
+- The `categories` table is a separate, org-agnostic lookup (no `organisation_id`) holding: Boilers, Heat Pumps, Heat Controls, WiFi & App Units, Parts, Labour, Materials, pipe work. The product form's category `Select` is populated from it, but because the link is by string there is drift (`parts` vs `Parts`) and the filter buttons match exact-case, so lowercase `parts` products are invisible under the "Parts" filter.
