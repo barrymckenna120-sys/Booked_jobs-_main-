@@ -15,12 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, Loader2, Package } from "lucide-react";
 import CategoriesTab from "@/components/products/CategoriesTab";
 import { useOrgId } from "@/hooks/useOrgId";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type Product = {
   id: string;
   name: string;
   description: string | null;
   unit_price: number;
+  cost_price: number | null;
   active: boolean;
   category: string | null;
   created_at: string;
@@ -35,13 +38,16 @@ const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { orgId } = useOrgId();
+  const { user } = useAuth();
+  const { canAccessOffice } = useUserRole(user);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", unit_price: "", active: true, category: "" });
+  const [form, setForm] = useState({ name: "", description: "", unit_price: "", cost_price: "", active: true, category: "" });
   const [saving, setSaving] = useState(false);
+
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
