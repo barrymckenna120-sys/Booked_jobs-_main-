@@ -84,7 +84,20 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const reviewLink = settings?.google_review_url || "https://g.page/r/CV-tS_b3X22vEAE/review";
+    // No cross-tenant fallback: if this org has no review URL configured, skip.
+    const reviewLink = settings?.google_review_url?.trim() || null;
+
+    if (!reviewLink) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "trigger-review-request",
+        error_message: `No google_review_url configured for org ${orgId} — review request skipped`,
+        payload: { service_call_id, customer_id, organisation_id: orgId },
+      });
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "google_review_url_not_configured" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 4. POST to Make.com webhook — per-org lookup
     const { data: makeIntegration } = await supabase
