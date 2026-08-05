@@ -27,6 +27,8 @@ import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
+import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
+
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
   formatEircode, formatPhoneInternational, normalizeAreaCode, RED_BORDER, type CustomerFieldErrors,
@@ -209,30 +211,39 @@ const CustomerDetail = () => {
   const handleSave = async () => {
     if (!validateAll()) return;
     setSaving(true);
-    const { id: _id, created_at, updated_at, user_id, ...updates } = form;
+    // Only send fields the user actually changed. Sending the whole fetched row
+    // could overwrite backend-updated values (e.g. opted_out flipped by an
+    // inbound WhatsApp "STOP") with stale local form state.
+    const updates = buildCustomerUpdatePayload(form, originalForm);
+    if (Object.keys(updates).length === 0) {
+      setSaving(false);
+      toast({ title: "No changes to save" });
+      return;
+    }
     // Clean phone & eircode
     if (updates.phone) updates.phone = formatPhoneInternational(updates.phone);
     if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
     if (updates.area_code) updates.area_code = normalizeAreaCode(updates.area_code);
     // Ensure required fields are never null
-    if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
-    if (!updates.address && updates.address !== undefined) updates.address = "";
+    if ("eircode" in updates && !updates.eircode) updates.eircode = "";
+    if ("address" in updates && !updates.address) updates.address = "";
     // TEMP: keep boiler_make_model in sync until downstream consumers
     // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
     // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
     // BoilerBrandsTab, IncomingJobCard, DataTab export,
     // CertificateFlow.tsx, Cert2Flow.tsx,
     // supabase/functions/generate-cert2-pdf/index.ts).
-    const brand = (updates.boiler_brand || "").trim();
-    const model = (updates.boiler_model || "").trim();
-    updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+    if ("boiler_brand" in updates || "boiler_model" in updates) {
+      const brand = (form.boiler_brand || "").trim();
+      const model = (form.boiler_model || "").trim();
+      updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+    }
     // Clean partial boiler_installation_date (incomplete dropdown selection)
-    if (updates.boiler_installation_date && updates.boiler_installation_date.startsWith("__partial__")) {
+    if (typeof updates.boiler_installation_date === "string" && updates.boiler_installation_date.startsWith("__partial__")) {
       updates.boiler_installation_date = null;
     }
-    // Debug log for boiler_installation_date
-    console.log("[CustomerDetail] boiler_installation_date being saved:", updates.boiler_installation_date);
     const { error } = await supabase.from("customers").update(updates).eq("id", id);
+
     setSaving(false);
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
