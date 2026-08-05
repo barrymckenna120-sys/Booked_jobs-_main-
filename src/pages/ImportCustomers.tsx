@@ -1245,6 +1245,21 @@ const ImportCustomers = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            {(() => {
+                              const pageReady = displayRows.filter((r) => r.isValid);
+                              const allChecked =
+                                pageReady.length > 0 && pageReady.every((r) => selectedSet.has(r.rowNum));
+                              return (
+                                <Checkbox
+                                  checked={allChecked}
+                                  disabled={pageReady.length === 0}
+                                  onCheckedChange={(v) => togglePage(v === true)}
+                                  aria-label="Select all ready rows on this page"
+                                />
+                              );
+                            })()}
+                          </TableHead>
                           <TableHead className="w-14">Row</TableHead>
                           <TableHead>Customer Name</TableHead>
                           <TableHead>Phone</TableHead>
@@ -1262,6 +1277,19 @@ const ImportCustomers = () => {
                             key={r.rowNum}
                             className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
                           >
+                            <TableCell className="align-top pt-3">
+                              <Checkbox
+                                checked={r.isValid && selectedSet.has(r.rowNum)}
+                                disabled={!r.isValid}
+                                onCheckedChange={(v) => toggleRow(r.rowNum, v === true)}
+                                aria-label={`Include row ${r.rowNum} in this import`}
+                                title={
+                                  r.isValid
+                                    ? undefined
+                                    : "This row can't be imported until its errors are fixed"
+                                }
+                              />
+                            </TableCell>
                             <TableCell className="text-muted-foreground align-top pt-3">{r.rowNum}</TableCell>
                             <TableCell className="min-w-[160px] align-top">
                               <EditableCell row={r} fieldKey="name" display={r.data.name || ""} />
