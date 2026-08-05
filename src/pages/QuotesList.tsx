@@ -187,6 +187,32 @@ const QuotesList = () => {
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by customer or quote number…" className="pl-9" />
       </div>
 
+      {/* Internal summary bar (office/admin only) */}
+      {canAccessOffice && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Gross Profit", value: `€${grossProfit.toFixed(2)}` },
+            { label: "Avg Margin (closed)", value: avgMargin === null ? "—" : `${avgMargin.toFixed(1)}%` },
+            {
+              label: "Won / Lost",
+              value: `${won} / ${lost}`,
+              sub: winRate === null ? "—" : `${winRate.toFixed(0)}% win rate`,
+            },
+            { label: "Grand Total", value: `€${grandTotal.toFixed(2)}` },
+          ].map((cell) => (
+            <Card key={cell.label}>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">{cell.label}</p>
+                <p className="text-lg font-bold font-mono tabular-nums text-foreground">{cell.value}</p>
+                {cell.sub && <p className="text-xs font-mono tabular-nums text-muted-foreground">{cell.sub}</p>}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+
+
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
