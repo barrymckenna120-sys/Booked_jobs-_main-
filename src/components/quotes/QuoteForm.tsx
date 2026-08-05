@@ -49,6 +49,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const [lineItems, setLineItems] = useState<LineItem[]>([{ id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", product_id: null }]);
   const [discount, setDiscount] = useState("0");
   const [vatEnabled, setVatEnabled] = useState(false);
+  const [vatRate, setVatRate] = useState(23);
   const [deposit, setDeposit] = useState("0");
   const [depositManuallySet, setDepositManuallySet] = useState(false);
   const [notes, setNotes] = useState("");
@@ -99,6 +100,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       setJobDescription(q.description || "");
       setDiscount(String((q as any).discount ?? 0));
       setVatEnabled((q as any).vat_enabled ?? false);
+      setVatRate(Number((q as any).vat_rate ?? 23));
       setDeposit(String((q as any).deposit ?? 0));
       setDepositManuallySet(true); // Existing quote has saved deposit
       setNotes(q.notes || "");
@@ -135,7 +137,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const subtotal = useMemo(() => lineItems.reduce((s, li) => s + (parseFloat(li.qty) || 0) * (parseFloat(li.unit_price) || 0), 0), [lineItems]);
   const discountNum = parseFloat(discount) || 0;
   const afterDiscount = Math.max(subtotal - discountNum, 0);
-  const vatAmount = vatEnabled ? afterDiscount * 0.23 : 0;
+  const vatAmount = vatEnabled ? afterDiscount * (vatRate / 100) : 0;
   const total = Math.max(afterDiscount + vatAmount, 0);
   const depositNum = parseFloat(deposit) || 0;
   const balanceDue = Math.max(total - depositNum, 0);
@@ -190,6 +192,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       deposit: depositNum,
       balance_due: balanceDue > 0 ? balanceDue : 0,
       vat_enabled: vatEnabled,
+      vat_rate: vatRate,
       notes: notes.trim() || null,
       terms: terms.trim() || null,
       expiry_date: expiryDate ? format(expiryDate, "yyyy-MM-dd") : null,
@@ -432,7 +435,29 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
-                <Label className="text-sm text-muted-foreground">VAT 23%</Label>
+                <Label className="text-sm text-muted-foreground">VAT</Label>
+                {vatEnabled && (
+                  <div className="flex items-center gap-1 ml-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={vatRate === 13.5 ? "default" : "outline"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setVatRate(13.5)}
+                    >
+                      13.5%
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={vatRate === 23 ? "default" : "outline"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setVatRate(23)}
+                    >
+                      23%
+                    </Button>
+                  </div>
+                )}
               </div>
               {vatEnabled && <span className="text-sm font-semibold">€{vatAmount.toFixed(2)}</span>}
             </div>
