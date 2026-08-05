@@ -1069,11 +1069,26 @@ const ImportCustomers = () => {
                               <EditableCell row={r} fieldKey="notes" display={r.data.notes || ""} />
                             </TableCell>
                             <TableCell className="align-top pt-3">
-                              {r.isValid ? (
-                                <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
-                              ) : (
-                                <Badge variant="destructive" title={r.errors.join(" · ")}>✕ Error</Badge>
-                              )}
+                              <div className="flex flex-col items-start gap-1">
+                                {r.isValid ? (
+                                  <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
+                                ) : (
+                                  <Badge variant="destructive" title={r.errors.join(" · ")}>✕ Error</Badge>
+                                )}
+                                {(() => {
+                                  const outcome = rowOutcome(r);
+                                  if (outcome === "unknown") return null;
+                                  return outcome === "update" ? (
+                                    <Badge variant="outline" title="A customer with this phone already exists — this row will update it">
+                                      Updates existing
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" title="No customer with this phone exists — this row will create a new one">
+                                      New
+                                    </Badge>
+                                  );
+                                })()}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
