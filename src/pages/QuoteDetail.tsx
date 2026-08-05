@@ -77,26 +77,42 @@ const QuoteDetail = () => {
   const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
     try {
+      if (accepted) {
+        // Route staff acceptance through the same edge function as the public
+        // approval page so the deposit payment link + WhatsApp are sent here too.
+        // (accept-quote calls respond_to_quote internally and sends the office alert.)
+        const { data, error } = await supabase.functions.invoke("accept-quote", {
+          body: { quote_id: id, access_token: quote?.access_token },
+        });
+        if (error || (data && data.success === false)) {
+          toast({
+            title: "Error",
+            description: (data && data.error) || error?.message || "Failed to accept quote",
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({ title: "Quote accepted — job created ✅" });
+        queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+        return;
+      }
+
       const { error } = await supabase.rpc("respond_to_quote", {
         p_quote_id: id,
-        p_accepted: accepted,
+        p_accepted: false,
         p_access_token: quote?.access_token,
       });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: accepted ? "Quote accepted — job created ✅" : "Quote rejected" });
+      toast({ title: "Quote rejected" });
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-
-      // Send WhatsApp office alert (best-effort)
-      if (accepted) {
-        supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
-      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
+
 
 
 
