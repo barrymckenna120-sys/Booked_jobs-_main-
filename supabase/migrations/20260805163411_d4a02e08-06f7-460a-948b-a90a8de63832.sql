@@ -1,0 +1,1 @@
+UPDATE public.customers SET opted_out = true, opted_out_date = now() WHERE id = 'd45d95a4-4f3f-4878-ae9c-2a4f40d1ae3a';
