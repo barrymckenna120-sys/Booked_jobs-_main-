@@ -13,6 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
+import ImportRunHistory from "@/components/import/ImportRunHistory";
+import type { ImportRunRowDetail } from "@/components/import/importRunTypes";
 
 /** Normalise a header cell for alias comparison: trim, collapse internal
  *  whitespace runs to a single space, lower-case. */
@@ -183,6 +185,7 @@ const ImportCustomers = () => {
   const [validated, setValidated] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const [importResult, setImportResult] = useState<{
     imported: number;
     updated: number;
@@ -529,6 +532,8 @@ const ImportCustomers = () => {
     let updated = 0;
     let skipped = 0;
     const failedRows: { name: string; reason: string }[] = [];
+    // Audit trail for this commit — appended wherever a counter is incremented.
+    const rowDetails: ImportRunRowDetail[] = [];
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
@@ -549,9 +554,16 @@ const ImportCustomers = () => {
 
         if (matchCount > 1) {
           skipped++;
+          const reason = `Phone matches ${matchCount} existing customers — resolve the duplicates first`;
           failedRows.push({
             name: row.data.name || `Row ${row.rowNum}`,
-            reason: `Phone matches ${matchCount} existing customers — resolve the duplicates first`,
+            reason,
+          });
+          rowDetails.push({
+            row_number: row.rowNum,
+            outcome: "skipped_ambiguous",
+            customer_id: null,
+            error_message: reason,
           });
           setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
           continue;
@@ -564,10 +576,16 @@ const ImportCustomers = () => {
             .eq("id", existingRows![0].id);
           if (error) throw error;
           updated++;
+          rowDetails.push({
+            row_number: row.rowNum,
+            outcome: "updated",
+            customer_id: existingRows![0].id,
+            error_message: null,
+          });
         } else {
           const nextServiceDue = new Date();
           nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
-          const { error } = await supabase
+          const { data: insertedRows, error } = await supabase
             .from("customers")
             .insert([{
               ...cleaned,
@@ -579,19 +597,57 @@ const ImportCustomers = () => {
               next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
               renewal_stage: cleaned.renewal_stage || "none",
               service_status: cleaned.service_status || "active",
-            } as any]);
+            } as any])
+            .select("id");
           if (error) throw error;
           imported++;
+          rowDetails.push({
+            row_number: row.rowNum,
+            outcome: "created",
+            customer_id: insertedRows?.[0]?.id ?? null,
+            error_message: null,
+          });
         }
       } catch (err: any) {
         skipped++;
+        const reason = err.message || "Unknown error";
         failedRows.push({
           name: row.data.name || `Row ${row.rowNum}`,
-          reason: err.message || "Unknown error",
+          reason,
+        });
+        rowDetails.push({
+          row_number: row.rowNum,
+          outcome: "failed",
+          customer_id: null,
+          error_message: reason,
         });
       }
 
       setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
+    }
+
+    // Audit log — written once, after every customer write. Purely additive: a
+    // failure here is surfaced but never affects the import that already happened.
+    if (orgId) {
+      const { error: logError } = await supabase.from("import_runs").insert({
+        organisation_id: orgId,
+        filename: file?.name || "unknown.xlsx",
+        imported_by: user.id,
+        total_rows: validRows.length,
+        created_count: imported,
+        updated_count: updated,
+        error_count: skipped,
+        row_details: rowDetails as any,
+      });
+      if (logError) {
+        toast({
+          title: "Import saved, audit log failed",
+          description: logError.message,
+          variant: "destructive",
+        });
+      } else {
+        setHistoryRefresh((n) => n + 1);
+      }
     }
 
     setImporting(false);
@@ -1230,6 +1286,11 @@ const ImportCustomers = () => {
             )}
           </>
         )}
+
+        {/* Read-only audit trail of past imports for this organisation */}
+        <div className="mt-8">
+          <ImportRunHistory orgId={orgId} refreshKey={historyRefresh} />
+        </div>
       </div>
 
       {/* Sticky footer summary */}
