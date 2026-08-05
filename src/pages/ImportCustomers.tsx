@@ -1153,11 +1153,30 @@ const ImportCustomers = () => {
                                 {(() => {
                                   const outcome = rowOutcome(r);
                                   if (outcome === "unknown") return null;
-                                  return outcome === "update" ? (
-                                    <Badge variant="outline" title="A customer with this phone already exists — this row will update it">
-                                      Updates existing
-                                    </Badge>
-                                  ) : (
+                                  const matches = matchesForRow(r) || [];
+                                  const describe = (m: ExistingMatch) =>
+                                    [m.name || "Unnamed customer", m.address].filter(Boolean).join(", ");
+                                  if (outcome === "ambiguous") {
+                                    return (
+                                      <Badge
+                                        variant="destructive"
+                                        title={`Shared by: ${matches.map(describe).join(" · ")}`}
+                                      >
+                                        Conflict — {matches.length} customers share this phone
+                                      </Badge>
+                                    );
+                                  }
+                                  if (outcome === "update") {
+                                    return (
+                                      <Badge
+                                        variant="outline"
+                                        title={matches[0] ? `Will update ${describe(matches[0])}` : "This row will update an existing customer"}
+                                      >
+                                        Updates existing
+                                      </Badge>
+                                    );
+                                  }
+                                  return (
                                     <Badge variant="secondary" title="No customer with this phone exists — this row will create a new one">
                                       New
                                     </Badge>
