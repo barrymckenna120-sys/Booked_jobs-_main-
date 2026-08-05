@@ -848,6 +848,46 @@ const ImportCustomers = () => {
   const validCount = decoratedRows.filter((r) => r.isValid).length;
   const errorCount = decoratedRows.filter((r) => !r.isValid).length;
 
+  // Effective selection: always intersected with the currently-ready rows, so a row
+  // that becomes blocked after an edit or remap drops out on its own. Untouched
+  // selection means "every ready row".
+  const selectedSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const r of decoratedRows) {
+      if (!r.isValid) continue;
+      if (!selectionDirty || selectedRowNums.has(r.rowNum)) s.add(r.rowNum);
+    }
+    return s;
+  }, [decoratedRows, selectedRowNums, selectionDirty]);
+  const selectedCount = selectedSet.size;
+
+  /** Toggle one ready row. First interaction freezes the current implicit selection. */
+  const toggleRow = (rowNum: number, checked: boolean) => {
+    setSelectedRowNums(() => {
+      const base = selectionDirty ? new Set(selectedRowNums) : new Set(selectedSet);
+      if (checked) base.add(rowNum);
+      else base.delete(rowNum);
+      return base;
+    });
+    setSelectionDirty(true);
+  };
+
+  /** Select or clear every ready row on the current page. */
+  const togglePage = (checked: boolean) => {
+    setSelectedRowNums(() => {
+      const base = selectionDirty ? new Set(selectedRowNums) : new Set(selectedSet);
+      for (const r of displayRows) {
+        if (!r.isValid) continue;
+        if (checked) base.add(r.rowNum);
+        else base.delete(r.rowNum);
+      }
+      return base;
+    });
+    setSelectionDirty(true);
+  };
+
+
+
 
   const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
