@@ -43,10 +43,12 @@ const STATUS_BADGE: Record<string, string> = {
 
 const QuotesList = () => {
   const { user } = useAuth();
+  const { canAccessOffice } = useUserRole(user);
   const { ready } = useOrgId();
   const navigate = useNavigate();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+
 
   const { data: quotes = [], isLoading } = useQuery({
     queryKey: ["quotes-list", user?.id],
