@@ -532,7 +532,9 @@ const ImportCustomers = () => {
     if (missingRequired.length > 0) return;
     // Partition rather than filter: ambiguous-phone rows are never committed, but
     // they must still be logged instead of vanishing from the audit trail.
-    const validRows = decoratedRows.filter((r) => r.isValid);
+    // Ready rows are additionally narrowed to the operator's checkbox selection —
+    // deselected rows are neither written nor logged.
+    const validRows = decoratedRows.filter((r) => r.isValid && selectedSet.has(r.rowNum));
     const ambiguousRows = decoratedRows.filter((r) => ambiguousRowNums.has(r.rowNum));
     if (validRows.length === 0 && ambiguousRows.length === 0) return;
 
