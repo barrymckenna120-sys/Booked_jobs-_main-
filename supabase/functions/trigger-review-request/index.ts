@@ -136,7 +136,29 @@ Deno.serve(async (req) => {
       body: JSON.stringify(webhookPayload),
     });
 
+    // Diagnostic: record the outbound webhook target + response so we can verify
+    // which URL was actually hit (host/path only — never the full secret query).
+    const webhookBodyText = await webhookRes.clone().text();
+    await supabase.from("edge_function_logs").insert({
+      function_name: "trigger-review-request",
+      error_message: `Webhook response ${webhookRes.status} ${webhookRes.statusText} — body: ${webhookBodyText.slice(0, 200)}`,
+      payload: {
+        service_call_id,
+        organisation_id: orgId,
+        secret_name: webhookSecretName,
+        webhook_host: new URL(webhookUrl).host,
+        webhook_path: new URL(webhookUrl).pathname,
+        response_status: webhookRes.status,
+        response_headers: {
+          "content-type": webhookRes.headers.get("content-type"),
+          "make-actual-status": webhookRes.headers.get("make-actual-status"),
+          "x-powered-by": webhookRes.headers.get("x-powered-by"),
+        },
+      },
+    });
+
     if (!webhookRes.ok) {
+
       const errBody = await webhookRes.text();
       await supabase.from("edge_function_logs").insert({
         function_name: "trigger-review-request",
