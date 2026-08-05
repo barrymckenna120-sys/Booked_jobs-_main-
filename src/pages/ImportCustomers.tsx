@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
@@ -203,6 +204,11 @@ const ImportCustomers = () => {
   // Session-only overrides keyed by srcIndex (index into dataRows), then by field key.
   const [rowEdits, setRowEdits] = useState<Record<number, Record<string, string>>>({});
   const [page, setPage] = useState(1);
+
+  // Row-level selection. Until the operator touches a checkbox, every ready row is
+  // treated as selected (selectionDirty === false), so the default is "import all ready".
+  const [selectedRowNums, setSelectedRowNums] = useState<Set<number>>(new Set());
+  const [selectionDirty, setSelectionDirty] = useState(false);
 
   // Existing customers for this organisation, keyed by normalised phone. Populated by
   // one batched lookup per file. A phone can map to MORE THAN ONE customer — real data
@@ -471,9 +477,12 @@ const ImportCustomers = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validated, dataRows, effectiveColMap, headerIdx]);
 
-  // Reset page whenever mapping or data changes
+  // Reset page and row selection whenever mapping or data changes: rows are
+  // re-validated, so a stale selection would point at the wrong rows.
   useEffect(() => {
     setPage(1);
+    setSelectedRowNums(new Set());
+    setSelectionDirty(false);
   }, [dataRows, effectiveColMap]);
 
   /** Re-validate a single row in place after an edit. */
@@ -523,7 +532,9 @@ const ImportCustomers = () => {
     if (missingRequired.length > 0) return;
     // Partition rather than filter: ambiguous-phone rows are never committed, but
     // they must still be logged instead of vanishing from the audit trail.
-    const validRows = decoratedRows.filter((r) => r.isValid);
+    // Ready rows are additionally narrowed to the operator's checkbox selection —
+    // deselected rows are neither written nor logged.
+    const validRows = decoratedRows.filter((r) => r.isValid && selectedSet.has(r.rowNum));
     const ambiguousRows = decoratedRows.filter((r) => ambiguousRowNums.has(r.rowNum));
     if (validRows.length === 0 && ambiguousRows.length === 0) return;
 
@@ -837,6 +848,46 @@ const ImportCustomers = () => {
   const validCount = decoratedRows.filter((r) => r.isValid).length;
   const errorCount = decoratedRows.filter((r) => !r.isValid).length;
 
+  // Effective selection: always intersected with the currently-ready rows, so a row
+  // that becomes blocked after an edit or remap drops out on its own. Untouched
+  // selection means "every ready row".
+  const selectedSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const r of decoratedRows) {
+      if (!r.isValid) continue;
+      if (!selectionDirty || selectedRowNums.has(r.rowNum)) s.add(r.rowNum);
+    }
+    return s;
+  }, [decoratedRows, selectedRowNums, selectionDirty]);
+  const selectedCount = selectedSet.size;
+
+  /** Toggle one ready row. First interaction freezes the current implicit selection. */
+  const toggleRow = (rowNum: number, checked: boolean) => {
+    setSelectedRowNums(() => {
+      const base = selectionDirty ? new Set(selectedRowNums) : new Set(selectedSet);
+      if (checked) base.add(rowNum);
+      else base.delete(rowNum);
+      return base;
+    });
+    setSelectionDirty(true);
+  };
+
+  /** Select or clear every ready row on the current page. */
+  const togglePage = (checked: boolean) => {
+    setSelectedRowNums(() => {
+      const base = selectionDirty ? new Set(selectedRowNums) : new Set(selectedSet);
+      for (const r of displayRows) {
+        if (!r.isValid) continue;
+        if (checked) base.add(r.rowNum);
+        else base.delete(r.rowNum);
+      }
+      return base;
+    });
+    setSelectionDirty(true);
+  };
+
+
+
 
   const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
@@ -995,13 +1046,14 @@ const ImportCustomers = () => {
     );
   }
 
+  // Blocked rows no longer gate the file: only an empty selection disables the commit.
   const importLabel = importBlocked
     ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
-    : errorCount > 0
-    ? `Fix ${errorCount} row${errorCount === 1 ? "" : "s"} to continue`
-    : `Import ${validCount} customer${validCount === 1 ? "" : "s"}`;
+    : selectedCount === 0
+    ? "Select at least one row"
+    : `Import ${selectedCount} customer${selectedCount === 1 ? "" : "s"}`;
 
-  const importDisabled = importBlocked || errorCount > 0 || validCount === 0;
+  const importDisabled = importBlocked || selectedCount === 0;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -1193,6 +1245,21 @@ const ImportCustomers = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            {(() => {
+                              const pageReady = displayRows.filter((r) => r.isValid);
+                              const allChecked =
+                                pageReady.length > 0 && pageReady.every((r) => selectedSet.has(r.rowNum));
+                              return (
+                                <Checkbox
+                                  checked={allChecked}
+                                  disabled={pageReady.length === 0}
+                                  onCheckedChange={(v) => togglePage(v === true)}
+                                  aria-label="Select all ready rows on this page"
+                                />
+                              );
+                            })()}
+                          </TableHead>
                           <TableHead className="w-14">Row</TableHead>
                           <TableHead>Customer Name</TableHead>
                           <TableHead>Phone</TableHead>
@@ -1210,6 +1277,19 @@ const ImportCustomers = () => {
                             key={r.rowNum}
                             className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
                           >
+                            <TableCell className="align-top pt-3">
+                              <Checkbox
+                                checked={r.isValid && selectedSet.has(r.rowNum)}
+                                disabled={!r.isValid}
+                                onCheckedChange={(v) => toggleRow(r.rowNum, v === true)}
+                                aria-label={`Include row ${r.rowNum} in this import`}
+                                title={
+                                  r.isValid
+                                    ? undefined
+                                    : "This row can't be imported until its errors are fixed"
+                                }
+                              />
+                            </TableCell>
                             <TableCell className="text-muted-foreground align-top pt-3">{r.rowNum}</TableCell>
                             <TableCell className="min-w-[160px] align-top">
                               <EditableCell row={r} fieldKey="name" display={r.data.name || ""} />
@@ -1332,11 +1412,13 @@ const ImportCustomers = () => {
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className="bg-success/10 text-success border border-success/30">
-                Ready: {validCount}
+                Selected: {selectedCount} of {validCount} ready
               </Badge>
-              <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
-                Blocked: {errorCount}
-              </Badge>
+              {errorCount > 0 && (
+                <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
+                  {errorCount} blocked — still needs fixing
+                </Badge>
+              )}
             </div>
             <Button onClick={handleImport} disabled={importDisabled}>
               {importLabel}
