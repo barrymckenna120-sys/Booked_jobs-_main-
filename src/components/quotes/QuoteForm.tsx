@@ -48,7 +48,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const [customerId, setCustomerId] = useState("");
   const [jobType, setJobType] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", product_id: null }]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([{ id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", cost_price: "", product_id: null }]);
   const [discount, setDiscount] = useState("0");
   const [vatEnabled, setVatEnabled] = useState(false);
   const [vatRate, setVatRate] = useState(23);
