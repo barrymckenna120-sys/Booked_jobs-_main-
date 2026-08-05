@@ -651,7 +651,7 @@ const ImportCustomers = () => {
           organisation_id: orgId,
           filename: file?.name || "unknown.xlsx",
           imported_by: user.id,
-          total_rows: validRows.length,
+          total_rows: validRows.length + ambiguousRows.length,
           created_count: imported,
           updated_count: updated,
           error_count: skipped,
