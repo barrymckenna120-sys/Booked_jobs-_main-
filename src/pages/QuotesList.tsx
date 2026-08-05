@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,19 @@ import { Plus, Search, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const FILTERS = ["All", "Draft", "Sent", "Viewed", "Accepted", "expired"];
+const FILTERS = ["All", "Draft", "Sent", "Viewed", "Accepted", "Expired", "Converted", "Rejected"];
+
+// Tab label -> lowercase status values it matches
+const FILTER_STATUSES: Record<string, string[]> = {
+  Draft: ["draft"],
+  Sent: ["sent"],
+  Viewed: ["viewed"],
+  Accepted: ["accepted"],
+  Expired: ["expired"],
+  Converted: ["converted"],
+  Rejected: ["rejected"],
+};
+
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",
