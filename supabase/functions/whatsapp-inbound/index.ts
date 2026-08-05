@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: customers } = await supabase
     .from("customers")
-    .select("id, organisation_id")
+    .select("id, organisation_id, name")
     .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
     .order("created_at", { ascending: false })
     .limit(1);
