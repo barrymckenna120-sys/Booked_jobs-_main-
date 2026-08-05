@@ -581,8 +581,6 @@ const ImportCustomers = () => {
     setImportResult({ imported, updated, skipped, failedRows });
   };
 
-  const validCount = parsedRows.filter((r) => r.isValid).length;
-  const errorCount = parsedRows.filter((r) => !r.isValid).length;
 
   /**
    * In-file duplicate phones. Rows are grouped on the already-normalised phone
