@@ -1,55 +1,39 @@
-# Cost Price, Margin % and GP € on the Products tab
+# Selectable VAT rate (13.5% / 23%) on quotes
 
-Scope: `public.products` schema + `src/pages/Products.tsx` only. Category Select, Categories tab, and the `categories` table are untouched.
+Scope: one migration on `public.quotes` plus `src/components/quotes/QuoteForm.tsx`. Nothing else.
 
 ## 1. Database
 
-One migration, nothing else:
-
 ```sql
-ALTER TABLE public.products
-ADD COLUMN IF NOT EXISTS cost_price numeric NULL;
+ALTER TABLE public.quotes
+ADD COLUMN IF NOT EXISTS vat_rate numeric NOT NULL DEFAULT 23;
 ```
 
-No default, no backfill, no other column changes. Existing rows stay `NULL`.
+Every existing quote gets `23`, so stored behaviour is unchanged.
 
-## 2. Role gating
+## 2. QuoteForm.tsx changes
 
-Reuse the existing pattern already used elsewhere:
+**State**
+- New `const [vatRate, setVatRate] = useState(23)`.
+- Loading an existing quote (around line 101, next to `vat_enabled`): `setVatRate(Number((q as any).vat_rate ?? 23))`.
+- New quotes keep the `23` default — no settings key is introduced.
 
-- `const { user } = useAuth();`
-- `const { canAccessOffice } = useUserRole(user);`
+**Calculation (line 138)**
+- `const vatAmount = vatEnabled ? afterDiscount * (vatRate / 100) : 0;`
+- The literal `0.23` is removed. `subtotal`, `afterDiscount`, `total`, `depositNum` and `balanceDue` formulas are otherwise untouched, so Discount / Deposit / Balance Due logic is unchanged.
 
-Everything cost-related renders only when `canAccessOffice` is true. Engineers see the Products tab exactly as it is today.
+**Save payload (around line 189)**
+- Add `vat_rate: vatRate` alongside the existing `vat_enabled: vatEnabled`. No other payload field changes.
 
-## 3. Add/Edit dialog
-
-Single addition below the existing Unit Price field, shown only for office/admin:
-
-- Label: `Cost Price €`, numeric `Input`, optional.
-- Form state gains `cost_price: string` (empty string = not set).
-- On save, payload adds `cost_price: form.cost_price === "" ? null : parseFloat(form.cost_price)`.
-- Blank stays `NULL` — never coerced to 0. No other dialog field is changed.
-
-## 4. Table columns
-
-Two new columns, office/admin only, inserted after the existing Price column:
-
-| Column | Formula | When `cost_price` is NULL |
-| --- | --- | --- |
-| Margin % | `(unit_price - cost_price) / unit_price * 100`, 1 decimal | `—` |
-| GP € | `unit_price - cost_price`, 2 decimals | `—` |
-
-Both computed client-side from the already-fetched row — no extra query. Also guard `unit_price = 0` for Margin % (show `—`) to avoid divide-by-zero. Headers hidden on the same condition as the cells so the table stays aligned.
-
-## 5. Technical notes
-
-- `Product` type gains `cost_price: number | null`.
-- Existing `select("*")` already picks the new column up once the migration runs, so the query is unchanged.
-- Filtering, search, show-inactive, soft delete, and the Categories tab are all left as-is.
+**UI (lines 433-437)**
+- Keep the existing VAT `Switch` and its behaviour exactly as-is.
+- Change the static label `VAT 23%` to just `VAT`.
+- Next to the switch, add a small two-button segmented control (`13.5%` / `23%`) built from the existing `Button` component, active state via `variant="default"` vs `variant="outline"`, matching the compact sizing already used in the totals block.
+- The segmented control renders only when `vatEnabled` is true, consistent with the existing `{vatEnabled && …}` amount display. When VAT is off, nothing about the current layout or behaviour changes.
 
 ## Verification
 
-- Office user: Cost Price input saves, Margin %/GP € populate; clearing it returns both to `—`.
-- Engineer user: no Cost Price field, no Margin %/GP € columns.
-- Product with no cost price: both columns show `—`.
+- Existing quote opened and saved without touching the control: VAT amount and total identical to today, `vat_rate` stays 23.
+- Switching to 13.5% recalculates VAT and total; deposit auto-% and balance due follow from the new total as they already do.
+- Toggling VAT off hides the selector and zeroes VAT, same as today.
+- Reopening a quote saved at 13.5% shows 13.5% selected.
