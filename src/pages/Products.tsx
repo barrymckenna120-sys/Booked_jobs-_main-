@@ -250,7 +250,9 @@ const Products = () => {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
+
                   </tbody>
                 </table>
               </div>
