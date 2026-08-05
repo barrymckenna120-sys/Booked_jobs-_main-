@@ -194,22 +194,49 @@ const Products = () => {
                       <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Description</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Category</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Price</th>
+                      {canAccessOffice && (
+                        <>
+                          <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Cost</th>
+                          <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Margin %</th>
+                          <th className="px-4 py-3 font-semibold text-muted-foreground text-right">GP €</th>
+                        </>
+                      )}
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Active</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((p) => (
+                    {filtered.map((p) => {
+                      const sale = Number(p.unit_price) || 0;
+                      const hasCost = p.cost_price !== null && p.cost_price !== undefined;
+                      const cost = hasCost ? Number(p.cost_price) : null;
+                      const gp = cost === null ? null : sale - cost;
+                      const margin = cost === null || sale <= 0 ? null : ((sale - cost) / sale) * 100;
+                      return (
                       <tr key={p.id} className={`border-b border-border last:border-0 ${!p.active ? "opacity-50" : ""}`}>
                         <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{p.description || "—"}</td>
                         <td className="px-4 py-3 hidden md:table-cell">
                           {p.category ? <Badge variant="secondary" className="text-xs">{p.category}</Badge> : <span className="text-muted-foreground">—</span>}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-foreground">€{Number(p.unit_price).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">€{sale.toFixed(2)}</td>
+                        {canAccessOffice && (
+                          <>
+                            <td className="px-4 py-3 text-right text-muted-foreground">
+                              {cost === null ? "—" : `€${cost.toFixed(2)}`}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-foreground">
+                              {margin === null ? "—" : `${margin.toFixed(1)}%`}
+                            </td>
+                            <td className="px-4 py-3 text-right text-foreground">
+                              {gp === null ? "—" : `€${gp.toFixed(2)}`}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-block w-2 h-2 rounded-full ${p.active ? "bg-success" : "bg-muted-foreground/30"}`} />
                         </td>
+
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
