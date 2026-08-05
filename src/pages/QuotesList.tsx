@@ -232,7 +232,11 @@ const QuotesList = () => {
                   <th className="px-4 py-3 font-semibold text-muted-foreground">Customer</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Job Type</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Total</th>
+                  {canAccessOffice && (
+                    <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Margin %</th>
+                  )}
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Status</th>
+
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-center hidden sm:table-cell">PDF</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Date</th>
                 </tr>
