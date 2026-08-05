@@ -264,6 +264,18 @@ const Products = () => {
               <Label className="text-xs font-semibold">Unit Price € *</Label>
               <Input type="number" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} placeholder="0.00" />
             </div>
+            {canAccessOffice && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Cost Price €</Label>
+                <Input
+                  type="number"
+                  value={form.cost_price}
+                  onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                  placeholder="Optional"
+                />
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
               <Label className="text-sm">Active</Label>
