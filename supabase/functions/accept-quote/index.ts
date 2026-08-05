@@ -94,9 +94,21 @@ serve(async (req) => {
 
         await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote.user_id, customerName, quoteRef, totalAmount, depositAmount);
 
-        sendDepositPaymentWhatsApp(
+        // Deposit link + WhatsApp runs in the background, but must survive the
+        // response — otherwise the isolate shuts down mid-Stripe call.
+        const depositTask = sendDepositPaymentWhatsApp(
           supabaseUrl, headers, updatedQuote, customerName
-        ).catch((e) => console.error("Deposit WhatsApp send failed:", e));
+        )
+          .then(() => console.log("Deposit WhatsApp task finished for quote:", quoteId))
+          .catch((e) => console.error("Deposit WhatsApp send failed:", e));
+
+        const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
+        if (typeof waitUntil === "function") {
+          waitUntil.call((globalThis as any).EdgeRuntime, depositTask);
+        } else {
+          await depositTask;
+        }
+
 
         return new Response(
           JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: quoteId, job_id: updatedQuote.converted_job_id }),
