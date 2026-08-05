@@ -521,10 +521,11 @@ const ImportCustomers = () => {
   const handleImport = async () => {
     if (!user) return;
     if (missingRequired.length > 0) return;
-    // decoratedRows carries the ambiguous-match error, so filtering on isValid here
-    // also excludes rows whose phone matches several existing customers.
+    // Partition rather than filter: ambiguous-phone rows are never committed, but
+    // they must still be logged instead of vanishing from the audit trail.
     const validRows = decoratedRows.filter((r) => r.isValid);
-    if (validRows.length === 0) return;
+    const ambiguousRows = decoratedRows.filter((r) => ambiguousRowNums.has(r.rowNum));
+    if (validRows.length === 0 && ambiguousRows.length === 0) return;
 
     setImporting(true);
     setImportProgress(0);
@@ -534,6 +535,21 @@ const ImportCustomers = () => {
     const failedRows: { name: string; reason: string }[] = [];
     // Audit trail for this commit — appended wherever a counter is incremented.
     const rowDetails: ImportRunRowDetail[] = [];
+
+    // Logged up front: these rows never enter the commit loop, so no customer
+    // write can result from them.
+    for (const row of ambiguousRows) {
+      const count = (existingByPhone?.get(String(row.data.phone || "").trim()) || []).length;
+      const reason = `Phone matches ${count} existing customers — resolve the duplicates first`;
+      skipped++;
+      failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
+      rowDetails.push({
+        row_number: row.rowNum,
+        outcome: "skipped_ambiguous",
+        customer_id: null,
+        error_message: reason,
+      });
+    }
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
