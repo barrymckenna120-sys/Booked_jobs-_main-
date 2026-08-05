@@ -518,7 +518,9 @@ const ImportCustomers = () => {
   const handleImport = async () => {
     if (!user) return;
     if (missingRequired.length > 0) return;
-    const validRows = parsedRows.filter((r) => r.isValid);
+    // decoratedRows carries the ambiguous-match error, so filtering on isValid here
+    // also excludes rows whose phone matches several existing customers.
+    const validRows = decoratedRows.filter((r) => r.isValid);
     if (validRows.length === 0) return;
 
     setImporting(true);
@@ -533,18 +535,33 @@ const ImportCustomers = () => {
       try {
         const cleaned = cleanData(row.data);
 
-        const { data: existing } = await supabase
+        // No single-row coercion: a shared phone legitimately returns several rows,
+        // and that case must never fall through to an insert.
+        const { data: existingRows, error: lookupError } = await supabase
           .from("customers")
           .select("id")
           .eq("phone", cleaned.phone)
-          .eq("organisation_id", orgId)
-          .maybeSingle();
+          .eq("organisation_id", orgId);
 
-        if (existing) {
+        if (lookupError) throw lookupError;
+
+        const matchCount = existingRows?.length || 0;
+
+        if (matchCount > 1) {
+          skipped++;
+          failedRows.push({
+            name: row.data.name || `Row ${row.rowNum}`,
+            reason: `Phone matches ${matchCount} existing customers — resolve the duplicates first`,
+          });
+          setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
+          continue;
+        }
+
+        if (matchCount === 1) {
           const { error } = await supabase
             .from("customers")
             .update(cleaned)
-            .eq("id", existing.id);
+            .eq("id", existingRows![0].id);
           if (error) throw error;
           updated++;
         } else {
