@@ -145,6 +145,17 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const depositNum = parseFloat(deposit) || 0;
   const balanceDue = Math.max(total - depositNum, 0);
 
+  // Internal cost / margin (office-admin only, never persisted)
+  const totalCost = useMemo(() => lineItems.reduce((s, li) => {
+    if (li.cost_price === "") return s;
+    const cp = parseFloat(li.cost_price);
+    if (isNaN(cp)) return s;
+    return s + cp * (parseFloat(li.qty) || 0);
+  }, 0), [lineItems]);
+  const hasCostData = useMemo(() => lineItems.some((li) => li.cost_price !== "" && !isNaN(parseFloat(li.cost_price))), [lineItems]);
+  const grossProfit = afterDiscount - totalCost;
+  const grossMarginPct = afterDiscount > 0 ? (grossProfit / afterDiscount) * 100 : null;
+
   // Auto-set deposit to configured % of total unless user manually overrode
   const depositPct = (settings as any)?.deposit_percentage ?? 50;
   useEffect(() => {
