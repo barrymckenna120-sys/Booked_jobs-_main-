@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
+import { evaluateOptOut } from "../_shared/optOut.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,11 +61,22 @@ serve(async (req) => {
     };
 
     const custOrgRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&select=organisation_id&limit=1`,
+      `${SUPABASE_URL}/rest/v1/customers?id=eq.${customer_id}&select=organisation_id,opted_out,phone&limit=1`,
       { headers: sbHeaders }
     );
     const custOrgRows = await custOrgRes.json();
-    const orgId: string | null = Array.isArray(custOrgRows) ? custOrgRows[0]?.organisation_id ?? null : null;
+    const custRow = Array.isArray(custOrgRows) ? custOrgRows[0] ?? null : null;
+    const orgId: string | null = custRow?.organisation_id ?? null;
+
+    // Warranty reminders are outreach, not transactional — respect opt-out.
+    const optOut = evaluateOptOut(custRow);
+    if (optOut.skip && optOut.reason === "customer_opted_out") {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "customer_opted_out" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
 
     if (!orgId) {
       return new Response(

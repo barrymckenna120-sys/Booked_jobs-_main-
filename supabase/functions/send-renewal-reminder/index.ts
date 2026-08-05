@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { evaluateOptOut } from "../_shared/optOut.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,13 +30,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Resolve organisation + branding
+    // Resolve organisation + branding (and enforce the opt-out guard)
     const { data: custOrg } = await supabase
       .from("customers")
-      .select("organisation_id")
+      .select("organisation_id, opted_out, phone")
       .eq("id", customer_id)
       .maybeSingle();
+
+    // Renewal reminders are marketing-style outreach — never message an
+    // opted-out customer, even if a caller passes a phone number directly.
+    const optOut = evaluateOptOut(custOrg as any);
+    if (optOut.skip && optOut.reason === "customer_opted_out") {
+      console.log("Skipping renewal reminder — customer opted out:", customer_id);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "customer_opted_out" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const orgId = custOrg?.organisation_id;
+
 
     const { data: settingsRow } = orgId ? await supabase
       .from("settings")

@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { evaluateOptOut } from "../_shared/optOut.ts";
+
 
 serve(async (req) => {
   const corsHeaders = {
@@ -80,7 +82,7 @@ serve(async (req) => {
         status,
         customer_id,
         organisation_id,
-        customers ( name, phone )
+        customers ( name, phone, opted_out )
       `)
       .eq("scheduled_date", targetStr)
       .not("status", "in", '("Cancelled","Completed","no_show")');
@@ -118,12 +120,20 @@ serve(async (req) => {
         continue;
       }
 
-      // Skip if no phone number
-      if (!customerPhone) {
+      // Opt-out guard: appointment reminders are automated outreach, so an
+      // opted-out customer (STOP reply or staff toggle) is never messaged.
+      const optOut = evaluateOptOut(job.customers);
+      if (optOut.skip) {
         skipped++;
-        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "No phone number" });
+        results.push({
+          job_id: job.id,
+          customer_name: customerName || "Unknown",
+          status: "skipped",
+          error: optOut.reason,
+        });
         continue;
       }
+
 
       const orgCfg = await loadOrgConfig(orgId);
       if (!orgCfg) {
