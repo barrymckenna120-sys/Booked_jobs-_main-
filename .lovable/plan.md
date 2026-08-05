@@ -1,77 +1,59 @@
-# Quotes list: margin column, extra status tabs, summary bar
+# Cost Price, Margin % and GP € on the Products tab
 
-Scope: `src/pages/QuotesList.tsx` only.
+Scope: `src/pages/Products.tsx` only. Category `Select`, Categories tab, and the `categories`
+table are untouched.
 
-## Blocker to confirm first
+## Database
 
-`cost_price` does not exist yet on `quote_line_items` (or `products`) — a database check
-confirms no such column in the database today. Margin %, GP €, Gross Profit and Average
-Margin all depend on it, so either:
+No migration needed. `products.cost_price` exists (numeric, nullable) and is present in the
+generated types, so no schema or type work is required.
 
-- the earlier `cost_price` migration gets applied first (one migration, no code change), or
-- this build ships tabs + Grand Total + Won/Lost now, and margin values render "—" until the
-  column exists.
+## Role gating
 
-Everything below assumes the column is present.
-
-## 1. Role gate
-
-Reuse the existing pattern already used elsewhere:
+Reuse the existing pattern:
 
 ```
-const { user } = useAuth();          // already in the file
+const { user } = useAuth();
 const { canAccessOffice } = useUserRole(user);
 ```
 
-Margin column and summary bar render only when `canAccessOffice` is true. Engineers see the
-list exactly as today (same columns, same tabs, no summary bar).
+Every cost-related element (dialog field, Cost column, Margin %, GP €) renders only when
+`canAccessOffice` is true. Engineers see the Products tab exactly as today — same columns,
+same dialog.
 
-## 2. Status tabs
+## Add/Edit dialog
 
-Add `Converted` and `Rejected` after the existing tabs:
+One addition, directly below the existing Unit Price field, office/admin only:
 
-`All, Draft, Sent, Viewed, Accepted, Expired, Converted, Rejected`
+- Label `Cost Price €`, numeric `Input`, optional.
+- Form state gains `cost_price: string` (empty string = not set); populated from the product
+  on edit (`p.cost_price == null ? "" : String(p.cost_price)`), empty on add.
+- On save the payload adds:
+  `cost_price: form.cost_price === "" ? null : parseFloat(form.cost_price)`.
+- Existing name/unit_price validation, active switch, and category select unchanged.
 
-Counting and filtering switch to a `lower(status)` comparison so mixed casing
-(`Sent`/`sent`, `Rejected`/`rejected`) is handled — the current exact-string arrays are
-replaced by a single lowercase map. "All" and search behaviour unchanged.
+## Table columns
 
-## 3. Margin % column
+Office/admin only, added after the existing Price column:
 
-New column between Total and Status, office/admin only.
+- **Cost** — `€x.xx`, or "—" when `cost_price` is NULL.
+- **Margin %** — `(unit_price - cost_price) / unit_price * 100`, one decimal.
+- **GP €** — `unit_price - cost_price`.
 
-Line-item totals are aggregated in one query (not a per-row frontend loop): a single
-`quote_line_items` fetch scoped to the visible quote ids, reduced into a per-quote map of
-`{ saleWithCost, cost, saleAll }`.
+Rules:
 
-Per quote:
+- NULL `cost_price` → "—" for both Margin % and GP € (never treated as 0).
+- `unit_price` of 0 → "—" for Margin % (no divide-by-zero), GP € still shown.
+- Computed client-side on render; nothing extra is stored or queried.
+- Headers hidden together with the cells so the row/column counts always match.
 
-```
-margin = (sum(unit_price*qty) - sum(cost_price*qty)) / sum(unit_price*qty) * 100
-```
+## Note on the cut-off request
 
-- Line items with NULL `cost_price` are excluded from both sums (never treated as 0).
-- If every line item on a quote has NULL `cost_price`, the cell shows "—" for both margin
-  and the GP € beneath it.
-
-## 4. Summary bar
-
-Above the table, office/admin only, recomputed from the currently filtered set (tab +
-search):
-
-1. **Gross Profit €** — `sum(unit_price*qty - cost_price*qty)` over line items with non-NULL
-   `cost_price`.
-2. **Average Margin %** — weighted `sum(profit)/sum(sale)*100`, but only across quotes whose
-   `lower(status)` is `accepted`, `converted` or `rejected`. Draft/Sent/Viewed/Pending
-   Approval are excluded even when visible. "—" when no closed quotes are in scope.
-3. **Won / Lost** — Won = `accepted`+`converted`, Lost = `rejected`; win rate =
-   `won/(won+lost)`, "—" when the denominator is 0.
-4. **Grand Total** — `sum(total_amount)` across the full filtered set, all statuses.
-
-Rendered as a four-cell card row, monospaced numerals, consistent with existing design
-tokens.
+Your message ended mid-sentence after the dialog section, so the Margin %/GP € details above
+follow the spec you gave earlier for this feature (office/admin only, client-side, "—" when
+cost is NULL). Say the word if you wanted different placement or formatting.
 
 ## Untouched
 
-Search bar, PDF icon/link, Date column, row navigation, failed-send warning tooltip, status
-badge styling, and the existing Draft/Sent/Viewed/Accepted/Expired filter behaviour.
+Categories tab and `CategoriesTab`, the category filter buttons, the category `Select`, search,
+show-inactive toggle, soft delete, and all existing product queries.
