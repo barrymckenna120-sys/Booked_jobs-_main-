@@ -477,9 +477,12 @@ const ImportCustomers = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validated, dataRows, effectiveColMap, headerIdx]);
 
-  // Reset page whenever mapping or data changes
+  // Reset page and row selection whenever mapping or data changes: rows are
+  // re-validated, so a stale selection would point at the wrong rows.
   useEffect(() => {
     setPage(1);
+    setSelectedRowNums(new Set());
+    setSelectionDirty(false);
   }, [dataRows, effectiveColMap]);
 
   /** Re-validate a single row in place after an edit. */
