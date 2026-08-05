@@ -137,9 +137,8 @@ Deno.serve(async (req) => {
     });
 
     if (!webhookRes.ok) {
-
-
       const errBody = await webhookRes.text();
+
       await supabase.from("edge_function_logs").insert({
         function_name: "trigger-review-request",
         error_message: `Webhook failed: ${webhookRes.status} - ${errBody}`,
