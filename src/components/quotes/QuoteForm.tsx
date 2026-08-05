@@ -118,6 +118,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
           description: i.description,
           qty: String(i.qty),
           unit_price: String(i.unit_price),
+          cost_price: i.cost_price == null ? "" : String(i.cost_price),
           product_id: i.product_id,
         })));
       }
