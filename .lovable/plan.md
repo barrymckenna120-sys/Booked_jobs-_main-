@@ -43,3 +43,15 @@ All changes in `src/pages/ImportCustomers.tsx`:
 5. Upload a file with 2 ready rows and 1 ambiguous-phone row. Confirm the button is enabled and labelled `Import 2 customers` with the blocked badge showing. Commit, then query: exactly 2 customers created/updated, no new or modified customer on the ambiguous phone, and the `import_runs` row showing `total_rows: 3` with the ambiguous row logged as `skipped_ambiguous`.
 6. Delete every test customer and every test `import_runs` row, then re-query both to confirm nothing is left behind.
 
+### Extra case: `buildRow` validation failure (not an ambiguous phone)
+
+Separately test a file with 2 ready rows plus 1 row that fails `buildRow` validation (e.g. missing required name/address/eircode). Confirm all four properties:
+
+- its checkbox renders disabled and unchecked,
+- it is excluded from the commit (no customer row created for it),
+- it produces no `row_details` entry and is not counted in `total_rows`,
+- the 2 ready rows still commit successfully — the validation failure does not gate the file.
+
+Report which of the two blocked types (validation vs ambiguous) each observation came from, so the two paths are not conflated.
+
+
