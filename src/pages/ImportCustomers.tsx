@@ -933,7 +933,8 @@ const ImportCustomers = () => {
                           <TableHead className="hidden md:table-cell">Address</TableHead>
                           <TableHead className="hidden md:table-cell">Eircode</TableHead>
                           <TableHead className="hidden lg:table-cell">GPRN</TableHead>
-                          <TableHead className="hidden lg:table-cell">Notes</TableHead>
+                          <TableHead className="hidden lg:table-cell">Engineer Notes</TableHead>
+                          <TableHead className="hidden lg:table-cell">Customer Notes</TableHead>
                           <TableHead className="w-24">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -958,6 +959,9 @@ const ImportCustomers = () => {
                             </TableCell>
                             <TableCell className="hidden lg:table-cell min-w-[130px] align-top">
                               <EditableCell row={r} fieldKey="gprn" display={r.data.gprn || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="engineer_notes" display={r.data.engineer_notes || ""} />
                             </TableCell>
                             <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
                               <EditableCell row={r} fieldKey="notes" display={r.data.notes || ""} />
