@@ -244,6 +244,10 @@ const QuotesList = () => {
               <tbody>
                 {filtered.map((q: any) => {
                   const statusLabel = q.status?.charAt(0).toUpperCase() + q.status?.slice(1);
+                  const t = totalsByQuote[q.id];
+                  const hasCost = !!t && t.saleWithCost > 0;
+                  const gp = hasCost ? t.saleWithCost - t.cost : null;
+                  const marginPct = hasCost ? ((t.saleWithCost - t.cost) / t.saleWithCost) * 100 : null;
                   return (
                     <tr
                       key={q.id}
@@ -254,7 +258,20 @@ const QuotesList = () => {
                       <td className="px-4 py-3">{q.customers?.name}</td>
                       <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{q.job_type !== "other" ? q.job_type : "—"}</td>
                       <td className="px-4 py-3 text-right font-semibold">€{Number(q.total_amount).toFixed(2)}</td>
+                      {canAccessOffice && (
+                        <td className="px-4 py-3 text-right">
+                          {marginPct === null ? (
+                            <span className="text-muted-foreground/50">—</span>
+                          ) : (
+                            <>
+                              <div className="font-mono tabular-nums font-semibold">{marginPct.toFixed(1)}%</div>
+                              <div className="text-xs font-mono tabular-nums text-muted-foreground">€{(gp as number).toFixed(2)}</div>
+                            </>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-center">
+
                         <div className="flex items-center justify-center gap-1">
                           <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[q.status] || STATUS_BADGE.draft}`}>
                             {statusLabel}
