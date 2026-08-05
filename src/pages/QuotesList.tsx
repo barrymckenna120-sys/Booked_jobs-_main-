@@ -176,7 +176,7 @@ const QuotesList = () => {
               filter === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {f === "expired" ? "Expired" : f} ({(statusCounts as any)[f] || 0})
+            {f} ({statusCounts[f] || 0})
           </button>
         ))}
       </div>
