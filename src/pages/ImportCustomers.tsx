@@ -575,11 +575,109 @@ const ImportCustomers = () => {
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
   const errorCount = parsedRows.filter((r) => !r.isValid).length;
-  
+
+  /**
+   * In-file duplicate phones. Rows are grouped on the already-normalised phone
+   * held in row.data.phone, so formatting differences in the source file can't
+   * hide a collision. Non-blocking: the row still imports, but the operator is
+   * told which other rows share the number and that the last one wins.
+   */
+  const dupPhoneNotes = useMemo(() => {
+    const byPhone = new Map<string, number[]>();
+    for (const r of parsedRows) {
+      const phone = String(r.data.phone || "").trim();
+      if (!phone) continue;
+      const list = byPhone.get(phone);
+      if (list) list.push(r.rowNum);
+      else byPhone.set(phone, [r.rowNum]);
+    }
+    const notes = new Map<number, string>();
+    for (const rowNums of byPhone.values()) {
+      if (rowNums.length < 2) continue;
+      for (const rowNum of rowNums) {
+        const others = rowNums.filter((n) => n !== rowNum);
+        notes.set(
+          rowNum,
+          `Duplicate phone in this file (row${others.length === 1 ? "" : "s"} ${others.join(", ")}) — only the last will be saved.`
+        );
+      }
+    }
+    return notes;
+  }, [parsedRows]);
+
+  // Unique normalised phones across all parsed rows — the lookup key set.
+  const phoneKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of parsedRows) {
+      const phone = String(r.data.phone || "").trim();
+      if (phone) s.add(phone);
+    }
+    return Array.from(s).sort();
+  }, [parsedRows]);
+
+  // Stable primitive so the lookup effect only re-runs when the phone set changes.
+  const phoneKeysSignature = phoneKeys.join("|");
+
+  /** One batched existing-customer lookup per file, scoped to this organisation. */
+  useEffect(() => {
+    if (!orgId || phoneKeys.length === 0) {
+      setExistingPhones(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const found = new Set<string>();
+      const CHUNK = 200;
+      for (let i = 0; i < phoneKeys.length; i += CHUNK) {
+        const chunk = phoneKeys.slice(i, i + CHUNK);
+        const { data, error } = await supabase
+          .from("customers")
+          .select("phone")
+          .eq("organisation_id", orgId)
+          .in("phone", chunk);
+        if (cancelled) return;
+        if (error) {
+          setExistingPhones(null);
+          return;
+        }
+        for (const row of data || []) {
+          if (row.phone) found.add(String(row.phone).trim());
+        }
+      }
+      if (!cancelled) setExistingPhones(found);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, phoneKeysSignature]);
+
+  /** Per-row outcome: creating a new customer, or updating an existing one. */
+  const rowOutcome = useCallback(
+    (row: ParsedRow): "new" | "update" | "unknown" => {
+      if (!existingPhones) return "unknown";
+      const phone = String(row.data.phone || "").trim();
+      if (!phone) return "unknown";
+      return existingPhones.has(phone) ? "update" : "new";
+    },
+    [existingPhones]
+  );
+
+  // Decorate rows with the in-file duplicate note without touching buildRow.
+  const decoratedRows = useMemo(
+    () =>
+      parsedRows.map((r) => {
+        const note = dupPhoneNotes.get(r.rowNum);
+        if (!note) return r;
+        return { ...r, fieldWarnings: { ...r.fieldWarnings, phone: note } };
+      }),
+    [parsedRows, dupPhoneNotes]
+  );
+
   const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
   const pageStart = (clampedPage - 1) * PAGE_SIZE;
-  const displayRows = parsedRows.slice(pageStart, pageStart + PAGE_SIZE);
+  const displayRows = decoratedRows.slice(pageStart, pageStart + PAGE_SIZE);
   const importBlocked = missingRequired.length > 0;
 
   // For dropdowns: which raw-header indices are already assigned to some field
