@@ -29,10 +29,10 @@ All changes in `src/pages/ImportCustomers.tsx`:
 | state | new `selectedRowNums: Set<number>` plus a `dirty` flag so the default-checked rule applies until the operator touches it |
 | after `decoratedRows` (line 833) | derive the effective selection: intersect with `isValid` rows; when untouched, all ready rows |
 | line 837 | add `selectedCount`; keep `validCount` / `errorCount` for the banners |
-| line 1002-1004 | label uses `selectedCount`; disabled when `selectedCount === 0` |
+| lines 998-1004 | label uses `selectedCount`; `importDisabled` becomes `importBlocked \|\| selectedCount === 0` — the `errorCount > 0` term and the "Fix N rows to continue" label are removed |
 | preview header/body (lines ~1195-1240) | new checkbox column using the existing shadcn `Checkbox` |
 | `handleImport` (line 526) | `validRows` filtered to the selection; `total_rows` = selected + ambiguous. Commit loop, per-row logic, and the ambiguous pre-log stay as they are |
-| footer (line 1335) | `Selected: N of M ready` badge |
+| footer (lines 1333-1340) | `Selected: N of M ready` badge plus a conditional `N blocked — still needs fixing` badge |
 
 ## Verification (real output, before reporting done)
 
@@ -40,4 +40,6 @@ All changes in `src/pages/ImportCustomers.tsx`:
 2. Commit. Query the database: exactly 2 customers created/updated, and the unchecked row's phone has no matching customer row.
 3. Query the resulting `import_runs` row: `total_rows: 2`, `created_count` matching, and `row_details` containing exactly 2 entries — none for the unchecked row.
 4. Re-check the unchecked row and confirm the count and label update live.
-5. Delete every test customer and every test `import_runs` row, then re-query both to confirm nothing is left behind.
+5. Upload a file with 2 ready rows and 1 ambiguous-phone row. Confirm the button is enabled and labelled `Import 2 customers` with the blocked badge showing. Commit, then query: exactly 2 customers created/updated, no new or modified customer on the ambiguous phone, and the `import_runs` row showing `total_rows: 3` with the ambiguous row logged as `skipped_ambiguous`.
+6. Delete every test customer and every test `import_runs` row, then re-query both to confirm nothing is left behind.
+
