@@ -1,34 +1,35 @@
-# Import: flag duplicate rows inside the source file
+# Import preview: in-file duplicate phones + new/update indicator
 
-## What the audit found
+Scoped to items 1 and 3 of the earlier plan. Items 2 (name-duplicate notes) and 4 (summary banner counts) are deliberately out of scope for this pass.
 
-- The database has no duplicate Philip Ward. K&N has exactly three Ward customers (Peter, Philip, Ann), each with a distinct phone and eircode, all inserted within ~600ms of one another by a single import run.
-- `validateImportPhone` (`src/pages/ImportCustomers.tsx:135-146`) strips **all** whitespace before normalizing, so `'089  111 3333'`, `'089 111 3333'` and `'+353 89 111 3333'` all produce the identical `+353891113333`. There is no double-space gap on the phone path.
-- The normalized `+353891113333` matches none of the three stored rows; Philip Ward's stored phone is `+353892109224`.
-- The duplicate is in the source spreadsheet, and the importer has **no intra-file duplicate detection** — nothing checks whether two rows in the same upload share a phone.
+## 1. In-file phone duplicate detection
 
-## The real gap
+Group parsed rows by the already-normalized phone held in `row.data.phone`, so formatting differences in the source file cannot hide a collision. For any phone appearing on more than one row, every row in that group gets a warning naming the other row number(s):
 
-Because the import loop is sequential and matches on phone per row, two rows in one file that share a phone behave like this: row A inserts, row B finds A and overwrites it. Last row silently wins. The operator sees "2 imported" style counts with no warning that one row consumed another. If the two spreadsheet rows have *different* phones (as here), they legitimately become two customers — but the operator never gets told the file contains a repeated name.
+> Duplicate phone in this file (rows 4, 9) — only the last will be saved.
 
-## What to build
+Non-blocking: delivered through `fieldWarnings.phone`, never `fieldErrors`, so affected rows still import and still count as valid.
 
-Add duplicate awareness to the preview step, before anything is written.
+## 2. Per-row new-vs-updating-existing indicator
 
-1. **In-file phone duplicates (blocking-level warning).** After parsing, group valid rows by normalized phone. For any phone appearing more than once, mark each affected row with a field warning on the phone cell: "Duplicate phone in this file (rows 4, 9) — only the last will be saved."
-2. **In-file name duplicates (informational).** Group by normalized name (reuse the existing lowercase/whitespace-collapsing normalizer at line 20). Where a name repeats but phones differ, add an informational note: "Same name as row 9, different phone — will create separate customers." This is the Philip Ward case: surfaced, not blocked.
-3. **Existing-customer matches.** Show, per row, whether it will create a new customer or update an existing one, so the operator can see overwrites before committing rather than reading a count afterwards.
-4. **Summary banner above the preview** counting each category: new, updating existing, duplicate-phone collisions in file, repeated names.
+One batched lookup per file, not per row: collect the unique normalized phones across all parsed rows, then query `customers` for `phone in (...)` scoped to the current `organisation_id`, chunked at 200 phones per request for large files. The result is a set of phones that already exist for this organisation.
+
+The preview's Status column then shows, per row, whether the commit will create a new customer or update an existing one, alongside the existing Ready/Error badge. While the lookup is in flight, or if it fails, the row shows no claim rather than a wrong one.
 
 ## Technical notes
 
-All changes are confined to `src/pages/ImportCustomers.tsx`:
+All changes confined to `src/pages/ImportCustomers.tsx`:
 
-- Duplicate grouping runs in the same pass that builds `parsedRows`, keyed on `validateImportPhone(...).normalized` and the line-20 name normalizer.
-- Messages go through the existing `fieldWarnings` channel (non-blocking) rather than `fieldErrors`, so rows still import.
-- The existing-customer check for step 3 needs one batched query per upload (`phone in (...)` scoped to `organisation_id`), not a per-row lookup, to keep the preview fast.
+- Duplicate grouping is a `useMemo` over `parsedRows` producing a `rowNum → message` map. Rows are decorated with that message in a second `useMemo` that spreads `fieldWarnings`, so `buildRow` itself is untouched and re-running validation cannot clobber the note.
+- The preview table renders from the decorated rows; the import loop keeps reading the undecorated `parsedRows`, so the payload is unchanged.
+- The existing-customer lookup runs in a `useEffect` keyed on `organisation_id` plus a stable joined signature of the sorted phone list, so it fires once per file and re-fires only when the mapping or an edit actually changes the phone set. A cancellation flag prevents a stale response from overwriting a newer one.
 - No change to `buildRow`, header aliases, `validateImportPhone`, or the import payload.
+
+## Verification
+
+- Upload a file with the same phone on two rows; confirm both rows are flagged and each names the other's row number, and that both still show as importable.
+- Upload a file mixing phones that already exist in the organisation with new ones; confirm the new/update indicator is correct on every row, checked against the database.
 
 ## Risk
 
-Low — preview and warning surface only. The commit path is untouched. Manual check: upload a file with the same phone twice, and a file with a repeated name on different phones, and confirm the correct category appears in each case.
+Low — preview-only. The commit path is untouched, and the new query is read-only and organisation-scoped.
