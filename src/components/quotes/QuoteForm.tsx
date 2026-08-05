@@ -254,6 +254,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       description: li.description.trim(),
       qty: parseFloat(li.qty) || 1,
       unit_price: parseFloat(li.unit_price) || 0,
+      cost_price: li.cost_price === "" || isNaN(parseFloat(li.cost_price)) ? null : parseFloat(li.cost_price),
       sort_order: i,
     }));
     if (itemsPayload.length > 0) {
