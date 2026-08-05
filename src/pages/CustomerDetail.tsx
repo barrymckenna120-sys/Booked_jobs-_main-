@@ -27,6 +27,8 @@ import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
+import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
+
 import {
   validateRequired, validatePhone, validateEircode, validateAreaCode,
   formatEircode, formatPhoneInternational, normalizeAreaCode, RED_BORDER, type CustomerFieldErrors,
