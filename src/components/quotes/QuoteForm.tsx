@@ -178,7 +178,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   };
 
   const selectProduct = (lineId: string, product: any) => {
-    setLineItems((prev) => prev.map((li) => li.id === lineId ? { ...li, description: product.name, unit_price: String(product.unit_price), product_id: product.id } : li));
+    setLineItems((prev) => prev.map((li) => li.id === lineId ? { ...li, description: product.name, unit_price: String(product.unit_price), cost_price: product.cost_price == null ? "" : String(product.cost_price), product_id: product.id } : li));
     setActiveProductSearch(null);
   };
 
