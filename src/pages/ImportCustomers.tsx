@@ -629,16 +629,20 @@ const ImportCustomers = () => {
     // Audit log — written once, after every customer write. Purely additive: a
     // failure here is surfaced but never affects the import that already happened.
     if (orgId) {
-      const { error: logError } = await supabase.from("import_runs").insert({
-        organisation_id: orgId,
-        filename: file?.name || "unknown.xlsx",
-        imported_by: user.id,
-        total_rows: validRows.length,
-        created_count: imported,
-        updated_count: updated,
-        error_count: skipped,
-        row_details: rowDetails as any,
-      });
+      const { data: runRow, error: logError } = await supabase
+        .from("import_runs")
+        .insert({
+          organisation_id: orgId,
+          filename: file?.name || "unknown.xlsx",
+          imported_by: user.id,
+          total_rows: validRows.length,
+          created_count: imported,
+          updated_count: updated,
+          error_count: skipped,
+          row_details: rowDetails as any,
+        })
+        .select("id")
+        .maybeSingle();
       if (logError) {
         toast({
           title: "Import saved, audit log failed",
@@ -647,8 +651,21 @@ const ImportCustomers = () => {
         });
       } else {
         setHistoryRefresh((n) => n + 1);
+
+        // Alert admins when rows failed. Best-effort: one call per run, never
+        // per row, and a failure here only logs — the import already happened.
+        if (skipped > 0 && runRow?.id) {
+          try {
+            await supabase.functions.invoke("notify-import-errors", {
+              body: { runId: runRow.id },
+            });
+          } catch (notifyErr) {
+            console.error("[import] error-alert email failed:", notifyErr);
+          }
+        }
       }
     }
+
 
     setImporting(false);
     setImportResult({ imported, updated, skipped, failedRows });

@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildAdminEmailHtml,
+  resolveOrgAdminEmails,
+  sendAdminEmail,
+} from "../_shared/notifyOrgAdmins.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -210,10 +216,49 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Deactivation is fully committed at this point (ban + engineer + profile).
+    // The alert email is best-effort: a failure here must never turn a completed
+    // deactivation into an error response or trigger the ban rollback.
+    let emailResult: unknown = null;
+    try {
+      const { data: org } = await supabaseAdmin
+        .from("organisations")
+        .select("name")
+        .eq("id", targetOrgId)
+        .maybeSingle();
+
+      const html = buildAdminEmailHtml({
+        title: "User deactivated",
+        heading: "A user has been deactivated",
+        intro:
+          "This account can no longer sign in to BookedJobs. The change is reversible from the Team screen.",
+        rows: [
+          ["User deactivated", engineer.name ?? "—"],
+          ["Organisation", (org as any)?.name ?? "Unknown organisation"],
+          ["Deactivated by", caller.email ?? caller.id],
+          [
+            "When",
+            new Date().toLocaleString("en-IE", { timeZone: "Europe/Dublin" }),
+          ],
+        ],
+      });
+
+      const recipients = await resolveOrgAdminEmails(supabaseAdmin, targetOrgId);
+      emailResult = await sendAdminEmail({
+        subject: `User deactivated — ${engineer.name ?? "unnamed user"}`,
+        html,
+        recipients,
+      });
+    } catch (_e) {
+      const msg = _e instanceof Error ? _e.message : String(_e);
+      console.error("[deactivate-user] alert email failed (deactivation stands):", msg);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, name: engineer.name }),
+      JSON.stringify({ success: true, name: engineer.name, email_alert: emailResult }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+
   } catch (err) {
     console.error("deactivate-user error:", err);
     return new Response(JSON.stringify({ error: "An unexpected error occurred" }), {

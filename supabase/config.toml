@@ -1,8 +1,11 @@
 project_id = "ktkfuquqxbrmuqrmbmdj"
 
 [functions]
+  [functions.notify-import-errors]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
+
   [functions.list-users]
     verify_jwt = false
   [functions.lock-failed-login]
