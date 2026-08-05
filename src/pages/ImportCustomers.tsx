@@ -961,6 +961,9 @@ const ImportCustomers = () => {
                               <EditableCell row={r} fieldKey="gprn" display={r.data.gprn || ""} />
                             </TableCell>
                             <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="engineer_notes" display={r.data.engineer_notes || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
                               <EditableCell row={r} fieldKey="notes" display={r.data.notes || ""} />
                             </TableCell>
                             <TableCell className="align-top pt-3">
