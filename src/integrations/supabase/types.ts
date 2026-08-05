@@ -1194,6 +1194,53 @@ export type Database = {
           },
         ]
       }
+      import_runs: {
+        Row: {
+          created_at: string
+          created_count: number
+          error_count: number
+          filename: string
+          id: string
+          imported_by: string
+          organisation_id: string
+          row_details: Json
+          total_rows: number
+          updated_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_count?: number
+          error_count?: number
+          filename: string
+          id?: string
+          imported_by: string
+          organisation_id: string
+          row_details?: Json
+          total_rows?: number
+          updated_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_count?: number
+          error_count?: number
+          filename?: string
+          id?: string
+          imported_by?: string
+          organisation_id?: string
+          row_details?: Json
+          total_rows?: number
+          updated_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_runs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           created_at: string

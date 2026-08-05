@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ImportRunsOverview from "@/components/admin/ImportRunsOverview";
 import {
   Dialog,
   DialogContent,
@@ -733,6 +734,7 @@ export default function AdminPanel() {
           <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
           <TabsTrigger value="unblock-users">Unblock Users</TabsTrigger>
           <TabsTrigger value="user-activity">User Activity</TabsTrigger>
+          <TabsTrigger value="import-runs">Import Runs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-6">
@@ -1066,6 +1068,10 @@ export default function AdminPanel() {
               <LoginEventsTable />
             </TabsContent>
           </Tabs>
+        </TabsContent>
+
+        <TabsContent value="import-runs" className="space-y-6">
+          <ImportRunsOverview />
         </TabsContent>
       </Tabs>
 
