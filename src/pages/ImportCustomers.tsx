@@ -1046,13 +1046,14 @@ const ImportCustomers = () => {
     );
   }
 
+  // Blocked rows no longer gate the file: only an empty selection disables the commit.
   const importLabel = importBlocked
     ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
-    : errorCount > 0
-    ? `Fix ${errorCount} row${errorCount === 1 ? "" : "s"} to continue`
-    : `Import ${validCount} customer${validCount === 1 ? "" : "s"}`;
+    : selectedCount === 0
+    ? "Select at least one row"
+    : `Import ${selectedCount} customer${selectedCount === 1 ? "" : "s"}`;
 
-  const importDisabled = importBlocked || errorCount > 0 || validCount === 0;
+  const importDisabled = importBlocked || selectedCount === 0;
 
   return (
     <div className="min-h-screen bg-background pb-24">
