@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildAdminEmailHtml,
+  resolveOrgAdminEmails,
+  sendAdminEmail,
+} from "../_shared/notifyOrgAdmins.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
