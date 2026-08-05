@@ -8,16 +8,17 @@ Operator picks which ready rows go in this commit. Blocked rows stay blocked. Ev
 - A row that is ready (`isValid: true`) defaults to checked.
 - A blocked row — validation error or ambiguous-phone conflict — renders its checkbox disabled and unchecked, with a tooltip explaining it can't be included. No force-include.
 - Unchecking a ready row removes it from this commit: not written, not counted, not logged. It stays visible in the preview and can be re-checked before committing.
-- Footer badge becomes `Selected: N of M ready`, and the button reads `Import N customers` using the selected count. Button disables when the selection is empty.
+- Footer shows `Selected: N of M ready`, and when the file still contains blocked rows a second badge reads `N blocked — still needs fixing`, so the operator knows the file isn't fully done. The button reads `Import N customers` from the selected count and disables only when the selection is empty.
 - Selection resets whenever a new file is parsed or the column mapping changes (rows are re-validated, so stale selections would be wrong). Rows that become blocked after a mapping change drop out of the selection automatically.
 
 ## Audit log decision (flagging, as asked)
 
-Unchecked rows are **excluded entirely** from `import_runs` — no `row_details` entry, and not counted in `total_rows`. Rationale: they were never submitted, so recording them would misrepresent the run and inflate the totals the error-alert email keys off. `total_rows` becomes `selected ready rows + ambiguous rows that were part of the attempt`. The alternative (a `skipped_deselected` outcome) was rejected: it adds a schema-adjacent enum value and UI label for rows where nothing happened.
+Unchecked rows are **excluded entirely** from `import_runs` — no `row_details` entry, and not counted in `total_rows`. Rationale: they were never submitted, so recording them would misrepresent the run and inflate the totals the error-alert email keys off. `total_rows` becomes `selected ready rows + ambiguous rows in this run`. The alternative (a `skipped_deselected` outcome) was rejected: it adds an enum value and UI label for rows where nothing happened.
 
-## Existing behaviour worth naming
+## Blocked rows no longer gate the file
 
-The footer button is currently disabled whenever `errorCount > 0` (line 1004), so today an ambiguous or invalid row blocks the whole file, not just itself. This change keeps that rule as-is — selection gates which ready rows commit, it does not unblock a file that has blocked rows. Say the word if you also want blocked rows to be skippable so the rest of the file can proceed; that's a separate decision.
+Today the footer button is disabled whenever `errorCount > 0` (line 1004), so one bad row blocks the whole file. That condition becomes `selectedCount === 0`. A file mixing ready and blocked rows now commits the selected ready rows; blocked rows stay in the preview with their red state and error badges, are never written, and are still visible to the operator. Ambiguous-phone rows keep their existing `skipped_ambiguous` audit entry and still count toward `error_count`, so the import-error email still fires for them.
+
 
 ## Technical notes
 
