@@ -194,6 +194,10 @@ const ImportCustomers = () => {
   const [rowEdits, setRowEdits] = useState<Record<number, Record<string, string>>>({});
   const [page, setPage] = useState(1);
 
+  // Normalised phones that already exist for this organisation. Populated by one
+  // batched lookup per file so the preview can show new-vs-update per row.
+  const [existingPhones, setExistingPhones] = useState<Set<string> | null>(null);
+
   const effectiveColMap = useMemo(
     () => ({ ...autoColMap, ...manualMap }),
     [autoColMap, manualMap]
