@@ -55,3 +55,25 @@ Customer, Job Type, Job Description, the Description/Qty/Unit Price/Total column
 - Product with NULL cost, or a free-typed line: cost blank, both figures `—`, saved as `NULL`.
 - Engineer user: no cost field, no margin figures, no summary block.
 - Customer-facing quote view shows no cost data.
+
+## VAT parity confirmation (item 5)
+
+Current state verified: `QuoteForm.tsx:138` is `const vatAmount = vatEnabled ? afterDiscount * 0.23 : 0;` and the label at line 435 is a static "VAT 23%". `public.quotes` has no `vat_rate` column yet, so nothing has changed in live data.
+
+When the `vat_rate` work lands it must be numerically identical for existing quotes:
+- Migration adds `vat_rate numeric NOT NULL DEFAULT 23`, so every existing row — including already-sent and accepted quotes — is stamped 23. No backfill logic, no NULLs.
+- The form reads `vatRate` with a `?? 23` fallback, so a quote loaded before the column is populated still computes at 23.
+- `vatAmount = afterDiscount * (vatRate / 100)`; with `vatRate = 23` this is arithmetically the same as `* 0.23`.
+- New quotes default the selector to 23.
+- `total_amount` on existing rows is not recomputed or rewritten on load — only an explicit save writes totals, so no already-sent quote silently changes value.
+
+## Products category surface (item 6)
+
+Confirmed untouched by the cost-price work. These stay exactly as they are in `src/pages/Products.tsx`:
+- Categories tab trigger (line 128) and `<CategoriesTab />` content (lines 217-218)
+- Category `Select` in the add/edit dialog (lines 238-242), fed by `categoryNames`
+- Category filter buttons (lines 134-140) and the `categoryFilter` predicate (line 66)
+- Category column and `Badge` in the products table (lines 178, 190)
+- The `categories` query (lines 46-50) and `form.category` write on save (line 97)
+
+The only Products.tsx changes are the role-gated `cost_price` input added to the existing dialog and the two computed Margin %/GP € columns. No change to `categories`, `products.category`, or the product-search category grouping in the quote builder.
