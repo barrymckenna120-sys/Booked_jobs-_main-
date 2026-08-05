@@ -727,6 +727,11 @@ const ImportCustomers = () => {
     [parsedRows, dupPhoneNotes, ambiguousRowNums, existingByPhone]
   );
 
+  // Counts come from the decorated rows so ambiguous-match rows are counted as blocked.
+  const validCount = decoratedRows.filter((r) => r.isValid).length;
+  const errorCount = decoratedRows.filter((r) => !r.isValid).length;
+
+
   const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
   const pageStart = (clampedPage - 1) * PAGE_SIZE;
