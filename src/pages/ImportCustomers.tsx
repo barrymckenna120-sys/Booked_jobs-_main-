@@ -629,30 +629,35 @@ const ImportCustomers = () => {
   /** One batched existing-customer lookup per file, scoped to this organisation. */
   useEffect(() => {
     if (!orgId || phoneKeys.length === 0) {
-      setExistingPhones(null);
+      setExistingByPhone(null);
       return;
     }
     let cancelled = false;
     (async () => {
-      const found = new Set<string>();
+      const found = new Map<string, ExistingMatch[]>();
       const CHUNK = 200;
       for (let i = 0; i < phoneKeys.length; i += CHUNK) {
         const chunk = phoneKeys.slice(i, i + CHUNK);
         const { data, error } = await supabase
           .from("customers")
-          .select("phone")
+          .select("id, name, address, phone")
           .eq("organisation_id", orgId)
           .in("phone", chunk);
         if (cancelled) return;
         if (error) {
-          setExistingPhones(null);
+          setExistingByPhone(null);
           return;
         }
         for (const row of data || []) {
-          if (row.phone) found.add(String(row.phone).trim());
+          if (!row.phone) continue;
+          const key = String(row.phone).trim();
+          const match: ExistingMatch = { id: row.id, name: row.name, address: row.address };
+          const list = found.get(key);
+          if (list) list.push(match);
+          else found.set(key, [match]);
         }
       }
-      if (!cancelled) setExistingPhones(found);
+      if (!cancelled) setExistingByPhone(found);
     })();
     return () => {
       cancelled = true;
@@ -660,26 +665,68 @@ const ImportCustomers = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, phoneKeysSignature]);
 
-  /** Per-row outcome: creating a new customer, or updating an existing one. */
-  const rowOutcome = useCallback(
-    (row: ParsedRow): "new" | "update" | "unknown" => {
-      if (!existingPhones) return "unknown";
+  /** Existing customers sharing a row's phone, or null while the lookup is unresolved. */
+  const matchesForRow = useCallback(
+    (row: ParsedRow): ExistingMatch[] | null => {
+      if (!existingByPhone) return null;
       const phone = String(row.data.phone || "").trim();
-      if (!phone) return "unknown";
-      return existingPhones.has(phone) ? "update" : "new";
+      if (!phone) return null;
+      return existingByPhone.get(phone) || [];
     },
-    [existingPhones]
+    [existingByPhone]
   );
 
-  // Decorate rows with the in-file duplicate note without touching buildRow.
+  /**
+   * Per-row outcome. "ambiguous" means the phone matches several existing customers,
+   * so there is no safe row to update — the operator has to resolve the duplicates first.
+   */
+  const rowOutcome = useCallback(
+    (row: ParsedRow): "new" | "update" | "ambiguous" | "unknown" => {
+      const matches = matchesForRow(row);
+      if (!matches) return "unknown";
+      if (matches.length === 0) return "new";
+      return matches.length === 1 ? "update" : "ambiguous";
+    },
+    [matchesForRow]
+  );
+
+  /** Row numbers blocked because their phone matches more than one existing customer. */
+  const ambiguousRowNums = useMemo(() => {
+    const s = new Set<number>();
+    if (!existingByPhone) return s;
+    for (const r of parsedRows) {
+      const phone = String(r.data.phone || "").trim();
+      if (!phone) continue;
+      if ((existingByPhone.get(phone) || []).length > 1) s.add(r.rowNum);
+    }
+    return s;
+  }, [parsedRows, existingByPhone]);
+
+  // Decorate rows with the in-file duplicate note and the ambiguous-match error,
+  // without touching buildRow.
   const decoratedRows = useMemo(
     () =>
       parsedRows.map((r) => {
         const note = dupPhoneNotes.get(r.rowNum);
-        if (!note) return r;
-        return { ...r, fieldWarnings: { ...r.fieldWarnings, phone: note } };
+        const ambiguous = ambiguousRowNums.has(r.rowNum);
+        if (!note && !ambiguous) return r;
+        let next: ParsedRow = r;
+        if (note) {
+          next = { ...next, fieldWarnings: { ...next.fieldWarnings, phone: note } };
+        }
+        if (ambiguous) {
+          const count = (existingByPhone?.get(String(r.data.phone || "").trim()) || []).length;
+          const message = `Phone matches ${count} existing customers — resolve the duplicates first`;
+          next = {
+            ...next,
+            errors: [...next.errors, message],
+            fieldErrors: { ...next.fieldErrors, phone: "Ambiguous match" },
+            isValid: false,
+          };
+        }
+        return next;
       }),
-    [parsedRows, dupPhoneNotes]
+    [parsedRows, dupPhoneNotes, ambiguousRowNums, existingByPhone]
   );
 
   const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
