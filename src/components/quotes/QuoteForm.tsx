@@ -406,7 +406,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   );
                 })()}
               </div>
-              <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
+              <div className={cn("grid gap-2 items-end", canAccessOffice ? "grid-cols-[1fr_1fr_1fr_auto_auto]" : "grid-cols-[1fr_1fr_auto_auto]")}>
                 <div>
                   <Label className="text-xs text-muted-foreground">Qty</Label>
                   <Input type="number" value={li.qty} onChange={(e) => updateLineItem(li.id, "qty", e.target.value)} placeholder="1" />
@@ -415,6 +415,12 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   <Label className="text-xs text-muted-foreground">Unit Price €</Label>
                   <Input type="number" value={li.unit_price} onChange={(e) => updateLineItem(li.id, "unit_price", e.target.value)} placeholder="0.00" />
                 </div>
+                {canAccessOffice && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Cost Price €</Label>
+                    <Input type="number" value={li.cost_price} onChange={(e) => updateLineItem(li.id, "cost_price", e.target.value)} placeholder="0.00" />
+                  </div>
+                )}
                 <div className="pb-0.5">
                   <Label className="text-xs text-muted-foreground">Total</Label>
                   <p className="text-sm font-bold text-foreground h-10 flex items-center">€{((parseFloat(li.qty) || 0) * (parseFloat(li.unit_price) || 0)).toFixed(2)}</p>
@@ -423,6 +429,19 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+              {canAccessOffice && (() => {
+                const qty = parseFloat(li.qty) || 0;
+                const up = parseFloat(li.unit_price) || 0;
+                const hasCost = li.cost_price !== "" && !isNaN(parseFloat(li.cost_price));
+                const cp = hasCost ? parseFloat(li.cost_price) : 0;
+                const gp = hasCost ? (up - cp) * qty : null;
+                const marginPct = hasCost && up > 0 ? ((up - cp) / up) * 100 : null;
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Margin {marginPct === null ? "—" : `${marginPct.toFixed(1)}%`} · GP {gp === null ? "—" : `€${gp.toFixed(2)}`}
+                  </p>
+                );
+              })()}
             </div>
           ))}
           <Button variant="outline" size="sm" onClick={addLineItem}><Plus className="w-4 h-4 mr-1" /> Add Item</Button>
