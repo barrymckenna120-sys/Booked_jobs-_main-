@@ -38,6 +38,7 @@ type QuoteFormProps = {
 
 const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const { user } = useAuth();
+  const { canAccessOffice } = useUserRole(user);
   const { orgId } = useOrgId();
   const { toast } = useToast();
   const navigate = useNavigate();
