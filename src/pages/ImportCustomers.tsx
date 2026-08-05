@@ -1412,11 +1412,13 @@ const ImportCustomers = () => {
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className="bg-success/10 text-success border border-success/30">
-                Ready: {validCount}
+                Selected: {selectedCount} of {validCount} ready
               </Badge>
-              <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
-                Blocked: {errorCount}
-              </Badge>
+              {errorCount > 0 && (
+                <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
+                  {errorCount} blocked — still needs fixing
+                </Badge>
+              )}
             </div>
             <Button onClick={handleImport} disabled={importDisabled}>
               {importLabel}
