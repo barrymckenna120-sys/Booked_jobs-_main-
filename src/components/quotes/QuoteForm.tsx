@@ -169,7 +169,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   };
 
   const addLineItem = () => {
-    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", product_id: null }]);
+    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", cost_price: "", product_id: null }]);
   };
 
   const removeLineItem = (id: string) => {
