@@ -205,6 +205,11 @@ const ImportCustomers = () => {
   const [rowEdits, setRowEdits] = useState<Record<number, Record<string, string>>>({});
   const [page, setPage] = useState(1);
 
+  // Row-level selection. Until the operator touches a checkbox, every ready row is
+  // treated as selected (selectionDirty === false), so the default is "import all ready".
+  const [selectedRowNums, setSelectedRowNums] = useState<Set<number>>(new Set());
+  const [selectionDirty, setSelectionDirty] = useState(false);
+
   // Existing customers for this organisation, keyed by normalised phone. Populated by
   // one batched lookup per file. A phone can map to MORE THAN ONE customer — real data
   // contains shared numbers — so the value is a list, not a boolean.
