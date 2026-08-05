@@ -81,14 +81,39 @@ const QuotesList = () => {
 
   const failedQuoteIds = new Set((failedLogs as any[]).map((l: any) => l.related_id));
 
+  // Aggregate line-item cost/sale totals per quote in a single query (office/admin only)
+  const { data: lineItems = [] } = useQuery({
+    queryKey: ["quote-line-items-margin", quoteIds.join(",")],
+    queryFn: async () => {
+      if (quoteIds.length === 0) return [];
+      const { data } = await supabase
+        .from("quote_line_items")
+        .select("quote_id, qty, unit_price, cost_price")
+        .in("quote_id", quoteIds);
+      return data || [];
+    },
+    enabled: canAccessOffice && quoteIds.length > 0,
+  });
+
+  type Totals = { saleWithCost: number; cost: number; saleAll: number };
+  const totalsByQuote = (lineItems as any[]).reduce((acc: Record<string, Totals>, li: any) => {
+    const key = li.quote_id;
+    if (!acc[key]) acc[key] = { saleWithCost: 0, cost: 0, saleAll: 0 };
+    const qty = Number(li.qty) || 0;
+    const sale = (Number(li.unit_price) || 0) * qty;
+    acc[key].saleAll += sale;
+    if (li.cost_price !== null && li.cost_price !== undefined) {
+      acc[key].saleWithCost += sale;
+      acc[key].cost += Number(li.cost_price) * qty;
+    }
+    return acc;
+  }, {} as Record<string, Totals>);
+
   const filtered = quotes.filter((q: any) => {
+    const status = String(q.status || "").toLowerCase();
     if (filter !== "All") {
-      const matchStatuses = filter === "Draft" ? ["Draft", "draft"] :
-        filter === "Sent" ? ["Sent", "sent"] :
-        filter === "Viewed" ? ["viewed", "Viewed"] :
-        filter === "Accepted" ? ["Accepted", "accepted"] :
-        filter === "expired" ? ["expired"] : [filter];
-      if (!matchStatuses.includes(q.status)) return false;
+      const matchStatuses = FILTER_STATUSES[filter] || [filter.toLowerCase()];
+      if (!matchStatuses.includes(status)) return false;
     }
     if (search.trim()) {
       const s = search.toLowerCase();
@@ -99,16 +124,42 @@ const QuotesList = () => {
     return true;
   });
 
-  const statusCounts = {
-    All: quotes.length,
-    Draft: quotes.filter((q: any) => ["Draft", "draft"].includes(q.status)).length,
-    Sent: quotes.filter((q: any) => ["Sent", "sent"].includes(q.status)).length,
-    Viewed: quotes.filter((q: any) => ["viewed", "Viewed"].includes(q.status)).length,
-    Accepted: quotes.filter((q: any) => ["Accepted", "accepted"].includes(q.status)).length,
-    expired: quotes.filter((q: any) => q.status === "expired").length,
-  };
+  const statusCounts: Record<string, number> = { All: quotes.length };
+  for (const [label, statuses] of Object.entries(FILTER_STATUSES)) {
+    statusCounts[label] = quotes.filter((q: any) =>
+      statuses.includes(String(q.status || "").toLowerCase())
+    ).length;
+  }
+
+  // Summary bar figures over the currently filtered set
+  const CLOSED = ["accepted", "converted", "rejected"];
+  let grossProfit = 0;
+  let closedProfit = 0;
+  let closedSale = 0;
+  let won = 0;
+  let lost = 0;
+  let grandTotal = 0;
+
+  for (const q of filtered as any[]) {
+    const status = String(q.status || "").toLowerCase();
+    const t = totalsByQuote[q.id];
+    grandTotal += Number(q.total_amount) || 0;
+    if (t && t.saleWithCost > 0) {
+      grossProfit += t.saleWithCost - t.cost;
+      if (CLOSED.includes(status)) {
+        closedProfit += t.saleWithCost - t.cost;
+        closedSale += t.saleWithCost;
+      }
+    }
+    if (status === "accepted" || status === "converted") won++;
+    else if (status === "rejected") lost++;
+  }
+
+  const avgMargin = closedSale > 0 ? (closedProfit / closedSale) * 100 : null;
+  const winRate = won + lost > 0 ? (won / (won + lost)) * 100 : null;
 
   return (
+
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-extrabold text-foreground">Quotes</h1>
