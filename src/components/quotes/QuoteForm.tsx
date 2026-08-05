@@ -457,6 +457,22 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-semibold">€{subtotal.toFixed(2)}</span>
             </div>
+            {canAccessOffice && (
+              <div className="rounded-md bg-muted/50 p-2 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total Cost</span>
+                  <span className="font-semibold">{hasCostData ? `€${totalCost.toFixed(2)}` : "—"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Gross Profit</span>
+                  <span className="font-semibold">{hasCostData ? `€${grossProfit.toFixed(2)}` : "—"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Margin %</span>
+                  <span className="font-semibold">{hasCostData && grossMarginPct !== null ? `${grossMarginPct.toFixed(1)}%` : "—"}</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
               <Label className="text-sm text-muted-foreground">Discount €</Label>
               <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-28 text-right" placeholder="0.00" />
