@@ -163,6 +163,13 @@ type ParsedRow = {
   isValid: boolean;
 };
 
+/** An existing customer that matches an incoming row's phone. */
+type ExistingMatch = {
+  id: string;
+  name: string | null;
+  address: string | null;
+};
+
 const ImportCustomers = () => {
   const { user, loading: authLoading } = useAuth();
   const { orgId } = useOrgId();
