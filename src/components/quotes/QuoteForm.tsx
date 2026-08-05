@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -26,6 +27,7 @@ type LineItem = {
   description: string;
   qty: string;
   unit_price: string;
+  cost_price: string;
   product_id: string | null;
 };
 
@@ -36,6 +38,7 @@ type QuoteFormProps = {
 
 const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const { user } = useAuth();
+  const { canAccessOffice } = useUserRole(user);
   const { orgId } = useOrgId();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -46,7 +49,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const [customerId, setCustomerId] = useState("");
   const [jobType, setJobType] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", product_id: null }]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([{ id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", cost_price: "", product_id: null }]);
   const [discount, setDiscount] = useState("0");
   const [vatEnabled, setVatEnabled] = useState(false);
   const [vatRate, setVatRate] = useState(23);
@@ -116,6 +119,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
           description: i.description,
           qty: String(i.qty),
           unit_price: String(i.unit_price),
+          cost_price: i.cost_price == null ? "" : String(i.cost_price),
           product_id: i.product_id,
         })));
       }
@@ -142,6 +146,17 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const depositNum = parseFloat(deposit) || 0;
   const balanceDue = Math.max(total - depositNum, 0);
 
+  // Internal cost / margin (office-admin only, never persisted)
+  const totalCost = useMemo(() => lineItems.reduce((s, li) => {
+    if (li.cost_price === "") return s;
+    const cp = parseFloat(li.cost_price);
+    if (isNaN(cp)) return s;
+    return s + cp * (parseFloat(li.qty) || 0);
+  }, 0), [lineItems]);
+  const hasCostData = useMemo(() => lineItems.some((li) => li.cost_price !== "" && !isNaN(parseFloat(li.cost_price))), [lineItems]);
+  const grossProfit = afterDiscount - totalCost;
+  const grossMarginPct = afterDiscount > 0 ? (grossProfit / afterDiscount) * 100 : null;
+
   // Auto-set deposit to configured % of total unless user manually overrode
   const depositPct = (settings as any)?.deposit_percentage ?? 50;
   useEffect(() => {
@@ -155,7 +170,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   };
 
   const addLineItem = () => {
-    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", product_id: null }]);
+    setLineItems((prev) => [...prev, { id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", cost_price: "", product_id: null }]);
   };
 
   const removeLineItem = (id: string) => {
@@ -164,7 +179,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   };
 
   const selectProduct = (lineId: string, product: any) => {
-    setLineItems((prev) => prev.map((li) => li.id === lineId ? { ...li, description: product.name, unit_price: String(product.unit_price), product_id: product.id } : li));
+    setLineItems((prev) => prev.map((li) => li.id === lineId ? { ...li, description: product.name, unit_price: String(product.unit_price), cost_price: product.cost_price == null ? "" : String(product.cost_price), product_id: product.id } : li));
     setActiveProductSearch(null);
   };
 
@@ -239,6 +254,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       description: li.description.trim(),
       qty: parseFloat(li.qty) || 1,
       unit_price: parseFloat(li.unit_price) || 0,
+      cost_price: li.cost_price === "" || isNaN(parseFloat(li.cost_price)) ? null : parseFloat(li.cost_price),
       sort_order: i,
     }));
     if (itemsPayload.length > 0) {
@@ -390,7 +406,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   );
                 })()}
               </div>
-              <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
+              <div className={cn("grid gap-2 items-end", canAccessOffice ? "grid-cols-[1fr_1fr_1fr_auto_auto]" : "grid-cols-[1fr_1fr_auto_auto]")}>
                 <div>
                   <Label className="text-xs text-muted-foreground">Qty</Label>
                   <Input type="number" value={li.qty} onChange={(e) => updateLineItem(li.id, "qty", e.target.value)} placeholder="1" />
@@ -399,6 +415,12 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   <Label className="text-xs text-muted-foreground">Unit Price €</Label>
                   <Input type="number" value={li.unit_price} onChange={(e) => updateLineItem(li.id, "unit_price", e.target.value)} placeholder="0.00" />
                 </div>
+                {canAccessOffice && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Cost Price €</Label>
+                    <Input type="number" value={li.cost_price} onChange={(e) => updateLineItem(li.id, "cost_price", e.target.value)} placeholder="0.00" />
+                  </div>
+                )}
                 <div className="pb-0.5">
                   <Label className="text-xs text-muted-foreground">Total</Label>
                   <p className="text-sm font-bold text-foreground h-10 flex items-center">€{((parseFloat(li.qty) || 0) * (parseFloat(li.unit_price) || 0)).toFixed(2)}</p>
@@ -407,6 +429,19 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+              {canAccessOffice && (() => {
+                const qty = parseFloat(li.qty) || 0;
+                const up = parseFloat(li.unit_price) || 0;
+                const hasCost = li.cost_price !== "" && !isNaN(parseFloat(li.cost_price));
+                const cp = hasCost ? parseFloat(li.cost_price) : 0;
+                const gp = hasCost ? (up - cp) * qty : null;
+                const marginPct = hasCost && up > 0 ? ((up - cp) / up) * 100 : null;
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Margin {marginPct === null ? "—" : `${marginPct.toFixed(1)}%`} · GP {gp === null ? "—" : `€${gp.toFixed(2)}`}
+                  </p>
+                );
+              })()}
             </div>
           ))}
           <Button variant="outline" size="sm" onClick={addLineItem}><Plus className="w-4 h-4 mr-1" /> Add Item</Button>
@@ -422,6 +457,22 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-semibold">€{subtotal.toFixed(2)}</span>
             </div>
+            {canAccessOffice && (
+              <div className="rounded-md bg-muted/50 p-2 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total Cost</span>
+                  <span className="font-semibold">{hasCostData ? `€${totalCost.toFixed(2)}` : "—"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Gross Profit</span>
+                  <span className="font-semibold">{hasCostData ? `€${grossProfit.toFixed(2)}` : "—"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Margin %</span>
+                  <span className="font-semibold">{hasCostData && grossMarginPct !== null ? `${grossMarginPct.toFixed(1)}%` : "—"}</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
               <Label className="text-sm text-muted-foreground">Discount €</Label>
               <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-28 text-right" placeholder="0.00" />
