@@ -79,13 +79,20 @@ const Products = () => {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", description: "", unit_price: "", active: true, category: categoryNames[0] || "" });
+    setForm({ name: "", description: "", unit_price: "", cost_price: "", active: true, category: categoryNames[0] || "" });
     setModalOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing(p);
-    setForm({ name: p.name, description: p.description || "", unit_price: String(p.unit_price), active: p.active, category: p.category || "" });
+    setForm({
+      name: p.name,
+      description: p.description || "",
+      unit_price: String(p.unit_price),
+      cost_price: p.cost_price == null ? "" : String(p.cost_price),
+      active: p.active,
+      category: p.category || "",
+    });
     setModalOpen(true);
   };
 
@@ -102,6 +109,10 @@ const Products = () => {
       active: form.active,
       category: form.category || null,
     };
+    if (canAccessOffice) {
+      payload.cost_price = form.cost_price === "" ? null : parseFloat(form.cost_price);
+    }
+
 
     if (editing) {
       const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
