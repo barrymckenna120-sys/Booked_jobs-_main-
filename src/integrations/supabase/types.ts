@@ -1825,6 +1825,7 @@ export type Database = {
         Row: {
           active: boolean | null
           category: string | null
+          cost_price: number | null
           created_at: string | null
           description: string | null
           id: string
@@ -1835,6 +1836,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           category?: string | null
+          cost_price?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1845,6 +1847,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           category?: string | null
+          cost_price?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1941,6 +1944,7 @@ export type Database = {
       }
       quote_line_items: {
         Row: {
+          cost_price: number | null
           created_at: string | null
           description: string
           id: string
@@ -1952,6 +1956,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          cost_price?: number | null
           created_at?: string | null
           description: string
           id?: string
@@ -1963,6 +1968,7 @@ export type Database = {
           unit_price?: number
         }
         Update: {
+          cost_price?: number | null
           created_at?: string | null
           description?: string
           id?: string
@@ -2036,6 +2042,7 @@ export type Database = {
           updated_at: string
           user_id: string
           vat_enabled: boolean | null
+          vat_rate: number
           viewed_at: string | null
         }
         Insert: {
@@ -2083,6 +2090,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           vat_enabled?: boolean | null
+          vat_rate?: number
           viewed_at?: string | null
         }
         Update: {
@@ -2130,6 +2138,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vat_enabled?: boolean | null
+          vat_rate?: number
           viewed_at?: string | null
         }
         Relationships: [
