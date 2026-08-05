@@ -27,6 +27,7 @@ type LineItem = {
   description: string;
   qty: string;
   unit_price: string;
+  cost_price: string;
   product_id: string | null;
 };
 
