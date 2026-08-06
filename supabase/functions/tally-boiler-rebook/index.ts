@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { last9Digits, normalisePhoneE164 } from "../_shared/phone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,24 +7,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-org-id, x-webhook-secret",
 };
 
-// Normalise IE mobile numbers to E.164 (+353XXXXXXXXX). Mirrors the logic
-// used in tally-incoming-job so we no longer depend on Make's slicing step.
-const normalisePhone = (raw: unknown): string => {
-  if (!raw || typeof raw !== "string") return "";
-  const trimmed = raw.replace(/[\s\-()]/g, "").trim();
-  if (!trimmed) return "";
-  if (trimmed.startsWith("+")) return trimmed;
-  if (trimmed.startsWith("353")) return "+" + trimmed;
-  return "+353" + trimmed.replace(/^0/, "");
-};
+// Phone helpers now live in ../_shared/phone.ts so other inbound handlers
+// (Telnyx missed calls, etc.) reuse one implementation.
+const normalisePhone = normalisePhoneE164;
 
-// Last-9-digit key so we tolerate legacy stored formats
-// (0872…, 00353…, +353 87 …, spaces, etc.).
-const last9Digits = (raw: unknown): string => {
-  if (!raw || typeof raw !== "string") return "";
-  const digits = raw.replace(/\D/g, "");
-  return digits.length >= 9 ? digits.slice(-9) : "";
-};
 
 async function logInvocation(
   supabase: any,
