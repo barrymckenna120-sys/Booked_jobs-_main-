@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
+import { createSumUpDepositCheckout } from "../_shared/sumupCheckout.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
