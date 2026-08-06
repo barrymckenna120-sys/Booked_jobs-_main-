@@ -5,7 +5,7 @@ Deno.serve(async () => {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-booking-link`;
   const body = JSON.stringify({
     full_url: "https://tally.so/r/probe-check",
-    organisation_id: "8c37827f-2c8d-4b0e-9c8e-000000000000",
+    organisation_id: "8c37827f-ce2c-4507-a821-a5e807d89856",
   });
 
   const results: Record<string, number> = {};
