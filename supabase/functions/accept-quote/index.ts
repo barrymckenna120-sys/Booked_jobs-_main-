@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { createSumUpDepositCheckout } from "./sumupCheckout.ts";
+import { resolveSumUpCredentials, makeRestSumUpConfigLoader } from "../_shared/sumupCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,42 +237,8 @@ async function sendDepositPaymentWhatsApp(
       return;
     }
 
-    // Generate a SumUp hosted checkout for the deposit
-    const sumupKey = Deno.env.get("SUMUP_API_KEY");
-    const sumupMerchant = Deno.env.get("SUMUP_MERCHANT_CODE");
-    if (!sumupKey || !sumupMerchant) {
-      console.log("No SUMUP_API_KEY / SUMUP_MERCHANT_CODE — skipping deposit WhatsApp");
-      return;
-    }
-
-    const checkout = await createSumUpDepositCheckout({
-      amount: depositAmount,
-      serviceCallId,
-      apiKey: sumupKey,
-      merchantCode: sumupMerchant,
-    });
-
-    if (!checkout.ok || !checkout.url) {
-      console.error("SumUp checkout creation failed:", checkout.error);
-      return;
-    }
-
-    const paymentLink = checkout.url;
-    console.log("SumUp hosted checkout generated:", paymentLink);
-
-    // Save payment link (+ checkout id) back to service_calls
-    await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({
-        payment_link: paymentLink,
-        ...(checkout.checkoutId ? { sumup_checkout_id: checkout.checkoutId } : {}),
-      }),
-    });
-
-
-
-    // Resolve organisation + branding from service_call
+    // Resolve organisation FIRST — SumUp credentials are per-tenant and a
+    // customer's deposit must never route into another tenant's account.
     const jobOrgRes = await fetch(
       `${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}&select=organisation_id&limit=1`,
       { headers }
@@ -284,6 +251,45 @@ async function sendDepositPaymentWhatsApp(
       return;
     }
 
+    // Per-org SumUp credentials. No global fallback by design.
+    const credsResult = await resolveSumUpCredentials({
+      organisationId: orgId,
+      loadConfig: makeRestSumUpConfigLoader(supabaseUrl, headers),
+    });
+
+    if (!credsResult.ok || !credsResult.credentials) {
+      console.error(
+        "SumUp credentials unavailable for organisation — skipping deposit link",
+        { organisation_id: orgId, reason: credsResult.error }
+      );
+      return;
+    }
+
+    const checkout = await createSumUpDepositCheckout({
+      amount: depositAmount,
+      serviceCallId,
+      apiKey: credsResult.credentials.apiKey,
+      merchantCode: credsResult.credentials.merchantCode,
+    });
+
+    if (!checkout.ok || !checkout.url) {
+      console.error("SumUp checkout creation failed:", checkout.error);
+      return;
+    }
+
+    const paymentLink = checkout.url;
+    console.log("SumUp hosted checkout generated for org:", orgId);
+
+    // Save payment link (+ checkout id) back to service_calls
+    await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        payment_link: paymentLink,
+        ...(checkout.checkoutId ? { sumup_checkout_id: checkout.checkoutId } : {}),
+      }),
+    });
+
     let companyName = "K & N Gas Services";
     let companyPhone = "087 3686252";
     const tiRes = await fetch(
@@ -294,6 +300,7 @@ async function sendDepositPaymentWhatsApp(
     const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
     if (cfg?.company_name) companyName = cfg.company_name;
     if (cfg?.company_phone) companyPhone = cfg.company_phone;
+
 
     // Resolve tenant-scoped 360Messenger API key
     let apiKey: string;
