@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getOrgBrandingClient, type OrgBranding } from "../_shared/orgBranding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,7 @@ Deno.serve(async (req) => {
     let sent = 0;
     let skipped = 0;
     const apiKeyCache = new Map<string, string | null>();
+    const brandingCache = new Map<string, OrgBranding>();
 
     for (const q of quotes || []) {
       const customer: any = (q as any).customers;
@@ -55,12 +57,20 @@ Deno.serve(async (req) => {
           .eq("organisation_id", q.organisation_id)
           .eq("integration_type", "360messenger")
           .maybeSingle();
-        apiKey = (integration?.config as any)?.api_key ?? null;
+        const config = (integration?.config as any) ?? {};
+        const secretName = config.api_key_secret as string | undefined;
+        apiKey = (secretName ? Deno.env.get(secretName) : null) ?? config.api_key ?? null;
         apiKeyCache.set(q.organisation_id, apiKey);
       }
       if (!apiKey) {
         skipped++;
         continue;
+      }
+
+      let branding = brandingCache.get(q.organisation_id);
+      if (!branding) {
+        branding = await getOrgBrandingClient(supabase, q.organisation_id);
+        brandingCache.set(q.organisation_id, branding);
       }
 
       let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");
@@ -69,9 +79,9 @@ Deno.serve(async (req) => {
       const firstName = String(customer.name || "there").trim().split(/\s+/)[0];
 
       const message =
-        `Hi ${firstName}, just checking you got the quote we sent over for your boiler service. ` +
+        `Hi ${firstName}, just checking you got the quote we sent over. ` +
         `Happy to answer any questions or adjust anything if needed.\n\n` +
-        `Thanks,\nKarl\nK & N Gas Services`;
+        `Thanks,\n${branding.name}`;
 
       const formData = new FormData();
       formData.append("phonenumber", phone);
@@ -84,8 +94,13 @@ Deno.serve(async (req) => {
           headers: { Authorization: `Bearer ${apiKey}` },
           body: formData,
         });
-        await resp.text();
-        ok = resp.ok;
+        const bodyText = await resp.text();
+        // 360Messenger can return HTTP 200 on a failed send — trust the payload.
+        try {
+          ok = resp.ok && JSON.parse(bodyText)?.success === true;
+        } catch (_e) {
+          ok = false;
+        }
       } catch (_e) {
         ok = false;
       }
