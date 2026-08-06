@@ -1874,7 +1874,7 @@ export type Database = {
           id: string
           is_active: boolean
           onboarding_complete: boolean | null
-          organisation_id: string | null
+          organisation_id: string
           role: string | null
           sound_alerts_enabled: boolean | null
           updated_at: string
@@ -1888,7 +1888,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           onboarding_complete?: boolean | null
-          organisation_id?: string | null
+          organisation_id: string
           role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
@@ -1902,7 +1902,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           onboarding_complete?: boolean | null
-          organisation_id?: string | null
+          organisation_id?: string
           role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
@@ -2601,7 +2601,7 @@ export type Database = {
           message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
-          organisation_id?: string
+          organisation_id: string
           owner_name?: string | null
           payment_reminder_days_1?: number | null
           payment_reminder_days_2?: number | null
@@ -2800,7 +2800,7 @@ export type Database = {
           linked_quote_id: string | null
           message_body: string
           message_type: string
-          organisation_id: string | null
+          organisation_id: string
           phone_number: string | null
           raw_payload: Json | null
           reply_received_at: string | null
@@ -2818,7 +2818,7 @@ export type Database = {
           linked_quote_id?: string | null
           message_body: string
           message_type: string
-          organisation_id?: string | null
+          organisation_id: string
           phone_number?: string | null
           raw_payload?: Json | null
           reply_received_at?: string | null
@@ -2836,7 +2836,7 @@ export type Database = {
           linked_quote_id?: string | null
           message_body?: string
           message_type?: string
-          organisation_id?: string | null
+          organisation_id?: string
           phone_number?: string | null
           raw_payload?: Json | null
           reply_received_at?: string | null
