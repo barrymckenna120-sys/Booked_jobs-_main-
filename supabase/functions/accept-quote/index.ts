@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { createSumUpDepositCheckout } from "./sumupCheckout.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -235,64 +236,40 @@ async function sendDepositPaymentWhatsApp(
       return;
     }
 
-    // Generate Stripe Payment Link dynamically
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      console.log("No STRIPE_SECRET_KEY — skipping deposit WhatsApp");
+    // Generate a SumUp hosted checkout for the deposit
+    const sumupKey = Deno.env.get("SUMUP_API_KEY");
+    const sumupMerchant = Deno.env.get("SUMUP_MERCHANT_CODE");
+    if (!sumupKey || !sumupMerchant) {
+      console.log("No SUMUP_API_KEY / SUMUP_MERCHANT_CODE — skipping deposit WhatsApp");
       return;
     }
 
-    const amountCents = Math.round(depositAmount * 100);
-
-    // Step 1: Create a Stripe Price
-    const priceRes = await fetch("https://api.stripe.com/v1/prices", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${stripeKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        "unit_amount": amountCents.toString(),
-        "currency": "eur",
-        "product_data[name]": "Deposit - Job Booking",
-      }),
+    const checkout = await createSumUpDepositCheckout({
+      amount: depositAmount,
+      serviceCallId,
+      apiKey: sumupKey,
+      merchantCode: sumupMerchant,
     });
-    const priceData = await priceRes.json();
-    if (!priceData.id) {
-      console.error("Stripe price creation failed:", JSON.stringify(priceData));
+
+    if (!checkout.ok || !checkout.url) {
+      console.error("SumUp checkout creation failed:", checkout.error);
       return;
     }
 
-    // Step 2: Create a Stripe Payment Link
-    const linkRes = await fetch("https://api.stripe.com/v1/payment_links", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${stripeKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        "line_items[0][price]": priceData.id,
-        "line_items[0][quantity]": "1",
-        "metadata[job_id]": serviceCallId,
-        "metadata[service_call_id]": serviceCallId,
-        "metadata[customer_id]": quote.customer_id || "",
-      }),
-    });
-    const linkData = await linkRes.json();
-    if (!linkData.url) {
-      console.error("Stripe payment link creation failed:", JSON.stringify(linkData));
-      return;
-    }
+    const paymentLink = checkout.url;
+    console.log("SumUp hosted checkout generated:", paymentLink);
 
-    const paymentLink = linkData.url;
-    console.log("Stripe payment link generated:", paymentLink);
-
-    // Save payment link back to service_calls
+    // Save payment link (+ checkout id) back to service_calls
     await fetch(`${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ payment_link: paymentLink }),
+      body: JSON.stringify({
+        payment_link: paymentLink,
+        ...(checkout.checkoutId ? { sumup_checkout_id: checkout.checkoutId } : {}),
+      }),
     });
+
+
 
     // Resolve organisation + branding from service_call
     const jobOrgRes = await fetch(
