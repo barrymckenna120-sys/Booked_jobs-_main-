@@ -13,6 +13,8 @@ export interface SumUpDepositArgs {
   serviceCallId: string;
   apiKey: string;
   merchantCode: string;
+  /** Shown on the SumUp checkout page. Defaults to a deposit label. */
+  description?: string;
   /** Injectable for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -65,7 +67,7 @@ export async function createSumUpDepositCheckout(
         currency: "EUR",
         merchant_code: merchantCode,
         hosted_checkout: { enabled: true },
-        description: "Deposit - Job Booking",
+        description: args.description ?? "Deposit - Job Booking",
       }),
     });
   } catch (_e) {
