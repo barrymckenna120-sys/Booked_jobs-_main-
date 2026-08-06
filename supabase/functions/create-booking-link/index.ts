@@ -4,8 +4,31 @@ import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-webhook-secret",
 };
+
+/**
+ * This function mints short links on tenants' own public domains, so it must
+ * not be callable by anonymous third parties. Two accepted callers:
+ *  1. External (Make.com): `x-webhook-secret` header === MAKE_WEBHOOK_SECRET,
+ *     matching the pattern used by tally-boiler-rebook / tally-incoming-job.
+ *  2. Internal server-side callers (renewal-reminder-14 / -30), which already
+ *     send `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`.
+ * Fails closed: if neither credential is configured/valid, the request is 401.
+ */
+function isAuthorised(req: Request): boolean {
+  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
+  const providedSecret = req.headers.get("x-webhook-secret");
+  if (expectedSecret && providedSecret === expectedSecret) return true;
+
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const auth = req.headers.get("authorization") ?? "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  if (serviceRoleKey && bearer === serviceRoleKey) return true;
+
+  return false;
+}
+
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
@@ -32,7 +55,22 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (!isAuthorised(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
+
     const { customer_id, full_url, organisation_id } = await req.json();
 
     if (!full_url || !organisation_id) {
