@@ -51,25 +51,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    let paymentLink = job.payment_link;
-    if (!paymentLink) {
-      const { data: stripeIntegration } = await supabase
-        .from("tenant_integrations")
-        .select("config")
-        .eq("organisation_id", job.organisation_id)
-        .eq("integration_type", "stripe")
-        .maybeSingle();
-      paymentLink = (stripeIntegration?.config as any)?.stripe_payment_link
-        || (stripeIntegration?.config as any)?.payment_link
-        || null;
-    }
-    if (!paymentLink) {
-      console.log("send-payment-link 400: no payment link", { service_call_id, organisation_id: job.organisation_id });
-      return new Response(JSON.stringify({ error: "No payment link set on this job or organisation. Add a payment link first." }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const jobTotal = job.revenue || 0;
     const depositAmount = job.deposit_required ? (job.deposit_amount || 0) : 0;
     const balanceDue = job.balance_due || (jobTotal - depositAmount) || jobTotal;
@@ -80,6 +61,60 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Payment link: create a SumUp hosted checkout for the outstanding balance,
+    // using THIS organisation's SumUp credentials. There is no global fallback —
+    // a customer's payment must never land in another tenant's account.
+    const credsResult = await resolveSumUpCredentials({
+      organisationId: job.organisation_id,
+      loadConfig: async (organisationId: string) => {
+        const { data, error } = await supabase
+          .from("tenant_integrations")
+          .select("config")
+          .eq("organisation_id", organisationId)
+          .eq("integration_type", "sumup")
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        return (data?.config as Record<string, unknown>) ?? null;
+      },
+    });
+
+    if (!credsResult.ok || !credsResult.credentials) {
+      console.log("send-payment-link 400: no SumUp config", {
+        organisation_id: job.organisation_id, reason: credsResult.error,
+      });
+      return new Response(JSON.stringify({ error: "SumUp is not configured for this organisation. Add SumUp credentials first." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const checkout = await createSumUpDepositCheckout({
+      amount: balanceDue,
+      serviceCallId: service_call_id,
+      apiKey: credsResult.credentials.apiKey,
+      merchantCode: credsResult.credentials.merchantCode,
+      description: `Invoice ${job.invoice_number || service_call_id} - balance due`,
+    });
+
+    if (!checkout.ok || !checkout.url) {
+      console.error("send-payment-link 502: SumUp checkout failed", { reason: checkout.error });
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-payment-link",
+        error_message: `SumUp checkout creation failed: ${checkout.error}`,
+        payload: { service_call_id, organisation_id: job.organisation_id },
+      });
+      return new Response(JSON.stringify({ error: "Could not create a SumUp payment link. Please try again." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const paymentLink = checkout.url;
+
+    await supabase.from("service_calls").update({
+      payment_link: paymentLink,
+      ...(checkout.checkoutId ? { sumup_checkout_id: checkout.checkoutId } : {}),
+    }).eq("id", service_call_id);
+
 
     // Per-tenant 360Messenger API key (config.api_key → config.api_key_secret env → THREESIXTY_API_KEY)
     const { data: integration } = await supabase
