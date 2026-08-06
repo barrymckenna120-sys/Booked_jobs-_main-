@@ -2957,6 +2957,10 @@ export type Database = {
       get_receipt_public: { Args: { p_receipt_number: string }; Returns: Json }
       get_user_organisation_id: { Args: { _user_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
+      is_ignored_number: {
+        Args: { _organisation_id: string; _phone: string }
+        Returns: boolean
+      }
       mark_quote_viewed: { Args: { p_quote_id: string }; Returns: undefined }
       move_to_dlq: {
         Args: {
