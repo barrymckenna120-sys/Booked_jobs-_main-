@@ -60,10 +60,12 @@ Deno.serve(async (req) => {
     // Repair empty values produced by unmapped Make tokens, e.g.
     // `"photo_video_upload": ,` or `"photo_video_upload": }` → null.
     cleanText = cleanText
-      .replace(/:\s*(?=,)/g, ": null")
-      .replace(/:\s*(?=[}\]])/g, ": null")
+      // `"key": ,` / `"key": }` → `"key": null`
+      .replace(/"\s*:\s*(?=[,}\]])/g, '": null')
+      // stray double commas and trailing commas left by empty tokens
       .replace(/,\s*(?=,)/g, "")
       .replace(/,\s*(?=[}\]])/g, "");
+
 
     let body: Record<string, unknown>;
     try {
