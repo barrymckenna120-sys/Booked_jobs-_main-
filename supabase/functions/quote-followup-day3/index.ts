@@ -29,7 +29,9 @@ Deno.serve(async (req) => {
     const { data: quotes, error: qErr } = await supabase
       .from("quotes")
       .select("id, organisation_id, customer_id, customers(name, phone, opted_out)")
-      .eq("status", "sent")
+      // Historic rows use 'Sent' (capitalised); 'viewed' is set by mark_quote_viewed
+      // and is still an un-actioned quote. Accepted/converted/rejected/expired excluded.
+      .in("status", ["sent", "Sent", "viewed"])
       .eq("approved", false)
       .eq("follow_up_day3_sent", false)
       .gte("sent_at", fourDaysAgo)
