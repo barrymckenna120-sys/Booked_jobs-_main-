@@ -23,6 +23,49 @@ const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.te
 
 const isValidPhone = (phone: string): boolean => /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ""));
 
+/**
+ * Tolerant extraction of media URLs from whatever Make/Tally sends:
+ *  - "https://a"                              single URL string
+ *  - "https://a, https://b"                   comma / newline / space separated
+ *  - "[\"https://a\",\"https://b\"]"          JSON array serialised as a string
+ *  - ["https://a", "https://b"]               real array of strings
+ *  - [{ url: "https://a", name, mimeType }]   Tally file objects
+ *  - { url: "https://a" }                     single object
+ * Anything that is not an http(s) URL is dropped.
+ */
+const collectMediaUrls = (input: unknown, depth = 0): string[] => {
+  if (input == null || depth > 4) return [];
+
+  if (Array.isArray(input)) {
+    return input.flatMap((entry) => collectMediaUrls(entry, depth + 1));
+  }
+
+  if (typeof input === "object") {
+    const url = (input as { url?: unknown }).url;
+    return typeof url === "string" ? collectMediaUrls(url, depth + 1) : [];
+  }
+
+  if (typeof input !== "string") return [];
+
+  const raw = input.trim();
+  if (!raw) return [];
+
+  // JSON-encoded array or object sent as a string
+  if (/^[[{]/.test(raw)) {
+    try {
+      return collectMediaUrls(JSON.parse(raw), depth + 1);
+    } catch {
+      // fall through to delimiter splitting
+    }
+  }
+
+  // Split on commas, semicolons, newlines and whitespace; keep only http(s) URLs
+  return raw
+    .split(/[\s,;]+/)
+    .map((part) => part.replace(/^["'\[\]]+|["'\[\]]+$/g, "").trim())
+    .filter((part) => /^https?:\/\/\S+$/i.test(part));
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -462,11 +505,20 @@ Deno.serve(async (req) => {
     };
 
     if (photoVideoUpload) {
-      const urls = Array.isArray(photoVideoUpload) ? photoVideoUpload : [photoVideoUpload];
-      for (const fileEntry of urls) {
+      const urls = collectMediaUrls(photoVideoUpload);
+      console.log(
+        "[tally-incoming-job] photo_video_upload raw:",
+        JSON.stringify(photoVideoUpload),
+        "| parsed urls:",
+        JSON.stringify(urls),
+      );
+      if (urls.length === 0) {
+        media.skipped.push({ url: null, reason: "no_url_in_entry" });
+        await logMediaFailure("no_url_in_entry", { entry: photoVideoUpload });
+      }
+      for (const fileUrl of urls) {
         if (media.uploaded >= 10) break;
-        const fileUrl =
-          typeof fileEntry === "string" ? fileEntry : (fileEntry?.url ?? null);
+        const fileEntry = fileUrl;
         media.attempted++;
         try {
           if (!fileUrl || typeof fileUrl !== "string") {
