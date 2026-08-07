@@ -35,15 +35,6 @@ const walk = (input: unknown, depth = 0): string[] => {
     try {
       return walk(JSON.parse(raw), depth + 1);
     } catch {
-      // fall through to delimiter splitting
-    }
-  }
-
-  // JSON-encoded array or object sent as a string
-  if (/^[[{]/.test(raw)) {
-    try {
-      return walk(JSON.parse(raw), depth + 1);
-    } catch {
       // Not valid JSON: fall through and treat as a single URL.
     }
   }

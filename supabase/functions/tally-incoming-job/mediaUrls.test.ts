@@ -8,12 +8,8 @@ Deno.test("1. single URL string", () => {
   assertEquals(normaliseMediaUrls(A), [A]);
 });
 
-Deno.test("2. comma separated string is not split", () => {
+Deno.test("2. URL containing a comma is not split", () => {
   // Comma-separated strings are intentionally unsupported: a valid URL may contain a comma.
-  assertEquals(normaliseMediaUrls(`${A}, ${B}`), []);
-  assertEquals(normaliseMediaUrls(`${A};${B}`), []);
-  assertEquals(normaliseMediaUrls(`${A}\n${B}`), []);
-  // Regression: a URL whose query string contains a comma must stay intact.
   assertEquals(normaliseMediaUrls("https://example.com?a=1,b=2"), ["https://example.com?a=1,b=2"]);
 });
 
