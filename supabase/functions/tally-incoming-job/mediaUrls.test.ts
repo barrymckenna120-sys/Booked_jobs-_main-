@@ -8,10 +8,9 @@ Deno.test("1. single URL string", () => {
   assertEquals(normaliseMediaUrls(A), [A]);
 });
 
-Deno.test("2. comma separated string", () => {
-  assertEquals(normaliseMediaUrls(`${A}, ${B}`), [A, B]);
-  assertEquals(normaliseMediaUrls(`${A};${B}`), [A, B]);
-  assertEquals(normaliseMediaUrls(`${A}\n${B}`), [A, B]);
+Deno.test("2. URL containing a comma is not split", () => {
+  // Comma-separated strings are intentionally unsupported: a valid URL may contain a comma.
+  assertEquals(normaliseMediaUrls("https://example.com?a=1,b=2"), ["https://example.com?a=1,b=2"]);
 });
 
 Deno.test("3. JSON array encoded as a string", () => {
@@ -35,7 +34,7 @@ Deno.test("5. Tally array of objects", () => {
 
 Deno.test("removes duplicates, preserves order", () => {
   assertEquals(normaliseMediaUrls([A, B, A, `${B}`]), [A, B]);
-  assertEquals(normaliseMediaUrls(`${A}, ${A}`), [A]);
+  assertEquals(normaliseMediaUrls([A, A]), [A]);
 });
 
 Deno.test("ignores empty and invalid values", () => {
@@ -50,6 +49,7 @@ Deno.test("ignores empty and invalid values", () => {
   assertEquals(normaliseMediaUrls(42), []);
 });
 
-Deno.test("malformed JSON string falls back to delimiter splitting", () => {
-  assertEquals(normaliseMediaUrls(`["${A}", "${B}"`), [A, B]);
+Deno.test("malformed JSON string is treated as a single URL", () => {
+  // Starts with `[` but is not valid JSON; no delimiter fallback, so it is dropped.
+  assertEquals(normaliseMediaUrls(`["${A}", "${B}"`), []);
 });

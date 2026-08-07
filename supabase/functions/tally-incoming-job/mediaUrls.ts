@@ -1,13 +1,12 @@
 /**
  * Tolerant normalisation of the `photo_video_upload` field into `string[]`.
  *
- * Accepted shapes (Make.com's HTTP Legacy module sends several of these):
+ * Accepted shapes:
  *  1. "https://a.jpg"                              single URL string
- *  2. "https://a.jpg, https://b.mov"               comma / semicolon / newline separated
- *  3. "[\"https://a.jpg\",\"https://b.png\"]"      JSON array serialised as a string
- *  4. ["https://a.jpg", "https://b.png"]           real JSON array of strings
- *  5. [{ url: "https://a.jpg", name, mimeType }]   original Tally file objects
- *  6. { url: "https://a.jpg" }                     single Tally file object
+ *  2. "[\"https://a.jpg\",\"https://b.png\"]"      JSON array serialised as a string
+ *  3. ["https://a.jpg", "https://b.png"]           real JSON array of strings
+ *  4. [{ url: "https://a.jpg", name, mimeType }]   original Tally file objects
+ *  5. { url: "https://a.jpg" }                     single Tally file object
  *
  * Anything that is not an http(s) URL is dropped. Duplicates are removed,
  * original order preserved.
@@ -36,14 +35,11 @@ const walk = (input: unknown, depth = 0): string[] => {
     try {
       return walk(JSON.parse(raw), depth + 1);
     } catch {
-      // fall through to delimiter splitting
+      // Not valid JSON: fall through and treat as a single URL.
     }
   }
 
-  return raw
-    .split(/[\s,;]+/)
-    .map((part) => part.replace(/^["'\[\]]+|["'\[\]]+$/g, "").trim())
-    .filter((part) => URL_RE.test(part));
+  return URL_RE.test(raw) ? [raw] : [];
 };
 
 export const normaliseMediaUrls = (input: unknown): string[] => {
