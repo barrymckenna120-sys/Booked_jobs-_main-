@@ -53,11 +53,43 @@ Deno.serve(async (req) => {
   try {
     // Sanitize control characters that Make/Tally may inject into string values
     const rawText = await req.text();
-    const cleanText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) =>
+    let cleanText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) =>
       ch === "\n" || ch === "\r" || ch === "\t" ? " " : "",
     );
-    const body = JSON.parse(cleanText);
+
+    // Repair empty values produced by unmapped Make tokens, e.g.
+    // `"photo_video_upload": ,` or `"photo_video_upload": }` → null.
+    cleanText = cleanText
+      // `"key": ,` / `"key": }` → `"key": null`
+      .replace(/"\s*:\s*(?=[,}\]])/g, '": null')
+      // stray double commas and trailing commas left by empty tokens
+      .replace(/,\s*(?=,)/g, "")
+      .replace(/,\s*(?=[}\]])/g, "");
+
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(cleanText);
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      console.error(
+        "[tally-incoming-job] Malformed JSON body:",
+        msg,
+        "| snippet:",
+        cleanText.slice(0, 1000),
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Malformed JSON body",
+          detail: msg,
+          snippet: cleanText.slice(0, 500),
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     console.log("[tally-incoming-job] RAW BODY:", JSON.stringify(body));
+
 
     // Extract and sanitize fields
     const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
