@@ -505,11 +505,20 @@ Deno.serve(async (req) => {
     };
 
     if (photoVideoUpload) {
-      const urls = Array.isArray(photoVideoUpload) ? photoVideoUpload : [photoVideoUpload];
-      for (const fileEntry of urls) {
+      const urls = collectMediaUrls(photoVideoUpload);
+      console.log(
+        "[tally-incoming-job] photo_video_upload raw:",
+        JSON.stringify(photoVideoUpload),
+        "| parsed urls:",
+        JSON.stringify(urls),
+      );
+      if (urls.length === 0) {
+        media.skipped.push({ url: null, reason: "no_url_in_entry" });
+        await logMediaFailure("no_url_in_entry", { entry: photoVideoUpload });
+      }
+      for (const fileUrl of urls) {
         if (media.uploaded >= 10) break;
-        const fileUrl =
-          typeof fileEntry === "string" ? fileEntry : (fileEntry?.url ?? null);
+        const fileEntry = fileUrl;
         media.attempted++;
         try {
           if (!fileUrl || typeof fileUrl !== "string") {
