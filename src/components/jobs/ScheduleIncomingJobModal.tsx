@@ -71,7 +71,6 @@ const ScheduleIncomingJobModal = ({ open, onOpenChange, jobId, customerName, onS
         .from("engineers")
         .select("id, name, status")
         .eq("status", "active")
-        .eq("status", "active")
         .order("name");
       return (data || []) as { id: string; name: string; status: string }[];
     },
