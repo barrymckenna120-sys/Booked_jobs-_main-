@@ -235,6 +235,19 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </>
           )}
 
+          {(job.media_count ?? 0) > 0 && (
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Photos &amp; Videos</span>
+                </div>
+                <MediaGallery jobId={job.id} showUpload={false} />
+              </div>
+            </>
+          )}
+
           <Separator />
 
           <div>
