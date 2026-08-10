@@ -409,7 +409,7 @@ Deno.test("never overwrites a known job total", async () => {
     view: { ok: true, status: "PAID", amount: 120 },
   });
   const result = await p;
-  assertEquals(result.outcome, "paid");
+  assertEquals(result.outcome, "part_paid");
   assertEquals("revenue" in h.updates[0].patch, false);
   assertEquals(h.updates[0].patch.payment_status, "partial");
 });
