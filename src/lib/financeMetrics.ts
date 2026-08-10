@@ -21,7 +21,9 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? (n as number) : 0;
 };
 
-export const PAID_STATUSES = ["paid", "part_paid"] as const;
+// The webhook writes "partial"; older/manual rows may use "part_paid".
+export const PAID_STATUSES = ["paid", "part_paid", "partial"] as const;
+const PARTIAL_STATUSES = ["part_paid", "partial"];
 
 /** A job counts towards revenue once money has actually been taken. */
 export function isRevenueRecognised(job: FinanceJob): boolean {
@@ -32,9 +34,9 @@ export function isRevenueRecognised(job: FinanceJob): boolean {
 
 /**
  * Amount actually collected on a job.
- * - paid:      the full job total (revenue), falling back to the deposit figure
- *              when Scenario-5-style flows never wrote a job total.
- * - part_paid: total minus outstanding balance, falling back to the deposit.
+ * - paid:    the full job total (revenue), falling back to the deposit figure
+ *            when Scenario-5-style flows never wrote a job total.
+ * - partial: total minus outstanding balance, falling back to the deposit.
  */
 export function collectedAmount(job: FinanceJob): number {
   const ps = (job.payment_status || "").toLowerCase();
@@ -43,12 +45,13 @@ export function collectedAmount(job: FinanceJob): number {
   const deposit = num(job.deposit_amount);
 
   if (ps === "paid") return revenue > 0 ? revenue : deposit;
-  if (ps === "part_paid") {
+  if (PARTIAL_STATUSES.includes(ps)) {
     if (revenue > 0) return Math.max(0, revenue - balance);
     return deposit;
   }
   return 0;
 }
+
 
 /** Date a payment should be attributed to. */
 export function revenueDate(job: FinanceJob): Date | null {
