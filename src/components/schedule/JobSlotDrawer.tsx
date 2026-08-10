@@ -4,7 +4,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare, Phone, Mail } from "lucide-react";
+import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare, Phone, Mail, Camera } from "lucide-react";
+import MediaGallery from "@/components/media/MediaGallery";
 import { formatDateIE } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
