@@ -190,14 +190,62 @@ export async function handleSumUpWebhook(
     return { outcome: "missing_checkout_id", status: 200 };
   }
 
+  let job = await deps.loadJobByCheckoutId(checkoutId);
+  // True when the job was found via checkout_reference rather than by stored id,
+  // so the id gets written back and any re-delivery matches directly.
+  let backfillCheckoutId = false;
 
-  const job = await deps.loadJobByCheckoutId(checkoutId);
+  if (!job && deps.discoverCheckout && deps.loadJobById) {
+    // The checkout was created outside this system (e.g. Make calls SumUp's API
+    // directly), so sumup_checkout_id was never stored. Ask SumUp which
+    // reference it carries — the reference IS service_calls.id.
+    const discovered = await deps.discoverCheckout(checkoutId);
+    if (!discovered.ok) {
+      log("error", `sumup-webhook: reference discovery failed for ${checkoutId}: ${discovered.error}`);
+      // Transient only — retry rather than lose a real payment.
+      return { outcome: "verification_failed", status: 502, error: discovered.error };
+    }
+
+    const reference = (discovered.reference ?? "").trim();
+    if (!reference || !isUuid(reference)) {
+      log(
+        "error",
+        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${reference || "empty"}) — ignoring`,
+      );
+      return { outcome: "no_matching_reference", status: 200 };
+    }
+
+    const candidate = await deps.loadJobById(reference);
+    if (!candidate) {
+      log("error", `sumup-webhook: checkout_reference ${reference} matches no service_call — ignoring`);
+      return { outcome: "no_matching_reference", status: 200 };
+    }
+
+    // The credentials that could read the checkout must belong to the same
+    // tenant as the job, or one tenant could confirm another's job.
+    if (
+      discovered.organisationId && candidate.organisation_id &&
+      discovered.organisationId !== candidate.organisation_id
+    ) {
+      log(
+        "error",
+        `sumup-webhook: checkout ${checkoutId} belongs to org ${discovered.organisationId} but reference ${reference} is org ${candidate.organisation_id} — refusing`,
+      );
+      return { outcome: "reference_mismatch", status: 200, jobId: candidate.id };
+    }
+
+    job = candidate;
+    backfillCheckoutId = true;
+    log("info", `sumup-webhook: matched checkout ${checkoutId} to job ${job.id} via checkout_reference`);
+  }
+
   if (!job) {
     // Loud, never silent — but 200 so SumUp stops retrying a reference we will
     // never recognise (e.g. a checkout created outside this system).
     log("error", `sumup-webhook: no service_call matches checkout ${checkoutId} — ignoring`);
     return { outcome: "no_matching_reference", status: 200 };
   }
+
 
   if (!job.organisation_id) {
     log("error", `sumup-webhook: job ${job.id} has no organisation_id — cannot verify`);
