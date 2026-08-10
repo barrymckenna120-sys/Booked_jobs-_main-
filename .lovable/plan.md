@@ -15,7 +15,13 @@
 
 ## Verification
 
-Load the Schedule page for the current KN Gas week, confirm the KN-449 card in the 9am-11am slot shows a "4" media badge, open its slot drawer and confirm the 4 thumbnails render (video thumbnails included), then check a job with no media shows no badge and no empty section. Done in the live preview with a browser check, not from a screenshot.
+Live browser check (Playwright against the running preview, not a screenshot) on the current KN Gas week, covering all three counts:
+
+- **4 items** — KN-449 (today, 9am-11am): card shows a "4" media badge; drawer renders all 4 thumbnails, video ones included.
+- **1 item** — KN-445 / KN-432 / KN-438: badge reads "1" and is not mis-pluralised or clipped; drawer renders a single thumbnail with correct layout (no stretched or half-width tile).
+- **0 items** — any job with no media: no badge, and no empty "Photos & Videos" section in the drawer.
+
+All three confirmed before reporting done.
 
 ## Technical notes
 
