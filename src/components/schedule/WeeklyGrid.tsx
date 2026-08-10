@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { format, isToday } from "date-fns";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
+import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 
