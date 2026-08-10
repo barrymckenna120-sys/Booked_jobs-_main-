@@ -4,22 +4,32 @@
  * MONEY PATH. This is what tells the system a SumUp checkout was actually paid,
  * which is what makes the payment appear on the finance/sales-ledger screens.
  *
- * Trust model — the callback body is treated as a HINT ONLY:
- *   1. The registered webhook URL carries an unguessable secret (?s=... or the
- *      x-webhook-secret header). Anything else is rejected before any I/O.
- *   2. The checkout is then re-fetched from SumUp with the OWNING ORG's own
+ * Trust model — three independent layers; the callback body is a HINT ONLY:
+ *   1. HMAC-SHA256 signature check on the raw body against the
+ *      `x-payload-signature` header (SumUp signs every webhook delivery).
+ *   2. The return_url we register per checkout carries an unguessable secret
+ *      (?s=... / x-webhook-secret), so the endpoint is not publicly callable.
+ *   3. The checkout is then re-fetched from SumUp with the OWNING ORG's own
  *      credentials, and only the status/amount/reference SumUp returns are
  *      trusted. A forged body therefore cannot mark anything paid.
+ *
+ * Every decided path answers 200 — SumUp retries up to 9 times with backoff on
+ * anything else, and a retry cannot change a decision we have already made.
+ * Only genuinely transient failures (SumUp unreachable, DB write failed) return
+ * a retryable status, and forged/unsigned callers get 401 (never acknowledged).
  *
  * The owning organisation is resolved by matching the checkout id against
  * service_calls.sumup_checkout_id (written when the checkout was created), so
  * credentials are never guessed and one tenant can never confirm another's job.
  */
 
+
 export type SumUpWebhookOutcome =
   | "not_configured"
   | "unauthorized"
+  | "invalid_signature"
   | "bad_request"
+
   | "missing_checkout_id"
   | "no_matching_reference"
   | "reference_mismatch"
@@ -56,8 +66,21 @@ export interface SumUpWebhookDeps {
   expectedSecret: string | null | undefined;
   /** Secret presented by the caller (query param or header). */
   presentedSecret: string | null | undefined;
+  /** Value of SumUp's `x-payload-signature` header, if sent. */
+  signatureHeader?: string | null;
+  /**
+   * Verifies the raw body against the signature header. When omitted the
+   * signature layer is skipped (secret + re-fetch still apply).
+   */
+  verifySignature?: (body: string, signatureHeader: string) => Promise<boolean>;
+  /**
+   * When true, a delivery with no signature header is rejected. Off by default
+   * so a SumUp API version that omits the header can't silently block payments.
+   */
+  requireSignature?: boolean;
   /** Raw request body text. */
   body: string;
+
   /** Finds the job that owns this checkout id. */
   loadJobByCheckoutId: (checkoutId: string) => Promise<SumUpWebhookJob | null>;
   /** Re-reads the checkout from SumUp using the owning org's credentials. */
@@ -105,6 +128,41 @@ function secretsMatch(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Verifies SumUp's `x-payload-signature` header: HMAC-SHA256 over the RAW
+ * request body, keyed with the webhook secret. Accepts hex or base64 digests,
+ * and tolerates a `sha256=` prefix. Never throws.
+ */
+export async function verifySumUpSignature(
+  body: string,
+  signatureHeader: string,
+  secret: string,
+): Promise<boolean> {
+  try {
+    const presented = signatureHeader.trim().replace(/^sha256=/i, "");
+    if (!presented || !secret) return false;
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const mac = new Uint8Array(
+      await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
+    );
+
+    const hex = Array.from(mac).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const b64 = btoa(String.fromCharCode(...mac));
+
+    return secretsMatch(presented.toLowerCase(), hex) || secretsMatch(presented, b64);
+  } catch (_e) {
+    return false;
+  }
+}
+
+
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
@@ -142,19 +200,36 @@ export async function handleSumUpWebhook(
     return { outcome: "unauthorized", status: 401 };
   }
 
+  // Layer 1 — SumUp's own signature over the raw body.
+  const signature = (deps.signatureHeader ?? "").trim();
+  if (deps.verifySignature) {
+    if (!signature) {
+      if (deps.requireSignature) {
+        log("error", "sumup-webhook: delivery had no x-payload-signature header");
+        return { outcome: "invalid_signature", status: 401 };
+      }
+      log("info", "sumup-webhook: no x-payload-signature header — relying on secret + re-fetch");
+    } else if (!(await deps.verifySignature(deps.body, signature))) {
+      log("error", "sumup-webhook: x-payload-signature did not verify");
+      return { outcome: "invalid_signature", status: 401 };
+    }
+  }
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(deps.body);
   } catch {
     log("error", "sumup-webhook: unparseable body", deps.body.slice(0, 300));
-    return { outcome: "bad_request", status: 400, error: "invalid_json" };
+    // 200: a retry of the same malformed body cannot succeed.
+    return { outcome: "bad_request", status: 200, error: "invalid_json" };
   }
 
   const checkoutId = extractCheckoutId(parsed);
   if (!checkoutId) {
     log("error", "sumup-webhook: no checkout id in body", deps.body.slice(0, 300));
-    return { outcome: "missing_checkout_id", status: 400 };
+    return { outcome: "missing_checkout_id", status: 200 };
   }
+
 
   const job = await deps.loadJobByCheckoutId(checkoutId);
   if (!job) {
