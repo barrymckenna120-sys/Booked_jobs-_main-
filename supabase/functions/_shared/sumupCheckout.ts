@@ -91,7 +91,10 @@ export async function createSumUpDepositCheckout(
         merchant_code: merchantCode,
         hosted_checkout: { enabled: true },
         description: args.description ?? "Deposit - Job Booking",
+        // Per-checkout webhook subscription — omitted only if not configured.
+        ...(args.returnUrl ? { return_url: args.returnUrl } : {}),
       }),
+
     });
   } catch (_e) {
     return { ok: false, error: `sumup_request_failed: ${(_e as Error).message}` };
