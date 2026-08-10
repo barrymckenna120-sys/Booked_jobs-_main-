@@ -202,19 +202,36 @@ export async function handleSumUpWebhook(
     return { outcome: "unauthorized", status: 401 };
   }
 
+  // Layer 1 — SumUp's own signature over the raw body.
+  const signature = (deps.signatureHeader ?? "").trim();
+  if (deps.verifySignature) {
+    if (!signature) {
+      if (deps.requireSignature) {
+        log("error", "sumup-webhook: delivery had no x-payload-signature header");
+        return { outcome: "invalid_signature", status: 401 };
+      }
+      log("info", "sumup-webhook: no x-payload-signature header — relying on secret + re-fetch");
+    } else if (!(await deps.verifySignature(deps.body, signature))) {
+      log("error", "sumup-webhook: x-payload-signature did not verify");
+      return { outcome: "invalid_signature", status: 401 };
+    }
+  }
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(deps.body);
   } catch {
     log("error", "sumup-webhook: unparseable body", deps.body.slice(0, 300));
-    return { outcome: "bad_request", status: 400, error: "invalid_json" };
+    // 200: a retry of the same malformed body cannot succeed.
+    return { outcome: "bad_request", status: 200, error: "invalid_json" };
   }
 
   const checkoutId = extractCheckoutId(parsed);
   if (!checkoutId) {
     log("error", "sumup-webhook: no checkout id in body", deps.body.slice(0, 300));
-    return { outcome: "missing_checkout_id", status: 400 };
+    return { outcome: "missing_checkout_id", status: 200 };
   }
+
 
   const job = await deps.loadJobByCheckoutId(checkoutId);
   if (!job) {
