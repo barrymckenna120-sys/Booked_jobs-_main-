@@ -9,8 +9,16 @@
  * thin HTTP/DB adapter.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { handleSumUpWebhook, type SumUpCheckoutView } from "../_shared/sumupWebhook.ts";
+import {
+  handleSumUpWebhook,
+  type SumUpCheckoutDiscovery,
+  type SumUpCheckoutView,
+} from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
+
+const JOB_COLUMNS =
+  "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
