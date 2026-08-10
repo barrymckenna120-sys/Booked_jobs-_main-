@@ -1,3 +1,4 @@
+import { toE164Digits } from './phone.ts';
 export async function getWhatsAppConfig(supabase: any, organisationId: string) {
   const { data, error } = await supabase
     .from('tenant_integrations')
@@ -17,10 +18,7 @@ export async function getWhatsAppConfig(supabase: any, organisationId: string) {
 }
 
 export function normalisePhone(raw: string): string {
-  const digits = String(raw).replace(/[^\d]/g, '');
-  if (digits.startsWith('353')) return digits;
-  if (digits.startsWith('0')) return '353' + digits.slice(1);
-  throw new Error(`Unrecognised phone format: "${raw}"`);
+  return toE164Digits(raw);
 }
 
 /**

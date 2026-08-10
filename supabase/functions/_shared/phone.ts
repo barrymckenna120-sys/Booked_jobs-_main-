@@ -39,3 +39,30 @@ export function samePhone(a: unknown, b: unknown): boolean {
   const kb = last9Digits(b);
   return ka !== "" && ka === kb;
 }
+
+/**
+ * Digits-only E.164 for outbound messaging APIs (360Messenger wants NO `+`).
+ *
+ * Accepts anything sensible and is explicitly NOT Irish-only — an inbound
+ * international number (e.g. a Moroccan +212…) must still be replyable:
+ *  - "+212656802656" / "212656802656" / "00212656802656" -> "212656802656"
+ *  - Irish local forms ("0871234567") get the 353 country code added.
+ * Throws only when the input cannot be a valid E.164 number (8-15 digits,
+ * leading digit 1-9).
+ */
+export function toE164Digits(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  const digits = s.replace(/\D/g, "");
+  if (!digits) throw new Error(`Unrecognised phone format: "${raw}"`);
+
+  let candidate: string;
+  if (s.startsWith("+")) candidate = digits;
+  else if (digits.startsWith("00")) candidate = digits.slice(2);
+  else if (digits.startsWith("0")) candidate = "353" + digits.slice(1);
+  else candidate = digits;
+
+  if (!/^[1-9]\d{7,14}$/.test(candidate)) {
+    throw new Error(`Unrecognised phone format: "${raw}"`);
+  }
+  return candidate;
+}
