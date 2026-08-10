@@ -192,6 +192,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                               </div>
                               <div className="flex items-center gap-1 mt-1">
                                 {jobTypeBadge(job.job_type)}
+                                {mediaBadge(job.media_count)}
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
                               {selectedEngineer === "all" && job.assigned_engineer && (
