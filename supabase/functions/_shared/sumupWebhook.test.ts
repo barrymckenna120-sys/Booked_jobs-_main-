@@ -391,3 +391,25 @@ Deno.test("fallback is optional — without the deps, behaviour is unchanged", a
   assertEquals(result.outcome, "no_matching_reference");
   assertEquals(result.status, 200);
 });
+
+Deno.test("writes revenue when the job has no total (Make-created checkout)", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: null, balance_due: null }),
+    view: { ok: true, status: "PAID", amount: 120 },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.revenue, 120);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+});
+
+Deno.test("never overwrites a known job total", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: 400, balance_due: 400 }),
+    view: { ok: true, status: "PAID", amount: 120 },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals("revenue" in h.updates[0].patch, false);
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+});
