@@ -7,6 +7,11 @@
  *  3. ["https://a.jpg", "https://b.png"]           real JSON array of strings
  *  4. [{ url: "https://a.jpg", name, mimeType }]   original Tally file objects
  *  5. { url: "https://a.jpg" }                     single Tally file object
+ *  6. [{ item: "{\"url\":\"https://a.mp4\"}" }]    Make iterator wrapper: any
+ *                                                  key, value is a JSON string
+ *
+ * A `url` key wins when present; otherwise every value of the object is
+ * searched, so wrapper keys such as Make's `item` still resolve.
  *
  * Anything that is not an http(s) URL is dropped. Duplicates are removed,
  * original order preserved.
@@ -14,7 +19,7 @@
 const URL_RE = /^https?:\/\/\S+$/i;
 
 const walk = (input: unknown, depth = 0): string[] => {
-  if (input == null || depth > 4) return [];
+  if (input == null || depth > 8) return [];
 
   if (Array.isArray(input)) {
     return input.flatMap((entry) => walk(entry, depth + 1));
@@ -22,7 +27,12 @@ const walk = (input: unknown, depth = 0): string[] => {
 
   if (typeof input === "object") {
     const url = (input as { url?: unknown }).url;
-    return typeof url === "string" ? walk(url, depth + 1) : [];
+    if (typeof url === "string") return walk(url, depth + 1);
+    // No `url` key: search every value. Covers wrapper shapes like
+    // Make's `{ item: "<json string>" }` without hard-coding key names.
+    return Object.values(input as Record<string, unknown>).flatMap((v) =>
+      walk(v, depth + 1)
+    );
   }
 
   if (typeof input !== "string") return [];
