@@ -52,6 +52,11 @@ describe("collectedAmount", () => {
     expect(collectedAmount(KN458)).toBe(120);
   });
 
+  it("recognises the webhook's 'partial' spelling as well as 'part_paid'", () => {
+    expect(isRevenueRecognised({ payment_status: "partial", status: "Pending" })).toBe(true);
+    expect(collectedAmount({ payment_status: "partial", revenue: 400, balance_due: 280 })).toBe(120);
+  });
+
   it("returns total minus balance for part payments", () => {
     expect(collectedAmount({ payment_status: "part_paid", revenue: 400, balance_due: 280 })).toBe(120);
   });
