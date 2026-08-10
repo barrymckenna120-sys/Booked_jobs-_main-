@@ -53,3 +53,43 @@ Deno.test("malformed JSON string is treated as a single URL", () => {
   // Starts with `[` but is not valid JSON; no delimiter fallback, so it is dropped.
   assertEquals(normaliseMediaUrls(`["${A}", "${B}"`), []);
 });
+
+Deno.test("6. Make iterator wrapper: array of { item: <json string> }", () => {
+  const url =
+    "https://storage.tally.so/private/12437-238795767.mp4?id=2gxJeg&accessToken=abc.def.ghi&signature=xyz";
+  const input = [{
+    item: JSON.stringify({
+      id: "2gxJeg",
+      url,
+      name: "12437-238795767.mp4",
+      size: 13497434,
+      mimeType: "video/mp4",
+    }),
+  }];
+  assertEquals(normaliseMediaUrls(input), [url]);
+});
+
+Deno.test("6b. wrapper with multiple items yields every URL, in order", () => {
+  const a = "https://storage.tally.so/private/a.mp4?token=1";
+  const b = "https://storage.tally.so/private/b.jpg?token=2";
+  const input = [
+    { item: JSON.stringify({ url: a }) },
+    { item: JSON.stringify({ url: b }) },
+  ];
+  assertEquals(normaliseMediaUrls(input), [a, b]);
+});
+
+Deno.test("6c. wrapper holding a bare URL string", () => {
+  const a = "https://storage.tally.so/private/a.mp4";
+  assertEquals(normaliseMediaUrls([{ item: a }]), [a]);
+});
+
+Deno.test("6d. url key still wins over sibling values", () => {
+  const url = "https://storage.tally.so/private/real.mp4";
+  const input = [{ url, thumbnail: "https://example.com/thumb.jpg" }];
+  assertEquals(normaliseMediaUrls(input), [url]);
+});
+
+Deno.test("6e. wrapper with no URL anywhere yields nothing", () => {
+  assertEquals(normaliseMediaUrls([{ item: JSON.stringify({ name: "a.mp4" }) }]), []);
+});
