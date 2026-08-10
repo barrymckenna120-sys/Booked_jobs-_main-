@@ -15,9 +15,32 @@ export interface SumUpDepositArgs {
   merchantCode: string;
   /** Shown on the SumUp checkout page. Defaults to a deposit label. */
   description?: string;
+  /**
+   * Webhook callback registered with THIS checkout (SumUp has no account-level
+   * webhook setting — subscription is per-checkout via return_url). Must be the
+   * secret-bearing sumup-payment-webhook URL, otherwise the payment is never
+   * confirmed back into the system. Built by buildSumUpReturnUrl().
+   */
+  returnUrl?: string;
   /** Injectable for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
+
+/**
+ * Builds the per-checkout webhook callback URL for sumup-payment-webhook.
+ * Returns null when either input is missing, so a caller can log loudly rather
+ * than silently create a checkout that can never be confirmed.
+ */
+export function buildSumUpReturnUrl(
+  supabaseUrl: string | undefined | null,
+  webhookSecret: string | undefined | null,
+): string | null {
+  const base = (supabaseUrl ?? "").trim().replace(/\/+$/, "");
+  const secret = (webhookSecret ?? "").trim();
+  if (!base || !secret) return null;
+  return `${base}/functions/v1/sumup-payment-webhook?s=${encodeURIComponent(secret)}`;
+}
+
 
 export interface SumUpDepositResult {
   ok: boolean;
