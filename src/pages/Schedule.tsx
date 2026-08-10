@@ -110,6 +110,7 @@ export type ScheduleJob = {
   extra_details?: string | null;
   created_at: string;
   job_reference?: string | null;
+  media_count?: number;
 };
 
 const Schedule = () => {
