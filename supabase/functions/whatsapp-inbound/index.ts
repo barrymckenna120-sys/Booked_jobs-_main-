@@ -187,7 +187,15 @@ Deno.serve(async (req: Request) => {
     if (intent === "stop") {
       await supabase
         .from("customers")
-        .update({ opted_out: true })
+        .update({
+          opted_out: true,
+          opted_out_date: createdAt.slice(0, 10),
+          whatsapp_opt_in: false,
+          whatsapp_reminders_enabled: false,
+          whatsapp_opt_out_at: createdAt,
+          whatsapp_opt_out_source: "inbound_stop",
+          last_reminder_response: "stop",
+        })
         .eq("id", customer.id);
 
       const branding = await getOrgBrandingClient(supabase, inboundOrgId);
