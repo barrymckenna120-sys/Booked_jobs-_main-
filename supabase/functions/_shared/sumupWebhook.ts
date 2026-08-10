@@ -313,6 +313,13 @@ export async function handleSumUpWebhook(
       payment_method: "card",
     };
 
+  // Externally created checkout: store its id so a re-delivery matches directly
+  // and hits the idempotency guard instead of discovering all over again.
+  if (backfillCheckoutId) {
+    patch.sumup_checkout_id = checkoutId;
+  }
+
+
   const ok = await deps.updateJob(job.id, patch);
   if (!ok) {
     log("error", `sumup-webhook: failed to update job ${job.id}`);
