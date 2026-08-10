@@ -9,13 +9,17 @@
  * thin HTTP/DB adapter.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { handleSumUpWebhook, type SumUpCheckoutView } from "../_shared/sumupWebhook.ts";
+import {
+  handleSumUpWebhook,
+  type SumUpCheckoutView,
+  verifySumUpSignature,
+} from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-webhook-secret",
+    "authorization, x-client-info, apikey, content-type, x-webhook-secret, x-payload-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -42,10 +46,14 @@ Deno.serve(async (req) => {
   const presentedSecret = url.searchParams.get("s") ?? req.headers.get("x-webhook-secret");
   const body = await req.text();
 
+  const webhookSecret = Deno.env.get("SUMUP_WEBHOOK_SECRET");
+
   const result = await handleSumUpWebhook({
-    expectedSecret: Deno.env.get("SUMUP_WEBHOOK_SECRET"),
+    expectedSecret: webhookSecret,
     presentedSecret,
     body,
+    signatureHeader: req.headers.get("x-payload-signature"),
+    verifySignature: (raw, header) => verifySumUpSignature(raw, header, webhookSecret ?? ""),
 
     loadJobByCheckoutId: async (checkoutId) => {
       const { data, error } = await supabase
