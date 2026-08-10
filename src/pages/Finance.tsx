@@ -530,7 +530,7 @@ const Finance = () => {
 
       {/* Content */}
       <div className="px-4 py-6 space-y-8 pb-24">
-        <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={periodJobs.length} avgJob={avgJob} completedJobs={completedJobsList} periodLabel={dateRange.label} />
+        <ThisMonth revenue={revenue} outstanding={outstanding} jobsCompleted={completedJobs.length} avgJob={avgJob} completedJobs={completedJobsList} periodLabel={dateRange.label} />
         <PaymentBreakdown jobs={jobs} dateRange={dateRange} />
         <NextMonth
           scheduledJobs={nextMonthJobs.length}
