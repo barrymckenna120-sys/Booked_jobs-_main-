@@ -81,8 +81,6 @@ export interface SumUpWebhookDeps {
   /** Raw request body text. */
   body: string;
 
-  /** Raw request body text. */
-  body: string;
   /** Finds the job that owns this checkout id. */
   loadJobByCheckoutId: (checkoutId: string) => Promise<SumUpWebhookJob | null>;
   /** Re-reads the checkout from SumUp using the owning org's credentials. */
