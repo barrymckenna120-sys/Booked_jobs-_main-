@@ -27,6 +27,18 @@ const jobTypeBadge = (type: string) => {
   }
 };
 
+const mediaBadge = (count?: number) => {
+  if (!count || count < 1) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground bg-muted rounded-full px-1.5 py-0 shrink-0"
+      title={`${count} photo${count === 1 ? "" : "s"} / video${count === 1 ? "" : "s"}`}
+    >
+      <Camera className="w-2.5 h-2.5" /> {count}
+    </span>
+  );
+};
+
 // Normalize time_block using the block map from parent
 const normalizeDash = (s: string) => s.replace(/[\u2013\u2014]/g, '-');
 const normalizeBlock = (b: string | null, bMap?: Record<string, string>) => {
