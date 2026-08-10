@@ -2,9 +2,11 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   extractCheckoutId,
   handleSumUpWebhook,
+  type SumUpCheckoutDiscovery,
   type SumUpCheckoutView,
   type SumUpWebhookJob,
 } from "./sumupWebhook.ts";
+
 
 const JOB_ID = "11111111-1111-1111-1111-111111111111";
 const ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
