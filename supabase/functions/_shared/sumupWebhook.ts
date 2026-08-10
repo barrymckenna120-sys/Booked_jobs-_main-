@@ -4,17 +4,25 @@
  * MONEY PATH. This is what tells the system a SumUp checkout was actually paid,
  * which is what makes the payment appear on the finance/sales-ledger screens.
  *
- * Trust model — the callback body is treated as a HINT ONLY:
- *   1. The registered webhook URL carries an unguessable secret (?s=... or the
- *      x-webhook-secret header). Anything else is rejected before any I/O.
- *   2. The checkout is then re-fetched from SumUp with the OWNING ORG's own
+ * Trust model — three independent layers; the callback body is a HINT ONLY:
+ *   1. HMAC-SHA256 signature check on the raw body against the
+ *      `x-payload-signature` header (SumUp signs every webhook delivery).
+ *   2. The return_url we register per checkout carries an unguessable secret
+ *      (?s=... / x-webhook-secret), so the endpoint is not publicly callable.
+ *   3. The checkout is then re-fetched from SumUp with the OWNING ORG's own
  *      credentials, and only the status/amount/reference SumUp returns are
  *      trusted. A forged body therefore cannot mark anything paid.
+ *
+ * Every decided path answers 200 — SumUp retries up to 9 times with backoff on
+ * anything else, and a retry cannot change a decision we have already made.
+ * Only genuinely transient failures (SumUp unreachable, DB write failed) return
+ * a retryable status, and forged/unsigned callers get 401 (never acknowledged).
  *
  * The owning organisation is resolved by matching the checkout id against
  * service_calls.sumup_checkout_id (written when the checkout was created), so
  * credentials are never guessed and one tenant can never confirm another's job.
  */
+
 
 export type SumUpWebhookOutcome =
   | "not_configured"
