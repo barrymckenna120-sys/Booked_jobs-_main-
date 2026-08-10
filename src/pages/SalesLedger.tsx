@@ -456,7 +456,7 @@ const SalesLedger = () => {
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-muted-foreground">{row.invoice_number || "—"}</TableCell>
-                        <TableCell>{row.completed_at ? format(new Date(row.completed_at), "dd/MM/yy") : "—"}</TableCell>
+                        <TableCell>{revenueDate(row as any) ? format(revenueDate(row as any)!, "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
                         <TableCell>{row.assigned_engineer || "—"}</TableCell>
