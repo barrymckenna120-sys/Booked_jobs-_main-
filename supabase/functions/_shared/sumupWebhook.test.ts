@@ -1,0 +1,218 @@
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  extractCheckoutId,
+  handleSumUpWebhook,
+  type SumUpCheckoutView,
+  type SumUpWebhookJob,
+} from "./sumupWebhook.ts";
+
+const JOB_ID = "11111111-1111-1111-1111-111111111111";
+const ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
+const CHECKOUT_ID = "33824b20-af8a-45d6-9e9f-a10cc40ee94c";
+
+function job(overrides: Partial<SumUpWebhookJob> = {}): SumUpWebhookJob {
+  return {
+    id: JOB_ID,
+    organisation_id: ORG_ID,
+    customer_id: "cust-1",
+    revenue: 2000,
+    balance_due: 2000,
+    deposit_paid: false,
+    payment_status: "unpaid",
+    paid_at: null,
+    ...overrides,
+  };
+}
+
+interface Harness {
+  updates: Array<{ jobId: string; patch: Record<string, unknown> }>;
+  activities: number;
+  messages: number;
+  fetches: number;
+}
+
+function run(opts: {
+  jobRow?: SumUpWebhookJob | null;
+  view?: SumUpCheckoutView;
+  body?: string;
+  presentedSecret?: string | null;
+  expectedSecret?: string | null;
+  updateOk?: boolean;
+}) {
+  const h: Harness = { updates: [], activities: 0, messages: 0, fetches: 0 };
+  const result = handleSumUpWebhook({
+    expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
+    presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
+    body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
+    loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
+    fetchCheckout: () => {
+      h.fetches++;
+      return Promise.resolve(
+        opts.view ?? {
+          ok: true,
+          status: "PAID",
+          amount: 2000,
+          checkoutReference: JOB_ID,
+        },
+      );
+    },
+    updateJob: (jobId, patch) => {
+      h.updates.push({ jobId, patch });
+      return Promise.resolve(opts.updateOk !== false);
+    },
+    logActivity: () => {
+      h.activities++;
+      return Promise.resolve();
+    },
+    logMessage: () => {
+      h.messages++;
+      return Promise.resolve();
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  return { h, result };
+}
+
+Deno.test("full payment marks the job paid, sets paid_at and zeroes the balance", async () => {
+  const { h, result: p } = run({});
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+});
+
+Deno.test("deposit payment sets partial + deposit_paid and leaves paid_at unset", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.updates[0].patch.balance_due, 1000);
+  assertEquals("paid_at" in h.updates[0].patch, false);
+  assertEquals(h.activities, 1);
+});
+
+Deno.test("failed/expired checkout writes no payment state", async () => {
+  for (const status of ["FAILED", "EXPIRED", "PENDING"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 2000, checkoutReference: JOB_ID },
+    });
+    const result = await p;
+    assertEquals(result.outcome, "not_paid");
+    assertEquals(result.status, 200);
+    assertEquals(h.updates.length, 0);
+    assertEquals(h.activities, 0);
+  }
+});
+
+Deno.test("unknown checkout reference writes nothing and is reported, not silent", async () => {
+  const { h, result: p } = run({ jobRow: null });
+  const result = await p;
+  assertEquals(result.outcome, "no_matching_reference");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.fetches, 0);
+});
+
+Deno.test("duplicate delivery of the same paid event is a no-op", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T08:00:00.000Z", deposit_paid: true }),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+});
+
+Deno.test("duplicate deposit delivery does not double-log", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true }),
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.activities, 0);
+});
+
+Deno.test("a deposit-paid job can still be settled in full later", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, balance_due: 1000 }),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+});
+
+Deno.test("missing or wrong secret is rejected before any lookup or SumUp call", async () => {
+  for (const presented of [null, "", "wrong-token", "s3cret-toke"]) {
+    const { h, result: p } = run({ presentedSecret: presented });
+    const result = await p;
+    assertEquals(result.outcome, "unauthorized");
+    assertEquals(result.status, 401);
+    assertEquals(h.fetches, 0);
+    assertEquals(h.updates.length, 0);
+  }
+});
+
+Deno.test("unconfigured server secret fails closed", async () => {
+  const { result: p } = run({ expectedSecret: "" });
+  const result = await p;
+  assertEquals(result.outcome, "not_configured");
+  assertEquals(result.status, 500);
+});
+
+Deno.test("forged body claiming payment is rejected by the SumUp re-fetch", async () => {
+  const { h, result: p } = run({
+    body: JSON.stringify({ id: CHECKOUT_ID, status: "PAID", amount: 999999 }),
+    view: { ok: true, status: "PENDING", amount: 0, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("reference belonging to another job is refused", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "PAID", amount: 2000, checkoutReference: "some-other-job" },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "reference_mismatch");
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("SumUp verification failure is retryable and writes nothing", async () => {
+  const { h, result: p } = run({ view: { ok: false, error: "sumup_http_503" } });
+  const result = await p;
+  assertEquals(result.outcome, "verification_failed");
+  assertEquals(result.status, 502);
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("unparseable body returns 400", async () => {
+  const { result: p } = run({ body: "{not json" });
+  assertEquals((await p).outcome, "bad_request");
+});
+
+Deno.test("missing checkout id returns 400", async () => {
+  const { result: p } = run({ body: JSON.stringify({ event_type: "X" }) });
+  assertEquals((await p).outcome, "missing_checkout_id");
+});
+
+Deno.test("extractCheckoutId handles SumUp's body shapes", () => {
+  assertEquals(extractCheckoutId({ id: "a" }), "a");
+  assertEquals(extractCheckoutId({ checkout_id: "b" }), "b");
+  assertEquals(extractCheckoutId({ payload: { id: "c" } }), "c");
+  assertEquals(extractCheckoutId({ resource_id: "d" }), "d");
+  assertEquals(extractCheckoutId({}), null);
+  assertEquals(extractCheckoutId(null), null);
+});
