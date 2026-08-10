@@ -323,21 +323,16 @@ function OutstandingPayments({ invoices }: { invoices: { name: string; amount: n
 
 // ── Payment Method Breakdown ──
 function PaymentBreakdown({ jobs, dateRange }: { jobs: any[]; dateRange: { start: Date; end: Date; label: string } }) {
-  const periodJobs = useMemo(() =>
-    jobs.filter(j => {
-      if (!j.payment_method) return false;
-      const dateSource = (j.payment_status === "paid" ? (j.completed_at ?? j.scheduled_date) : j.scheduled_date);
-      if (!dateSource) return false;
-      const d = j.payment_status === "paid" && j.completed_at
-        ? new Date(j.completed_at)
-        : new Date(dateSource + "T00:00:00");
-      return d >= dateRange.start && d <= dateRange.end && j.status === "Completed";
-    }), [jobs, dateRange]);
+  const periodJobs = useMemo(
+    () => paidJobsInPeriod(jobs, dateRange.start, dateRange.end).filter(j => j.payment_method),
+    [jobs, dateRange],
+  );
 
-  const sum = (arr: any[]) => arr.reduce((s, r) => s + (r.revenue || 0), 0);
+  const sum = (arr: any[]) => arr.reduce((s, r) => s + collectedAmount(r), 0);
   const cash = periodJobs.filter(j => j.payment_method === "cash");
   const card = periodJobs.filter(j => j.payment_method === "card");
   const invoice = periodJobs.filter(j => j.payment_method === "invoice");
+
 
   const methods = [
     { label: "Cash", icon: Banknote, count: cash.length, total: sum(cash), color: "text-emerald-600", bg: "bg-emerald-500/10", border: "border-l-emerald-500" },
