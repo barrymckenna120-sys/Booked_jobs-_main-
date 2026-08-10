@@ -4,6 +4,8 @@ import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/share
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
+import { paidJobsInPeriod, completedJobsInPeriod, collectedAmount, outstandingTotal, completionDate, isoDay } from "@/lib/financeMetrics";
+
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
