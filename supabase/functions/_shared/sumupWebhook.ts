@@ -27,7 +27,9 @@
 export type SumUpWebhookOutcome =
   | "not_configured"
   | "unauthorized"
+  | "invalid_signature"
   | "bad_request"
+
   | "missing_checkout_id"
   | "no_matching_reference"
   | "reference_mismatch"
