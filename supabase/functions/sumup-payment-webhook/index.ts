@@ -46,6 +46,54 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  const loadOrgApiKey = async (organisationId: string): Promise<string | null> => {
+    const creds = await resolveSumUpCredentials({
+      organisationId,
+      loadConfig: async (orgId) => {
+        const { data, error } = await supabase
+          .from("tenant_integrations")
+          .select("config")
+          .eq("organisation_id", orgId)
+          .eq("integration_type", "sumup")
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        const cfg = data?.config;
+        return cfg && typeof cfg === "object" ? (cfg as Record<string, unknown>) : null;
+      },
+    });
+    if (!creds.ok || !creds.credentials) {
+      console.error(
+        `sumup-payment-webhook: credentials unavailable for org ${organisationId}: ${creds.error ?? "unknown"}`,
+      );
+      return null;
+    }
+    return creds.credentials.apiKey;
+  };
+
+  /** Raw GET of a checkout. http === 0 means the request never completed. */
+  const getCheckout = async (
+    checkoutId: string,
+    apiKey: string,
+  ): Promise<{ http: number; data: any; error?: string }> => {
+    let res: Response;
+    try {
+      res = await fetch(`https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(checkoutId)}`, {
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      });
+    } catch (_e) {
+      return { http: 0, data: null, error: `sumup_request_failed: ${(_e as Error).message}` };
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      return { http: res.status, data: null, error: `sumup_http_${res.status}: ${text.slice(0, 200)}` };
+    }
+    try {
+      return { http: res.status, data: JSON.parse(text) };
+    } catch {
+      return { http: res.status, data: null, error: "sumup_unparseable_response" };
+    }
+  };
+
   const url = new URL(req.url);
   const presentedSecret = url.searchParams.get("s") ?? req.headers.get("x-webhook-secret");
   const body = await req.text();
@@ -58,9 +106,7 @@ Deno.serve(async (req) => {
     loadJobByCheckoutId: async (checkoutId) => {
       const { data, error } = await supabase
         .from("service_calls")
-        .select(
-          "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at",
-        )
+        .select(JOB_COLUMNS)
         .eq("sumup_checkout_id", checkoutId)
         .maybeSingle();
       if (error) {
@@ -70,62 +116,86 @@ Deno.serve(async (req) => {
       return data ?? null;
     },
 
+    // Fallback lookup by SumUp's checkout_reference (= service_calls.id), for
+    // checkouts created outside this system that never stored their id.
+    loadJobById: async (jobId) => {
+      const { data, error } = await supabase
+        .from("service_calls")
+        .select(JOB_COLUMNS)
+        .eq("id", jobId)
+        .maybeSingle();
+      if (error) {
+        console.error("sumup-payment-webhook: job lookup by id failed", error.message);
+        return null;
+      }
+      return data ?? null;
+    },
+
+    /**
+     * Asks each SumUp-enabled tenant's own credentials which reference this
+     * checkout carries. A tenant can only read its own checkouts, so the org
+     * that succeeds is the owning org — the handler then cross-checks it against
+     * the referenced job before writing anything.
+     */
+    discoverCheckout: async (checkoutId): Promise<SumUpCheckoutDiscovery> => {
+      const { data, error } = await supabase
+        .from("tenant_integrations")
+        .select("organisation_id")
+        .eq("integration_type", "sumup")
+        .eq("is_active", true);
+
+      if (error) {
+        return { ok: false, error: `tenant_lookup_failed: ${error.message}` };
+      }
+
+      const orgIds = (data ?? [])
+        .map((row: { organisation_id: string | null }) => row.organisation_id)
+        .filter((id): id is string => !!id);
+
+      let transient: string | null = null;
+
+      for (const orgId of orgIds) {
+        const apiKey = await loadOrgApiKey(orgId);
+        if (!apiKey) continue;
+
+        const res = await getCheckout(checkoutId, apiKey);
+        if (res.data) {
+          return {
+            ok: true,
+            reference: res.data.checkout_reference ?? null,
+            organisationId: orgId,
+          };
+        }
+        // 0 = network failure, 5xx = SumUp trouble → worth a retry.
+        // 401/403/404 = this tenant simply does not own the checkout.
+        if (res.http === 0 || res.http >= 500) transient = res.error ?? `sumup_http_${res.http}`;
+      }
+
+      if (transient) return { ok: false, error: transient };
+      // Decided: no tenant here owns this checkout.
+      return { ok: true, reference: null, organisationId: null };
+    },
+
     // Authoritative re-read using the OWNING organisation's own credentials.
     fetchCheckout: async (checkoutId, organisationId): Promise<SumUpCheckoutView> => {
-      const creds = await resolveSumUpCredentials({
-        organisationId,
-        loadConfig: async (orgId) => {
-          const { data, error } = await supabase
-            .from("tenant_integrations")
-            .select("config")
-            .eq("organisation_id", orgId)
-            .eq("integration_type", "sumup")
-            .maybeSingle();
-          if (error) throw new Error(error.message);
-          const cfg = data?.config;
-          return cfg && typeof cfg === "object" ? (cfg as Record<string, unknown>) : null;
-        },
-      });
+      const apiKey = await loadOrgApiKey(organisationId);
+      if (!apiKey) return { ok: false, error: "credentials_unavailable" };
 
-      if (!creds.ok || !creds.credentials) {
-        return { ok: false, error: creds.error ?? "credentials_unavailable" };
-      }
-
-      let res: Response;
-      try {
-        res = await fetch(`https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(checkoutId)}`, {
-          headers: {
-            Authorization: `Bearer ${creds.credentials.apiKey}`,
-            "Content-Type": "application/json",
-          },
-        });
-      } catch (_e) {
-        return { ok: false, error: `sumup_request_failed: ${(_e as Error).message}` };
-      }
-
-      const text = await res.text();
-      if (!res.ok) {
-        return { ok: false, error: `sumup_http_${res.status}: ${text.slice(0, 200)}` };
-      }
-
-      let data: any;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        return { ok: false, error: "sumup_unparseable_response" };
-      }
+      const res = await getCheckout(checkoutId, apiKey);
+      if (!res.data) return { ok: false, error: res.error ?? "sumup_no_data" };
 
       // A paid checkout carries a successful transaction; prefer its amount.
-      const txn = Array.isArray(data?.transactions) ? data.transactions[0] : null;
-      const amount = Number(txn?.amount ?? data?.amount ?? 0);
+      const txn = Array.isArray(res.data?.transactions) ? res.data.transactions[0] : null;
+      const amount = Number(txn?.amount ?? res.data?.amount ?? 0);
 
       return {
         ok: true,
-        status: String(data?.status ?? ""),
+        status: String(res.data?.status ?? ""),
         amount: Number.isFinite(amount) ? amount : 0,
-        checkoutReference: data?.checkout_reference ?? null,
+        checkoutReference: res.data?.checkout_reference ?? null,
       };
     },
+
 
     updateJob: async (jobId, patch) => {
       const { error } = await supabase.from("service_calls").update(patch).eq("id", jobId);
