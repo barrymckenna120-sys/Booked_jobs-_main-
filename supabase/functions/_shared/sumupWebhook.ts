@@ -63,6 +63,21 @@ export interface SumUpCheckoutView {
   error?: string;
 }
 
+/**
+ * Result of the reference-discovery pass used when a checkout id matches no job
+ * (i.e. the checkout was created outside this system, so sumup_checkout_id was
+ * never written back). ok:false means TRANSIENT (SumUp unreachable / 5xx) and is
+ * retryable; ok:true with a null reference means "no account here owns this
+ * checkout" and is a decision, not a failure.
+ */
+export interface SumUpCheckoutDiscovery {
+  ok: boolean;
+  reference?: string | null;
+  /** Organisation whose credentials could read the checkout. */
+  organisationId?: string | null;
+  error?: string;
+}
+
 export interface SumUpWebhookDeps {
   /** Secret configured for this endpoint; missing = misconfigured server. */
   expectedSecret: string | null | undefined;
@@ -73,6 +88,10 @@ export interface SumUpWebhookDeps {
 
   /** Finds the job that owns this checkout id. */
   loadJobByCheckoutId: (checkoutId: string) => Promise<SumUpWebhookJob | null>;
+  /** Fallback lookup by service_calls.id (SumUp's checkout_reference). */
+  loadJobById?: (jobId: string) => Promise<SumUpWebhookJob | null>;
+  /** Fallback: asks SumUp which reference this checkout carries, and whose it is. */
+  discoverCheckout?: (checkoutId: string) => Promise<SumUpCheckoutDiscovery>;
   /** Re-reads the checkout from SumUp using the owning org's credentials. */
   fetchCheckout: (checkoutId: string, organisationId: string) => Promise<SumUpCheckoutView>;
   /** Applies the payment patch. Returns false on failure. */
@@ -97,6 +116,7 @@ export interface SumUpWebhookDeps {
   now?: () => Date;
   log?: (level: "info" | "error", message: string, detail?: unknown) => void;
 }
+
 
 export interface SumUpWebhookResult {
   outcome: SumUpWebhookOutcome;
