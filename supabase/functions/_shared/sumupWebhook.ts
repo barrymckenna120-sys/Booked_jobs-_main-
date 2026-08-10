@@ -313,6 +313,14 @@ export async function handleSumUpWebhook(
       payment_method: "card",
     };
 
+  // Externally created checkouts (Make Scenario 5) never write a job total, which
+  // would leave the payment invisible to Finance. Treat the paid amount as the
+  // total so revenue is reported; a known total is never overwritten.
+  if (revenue <= 0 && amount > 0) {
+    patch.revenue = amount;
+  }
+
+
   // Externally created checkout: store its id so a re-delivery matches directly
   // and hits the idempotency guard instead of discovering all over again.
   if (backfillCheckoutId) {
