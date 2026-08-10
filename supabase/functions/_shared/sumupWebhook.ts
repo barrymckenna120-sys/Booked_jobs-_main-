@@ -63,6 +63,21 @@ export interface SumUpCheckoutView {
   error?: string;
 }
 
+/**
+ * Result of the reference-discovery pass used when a checkout id matches no job
+ * (i.e. the checkout was created outside this system, so sumup_checkout_id was
+ * never written back). ok:false means TRANSIENT (SumUp unreachable / 5xx) and is
+ * retryable; ok:true with a null reference means "no account here owns this
+ * checkout" and is a decision, not a failure.
+ */
+export interface SumUpCheckoutDiscovery {
+  ok: boolean;
+  reference?: string | null;
+  /** Organisation whose credentials could read the checkout. */
+  organisationId?: string | null;
+  error?: string;
+}
+
 export interface SumUpWebhookDeps {
   /** Secret configured for this endpoint; missing = misconfigured server. */
   expectedSecret: string | null | undefined;
@@ -73,6 +88,10 @@ export interface SumUpWebhookDeps {
 
   /** Finds the job that owns this checkout id. */
   loadJobByCheckoutId: (checkoutId: string) => Promise<SumUpWebhookJob | null>;
+  /** Fallback lookup by service_calls.id (SumUp's checkout_reference). */
+  loadJobById?: (jobId: string) => Promise<SumUpWebhookJob | null>;
+  /** Fallback: asks SumUp which reference this checkout carries, and whose it is. */
+  discoverCheckout?: (checkoutId: string) => Promise<SumUpCheckoutDiscovery>;
   /** Re-reads the checkout from SumUp using the owning org's credentials. */
   fetchCheckout: (checkoutId: string, organisationId: string) => Promise<SumUpCheckoutView>;
   /** Applies the payment patch. Returns false on failure. */
@@ -98,6 +117,7 @@ export interface SumUpWebhookDeps {
   log?: (level: "info" | "error", message: string, detail?: unknown) => void;
 }
 
+
 export interface SumUpWebhookResult {
   outcome: SumUpWebhookOutcome;
   /** HTTP status the endpoint should return. */
@@ -117,6 +137,18 @@ function secretsMatch(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * service_calls.id is a uuid, so anything else in checkout_reference cannot be
+ * one of our jobs. Checked before any DB lookup — a checkout created by another
+ * SumUp integration must never reach the database layer.
+ */
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
@@ -170,14 +202,62 @@ export async function handleSumUpWebhook(
     return { outcome: "missing_checkout_id", status: 200 };
   }
 
+  let job = await deps.loadJobByCheckoutId(checkoutId);
+  // True when the job was found via checkout_reference rather than by stored id,
+  // so the id gets written back and any re-delivery matches directly.
+  let backfillCheckoutId = false;
 
-  const job = await deps.loadJobByCheckoutId(checkoutId);
+  if (!job && deps.discoverCheckout && deps.loadJobById) {
+    // The checkout was created outside this system (e.g. Make calls SumUp's API
+    // directly), so sumup_checkout_id was never stored. Ask SumUp which
+    // reference it carries — the reference IS service_calls.id.
+    const discovered = await deps.discoverCheckout(checkoutId);
+    if (!discovered.ok) {
+      log("error", `sumup-webhook: reference discovery failed for ${checkoutId}: ${discovered.error}`);
+      // Transient only — retry rather than lose a real payment.
+      return { outcome: "verification_failed", status: 502, error: discovered.error };
+    }
+
+    const reference = (discovered.reference ?? "").trim();
+    if (!reference || !isUuid(reference)) {
+      log(
+        "error",
+        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${reference || "empty"}) — ignoring`,
+      );
+      return { outcome: "no_matching_reference", status: 200 };
+    }
+
+    const candidate = await deps.loadJobById(reference);
+    if (!candidate) {
+      log("error", `sumup-webhook: checkout_reference ${reference} matches no service_call — ignoring`);
+      return { outcome: "no_matching_reference", status: 200 };
+    }
+
+    // The credentials that could read the checkout must belong to the same
+    // tenant as the job, or one tenant could confirm another's job.
+    if (
+      discovered.organisationId && candidate.organisation_id &&
+      discovered.organisationId !== candidate.organisation_id
+    ) {
+      log(
+        "error",
+        `sumup-webhook: checkout ${checkoutId} belongs to org ${discovered.organisationId} but reference ${reference} is org ${candidate.organisation_id} — refusing`,
+      );
+      return { outcome: "reference_mismatch", status: 200, jobId: candidate.id };
+    }
+
+    job = candidate;
+    backfillCheckoutId = true;
+    log("info", `sumup-webhook: matched checkout ${checkoutId} to job ${job.id} via checkout_reference`);
+  }
+
   if (!job) {
     // Loud, never silent — but 200 so SumUp stops retrying a reference we will
     // never recognise (e.g. a checkout created outside this system).
     log("error", `sumup-webhook: no service_call matches checkout ${checkoutId} — ignoring`);
     return { outcome: "no_matching_reference", status: 200 };
   }
+
 
   if (!job.organisation_id) {
     log("error", `sumup-webhook: job ${job.id} has no organisation_id — cannot verify`);
@@ -232,6 +312,13 @@ export async function handleSumUpWebhook(
       balance_due: revenue > 0 ? Math.max(0, revenue - amount) : job.balance_due ?? null,
       payment_method: "card",
     };
+
+  // Externally created checkout: store its id so a re-delivery matches directly
+  // and hits the idempotency guard instead of discovering all over again.
+  if (backfillCheckoutId) {
+    patch.sumup_checkout_id = checkoutId;
+  }
+
 
   const ok = await deps.updateJob(job.id, patch);
   if (!ok) {
