@@ -1,4 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  paidJobsInPeriod,
+  collectedAmount,
+  revenueDate,
+  type FinanceJob,
+} from "../_shared/financeMetrics.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,13 +91,14 @@ Deno.serve(async (req) => {
       throw new Error("Accountant email not configured in settings. Go to Settings → Finance & Reporting to add it.");
     }
 
+    // Sales ledger is a cash-basis report: it follows the payment, not the job
+    // status, using the same helpers as the Finance screen. Jobs can be paid
+    // before/without ever being marked Completed (e.g. SumUp checkouts), so
+    // fetch on paid_at OR completed_at and filter with isRevenueRecognised().
     let query = supabase
       .from("service_calls")
-      .select("id, receipt_number, invoice_number, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, customers(name)")
-      .eq("status", "Completed")
-      .gte("completed_at", start)
-      .lte("completed_at", end)
-      .order("completed_at", { ascending: true });
+      .select("id, receipt_number, invoice_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, customers(name)")
+      .or(`and(paid_at.gte.${start},paid_at.lte.${end}),and(completed_at.gte.${start},completed_at.lte.${end})`);
 
     if (body.organisation_id) {
       query = query.eq("organisation_id", body.organisation_id);
@@ -98,21 +106,26 @@ Deno.serve(async (req) => {
 
     const { data: rows, error } = await query;
     if (error) throw error;
-    const jobs = rows || [];
+
+    const periodStart = new Date(start.length === 10 ? start + "T00:00:00" : start);
+    const periodEnd = new Date(end);
+    const jobs = paidJobsInPeriod((rows || []) as FinanceJob[], periodStart, periodEnd)
+      .sort((a, b) => (revenueDate(a)?.getTime() || 0) - (revenueDate(b)?.getTime() || 0));
 
     // Build row data
     let totalRev = 0, totalNet = 0, totalVat = 0;
     const mapped = jobs.map((r: any) => {
-      const rev = r.revenue || 0;
+      const rev = collectedAmount(r);
       const net = Math.round((rev / 1.135) * 100) / 100;
       const vat = Math.round((rev - net) * 100) / 100;
       totalRev += rev;
       totalNet += net;
       totalVat += vat;
+      const rowDate = revenueDate(r);
       return {
         receipt: r.receipt_number || "",
         invoice: r.invoice_number || "",
-        date: r.completed_at ? fmtDate(r.completed_at) : "",
+        date: rowDate ? fmtDate(rowDate.toISOString()) : "",
         customer: r.customers?.name || "Unknown",
         jobType: r.job_type,
         engineer: r.assigned_engineer || "",
@@ -121,6 +134,7 @@ Deno.serve(async (req) => {
         rev, net, vat,
       };
     });
+
     totalRev = Math.round(totalRev * 100) / 100;
     totalNet = Math.round(totalNet * 100) / 100;
     totalVat = Math.round(totalVat * 100) / 100;
