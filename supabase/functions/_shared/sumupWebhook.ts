@@ -4,19 +4,21 @@
  * MONEY PATH. This is what tells the system a SumUp checkout was actually paid,
  * which is what makes the payment appear on the finance/sales-ledger screens.
  *
- * Trust model — three independent layers; the callback body is a HINT ONLY:
- *   1. HMAC-SHA256 signature check on the raw body against the
- *      `x-payload-signature` header (SumUp signs every webhook delivery).
- *   2. The return_url we register per checkout carries an unguessable secret
+ * Trust model — the callback body is a HINT ONLY. SumUp's checkout webhook is
+ * unsigned (there is no signature header; the payload is just
+ * {event_type, id}), and SumUp's docs name re-fetching the checkout from their
+ * API as THE verification method — not a backup layer. So:
+ *   1. The return_url we register per checkout carries an unguessable secret
  *      (?s=... / x-webhook-secret), so the endpoint is not publicly callable.
- *   3. The checkout is then re-fetched from SumUp with the OWNING ORG's own
+ *   2. The checkout is then re-fetched from SumUp with the OWNING ORG's own
  *      credentials, and only the status/amount/reference SumUp returns are
  *      trusted. A forged body therefore cannot mark anything paid.
  *
- * Every decided path answers 200 — SumUp retries up to 9 times with backoff on
- * anything else, and a retry cannot change a decision we have already made.
- * Only genuinely transient failures (SumUp unreachable, DB write failed) return
- * a retryable status, and forged/unsigned callers get 401 (never acknowledged).
+ * Every decided path answers 200 — SumUp retries on anything else (fixed
+ * schedule: 1 min, 5 min, 20 min, 2 hours; 4 attempts total), and a retry
+ * cannot change a decision we have already made. Only genuinely transient
+ * failures (SumUp unreachable, DB write failed) return a retryable status, and
+ * callers with a bad secret get 401 (never acknowledged).
  *
  * The owning organisation is resolved by matching the checkout id against
  * service_calls.sumup_checkout_id (written when the checkout was created), so
@@ -27,8 +29,8 @@
 export type SumUpWebhookOutcome =
   | "not_configured"
   | "unauthorized"
-  | "invalid_signature"
   | "bad_request"
+
 
   | "missing_checkout_id"
   | "no_matching_reference"
