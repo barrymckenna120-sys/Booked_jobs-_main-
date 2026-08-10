@@ -29,6 +29,8 @@ interface Harness {
   activities: number;
   messages: number;
   fetches: number;
+  discoveries: number;
+  loadedById: string[];
 }
 
 function run(opts: {
@@ -38,13 +40,34 @@ function run(opts: {
   presentedSecret?: string | null;
   expectedSecret?: string | null;
   updateOk?: boolean;
+  /** Result of the checkout_reference discovery pass (Make-created checkouts). */
+  discovery?: SumUpCheckoutDiscovery;
+  /** Job returned by the id (checkout_reference) lookup. */
+  jobById?: SumUpWebhookJob | null;
 }) {
-  const h: Harness = { updates: [], activities: 0, messages: 0, fetches: 0 };
+  const h: Harness = {
+    updates: [],
+    activities: 0,
+    messages: 0,
+    fetches: 0,
+    discoveries: 0,
+    loadedById: [],
+  };
   const result = handleSumUpWebhook({
     expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
     presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
     body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
     loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
+    loadJobById: (jobId) => {
+      h.loadedById.push(jobId);
+      return Promise.resolve(opts.jobById ?? null);
+    },
+    discoverCheckout: () => {
+      h.discoveries++;
+      return Promise.resolve(
+        opts.discovery ?? { ok: true, reference: null, organisationId: null },
+      );
+    },
     fetchCheckout: () => {
       h.fetches++;
       return Promise.resolve(
@@ -72,6 +95,7 @@ function run(opts: {
   });
   return { h, result };
 }
+
 
 Deno.test("full payment marks the job paid, sets paid_at and zeroes the balance", async () => {
   const { h, result: p } = run({});
