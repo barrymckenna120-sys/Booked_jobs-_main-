@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CalendarDays, Clock, X, ArrowUpDown } from "lucide-react";
+import { CalendarDays, Clock, X, ArrowUpDown, Camera } from "lucide-react";
 import { format, isToday, differenceInHours } from "date-fns";
 
 type Props = {
