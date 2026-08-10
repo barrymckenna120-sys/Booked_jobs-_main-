@@ -2,7 +2,6 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   extractCheckoutId,
   handleSumUpWebhook,
-  verifySumUpSignature,
   type SumUpCheckoutView,
   type SumUpWebhookJob,
 } from "./sumupWebhook.ts";
@@ -39,18 +38,12 @@ function run(opts: {
   presentedSecret?: string | null;
   expectedSecret?: string | null;
   updateOk?: boolean;
-  signatureHeader?: string | null;
-  verifySignature?: (body: string, header: string) => Promise<boolean>;
-  requireSignature?: boolean;
 }) {
   const h: Harness = { updates: [], activities: 0, messages: 0, fetches: 0 };
   const result = handleSumUpWebhook({
     expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
     presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
     body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
-    signatureHeader: opts.signatureHeader,
-    verifySignature: opts.verifySignature,
-    requireSignature: opts.requireSignature,
     loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
     fetchCheckout: () => {
       h.fetches++;
@@ -228,67 +221,7 @@ Deno.test("extractCheckoutId handles SumUp's body shapes", () => {
   assertEquals(extractCheckoutId(null), null);
 });
 
-Deno.test("a bad x-payload-signature is rejected before any lookup", async () => {
-  const { h, result: p } = run({
-    signatureHeader: "deadbeef",
-    verifySignature: () => Promise.resolve(false),
-  });
-  const result = await p;
-  assertEquals(result.outcome, "invalid_signature");
-  assertEquals(result.status, 401);
-  assertEquals(h.fetches, 0);
-  assertEquals(h.updates.length, 0);
-});
-
-Deno.test("a valid x-payload-signature still goes through the re-fetch layer", async () => {
-  const { h, result: p } = run({
-    signatureHeader: "goodsig",
-    verifySignature: () => Promise.resolve(true),
-  });
-  const result = await p;
-  assertEquals(result.outcome, "paid");
-  assertEquals(h.fetches, 1);
-});
-
-Deno.test("missing signature header is allowed by default, rejected when required", async () => {
-  const lenient = await run({ verifySignature: () => Promise.resolve(true) }).result;
-  assertEquals(lenient.outcome, "paid");
-
-  const strict = await run({
-    verifySignature: () => Promise.resolve(true),
-    requireSignature: true,
-  }).result;
-  assertEquals(strict.outcome, "invalid_signature");
-  assertEquals(strict.status, 401);
-});
-
-Deno.test("verifySumUpSignature accepts SumUp's HMAC-SHA256 digest (hex and base64)", async () => {
-  const secret = "whsec-test";
-  const body = JSON.stringify({ id: CHECKOUT_ID, status: "PAID" });
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const mac = new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
-  );
-  const hex = Array.from(mac).map((b) => b.toString(16).padStart(2, "0")).join("");
-  const b64 = btoa(String.fromCharCode(...mac));
-
-  assertEquals(await verifySumUpSignature(body, hex, secret), true);
-  assertEquals(await verifySumUpSignature(body, `sha256=${hex}`, secret), true);
-  assertEquals(await verifySumUpSignature(body, b64, secret), true);
-  // Tampered body must not verify against the original signature.
-  assertEquals(await verifySumUpSignature(body + " ", hex, secret), false);
-  assertEquals(await verifySumUpSignature(body, hex, "wrong-secret"), false);
-  assertEquals(await verifySumUpSignature(body, "", secret), false);
-});
-
-Deno.test("every decided path answers 200 so SumUp does not retry 9 times", async () => {
+Deno.test("every decided path answers 200 so SumUp does not retry (1m/5m/20m/2h)", async () => {
   const cases = [
     await run({ jobRow: null }).result,
     await run({ view: { ok: true, status: "PAID", amount: 2000, checkoutReference: "other" } }).result,

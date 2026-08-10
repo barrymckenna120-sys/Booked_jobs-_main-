@@ -9,17 +9,13 @@
  * thin HTTP/DB adapter.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
-import {
-  handleSumUpWebhook,
-  type SumUpCheckoutView,
-  verifySumUpSignature,
-} from "../_shared/sumupWebhook.ts";
+import { handleSumUpWebhook, type SumUpCheckoutView } from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-webhook-secret, x-payload-signature",
+    "authorization, x-client-info, apikey, content-type, x-webhook-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -46,22 +42,10 @@ Deno.serve(async (req) => {
   const presentedSecret = url.searchParams.get("s") ?? req.headers.get("x-webhook-secret");
   const body = await req.text();
 
-  const webhookSecret = Deno.env.get("SUMUP_WEBHOOK_SECRET");
-  // SumUp signs deliveries with the signing key from ITS side, which is a
-  // different value from the URL secret we mint ourselves. Only enforce the
-  // signature layer once that key is configured — otherwise a genuine SumUp
-  // callback would be rejected against the wrong key and payments would stall.
-  const signingKey = Deno.env.get("SUMUP_SIGNING_KEY");
-
   const result = await handleSumUpWebhook({
-    expectedSecret: webhookSecret,
+    expectedSecret: Deno.env.get("SUMUP_WEBHOOK_SECRET"),
     presentedSecret,
     body,
-    signatureHeader: req.headers.get("x-payload-signature"),
-    verifySignature: signingKey
-      ? (raw, header) => verifySumUpSignature(raw, header, signingKey)
-      : undefined,
-    requireSignature: !!signingKey,
 
     loadJobByCheckoutId: async (checkoutId) => {
       const { data, error } = await supabase

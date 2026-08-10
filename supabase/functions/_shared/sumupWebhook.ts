@@ -68,18 +68,6 @@ export interface SumUpWebhookDeps {
   expectedSecret: string | null | undefined;
   /** Secret presented by the caller (query param or header). */
   presentedSecret: string | null | undefined;
-  /** Value of SumUp's `x-payload-signature` header, if sent. */
-  signatureHeader?: string | null;
-  /**
-   * Verifies the raw body against the signature header. When omitted the
-   * signature layer is skipped (secret + re-fetch still apply).
-   */
-  verifySignature?: (body: string, signatureHeader: string) => Promise<boolean>;
-  /**
-   * When true, a delivery with no signature header is rejected. Off by default
-   * so a SumUp API version that omits the header can't silently block payments.
-   */
-  requireSignature?: boolean;
   /** Raw request body text. */
   body: string;
 
@@ -130,41 +118,6 @@ function secretsMatch(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/**
- * Verifies SumUp's `x-payload-signature` header: HMAC-SHA256 over the RAW
- * request body, keyed with the webhook secret. Accepts hex or base64 digests,
- * and tolerates a `sha256=` prefix. Never throws.
- */
-export async function verifySumUpSignature(
-  body: string,
-  signatureHeader: string,
-  secret: string,
-): Promise<boolean> {
-  try {
-    const presented = signatureHeader.trim().replace(/^sha256=/i, "");
-    if (!presented || !secret) return false;
-
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(secret),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"],
-    );
-    const mac = new Uint8Array(
-      await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
-    );
-
-    const hex = Array.from(mac).map((b) => b.toString(16).padStart(2, "0")).join("");
-    const b64 = btoa(String.fromCharCode(...mac));
-
-    return secretsMatch(presented.toLowerCase(), hex) || secretsMatch(presented, b64);
-  } catch (_e) {
-    return false;
-  }
-}
-
-
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
@@ -200,21 +153,6 @@ export async function handleSumUpWebhook(
   if (!presented || !secretsMatch(presented, expected)) {
     log("error", "sumup-webhook: rejected callback with missing/invalid secret");
     return { outcome: "unauthorized", status: 401 };
-  }
-
-  // Layer 1 — SumUp's own signature over the raw body.
-  const signature = (deps.signatureHeader ?? "").trim();
-  if (deps.verifySignature) {
-    if (!signature) {
-      if (deps.requireSignature) {
-        log("error", "sumup-webhook: delivery had no x-payload-signature header");
-        return { outcome: "invalid_signature", status: 401 };
-      }
-      log("info", "sumup-webhook: no x-payload-signature header — relying on secret + re-fetch");
-    } else if (!(await deps.verifySignature(deps.body, signature))) {
-      log("error", "sumup-webhook: x-payload-signature did not verify");
-      return { outcome: "invalid_signature", status: 401 };
-    }
   }
 
   let parsed: unknown;
