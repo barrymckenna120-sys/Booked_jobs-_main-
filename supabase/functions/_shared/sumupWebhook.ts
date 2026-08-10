@@ -66,6 +66,21 @@ export interface SumUpWebhookDeps {
   expectedSecret: string | null | undefined;
   /** Secret presented by the caller (query param or header). */
   presentedSecret: string | null | undefined;
+  /** Value of SumUp's `x-payload-signature` header, if sent. */
+  signatureHeader?: string | null;
+  /**
+   * Verifies the raw body against the signature header. When omitted the
+   * signature layer is skipped (secret + re-fetch still apply).
+   */
+  verifySignature?: (body: string, signatureHeader: string) => Promise<boolean>;
+  /**
+   * When true, a delivery with no signature header is rejected. Off by default
+   * so a SumUp API version that omits the header can't silently block payments.
+   */
+  requireSignature?: boolean;
+  /** Raw request body text. */
+  body: string;
+
   /** Raw request body text. */
   body: string;
   /** Finds the job that owns this checkout id. */
