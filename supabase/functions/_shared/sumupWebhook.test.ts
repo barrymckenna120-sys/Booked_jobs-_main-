@@ -205,14 +205,14 @@ Deno.test("SumUp verification failure is retryable and writes nothing", async ()
   assertEquals(h.updates.length, 0);
 });
 
-Deno.test("unparseable body returns 400", async () => {
+Deno.test("unparseable body is acknowledged with 200, not retried", async () => {
   const { result: p } = run({ body: "{not json" });
   const badRequest = await p;
   assertEquals(badRequest.outcome, "bad_request");
   assertEquals(badRequest.status, 200);
 });
 
-Deno.test("missing checkout id returns 400", async () => {
+Deno.test("missing checkout id is acknowledged with 200, not retried", async () => {
   const { result: p } = run({ body: JSON.stringify({ event_type: "X" }) });
   const missing = await p;
   assertEquals(missing.outcome, "missing_checkout_id");
