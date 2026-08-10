@@ -206,7 +206,7 @@ const SalesLedger = () => {
       return [
         r.receipt_number || "",
         r.invoice_number || "",
-        r.completed_at ? format(new Date(r.completed_at), "dd/MM/yy") : "",
+        revenueDate(r as any) ? format(revenueDate(r as any)!, "dd/MM/yy") : "",
         r.customer_name, r.job_type, r.assigned_engineer || "",
         r.payment_method || "", badgeConfig[badge].label,
         rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
