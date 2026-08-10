@@ -130,6 +130,41 @@ function secretsMatch(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Verifies SumUp's `x-payload-signature` header: HMAC-SHA256 over the RAW
+ * request body, keyed with the webhook secret. Accepts hex or base64 digests,
+ * and tolerates a `sha256=` prefix. Never throws.
+ */
+export async function verifySumUpSignature(
+  body: string,
+  signatureHeader: string,
+  secret: string,
+): Promise<boolean> {
+  try {
+    const presented = signatureHeader.trim().replace(/^sha256=/i, "");
+    if (!presented || !secret) return false;
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const mac = new Uint8Array(
+      await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
+    );
+
+    const hex = Array.from(mac).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const b64 = btoa(String.fromCharCode(...mac));
+
+    return secretsMatch(presented.toLowerCase(), hex) || secretsMatch(presented, b64);
+  } catch (_e) {
+    return false;
+  }
+}
+
+
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
