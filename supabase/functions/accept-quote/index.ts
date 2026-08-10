@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
-import { createSumUpDepositCheckout } from "../_shared/sumupCheckout.ts";
+import { buildSumUpReturnUrl, createSumUpDepositCheckout } from "../_shared/sumupCheckout.ts";
 import { resolveSumUpCredentials, makeRestSumUpConfigLoader } from "../_shared/sumupCredentials.ts";
 
 const corsHeaders = {
@@ -265,11 +265,24 @@ async function sendDepositPaymentWhatsApp(
       return;
     }
 
+    // Per-checkout webhook subscription: SumUp has no account-level webhook
+    // setting, so the confirmation URL must ride on every checkout we create.
+    const returnUrl = buildSumUpReturnUrl(
+      Deno.env.get("SUPABASE_URL"),
+      Deno.env.get("SUMUP_WEBHOOK_SECRET"),
+    );
+    if (!returnUrl) {
+      console.error(
+        "SUMUP_WEBHOOK_SECRET missing — creating checkout WITHOUT a confirmation webhook; payment will not auto-confirm",
+      );
+    }
+
     const checkout = await createSumUpDepositCheckout({
       amount: depositAmount,
       serviceCallId,
       apiKey: credsResult.credentials.apiKey,
       merchantCode: credsResult.credentials.merchantCode,
+      returnUrl: returnUrl ?? undefined,
     });
 
     if (!checkout.ok || !checkout.url) {

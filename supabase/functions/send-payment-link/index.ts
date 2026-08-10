@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
-import { createSumUpDepositCheckout } from "../_shared/sumupCheckout.ts";
+import { buildSumUpReturnUrl, createSumUpDepositCheckout } from "../_shared/sumupCheckout.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,12 +90,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Per-checkout webhook subscription (SumUp has no account-level setting).
+    const returnUrl = buildSumUpReturnUrl(
+      Deno.env.get("SUPABASE_URL"),
+      Deno.env.get("SUMUP_WEBHOOK_SECRET"),
+    );
+    if (!returnUrl) {
+      console.error(
+        "SUMUP_WEBHOOK_SECRET missing — creating checkout WITHOUT a confirmation webhook; payment will not auto-confirm",
+      );
+    }
+
     const checkout = await createSumUpDepositCheckout({
       amount: balanceDue,
       serviceCallId: service_call_id,
       apiKey: credsResult.credentials.apiKey,
       merchantCode: credsResult.credentials.merchantCode,
       description: `Invoice ${job.invoice_number || service_call_id} - balance due`,
+      returnUrl: returnUrl ?? undefined,
     });
 
     if (!checkout.ok || !checkout.url) {
