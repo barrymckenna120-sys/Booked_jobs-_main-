@@ -101,3 +101,47 @@ describe("outstandingTotal", () => {
     expect(outstandingTotal(jobs)).toBe(480);
   });
 });
+
+describe("dashboard cards use the same basis as Finance (regression)", () => {
+  // Dashboard showed €25 (KN-449 only) while Finance showed €385, because the
+  // cards filtered on status = Completed and scheduled_date.
+  const dayStart = new Date("2026-08-10T00:00:00");
+  const dayEnd = new Date("2026-08-10T23:59:59");
+
+  it("counts a payment taken today on a job scheduled for another day", () => {
+    const job = {
+      id: "kn458",
+      status: "Pending",
+      payment_status: "paid",
+      payment_method: "card",
+      revenue: 120,
+      balance_due: 0,
+      paid_at: "2026-08-10T12:16:18+00:00",
+      scheduled_date: "2026-08-13",
+    };
+    expect(paidJobsInPeriod([job], dayStart, dayEnd)).toHaveLength(1);
+    expect(periodRevenue([job], dayStart, dayEnd)).toBe(120);
+    // ...and it is not a completed job
+    expect(completedJobsInPeriod([job], dayStart, dayEnd)).toHaveLength(0);
+  });
+
+  it("excludes a job scheduled today that has not been paid", () => {
+    const job = { id: "x", status: "Pending", payment_status: "unpaid", revenue: 300, scheduled_date: "2026-08-10" };
+    expect(paidJobsInPeriod([job], dayStart, dayEnd)).toHaveLength(0);
+    expect(periodRevenue([job], dayStart, dayEnd)).toBe(0);
+  });
+
+  it("splits collected amounts by payment method for the period", () => {
+    const jobs = [
+      { id: "a", status: "Completed", payment_status: "paid", payment_method: "cash", revenue: 200, paid_at: "2026-08-10T09:00:00+00:00" },
+      { id: "b", status: "Pending", payment_status: "paid", payment_method: "card", revenue: 120, paid_at: "2026-08-10T12:16:18+00:00" },
+      { id: "c", status: "Pending", payment_status: "part_paid", payment_method: "card", revenue: 400, balance_due: 280, paid_at: "2026-08-10T13:00:00+00:00" },
+    ];
+    const paid = paidJobsInPeriod(jobs, dayStart, dayEnd);
+    const sumBy = (m: string) =>
+      paid.filter(j => j.payment_method === m).reduce((s, j) => s + collectedAmount(j), 0);
+    expect(sumBy("cash")).toBe(200);
+    expect(sumBy("card")).toBe(240);
+    expect(periodRevenue(jobs, dayStart, dayEnd)).toBe(440);
+  });
+});

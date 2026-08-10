@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
+import { paidJobsInPeriod, collectedAmount, revenueDate } from "@/lib/financeMetrics";
+
 
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,13 +118,12 @@ const SalesLedger = () => {
 
     supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .select("id, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
       .eq("organisation_id", orgId)
-      .eq("status", "Completed")
-
-      .gte("completed_at", startStr)
-      .lte("completed_at", endStr + "T23:59:59")
-      .order("completed_at", { ascending: false })
+      .or(
+        `and(paid_at.gte.${startStr}T00:00:00,paid_at.lte.${endStr}T23:59:59),` +
+        `and(completed_at.gte.${startStr}T00:00:00,completed_at.lte.${endStr}T23:59:59)`,
+      )
       .then(({ data: rows, error }) => {
         if (error) {
           console.error("SalesLedger query failed:", error);
@@ -130,8 +131,13 @@ const SalesLedger = () => {
           return;
         }
         if (rows) {
+          // Cash basis, same helpers as Finance: the ledger lists money taken,
+          // whatever the job status (SumUp payments land on Pending jobs).
+          const paid = paidJobsInPeriod(rows as any, new Date(startStr + "T00:00:00"), new Date(endStr + "T23:59:59")).sort(
+            (a, b) => (revenueDate(b)?.getTime() || 0) - (revenueDate(a)?.getTime() || 0),
+          );
           setData(
-            rows.map((r: any) => ({
+            paid.map((r: any) => ({
               id: r.id,
               receipt_number: r.receipt_number,
               paid_at: r.paid_at,
@@ -140,7 +146,7 @@ const SalesLedger = () => {
               assigned_engineer: r.assigned_engineer,
               payment_method: r.payment_method,
               payment_status: r.payment_status,
-              revenue: r.revenue,
+              revenue: collectedAmount(r),
               balance_due: r.balance_due,
               deposit_paid: r.deposit_paid,
               deposit_amount: r.deposit_amount,
@@ -151,6 +157,7 @@ const SalesLedger = () => {
         }
         setLoading(false);
       });
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, orgId, start.getTime(), end.getTime()]);
 
@@ -199,7 +206,7 @@ const SalesLedger = () => {
       return [
         r.receipt_number || "",
         r.invoice_number || "",
-        r.completed_at ? format(new Date(r.completed_at), "dd/MM/yy") : "",
+        revenueDate(r as any) ? format(revenueDate(r as any)!, "dd/MM/yy") : "",
         r.customer_name, r.job_type, r.assigned_engineer || "",
         r.payment_method || "", badgeConfig[badge].label,
         rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
@@ -234,25 +241,29 @@ const SalesLedger = () => {
     const endStr = format(customEnd, "yyyy-MM-dd");
     const { data: rows } = await supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .select("id, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
       .eq("organisation_id", orgId)
-      .eq("status", "Completed")
-
-      .gte("completed_at", startStr)
-      .lte("completed_at", endStr + "T23:59:59")
-      .order("completed_at", { ascending: false });
+      .or(
+        `and(paid_at.gte.${startStr}T00:00:00,paid_at.lte.${endStr}T23:59:59),` +
+        `and(completed_at.gte.${startStr}T00:00:00,completed_at.lte.${endStr}T23:59:59)`,
+      );
     setCustomExporting(false);
     if (!rows || rows.length === 0) return;
-    const mapped = rows.map((r: any) => ({
+    const paid = paidJobsInPeriod(rows as any, new Date(startStr + "T00:00:00"), new Date(endStr + "T23:59:59")).sort(
+      (a, b) => (revenueDate(b)?.getTime() || 0) - (revenueDate(a)?.getTime() || 0),
+    );
+    if (paid.length === 0) return;
+    const mapped = paid.map((r: any) => ({
       id: r.id, receipt_number: r.receipt_number, paid_at: r.paid_at,
       completed_at: r.completed_at,
       job_type: r.job_type, assigned_engineer: r.assigned_engineer,
       payment_method: r.payment_method, payment_status: r.payment_status,
-      revenue: r.revenue, balance_due: r.balance_due,
+      revenue: collectedAmount(r), balance_due: r.balance_due,
       deposit_paid: r.deposit_paid, deposit_amount: r.deposit_amount,
       customer_name: r.customers?.name || "Unknown",
       invoice_number: r.invoice_number,
     }));
+
     downloadCsv(buildCsvContent(mapped), `sales-ledger-${startStr}-to-${endStr}.csv`);
   };
 
@@ -445,7 +456,7 @@ const SalesLedger = () => {
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-muted-foreground">{row.invoice_number || "—"}</TableCell>
-                        <TableCell>{row.completed_at ? format(new Date(row.completed_at), "dd/MM/yy") : "—"}</TableCell>
+                        <TableCell>{revenueDate(row as any) ? format(revenueDate(row as any)!, "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
                         <TableCell>{row.assigned_engineer || "—"}</TableCell>

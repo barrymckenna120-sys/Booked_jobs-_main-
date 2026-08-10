@@ -1,13 +1,23 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Banknote, CreditCard, FileText, Loader2, TrendingUp } from "lucide-react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import { fetchFinanceJobs, type DashboardJob } from "@/lib/financeJobs";
+import {
+  paidJobsInPeriod,
+  completedJobsInPeriod,
+  collectedAmount,
+} from "@/lib/financeMetrics";
 
 type Period = "today" | "week";
+
+const num = (v: unknown) => {
+  const n = typeof v === "string" ? parseFloat(v) : (v as number);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const PaymentSummaryCard = () => {
   const { user } = useAuth();
@@ -21,40 +31,47 @@ const PaymentSummaryCard = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-payment-summary", user?.id, todayStr],
     queryFn: async () => {
-      const [todayRes, weekRes] = await Promise.all([
-        supabase
-          .from("service_calls")
-          .select("payment_method, revenue")
-          .eq("scheduled_date", todayStr)
-          .eq("status", "Completed")
-          .not("payment_method", "is", null),
-        supabase
-          .from("service_calls")
-          .select("payment_method, revenue")
-          .gte("scheduled_date", weekStart)
-          .lte("scheduled_date", weekEnd)
-          .eq("status", "Completed")
-          .not("payment_method", "is", null),
-      ]);
+      // The week window contains today, so one fetch serves both periods.
+      const jobs = await fetchFinanceJobs(
+        weekStart < todayStr ? weekStart : todayStr,
+        weekEnd > todayStr ? weekEnd : todayStr,
+      );
 
-      const summarize = (rows: any[]) => {
-        const cash = rows.filter((r) => r.payment_method === "cash");
-        const card = rows.filter((r) => r.payment_method === "card");
-        const invoice = rows.filter((r) => r.payment_method === "invoice");
-        const sum = (arr: any[]) => arr.reduce((s, r) => s + (r.revenue || 0), 0);
+      const summarize = (startStr: string, endStr: string) => {
+        const start = new Date(startStr + "T00:00:00");
+        const end = new Date(endStr + "T23:59:59");
+
+        const paid = paidJobsInPeriod(jobs, start, end) as DashboardJob[];
+        const sum = (arr: DashboardJob[]) => arr.reduce((s, j) => s + collectedAmount(j), 0);
+
+        const cash = paid.filter((j) => j.payment_method === "cash");
+        const card = paid.filter((j) => j.payment_method === "card");
+
+        // Invoiced but not settled — money still to come in, not money taken.
+        const invoice = [...paid, ...(completedJobsInPeriod(jobs, start, end) as DashboardJob[])]
+          .filter((j, i, arr) => arr.findIndex((x) => x.id === j.id) === i)
+          .filter(
+            (j) =>
+              j.payment_method === "invoice" &&
+              (j.payment_status || "").toLowerCase() !== "paid",
+          );
+
         return {
           cashCount: cash.length,
           cashTotal: sum(cash),
           cardCount: card.length,
           cardTotal: sum(card),
           invoiceCount: invoice.length,
-          invoiceTotal: sum(invoice),
+          invoiceTotal: invoice.reduce(
+            (s, j) => s + (num(j.balance_due) > 0 ? num(j.balance_due) : num(j.revenue)),
+            0,
+          ),
         };
       };
 
       return {
-        today: summarize(todayRes.data || []),
-        week: summarize(weekRes.data || []),
+        today: summarize(todayStr, todayStr),
+        week: summarize(weekStart, weekEnd),
       };
     },
     enabled: !!user,
