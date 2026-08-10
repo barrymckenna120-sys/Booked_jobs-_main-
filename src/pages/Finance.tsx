@@ -421,32 +421,23 @@ const Finance = () => {
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-  // Date-filtered stats
-  const periodJobs = useMemo(() =>
-    jobs.filter(j => {
-      const dateSource = j.payment_status === "paid" ? (j.completed_at ?? j.scheduled_date) : j.scheduled_date;
-      if (!dateSource) return false;
-      const d = j.payment_status === "paid" && j.completed_at
-        ? new Date(j.completed_at)
-        : new Date(dateSource + "T00:00:00");
-      return d >= dateRange.start && d <= dateRange.end && j.status === "Completed";
-    }), [jobs, dateRange]);
+  // Revenue basis: jobs where money was actually taken (payment_status), dated by payment.
+  const paidJobs = useMemo(() => paidJobsInPeriod(jobs, dateRange.start, dateRange.end), [jobs, dateRange]);
+  // Delivery basis: jobs marked Completed — a separate metric from revenue.
+  const completedJobs = useMemo(() => completedJobsInPeriod(jobs, dateRange.start, dateRange.end), [jobs, dateRange]);
 
-  const revenue = useMemo(() => periodJobs.reduce((s, j) => s + (j.revenue || 0), 0), [periodJobs]);
-  const outstanding = useMemo(() => {
-    return jobs
-      .filter(j => j.payment_status !== "paid" && j.status !== "Cancelled" && j.completed_at)
-      .reduce((s, j) => s + (j.balance_due || 0), 0);
-  }, [jobs]);
-  const avgJob = periodJobs.length > 0 ? Math.round(revenue / periodJobs.length) : 0;
+  const revenue = useMemo(() => paidJobs.reduce((s, j) => s + collectedAmount(j), 0), [paidJobs]);
+  const outstanding = useMemo(() => outstandingTotal(jobs), [jobs]);
+  const avgJob = paidJobs.length > 0 ? Math.round(revenue / paidJobs.length) : 0;
   const completedJobsList = useMemo(() =>
-    periodJobs.map(j => ({
+    completedJobs.map(j => ({
       name: j.customers?.name || "Unknown",
-      value: j.revenue || 0,
+      value: collectedAmount(j),
       type: j.job_type || "Service",
-      date: j.scheduled_date || "",
+      date: isoDay(completionDate(j)),
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-  [periodJobs]);
+  [completedJobs]);
+
 
   // Next month forecast
   const nextMonthJobs = useMemo(() =>
