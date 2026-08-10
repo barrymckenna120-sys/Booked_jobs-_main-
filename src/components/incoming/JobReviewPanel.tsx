@@ -78,7 +78,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
 
   useEffect(() => {
     if (user) {
-      supabase.from("engineers").select("*").eq("user_id", user.id).eq("status", "active").eq("is_available", true)
+      supabase.from("engineers").select("*").eq("status", "active").eq("is_available", true).order("name")
         .then(({ data }) => setEngineers(data || []));
     }
   }, [user]);
