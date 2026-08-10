@@ -70,7 +70,7 @@ const ScheduleIncomingJobModal = ({ open, onOpenChange, jobId, customerName, onS
       const { data } = await supabase
         .from("engineers")
         .select("id, name, status")
-        .eq("user_id", user.id)
+        .eq("status", "active")
         .eq("status", "active")
         .order("name");
       return (data || []) as { id: string; name: string; status: string }[];
