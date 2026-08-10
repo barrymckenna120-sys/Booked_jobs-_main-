@@ -138,6 +138,18 @@ function secretsMatch(a: string, b: string): boolean {
   return diff === 0;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * service_calls.id is a uuid, so anything else in checkout_reference cannot be
+ * one of our jobs. Checked before any DB lookup — a checkout created by another
+ * SumUp integration must never reach the database layer.
+ */
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
