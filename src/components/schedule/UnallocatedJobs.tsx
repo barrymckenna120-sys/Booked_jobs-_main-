@@ -144,6 +144,14 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
                 <span className="text-xs font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                 {jobTypeBadge(job.job_type)}
                 {urgencyBadge(job.job_type)}
+                {(job.media_count ?? 0) > 0 && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground bg-muted rounded-full px-1.5 py-0 shrink-0"
+                    title={`${job.media_count} photo${job.media_count === 1 ? "" : "s"} / video${job.media_count === 1 ? "" : "s"}`}
+                  >
+                    <Camera className="w-2.5 h-2.5" /> {job.media_count}
+                  </span>
+                )}
                 {isNew(job.created_at) && (
                   <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/20 text-[10px]">New</Badge>
                 )}
