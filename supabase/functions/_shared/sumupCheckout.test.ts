@@ -1,5 +1,9 @@
 import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { createSumUpDepositCheckout, SUMUP_CHECKOUTS_URL } from "./sumupCheckout.ts";
+import {
+  buildSumUpReturnUrl,
+  createSumUpDepositCheckout,
+  SUMUP_CHECKOUTS_URL,
+} from "./sumupCheckout.ts";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -159,4 +163,52 @@ Deno.test("guards: zero/negative amount, missing reference, missing credentials 
   assertEquals(noKey.error, "missing_sumup_credentials");
   assertEquals(noMerchant.error, "missing_sumup_credentials");
   assertEquals(calls, 0);
+});
+
+Deno.test("registers the webhook callback as return_url on every checkout", async () => {
+  let captured: RequestInit | null = null;
+  const fetchImpl = ((_url: string, init: RequestInit) => {
+    captured = init;
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({ id: "chk_1", hosted_checkout_url: "https://checkout.sumup.com/pay/x" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+  }) as unknown as typeof fetch;
+
+  await createSumUpDepositCheckout({
+    amount: 50,
+    serviceCallId: "job-1",
+    apiKey: "k",
+    merchantCode: "M",
+    returnUrl: "https://example.supabase.co/functions/v1/sumup-payment-webhook?s=abc",
+    fetchImpl,
+  });
+
+  const body = JSON.parse(captured!.body as string);
+  assertEquals(
+    body.return_url,
+    "https://example.supabase.co/functions/v1/sumup-payment-webhook?s=abc",
+  );
+
+  // Without a configured secret the field is omitted rather than sent empty.
+  await createSumUpDepositCheckout({
+    amount: 50,
+    serviceCallId: "job-1",
+    apiKey: "k",
+    merchantCode: "M",
+    fetchImpl,
+  });
+  assertEquals("return_url" in JSON.parse(captured!.body as string), false);
+});
+
+Deno.test("buildSumUpReturnUrl builds a secret-bearing URL, or null when unconfigured", () => {
+  assertEquals(
+    buildSumUpReturnUrl("https://proj.supabase.co/", "s e c/ret"),
+    "https://proj.supabase.co/functions/v1/sumup-payment-webhook?s=s%20e%20c%2Fret",
+  );
+  assertEquals(buildSumUpReturnUrl("https://proj.supabase.co", ""), null);
+  assertEquals(buildSumUpReturnUrl("", "secret"), null);
+  assertEquals(buildSumUpReturnUrl(undefined, undefined), null);
 });
