@@ -110,6 +110,7 @@ export type ScheduleJob = {
   extra_details?: string | null;
   created_at: string;
   job_reference?: string | null;
+  media_count?: number;
 };
 
 const Schedule = () => {
@@ -173,7 +174,22 @@ const Schedule = () => {
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
-      return (scheduledJobs || []).map((j: any) => ({
+      const rows = scheduledJobs || [];
+
+      // Media counts for the visible jobs (single query, keeps card render cheap)
+      const mediaCounts: Record<string, number> = {};
+      const jobIds = rows.map((j: any) => j.id);
+      if (jobIds.length > 0) {
+        const { data: mediaRows } = await supabase
+          .from("job_media")
+          .select("job_id")
+          .in("job_id", jobIds);
+        (mediaRows || []).forEach((m: any) => {
+          if (m.job_id) mediaCounts[m.job_id] = (mediaCounts[m.job_id] || 0) + 1;
+        });
+      }
+
+      return rows.map((j: any) => ({
         id: j.id,
         customer_id: j.customer_id,
         customer_name: j.customers?.name || "Unknown",
@@ -206,6 +222,7 @@ const Schedule = () => {
         extra_details: j.extra_details || null,
         created_at: j.created_at,
         job_reference: j.job_reference || null,
+        media_count: mediaCounts[j.id] || 0,
       })) as ScheduleJob[];
     },
     enabled: !!user && ready,
