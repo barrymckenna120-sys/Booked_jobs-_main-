@@ -19,9 +19,11 @@ No job selected
 - Manual optional inputs: customer name, address, eircode, phone. `boiler_brand_model` left blank, `service_call_id` stays null.
 
 Assign to engineer (optional)
-- Reuses the existing engineer list query used elsewhere for assignment (`engineers` where `status = 'active'`, ordered by name), reading `auth_user_id` — which is the same auth user id stored in `profiles.user_id`.
-- Selected engineer's `auth_user_id` is written to `assigned_engineer_id`. Blank leaves the request unassigned (visible to office, absent from any engineer's My Parts list).
-- Engineers with no linked auth account are shown as disabled, since they have no `profiles.user_id` to assign to.
+- Reuses the existing engineer list query used elsewhere for assignment (`engineers` where `status = 'active'`, ordered by name), reading `auth_user_id`.
+- Verified by direct query, not assumed: every active engineer with a populated `auth_user_id` has a matching `profiles.user_id` (`matches = true`) — **except one**: `engineers.id 5473f748-dd80-4a11-8f03-bfb5c2faa02e` ("nicole  enginner", officeapp@gmail.com, org `8c37827f`), which has `auth_user_id b646f6de-843e-4d3f-ab1d-245573f38d94` but no `profiles` row at all. Reported for a source-data fix; not silently ignored.
+- Because `assigned_engineer_id` is FK'd to `profiles(user_id)`, the picker resolves its options by joining `engineers` to `profiles` on `auth_user_id = profiles.user_id` and only offers engineers with a real profile row. This makes an FK failure structurally impossible while that one record stays inconsistent, and it needs no schema or policy change.
+- Engineers with no auth account (A. Kelly, barry manager, C. O'Connor, Mary Byrne — invited, never signed up) and the inconsistent record are shown greyed out with "no app account", so office can see why they aren't assignable rather than wondering where they went.
+- Selected engineer's `auth_user_id` (= their `profiles.user_id`) is written to `assigned_engineer_id`. Blank leaves the request unassigned (visible to office, absent from any engineer's My Parts list).
 
 Part fields
 - `description` (required, submit blocked while empty), `quantity` (default 1, min 1), `priority` select with lowercase values `urgent` / `normal` / `low` (default `normal`), `notes` (optional).
@@ -38,6 +40,6 @@ One `parts_requests` row:
 
 ## Verification (run after building, output pasted back)
 
-1. Create three orders through the UI: one with a job linked, one manual-entry with no job, one assigned to a test engineer.
+1. Create three orders through the UI: one with a job linked, one manual-entry with no job, one assigned to the test engineer **Karl** (`engineers.id 55b9ba7b-4cfe-4f4f-8edb-7cc78e14dd2e`, `auth_user_id` / `profiles.user_id` `57ebf8de-b2d3-44bc-90b0-071d750a3f46`, `profiles.role = engineer`) — confirmed `matches = true`, so the FK holds and My Parts' `assigned_engineer_id = auth.uid()` will match.
 2. Query those rows showing `service_call_id`, customer snapshot fields, `assigned_engineer_id`, `engineer_id`, `created_by`, `logged_by`, `status`, `organisation_id`.
 3. Delete the three test rows, then re-count `parts_requests` to show the pre-existing rows are untouched.
