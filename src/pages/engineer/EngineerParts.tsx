@@ -74,7 +74,7 @@ const EngineerParts = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
 
   return (
     <>
@@ -99,8 +99,11 @@ const EngineerParts = () => {
             <PartRequestCard
               key={row.id}
               row={row}
+              userId={user?.id ?? null}
+              onCancelled={() => setReloadKey((k) => k + 1)}
               jobReference={row.service_call_id ? jobRefs[row.service_call_id] ?? null : null}
             />
+
           ))}
         </div>
       )}
