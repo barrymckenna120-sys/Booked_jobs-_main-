@@ -313,6 +313,7 @@ const Jobs = () => {
             <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${borderClass}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
+                <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
                   <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
