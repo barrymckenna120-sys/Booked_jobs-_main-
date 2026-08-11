@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 

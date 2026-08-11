@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { evaluateOptOut } from "../_shared/optOut.ts";
 
