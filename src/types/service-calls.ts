@@ -58,6 +58,4 @@ export const SERVICE_CALL_BASE_SELECT = [
   "tally_submission_id",
   "created_at",
   "updated_at",
-  "parts_status",
-  "parts_notes",
 ].join(", ");

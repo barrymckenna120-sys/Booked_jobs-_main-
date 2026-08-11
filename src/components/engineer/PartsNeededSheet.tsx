@@ -2,11 +2,10 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Wrench, Loader2, X } from "lucide-react";
+import { Wrench, Loader2, X, Plus, Trash2 } from "lucide-react";
+import type { PartLineInput, PartPriority } from "@/lib/partsRequests";
 
-type Priority = "urgent" | "normal" | "low";
-
-const PRIORITIES: { value: Priority; label: string; emoji: string; border: string; text: string; bg: string }[] = [
+const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: string; text: string; bg: string }[] = [
   { value: "urgent", label: "Urgent", emoji: "🔴", border: "border-[#DC2626]", text: "text-[#DC2626]", bg: "bg-[#DC2626] text-white border-[#DC2626]" },
   { value: "normal", label: "Normal", emoji: "🟡", border: "border-[#D97706]", text: "text-[#D97706]", bg: "bg-[#D97706] text-white border-[#D97706]" },
   { value: "low",    label: "Low",    emoji: "🟢", border: "border-[#16A34A]", text: "text-[#16A34A]", bg: "bg-[#16A34A] text-white border-[#16A34A]" },
@@ -15,37 +14,49 @@ const PRIORITIES: { value: Priority; label: string; emoji: string; border: strin
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (notes: string, priority: Priority) => void;
+  onConfirm: (lines: PartLineInput[]) => void;
   loading?: boolean;
 }
 
+const emptyLine = (): PartLineInput => ({ description: "", priority: "normal" });
+
 const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
-  const [notes, setNotes] = useState("");
-  const [priority, setPriority] = useState<Priority>("normal");
+  const [lines, setLines] = useState<PartLineInput[]>([emptyLine()]);
 
   if (!open) return null;
+
+  const reset = () => setLines([emptyLine()]);
+
+  const updateLine = (index: number, patch: Partial<PartLineInput>) => {
+    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  };
+
+  const addLine = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setLines((prev) => [...prev, emptyLine()]);
+  };
+
+  const removeLine = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setLines((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
+  };
+
+  const validLines = lines.filter((l) => l.description.trim().length > 0);
 
   const handleConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    onConfirm(notes, priority);
-    setNotes("");
-    setPriority("normal");
+    if (validLines.length === 0) return;
+    onConfirm(validLines.map((l) => ({ ...l, description: l.description.trim() })));
+    reset();
   };
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    setNotes("");
-    setPriority("normal");
-    onClose();
-  };
-
-  const handleBackdrop = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setNotes("");
-    setPriority("normal");
+    reset();
     onClose();
   };
 
@@ -53,11 +64,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
       style={{ pointerEvents: "all" }}
-      onClick={handleBackdrop}
+      onClick={handleCancel}
       onTouchEnd={(e) => e.stopPropagation()}
     >
       <div
-        className="relative bg-background border rounded-2xl max-w-[92vw] sm:max-w-md w-full p-6 shadow-lg"
+        className="relative bg-background border rounded-2xl max-w-[92vw] sm:max-w-md w-full p-6 shadow-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
       >
@@ -73,43 +84,62 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
             <Wrench className="w-5 h-5 text-amber-500" /> Parts Needed
           </h2>
           <p className="text-sm text-muted-foreground pt-1">
-            What parts are required for this job?
+            Add each part on its own line — office can order them separately.
           </p>
         </div>
-        <div className="space-y-4 pt-4">
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Thermocouple, pilot jet, flue seal..."
-            className="min-h-[110px]"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            data-form-type="other"
-          />
 
-          {/* Priority selector */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Priority</p>
-            <div className="flex gap-2">
-              {PRIORITIES.map((p) => {
-                const isSelected = priority === p.value;
-                return (
+        <div className="space-y-4 pt-4">
+          {lines.map((line, index) => (
+            <div key={index} className="rounded-xl border p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground">Part {index + 1}</p>
+                {lines.length > 1 && (
                   <button
-                    key={p.value}
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setPriority(p.value); }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-full border-2 px-3 py-2 text-xs font-semibold transition-all ${
-                      isSelected ? p.bg : `${p.border} ${p.text} bg-transparent`
-                    }`}
+                    className="text-muted-foreground hover:text-destructive p-1 -m-1"
+                    aria-label={`Remove part ${index + 1}`}
+                    onClick={(e) => removeLine(e, index)}
                   >
-                    <span>{p.emoji}</span> {p.label}
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                );
-              })}
+                )}
+              </div>
+
+              <Textarea
+                value={line.description}
+                onChange={(e) => updateLine(index, { description: e.target.value })}
+                placeholder="e.g. Thermocouple"
+                className="min-h-[70px]"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-form-type="other"
+              />
+
+              <div className="flex gap-2">
+                {PRIORITIES.map((p) => {
+                  const isSelected = line.priority === p.value;
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); updateLine(index, { priority: p.value }); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 rounded-full border-2 px-2 py-1.5 text-xs font-semibold transition-all ${
+                        isSelected ? p.bg : `${p.border} ${p.text} bg-transparent`
+                      }`}
+                    >
+                      <span>{p.emoji}</span> {p.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ))}
+
+          <Button type="button" variant="outline" className="w-full gap-1.5" onClick={addLine}>
+            <Plus className="w-4 h-4" /> Add another part
+          </Button>
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
@@ -119,10 +149,10 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
               type="button"
               className="flex-1 bg-amber-500 hover:bg-amber-500/90 text-white"
               onClick={handleConfirm}
-              disabled={loading || !notes.trim()}
+              disabled={loading || validLines.length === 0}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-              Confirm
+              Confirm{validLines.length > 1 ? ` (${validLines.length})` : ""}
             </Button>
           </div>
         </div>

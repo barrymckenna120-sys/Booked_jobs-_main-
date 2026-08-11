@@ -1821,6 +1821,104 @@ export type Database = {
         }
         Relationships: []
       }
+      parts_requests: {
+        Row: {
+          assigned_to: string | null
+          cancelled_at: string | null
+          created_at: string
+          customer_address: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          description: string
+          id: string
+          logged_by: string | null
+          logged_by_name: string | null
+          notes: string | null
+          ordered_at: string | null
+          organisation_id: string
+          priority: string
+          quantity: number
+          ready_at: string | null
+          service_call_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          customer_address?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          description: string
+          id?: string
+          logged_by?: string | null
+          logged_by_name?: string | null
+          notes?: string | null
+          ordered_at?: string | null
+          organisation_id: string
+          priority?: string
+          quantity?: number
+          ready_at?: string | null
+          service_call_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          customer_address?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          description?: string
+          id?: string
+          logged_by?: string | null
+          logged_by_name?: string | null
+          notes?: string | null
+          ordered_at?: string | null
+          organisation_id?: string
+          priority?: string
+          quantity?: number
+          ready_at?: string | null
+          service_call_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean | null
@@ -2979,6 +3077,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      recompute_job_parts_status: {
+        Args: { _job_id: string }
+        Returns: undefined
       }
       respond_to_quote: {
         Args: {

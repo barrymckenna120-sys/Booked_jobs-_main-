@@ -137,10 +137,9 @@ const Dashboard = () => {
     queryKey: ["parts-count", user?.id],
     queryFn: async () => {
       const { count } = await supabase
-        .from("service_calls")
+        .from("parts_requests" as any)
         .select("id", { count: "exact", head: true })
-        .not("parts_status", "is", null)
-        .not("parts_status", "eq", "Fitted");
+        .in("status", ["Open", "Ordered", "Ready to Fit"]);
       return count || 0;
     },
     enabled: !!user,
