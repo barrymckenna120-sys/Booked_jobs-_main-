@@ -114,3 +114,32 @@ export const fetchWhatsappApiKey = async (
   }
   return resolveWhatsappApiKey(await res.json());
 };
+
+/** Same resolution for functions that already hold a supabase-js client. */
+export const fetchWhatsappApiKeyWithClient = async (
+  client: {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (c: string, v: string) => {
+          in: (c: string, v: string[]) => Promise<{ data: unknown; error: unknown }>;
+        };
+      };
+    };
+  },
+  orgId: string,
+): Promise<WhatsappKeyResolution> => {
+  const { data, error } = await client
+    .from("tenant_integrations")
+    .select("integration_type,config")
+    .eq("organisation_id", orgId)
+    .in("integration_type", ["360messenger", "whatsapp"]);
+  if (error) {
+    return {
+      apiKey: null,
+      resolution: "lookup_failed",
+      secretName: null,
+      detail: "tenant_integrations lookup failed",
+    };
+  }
+  return resolveWhatsappApiKey(data as WhatsappIntegrationRow[]);
+};
