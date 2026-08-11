@@ -2840,6 +2840,48 @@ export type Database = {
           },
         ]
       }
+      sumup_webhook_events: {
+        Row: {
+          checkout_id: string
+          created_at: string
+          event_type: string | null
+          id: string
+          organisation_id: string | null
+          service_call_id: string | null
+        }
+        Insert: {
+          checkout_id: string
+          created_at?: string
+          event_type?: string | null
+          id?: string
+          organisation_id?: string | null
+          service_call_id?: string | null
+        }
+        Update: {
+          checkout_id?: string
+          created_at?: string
+          event_type?: string | null
+          id?: string
+          organisation_id?: string | null
+          service_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sumup_webhook_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sumup_webhook_events_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
