@@ -33,9 +33,11 @@ interface Props {
   /** Current engineer's auth uid — drives whether cancel is offered at all. */
   userId?: string | null;
   onCancelled?: () => void;
+  /** Ring the card when opened from a parts notification deep link. */
+  highlighted?: boolean;
 }
 
-const PartRequestCard = ({ row, jobReference, userId = null, onCancelled }: Props) => {
+const PartRequestCard = ({ row, jobReference, userId = null, onCancelled, highlighted = false }: Props) => {
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,7 +65,12 @@ const PartRequestCard = ({ row, jobReference, userId = null, onCancelled }: Prop
   };
 
   return (
-    <div className="bg-card rounded-2xl border border-border/60 p-4 space-y-2.5">
+    <div
+      id={`part-${row.id}`}
+      className={`bg-card rounded-2xl border p-4 space-y-2.5 ${
+        highlighted ? "border-primary ring-2 ring-primary/40" : "border-border/60"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         {row.service_call_id ? (
           <button

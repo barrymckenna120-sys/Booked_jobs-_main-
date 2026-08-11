@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,8 @@ const Parts = () => {
   const [arrivedPart, setArrivedPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
 
 
   const { data: parts = [], isLoading, refetch } = useQuery({
@@ -59,6 +61,21 @@ const Parts = () => {
   const outstandingCount = open.length + ordered.length + ready.length;
 
 
+  // Deep-linked from a parts notification: reveal the cancelled list if the
+  // highlighted row lives there, then scroll it into view once rendered.
+  useEffect(() => {
+    if (!highlightId || parts.length === 0) return;
+    const target = parts.find((p: any) => p.id === highlightId);
+    if (!target) return;
+    if (target.status === "Cancelled") setShowCancelled(true);
+    const t = setTimeout(() => {
+      document
+        .getElementById(`part-${highlightId}`)
+        ?.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [highlightId, parts]);
+
   const advance = async (part: any, status: PartStatus) => {
     setBusyId(part.id);
     const { error } = await updatePartStatus(part.id, status);
@@ -80,7 +97,10 @@ const Parts = () => {
     const sCfg = PART_STATUS_CONFIG[part.status];
     return (
       <Card
-        className={`border-l-4 transition-shadow ${part.service_call_id ? "cursor-pointer hover:shadow-md" : ""}`}
+        id={`part-${part.id}`}
+        className={`border-l-4 transition-shadow ${part.service_call_id ? "cursor-pointer hover:shadow-md" : ""} ${
+          highlightId === part.id ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+        }`}
         style={{ borderLeftColor: borderColor }}
         onClick={() => goToJob(part)}
       >
@@ -235,9 +255,13 @@ const Parts = () => {
               {cancelled.map((part: any) => (
                 <div
                   key={part.id}
+                  id={`part-${part.id}`}
                   onClick={() => goToJob(part)}
-                  className="rounded-lg border border-border bg-muted/30 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                  className={`rounded-lg border bg-muted/30 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors ${
+                    highlightId === part.id ? "border-primary ring-2 ring-primary/40" : "border-border"
+                  }`}
                 >
+
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-muted-foreground line-through truncate">{part.description}</p>

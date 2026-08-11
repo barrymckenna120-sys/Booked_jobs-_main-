@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Cog, Banknote, AlertTriangle, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { AnimatePresence, motion } from "framer-motion";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   new_job:           { icon: Wrench,         color: "text-emerald-500", label: "New Job" },
@@ -51,9 +52,8 @@ const NotificationToast = ({ notification, onDismiss, onMarkRead, jobPathPrefix 
     setVisible(false);
     setTimeout(() => {
       onDismiss();
-      if (notification.job_id) {
-        navigate(`${jobPathPrefix}/${notification.job_id}`);
-      }
+      const target = resolveNotificationTarget(notification, jobPathPrefix);
+      if (target) navigate(target);
     }, 100);
   };
 

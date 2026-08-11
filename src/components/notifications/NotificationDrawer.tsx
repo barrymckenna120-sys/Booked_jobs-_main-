@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Video, AlertTriangle, Lock, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   new_job:       { icon: Wrench,         color: "text-success",     label: "New Job" },
@@ -59,9 +60,8 @@ const NotificationDrawer = ({
   const handleNotificationClick = (n: AppNotification) => {
     if (!n.is_read) onMarkRead(n.id);
     onOpenChange(false);
-    if (n.job_id) {
-      navigate(`/jobs/${n.job_id}`);
-    }
+    const target = resolveNotificationTarget(n, "/jobs");
+    if (target) navigate(target);
   };
 
   const filtered = notifications.filter((n) => {
