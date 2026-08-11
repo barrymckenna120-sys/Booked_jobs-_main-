@@ -4,6 +4,7 @@ import {
   PART_STATUSES,
   isOfficeUpdate,
   OFFICE_UPDATE_TOLERANCE_MS,
+  buildPartsRequestRow,
 } from "./partsStatus";
 
 describe("PART_STATUS_ICON_KEY", () => {
