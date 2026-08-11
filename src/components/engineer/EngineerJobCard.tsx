@@ -27,6 +27,7 @@ import SecondaryActions from "./job-card/SecondaryActions";
 import PrimaryActions from "./job-card/PrimaryActions";
 import MessageOfficeModal from "./MessageOfficeModal";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import { insertPartsRequest, priorityRank } from "@/lib/partsRequests";
@@ -118,13 +119,13 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <div className="flex items-center shrink-0">
           <StatusBadge status={job.status} />
           {job.source === "Renewal" && (
-            <span
-              className="bg-amber-500/15 text-amber-600 rounded-full px-2 py-1 shrink-0 ml-1.5 flex items-center"
+            <Badge
+              className="bg-amber-500/15 text-amber-600 border-amber-500/20 text-[10px] px-1.5 py-0 shrink-0 ml-1.5"
               title="Rebooking (Renewal)"
               aria-label="Rebooking (Renewal)"
             >
               <RotateCw size={12} />
-            </span>
+            </Badge>
           )}
         </div>
         </div>
