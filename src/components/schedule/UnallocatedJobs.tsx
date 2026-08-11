@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CalendarDays, Clock, X, ArrowUpDown, Camera } from "lucide-react";
+import { CalendarDays, Clock, X, ArrowUpDown, Camera, RotateCw } from "lucide-react";
 import { format, isToday, differenceInHours } from "date-fns";
 
 type Props = {
@@ -143,6 +143,15 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                 {jobTypeBadge(job.job_type)}
+                {job.source === "Renewal" && (
+                  <Badge
+                    className="bg-amber-500/15 text-amber-600 border-amber-500/20 text-[10px] px-1.5 py-0"
+                    title="Rebooking (Renewal)"
+                    aria-label="Rebooking (Renewal)"
+                  >
+                    <RotateCw size={12} />
+                  </Badge>
+                )}
                 {urgencyBadge(job.job_type)}
                 {(job.media_count ?? 0) > 0 && (
                   <span
