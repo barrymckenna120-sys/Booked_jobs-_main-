@@ -29,7 +29,7 @@ import MessageOfficeModal from "./MessageOfficeModal";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
-import { insertPartsRequests } from "@/lib/partsRequests";
+import { insertPartsRequests, priorityRank } from "@/lib/partsRequests";
 
 const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
