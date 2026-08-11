@@ -6,8 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
-import { Package, CheckCircle2, MessageCircle, Loader2, Wrench } from "lucide-react";
+import { Package, CheckCircle2, MessageCircle, Loader2, X } from "lucide-react";
+import {
+  PART_PRIORITY_CONFIG,
+  PART_STATUS_CONFIG,
+  priorityRank,
+  updatePartStatus,
+  type PartStatus,
+} from "@/lib/partsRequests";
 
 const PartsPanel = () => {
   const { user } = useAuth();
@@ -17,35 +23,43 @@ const PartsPanel = () => {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const { data: partsJobs = [], isLoading } = useQuery({
+  const { data: parts = [], isLoading } = useQuery({
     queryKey: ["parts-panel", user?.id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("service_calls")
-        .select("id, customer_id, status, job_reference, parts_notes, parts_status, completed_at, scheduled_date, assigned_engineer, parts_priority, parts_logged_at, follow_up_detail, customers(name, phone, address)")
-        .not("parts_status", "is", null)
-        .not("parts_status", "eq", "Fitted")
+        .from("parts_requests" as any)
+        .select("*, service_calls(id, job_reference, scheduled_date, completed_at, follow_up_detail), customers(name, phone, address)")
+        .in("status", ["Open", "Ordered", "Ready to Fit"])
         .order("created_at", { ascending: false });
-      return data || [];
+      const rows = ((data as any[]) || []).slice();
+      rows.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
+      return rows;
     },
     enabled: !!user,
   });
 
-  const handleSendMessage = async (job: any) => {
-    const customer = (job as any).customers;
-    if (!customer) return;
-    setSendingId(job.id);
+  const nameOf = (p: any) => p.customers?.name || p.customer_name || "Unknown";
+  const phoneOf = (p: any) => p.customers?.phone || p.customer_phone || "";
+  const addressOf = (p: any) => p.customers?.address || p.customer_address || "—";
+
+  const handleSendMessage = async (part: any) => {
+    const phone = phoneOf(part);
+    if (!part.service_call_id || !phone) {
+      toast({ title: "Can't message", description: "This part has no linked job or phone number.", variant: "destructive" });
+      return;
+    }
+    setSendingId(part.id);
     try {
       const { error } = await supabase.functions.invoke("send-part-arrived", {
         body: {
-          job_id: job.id,
-          customer_name: customer.name,
-          customer_phone: customer.phone,
-          follow_up_detail: job.parts_notes || job.follow_up_detail || "",
+          job_id: part.service_call_id,
+          customer_name: nameOf(part),
+          customer_phone: phone,
+          follow_up_detail: part.description || part.service_calls?.follow_up_detail || "",
         },
       });
       if (error) throw error;
-      toast({ title: `Message sent to ${customer.name}` });
+      toast({ title: `Message sent to ${nameOf(part)}` });
     } catch (err: any) {
       toast({ title: "Failed to send", description: err.message, variant: "destructive" });
     } finally {
@@ -53,18 +67,17 @@ const PartsPanel = () => {
     }
   };
 
-  const handleUpdateStatus = async (jobId: string, newStatus: string) => {
-    setUpdatingId(jobId);
-    const { error } = await supabase
-      .from("service_calls")
-      .update(sanitizeServiceCallUpdatePayload({ parts_status: newStatus } as any))
-      .eq("id", jobId);
+  const handleUpdateStatus = async (partId: string, newStatus: PartStatus) => {
+    setUpdatingId(partId);
+    const { error } = await updatePartStatus(partId, newStatus);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Parts marked as ${newStatus}` });
+      toast({ title: newStatus === "Cancelled" ? "Part cancelled" : `Part marked ${newStatus}` });
       queryClient.invalidateQueries({ queryKey: ["parts-panel"] });
       queryClient.invalidateQueries({ queryKey: ["parts-count"] });
+      queryClient.invalidateQueries({ queryKey: ["parts-nav-count"] });
+      queryClient.invalidateQueries({ queryKey: ["parts-page-requests"] });
     }
     setUpdatingId(null);
   };
@@ -77,7 +90,7 @@ const PartsPanel = () => {
     );
   }
 
-  if (partsJobs.length === 0) {
+  if (parts.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         No outstanding parts 🎉
@@ -88,111 +101,107 @@ const PartsPanel = () => {
   const fmtDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
-  const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
-    Ordered:  { bg: "bg-blue-100", text: "text-blue-700", label: "Ordered" },
-    Received: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Received" },
-    Fitted:   { bg: "bg-gray-100", text: "text-gray-500", label: "Fitted" },
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
         <Package className="w-5 h-5 text-amber-500" />
-        <h2 className="text-lg font-bold">{partsJobs.length} Part{partsJobs.length !== 1 ? "s" : ""}</h2>
+        <h2 className="text-lg font-bold">{parts.length} Part{parts.length !== 1 ? "s" : ""}</h2>
       </div>
-      {partsJobs.map((job: any) => {
-        const customer = job.customers;
-        const sCfg = statusConfig[job.parts_status] || statusConfig.Ordered;
+      {parts.map((part: any) => {
+        const sCfg = PART_STATUS_CONFIG[part.status] || PART_STATUS_CONFIG.Open;
+        const pCfg = PART_PRIORITY_CONFIG[part.priority];
+        const jobId = part.service_call_id;
         return (
-          <Card key={job.id} className="border-amber-200">
+          <Card key={part.id} className="border-amber-200">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>
-                   {job.job_reference && (
-                     <p className="text-xs font-bold text-primary">{job.job_reference}</p>
-                   )}
-                   <button
-                     className="font-bold text-foreground hover:text-primary transition-colors text-left"
-                     onClick={() => navigate(`/jobs/${job.id}`)}
-                   >
-                     {customer?.name || "Unknown"}
-                  </button>
-                  <p className="text-sm text-muted-foreground">{customer?.phone || "—"}</p>
+                  {part.service_calls?.job_reference && (
+                    <p className="text-xs font-bold text-primary">{part.service_calls.job_reference}</p>
+                  )}
                   <button
-                    className="text-sm text-muted-foreground text-left hover:text-primary transition-colors"
-                    onClick={() => navigate(`/jobs/${job.id}`)}
+                    className="font-bold text-foreground hover:text-primary transition-colors text-left"
+                    onClick={() => jobId && navigate(`/jobs/${jobId}`)}
                   >
-                    {customer?.address || "—"}
+                    {nameOf(part)}
                   </button>
-                  <button
-                    className="text-xs font-medium text-left hover:underline block"
-                    style={{ color: "#4A86E8" }}
-                    onClick={() => navigate(`/jobs/${job.id}`)}
-                  >
-                    View Job →
-                  </button>
+                  <p className="text-sm text-muted-foreground">{phoneOf(part) || "—"}</p>
+                  <p className="text-sm text-muted-foreground">{addressOf(part)}</p>
+                  {jobId && (
+                    <button
+                      className="text-xs font-medium text-left hover:underline block"
+                      style={{ color: "#4A86E8" }}
+                      onClick={() => navigate(`/jobs/${jobId}`)}
+                    >
+                      View Job →
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
                     {sCfg.label}
                   </span>
+                  {pCfg && (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
+                      {pCfg.emoji} {pCfg.label}
+                    </span>
+                  )}
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {fmtDate(job.completed_at || job.scheduled_date)}
+                    {fmtDate(part.service_calls?.completed_at || part.service_calls?.scheduled_date || part.created_at)}
                   </span>
                 </div>
               </div>
 
-              {job.parts_notes && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
-                  <p className="text-sm font-medium text-amber-800">
-                    ⚠️ {job.parts_notes}
-                  </p>
-                </div>
-              )}
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
+                <p className="text-sm font-medium text-amber-800">
+                  ⚠️ {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                </p>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  className="h-11 sm:h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm w-full sm:w-auto"
-                  disabled={sendingId === job.id}
-                  onClick={() => handleSendMessage(job)}
-                >
-                  {sendingId === job.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <MessageCircle className="w-4 h-4" />
-                  )}
-                  Send Message
-                </Button>
-
-                {job.parts_status === "Ordered" && (
+                {part.status === "Ready to Fit" && (
                   <Button
-                    variant="secondary"
-                    className="h-11 sm:h-9 gap-1.5 font-bold text-sm w-full sm:w-auto"
-                    disabled={updatingId === job.id}
-                    onClick={() => handleUpdateStatus(job.id, "Received")}
+                    className="h-11 sm:h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm w-full sm:w-auto"
+                    disabled={sendingId === part.id}
+                    onClick={() => handleSendMessage(part)}
                   >
-                    {updatingId === job.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="w-4 h-4" />
-                    )}
-                    Mark Received
+                    {sendingId === part.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                    Send Message
                   </Button>
                 )}
 
-                {job.parts_status === "Received" && (
+                {part.status === "Open" && (
                   <Button
                     variant="secondary"
                     className="h-11 sm:h-9 gap-1.5 font-bold text-sm w-full sm:w-auto"
-                    disabled={updatingId === job.id}
-                    onClick={() => handleUpdateStatus(job.id, "Fitted")}
+                    disabled={updatingId === part.id}
+                    onClick={() => handleUpdateStatus(part.id, "Ordered")}
                   >
-                    {updatingId === job.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Wrench className="w-4 h-4" />
-                    )}
-                    Mark Fitted
+                    {updatingId === part.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+                    Mark Ordered
+                  </Button>
+                )}
+
+                {part.status === "Ordered" && (
+                  <Button
+                    variant="secondary"
+                    className="h-11 sm:h-9 gap-1.5 font-bold text-sm w-full sm:w-auto"
+                    disabled={updatingId === part.id}
+                    onClick={() => handleUpdateStatus(part.id, "Ready to Fit")}
+                  >
+                    {updatingId === part.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    Mark Ready to Fit
+                  </Button>
+                )}
+
+                {part.status !== "Ready to Fit" && (
+                  <Button
+                    variant="ghost"
+                    className="h-11 sm:h-9 gap-1.5 text-sm text-muted-foreground w-full sm:w-auto"
+                    disabled={updatingId === part.id}
+                    onClick={() => handleUpdateStatus(part.id, "Cancelled")}
+                  >
+                    <X className="w-4 h-4" /> Cancel
                   </Button>
                 )}
               </div>

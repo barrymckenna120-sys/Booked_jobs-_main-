@@ -29,6 +29,7 @@ import MessageOfficeModal from "./MessageOfficeModal";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
+import { insertPartsRequests, priorityRank } from "@/lib/partsRequests";
 
 const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
@@ -51,6 +52,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showExtraWork, setShowExtraWork] = useState(false);
   const [showNoShow, setShowNoShow] = useState(false);
   const [showPartsNeeded, setShowPartsNeeded] = useState(false);
+  const [savingParts, setSavingParts] = useState(false);
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [showMessageOffice, setShowMessageOffice] = useState(false);
   const [showCompletionPayment, setShowCompletionPayment] = useState(false);
@@ -272,17 +274,30 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       <NoShowSheet open={showNoShow} onClose={() => setShowNoShow(false)} onConfirm={(reason, notes) => { onUpdate(job.id, { status: "no_show", notes: `No Show: ${reason}${notes ? ` — ${notes}` : ""}` }); setShowNoShow(false); }} />
       <PartsNeededSheet
         open={showPartsNeeded}
+        loading={savingParts}
         onClose={() => setShowPartsNeeded(false)}
-        onConfirm={(notes, priority) => {
-          const pLabel = priority === "urgent" ? "Urgent" : priority === "low" ? "Low" : "Normal";
-          onUpdate(job.id, {
-            status: "parts_needed",
-            notes: `Parts Needed [${pLabel}]: ${notes}`,
-            parts_priority: priority,
-            parts_logged_at: new Date().toISOString(),
+        onConfirm={async (lines) => {
+          setSavingParts(true);
+          const { data: auth } = await supabase.auth.getUser();
+          const { error, count } = await insertPartsRequests({
+            lines,
+            organisationId: job.organisation_id,
+            serviceCallId: job.id,
+            customerId: job.customer_id,
+            loggedBy: auth?.user?.id ?? null,
+            loggedByName: job.assigned_engineer || "Engineer",
+            assignedTo: job.assigned_engineer_id ?? null,
           });
+          setSavingParts(false);
+          if (error) {
+            toast({ title: "Couldn't save parts", description: error.message, variant: "destructive" });
+            return;
+          }
           setShowPartsNeeded(false);
-          toast({ title: "Parts noted — office has been informed" });
+          // Keep the job's denormalised summary (used by Jobs/Schedule badges) in step.
+          const topPriority = [...lines].sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))[0]?.priority;
+          onUpdate(job.id, { parts_priority: topPriority, parts_logged_at: new Date().toISOString() });
+          toast({ title: count > 1 ? `${count} parts noted — office has been informed` : "Parts noted — office has been informed" });
         }}
       />
       {showTakePayment && (

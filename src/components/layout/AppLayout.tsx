@@ -81,9 +81,9 @@ const AppLayoutInner = () => {
     queryKey: ["parts-nav-count"],
     queryFn: async () => {
       const { count } = await supabase
-        .from("service_calls")
+        .from("parts_requests" as any)
         .select("id", { count: "exact", head: true })
-        .in("status", ["parts_needed", "parts_ordered"]);
+        .in("status", ["Open", "Ordered", "Ready to Fit"]);
       return count || 0;
     },
     refetchInterval: 30000,
