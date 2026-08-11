@@ -139,3 +139,42 @@ export const buildPartsRequestRow = ({
   };
 };
 
+
+/**
+ * Icon key per part status. Kept as strings so this module stays pure and
+ * unit-testable; the card maps each key to a lucide component.
+ *
+ * "Ready to Fit" deliberately uses a box-with-tick glyph (PackageCheck) rather
+ * than CheckCircle2 — that one marks a job Complete elsewhere in the app and
+ * must never read as the same state as a part arriving.
+ */
+export const PART_STATUS_ICON_KEY: Record<PartStatus, string> = {
+  Open: "Clock",
+  Ordered: "Truck",
+  "Ready to Fit": "PackageCheck",
+  Cancelled: "XCircle",
+};
+
+/** Tolerance for insert timestamp jitter — updated_at is set by the same statement. */
+export const OFFICE_UPDATE_TOLERANCE_MS = 3000;
+
+/**
+ * Heuristic: was this request touched by office after the engineer logged it?
+ *
+ * KNOWN LIMITATION — this infers authorship from timestamps and status because
+ * parts_requests has no record of who wrote `notes`. It cannot tell an office
+ * note edit apart from an office status change that left `notes` untouched; both
+ * read as "Update from office". A notes_updated_by column would make it exact.
+ */
+export const isOfficeUpdate = (row: {
+  created_at?: string | null;
+  updated_at?: string | null;
+  status?: string | null;
+}): boolean => {
+  if (!row.created_at || !row.updated_at) return false;
+  if (row.status === "Open") return false;
+  const created = new Date(row.created_at).getTime();
+  const updated = new Date(row.updated_at).getTime();
+  if (Number.isNaN(created) || Number.isNaN(updated)) return false;
+  return updated - created > OFFICE_UPDATE_TOLERANCE_MS;
+};
