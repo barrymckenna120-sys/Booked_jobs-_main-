@@ -111,6 +111,8 @@ export type ScheduleJob = {
   created_at: string;
   job_reference?: string | null;
   media_count?: number;
+  confirmed?: boolean | null;
+  confirmed_at?: string | null;
 };
 
 const Schedule = () => {
