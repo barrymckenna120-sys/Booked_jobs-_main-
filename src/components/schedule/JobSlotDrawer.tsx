@@ -9,6 +9,7 @@ import MediaGallery from "@/components/media/MediaGallery";
 import { formatDateIE } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 type Props = {
   open: boolean;
