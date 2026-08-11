@@ -36,7 +36,7 @@ const Parts = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("parts_requests" as any)
-        .select("*, service_calls(id, job_reference, assigned_engineer, follow_up_detail), customers(name, address, phone), cancelled_by_profile:profiles!parts_requests_cancelled_by_fkey(display_name)")
+        .select("*, service_calls(id, job_reference, assigned_engineer, follow_up_detail), customers(name, address, phone)")
         .in("status", ["Open", "Ordered", "Ready to Fit", "Cancelled"])
         .order("created_at", { ascending: false });
       return (data as any[]) || [];
@@ -44,10 +44,26 @@ const Parts = () => {
     refetchInterval: 30000,
   });
 
+  // Narrow same-org name lookup (user_id / display_name / role only).
+  const { data: directory = {} } = useQuery({
+    queryKey: ["org-profile-directory"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("get_org_profile_directory" as any);
+      const map: Record<string, string> = {};
+      ((data as any[]) || []).forEach((row: any) => {
+        if (row?.user_id && row?.display_name) map[row.user_id] = row.display_name;
+      });
+      return map;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const nameOf = (p: any) => p.customers?.name || p.customer_name || "Unknown";
   const phoneOf = (p: any) => p.customers?.phone || p.customer_phone || "";
   const engineerOf = (p: any) => p.logged_by_name || p.service_calls?.assigned_engineer || "Unassigned";
-  const cancelledByOf = (p: any) => p.cancelled_by_profile?.display_name || "Unknown user";
+  const cancelledByOf = (p: any) =>
+    (p.cancelled_by ? (directory as Record<string, string>)[p.cancelled_by] : "") || "Unknown user";
+
 
 
   const open = parts

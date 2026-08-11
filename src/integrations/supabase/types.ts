@@ -3140,6 +3140,14 @@ export type Database = {
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_my_org_id: { Args: never; Returns: string }
+      get_org_profile_directory: {
+        Args: never
+        Returns: {
+          display_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       get_quote_by_number: { Args: { p_quote_number: string }; Returns: Json }
       get_quote_by_token: { Args: { p_token: string }; Returns: Json }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
