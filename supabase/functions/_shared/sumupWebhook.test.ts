@@ -178,23 +178,27 @@ Deno.test("no office notification on duplicate, unpaid or failed-update deliveri
 });
 
 Deno.test("payment notification never crosses tenants — only the owning org's office/admins", async () => {
-  const KN_ORG = ORG_ID;
-  const DUBLIN_ORG = "22222222-2222-2222-2222-222222222222";
-  const CAVAN_ORG = "33333333-3333-3333-3333-333333333333";
+  // Confirmed live tenant ids.
+  const KN_ORG = ORG_ID; // 8c37827f-ce2c-4507-a821-a5e807d89856
+  const DUBLIN_ORG = "f1950683-e8b9-41cf-8972-2aa59516850d";
+  const CAVAN_ORG = "62d6c1c3-99cc-47fa-80ce-ea0e36f0d52b";
 
   // Stands in for the edge function's recipient query: office/admin profiles
   // scoped to one organisation_id.
   const profiles = [
     { user_id: "kn-office", role: "office", organisation_id: KN_ORG },
     { user_id: "kn-admin", role: "admin", organisation_id: KN_ORG },
+    { user_id: "dublin-office", role: "office", organisation_id: DUBLIN_ORG },
     { user_id: "dublin-admin", role: "admin", organisation_id: DUBLIN_ORG },
+    { user_id: "cavan-office", role: "office", organisation_id: CAVAN_ORG },
     { user_id: "cavan-admin", role: "admin", organisation_id: CAVAN_ORG },
   ];
   const recipientsFor = (orgId: string) =>
     profiles.filter((p) => p.organisation_id === orgId).map((p) => p.user_id);
 
   const notifiedOrgs: string[] = [];
-  const inserted: string[] = [];
+  // Every row that would actually be inserted into notifications.
+  const rows: Array<{ recipient_user_id: string; organisation_id: string }> = [];
 
   const result = await handleSumUpWebhook({
     expectedSecret: "s3cret-token",
@@ -206,7 +210,9 @@ Deno.test("payment notification never crosses tenants — only the owning org's 
     updateJob: () => Promise.resolve(true),
     notifyOffice: (e) => {
       notifiedOrgs.push(e.organisationId!);
-      inserted.push(...recipientsFor(e.organisationId!));
+      for (const userId of recipientsFor(e.organisationId!)) {
+        rows.push({ recipient_user_id: userId, organisation_id: e.organisationId! });
+      }
       return Promise.resolve();
     },
     now: () => new Date("2026-08-10T09:00:00.000Z"),
@@ -214,10 +220,86 @@ Deno.test("payment notification never crosses tenants — only the owning org's 
 
   assertEquals(result.outcome, "part_paid");
   assertEquals(notifiedOrgs, [KN_ORG]);
-  assertEquals(inserted, ["kn-office", "kn-admin"]);
-  assertEquals(inserted.includes("dublin-admin"), false);
-  assertEquals(inserted.includes("cavan-admin"), false);
+  assertEquals(rows.map((r) => r.recipient_user_id), ["kn-office", "kn-admin"]);
+  // Not inserted for, and therefore not visible to, any other tenant.
+  assertEquals(rows.every((r) => r.organisation_id === KN_ORG), true);
+  for (const outsider of ["dublin-office", "dublin-admin", "cavan-office", "cavan-admin"]) {
+    assertEquals(rows.some((r) => r.recipient_user_id === outsider), false);
+  }
+  assertEquals(rows.filter((r) => r.organisation_id === DUBLIN_ORG).length, 0);
+  assertEquals(rows.filter((r) => r.organisation_id === CAVAN_ORG).length, 0);
 });
+
+Deno.test("re-delivered callback is claimed once — no paid_at stamp, no notification the second time", async () => {
+  const seen = new Set<string>();
+  const call = (jobRow: SumUpWebhookJob) => {
+    const updates: Array<Record<string, unknown>> = [];
+    const notifications: string[] = [];
+    const claims: string[] = [];
+    return handleSumUpWebhook({
+      expectedSecret: "s3cret-token",
+      presentedSecret: "s3cret-token",
+      body: JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
+      loadJobByCheckoutId: () => Promise.resolve(jobRow),
+      fetchCheckout: () =>
+        Promise.resolve({ ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID }),
+      claimEvent: (e) => {
+        claims.push(e.checkoutId);
+        if (seen.has(e.checkoutId)) return Promise.resolve(false);
+        seen.add(e.checkoutId);
+        return Promise.resolve(true);
+      },
+      updateJob: (_id, patch) => {
+        updates.push(patch);
+        return Promise.resolve(true);
+      },
+      notifyOffice: () => {
+        notifications.push("n");
+        return Promise.resolve();
+      },
+      now: () => new Date("2026-08-10T09:00:00.000Z"),
+    }).then((result) => ({ result, updates, notifications, claims }));
+  };
+
+  const first = await call(job());
+  assertEquals(first.result.outcome, "part_paid");
+  assertEquals(first.updates.length, 1);
+  assertEquals(first.updates[0].paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(first.notifications.length, 1);
+
+  // SumUp re-delivers the same checkout id. Job state deliberately left as-is,
+  // so only the claim can stop it.
+  const retry = await call(job());
+  assertEquals(retry.result.outcome, "duplicate");
+  assertEquals(retry.claims, [CHECKOUT_ID]);
+  assertEquals(retry.updates.length, 0);
+  assertEquals(retry.notifications.length, 0);
+});
+
+Deno.test("a different checkout id on the same job is still processed", async () => {
+  const claimed: string[] = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: "99999999-9999-9999-9999-999999999999" }),
+    loadJobByCheckoutId: () => Promise.resolve(job({ payment_status: "partial", deposit_paid: true, balance_due: 1000 })),
+    fetchCheckout: () => Promise.resolve({ ok: true, status: "PAID", amount: 2000, checkoutReference: JOB_ID }),
+    claimEvent: (e) => {
+      claimed.push(e.checkoutId);
+      return Promise.resolve(true);
+    },
+    updateJob: (_id, patch) => {
+      updates.push(patch);
+      return Promise.resolve(true);
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  assertEquals(result.outcome, "paid");
+  assertEquals(claimed, ["99999999-9999-9999-9999-999999999999"]);
+  assertEquals(updates.length, 1);
+});
+
 
 
 Deno.test("failed/expired checkout writes no payment state", async () => {
