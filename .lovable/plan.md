@@ -141,8 +141,8 @@ USING (
 Notes on how this behaves, since Postgres ORs permissive policies of the same command together:
 
 - An engineer keeps write access only while their own request is `Open`; the moment office moves it to `Ordered`, `Ready to Fit`, or `Cancelled`, both engineer policies stop matching and the write is refused at the database level.
-- The engineer `WITH CHECK` deliberately omits `status = 'Open'` so an engineer can still cancel or edit their own open request; the `USING` clause is what gates entry.
+- The engineer `WITH CHECK` restricts the resulting row to `status IN ('Open','Cancelled')`. That still allows editing description, quantity, or priority while the row stays `Open`, and allows cancelling (`Open` -> `Cancelled`). It now blocks an engineer setting their own row to `Ordered` or `Ready to Fit` directly — those transitions fail the check and are office/admin-only.
 - Office/admin roles satisfy the (b) policies regardless of creator or status, so nothing about their current workflow changes.
 - The role array matches `engineers_update` exactly, so a role added there needs adding here too.
 
-Because engineers lose UPDATE on non-open rows, the frontend must not offer Ordered / Ready to Fit / Cancel controls in engineer views — those actions stay on the office Parts page and Job Detail. Verification after the migration: sign in as an engineer and confirm an update to a non-`Open` row is rejected, and that office can still move any row.
+Because engineers lose UPDATE on non-open rows, the frontend must not offer Ordered or Ready to Fit controls in engineer views — those transitions are office/admin-only, enforced by RLS. Cancel remains available to an engineer on their own request only while status is Open, matching the `update_own_open` policy. Verification after the migration: sign in as an engineer and confirm an update to a non-`Open` row is rejected, that setting `Ordered` on their own open row is rejected, that cancelling it succeeds, and that office can still move any row.
