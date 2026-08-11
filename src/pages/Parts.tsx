@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Package, CalendarClock, PackageCheck, X } from "lucide-react";
+import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,8 @@ const Parts = () => {
   const { toast } = useToast();
   const [arrivedPart, setArrivedPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showCancelled, setShowCancelled] = useState(false);
+
 
   const { data: parts = [], isLoading, refetch } = useQuery({
     queryKey: ["parts-page-requests"],
@@ -122,7 +124,7 @@ const Parts = () => {
       <div className="flex items-center gap-2">
         <Wrench className="w-6 h-6 text-amber-500" />
         <h1 className="text-2xl font-extrabold text-foreground">Parts</h1>
-        <span className="text-sm text-muted-foreground ml-1">{parts.length} total</span>
+        <span className="text-sm text-muted-foreground ml-1">{outstandingCount} total</span>
       </div>
 
       {isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
@@ -215,6 +217,44 @@ const Parts = () => {
         </section>
       )}
 
+      {cancelled.length > 0 && (
+        <section>
+          <button
+            type="button"
+            onClick={() => setShowCancelled((v) => !v)}
+            className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className={`w-4 h-4 transition-transform ${showCancelled ? "rotate-90" : ""}`} strokeWidth={2.5} />
+            <PartStatusIcon status="Cancelled" className="w-3.5 h-3.5" strokeWidth={2.5} />
+            Cancelled ({cancelled.length})
+          </button>
+          {showCancelled && (
+            <div className="mt-3 space-y-1.5">
+              {cancelled.map((part: any) => (
+                <div
+                  key={part.id}
+                  onClick={() => goToJob(part)}
+                  className="rounded-lg border border-border bg-muted/30 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-muted-foreground line-through truncate">{part.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {nameOf(part)}
+                        {part.service_calls?.job_reference ? ` · ${part.service_calls.job_reference}` : ""}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground whitespace-nowrap">
+                      {cancelledByOf(part)} · {fmtDate(part.cancelled_at || part.updated_at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {!isLoading && parts.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <Wrench className="w-10 h-10 mx-auto mb-3 opacity-40" />
@@ -222,6 +262,7 @@ const Parts = () => {
           <p className="text-sm mt-1">When engineers flag parts, they'll appear here.</p>
         </div>
       )}
+
 
       {arrivedPart && (
         <PartsArrivedModal
