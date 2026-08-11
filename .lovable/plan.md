@@ -66,15 +66,12 @@ After a Case A collection, `useEngineerJobs.ts:245-249` stamps `payment_status =
 
 `TakePaymentModal` currently gates on `job.deposit_required` (line 55: `hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0`). Because the SumUp webhook path never sets `deposit_required`, a job whose deposit was paid online is read as a no-deposit job and the modal pre-fills the **full** job total — the double-charge risk. Fix by removing that local branch logic and calling the same `resolvePaymentSheetState(job)`:
 
+- **Case D** — pre-fill the deposit amount only, preserving today's in-person deposit collection path.
 - **Case A** — pre-fill the balance due (what deposit jobs already do today when the deposit is recognised).
 - **Case B** — block further collection: no amount field, no confirm path, and guarded in the handler too, not only hidden.
 - **Case C** — pre-fill the full job total, unchanged from today's non-deposit behaviour.
 
-`deposit_required` stays as a column, and its existing writer (the quote-acceptance function) plus every migration are untouched. It simply stops driving this modal.
-
-## One deliberate behaviour change to flag
-
-Today the modal has a fourth path: "deposit required but not yet paid → pre-fill the deposit amount only". Under the shared helper that job is Case C, so the modal pre-fills the **full job total** instead. That is the correct read of "nothing collected yet", the amount stays editable, and it keeps one classification rule across both components — but it is a visible change on that narrow path.
+`deposit_required` stays as a column and its existing writer (the quote-acceptance function) plus every migration are untouched. It now only distinguishes Case D from Case C; it no longer decides whether a paid deposit is recognised, which is what caused SumUp deposits to be missed.
 
 ## Extra tests (beyond the six above)
 
