@@ -55,3 +55,27 @@ Consequences of this ordering, all intentional:
 ## Known gap left alone (flagged, not fixed)
 
 After a Case A collection, `useEngineerJobs.ts:245-249` stamps `payment_status = 'paid'`, `balance_due = 0` and overwrites `revenue` with the amount just collected — so the €492 job total is replaced by €246 in the record. That write path is outside this scope and is not touched here; worth a separate pass if you want the job total preserved.
+
+---
+
+# Part 2 — TakePaymentModal shares the same helper
+
+`TakePaymentModal` currently gates on `job.deposit_required` (line 55: `hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0`). Because the SumUp webhook path never sets `deposit_required`, a job whose deposit was paid online is read as a no-deposit job and the modal pre-fills the **full** job total — the double-charge risk. Fix by removing that local branch logic and calling the same `resolvePaymentSheetState(job)`:
+
+- **Case A** — pre-fill the balance due (what deposit jobs already do today when the deposit is recognised).
+- **Case B** — block further collection: no amount field, no confirm path, and guarded in the handler too, not only hidden.
+- **Case C** — pre-fill the full job total, unchanged from today's non-deposit behaviour.
+
+`deposit_required` stays as a column, and its existing writer (the quote-acceptance function) plus every migration are untouched. It simply stops driving this modal.
+
+## One deliberate behaviour change to flag
+
+Today the modal has a fourth path: "deposit required but not yet paid → pre-fill the deposit amount only". Under the shared helper that job is Case C, so the modal pre-fills the **full job total** instead. That is the correct read of "nothing collected yet", the amount stays editable, and it keeps one classification rule across both components — but it is a visible change on that narrow path.
+
+## Extra tests (beyond the six above)
+
+- Flat-rate fully-paid shape (KN-462/460/458/455/449): `deposit_paid=true`, `deposit_amount=null`, `balance_due=0`, `payment_status='paid'` → Case B, not Case A.
+- Live partial deposit (KN-465): `revenue=492`, `deposit_amount=246`, `deposit_required=true`, `deposit_paid=true`, `balance_due=246`, `payment_status='partial'` → Case A, amount 246.
+- TakePaymentModal given the KN-462 shape resolves to Case B and offers no further collection.
+
+Report back afterwards: full test output, confirmation that `deposit_required`'s writer and migrations were untouched, and confirmation both components use the single helper.
