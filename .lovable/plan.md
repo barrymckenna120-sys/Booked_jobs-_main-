@@ -1,45 +1,53 @@
-# New Order form on the office Parts Requests screen
+# Confirmed indicator — one badge, everywhere relevant
 
-Adds a "New Order" button to the office Parts screen so office/admin can log a phoned-in part request, with or without a linked job, optionally assigned to an engineer.
+Customers can confirm a 2-day appointment reminder two ways: by replying CONFIRM on WhatsApp (automated) or by telling the office, who logs it manually. Today neither shows anywhere in the app. This adds a single shared badge and makes both paths write the same field so the badge can't under-report.
 
-## Scope
+## Scope note
 
-- Touched: `src/pages/Parts.tsx` (header button + sheet state), one new component `src/components/parts/NewPartsOrderSheet.tsx`, and a small insert helper in `src/lib/partsRequests.ts`.
-- Not touched: engineer-facing components, `parts_requests` structure, RLS policies, the legacy `assigned_to` column, no cost/supplier/price fields.
+This writes appointment-confirmation state onto jobs, so it is not a pure UI change. The resolver that decides *which* job a manual confirmation belongs to gets unit tests before it is wired in.
 
-## Form behaviour
+## 1. Shared badge component
 
-Job (optional)
-- Search input matching `job_reference` (digit-tolerant, reusing `extractRefDigits`) or customer name.
-- Restricted to `service_calls` in the current organisation with status not `Completed` / `Cancelled`.
-- Selecting a job auto-fills `customer_name`, `customer_address`, `customer_eircode`, `customer_phone` from the linked customer, and `boiler_brand_model` from the job/customer boiler brand + model. Sets `service_call_id`.
-- "Clear job" returns the form to manual mode.
+New `src/components/jobs/JobConfirmedBadge.tsx`.
 
-No job selected
-- Manual optional inputs: customer name, address, eircode, phone. `boiler_brand_model` left blank, `service_call_id` stays null.
+- Renders `CheckCircle2` + "Confirmed" using the cyan pair already used for the renewal `confirmed` stage (`RenewalCard.tsx`, `dashboard/RenewalsCard.tsx`): text `#0891B2` on `#CFFAFE`.
+- Props: `confirmed`, `confirmedAt`, and a `size` of `sm` (icon-only pill, for dense grids) or `md` (icon + label).
+- Renders nothing when `confirmed` is false — no "Not confirmed" state, so quiet screens stay quiet.
+- `title` attribute shows "Confirmed on DD/MM/YYYY" from `confirmed_at`, parsed with the `T12:00:00` convention so the date can't drift.
 
-Assign to engineer (optional)
-- Reuses the existing engineer list query used elsewhere for assignment (`engineers` where `status = 'active'`, ordered by name), reading `auth_user_id`.
-- Verified by direct query, not assumed: every active engineer with a populated `auth_user_id` has a matching `profiles.user_id` (`matches = true`) — **except one**: `engineers.id 5473f748-dd80-4a11-8f03-bfb5c2faa02e` ("nicole  enginner", officeapp@gmail.com, org `8c37827f`), which has `auth_user_id b646f6de-843e-4d3f-ab1d-245573f38d94` but no `profiles` row at all. Reported for a source-data fix; not silently ignored.
-- Because `assigned_engineer_id` is FK'd to `profiles(user_id)`, the picker resolves its options by joining `engineers` to `profiles` on `auth_user_id = profiles.user_id` and only offers engineers with a real profile row. This makes an FK failure structurally impossible while that one record stays inconsistent, and it needs no schema or policy change.
-- Engineers with no auth account (A. Kelly, barry manager, C. O'Connor, Mary Byrne — invited, never signed up) and the inconsistent record are shown greyed out with "no app account", so office can see why they aren't assignable rather than wondering where they went.
-- Selected engineer's `auth_user_id` (= their `profiles.user_id`) is written to `assigned_engineer_id`. Blank leaves the request unassigned (visible to office, absent from any engineer's My Parts list).
+## 2. Apply it to every relevant surface
 
-Part fields
-- `description` (required, submit blocked while empty), `quantity` (default 1, min 1), `priority` select with lowercase values `urgent` / `normal` / `low` (default `normal`), `notes` (optional).
+All four surfaces already fetch jobs with `select("*")`, so `confirmed` and `confirmed_at` arrive with no query changes.
 
-## Insert
+| Surface | File | Placement |
+| --- | --- | --- |
+| Schedule week grid | `src/components/schedule/WeeklyGrid.tsx` | `sm` badge on the job block, next to the existing status badge |
+| Schedule job drawer | `src/components/schedule/JobSlotDrawer.tsx` | `md` badge in the header beside the status |
+| Job detail | `src/pages/JobDetail.tsx` | `md` badge in the header next to the status badge |
+| Jobs list | `src/pages/Jobs.tsx` | `sm` badge on the job card |
+| Pipeline > Incoming | `src/pages/IncomingJobs.tsx` | `sm` badge on the card |
 
-One `parts_requests` row:
-- `organisation_id` from the signed-in user's own profile lookup (`useOrgId`), never from a client-editable field; RLS also constrains it.
-- `created_by` and `logged_by` = current user's `profiles.user_id`; `logged_by_name` = display name.
-- `engineer_id` = null always (reserved for engineer-originated requests).
-- `assigned_engineer_id` = selected engineer or null.
-- `status` left to the `Open` default, plus description/quantity/priority/notes and the customer snapshot fields.
-- On success: toast, close sheet, refetch the list.
+Pipeline's Incoming tab mostly holds jobs that aren't booked yet, so the badge will rarely appear there — it's included so a job that does get confirmed looks the same on every screen.
 
-## Verification (run after building, output pasted back)
+## 3. Make the manual path write the same field
 
-1. Create three orders through the UI: one with a job linked, one manual-entry with no job, one assigned to the test engineer **Karl** (`engineers.id 55b9ba7b-4cfe-4f4f-8edb-7cc78e14dd2e`, `auth_user_id` / `profiles.user_id` `57ebf8de-b2d3-44bc-90b0-071d750a3f46`, `profiles.role = engineer`) — confirmed `matches = true`, so the FK holds and My Parts' `assigned_engineer_id = auth.uid()` will match.
-2. Query those rows showing `service_call_id`, customer snapshot fields, `assigned_engineer_id`, `engineer_id`, `created_by`, `logged_by`, `status`, `organisation_id`.
-3. Delete the three test rows, then re-count `parts_requests` to show the pre-existing rows are untouched.
+`src/components/whatsapp/LogReplyModal.tsx` currently only sets `customers.last_reminder_response = 'Confirmed'`. It will also mark the job confirmed.
+
+`whatsapp_messages` has no job link, so the job has to be resolved from the customer using the same rules the automated path already uses. New `src/lib/confirmReplyTarget.ts` mirrors `_shared/cancelIntent.ts`: eligible jobs are that customer's jobs with status `Booked` or `Scheduled`, `scheduled_date` today or later, and `reminder_2day_sent = true`.
+
+Outcomes when staff pick "Confirmed":
+
+- **Exactly one eligible job** — set `confirmed = true` and `confirmed_at = now()`, write a `customer_activity` entry "Appointment confirmed — logged by office", toast "Reply saved · appointment marked confirmed".
+- **No eligible job** — save the reply as it does today, change nothing on any job, and toast that no upcoming appointment was found to mark.
+- **Two or more eligible jobs** — never guess. Save the reply and toast asking staff to confirm on the specific job. Same refusal-to-guess rule as the automated path.
+
+The existing reply and opt-out behaviour is untouched.
+
+## 4. Tests
+
+- Unit tests for `confirmReplyTarget.ts`: no eligible job, exactly one, two or more, past dates excluded, jobs without `reminder_2day_sent` excluded, wrong statuses excluded.
+- Manual check: badge on a confirmed job across all five surfaces, absent on an unconfirmed one, and a manual "Confirmed" log producing the badge.
+
+## Known gap left open
+
+The badge reads job-level `confirmed`. Confirmations logged against a customer who has no reminded upcoming job still won't produce a badge — correct behaviour, but worth knowing it's a deliberate blank rather than a bug.
