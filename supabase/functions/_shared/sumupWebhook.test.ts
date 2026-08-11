@@ -30,6 +30,7 @@ interface Harness {
   updates: Array<{ jobId: string; patch: Record<string, unknown> }>;
   activities: number;
   messages: number;
+  notifications: Array<{ jobReference: string | null; amount: number; fullyPaid: boolean }>;
   fetches: number;
   discoveries: number;
   loadedById: string[];
@@ -51,6 +52,7 @@ function run(opts: {
     updates: [],
     activities: 0,
     messages: 0,
+    notifications: [],
     fetches: 0,
     discoveries: 0,
     loadedById: [],
@@ -93,6 +95,10 @@ function run(opts: {
       h.messages++;
       return Promise.resolve();
     },
+    notifyOffice: (e) => {
+      h.notifications.push({ jobReference: e.jobReference, amount: e.amount, fullyPaid: e.fullyPaid });
+      return Promise.resolve();
+    },
     now: () => new Date("2026-08-10T09:00:00.000Z"),
   });
   return { h, result };
@@ -113,7 +119,7 @@ Deno.test("full payment marks the job paid, sets paid_at and zeroes the balance"
   assertEquals(h.messages, 1);
 });
 
-Deno.test("deposit payment sets partial + deposit_paid and leaves paid_at unset", async () => {
+Deno.test("deposit payment sets partial + deposit_paid and stamps paid_at", async () => {
   const { h, result: p } = run({
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
   });
@@ -122,8 +128,53 @@ Deno.test("deposit payment sets partial + deposit_paid and leaves paid_at unset"
   assertEquals(h.updates[0].patch.payment_status, "partial");
   assertEquals(h.updates[0].patch.deposit_paid, true);
   assertEquals(h.updates[0].patch.balance_due, 1000);
-  assertEquals("paid_at" in h.updates[0].patch, false);
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
   assertEquals(h.activities, 1);
+});
+
+Deno.test("a part-paid job with paid_at already stamped can still be settled in full", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      payment_status: "partial",
+      deposit_paid: true,
+      balance_due: 1000,
+      paid_at: "2026-08-09T10:00:00.000Z",
+    }),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.notifications.length, 1);
+});
+
+Deno.test("office is notified once per confirmed payment, with the job reference", async () => {
+  const full = run({ jobRow: job({ job_reference: "KN-465" }) });
+  await full.result;
+  assertEquals(full.h.notifications, [{ jobReference: "KN-465", amount: 2000, fullyPaid: true }]);
+
+  const deposit = run({
+    jobRow: job({ job_reference: "KN-465" }),
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  await deposit.result;
+  assertEquals(deposit.h.notifications, [{ jobReference: "KN-465", amount: 1000, fullyPaid: false }]);
+});
+
+Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
+  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }) });
+  assertEquals((await dup.result).outcome, "duplicate");
+  assertEquals(dup.h.notifications.length, 0);
+
+  const unpaid = run({ view: { ok: true, status: "PENDING", amount: 2000, checkoutReference: JOB_ID } });
+  assertEquals((await unpaid.result).outcome, "not_paid");
+  assertEquals(unpaid.h.notifications.length, 0);
+
+  const failed = run({ updateOk: false });
+  assertEquals((await failed.result).outcome, "update_failed");
+  assertEquals(failed.h.notifications.length, 0);
 });
 
 Deno.test("failed/expired checkout writes no payment state", async () => {
