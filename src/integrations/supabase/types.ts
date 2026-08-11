@@ -1823,20 +1823,27 @@ export type Database = {
       }
       parts_requests: {
         Row: {
+          assigned_engineer_id: string | null
           assigned_to: string | null
+          boiler_brand_model: string | null
           cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
+          created_by: string | null
           customer_address: string | null
+          customer_eircode: string | null
           customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           description: string
+          engineer_id: string | null
           id: string
           logged_by: string | null
           logged_by_name: string | null
           notes: string | null
           ordered_at: string | null
           organisation_id: string
+          photo_url: string | null
           priority: string
           quantity: number
           ready_at: string | null
@@ -1845,20 +1852,27 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_engineer_id?: string | null
           assigned_to?: string | null
+          boiler_brand_model?: string | null
           cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
+          created_by?: string | null
           customer_address?: string | null
+          customer_eircode?: string | null
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           description: string
+          engineer_id?: string | null
           id?: string
           logged_by?: string | null
           logged_by_name?: string | null
           notes?: string | null
           ordered_at?: string | null
           organisation_id: string
+          photo_url?: string | null
           priority?: string
           quantity?: number
           ready_at?: string | null
@@ -1867,20 +1881,27 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_engineer_id?: string | null
           assigned_to?: string | null
+          boiler_brand_model?: string | null
           cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
+          created_by?: string | null
           customer_address?: string | null
+          customer_eircode?: string | null
           customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           description?: string
+          engineer_id?: string | null
           id?: string
           logged_by?: string | null
           logged_by_name?: string | null
           notes?: string | null
           ordered_at?: string | null
           organisation_id?: string
+          photo_url?: string | null
           priority?: string
           quantity?: number
           ready_at?: string | null
@@ -1890,6 +1911,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "parts_requests_assigned_engineer_id_fkey"
+            columns: ["assigned_engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "parts_requests_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
@@ -1897,11 +1925,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "parts_requests_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "parts_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "parts_requests_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "parts_requests_organisation_id_fkey"
