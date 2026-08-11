@@ -84,13 +84,16 @@ serve(async (req) => {
         continue;
       }
 
-      const apiKey = await getApiKey(orgId);
+      const { apiKey, resolution } = await getApiKey(orgId);
       if (!apiKey) {
-        console.warn(`Skipping customer ${customer_id}: no whatsapp api_key for org ${orgId}`);
+        console.warn(
+          `Skipping customer ${customer_id}: no whatsapp api key for org ${orgId} (${resolution})`,
+        );
         skipped++;
         byArea[areaKey].skipped++;
         continue;
       }
+
 
       // Format phone number
       let cleanNumber = customer_phone.replace(/[\s\-()]/g, "").replace(/^\+/, "");
