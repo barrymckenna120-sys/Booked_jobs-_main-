@@ -22,7 +22,10 @@ order by created_at desc
 
 Both columns are `uuid` FKs to `profiles(user_id)`, which is the value `auth.uid()` returns, so the current user's id is used directly with no lookup. The legacy `assigned_to` (an `engineers.id`) is **not** queried. Org scoping comes from the existing RLS policies; no client-side org filter is added.
 
-Job references are not on `parts_requests`, so a second lookup fetches `job_reference` from `service_calls` for the distinct non-null `service_call_id` values and maps them onto the rows.
+Job references are not on `parts_requests`, so a second lookup fetches the reference from `service_calls` for the distinct non-null `service_call_id` values and maps them onto the rows.
+
+Column name verified against `information_schema.columns` before planning: the human-readable reference is **`job_reference`** (`text`) on `public.service_calls` — live values `KN-462`, `KN-461`, `KN-460`. The only other reference-style columns on that table are `receipt_number` and `invoice_number`, neither of which is the job ref. `job_reference` is used throughout.
+
 
 ## Each row shows, in this order
 
