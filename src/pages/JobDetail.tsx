@@ -111,177 +111,163 @@ const statusBadge = (status: string) => {
   );
 };
 
-const usePartsNeededMeta = (jobId: string, customerId: string) => {
-  return useQuery({
-    queryKey: ["parts-needed-meta", jobId],
+const useJobParts = (jobId: string) =>
+  useQuery({
+    queryKey: ["job-parts", jobId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("customer_call_notes")
-        .select("created_at, created_by_name")
-        .eq("customer_id", customerId)
-        .like("note", "Parts Needed%")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data;
+        .from("parts_requests" as any)
+        .select("*")
+        .eq("service_call_id", jobId)
+        .order("created_at", { ascending: true });
+      const rows = ((data as any[]) || []).slice();
+      rows.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
+      return rows;
     },
+    enabled: !!jobId,
   });
+
+const fmtPartsLoggedAt = (iso: string) => {
+  const dt = new Date(iso);
+  const day = dt.getDate();
+  const mon = dt.toLocaleDateString("en-IE", { month: "short" });
+  const year = dt.getFullYear();
+  const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${day} ${mon} ${year}, ${time}`;
 };
 
-const formatPartsTimestamp = (iso: string, author?: string | null) => {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const time = d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: false });
-  return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
-};
-
-const PartsNeededSection = ({ job, customerId, notes, onStatusChange, onPartsArrived }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void; onPartsArrived?: () => void }) => {
-  const { data: meta } = usePartsNeededMeta(job.id, customerId);
-  const { user } = useAuth("");
+const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: () => void }) => {
+  const { data: parts = [], refetch } = useJobParts(job.id);
   const { toast } = useToast();
-  const [marking, setMarking] = useState(false);
-  const [orderedMeta, setOrderedMeta] = useState<{ name: string; time: string } | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const active = parts.filter((p: any) => p.status !== "Cancelled");
   const isOrdered = job.status === "parts_ordered";
-  const accentBorder = isOrdered ? "border-blue-500" : "border-amber-500";
-  const accentBg = isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
-  const accentIcon = isOrdered ? "text-blue-500" : "text-amber-500";
-  const accentTitle = isOrdered ? "text-blue-800" : "text-amber-800";
+  const isArrived = job.status === "parts_arrived";
+  const accentBorder = isArrived ? "border-[#7C3AED]" : isOrdered ? "border-blue-500" : "border-amber-500";
+  const accentBg = isArrived ? "bg-[#FAF5FF]" : isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
+  const accentTitle = isArrived ? "text-[#6D28D9]" : isOrdered ? "text-blue-800" : "text-amber-800";
+  const title = isArrived ? "Parts Ready to Fit" : isOrdered ? "Parts Ordered" : "Parts Needed";
 
-  // Fetch ordered-by metadata
-  useEffect(() => {
-    if (!isOrdered) return;
-    supabase
-      .from("customer_call_notes")
-      .select("created_at, created_by_name")
-      .eq("customer_id", customerId)
-      .like("note", "Parts ordered by%")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.created_at) {
-          setOrderedMeta({ name: data.created_by_name || "Office", time: formatPartsTimestamp(data.created_at, data.created_by_name).replace("Logged by", "Parts ordered by") });
-        }
-      });
-  }, [isOrdered, customerId]);
-
-  const handleMarkOrdered = async () => {
-    setMarking(true);
-    try {
-      // Get office user display name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", user?.id)
-        .maybeSingle();
-      const officeName = profile?.display_name || "Office";
-
-      await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload({ status: "parts_ordered" } as any))
-        .eq("id", job.id);
-
-      // Log a note
-      await supabase.from("customer_call_notes").insert({
-        customer_id: customerId,
-        user_id: user?.id,
-        note: `Parts ordered by ${officeName}`,
-        created_by_name: officeName,
-        service_call_id: job.id,
-      } as any);
-
-      toast({ title: "Marked as ordered ✓" });
-      onStatusChange();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setMarking(false);
+  const advance = async (part: any, status: PartStatus) => {
+    setBusyId(part.id);
+    const { error } = await updatePartStatus(part.id, status);
+    setBusyId(null);
+    if (error) {
+      toast({ title: "Couldn't update part", description: error.message, variant: "destructive" });
+      return;
     }
+    toast({ title: status === "Cancelled" ? "Part cancelled" : `Marked ${status}` });
+    await refetch();
+    onStatusChange();
   };
 
-  const partText = notes?.startsWith("Parts Needed") ? notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "") : null;
-
-  const priorityConfig: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
-    urgent: { emoji: "🔴", label: "Urgent", bg: "bg-[#FEE2E2]", text: "text-[#DC2626]" },
-    normal: { emoji: "🟡", label: "Normal", bg: "bg-[#FEF3C7]", text: "text-[#D97706]" },
-    low:    { emoji: "🟢", label: "Low",    bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
-  };
-  const pCfg = job.parts_priority ? priorityConfig[job.parts_priority] : null;
-
-  const fmtPartsLoggedAt = (iso: string) => {
-    const dt = new Date(iso);
-    const day = dt.getDate();
-    const mon = dt.toLocaleDateString("en-IE", { month: "short" });
-    const year = dt.getFullYear();
-    const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
-    return `${day} ${mon} ${year}, ${time}`;
-  };
+  if (active.length === 0) return null;
 
   return (
     <Card className={`border-l-4 ${accentBorder} ${accentBg}`}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
-            {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
-            {isOrdered ? "Parts Ordered" : "Parts Needed"}
-          </CardTitle>
-          {pCfg && (
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
-              {pCfg.emoji} {pCfg.label}
-            </span>
-          )}
-        </div>
+        <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
+          {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
+          {title}
+          <span className="text-xs font-semibold text-muted-foreground">({active.length})</span>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {partText && <p className="text-sm font-semibold text-foreground">{partText}</p>}
-        {job.parts_logged_at && (
-          <p className="text-xs text-muted-foreground">
-            Logged by {job.assigned_engineer || "Engineer"} · {fmtPartsLoggedAt(job.parts_logged_at)}
-          </p>
-        )}
-        {!job.parts_logged_at && meta?.created_at && (
-          <p className="text-xs text-muted-foreground">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
-        )}
-        {isOrdered && orderedMeta && (
-          <p className="text-xs text-blue-600 font-medium">{orderedMeta.time}</p>
-        )}
-        {!isOrdered ? (
+      <CardContent className="space-y-3">
+        {active.map((part: any) => {
+          const pCfg = PART_PRIORITY_CONFIG[part.priority];
+          const sCfg = PART_STATUS_CONFIG[part.status] || PART_STATUS_CONFIG.Open;
+          return (
+            <div key={part.id} className="rounded-lg bg-background/70 border p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">
+                  {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                </p>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                    {sCfg.label}
+                  </span>
+                  {pCfg && (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
+                      {pCfg.emoji} {pCfg.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Logged by {part.logged_by_name || job.assigned_engineer || "Engineer"} · {fmtPartsLoggedAt(part.created_at)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {part.status === "Open" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-500 text-amber-600 hover:bg-amber-50 gap-1.5"
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Ordered")}
+                  >
+                    <Package className="w-4 h-4" /> Mark as Ordered
+                  </Button>
+                )}
+                {part.status === "Ordered" && (
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-white font-bold"
+                    style={{ backgroundColor: "#22C55E" }}
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Ready to Fit")}
+                  >
+                    <CalendarClock className="w-4 h-4" /> Part Arrived
+                  </Button>
+                )}
+                {part.status !== "Ready to Fit" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Cancelled")}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {active.some((p: any) => p.status === "Ready to Fit") && (
           <Button
-            variant="outline"
-            className="mt-2 border-amber-500 text-amber-600 hover:bg-amber-50 gap-2"
-            onClick={handleMarkOrdered}
-            disabled={marking}
+            className="gap-2 text-white font-bold w-full sm:w-auto"
+            style={{ backgroundColor: "#22C55E" }}
+            onClick={() => onPartsArrived?.()}
           >
-            <Package className="w-4 h-4" /> {marking ? "Updating…" : "Mark as Ordered"}
+            <CalendarClock className="w-4 h-4" /> Tell customer parts arrived
           </Button>
-        ) : (
-          <div className="flex gap-2 mt-2">
-            <Button variant="outline" className="gap-2" disabled>
-              <Package className="w-4 h-4" /> Parts Ordered ✓
-            </Button>
-            <Button
-              className="gap-2 text-white font-bold"
-              style={{ backgroundColor: "#22C55E" }}
-              onClick={() => onPartsArrived?.()}
-            >
-              <CalendarClock className="w-4 h-4" /> Parts Arrived
-            </Button>
-          </div>
         )}
       </CardContent>
     </Card>
   );
 };
 
-const PartsNeededNoteBlock = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string }) => {
-  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+const PartsNeededNoteBlock = ({ jobId }: { jobId: string }) => {
+  const { data: parts = [] } = useJobParts(jobId);
+  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  if (active.length === 0) return null;
   return (
     <div>
       <span className="text-sm font-bold text-amber-600">Parts Needed</span>
-      <p className="text-sm font-semibold mt-0.5">{notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "")}</p>
-      {meta?.created_at && (
-        <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
-      )}
+      {active.map((part: any) => (
+        <div key={part.id} className="mt-0.5">
+          <p className="text-sm font-semibold">
+            {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+            <span className="text-xs font-normal text-muted-foreground"> · {part.status}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Logged by {part.logged_by_name || "Engineer"} · {fmtPartsLoggedAt(part.created_at)}
+          </p>
+        </div>
+      ))}
     </div>
   );
 };
