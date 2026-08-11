@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
