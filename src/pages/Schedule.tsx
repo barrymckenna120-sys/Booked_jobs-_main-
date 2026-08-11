@@ -225,6 +225,8 @@ const Schedule = () => {
         created_at: j.created_at,
         job_reference: j.job_reference || null,
         media_count: mediaCounts[j.id] || 0,
+        confirmed: j.confirmed ?? false,
+        confirmed_at: j.confirmed_at || null,
       })) as ScheduleJob[];
     },
     enabled: !!user && ready,
