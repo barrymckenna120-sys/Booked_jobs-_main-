@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isOutstandingBalanceJob } from "@/lib/outstandingBalances";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,7 @@ const OutstandingBalances = () => {
         if (rows) {
           setJobs(
             rows
-              .filter((r: any) => (r.balance_due ?? 0) > 0)
+              .filter((r: any) => isOutstandingBalanceJob(r))
               .map((r: any) => ({
                 id: r.id,
                 job_reference: r.job_reference || null,
