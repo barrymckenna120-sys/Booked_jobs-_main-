@@ -119,6 +119,8 @@ import {
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
+import PartStatusIcon from "@/components/parts/PartStatusIcon";
+
 
 const useJobParts = (jobId: string) =>
   useQuery({
