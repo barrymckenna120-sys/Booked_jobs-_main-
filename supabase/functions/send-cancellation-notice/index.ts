@@ -56,19 +56,17 @@ serve(async (req) => {
     const orgId = job.organisation_id;
     const cancellationReason = job.cancellation_reason || "No reason provided";
 
-    // WhatsApp api_key
-    const tiRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers: sbHeaders },
-    );
-    const tiRows = await tiRes.json();
-    const apiKey = Array.isArray(tiRows) ? tiRows[0]?.config?.api_key : null;
-    if (!apiKey) {
+    // WhatsApp api_key — shared resolver: handles api_key_secret and api_key,
+    // on either the 360messenger or whatsapp integration row.
+    const wa = await fetchWhatsappApiKey(SUPABASE_URL, SRK, orgId);
+    if (!wa.apiKey) {
       return new Response(
-        JSON.stringify({ error: "WhatsApp integration not configured" }),
+        JSON.stringify({ error: `WhatsApp not configured: ${wa.detail}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    const apiKey = wa.apiKey;
+
 
     const firstName = String(customer.name || "").trim().split(/\s+/)[0] || "there";
 
