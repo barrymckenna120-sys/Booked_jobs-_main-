@@ -86,7 +86,10 @@ const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
       {/* Header */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-extrabold">{job.customers?.name ?? "Unknown customer"}</div>
+          <div className="text-[15px] font-extrabold flex items-center gap-1.5">
+            {job.customers?.name ?? "Unknown customer"}
+            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} size="sm" />
+          </div>
           <div className="text-xs text-muted-foreground truncate">📍 {job.customers?.address ?? "No address"}</div>
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
