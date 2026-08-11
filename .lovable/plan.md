@@ -1,66 +1,67 @@
-# Parts Request Notifications (DB triggers only)
+# My Parts — engineer-facing read-only list
 
-Two notification paths on `parts_requests`, implemented as one new trigger function, in a single migration. No table structure changes, no frontend changes.
+A second tab inside the engineer's Completed section: **Job History / My Parts**. Engineer screens only. No changes to `parts_requests` structure, no RLS changes, no office/admin components.
 
-## Column name mapping
+## Where it lives
 
-The request names four fields that don't exist under those names on the table. Confirmed actual columns:
+New route `/engineer/parts` under the existing `EngineerLayout`. The bottom nav keeps its four items unchanged — `/engineer/parts` maps to the same **Completed** nav item, so that icon stays highlighted while My Parts is open. A segmented control sits at the top of both screens:
 
-| Requested        | Actual column      |
-| ---------------- | ------------------ |
-| part_description | `description`      |
-| job_id           | `service_call_id`  |
-| note             | `notes`            |
-| customer_name    | `customer_name` (exists) |
+```text
+[ Job History | My Parts ]
+```
 
-`notifications.job_id` is an FK to `service_calls(id)`, so `service_call_id` populates it directly.
+Tapping a segment navigates between `/engineer/completed` and `/engineer/parts`. Both screens render the same control, so the pair reads as one section.
 
-## Path A — cancellation fan-out to office
+## Query
 
-Fires on UPDATE when `status` changes to `'Cancelled'`.
+```text
+select * from parts_requests
+where engineer_id = <auth uid> or assigned_engineer_id = <auth uid>
+order by created_at desc
+```
 
-Recipients: every active admin/office/owner in the row's organisation, using the **exact same recipient query as `notify_on_job_change()`** — that trigger reads `public.engineers` (`role IN ('admin','office','owner') AND status = 'active' AND auth_user_id IS NOT NULL`), not `profiles`. It also skips `auth.uid()` so the actor isn't notified of their own action; the same skip is kept here.
+Both columns are `uuid` FKs to `profiles(user_id)`, which is the value `auth.uid()` returns, so the current user's id is used directly with no lookup. The legacy `assigned_to` (an `engineers.id`) is **not** queried. Org scoping comes from the existing RLS policies; no client-side org filter is added.
 
-- `notification_type`: `parts_cancelled`
-- `title`: `Part Request Cancelled — <customer_name>`
-- `body`: `<description> (qty N) cancelled by <actor name>.`
-- `role`: `office`, `job_id`: `service_call_id`, `organisation_id`: row's org
-- `metadata`: `part_request_id`, `description`, `qty`, `customer_name`, `service_call_id`, `cancelled_by`, `cancelled_by_name`
+Job references are not on `parts_requests`, so a second lookup fetches `job_reference` from `service_calls` for the distinct non-null `service_call_id` values and maps them onto the rows.
 
-"Who cancelled it": resolved from `auth.uid()` first (the frontend isn't being touched, so `cancelled_by` may stay NULL), falling back to the row's `cancelled_by`. Name resolved via `engineers.name` for that auth id, then `profiles.display_name`, else `'Unknown'`.
+## Each row shows, in this order
 
-## Path B — office edit notifies the engineer
+1. **Job reference** from the linked job, or `No job linked` when `service_call_id` is null
+2. **customer_name**
+3. **description**
+4. **Status badge** — Open / Ordered / Ready to Fit / Cancelled, using the existing `PART_STATUS_CONFIG` colours. Icons: `Clock` (Open), `Truck` (Ordered), **`PackageCheck`** (Ready to Fit), `XCircle` (Cancelled). `PackageCheck` is a box-with-tick glyph and is not used anywhere in the app today; the job's own Complete action uses `CheckCircle2`, which is deliberately avoided here so the two never read as the same state.
+5. **priority** — existing `PART_PRIORITY_CONFIG` pill (Urgent / Normal / Low)
+6. **created_at** — short date via `date-fns` `format`, matching the engineer screens' existing style, with "Today"/"Yesterday" for recent rows
+7. **notes block**, when `notes` is present — see below
 
-Fires on UPDATE when `notes` or `status` changed, the actor's role is admin/office/owner (via the existing `get_user_role(auth.uid())` helper), and the row has an engineer to address.
+## The notes / "Update from office" distinction
 
-Recipient: a single user — `engineer_id`, falling back to `assigned_engineer_id`. Both are `uuid` FKs to `profiles(user_id)`, i.e. the same value `auth.uid()` returns, so they are used as `recipient_user_id` directly with no lookup.
+When `notes` is present the row renders a small note block. Its framing depends on whether office has touched the request since it was created:
 
-- `notification_type`: `parts_updated`
-- `title`: `Part Request Updated — <customer_name>`
-- `body`: status change → `Status: <old> → <new>`; notes-only change → `Office added a note.`; both → combined
-- `role`: `engineer`, `job_id`: `service_call_id`
-- `metadata`: `part_request_id`, `description`, `old_status`, `new_status`, `notes_changed`, `updated_by`, `updated_by_name`
+- `updated_at > created_at` **and** `status != 'Open'` → labelled **"Update from office"**, with the office-tinted treatment, so the engineer reads it as something changed on their behalf.
+- Otherwise → presented as the request's own note, no office label.
 
-Suppressed when the recipient is the actor (engineer editing their own row), and when a status change to `'Cancelled'` was made by the engineer themselves.
+A small tolerance (a couple of seconds) is applied to the `updated_at > created_at` comparison so the insert's own timestamp jitter doesn't mislabel a brand-new row as an office update.
 
-Two points worth stating plainly:
+Worth stating plainly: this heuristic infers authorship from timestamps and status, because the table has no "who wrote this note" column and this prompt doesn't add one. It is right for the normal flow (engineer logs a request, office later edits it) but it cannot distinguish an office note from an office status change that left the note alone — both show the same label. A `notes_updated_by` column would make it exact; that's a schema change for a later prompt.
 
-- A cancellation performed by office staff satisfies both paths, so it sends the office fan-out **and** an engineer notification. That is intended — the engineer needs to know their request was killed.
-- All 9 existing rows have `engineer_id` and `assigned_engineer_id` NULL (they predate those columns and use the legacy `assigned_to`, which is an `engineers.id`, not an auth id). Path B will therefore be a no-op on existing rows until the frontend starts writing `engineer_id`. Path A works on them today. No backfill is included, since that would be a data change beyond this prompt.
+## Read-only
 
-## Verification (run after the migration, output shown, not summarised)
+No status controls, no cancel action, no writes at all from this screen. Rows are not tappable beyond the job reference, which links to the linked job's detail screen when one exists.
 
-1. Insert a temp `parts_requests` row in K&N's org with `engineer_id` set to a real profile user id and `status = 'Open'`.
-2. `UPDATE ... SET notes = '<test>'` as an office actor → expect exactly 1 `parts_updated` row for that engineer.
-3. `UPDATE ... SET status = 'Cancelled'` → expect one `parts_cancelled` row per active admin/office/owner in the org, plus 1 `parts_updated` for the engineer.
-4. Count active admin/office/owner recipients separately and confirm the fan-out row count matches it exactly.
-5. `SELECT recipient_user_id, notification_type, title, body, metadata` for the created notifications and show the raw rows.
-6. Delete the temp row and every notification created by the test, then re-confirm the `notifications` count returns to its pre-test value.
+Empty state: a package icon with "No parts requests yet". Expect this for every engineer initially — all 9 existing rows predate `engineer_id`/`assigned_engineer_id` and have both NULL, so nothing matches until new requests are logged. No backfill is included.
 
-Because triggers read `auth.uid()`, the test drives the updates through the authenticated PostgREST API with a real JWT (the same harness used for the earlier RLS proof), not bare psql where `auth.uid()` is NULL.
+## Files
 
-## Technical notes
+- `src/pages/engineer/EngineerParts.tsx` — new screen, query, list, empty and loading states
+- `src/components/engineer/PartsSectionTabs.tsx` — new shared segmented control
+- `src/components/engineer/PartRequestCard.tsx` — new row card
+- `src/pages/engineer/EngineerCompleted.tsx` — render the segmented control above the existing list; list itself untouched
+- `src/components/engineer/EngineerLayout.tsx` — treat `/engineer/parts` as the Completed tab for nav highlighting
+- `src/App.tsx` — register the `parts` child route
+- `src/lib/partsStatus.ts` — add the status-icon map and the pure `isOfficeUpdate(row)` helper
+- `src/lib/partsStatus.test.ts` — unit tests for `isOfficeUpdate` (new row, office-updated row, Open-but-updated row, timestamp jitter) and the status/icon map
 
-- One new `SECURITY DEFINER` function `public.notify_on_parts_request_change()` with `SET search_path = public`, plus one `AFTER UPDATE` trigger on `parts_requests`. Existing triggers on the table are left alone.
-- Inserts into `notifications` from a definer function bypass that table's insert policy, matching how `notify_on_job_change()` already writes.
-- Wrapped so a notification failure cannot roll back the parts update.
+## Verification
+
+Unit tests for the pure helpers, then a Playwright pass on `/engineer/parts` signed in as the test engineer: empty state, then a temporary row per status to confirm badges, icons, ordering, "No job linked", and both note framings render correctly — temp rows removed afterwards.
