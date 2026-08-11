@@ -17,6 +17,8 @@ type IncomingJob = {
   source: string | null;
   incoming_status: string | null;
   created_at: string;
+  confirmed?: boolean | null;
+  confirmed_at?: string | null;
   customers: {
     id: string;
     name: string;
