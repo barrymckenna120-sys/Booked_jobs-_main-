@@ -14,6 +14,8 @@ import {
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
+import PartStatusIcon from "@/components/parts/PartStatusIcon";
+
 
 const PartsPanel = () => {
   const { user } = useAuth();
