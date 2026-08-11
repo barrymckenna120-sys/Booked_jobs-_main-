@@ -77,18 +77,15 @@ serve(async (req) => {
       });
     }
 
-    // Fetch WhatsApp api_key from tenant_integrations
-    const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers }
-    );
-    const tiRows = await tiRes.json();
-    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKey(supabaseUrl, supabaseKey, orgId);
+    if (!wa.apiKey) {
+      return new Response(JSON.stringify({ success: false, error: `WhatsApp not configured: ${wa.detail}` }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
       });
     }
+    const apiKey = wa.apiKey;
+
 
     // Fetch engineer name
     let engineerName = "your engineer";
