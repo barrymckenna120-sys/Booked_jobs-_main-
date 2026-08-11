@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 type Props = {
   weekDays: Date[];
@@ -158,6 +159,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                                   <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
+                                  <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} size="sm" />
                                   {["En Route", "On Site", "In Progress"].includes(job.status) && (
                                     <span className="text-[9px] font-bold text-warning bg-warning/10 rounded-full px-1.5 py-0.5">
                                       {job.status === "En Route" ? "🚗" : job.status === "On Site" ? "📍" : "⚙️"} {job.status}
@@ -250,6 +252,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                           </div>
                           <div className="flex items-center gap-1">
+                            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} size="sm" />
                             {jobTypeBadge(job.job_type)}
                             {mediaBadge(job.media_count)}
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}

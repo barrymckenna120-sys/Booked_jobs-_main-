@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 const PAGE_SIZE = 15;
 
@@ -43,6 +44,8 @@ type Job = {
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
   job_reference?: string | null;
+  confirmed?: boolean | null;
+  confirmed_at?: string | null;
 };
 
 const Jobs = () => {
@@ -310,6 +313,7 @@ const Jobs = () => {
             <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${borderClass}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
+                <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
                   <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
@@ -465,6 +469,7 @@ const Jobs = () => {
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground font-mono">{(j as any).job_reference || `KN-${j.id.slice(0, 4).toUpperCase()}`}</span>
+          <JobConfirmedBadge confirmed={(j as any).confirmed} confirmedAt={(j as any).confirmed_at} size="sm" />
           {j.source === "Quote" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
           ) : j.source === "Tally Form" ? (

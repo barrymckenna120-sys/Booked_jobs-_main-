@@ -9,6 +9,7 @@ import MediaGallery from "@/components/media/MediaGallery";
 import { formatDateIE } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 type Props = {
   open: boolean;
@@ -61,6 +62,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <span className="font-mono text-muted-foreground text-sm">{jobRef}</span>
+            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} />
           </SheetTitle>
         </SheetHeader>
 
