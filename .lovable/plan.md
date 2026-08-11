@@ -100,6 +100,7 @@ USING (
 )
 WITH CHECK (
   organisation_id = public.get_my_org_id()
+  AND status IN ('Open', 'Cancelled')
   AND (
     logged_by = auth.uid()
     OR assigned_to = public.get_engineer_id(auth.uid())
