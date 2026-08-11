@@ -6,9 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wrench, Package, CalendarClock, PackageCheck, X } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
+import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import { useToast } from "@/hooks/use-toast";
 import {
   PART_PRIORITY_CONFIG,
+  PART_STATUS_CONFIG,
   priorityRank,
   updatePartStatus,
   type PartStatus,
@@ -66,6 +68,7 @@ const Parts = () => {
 
   const PartCard = ({ part, borderColor, children }: { part: any; borderColor: string; children?: React.ReactNode }) => {
     const pCfg = PART_PRIORITY_CONFIG[part.priority];
+    const sCfg = PART_STATUS_CONFIG[part.status];
     return (
       <Card
         className={`border-l-4 transition-shadow ${part.service_call_id ? "cursor-pointer hover:shadow-md" : ""}`}
