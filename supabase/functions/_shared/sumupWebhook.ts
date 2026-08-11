@@ -373,11 +373,13 @@ export async function handleSumUpWebhook(
     await deps.notifyOffice({
       organisationId: job.organisation_id,
       serviceCallId: job.id,
+      customerId: job.customer_id ?? null,
       jobReference: job.job_reference ?? null,
       amount,
       fullyPaid,
     });
   }
+
 
   log("info", `sumup-webhook: job ${job.id} → ${fullyPaid ? "paid" : "partial"} (€${amount})`);
   return {
