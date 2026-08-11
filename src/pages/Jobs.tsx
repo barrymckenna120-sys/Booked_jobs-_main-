@@ -469,6 +469,7 @@ const Jobs = () => {
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground font-mono">{(j as any).job_reference || `KN-${j.id.slice(0, 4).toUpperCase()}`}</span>
+          <JobConfirmedBadge confirmed={(j as any).confirmed} confirmedAt={(j as any).confirmed_at} size="sm" />
           {j.source === "Quote" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
           ) : j.source === "Tally Form" ? (
