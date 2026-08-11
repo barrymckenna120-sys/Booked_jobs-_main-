@@ -54,3 +54,94 @@ One thing to note rather than silently change: a `Pending` job moved to `parts_n
 
 - The trigger is the single source of truth for job status; the TypeScript mirror exists for tests and optimistic UI only, and both lists are edited together.
 - `service_calls.parts_priority` / `parts_logged_at` stay as the denormalised summary the Jobs, Schedule, and Follow-ups badges read, written from the one submitted part.
+
+## Point 4 — engineers table verified by query (evidence)
+
+`information_schema.tables` (schema `public`) returns **`engineers`** and **`profiles`** — the `engineers` table is real.
+
+`information_schema.table_constraints` + `key_column_usage` for `engineers`: `PRIMARY KEY` on **`id`** (uuid, not null). Its other identity columns are `user_id` (uuid, nullable) and `auth_user_id` (uuid, nullable) — the auth link is `auth_user_id`, not `id`.
+
+So no fallback to `profiles(user_id)` is needed: `assigned_to` keeps its existing FK to `engineers(id)`, which the current rows already satisfy (all 9 backfilled rows carry a real `engineers.id` in `assigned_to`).
+
+One consequence for the policy wording you gave: because `assigned_to` holds an `engineers.id`, `assigned_to = auth.uid()` can never match. The engineer-side check uses the existing security-definer helper `public.get_engineer_id(auth.uid())`, which maps the signed-in user to their `engineers.id`. `logged_by` stays an auth user id and is compared to `auth.uid()` directly. Query evidence: `logged_by` is NULL on all backfilled rows (they came from note parsing, no author), `assigned_to` matches `engineers.id`.
+
+## Point 2 — actual RLS policy definitions
+
+Pattern mirrored: **`public.engineers` / policy `engineers_update`** — `(organisation_id = get_my_org_id()) AND ((get_user_role(auth.uid()) = ANY (ARRAY['admin','owner','office','manager','superadmin'])) OR (auth_user_id = auth.uid()))`. Same org gate, same admin/office role array via `get_user_role`, same "or it's your own row" fallback. The parts policies use that shape with the extra `status = 'Open'` restriction on the engineer branch.
+
+The four existing permissive policies on `parts_requests` (`parts_requests_select`, `_insert`, `_update`, `_delete`, all currently org-only) are dropped and replaced by:
+
+```sql
+DROP POLICY IF EXISTS parts_requests_select ON public.parts_requests;
+DROP POLICY IF EXISTS parts_requests_insert ON public.parts_requests;
+DROP POLICY IF EXISTS parts_requests_update ON public.parts_requests;
+DROP POLICY IF EXISTS parts_requests_delete ON public.parts_requests;
+
+-- SELECT: any authenticated user in the organisation
+CREATE POLICY parts_requests_select ON public.parts_requests
+FOR SELECT TO authenticated
+USING (organisation_id = public.get_my_org_id());
+
+-- INSERT: any authenticated user in the organisation
+CREATE POLICY parts_requests_insert ON public.parts_requests
+FOR INSERT TO authenticated
+WITH CHECK (organisation_id = public.get_my_org_id());
+
+-- (a) engineer / non-admin: own rows only, and only while still Open
+CREATE POLICY parts_requests_update_own_open ON public.parts_requests
+FOR UPDATE TO authenticated
+USING (
+  organisation_id = public.get_my_org_id()
+  AND status = 'Open'
+  AND (
+    logged_by = auth.uid()
+    OR assigned_to = public.get_engineer_id(auth.uid())
+  )
+)
+WITH CHECK (
+  organisation_id = public.get_my_org_id()
+  AND (
+    logged_by = auth.uid()
+    OR assigned_to = public.get_engineer_id(auth.uid())
+  )
+);
+
+CREATE POLICY parts_requests_delete_own_open ON public.parts_requests
+FOR DELETE TO authenticated
+USING (
+  organisation_id = public.get_my_org_id()
+  AND status = 'Open'
+  AND (
+    logged_by = auth.uid()
+    OR assigned_to = public.get_engineer_id(auth.uid())
+  )
+);
+
+-- (b) office / admin / superadmin: any row in their org, any status
+CREATE POLICY parts_requests_update_office ON public.parts_requests
+FOR UPDATE TO authenticated
+USING (
+  organisation_id = public.get_my_org_id()
+  AND public.get_user_role(auth.uid()) = ANY (ARRAY['admin','owner','office','manager','superadmin'])
+)
+WITH CHECK (
+  organisation_id = public.get_my_org_id()
+  AND public.get_user_role(auth.uid()) = ANY (ARRAY['admin','owner','office','manager','superadmin'])
+);
+
+CREATE POLICY parts_requests_delete_office ON public.parts_requests
+FOR DELETE TO authenticated
+USING (
+  organisation_id = public.get_my_org_id()
+  AND public.get_user_role(auth.uid()) = ANY (ARRAY['admin','owner','office','manager','superadmin'])
+);
+```
+
+Notes on how this behaves, since Postgres ORs permissive policies of the same command together:
+
+- An engineer keeps write access only while their own request is `Open`; the moment office moves it to `Ordered`, `Ready to Fit`, or `Cancelled`, both engineer policies stop matching and the write is refused at the database level.
+- The engineer `WITH CHECK` deliberately omits `status = 'Open'` so an engineer can still cancel or edit their own open request; the `USING` clause is what gates entry.
+- Office/admin roles satisfy the (b) policies regardless of creator or status, so nothing about their current workflow changes.
+- The role array matches `engineers_update` exactly, so a role added there needs adding here too.
+
+Because engineers lose UPDATE on non-open rows, the frontend must not offer Ordered / Ready to Fit / Cancel controls in engineer views — those actions stay on the office Parts page and Job Detail. Verification after the migration: sign in as an engineer and confirm an update to a non-`Open` row is rejected, and that office can still move any row.
