@@ -78,3 +78,41 @@ Deno.test("ignores blank and non-string config values", () => {
   assertEquals(r.apiKey, null);
   assertEquals(r.resolution, "no_key_in_config");
 });
+
+// --- Regression cases for the three senders migrated onto this resolver
+// (send-payment-received, send-area-bulk-whatsapp, send-outstanding-invoice-reminders).
+// Each previously read `config.api_key` on the 360messenger row only, so every
+// tenant storing a secret NAME returned "not configured".
+
+Deno.test("360messenger row with api_key_secret only resolves from env", () => {
+  const r = resolveWhatsappApiKey(
+    [{ integration_type: "360messenger", config: { api_key_secret: "THREESIXTY_API_KEY_CAVAN_GAS" } }],
+    env({ THREESIXTY_API_KEY_CAVAN_GAS: "cavan-live-key" }),
+  );
+  assertEquals(r.apiKey, "cavan-live-key");
+  assertEquals(r.resolution, "secret:THREESIXTY_API_KEY_CAVAN_GAS");
+});
+
+Deno.test("360messenger row with api_key_secret only and no secret set fails nameably", () => {
+  const r = resolveWhatsappApiKey(
+    [{ integration_type: "360messenger", config: { api_key_secret: "THREESIXTY_API_KEY_CAVAN_GAS" } }],
+    env({}),
+  );
+  assertEquals(r.apiKey, null);
+  assertEquals(r.resolution, "secret_missing:THREESIXTY_API_KEY_CAVAN_GAS");
+});
+
+Deno.test("secret name on 360messenger wins over a literal key on the whatsapp row", () => {
+  const rows = [
+    { integration_type: "360messenger", config: { api_key_secret: "THREESIXTY_API_KEY" } },
+    { integration_type: "whatsapp", config: { api_key: "older-literal-key" } },
+  ];
+  const withSecret = resolveWhatsappApiKey(rows, env({ THREESIXTY_API_KEY: "kn-live-key" }));
+  assertEquals(withSecret.apiKey, "kn-live-key");
+  assertEquals(withSecret.resolution, "secret:THREESIXTY_API_KEY");
+
+  // Secret absent -> the literal whatsapp row is the fallback, not a hard failure.
+  const withoutSecret = resolveWhatsappApiKey(rows, env({}));
+  assertEquals(withoutSecret.apiKey, "older-literal-key");
+  assertEquals(withoutSecret.resolution, "literal_config:whatsapp");
+});
