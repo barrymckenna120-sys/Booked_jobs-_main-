@@ -103,7 +103,26 @@ Deno.serve(async (req) => {
     presentedSecret,
     body,
 
+    // Duplicate-delivery guard: sumup_webhook_events.checkout_id is UNIQUE, so
+    // the insert fails for any callback SumUp re-delivers. Runs before the
+    // paid_at stamp and before the notification write.
+    claimEvent: async (e) => {
+      const { error } = await supabase.from("sumup_webhook_events").insert({
+        checkout_id: e.checkoutId,
+        event_type: e.eventType,
+        organisation_id: e.organisationId,
+        service_call_id: e.serviceCallId,
+      });
+      if (!error) return true;
+      // 23505 = unique violation = already processed.
+      if ((error as { code?: string }).code === "23505") return false;
+      console.error("sumup-payment-webhook: claim insert failed", error.message);
+      // Unknown DB error: don't silently drop a real payment.
+      return true;
+    },
+
     loadJobByCheckoutId: async (checkoutId) => {
+
       const { data, error } = await supabase
         .from("service_calls")
         .select(JOB_COLUMNS)
@@ -251,7 +270,7 @@ Deno.serve(async (req) => {
           .select("user_id, role")
           .eq("organisation_id", e.organisationId)
           .eq("is_active", true)
-          .in("role", ["office", "admin", "owner"]);
+          .in("role", ["office", "admin"]);
 
         if (error) {
           console.error("sumup-payment-webhook: staff lookup failed", error.message);
