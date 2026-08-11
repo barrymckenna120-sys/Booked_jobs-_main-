@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -52,22 +53,22 @@ const addMonths = (d: string, months: number) => {
 const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: TakePaymentModalProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
-  const jobTotal = job.revenue ?? 0;
-  const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
-  const isDepositPaid = !!job.deposit_paid;
-
-  // Determine what the engineer should collect right now
-  // 1. Deposit job, deposit already paid → collect balance due
-  // 2. Deposit job, deposit NOT paid → collect deposit first
-  // 3. No deposit → collect full revenue
-  const collectingDeposit = hasDeposit && !isDepositPaid;
-  const balanceDue = hasDeposit && isDepositPaid
-    ? (job.balance_due ?? (jobTotal - depositAmount))
-    : hasDeposit && !isDepositPaid
-      ? depositAmount
-      : jobTotal;
-  const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
+  // Single shared classifier (same helper the engineer PaymentSheet uses).
+  // Case D = deposit required, not yet paid → collect the deposit
+  // Case A = deposit paid, balance remains  → collect the balance
+  // Case B = nothing owing                  → block further collection
+  // Case C = no deposit                     → collect the full job total
+  const paymentState = resolvePaymentSheetState(job);
+  const isFullyPaid = paymentState.case === "B";
+  const hasDeposit = paymentState.case === "A" || paymentState.case === "D";
+  const jobTotal = paymentState.jobTotal;
+  const depositAmount = paymentState.depositAmount;
+  const isDepositPaid = paymentState.depositPaid;
+  const collectingDeposit = paymentState.case === "D";
+  const balanceDue = paymentState.amount ?? 0;
+  const defaultAmount = paymentState.amount !== undefined
+    ? String(paymentState.amount)
+    : (job.revenue ? String(job.revenue) : "120");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [method, setMethod] = useState<"card" | "cash" | "invoice" | null>(null);
@@ -111,6 +112,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   };
 
   const handleGenerate = async () => {
+    // Guard, not just hidden UI: never record a payment on a settled job.
+    if (isFullyPaid) {
+      toast({ title: "Already paid", description: "This job is fully paid — no further payment can be collected." });
+      return;
+    }
     if (!method || !validate()) return;
 
     // Invoice flow — save payment record, then navigate to invoice preview
@@ -315,6 +321,34 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
               </div>
             </div>
 
+            {isFullyPaid ? (
+              <>
+                <div className="rounded-xl p-4 space-y-1.5 text-sm bg-[hsl(142,71%,45%)]/10 border border-[hsl(142,71%,45%)]/25">
+                  <div className="flex items-center gap-2 font-extrabold text-[hsl(142,71%,30%)]">
+                    <CheckCircle2 className="w-4 h-4" /> This job is fully paid
+                  </div>
+                  <p className="text-xs text-[hsl(220,9%,46%)] font-medium">
+                    No further payment can be collected for this job.
+                  </p>
+                  {(jobTotal > 0 || depositAmount > 0) && (
+                    <div className="flex justify-between pt-1.5">
+                      <span className="text-[hsl(220,9%,46%)]">Amount already collected</span>
+                      <span className="font-extrabold text-[hsl(222,47%,11%)]">
+                        €{(jobTotal > 0 ? jobTotal : depositAmount).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  className="w-full h-12 text-sm font-extrabold"
+                  onClick={onClose}
+                >
+                  Close
+                </Button>
+              </>
+            ) : (
+              <>
             {/* Deposit summary for deposit jobs */}
             {hasDeposit && (
               <div className="bg-[hsl(220,14%,96%)] rounded-xl p-4 space-y-2 text-sm">
@@ -385,7 +419,9 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
             {/* Amount */}
             <div>
-              <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">Amount</p>
+              <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">
+                {paymentState.case === "A" ? "Balance Due" : paymentState.case === "D" ? "Collect Deposit" : "Amount"}
+              </p>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-[hsl(222,47%,11%)]">€</span>
                 <Input
@@ -419,6 +455,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
             >
               {method === "invoice" ? "Send Payment Link" : "Generate & Send Receipt"}
             </Button>
+              </>
+            )}
           </div>
         )}
 

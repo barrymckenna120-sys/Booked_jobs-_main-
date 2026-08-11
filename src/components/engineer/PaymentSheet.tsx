@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { resolvePaymentSheetState, LABEL_JOB_TOTAL } from "@/lib/paymentSheetAmount";
 
 interface Props {
   job: any;
@@ -25,11 +26,30 @@ const METHODS = [
   { key: "invoice", label: "Invoice", icon: FileText, emoji: "📄" },
 ];
 
+const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
+
 const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
 
+  const state = resolvePaymentSheetState(job);
+  const isFullyPaid = state.case === "B";
+
   useEffect(() => {
+    if (isFullyPaid) {
+      setAmount("");
+      return;
+    }
+
+    // Cases A and D have an explicit amount to collect.
+    if (state.case === "A" || state.case === "D") {
+      if (state.amount !== undefined) {
+        setAmount(String(state.amount));
+        return;
+      }
+    }
+
+    // Case C — unchanged behaviour: job revenue, else settings default by job type.
     const rev = job?.revenue;
     if (rev && Number(rev) > 0) {
       setAmount(String(Number(rev)));
@@ -53,12 +73,46 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
           setAmount(String(Number(val)));
         }
       });
-  }, [job?.revenue, job?.job_type]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.revenue, job?.job_type, state.case, state.amount, isFullyPaid]);
 
   const handleConfirm = () => {
+    // Server-side guard: never submit a payment on an already settled job.
+    if (isFullyPaid) return;
     if (!selected) return;
     onDone(selected, parseFloat(amount) || 0);
   };
+
+  if (isFullyPaid) {
+    const collected = state.jobTotal > 0 ? state.jobTotal : state.depositAmount;
+    return (
+      <EngineerSheet onClose={onClose}>
+        <div className="px-5 py-3 border-b border-border">
+          <div className="text-xl font-extrabold text-foreground flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-success" /> Payment Complete
+          </div>
+          <div className="text-[13px] text-muted-foreground mt-0.5">{customer?.name}</div>
+        </div>
+        <div className="px-5 pt-4 space-y-4">
+          <div className="rounded-xl border border-success/30 bg-success/10 p-4 space-y-1">
+            <div className="text-sm font-extrabold text-foreground">This job is fully paid</div>
+            <div className="text-[13px] text-muted-foreground">
+              No further payment can be collected here.
+            </div>
+            {collected > 0 && (
+              <div className="flex justify-between pt-2 text-sm">
+                <span className="text-muted-foreground">Amount already collected</span>
+                <span className="font-extrabold text-foreground">{euro(collected)}</span>
+              </div>
+            )}
+          </div>
+          <Button className="w-full h-12 text-base font-extrabold" variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </EngineerSheet>
+    );
+  }
 
   return (
     <EngineerSheet onClose={onClose}>
@@ -72,7 +126,9 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
       </div>
       <div className="px-5 pt-4 space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="job-total" className="text-sm font-bold text-foreground">Job Total (€)</Label>
+          <Label htmlFor="job-total" className="text-sm font-bold text-foreground">
+            {state.label ?? LABEL_JOB_TOTAL}
+          </Label>
           <Input
             id="job-total"
             type="number"
@@ -83,7 +139,17 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
             onChange={(e) => setAmount(e.target.value)}
             className="text-lg font-bold h-12"
           />
-          <p className="text-[11px] text-muted-foreground">Pre-filled from job price or default. Edit if needed.</p>
+          {state.case === "A" ? (
+            <p className="text-[11px] text-muted-foreground">
+              Deposit of {euro(state.depositAmount)} already collected · Job total {euro(state.jobTotal)}.
+            </p>
+          ) : state.case === "D" ? (
+            <p className="text-[11px] text-muted-foreground">
+              Deposit only · Job total {euro(state.jobTotal)}.
+            </p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">Pre-filled from job price or default. Edit if needed.</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
