@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 type Props = {
   weekDays: Date[];
