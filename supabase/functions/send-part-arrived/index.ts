@@ -45,16 +45,57 @@ serve(async (req) => {
       );
     }
 
-    // Fetch WhatsApp api_key from tenant_integrations
+    // Resolve per-tenant 360Messenger credentials.
+    // Accepts either integration row type, and either a declared secret name
+    // (api_key_secret -> env var) or a literal api_key stored in config.
     const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=in.(360messenger,whatsapp)&select=integration_type,config`,
       { headers }
     );
     const tiRows = await tiRes.json();
-    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
+    const rows: any[] = Array.isArray(tiRows) ? tiRows : [];
+    const preferred = rows.find((r) => r.integration_type === "360messenger") || rows[0] || null;
+    const cfg = preferred?.config || {};
+
+    let apiKey: string | null = null;
+    let resolution = "none";
+    let secretName: string | undefined;
+
+    if (cfg.api_key_secret) {
+      secretName = String(cfg.api_key_secret);
+      apiKey = Deno.env.get(secretName) || null;
+      resolution = apiKey ? `secret:${secretName}` : `secret_missing:${secretName}`;
+    } else if (cfg.api_key) {
+      apiKey = String(cfg.api_key);
+      resolution = "literal_config";
+    } else {
+      // Fall back to a literal key on the other integration row, if present.
+      const other = rows.find((r) => r !== preferred);
+      if (other?.config?.api_key) {
+        apiKey = String(other.config.api_key);
+        resolution = `literal_config:${other.integration_type}`;
+      }
+    }
+
     if (!apiKey) {
+      const detail = rows.length === 0
+        ? "No 360messenger/whatsapp integration row for this organisation"
+        : secretName
+          ? `Secret "${secretName}" is not set for this organisation`
+          : "Integration row has no api_key or api_key_secret";
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            function_name: "send-part-arrived",
+            error_message: `WhatsApp credential resolution failed: ${detail}`,
+            payload: { organisation_id: orgId, job_id, resolution, secret_name: secretName ?? null },
+          }),
+        });
+      } catch { /* best-effort */ }
       return new Response(
-        JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }),
+        JSON.stringify({ success: false, error: `WhatsApp not configured: ${detail}` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
