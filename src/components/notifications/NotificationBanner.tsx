@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle, Lock, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   new_job:           { icon: Wrench,         color: "text-emerald-500", bg: "bg-emerald-500/10", label: "New Job" },
@@ -66,9 +67,8 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
     try {
       onMarkRead(n.id);
       onDismiss(n.id);
-      if (n.job_id) {
-        navigate(`${jobPathPrefix}/${n.job_id}`);
-      }
+      const target = resolveNotificationTarget(n, jobPathPrefix);
+      if (target) navigate(target);
     } catch {}
   };
 
