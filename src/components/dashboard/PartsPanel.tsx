@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, CheckCircle2, MessageCircle, Loader2, X } from "lucide-react";
+import { Package, PackageCheck, MessageCircle, Loader2, X } from "lucide-react";
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
@@ -189,7 +189,7 @@ const PartsPanel = () => {
                     disabled={updatingId === part.id}
                     onClick={() => handleUpdateStatus(part.id, "Ready to Fit")}
                   >
-                    {updatingId === part.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    {updatingId === part.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />}
                     Mark Ready to Fit
                   </Button>
                 )}

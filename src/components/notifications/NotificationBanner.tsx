@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle, Lock } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle, Lock, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
@@ -10,6 +10,8 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   no_show:           { icon: Ban,            color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Completed" },
   parts_needed:      { icon: Wrench,        color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_cancelled:   { icon: XCircle,       color: "text-destructive", bg: "bg-destructive/10", label: "Part Cancelled" },
+  parts_update:      { icon: PackageCheck,  color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Part Update" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
   message:           { icon: Mail,           color: "text-blue-500",    bg: "bg-blue-500/10",    label: "Message" },
   en_route:          { icon: Navigation,     color: "text-blue-500",    bg: "bg-blue-500/10",    label: "En Route" },
