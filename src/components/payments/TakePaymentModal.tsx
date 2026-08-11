@@ -315,6 +315,34 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
               </div>
             </div>
 
+            {isFullyPaid ? (
+              <>
+                <div className="rounded-xl p-4 space-y-1.5 text-sm bg-[hsl(142,71%,45%)]/10 border border-[hsl(142,71%,45%)]/25">
+                  <div className="flex items-center gap-2 font-extrabold text-[hsl(142,71%,30%)]">
+                    <CheckCircle2 className="w-4 h-4" /> This job is fully paid
+                  </div>
+                  <p className="text-xs text-[hsl(220,9%,46%)] font-medium">
+                    No further payment can be collected for this job.
+                  </p>
+                  {(jobTotal > 0 || depositAmount > 0) && (
+                    <div className="flex justify-between pt-1.5">
+                      <span className="text-[hsl(220,9%,46%)]">Amount already collected</span>
+                      <span className="font-extrabold text-[hsl(222,47%,11%)]">
+                        €{(jobTotal > 0 ? jobTotal : depositAmount).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  className="w-full h-12 text-sm font-extrabold"
+                  onClick={onClose}
+                >
+                  Close
+                </Button>
+              </>
+            ) : (
+              <>
             {/* Deposit summary for deposit jobs */}
             {hasDeposit && (
               <div className="bg-[hsl(220,14%,96%)] rounded-xl p-4 space-y-2 text-sm">
@@ -385,7 +413,9 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
             {/* Amount */}
             <div>
-              <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">Amount</p>
+              <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">
+                {paymentState.case === "A" ? "Balance Due" : paymentState.case === "D" ? "Collect Deposit" : "Amount"}
+              </p>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-[hsl(222,47%,11%)]">€</span>
                 <Input
@@ -419,6 +449,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
             >
               {method === "invoice" ? "Send Payment Link" : "Generate & Send Receipt"}
             </Button>
+              </>
+            )}
           </div>
         )}
 
