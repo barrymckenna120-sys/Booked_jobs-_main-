@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Loader2, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,10 +20,24 @@ const EngineerParts = () => {
   const [loading, setLoading] = useState(true);
 
   const [reloadKey, setReloadKey] = useState(0);
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
 
   useEffect(() => {
+    if (highlightId) return; // deep-linked: keep the highlighted row in view instead
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-  }, []);
+  }, [highlightId]);
+
+  // Scroll the notification-linked request into view once the list has rendered.
+  useEffect(() => {
+    if (!highlightId || rows.length === 0) return;
+    const t = setTimeout(() => {
+      document
+        .getElementById(`part-${highlightId}`)
+        ?.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [highlightId, rows]);
 
 
   useEffect(() => {
@@ -99,6 +114,7 @@ const EngineerParts = () => {
             <PartRequestCard
               key={row.id}
               row={row}
+              highlighted={highlightId === row.id}
               userId={user?.id ?? null}
               onCancelled={() => setReloadKey((k) => k + 1)}
               jobReference={row.service_call_id ? jobRefs[row.service_call_id] ?? null : null}
