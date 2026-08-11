@@ -29,7 +29,7 @@ import MessageOfficeModal from "./MessageOfficeModal";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
-import { insertPartsRequests, priorityRank } from "@/lib/partsRequests";
+import { insertPartsRequest, priorityRank } from "@/lib/partsRequests";
 
 const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
@@ -276,11 +276,11 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         open={showPartsNeeded}
         loading={savingParts}
         onClose={() => setShowPartsNeeded(false)}
-        onConfirm={async (lines) => {
+        onConfirm={async (part) => {
           setSavingParts(true);
           const { data: auth } = await supabase.auth.getUser();
-          const { error, count } = await insertPartsRequests({
-            lines,
+          const { error } = await insertPartsRequest({
+            part,
             organisationId: job.organisation_id,
             serviceCallId: job.id,
             customerId: job.customer_id,
@@ -290,14 +290,13 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           });
           setSavingParts(false);
           if (error) {
-            toast({ title: "Couldn't save parts", description: error.message, variant: "destructive" });
+            toast({ title: "Couldn't save part", description: error.message, variant: "destructive" });
             return;
           }
           setShowPartsNeeded(false);
           // Keep the job's denormalised summary (used by Jobs/Schedule badges) in step.
-          const topPriority = [...lines].sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))[0]?.priority;
-          onUpdate(job.id, { parts_priority: topPriority, parts_logged_at: new Date().toISOString() });
-          toast({ title: count > 1 ? `${count} parts noted — office has been informed` : "Parts noted — office has been informed" });
+          onUpdate(job.id, { parts_priority: part.priority, parts_logged_at: new Date().toISOString() });
+          toast({ title: "Part noted — office has been informed" });
         }}
       />
       {showTakePayment && (

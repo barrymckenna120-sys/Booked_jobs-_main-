@@ -1,44 +1,48 @@
 import { describe, it, expect } from "vitest";
-import { deriveJobStatusFromParts, buildPartsRequestRows, priorityRank } from "./partsStatus";
+import { deriveJobStatusFromParts, buildPartsRequestRow, priorityRank } from "./partsStatus";
 
 describe("deriveJobStatusFromParts", () => {
-  it("flags Parts Needed when any line is Open", () => {
+  it("flags Parts Needed when the job has an Open part", () => {
     expect(deriveJobStatusFromParts("Scheduled", ["Open", "Ordered"])).toBe("parts_needed");
+    expect(deriveJobStatusFromParts("Booked", ["Open"])).toBe("parts_needed");
+    expect(deriveJobStatusFromParts("Pending", ["Open"])).toBe("parts_needed");
   });
 
   it("falls back to Parts Ordered when nothing is Open", () => {
     expect(deriveJobStatusFromParts("Scheduled", ["Ordered", "Ready to Fit"])).toBe("parts_ordered");
   });
 
-  it("uses Awaiting Booking when everything is Ready to Fit", () => {
+  it("uses Parts Arrived when everything is Ready to Fit", () => {
     expect(deriveJobStatusFromParts("Booked", ["Ready to Fit"])).toBe("parts_arrived");
   });
 
-  it("ignores Cancelled lines", () => {
+  it("ignores Cancelled parts", () => {
     expect(deriveJobStatusFromParts("Scheduled", ["Cancelled"])).toBe(null);
-    expect(deriveJobStatusFromParts("parts_needed", ["Cancelled"])).toBe("Scheduled");
+    expect(deriveJobStatusFromParts("parts_needed", ["Cancelled"], true)).toBe("Booked");
   });
 
-  it("hands a parts job back to Scheduled when no active lines remain", () => {
-    expect(deriveJobStatusFromParts("parts_ordered", [])).toBe("Scheduled");
+  it("returns a closed-out parts job to Booked when dated, Pending when not", () => {
+    expect(deriveJobStatusFromParts("parts_ordered", [], true)).toBe("Booked");
+    expect(deriveJobStatusFromParts("parts_ordered", [], false)).toBe("Pending");
+    expect(deriveJobStatusFromParts("parts_arrived", ["Cancelled"], false)).toBe("Pending");
   });
 
-  it("never touches Completed", () => {
-    expect(deriveJobStatusFromParts("Completed", ["Open"])).toBe(null);
-  });
-
-  it("never touches Cancelled", () => {
-    expect(deriveJobStatusFromParts("Cancelled", ["Open"])).toBe(null);
-  });
-
-  it("never touches In Progress — the on-site signal is preserved", () => {
-    expect(deriveJobStatusFromParts("In Progress", ["Open"])).toBe(null);
-    expect(deriveJobStatusFromParts("In Progress", ["Ready to Fit"])).toBe(null);
-  });
-
-  it("never touches no_show, Pending or Awaiting Deposit", () => {
-    for (const status of ["no_show", "Pending", "Awaiting Deposit"]) {
+  it("never touches a job that has started or finished", () => {
+    for (const status of [
+      "In Progress",
+      "On Site",
+      "En Route",
+      "Completed",
+      "completed",
+      "Cancelled",
+      "archived",
+      "no_show",
+      "incoming",
+      "Awaiting Deposit",
+    ]) {
       expect(deriveJobStatusFromParts(status, ["Open"])).toBe(null);
+      expect(deriveJobStatusFromParts(status, ["Ready to Fit"])).toBe(null);
+      expect(deriveJobStatusFromParts(status, [])).toBe(null);
     }
   });
 
@@ -52,53 +56,43 @@ describe("deriveJobStatusFromParts", () => {
   });
 });
 
-describe("buildPartsRequestRows", () => {
+describe("buildPartsRequestRow", () => {
   const base = { organisationId: "org-1", serviceCallId: "job-1", customerId: "cust-1" };
 
-  it("emits one row per line and never touches job notes", () => {
-    const rows = buildPartsRequestRows({
-      ...base,
-      lines: [
-        { description: "Thermocouple", priority: "urgent" },
-        { description: "Flue seal", priority: "low", quantity: 2 },
-      ],
-    });
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({ description: "Thermocouple", priority: "urgent", quantity: 1, status: "Open" });
-    expect(rows[1]).toMatchObject({ description: "Flue seal", priority: "low", quantity: 2 });
-    expect(rows.some((r) => "notes" in r)).toBe(false);
-    expect(rows.some((r) => "status_job" in r)).toBe(false);
+  it("builds exactly one row for one part and never touches job notes", () => {
+    const row = buildPartsRequestRow({ ...base, part: { description: "Thermocouple", priority: "urgent" } });
+    expect(row).toMatchObject({ description: "Thermocouple", priority: "urgent", quantity: 1, status: "Open" });
+    expect(row && "notes" in row).toBe(false);
   });
 
-  it("drops blank lines and trims descriptions", () => {
-    const rows = buildPartsRequestRows({
-      ...base,
-      lines: [
-        { description: "  Pilot jet  ", priority: "normal" },
-        { description: "   ", priority: "normal" },
-      ],
-    });
-    expect(rows).toHaveLength(1);
-    expect(rows[0].description).toBe("Pilot jet");
+  it("keeps a supplied quantity and defaults invalid ones to 1", () => {
+    expect(buildPartsRequestRow({ ...base, part: { description: "Flue seal", priority: "low", quantity: 2 } })?.quantity).toBe(2);
+    expect(buildPartsRequestRow({ ...base, part: { description: "Flue seal", priority: "low", quantity: 0 } })?.quantity).toBe(1);
+    expect(buildPartsRequestRow({ ...base, part: { description: "Flue seal", priority: "low", quantity: -3 } })?.quantity).toBe(1);
+  });
+
+  it("trims the description and rejects a blank part", () => {
+    expect(buildPartsRequestRow({ ...base, part: { description: "  Pilot jet  ", priority: "normal" } })?.description).toBe("Pilot jet");
+    expect(buildPartsRequestRow({ ...base, part: { description: "   ", priority: "normal" } })).toBe(null);
   });
 
   it("keeps typed-in customer details only when there is no customer record", () => {
-    const withRecord = buildPartsRequestRows({
+    const withRecord = buildPartsRequestRow({
       ...base,
       customerName: "Ignored",
-      lines: [{ description: "Part", priority: "normal" }],
+      part: { description: "Part", priority: "normal" },
     });
-    expect(withRecord[0].customer_name).toBe(null);
+    expect(withRecord?.customer_name).toBe(null);
 
-    const withoutRecord = buildPartsRequestRows({
+    const phonedIn = buildPartsRequestRow({
       organisationId: "org-1",
       customerId: null,
       serviceCallId: null,
       customerName: "Phoned In",
       customerPhone: "+353871234567",
-      lines: [{ description: "Part", priority: "normal" }],
+      part: { description: "Part", priority: "normal" },
     });
-    expect(withoutRecord[0]).toMatchObject({
+    expect(phonedIn).toMatchObject({
       customer_name: "Phoned In",
       customer_phone: "+353871234567",
       service_call_id: null,

@@ -1,13 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
-import { buildPartsRequestRows, type BuildPartsRowsArgs, type PartStatus } from "./partsStatus";
+import { buildPartsRequestRow, type BuildPartsRowArgs, type PartStatus } from "./partsStatus";
 
 export * from "./partsStatus";
 
-export const insertPartsRequests = async (args: BuildPartsRowsArgs) => {
-  const rows = buildPartsRequestRows(args);
-  if (rows.length === 0) return { error: null, count: 0 };
-  const { error } = await supabase.from("parts_requests" as any).insert(rows as any);
-  return { error, count: rows.length };
+/** Inserts exactly one parts request. One request = one part, end to end. */
+export const insertPartsRequest = async (args: BuildPartsRowArgs) => {
+  const row = buildPartsRequestRow(args);
+  if (!row) return { error: null, inserted: false };
+  const { error } = await supabase.from("parts_requests" as any).insert(row as any);
+  return { error, inserted: !error };
 };
 
 /** Advances a single part line and stamps the matching timestamp. */

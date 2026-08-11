@@ -41,10 +41,9 @@ export interface PartsRequestRow {
  * public.recompute_job_parts_status() in the database — keep both in step.
  */
 export const PARTS_OVERWRITABLE_JOB_STATUSES = [
+  "Pending",
   "Scheduled",
   "Booked",
-  "En Route",
-  "On Site",
   "parts_needed",
   "parts_ordered",
   "parts_arrived",
@@ -60,6 +59,7 @@ const PARTS_JOB_STATUSES = ["parts_needed", "parts_ordered", "parts_arrived"];
 export const deriveJobStatusFromParts = (
   currentJobStatus: string | null | undefined,
   partStatuses: string[],
+  hasScheduledDate = false,
 ): string | null => {
   if (!currentJobStatus) return null;
   if (!PARTS_OVERWRITABLE_JOB_STATUSES.includes(currentJobStatus)) return null;
@@ -70,7 +70,7 @@ export const deriveJobStatusFromParts = (
   if (active.includes("Open")) next = "parts_needed";
   else if (active.includes("Ordered")) next = "parts_ordered";
   else if (active.includes("Ready to Fit")) next = "parts_arrived";
-  else if (PARTS_JOB_STATUSES.includes(currentJobStatus)) next = "Scheduled";
+  else if (PARTS_JOB_STATUSES.includes(currentJobStatus)) next = hasScheduledDate ? "Booked" : "Pending";
   else return null;
 
   return next === currentJobStatus ? null : next;
@@ -94,8 +94,8 @@ export const PART_STATUS_CONFIG: Record<string, { label: string; bg: string; tex
   Cancelled: { label: "Cancelled", bg: "bg-muted", text: "text-muted-foreground" },
 };
 
-export interface BuildPartsRowsArgs {
-  lines: PartLineInput[];
+export interface BuildPartsRowArgs {
+  part: PartLineInput;
   organisationId: string;
   serviceCallId?: string | null;
   customerId?: string | null;
@@ -107,9 +107,9 @@ export interface BuildPartsRowsArgs {
   assignedTo?: string | null;
 }
 
-/** Builds the insert payload for one or more part lines. */
-export const buildPartsRequestRows = ({
-  lines,
+/** Builds the insert payload for a single part request (one request = one part). */
+export const buildPartsRequestRow = ({
+  part,
   organisationId,
   serviceCallId = null,
   customerId = null,
@@ -119,22 +119,23 @@ export const buildPartsRequestRows = ({
   loggedBy = null,
   loggedByName = null,
   assignedTo = null,
-}: BuildPartsRowsArgs) =>
-  lines
-    .filter((l) => l.description && l.description.trim().length > 0)
-    .map((l) => ({
-      service_call_id: serviceCallId,
-      customer_id: customerId,
-      customer_name: customerId ? null : customerName,
-      customer_address: customerId ? null : customerAddress,
-      customer_phone: customerId ? null : customerPhone,
-      organisation_id: organisationId,
-      description: l.description.trim(),
-      quantity: l.quantity && l.quantity > 0 ? l.quantity : 1,
-      priority: l.priority,
-      status: "Open" as const,
-      logged_by: loggedBy,
-      logged_by_name: loggedByName,
-      assigned_to: assignedTo,
-    }));
+}: BuildPartsRowArgs) => {
+  const description = (part.description ?? "").trim();
+  if (description.length === 0) return null;
+  return {
+    service_call_id: serviceCallId,
+    customer_id: customerId,
+    customer_name: customerId ? null : customerName,
+    customer_address: customerId ? null : customerAddress,
+    customer_phone: customerId ? null : customerPhone,
+    organisation_id: organisationId,
+    description,
+    quantity: part.quantity && part.quantity > 0 ? Math.floor(part.quantity) : 1,
+    priority: part.priority,
+    status: "Open" as const,
+    logged_by: loggedBy,
+    logged_by_name: loggedByName,
+    assigned_to: assignedTo,
+  };
+};
 
