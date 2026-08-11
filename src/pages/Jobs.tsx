@@ -44,6 +44,8 @@ type Job = {
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
   job_reference?: string | null;
+  confirmed?: boolean | null;
+  confirmed_at?: string | null;
 };
 
 const Jobs = () => {
