@@ -1,53 +1,52 @@
 # Confirmed indicator — one badge, everywhere relevant
 
-Customers can confirm a 2-day appointment reminder two ways: by replying CONFIRM on WhatsApp (automated) or by telling the office, who logs it manually. Today neither shows anywhere in the app. This adds a single shared badge and makes both paths write the same field so the badge can't under-report.
+## Pre-build verification (done, not assumed)
 
-## Scope note
+Checked directly against the live database and the inbound handler source:
 
-This writes appointment-confirmation state onto jobs, so it is not a pure UI change. The resolver that decides *which* job a manual confirmation belongs to gets unit tests before it is wired in.
+- `information_schema.columns` confirms both columns exist on `service_calls` today: `confirmed` (boolean, NOT NULL, default `false`) and `confirmed_at` (timestamptz, nullable). Not inferred from `select("*")`.
+- Real data exists: KN-463 is `confirmed = true`, `confirmed_at = 2026-08-11 14:06:13+00`, `reminder_2day_sent = true` — written by the live CONFIRM reply.
+- The automated WhatsApp CONFIRM handler (`supabase/functions/whatsapp-inbound/index.ts`) writes **exactly these two columns**: `{ confirmed: true, confirmed_at: now() }` on the single resolved job, plus an acknowledgment reply and a `customer_activity` row. It does not write a different or unstructured field, so there is no backend gap to fix — the only gap is that nothing in the frontend reads them, and that the manual office path writes `customers.last_reminder_response` instead.
 
 ## 1. Shared badge component
 
-New `src/components/jobs/JobConfirmedBadge.tsx`.
+`src/components/jobs/JobConfirmedBadge.tsx`
 
-- Renders `CheckCircle2` + "Confirmed" using the cyan pair already used for the renewal `confirmed` stage (`RenewalCard.tsx`, `dashboard/RenewalsCard.tsx`): text `#0891B2` on `#CFFAFE`.
-- Props: `confirmed`, `confirmedAt`, and a `size` of `sm` (icon-only pill, for dense grids) or `md` (icon + label).
-- Renders nothing when `confirmed` is false — no "Not confirmed" state, so quiet screens stay quiet.
-- `title` attribute shows "Confirmed on DD/MM/YYYY" from `confirmed_at`, parsed with the `T12:00:00` convention so the date can't drift.
+- `CheckCircle2` + "Confirmed" in the cyan pair already used for the renewal `confirmed` stage: text `#0891B2` on `#CFFAFE`.
+- Props: `confirmed`, `confirmedAt`, `size` of `sm` (icon-only pill for dense grids) or `md` (icon + label).
+- Renders nothing when `confirmed` is false — no "Not confirmed" state.
+- `title` shows "Confirmed on DD/MM/YYYY" from `confirmed_at`, parsed with the `T12:00:00` convention.
 
 ## 2. Apply it to every relevant surface
 
-All four surfaces already fetch jobs with `select("*")`, so `confirmed` and `confirmed_at` arrive with no query changes.
-
 | Surface | File | Placement |
 | --- | --- | --- |
-| Schedule week grid | `src/components/schedule/WeeklyGrid.tsx` | `sm` badge on the job block, next to the existing status badge |
-| Schedule job drawer | `src/components/schedule/JobSlotDrawer.tsx` | `md` badge in the header beside the status |
-| Job detail | `src/pages/JobDetail.tsx` | `md` badge in the header next to the status badge |
+| Schedule week grid | `src/components/schedule/WeeklyGrid.tsx` | `sm` badge on the job block, beside the status badge |
+| Schedule job drawer | `src/components/schedule/JobSlotDrawer.tsx` | `md` badge in the header |
+| Job detail | `src/pages/JobDetail.tsx` | `md` badge next to the status badge |
 | Jobs list | `src/pages/Jobs.tsx` | `sm` badge on the job card |
-| Pipeline > Incoming | `src/pages/IncomingJobs.tsx` | `sm` badge on the card |
+| Pipeline > Incoming | `src/components/incoming/IncomingJobCard.tsx` | `sm` badge on the card |
 
-Pipeline's Incoming tab mostly holds jobs that aren't booked yet, so the badge will rarely appear there — it's included so a job that does get confirmed looks the same on every screen.
+`Schedule.tsx` maps rows manually into `ScheduleJob`, so `confirmed`/`confirmed_at` are added to that type and mapping.
 
-## 3. Make the manual path write the same field
+## 3. Make the manual path write the same columns
 
-`src/components/whatsapp/LogReplyModal.tsx` currently only sets `customers.last_reminder_response = 'Confirmed'`. It will also mark the job confirmed.
+`src/components/whatsapp/LogReplyModal.tsx` today only sets `customers.last_reminder_response = 'Confirmed'`. It will also mark the job confirmed, using the same columns as the automated path.
 
-`whatsapp_messages` has no job link, so the job has to be resolved from the customer using the same rules the automated path already uses. New `src/lib/confirmReplyTarget.ts` mirrors `_shared/cancelIntent.ts`: eligible jobs are that customer's jobs with status `Booked` or `Scheduled`, `scheduled_date` today or later, and `reminder_2day_sent = true`.
+`whatsapp_messages` has no job link, so the job is resolved from the customer. `src/lib/confirmReplyTarget.ts` mirrors `_shared/cancelIntent.ts`: eligible jobs are that customer's jobs with status `Booked` or `Scheduled`, `scheduled_date` today or later, and `reminder_2day_sent = true`.
 
-Outcomes when staff pick "Confirmed":
+- **Exactly one eligible job** — set `confirmed = true`, `confirmed_at = now()`, write a `customer_activity` entry "Appointment confirmed — logged by office", toast "Reply saved · appointment marked confirmed".
+- **No eligible job** — save the reply as today, change nothing, toast that no upcoming appointment was found.
+- **Two or more** — never guess. Save the reply, toast asking staff to confirm on the specific job.
 
-- **Exactly one eligible job** — set `confirmed = true` and `confirmed_at = now()`, write a `customer_activity` entry "Appointment confirmed — logged by office", toast "Reply saved · appointment marked confirmed".
-- **No eligible job** — save the reply as it does today, change nothing on any job, and toast that no upcoming appointment was found to mark.
-- **Two or more eligible jobs** — never guess. Save the reply and toast asking staff to confirm on the specific job. Same refusal-to-guess rule as the automated path.
-
-The existing reply and opt-out behaviour is untouched.
+Existing reply and opt-out behaviour untouched.
 
 ## 4. Tests
 
-- Unit tests for `confirmReplyTarget.ts`: no eligible job, exactly one, two or more, past dates excluded, jobs without `reminder_2day_sent` excluded, wrong statuses excluded.
-- Manual check: badge on a confirmed job across all five surfaces, absent on an unconfirmed one, and a manual "Confirmed" log producing the badge.
+- Unit tests for `confirmReplyTarget.ts`: none eligible, exactly one, two or more, past dates excluded, missing `reminder_2day_sent` excluded, wrong statuses excluded.
+- Manual check: badge present on a confirmed job across all five surfaces (verifiable against KN-463), absent on an unconfirmed one.
 
-## Known gap left open
+## Known gaps left open
 
-The badge reads job-level `confirmed`. Confirmations logged against a customer who has no reminded upcoming job still won't produce a badge — correct behaviour, but worth knowing it's a deliberate blank rather than a bug.
+- Manual confirmations for a customer with no reminded upcoming job produce no badge — deliberate.
+- Nothing resets `confirmed` when a job is rescheduled, so a confirmed-then-moved job keeps the badge. Can be added on request.
