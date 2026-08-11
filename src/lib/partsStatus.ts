@@ -29,6 +29,10 @@ export interface PartsRequestRow {
   logged_by: string | null;
   logged_by_name: string | null;
   assigned_to: string | null;
+  engineer_id: string | null;
+  assigned_engineer_id: string | null;
+  cancelled_by: string | null;
+
   ordered_at: string | null;
   ready_at: string | null;
   cancelled_at: string | null;
