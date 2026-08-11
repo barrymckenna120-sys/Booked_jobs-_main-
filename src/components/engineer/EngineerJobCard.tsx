@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
-import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone } from "lucide-react";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
@@ -115,7 +115,18 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job)}</div>
             <div className="text-xl font-bold text-gray-900 leading-tight">{customer.name}</div>
           </div>
-        <StatusBadge status={job.status} />
+        <div className="flex items-center shrink-0">
+          <StatusBadge status={job.status} />
+          {job.source === "Renewal" && (
+            <span
+              className="bg-amber-500/15 text-amber-600 rounded-full px-2 py-1 shrink-0 ml-1.5 flex items-center"
+              title="Rebooking (Renewal)"
+              aria-label="Rebooking (Renewal)"
+            >
+              <RotateCw size={12} />
+            </span>
+          )}
+        </div>
         </div>
 
         {/* Parts Needed / Ordered note preview */}
