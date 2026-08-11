@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 const PAGE_SIZE = 15;
 
