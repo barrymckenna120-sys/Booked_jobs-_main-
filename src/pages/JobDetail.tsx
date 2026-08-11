@@ -27,6 +27,7 @@ import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 type ServiceCall = {
   id: string;
