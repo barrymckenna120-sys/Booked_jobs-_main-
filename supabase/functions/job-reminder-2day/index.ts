@@ -44,19 +44,27 @@ Deno.serve(async (req) => {
 
     const waCfg = (waIntegration as any)?.config || {};
     const msgCfg = (msgIntegration as any)?.config || {};
-    const apiKey = waCfg.api_key;
+    // Resolve per-tenant key: declared secret name wins; never fall back to
+    // another tenant's key when a secret name is declared.
+    const apiKeySecretName = waCfg.api_key_secret as string | undefined;
+    const apiKey = apiKeySecretName
+      ? Deno.env.get(apiKeySecretName)
+      : (waCfg.api_key || Deno.env.get("THREESIXTY_API_KEY"));
 
     if (!apiKey) {
       try {
         await supabase.from("edge_function_logs").insert({
           function_name: "job-reminder-2day",
-          error_message: `No whatsapp tenant_integration api_key for org ${orgId} — skipping jobs`,
+          error_message: apiKeySecretName
+            ? `Secret ${apiKeySecretName} not set for org ${orgId} — skipping jobs`
+            : `No whatsapp tenant_integration api_key for org ${orgId} — skipping jobs`,
           payload: { organisation_id: orgId },
         });
       } catch (_e) { /* best-effort */ }
       orgIntegrationCache.set(orgId, null);
       return null;
     }
+
 
     const resolved = {
       companyName: msgCfg.company_name,
