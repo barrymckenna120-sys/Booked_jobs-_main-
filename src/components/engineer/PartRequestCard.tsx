@@ -1,24 +1,14 @@
-import { Clock, Truck, PackageCheck, XCircle, StickyNote, Building2 } from "lucide-react";
+import { StickyNote, Building2 } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
-  PART_STATUS_ICON_KEY,
   isOfficeUpdate,
   type PartsRequestRow,
 } from "@/lib/partsStatus";
 
-/**
- * PackageCheck is reserved for "Ready to Fit". CheckCircle2 is the job Complete
- * glyph elsewhere in the app and is deliberately not used here.
- */
-const ICONS: Record<string, typeof Clock> = {
-  Clock,
-  Truck,
-  PackageCheck,
-  XCircle,
-};
 
 const formatCreated = (value: string) => {
   try {
@@ -43,7 +33,7 @@ const PartRequestCard = ({ row, jobReference }: Props) => {
     bg: "bg-muted",
     text: "text-muted-foreground",
   };
-  const StatusIcon = ICONS[PART_STATUS_ICON_KEY[row.status as keyof typeof PART_STATUS_ICON_KEY]] ?? Clock;
+  const StatusIcon = partStatusGlyph(row.status);
   const priority = PART_PRIORITY_CONFIG[(row.priority ?? "").toLowerCase()];
   const officeUpdate = isOfficeUpdate(row);
 

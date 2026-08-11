@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Package, CalendarClock } from "lucide-react";
+import { Package, CalendarClock, PackageCheck } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
@@ -119,6 +119,8 @@ import {
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
+import PartStatusIcon from "@/components/parts/PartStatusIcon";
+
 
 const useJobParts = (jobId: string) =>
   useQuery({
@@ -194,8 +196,10 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                 </p>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                    <PartStatusIcon status={part.status} className="w-3 h-3" strokeWidth={2.5} />
                     {sCfg.label}
                   </span>
+
                   {pCfg && (
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
                       {pCfg.emoji} {pCfg.label}
@@ -226,7 +230,7 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     disabled={busyId === part.id}
                     onClick={() => advance(part, "Ready to Fit")}
                   >
-                    <CalendarClock className="w-4 h-4" /> Part Arrived
+                    <PackageCheck className="w-4 h-4" /> Part Arrived
                   </Button>
                 )}
                 {part.status !== "Ready to Fit" && (

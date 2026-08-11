@@ -14,6 +14,8 @@ import {
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
+import PartStatusIcon from "@/components/parts/PartStatusIcon";
+
 
 const PartsPanel = () => {
   const { user } = useAuth();
@@ -139,8 +141,10 @@ const PartsPanel = () => {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                    <PartStatusIcon status={part.status} className="w-3 h-3" strokeWidth={2.5} />
                     {sCfg.label}
                   </span>
+
                   {pCfg && (
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
                       {pCfg.emoji} {pCfg.label}
