@@ -1,8 +1,12 @@
-# PaymentSheet: three payment cases, Case C untouched
+# Payment collection: four cases, one shared helper
 
-Make the engineer completion payment step aware of deposits already collected (e.g. a SumUp deposit paid online), without changing behaviour for the common flat-rate job.
+Make both payment surfaces aware of what has already been collected on a job (e.g. a SumUp deposit paid online), without changing behaviour for the common flat-rate job, and while preserving in-person deposit collection.
 
-## The three cases
+## The four cases
+
+**Case D — deposit required, not yet paid**
+- Field pre-fills with `deposit_amount`, label "Collect Deposit (€)".
+- Covers quote-derived jobs where only the deposit is taken in person.
 
 **Case A — deposit paid, balance remains**
 - Field pre-fills with `balance_due`.
@@ -20,34 +24,34 @@ Make the engineer completion payment step aware of deposits already collected (e
 
 ## How a job is classified
 
-The deciding signal is the **`deposit_paid` boolean**, never `deposit_amount`:
+Order matters:
 
 ```text
-depositPaid = job.deposit_paid === true
-
-if (!depositPaid)                      -> Case C   (no deposit; also covers null/false)
-else if (payment_status === 'paid')    -> Case B
-else if (Number(balance_due) > 0)      -> Case A
-else                                   -> Case B   (deposit paid, nothing left owing)
+1. deposit_required === true && deposit_paid !== true  -> Case D  (amount = deposit_amount)
+2. deposit_paid !== true                               -> Case C  (amount = revenue, else undefined)
+3. payment_status === 'paid'                            -> Case B
+4. Number(balance_due) > 0                              -> Case A  (amount = balance_due)
+5. otherwise                                            -> Case B  (deposit paid, nothing owing)
 ```
 
-Consequences of this ordering, all intentional:
-- A job with `deposit_amount = 120` but `deposit_paid` false/null is **Case C** — nothing has actually been collected, so the engineer collects the full total.
-- A job with `deposit_paid = true` and `balance_due` null or `0` is **Case B**, not Case A — there is no positive balance to ask for.
+Consequences, all intentional:
+- `deposit_amount = 120` with `deposit_paid` false and `deposit_required` false/null is **Case C** — nothing collected and no deposit demanded, so the full total is collected.
+- `deposit_paid = true` with `balance_due` null or `0` is **Case B**, not Case A — there is no positive balance to ask for.
 - `payment_status === 'paid'` wins over a stale positive `balance_due`.
 
 ## Implementation notes (technical)
 
-- New pure helper `src/lib/paymentSheetAmount.ts` exporting a `resolvePaymentSheetState(job)` that returns `{ case: 'A' | 'B' | 'C', amount, label, depositPaid, balanceDue, jobTotal }`. Keeping the branch logic out of the component is what makes it directly testable.
+- New pure helper `src/lib/paymentSheetAmount.ts` exporting `resolvePaymentSheetState(job)` returning `{ case: 'A' | 'B' | 'C' | 'D', amount, label, depositPaid, balanceDue, jobTotal, depositAmount }`. Keeping the branch logic out of the components is what makes it directly testable and shared.
 - `src/components/engineer/PaymentSheet.tsx` calls the helper. For Case C it keeps its current `useEffect` settings-default lookup untouched; the helper returns no amount for Case C when `revenue` is unset, and the existing effect fills it.
 - Case B renders an early-return block inside the existing `EngineerSheet` shell; `handleConfirm` also guards on Case B and returns without calling `onDone`, so even an unexpected render path cannot submit.
-- No change to `useEngineerJobs.ts`, `TakePaymentModal.tsx`, the DB, or any query. `PaymentSheet` continues to report through the same `onDone(method, amount)` contract.
+- No change to `useEngineerJobs.ts`, the DB, or any query. `PaymentSheet` continues to report through the same `onDone(method, amount)` contract.
 
 ## Tests (`src/lib/paymentSheetAmount.test.ts`)
 
 - **Case C regression (explicitly required):** Boiler Service, `deposit_paid` null, `revenue = 120` → case `C`, amount `120`, label "Job Total (€)".
 - Case C with no `revenue` → case `C`, no amount returned, so the settings-default effect still governs.
-- Case C with `deposit_amount = 200` but `deposit_paid` false → still case `C`, amount = full `revenue`.
+- Case C with `deposit_amount = 200`, `deposit_paid` false, `deposit_required` false → still case `C`, amount = full `revenue`.
+- Case D: `deposit_required` true, `deposit_paid` false, `deposit_amount = 246` → case `D`, amount `246`, label "Collect Deposit (€)".
 - Case A: `deposit_paid` true, `revenue = 492`, `deposit_amount = 246`, `balance_due = 246` → case `A`, amount `246`, label "Balance Due (€)".
 - Case B: `deposit_paid` true, `payment_status = 'paid'` → case `B`.
 - Case B: `deposit_paid` true, `balance_due = 0` (and null) → case `B`.
