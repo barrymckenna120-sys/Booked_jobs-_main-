@@ -28,25 +28,21 @@ serve(async (req) => {
   const loadOrgConfig = async (orgId: string) => {
     if (orgCache.has(orgId)) return orgCache.get(orgId)!;
 
-    const { data: waIntegration } = await supabase
-      .from("tenant_integrations")
-      .select("config")
-      .eq("organisation_id", orgId)
-      .eq("integration_type", "360messenger")
-      .maybeSingle();
-
-    const apiKey = (waIntegration as any)?.config?.api_key;
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKeyWithClient(supabase as any, orgId);
+    const apiKey = wa.apiKey;
     if (!apiKey) {
       try {
         await supabase.from("edge_function_logs").insert({
           function_name: "send-upcoming-reminders",
-          error_message: `No whatsapp tenant_integration api_key for org ${orgId} — skipping`,
-          payload: { organisation_id: orgId },
+          error_message: `WhatsApp credential resolution failed for org ${orgId} — skipping: ${wa.detail}`,
+          payload: { organisation_id: orgId, resolution: wa.resolution, secret_name: wa.secretName },
         });
       } catch (_e) { /* best-effort */ }
       orgCache.set(orgId, null);
       return null;
     }
+
 
     let messageFooter = "";
     const { data: settings } = await supabase
