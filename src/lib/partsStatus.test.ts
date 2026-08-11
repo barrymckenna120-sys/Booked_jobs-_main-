@@ -5,6 +5,8 @@ import {
   isOfficeUpdate,
   OFFICE_UPDATE_TOLERANCE_MS,
   buildPartsRequestRow,
+  canEngineerCancelPart,
+
 } from "./partsStatus";
 
 describe("PART_STATUS_ICON_KEY", () => {
@@ -98,5 +100,26 @@ describe("buildPartsRequestRow engineer link", () => {
       organisationId: "org-1",
     });
     expect(row?.engineer_id).toBeNull();
+  });
+});
+
+describe("canEngineerCancelPart", () => {
+  const me = "user-1";
+
+  it("allows cancelling own Open row via engineer_id or assigned_engineer_id", () => {
+    expect(canEngineerCancelPart({ status: "Open", engineer_id: me }, me)).toBe(true);
+    expect(canEngineerCancelPart({ status: "Open", assigned_engineer_id: me }, me)).toBe(true);
+  });
+
+  it("refuses any non-Open status, matching the RLS USING clause", () => {
+    for (const status of ["Ordered", "Ready to Fit", "Cancelled"]) {
+      expect(canEngineerCancelPart({ status, engineer_id: me }, me)).toBe(false);
+    }
+  });
+
+  it("refuses another engineer's Open row, and an unauthenticated caller", () => {
+    expect(canEngineerCancelPart({ status: "Open", engineer_id: "user-2" }, me)).toBe(false);
+    expect(canEngineerCancelPart({ status: "Open", engineer_id: me }, null)).toBe(false);
+    expect(canEngineerCancelPart({ status: "Open", engineer_id: null }, me)).toBe(false);
   });
 });

@@ -29,6 +29,10 @@ export interface PartsRequestRow {
   logged_by: string | null;
   logged_by_name: string | null;
   assigned_to: string | null;
+  engineer_id: string | null;
+  assigned_engineer_id: string | null;
+  cancelled_by: string | null;
+
   ordered_at: string | null;
   ready_at: string | null;
   cancelled_at: string | null;
@@ -158,6 +162,21 @@ export const PART_STATUS_ICON_KEY: Record<PartStatus, string> = {
   "Ready to Fit": "PackageCheck",
   Cancelled: "XCircle",
 };
+
+/**
+ * Mirrors the RLS clause parts_requests_update_own_open_engineer_id: an engineer
+ * may only cancel their own request while it is still Open. Keep both in step —
+ * offering the control on any other row hands the user a write RLS will reject.
+ */
+export const canEngineerCancelPart = (
+  row: { status?: string | null; engineer_id?: string | null; assigned_engineer_id?: string | null },
+  userId: string | null | undefined,
+): boolean => {
+  if (!userId) return false;
+  if (row.status !== "Open") return false;
+  return row.engineer_id === userId || row.assigned_engineer_id === userId;
+};
+
 
 /** Tolerance for insert timestamp jitter — updated_at is set by the same statement. */
 export const OFFICE_UPDATE_TOLERANCE_MS = 3000;

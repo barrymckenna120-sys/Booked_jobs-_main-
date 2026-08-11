@@ -1,10 +1,16 @@
-import { StickyNote, Building2 } from "lucide-react";
+import { useState } from "react";
+import { StickyNote, Building2, XCircle, Loader2 } from "lucide-react";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
+import EngineerSheet from "./EngineerSheet";
+import { Button } from "@/components/ui/button";
+import { updatePartStatus } from "@/lib/partsRequests";
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
+  canEngineerCancelPart,
   isOfficeUpdate,
   type PartsRequestRow,
 } from "@/lib/partsStatus";
@@ -24,10 +30,15 @@ const formatCreated = (value: string) => {
 interface Props {
   row: PartsRequestRow;
   jobReference: string | null;
+  /** Current engineer's auth uid — drives whether cancel is offered at all. */
+  userId?: string | null;
+  onCancelled?: () => void;
 }
 
-const PartRequestCard = ({ row, jobReference }: Props) => {
+const PartRequestCard = ({ row, jobReference, userId = null, onCancelled }: Props) => {
   const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
   const status = PART_STATUS_CONFIG[row.status] ?? {
     label: row.status,
     bg: "bg-muted",
@@ -36,6 +47,20 @@ const PartRequestCard = ({ row, jobReference }: Props) => {
   const StatusIcon = partStatusGlyph(row.status);
   const priority = PART_PRIORITY_CONFIG[(row.priority ?? "").toLowerCase()];
   const officeUpdate = isOfficeUpdate(row);
+  const canCancel = canEngineerCancelPart(row, userId);
+
+  const cancel = async () => {
+    setSaving(true);
+    const { error } = await updatePartStatus(row.id, "Cancelled");
+    setSaving(false);
+    if (error) {
+      toast.error("Couldn't cancel this part request", { description: error.message });
+      return;
+    }
+    setConfirming(false);
+    toast.success("Part request cancelled", { description: "The office has been notified." });
+    onCancelled?.();
+  };
 
   return (
     <div className="bg-card rounded-2xl border border-border/60 p-4 space-y-2.5">
@@ -103,6 +128,53 @@ const PartRequestCard = ({ row, jobReference }: Props) => {
           </div>
           {row.notes}
         </div>
+      )}
+
+      {canCancel && (
+        <button
+          onClick={() => setConfirming(true)}
+          className="w-full min-h-[44px] rounded-xl border border-border bg-card text-destructive text-[13px] font-bold flex items-center justify-center gap-1.5"
+        >
+          <XCircle className="w-4 h-4" strokeWidth={2.5} /> Cancel Request
+        </button>
+      )}
+
+      {confirming && (
+        <EngineerSheet onClose={() => !saving && setConfirming(false)}>
+          <div className="px-5 py-3 border-b border-border">
+            <div className="text-xl font-extrabold text-foreground flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-destructive" /> Cancel Part Request
+            </div>
+            <div className="text-[13px] text-muted-foreground mt-0.5">
+              {row.customer_name || "Unknown customer"}
+            </div>
+          </div>
+          <div className="px-5 pt-4 space-y-3">
+            <div className="text-sm text-muted-foreground">
+              This cancels <span className="font-bold text-foreground">{row.description}</span>. The
+              office will be notified automatically.
+            </div>
+            <Button
+              className="w-full h-12 text-base font-extrabold bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
+              disabled={saving}
+              onClick={cancel}
+            >
+              {saving ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <XCircle className="w-5 h-5" />
+              )}
+              Cancel Request
+            </Button>
+            <button
+              onClick={() => setConfirming(false)}
+              disabled={saving}
+              className="w-full text-center text-muted-foreground text-sm font-semibold py-1"
+            >
+              Keep it
+            </button>
+          </div>
+        </EngineerSheet>
       )}
     </div>
   );

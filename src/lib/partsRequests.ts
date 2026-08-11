@@ -16,7 +16,14 @@ export const updatePartStatus = async (id: string, status: PartStatus) => {
   const patch: Record<string, any> = { status };
   if (status === "Ordered") patch.ordered_at = new Date().toISOString();
   if (status === "Ready to Fit") patch.ready_at = new Date().toISOString();
-  if (status === "Cancelled") patch.cancelled_at = new Date().toISOString();
+  if (status === "Cancelled") {
+    patch.cancelled_at = new Date().toISOString();
+    // The notification trigger resolves the display name from cancelled_by —
+    // without it the office fan-out reads "cancelled by Unknown user".
+    const { data } = await supabase.auth.getUser();
+    patch.cancelled_by = data?.user?.id ?? null;
+  }
   const { error } = await supabase.from("parts_requests" as any).update(patch).eq("id", id);
   return { error };
 };
+
