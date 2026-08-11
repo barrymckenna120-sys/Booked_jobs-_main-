@@ -52,22 +52,22 @@ const addMonths = (d: string, months: number) => {
 const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: TakePaymentModalProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
-  const jobTotal = job.revenue ?? 0;
-  const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
-  const isDepositPaid = !!job.deposit_paid;
-
-  // Determine what the engineer should collect right now
-  // 1. Deposit job, deposit already paid → collect balance due
-  // 2. Deposit job, deposit NOT paid → collect deposit first
-  // 3. No deposit → collect full revenue
-  const collectingDeposit = hasDeposit && !isDepositPaid;
-  const balanceDue = hasDeposit && isDepositPaid
-    ? (job.balance_due ?? (jobTotal - depositAmount))
-    : hasDeposit && !isDepositPaid
-      ? depositAmount
-      : jobTotal;
-  const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
+  // Single shared classifier (same helper the engineer PaymentSheet uses).
+  // Case D = deposit required, not yet paid → collect the deposit
+  // Case A = deposit paid, balance remains  → collect the balance
+  // Case B = nothing owing                  → block further collection
+  // Case C = no deposit                     → collect the full job total
+  const paymentState = resolvePaymentSheetState(job);
+  const isFullyPaid = paymentState.case === "B";
+  const hasDeposit = paymentState.case === "A" || paymentState.case === "D";
+  const jobTotal = paymentState.jobTotal;
+  const depositAmount = paymentState.depositAmount;
+  const isDepositPaid = paymentState.depositPaid;
+  const collectingDeposit = paymentState.case === "D";
+  const balanceDue = paymentState.amount ?? 0;
+  const defaultAmount = paymentState.amount !== undefined
+    ? String(paymentState.amount)
+    : (job.revenue ? String(job.revenue) : "120");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [method, setMethod] = useState<"card" | "cash" | "invoice" | null>(null);
