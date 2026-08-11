@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
