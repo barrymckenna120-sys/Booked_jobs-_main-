@@ -33,7 +33,7 @@ const PartRequestCard = ({ row, jobReference }: Props) => {
     bg: "bg-muted",
     text: "text-muted-foreground",
   };
-  const StatusIcon = ICONS[PART_STATUS_ICON_KEY[row.status as keyof typeof PART_STATUS_ICON_KEY]] ?? Clock;
+  const StatusIcon = partStatusGlyph(row.status);
   const priority = PART_PRIORITY_CONFIG[(row.priority ?? "").toLowerCase()];
   const officeUpdate = isOfficeUpdate(row);
 
