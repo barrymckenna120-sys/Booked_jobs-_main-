@@ -252,6 +252,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                           </div>
                           <div className="flex items-center gap-1">
+                            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} size="sm" />
                             {jobTypeBadge(job.job_type)}
                             {mediaBadge(job.media_count)}
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
