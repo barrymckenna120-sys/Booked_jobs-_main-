@@ -112,6 +112,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   };
 
   const handleGenerate = async () => {
+    // Guard, not just hidden UI: never record a payment on a settled job.
+    if (isFullyPaid) {
+      toast({ title: "Already paid", description: "This job is fully paid — no further payment can be collected." });
+      return;
+    }
     if (!method || !validate()) return;
 
     // Invoice flow — save payment record, then navigate to invoice preview
