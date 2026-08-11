@@ -17,7 +17,7 @@ import {
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 
 const JOB_COLUMNS =
-  "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at";
+  "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at, job_reference";
 
 
 const corsHeaders = {
@@ -238,6 +238,47 @@ Deno.serve(async (req) => {
         });
       } catch (_e) {
         console.error("sumup-payment-webhook: message log failed", _e);
+      }
+    },
+
+    // Office/admin users of the owning org get a bell notification, matching the
+    // recipient rule used by the quote-accepted alert.
+    notifyOffice: async (e) => {
+      try {
+        if (!e.organisationId) return;
+        const { data: staff, error } = await supabase
+          .from("profiles")
+          .select("user_id, role")
+          .eq("organisation_id", e.organisationId)
+          .eq("is_active", true)
+          .in("role", ["office", "admin", "owner"]);
+
+        if (error) {
+          console.error("sumup-payment-webhook: staff lookup failed", error.message);
+          return;
+        }
+
+        const recipients = (staff ?? [])
+          .map((r: { user_id: string | null }) => r.user_id)
+          .filter((id): id is string => !!id);
+        if (recipients.length === 0) return;
+
+        const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
+        const kind = e.fullyPaid ? "Payment received" : "Deposit received";
+
+        await supabase.from("notifications").insert(
+          recipients.map((userId) => ({
+            recipient_user_id: userId,
+            organisation_id: e.organisationId,
+            job_id: e.serviceCallId,
+            notification_type: "payment_collected",
+            title: `${kind} — ${ref}`,
+            body: `€${e.amount.toFixed(2)} paid by card (SumUp)${e.fullyPaid ? "" : " — deposit"} on ${ref}`,
+            metadata: { source: "sumup", amount: e.amount, fully_paid: e.fullyPaid },
+          })),
+        );
+      } catch (_e) {
+        console.error("sumup-payment-webhook: notification insert failed", _e);
       }
     },
 
