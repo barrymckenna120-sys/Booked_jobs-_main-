@@ -294,7 +294,9 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             return;
           }
           setShowPartsNeeded(false);
-          onUpdate(job.id, {}); // refresh — the job status is synced server-side
+          // Keep the job's denormalised summary (used by Jobs/Schedule badges) in step.
+          const topPriority = [...lines].sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))[0]?.priority;
+          onUpdate(job.id, { parts_priority: topPriority, parts_logged_at: new Date().toISOString() });
           toast({ title: count > 1 ? `${count} parts noted — office has been informed` : "Parts noted — office has been informed" });
         }}
       />
