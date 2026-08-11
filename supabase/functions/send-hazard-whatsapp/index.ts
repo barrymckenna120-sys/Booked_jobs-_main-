@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
 
