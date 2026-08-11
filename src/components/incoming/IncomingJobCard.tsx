@@ -1,5 +1,6 @@
 import { Camera, Archive, Clock } from "lucide-react";
 import { IncomingStatusPill, BoilerWorkingPill, TimeBlockLabel } from "./IncomingPills";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 
 type IncomingJob = {
   id: string;
