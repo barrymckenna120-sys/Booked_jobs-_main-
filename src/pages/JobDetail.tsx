@@ -111,6 +111,14 @@ const statusBadge = (status: string) => {
   );
 };
 
+import {
+  PART_PRIORITY_CONFIG,
+  PART_STATUS_CONFIG,
+  priorityRank,
+  updatePartStatus,
+  type PartStatus,
+} from "@/lib/partsRequests";
+
 const useJobParts = (jobId: string) =>
   useQuery({
     queryKey: ["job-parts", jobId],
@@ -490,8 +498,8 @@ const JobDetail = () => {
       )}
 
       {/* Parts Needed / Ordered Section */}
-      {(job.status === "parts_needed" || job.status === "parts_ordered") && (
-        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
+      {(job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") && (
+        <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
       )}
 
       {/* Header */}
@@ -601,7 +609,7 @@ const JobDetail = () => {
             {job.notes && (
               <div className="sm:col-span-2">
                 {job.notes.startsWith("Parts Needed") ? (
-                  <PartsNeededNoteBlock jobId={job.id} customerId={job.customer_id} notes={job.notes} />
+                  <PartsNeededNoteBlock jobId={job.id} />
                 ) : (
                   <><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></>
                 )}
