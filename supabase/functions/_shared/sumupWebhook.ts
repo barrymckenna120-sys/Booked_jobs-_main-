@@ -117,10 +117,12 @@ export interface SumUpWebhookDeps {
   notifyOffice?: (entry: {
     organisationId: string | null;
     serviceCallId: string;
+    customerId: string | null;
     jobReference: string | null;
     amount: number;
     fullyPaid: boolean;
   }) => Promise<void>;
+
   /** Injectable clock for tests. */
   now?: () => Date;
   log?: (level: "info" | "error", message: string, detail?: unknown) => void;
