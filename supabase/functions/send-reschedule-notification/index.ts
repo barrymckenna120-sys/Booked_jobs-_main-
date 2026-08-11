@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,11 +34,12 @@ serve(async (req) => {
 
     // Fetch service call
     const scRes = await fetch(
-    const scRes = await fetch(
       `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,assigned_engineer_id,organisation_id`,
       { headers: dbHeaders },
     );
+    const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
+
     if (!job) {
       console.log("Service call not found");
       return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
@@ -55,19 +57,16 @@ serve(async (req) => {
       });
     }
 
-    // Fetch WhatsApp api_key from tenant_integrations
-    const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers: dbHeaders },
-    );
-    const tiRows = await tiRes.json();
-    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKey(supabaseUrl!, supabaseKey!, orgId);
+    if (!wa.apiKey) {
+      return new Response(JSON.stringify({ success: false, error: `WhatsApp not configured: ${wa.detail}` }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
     }
+    const apiKey = wa.apiKey;
+
 
     // Fetch customer
     const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {

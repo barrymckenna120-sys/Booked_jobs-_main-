@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,15 +21,11 @@ Deno.serve(async (req) => {
     const apiKeyCache = new Map<string, string | null>();
     const loadApiKey = async (orgId: string): Promise<string | null> => {
       if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId)!;
-      const { data: waCfg } = await supabase
-        .from("tenant_integrations")
-        .select("config")
-        .eq("organisation_id", orgId)
-        .eq("integration_type", "360messenger")
-        .maybeSingle();
-      const key = ((waCfg as any)?.config?.api_key as string) || null;
+      const wa = await fetchWhatsappApiKeyWithClient(supabase as any, orgId);
+      const key = wa.apiKey;
       apiKeyCache.set(orgId, key);
       return key;
+
     };
 
     // 4-5 days ago window

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
@@ -98,19 +99,16 @@ serve(async (req) => {
       // Non-critical — fall back to default
     }
 
-    // Fetch WhatsApp api_key from tenant_integrations
-    const tiWaRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers: sbHeaders }
-    );
-    const tiWaRows = await tiWaRes.json();
-    const THREESIXTY_API_KEY = (Array.isArray(tiWaRows) && tiWaRows[0]?.config?.api_key) || null;
-    if (!THREESIXTY_API_KEY) {
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKey(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, orgId);
+    if (!wa.apiKey) {
       return new Response(
-        JSON.stringify({ error: "WhatsApp integration not configured for this organisation" }),
+        JSON.stringify({ error: `WhatsApp not configured: ${wa.detail}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const THREESIXTY_API_KEY = wa.apiKey;
+
 
     const sep = tallyFormBase.includes("?") ? "&" : "?";
     const tallyUrl = `${tallyFormBase}${sep}Name=${encodeURIComponent(customer_name || "")}&Mobile=${encodeURIComponent(tallyPhone)}`;

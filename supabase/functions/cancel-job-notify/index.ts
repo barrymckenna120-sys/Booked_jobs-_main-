@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 
@@ -100,19 +101,16 @@ Deno.serve(async (req) => {
     }
 
     // Fetch WhatsApp api_key from tenant_integrations
-    const { data: waCfg } = await supabase
-      .from("tenant_integrations")
-      .select("config")
-      .eq("organisation_id", orgId)
-      .eq("integration_type", "360messenger")
-      .maybeSingle();
-    const apiKey = ((waCfg as any)?.config?.api_key as string) || null;
-    if (!apiKey) {
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKeyWithClient(supabase as any, orgId);
+    if (!wa.apiKey) {
       return new Response(
-        JSON.stringify({ error: "WhatsApp integration not configured for this organisation" }),
+        JSON.stringify({ error: `WhatsApp not configured: ${wa.detail}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    const apiKey = wa.apiKey;
+
 
     const branding = await getOrgBrandingClient(supabase, orgId);
     const rebookLine = branding.phone ? ` To rebook please call us on ${branding.phone}.` : "";
