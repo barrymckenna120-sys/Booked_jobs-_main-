@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isOutstandingBalanceJob } from "@/lib/outstandingBalances";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,9 @@ const OutstandingBalances = () => {
       .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
-      .or("invoiced_at.not.is.null,payment_method.eq.invoice")
+      // Include invoiced jobs, invoice-method jobs, and any job where money has
+      // already been taken (e.g. a SumUp card deposit on a not-yet-invoiced job).
+      .or("invoiced_at.not.is.null,payment_method.eq.invoice,deposit_paid.eq.true")
       .order("scheduled_date", { ascending: false })
       .then(({ data: rows, error }) => {
         if (error) {
@@ -65,7 +68,7 @@ const OutstandingBalances = () => {
         if (rows) {
           setJobs(
             rows
-              .filter((r: any) => (r.balance_due ?? 0) > 0)
+              .filter((r: any) => isOutstandingBalanceJob(r))
               .map((r: any) => ({
                 id: r.id,
                 job_reference: r.job_reference || null,

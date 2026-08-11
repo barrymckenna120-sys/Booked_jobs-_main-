@@ -52,6 +52,7 @@ export interface SumUpWebhookJob {
   deposit_paid: boolean | null;
   payment_status: string | null;
   paid_at: string | null;
+  job_reference?: string | null;
 }
 
 /** What SumUp's GET /v0.1/checkouts/{id} tells us — the authoritative view. */
@@ -109,6 +110,14 @@ export interface SumUpWebhookDeps {
     organisationId: string | null;
     customerId: string | null;
     serviceCallId: string;
+    amount: number;
+    fullyPaid: boolean;
+  }) => Promise<void>;
+  /** One office notification per confirmed payment. */
+  notifyOffice?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    jobReference: string | null;
     amount: number;
     fullyPaid: boolean;
   }) => Promise<void>;
@@ -290,8 +299,10 @@ export async function handleSumUpWebhook(
   const fullyPaid = revenue > 0 ? amount + 1e-9 >= revenue : amount > 0;
 
   // Idempotency: a second delivery of the same paid event must not overwrite
-  // paid_at or write a second activity entry.
-  const alreadyPaid = job.payment_status === "paid" || !!job.paid_at;
+  // paid_at or write a second activity entry. Keyed off payment_status only —
+  // partial payments now stamp paid_at too, so a later balance payment on the
+  // same job must still be processed.
+  const alreadyPaid = job.payment_status === "paid";
   const alreadyPartPaid = job.payment_status === "partial" || job.deposit_paid === true;
   if (alreadyPaid || (!fullyPaid && alreadyPartPaid)) {
     log("info", `sumup-webhook: duplicate delivery for job ${job.id} — no-op`);
@@ -308,6 +319,9 @@ export async function handleSumUpWebhook(
     }
     : {
       payment_status: "partial",
+      // Finance dates payments from paid_at; without it a deposit-only payment
+      // is invisible on Finance -> Sales.
+      paid_at: now().toISOString(),
       deposit_paid: true,
       balance_due: revenue > 0 ? Math.max(0, revenue - amount) : job.balance_due ?? null,
       payment_method: "card",
@@ -348,6 +362,16 @@ export async function handleSumUpWebhook(
       organisationId: job.organisation_id,
       customerId: job.customer_id,
       serviceCallId: job.id,
+      amount,
+      fullyPaid,
+    });
+  }
+
+  if (deps.notifyOffice) {
+    await deps.notifyOffice({
+      organisationId: job.organisation_id,
+      serviceCallId: job.id,
+      jobReference: job.job_reference ?? null,
       amount,
       fullyPaid,
     });

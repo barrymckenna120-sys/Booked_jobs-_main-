@@ -74,6 +74,24 @@ const QuoteDetail = () => {
     enabled: !!id,
   });
 
+  // The deposit lives on the job created from this quote, not on the quote row.
+  const convertedJobId = (quote as any)?.converted_job_id as string | null | undefined;
+  const { data: convertedJob } = useQuery({
+    queryKey: ["quote-converted-job", convertedJobId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_calls")
+        .select("id, deposit_amount, deposit_paid, payment_status, paid_at")
+        .eq("id", convertedJobId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!convertedJobId,
+  });
+
+  const depositPaidAt = convertedJob?.deposit_paid ? convertedJob.paid_at : null;
+  const depositAmount = Number(convertedJob?.deposit_amount ?? 0);
+
   const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
     try {
@@ -318,6 +336,12 @@ const QuoteDetail = () => {
               { label: "Sent", date: q.sent_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.sent_at },
               { label: "Viewed", date: q.viewed_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.viewed_at },
               { label: "Accepted", date: q.accepted_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.accepted_at },
+              {
+                label: depositAmount > 0 ? `Deposit Paid · €${depositAmount.toFixed(2)}` : "Deposit Paid",
+                date: depositPaidAt,
+                fmt: "dd MMMM yyyy HH:mm",
+                active: !!depositPaidAt,
+              },
               { label: "Expires", date: q.expiry_date, fmt: "dd MMMM yyyy", active: !!q.expiry_date },
             ]
               .filter((step) => step.active)
