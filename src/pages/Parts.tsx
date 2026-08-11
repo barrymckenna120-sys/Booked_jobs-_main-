@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Package, CalendarClock, X } from "lucide-react";
+import { Wrench, Package, CalendarClock, PackageCheck, X } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -168,7 +168,7 @@ const Parts = () => {
                   disabled={busyId === part.id}
                   onClick={(e) => { e.stopPropagation(); advance(part, "Ready to Fit"); }}
                 >
-                  <CalendarClock className="w-3 h-3" /> Part Arrived
+                  <PackageCheck className="w-3 h-3" /> Part Arrived
                 </Button>
               </PartCard>
             ))}
@@ -179,7 +179,7 @@ const Parts = () => {
       {ready.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-base font-bold text-foreground">🟣 Ready to Fit</span>
+            <span className="flex items-center gap-1.5 text-base font-bold text-foreground"><PackageCheck className="w-4 h-4" style={{ color: "#7C3AED" }} /> Ready to Fit</span>
             <span className="text-xs text-muted-foreground">({ready.length})</span>
           </div>
           <div className="space-y-2">
