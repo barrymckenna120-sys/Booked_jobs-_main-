@@ -2,7 +2,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Wrench, Loader2, X, Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Wrench, Loader2, X } from "lucide-react";
 import type { PartLineInput, PartPriority } from "@/lib/partsRequests";
 
 const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: string; text: string; bg: string }[] = [
@@ -14,42 +15,36 @@ const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: s
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (lines: PartLineInput[]) => void;
+  /** One request = one part. Log a second part with a second submission. */
+  onConfirm: (part: PartLineInput) => void;
   loading?: boolean;
 }
 
-const emptyLine = (): PartLineInput => ({ description: "", priority: "normal" });
-
 const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
-  const [lines, setLines] = useState<PartLineInput[]>([emptyLine()]);
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<PartPriority>("normal");
+  const [quantity, setQuantity] = useState("1");
 
   if (!open) return null;
 
-  const reset = () => setLines([emptyLine()]);
-
-  const updateLine = (index: number, patch: Partial<PartLineInput>) => {
-    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  const reset = () => {
+    setDescription("");
+    setPriority("normal");
+    setQuantity("1");
   };
 
-  const addLine = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setLines((prev) => [...prev, emptyLine()]);
-  };
-
-  const removeLine = (e: React.MouseEvent, index: number) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setLines((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
-  };
-
-  const validLines = lines.filter((l) => l.description.trim().length > 0);
+  const canConfirm = description.trim().length > 0;
 
   const handleConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (validLines.length === 0) return;
-    onConfirm(validLines.map((l) => ({ ...l, description: l.description.trim() })));
+    if (!canConfirm) return;
+    const parsedQty = parseInt(quantity, 10);
+    onConfirm({
+      description: description.trim(),
+      priority,
+      quantity: Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1,
+    });
     reset();
   };
 
@@ -81,65 +76,58 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
         </button>
         <div className="flex flex-col space-y-1.5 text-left">
           <h2 className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
-            <Wrench className="w-5 h-5 text-amber-500" /> Parts Needed
+            <Wrench className="w-5 h-5 text-amber-500" /> Part Needed
           </h2>
           <p className="text-sm text-muted-foreground pt-1">
-            Add each part on its own line — office can order them separately.
+            One part per request. Need a second part? Submit this, then log it again.
           </p>
         </div>
 
         <div className="space-y-4 pt-4">
-          {lines.map((line, index) => (
-            <div key={index} className="rounded-xl border p-3 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground">Part {index + 1}</p>
-                {lines.length > 1 && (
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-destructive p-1 -m-1"
-                    aria-label={`Remove part ${index + 1}`}
-                    onClick={(e) => removeLine(e, index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. Thermocouple"
+            className="min-h-[70px]"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
+          />
 
-              <Textarea
-                value={line.description}
-                onChange={(e) => updateLine(index, { description: e.target.value })}
-                placeholder="e.g. Thermocouple"
-                className="min-h-[70px]"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                data-form-type="other"
-              />
+          <div className="flex items-center gap-3">
+            <label htmlFor="part-qty" className="text-sm text-muted-foreground">
+              Qty
+            </label>
+            <Input
+              id="part-qty"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-20"
+            />
+          </div>
 
-              <div className="flex gap-2">
-                {PRIORITIES.map((p) => {
-                  const isSelected = line.priority === p.value;
-                  return (
-                    <button
-                      key={p.value}
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); updateLine(index, { priority: p.value }); }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 rounded-full border-2 px-2 py-1.5 text-xs font-semibold transition-all ${
-                        isSelected ? p.bg : `${p.border} ${p.text} bg-transparent`
-                      }`}
-                    >
-                      <span>{p.emoji}</span> {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          <Button type="button" variant="outline" className="w-full gap-1.5" onClick={addLine}>
-            <Plus className="w-4 h-4" /> Add another part
-          </Button>
+          <div className="flex gap-2">
+            {PRIORITIES.map((p) => {
+              const isSelected = priority === p.value;
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPriority(p.value); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-full border-2 px-2 py-1.5 text-xs font-semibold transition-all ${
+                    isSelected ? p.bg : `${p.border} ${p.text} bg-transparent`
+                  }`}
+                >
+                  <span>{p.emoji}</span> {p.label}
+                </button>
+              );
+            })}
+          </div>
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
@@ -149,10 +137,10 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
               type="button"
               className="flex-1 bg-amber-500 hover:bg-amber-500/90 text-white"
               onClick={handleConfirm}
-              disabled={loading || validLines.length === 0}
+              disabled={loading || !canConfirm}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-              Confirm{validLines.length > 1 ? ` (${validLines.length})` : ""}
+              Confirm
             </Button>
           </div>
         </div>
