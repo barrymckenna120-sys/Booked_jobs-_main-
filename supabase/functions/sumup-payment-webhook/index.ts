@@ -266,6 +266,16 @@ Deno.serve(async (req) => {
         const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
         const kind = e.fullyPaid ? "Payment received" : "Deposit received";
 
+        let customerName: string | null = null;
+        if (e.customerId) {
+          const { data: cust } = await supabase
+            .from("customers")
+            .select("name")
+            .eq("id", e.customerId)
+            .maybeSingle();
+          customerName = cust?.name ?? null;
+        }
+
         await supabase.from("notifications").insert(
           recipients.map((userId) => ({
             recipient_user_id: userId,
@@ -273,10 +283,11 @@ Deno.serve(async (req) => {
             job_id: e.serviceCallId,
             notification_type: "payment_collected",
             title: `${kind} — ${ref}`,
-            body: `€${e.amount.toFixed(2)} paid by card (SumUp)${e.fullyPaid ? "" : " — deposit"} on ${ref}`,
+            body: `€${e.amount.toFixed(2)} paid by card (SumUp)${e.fullyPaid ? " — full payment" : " — deposit"} on ${ref}${customerName ? ` for ${customerName}` : ""}`,
             metadata: { source: "sumup", amount: e.amount, fully_paid: e.fullyPaid },
           })),
         );
+
       } catch (_e) {
         console.error("sumup-payment-webhook: notification insert failed", _e);
       }

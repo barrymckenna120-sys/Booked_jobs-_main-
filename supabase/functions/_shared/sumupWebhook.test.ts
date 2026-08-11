@@ -177,6 +177,49 @@ Deno.test("no office notification on duplicate, unpaid or failed-update deliveri
   assertEquals(failed.h.notifications.length, 0);
 });
 
+Deno.test("payment notification never crosses tenants — only the owning org's office/admins", async () => {
+  const KN_ORG = ORG_ID;
+  const DUBLIN_ORG = "22222222-2222-2222-2222-222222222222";
+  const CAVAN_ORG = "33333333-3333-3333-3333-333333333333";
+
+  // Stands in for the edge function's recipient query: office/admin profiles
+  // scoped to one organisation_id.
+  const profiles = [
+    { user_id: "kn-office", role: "office", organisation_id: KN_ORG },
+    { user_id: "kn-admin", role: "admin", organisation_id: KN_ORG },
+    { user_id: "dublin-admin", role: "admin", organisation_id: DUBLIN_ORG },
+    { user_id: "cavan-admin", role: "admin", organisation_id: CAVAN_ORG },
+  ];
+  const recipientsFor = (orgId: string) =>
+    profiles.filter((p) => p.organisation_id === orgId).map((p) => p.user_id);
+
+  const notifiedOrgs: string[] = [];
+  const inserted: string[] = [];
+
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: CHECKOUT_ID }),
+    loadJobByCheckoutId: () => Promise.resolve(job({ organisation_id: KN_ORG, job_reference: "KN-465" })),
+    fetchCheckout: () =>
+      Promise.resolve({ ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID }),
+    updateJob: () => Promise.resolve(true),
+    notifyOffice: (e) => {
+      notifiedOrgs.push(e.organisationId!);
+      inserted.push(...recipientsFor(e.organisationId!));
+      return Promise.resolve();
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(notifiedOrgs, [KN_ORG]);
+  assertEquals(inserted, ["kn-office", "kn-admin"]);
+  assertEquals(inserted.includes("dublin-admin"), false);
+  assertEquals(inserted.includes("cavan-admin"), false);
+});
+
+
 Deno.test("failed/expired checkout writes no payment state", async () => {
   for (const status of ["FAILED", "EXPIRED", "PENDING"]) {
     const { h, result: p } = run({

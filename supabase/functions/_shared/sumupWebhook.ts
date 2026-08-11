@@ -117,10 +117,12 @@ export interface SumUpWebhookDeps {
   notifyOffice?: (entry: {
     organisationId: string | null;
     serviceCallId: string;
+    customerId: string | null;
     jobReference: string | null;
     amount: number;
     fullyPaid: boolean;
   }) => Promise<void>;
+
   /** Injectable clock for tests. */
   now?: () => Date;
   log?: (level: "info" | "error", message: string, detail?: unknown) => void;
@@ -371,11 +373,13 @@ export async function handleSumUpWebhook(
     await deps.notifyOffice({
       organisationId: job.organisation_id,
       serviceCallId: job.id,
+      customerId: job.customer_id ?? null,
       jobReference: job.job_reference ?? null,
       amount,
       fullyPaid,
     });
   }
+
 
   log("info", `sumup-webhook: job ${job.id} → ${fullyPaid ? "paid" : "partial"} (€${amount})`);
   return {

@@ -341,11 +341,16 @@ const QuoteDetail = () => {
                 date: depositPaidAt,
                 fmt: "dd MMMM yyyy HH:mm",
                 active: !!depositPaidAt,
+                // Stays on the timeline before payment, greyed out like any
+                // other step that has not been reached yet.
+                pending: !depositPaidAt,
               },
               { label: "Expires", date: q.expiry_date, fmt: "dd MMMM yyyy", active: !!q.expiry_date },
             ]
-              .filter((step) => step.active)
-              .map((step, i, arr) => (
+              .filter((step) => step.active || (step as { pending?: boolean }).pending)
+              .map((step, i, arr) => {
+                const pending = !step.active;
+                return (
                 <div key={step.label} className="relative pb-5 last:pb-0">
                   {/* Connecting line */}
                   {i < arr.length - 1 && (
@@ -354,19 +359,23 @@ const QuoteDetail = () => {
                   {/* Dot */}
                   <span
                     className={`absolute left-[-20px] top-[5px] w-[9px] h-[9px] rounded-full border-2 ${
-                      i === arr.length - 1 && step.label !== "Expires"
-                        ? "border-primary bg-primary"
-                        : step.label === "Expires"
+                      pending || step.label === "Expires"
                         ? "border-muted-foreground bg-muted"
                         : "border-primary bg-primary"
                     }`}
                   />
                   <p className="text-sm leading-tight">
-                    <span className="font-semibold text-foreground">{step.label}</span>
-                    <span className="text-muted-foreground ml-2">{format(new Date(step.date!), step.fmt)}</span>
+                    <span className={`font-semibold ${pending ? "text-muted-foreground" : "text-foreground"}`}>
+                      {step.label}
+                    </span>
+                    <span className="text-muted-foreground ml-2">
+                      {step.date ? format(new Date(step.date), step.fmt) : "—"}
+                    </span>
                   </p>
                 </div>
-              ))}
+                );
+              })}
+
           </div>
         </CardContent>
       </Card>
