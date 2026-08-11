@@ -92,9 +92,10 @@ const EngineerLayout = () => {
     };
   }, []);
 
+  // /engineer/parts lives inside the Completed section, so it keeps that tab lit.
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
-    : location.pathname.includes("/completed")
+    : location.pathname.includes("/completed") || location.pathname.includes("/parts")
     ? "completed"
     : "today";
 

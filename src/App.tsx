@@ -41,6 +41,7 @@ const IncomingJobsDebug = lazy(() => import("./pages/IncomingJobsDebug"));
 const EngineerToday = lazy(() => import("./pages/engineer/EngineerToday"));
 const EngineerUpcoming = lazy(() => import("./pages/engineer/EngineerUpcoming"));
 const EngineerCompleted = lazy(() => import("./pages/engineer/EngineerCompleted"));
+const EngineerParts = lazy(() => import("./pages/engineer/EngineerParts"));
 const EngineerJobDetail = lazy(() => import("./pages/engineer/EngineerJobDetail"));
 const EngineerCertificates = lazy(() => import("./pages/engineer/EngineerCertificates"));
 const BookingRedirect = lazy(() => import("./pages/BookingRedirect"));
@@ -217,6 +218,7 @@ function AppContent() {
         <Route path="today" element={<EngineerToday />} />
         <Route path="upcoming" element={<EngineerUpcoming />} />
         <Route path="completed" element={<EngineerCompleted />} />
+        <Route path="parts" element={<EngineerParts />} />
       </Route>
       <Route path="/engineer/job/:id" element={<EngineerJobDetail />} />
       <Route path="/engineer/job/:id/certificates" element={<EngineerCertificates />} />
