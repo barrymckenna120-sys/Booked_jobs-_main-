@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
     if (jobsErr) return json({ error: jobsErr.message }, 500);
 
-    // 2. WhatsApp integration
+    // 2. WhatsApp integration — shared resolver handles api_key_secret and literal api_key
     const { data: integration } = await supabase
       .from("tenant_integrations")
       .select("config")
@@ -53,10 +53,20 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const cfg = (integration?.config as any) || {};
-    const apiKey = cfg.api_key;
     const stripeLink = cfg.stripe_payment_link || DEFAULT_STRIPE_LINK;
 
-    if (!apiKey) return json({ error: "WhatsApp API key not configured" }, 400);
+    const keyRes = await fetchWhatsappApiKeyWithClient(supabase, organisation_id);
+    if (!keyRes.apiKey) {
+      console.error(
+        `[send-outstanding-invoice-reminders] no WhatsApp key for org ${organisation_id} (${keyRes.resolution})`,
+      );
+      return json(
+        { error: "WhatsApp integration not configured", detail: keyRes.detail, resolution: keyRes.resolution },
+        400,
+      );
+    }
+    const apiKey = keyRes.apiKey;
+
 
     let sent = 0;
     let skipped = 0;
