@@ -113,6 +113,17 @@ export interface SumUpWebhookDeps {
     amount: number;
     fullyPaid: boolean;
   }) => Promise<void>;
+  /**
+   * Claims this delivery. Returns true the first time a checkout id is seen and
+   * false if it was already handled (unique violation on
+   * sumup_webhook_events.checkout_id). Called before any write.
+   */
+  claimEvent?: (entry: {
+    checkoutId: string;
+    eventType: string | null;
+    organisationId: string | null;
+    serviceCallId: string;
+  }) => Promise<boolean>;
   /** One office notification per confirmed payment. */
   notifyOffice?: (entry: {
     organisationId: string | null;
@@ -122,6 +133,7 @@ export interface SumUpWebhookDeps {
     amount: number;
     fullyPaid: boolean;
   }) => Promise<void>;
+
 
   /** Injectable clock for tests. */
   now?: () => Date;
@@ -300,16 +312,34 @@ export async function handleSumUpWebhook(
   const revenue = Number(job.revenue ?? 0);
   const fullyPaid = revenue > 0 ? amount + 1e-9 >= revenue : amount > 0;
 
-  // Idempotency: a second delivery of the same paid event must not overwrite
-  // paid_at or write a second activity entry. Keyed off payment_status only —
-  // partial payments now stamp paid_at too, so a later balance payment on the
-  // same job must still be processed.
+  // Idempotency, layer 1 — DUPLICATE DELIVERY of the same callback.
+  // SumUp retries delivery (1 min / 5 min / 20 min / 2 h), always for the same
+  // checkout id. sumup_webhook_events.checkout_id is UNIQUE, so the first
+  // delivery claims it and every re-delivery is a no-op BEFORE paid_at is
+  // stamped and BEFORE any notification is written. A genuinely separate second
+  // payment on the same job is a different checkout id, so it still processes.
+  if (deps.claimEvent) {
+    const claimed = await deps.claimEvent({
+      checkoutId,
+      eventType: (parsed as Record<string, any>)?.event_type ?? null,
+      organisationId: job.organisation_id,
+      serviceCallId: job.id,
+    });
+    if (!claimed) {
+      log("info", `sumup-webhook: checkout ${checkoutId} already processed — no-op`);
+      return { outcome: "duplicate", status: 200, jobId: job.id, amount };
+    }
+  }
+
+  // Idempotency, layer 2 — a SECOND, DIFFERENT payment that the job state says
+  // is already covered (e.g. a deposit arriving after the job is fully paid).
   const alreadyPaid = job.payment_status === "paid";
   const alreadyPartPaid = job.payment_status === "partial" || job.deposit_paid === true;
   if (alreadyPaid || (!fullyPaid && alreadyPartPaid)) {
     log("info", `sumup-webhook: duplicate delivery for job ${job.id} — no-op`);
     return { outcome: "duplicate", status: 200, jobId: job.id, amount };
   }
+
 
   const patch: Record<string, unknown> = fullyPaid
     ? {
