@@ -230,7 +230,7 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     disabled={busyId === part.id}
                     onClick={() => advance(part, "Ready to Fit")}
                   >
-                    <CalendarClock className="w-4 h-4" /> Part Arrived
+                    <PackageCheck className="w-4 h-4" /> Part Arrived
                   </Button>
                 )}
                 {part.status !== "Ready to Fit" && (
