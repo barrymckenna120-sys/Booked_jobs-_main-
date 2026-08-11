@@ -18,9 +18,12 @@ const EngineerParts = () => {
   const [jobRefs, setJobRefs] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
 
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, []);
+
 
   useEffect(() => {
     if (!user?.id) return;
