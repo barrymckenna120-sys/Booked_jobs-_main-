@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,20 +31,17 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Per-org cache for whatsapp api_key
-    const apiKeyCache = new Map<string, string | null>();
-    const getApiKey = async (orgId: string): Promise<string | null> => {
-      if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId) ?? null;
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-        { headers: dbHeaders }
-      );
-      const rows = await r.json();
-      const cfg = Array.isArray(rows) ? rows[0]?.config : null;
-      const key = cfg?.api_key ?? null;
-      apiKeyCache.set(orgId, key);
-      return key;
+    // Per-org cache for whatsapp api key (shared resolver: api_key_secret or literal api_key)
+    const apiKeyCache = new Map<string, { apiKey: string | null; resolution: string }>();
+    const getApiKey = async (orgId: string): Promise<{ apiKey: string | null; resolution: string }> => {
+      const cached = apiKeyCache.get(orgId);
+      if (cached) return cached;
+      const res = await fetchWhatsappApiKey(supabaseUrl!, supabaseKey!, orgId);
+      const entry = { apiKey: res.apiKey, resolution: res.resolution };
+      apiKeyCache.set(orgId, entry);
+      return entry;
     };
+
 
     let sent = 0;
     let skipped = 0;
@@ -87,13 +86,16 @@ serve(async (req) => {
         continue;
       }
 
-      const apiKey = await getApiKey(orgId);
+      const { apiKey, resolution } = await getApiKey(orgId);
       if (!apiKey) {
-        console.warn(`Skipping customer ${customer_id}: no whatsapp api_key for org ${orgId}`);
+        console.warn(
+          `Skipping customer ${customer_id}: no whatsapp api key for org ${orgId} (${resolution})`,
+        );
         skipped++;
         byArea[areaKey].skipped++;
         continue;
       }
+
 
       // Format phone number
       let cleanNumber = customer_phone.replace(/[\s\-()]/g, "").replace(/^\+/, "");

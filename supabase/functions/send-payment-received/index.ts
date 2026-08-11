@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,17 +62,20 @@ Deno.serve(async (req) => {
 
     const invoiceNumber = invoice?.invoice_number || "—";
 
-    // 3. WhatsApp API key — prefer per-org config, fall back to global env
-    const { data: integration } = await supabase
-      .from("tenant_integrations")
-      .select("config")
-      .eq("organisation_id", job.organisation_id)
-      .eq("integration_type", "360messenger")
-      .maybeSingle();
+    // 3. WhatsApp API key — single shared resolver (api_key_secret or literal api_key)
+    const keyRes = await fetchWhatsappApiKeyWithClient(supabase, job.organisation_id);
+    if (!keyRes.apiKey) {
+      console.error(
+        `[send-payment-received] no WhatsApp key for org ${job.organisation_id} (${keyRes.resolution})`,
+      );
+      return json(
+        { error: "WhatsApp integration not configured", detail: keyRes.detail, resolution: keyRes.resolution },
+        400,
+      );
+    }
+    const apiKey = keyRes.apiKey;
 
-    const apiKey =
-      (integration?.config as any)?.api_key || Deno.env.get("THREESIXTY_API_KEY");
-    if (!apiKey) return json({ error: "WhatsApp API key not configured" }, 400);
+
 
 
     // 4. Format fields
