@@ -39,14 +39,62 @@ const LogReplyModal = ({ message, open, onClose, onSaved }: Props) => {
       status,
     } as any).eq("id", message.id);
 
+    let confirmNote = "";
+
     if (status === "Confirmed") {
       await supabase.from("customers").update({ last_reminder_response: "Confirmed" } as any).eq("id", message.customer_id);
+
+      // Mirror the automated WhatsApp CONFIRM path: mark the job itself
+      // confirmed so the Confirmed badge shows for manual logs too.
+      const { data: candidates } = await supabase
+        .from("service_calls")
+        .select("*")
+        .eq("customer_id", message.customer_id);
+
+      const decision = resolveConfirmTarget(
+        (candidates || []).map((j: any) => ({
+          id: j.id,
+          scheduled_date: j.scheduled_date,
+          status: j.status,
+          reminder_2day_sent: j.reminder_2day_sent,
+        })),
+        businessToday()
+      );
+
+      if (decision.action === "act") {
+        const job = (candidates || []).find((j: any) => j.id === decision.job.id) as any;
+        const { error: confirmErr } = await supabase
+          .from("service_calls")
+          .update({ confirmed: true, confirmed_at: new Date().toISOString() } as any)
+          .eq("id", decision.job.id);
+
+        if (confirmErr) {
+          confirmNote = " · couldn't mark the appointment confirmed";
+        } else {
+          confirmNote = " · appointment marked confirmed";
+          try {
+            await supabase.from("customer_activity").insert({
+              organisation_id: job?.organisation_id,
+              customer_id: message.customer_id,
+              service_call_id: decision.job.id,
+              event_type: "appointment_confirmed",
+              event_label: "Appointment confirmed — logged by office",
+            } as any);
+          } catch { /* non-critical */ }
+        }
+      } else if (decision.action === "ambiguous") {
+        // Never guess between multiple upcoming appointments.
+        confirmNote = " · more than one upcoming appointment, please confirm on the job";
+      } else {
+        confirmNote = " · no upcoming appointment found to mark";
+      }
     }
+
     if (status === "Opted Out") {
       await supabase.from("customers").update({ opted_out: true, opted_out_date: new Date().toISOString().split("T")[0] }).eq("id", message.customer_id);
     }
 
-    toast({ title: "Reply saved" });
+    toast({ title: `Reply saved${confirmNote}` });
     onSaved();
     onClose();
   };
