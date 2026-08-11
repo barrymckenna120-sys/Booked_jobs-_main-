@@ -40,6 +40,6 @@ One `parts_requests` row:
 
 ## Verification (run after building, output pasted back)
 
-1. Create three orders through the UI: one with a job linked, one manual-entry with no job, one assigned to a test engineer.
+1. Create three orders through the UI: one with a job linked, one manual-entry with no job, one assigned to the test engineer **Karl** (`engineers.id 55b9ba7b-4cfe-4f4f-8edb-7cc78e14dd2e`, `auth_user_id` / `profiles.user_id` `57ebf8de-b2d3-44bc-90b0-071d750a3f46`, `profiles.role = engineer`) — confirmed `matches = true`, so the FK holds and My Parts' `assigned_engineer_id = auth.uid()` will match.
 2. Query those rows showing `service_call_id`, customer snapshot fields, `assigned_engineer_id`, `engineer_id`, `created_by`, `logged_by`, `status`, `organisation_id`.
 3. Delete the three test rows, then re-count `parts_requests` to show the pre-existing rows are untouched.
