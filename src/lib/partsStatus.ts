@@ -136,6 +136,10 @@ export const buildPartsRequestRow = ({
     logged_by: loggedBy,
     logged_by_name: loggedByName,
     assigned_to: assignedTo,
+    // The requesting user is the notify target for office updates — the
+    // notification trigger reads engineer_id / assigned_engineer_id, so this
+    // must be written at insert time or the engineer never hears back.
+    engineer_id: loggedBy,
   };
 };
 

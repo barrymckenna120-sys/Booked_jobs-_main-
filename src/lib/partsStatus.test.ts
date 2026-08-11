@@ -4,6 +4,7 @@ import {
   PART_STATUSES,
   isOfficeUpdate,
   OFFICE_UPDATE_TOLERANCE_MS,
+  buildPartsRequestRow,
 } from "./partsStatus";
 
 describe("PART_STATUS_ICON_KEY", () => {
@@ -76,5 +77,26 @@ describe("isOfficeUpdate", () => {
     expect(isOfficeUpdate({ created_at: null, updated_at: plus(60_000), status: "Ordered" })).toBe(false);
     expect(isOfficeUpdate({ created_at: created, updated_at: null, status: "Ordered" })).toBe(false);
     expect(isOfficeUpdate({ created_at: "not-a-date", updated_at: plus(60_000), status: "Ordered" })).toBe(false);
+  });
+});
+
+describe("buildPartsRequestRow engineer link", () => {
+  it("stamps engineer_id from the logging user so office updates can notify them", () => {
+    const row = buildPartsRequestRow({
+      part: { description: "Pump", priority: "urgent" },
+      organisationId: "org-1",
+      loggedBy: "user-1",
+      loggedByName: "Karl",
+    });
+    expect(row?.engineer_id).toBe("user-1");
+    expect(row?.logged_by).toBe("user-1");
+  });
+
+  it("leaves engineer_id null when there is no logging user", () => {
+    const row = buildPartsRequestRow({
+      part: { description: "Pump", priority: "low" },
+      organisationId: "org-1",
+    });
+    expect(row?.engineer_id).toBeNull();
   });
 });
