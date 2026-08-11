@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
