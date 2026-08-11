@@ -20,12 +20,21 @@ No defaults are added to any new column. `customer_name`, `customer_address`, `c
 
 ## RLS
 
-Existing 6 policies are left exactly as they are. Two policies are **added** (permissive, so they widen access only for the new originator column, matching the spec's "engineers can update/delete only their own Open rows"):
+Existing 6 policies are left exactly as they are. Two policies are **added** (permissive, so they widen access only for the new engineer columns). An engineer may act on a row when they are **either the originator or the assignee** — office-created phoned-in orders have `engineer_id = NULL`, so checking only the originator column would leave the assigned engineer unable to act:
 
-- `parts_requests_update_own_open_engineer_id` — UPDATE, `USING (organisation_id = get_my_org_id() AND status = 'Open' AND engineer_id = auth.uid())`, `WITH CHECK (organisation_id = get_my_org_id() AND status IN ('Open','Cancelled') AND engineer_id = auth.uid())`
-- `parts_requests_delete_own_open_engineer_id` — DELETE, same USING clause
+- `parts_requests_update_own_open_engineer_id` — UPDATE TO authenticated, `USING (organisation_id = get_my_org_id() AND status = 'Open' AND (engineer_id = auth.uid() OR assigned_engineer_id = auth.uid()))`, `WITH CHECK (organisation_id = get_my_org_id() AND status IN ('Open','Cancelled') AND (engineer_id = auth.uid() OR assigned_engineer_id = auth.uid()))`
+- `parts_requests_delete_own_open_engineer_id` — DELETE TO authenticated, same USING clause
+
+Both are dropped with `DROP POLICY IF EXISTS` before creation so the migration is re-runnable.
+
+**Type confirmation (checked, not assumed):** `profiles.user_id` is `uuid` with a UNIQUE constraint and `profiles_user_id_fkey → auth.users(id)`. `engineer_id` / `assigned_engineer_id` are `uuid` FK'd to `profiles(user_id)`, so they hold the same value as `auth.uid()` and compare directly — no `get_engineer_id()` wrapper, unlike `assigned_to` which stores `engineers.id` (a different key space) and therefore still needs the helper in the original policies.
 
 Org scoping stays server-resolved via `get_my_org_id()`; no client-supplied `organisation_id` is trusted. Existing INSERT policy already covers engineer and office inserts, and office UPDATE already covers any row at any status.
+
+## Which columns future frontend work targets
+
+All new frontend work — engineer request form, My Parts list, office New Order form — writes and reads **`engineer_id` / `assigned_engineer_id`** (profiles.user_id-based, added here). `assigned_to` (engineers.id) is legacy: it stays for the existing policies and current wiring but is not extended. If both remain populated by different paths, one is retired in a later cleanup once reads are switched.
+
 
 ## Out of scope
 
