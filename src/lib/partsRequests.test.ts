@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { deriveJobStatusFromParts, buildPartsRequestRows, priorityRank } from "./partsRequests";
+import { deriveJobStatusFromParts, buildPartsRequestRows, priorityRank } from "./partsStatus";
 
 describe("deriveJobStatusFromParts", () => {
   it("flags Parts Needed when any line is Open", () => {
