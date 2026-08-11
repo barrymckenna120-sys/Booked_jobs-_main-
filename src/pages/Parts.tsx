@@ -45,6 +45,8 @@ const Parts = () => {
   const nameOf = (p: any) => p.customers?.name || p.customer_name || "Unknown";
   const phoneOf = (p: any) => p.customers?.phone || p.customer_phone || "";
   const engineerOf = (p: any) => p.logged_by_name || p.service_calls?.assigned_engineer || "Unassigned";
+  const cancelledByOf = (p: any) => p.cancelled_by_profile?.display_name || "Unknown user";
+
 
   const open = parts
     .filter((p: any) => p.status === "Open")
