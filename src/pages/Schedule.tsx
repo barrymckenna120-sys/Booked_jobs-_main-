@@ -113,6 +113,7 @@ export type ScheduleJob = {
   media_count?: number;
   confirmed?: boolean | null;
   confirmed_at?: string | null;
+  source?: string | null;
 };
 
 const Schedule = () => {
@@ -227,6 +228,7 @@ const Schedule = () => {
         media_count: mediaCounts[j.id] || 0,
         confirmed: j.confirmed ?? false,
         confirmed_at: j.confirmed_at || null,
+        source: j.source || null,
       })) as ScheduleJob[];
     },
     enabled: !!user && ready,
