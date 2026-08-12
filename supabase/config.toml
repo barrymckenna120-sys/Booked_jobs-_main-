@@ -63,7 +63,7 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
   [functions.get-upcoming-service-calls]
     verify_jwt = false
   [functions.generate-accountant-export]
-    verify_jwt = false
+    verify_jwt = true
   [functions.send-warranty-whatsapp]
     verify_jwt = false
   [functions.warranty-auto-send]
@@ -79,7 +79,7 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
   [functions.log-message]
     verify_jwt = false
   [functions.cancel-job-notify]
-    verify_jwt = false
+    verify_jwt = true
   [functions.send-magic-link]
     verify_jwt = false
   [functions.send-block-notification]
