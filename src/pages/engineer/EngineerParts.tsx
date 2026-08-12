@@ -161,6 +161,39 @@ const EngineerParts = () => {
           ))}
         </div>
       )}
+      <PartsNeededSheet
+        open={showRequestSheet}
+        loading={savingPart}
+        onClose={() => setShowRequestSheet(false)}
+        onConfirm={async (part) => {
+          if (!engineer?.organisation_id || !user?.id) {
+            toast({
+              title: "Couldn't save part",
+              description: "Your organisation could not be resolved. Please refresh and try again.",
+              variant: "destructive",
+            });
+            return;
+          }
+          setSavingPart(true);
+          const { error } = await insertPartsRequest({
+            part,
+            organisationId: engineer.organisation_id,
+            serviceCallId: null,
+            customerId: null,
+            loggedBy: user.id,
+            loggedByName: engineer?.name ?? user?.email ?? null,
+            assignedTo: null,
+          });
+          setSavingPart(false);
+          if (error) {
+            toast({ title: "Couldn't save part", description: error.message, variant: "destructive" });
+            return;
+          }
+          setShowRequestSheet(false);
+          setReloadKey((k) => k + 1);
+          toast({ title: "Part request logged" });
+        }}
+      />
     </>
   );
 };
