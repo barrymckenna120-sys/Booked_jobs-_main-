@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Wrench, Loader2, X } from "lucide-react";
+import { Wrench, Loader2, X, Search } from "lucide-react";
 import type { PartLineInput, PartPriority } from "@/lib/partsRequests";
 
 const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: string; text: string; bg: string }[] = [
@@ -12,18 +13,67 @@ const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: s
   { value: "low",    label: "Low",    emoji: "🟢", border: "border-[#16A34A]", text: "text-[#16A34A]", bg: "bg-[#16A34A] text-white border-[#16A34A]" },
 ];
 
+interface CustomerRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  address: string | null;
+}
+
+/** Either a picked customer id or a typed-in name — the DB requires one of them. */
+export interface PartCustomerSelection {
+  customerId: string | null;
+  customerName: string | null;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   /** One request = one part. Log a second part with a second submission. */
-  onConfirm: (part: PartLineInput) => void;
+  onConfirm: (part: PartLineInput, customer?: PartCustomerSelection) => void;
   loading?: boolean;
+  /** Job-less requests have no customer context, so ask for one. Off by default. */
+  requireCustomer?: boolean;
+  /** Scopes the customer search when requireCustomer is on. */
+  organisationId?: string | null;
 }
 
-const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
+const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, organisationId }: Props) => {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<PartPriority>("normal");
   const [quantity, setQuantity] = useState("1");
+
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<CustomerRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [manual, setManual] = useState(false);
+  const [manualName, setManualName] = useState("");
+
+  // Debounced customer search — same query shape as the office New Order form.
+  useEffect(() => {
+    if (!open || !requireCustomer || !organisationId) return;
+    const term = search.trim();
+    if (customer || manual || term.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, name, phone, address")
+        .eq("organisation_id", organisationId)
+        .or(`name.ilike.%${term}%,phone.ilike.%${term}%`)
+        .limit(8);
+      if (!cancelled) {
+        setResults(((data as any[]) || []) as CustomerRow[]);
+        setSearching(false);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search, open, requireCustomer, organisationId, customer, manual]);
 
   if (!open) return null;
 
@@ -31,9 +81,16 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
     setDescription("");
     setPriority("normal");
     setQuantity("1");
+    setSearch("");
+    setResults([]);
+    setCustomer(null);
+    setManual(false);
+    setManualName("");
   };
 
-  const canConfirm = description.trim().length > 0;
+  const hasCustomer = !!customer || manualName.trim().length > 0;
+  const canConfirm = description.trim().length > 0 && (!requireCustomer || hasCustomer);
+
 
   const handleConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
