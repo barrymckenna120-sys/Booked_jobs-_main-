@@ -162,8 +162,10 @@ const EngineerParts = () => {
       <PartsNeededSheet
         open={showRequestSheet}
         loading={savingPart}
+        requireCustomer
+        organisationId={engineer?.organisation_id ?? null}
         onClose={() => setShowRequestSheet(false)}
-        onConfirm={async (part) => {
+        onConfirm={async (part, selection) => {
           if (!engineer?.organisation_id || !user?.id) {
             toast({
               title: "Couldn't save part",
@@ -177,7 +179,8 @@ const EngineerParts = () => {
             part,
             organisationId: engineer.organisation_id,
             serviceCallId: null,
-            customerId: null,
+            customerId: selection?.customerId ?? null,
+            customerName: selection?.customerId ? null : selection?.customerName ?? null,
             loggedBy: user.id,
             loggedByName: engineer?.name ?? user?.email ?? null,
             assignedTo: null,

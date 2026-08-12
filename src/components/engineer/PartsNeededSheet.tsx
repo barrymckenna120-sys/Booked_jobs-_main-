@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Wrench, Loader2, X } from "lucide-react";
+import { Wrench, Loader2, X, Search } from "lucide-react";
 import type { PartLineInput, PartPriority } from "@/lib/partsRequests";
 
 const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: string; text: string; bg: string }[] = [
@@ -12,18 +13,67 @@ const PRIORITIES: { value: PartPriority; label: string; emoji: string; border: s
   { value: "low",    label: "Low",    emoji: "🟢", border: "border-[#16A34A]", text: "text-[#16A34A]", bg: "bg-[#16A34A] text-white border-[#16A34A]" },
 ];
 
+interface CustomerRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  address: string | null;
+}
+
+/** Either a picked customer id or a typed-in name — the DB requires one of them. */
+export interface PartCustomerSelection {
+  customerId: string | null;
+  customerName: string | null;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   /** One request = one part. Log a second part with a second submission. */
-  onConfirm: (part: PartLineInput) => void;
+  onConfirm: (part: PartLineInput, customer?: PartCustomerSelection) => void;
   loading?: boolean;
+  /** Job-less requests have no customer context, so ask for one. Off by default. */
+  requireCustomer?: boolean;
+  /** Scopes the customer search when requireCustomer is on. */
+  organisationId?: string | null;
 }
 
-const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
+const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, organisationId }: Props) => {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<PartPriority>("normal");
   const [quantity, setQuantity] = useState("1");
+
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<CustomerRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [manual, setManual] = useState(false);
+  const [manualName, setManualName] = useState("");
+
+  // Debounced customer search — same query shape as the office New Order form.
+  useEffect(() => {
+    if (!open || !requireCustomer || !organisationId) return;
+    const term = search.trim();
+    if (customer || manual || term.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, name, phone, address")
+        .eq("organisation_id", organisationId)
+        .or(`name.ilike.%${term}%,phone.ilike.%${term}%`)
+        .limit(8);
+      if (!cancelled) {
+        setResults(((data as any[]) || []) as CustomerRow[]);
+        setSearching(false);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search, open, requireCustomer, organisationId, customer, manual]);
 
   if (!open) return null;
 
@@ -31,20 +81,35 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
     setDescription("");
     setPriority("normal");
     setQuantity("1");
+    setSearch("");
+    setResults([]);
+    setCustomer(null);
+    setManual(false);
+    setManualName("");
   };
 
-  const canConfirm = description.trim().length > 0;
+  const hasCustomer = !!customer || manualName.trim().length > 0;
+  const canConfirm = description.trim().length > 0 && (!requireCustomer || hasCustomer);
+
 
   const handleConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     if (!canConfirm) return;
     const parsedQty = parseInt(quantity, 10);
-    onConfirm({
-      description: description.trim(),
-      priority,
-      quantity: Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1,
-    });
+    onConfirm(
+      {
+        description: description.trim(),
+        priority,
+        quantity: Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1,
+      },
+      requireCustomer
+        ? {
+            customerId: customer?.id ?? null,
+            customerName: customer ? null : manualName.trim() || null,
+          }
+        : undefined,
+    );
     reset();
   };
 
@@ -84,6 +149,89 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading }: Props) => {
         </div>
 
         <div className="space-y-4 pt-4">
+          {requireCustomer && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">Customer</label>
+              {customer ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{customer.name || "Unnamed"}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {[customer.phone, customer.address].filter(Boolean).join(" · ") || "No contact details"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                    onClick={(e) => { e.stopPropagation(); setCustomer(null); }}
+                  >
+                    Change
+                  </Button>
+                </div>
+              ) : manual ? (
+                <div className="space-y-2">
+                  <Input
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    placeholder="Customer name"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary"
+                    onClick={(e) => { e.stopPropagation(); setManual(false); setManualName(""); }}
+                  >
+                    Search existing customers instead
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search by name or phone"
+                      className="pl-9"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  {searching && <p className="text-xs text-muted-foreground">Searching…</p>}
+                  {results.length > 0 && (
+                    <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+                      {results.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setCustomer(c); setSearch(""); setResults([]); }}
+                        >
+                          <p className="text-sm font-medium truncate">{c.name || "Unnamed"}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {[c.phone, c.address].filter(Boolean).join(" · ")}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!searching && search.trim().length >= 2 && results.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No matches.</p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary"
+                    onClick={(e) => { e.stopPropagation(); setManual(true); setSearch(""); setResults([]); }}
+                  >
+                    Customer not in the system — enter name manually
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
