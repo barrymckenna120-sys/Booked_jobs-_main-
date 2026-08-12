@@ -7,6 +7,7 @@ import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, Ale
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
+import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 
 
 const formatDate = (d: string) =>
@@ -151,9 +152,10 @@ const ServiceReceipt = () => {
   };
 
   const handleDownloadPdf = async () => {
-    const url = await generateReceiptPdf();
-    if (url) {
-      openExternalUrl(url);
+    const path = await generateReceiptPdf();
+    const signed = path ? await resolveReceiptUrl(job?.access_token) : null;
+    if (signed) {
+      openExternalUrl(signed);
     } else {
       toast({ title: "Could not generate receipt PDF", variant: "destructive" });
     }

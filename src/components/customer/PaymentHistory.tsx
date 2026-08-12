@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Receipt, Loader2 } from "lucide-react";
+import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 
 type ReceiptJob = {
   id: string;
@@ -13,6 +14,7 @@ type ReceiptJob = {
   paid_at: string | null;
   assigned_engineer: string | null;
   receipt_pdf_url: string | null;
+  access_token: string | null;
 };
 
 interface Props {
@@ -29,7 +31,7 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
     const fetchReceipts = async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, receipt_number, scheduled_date, revenue, payment_method, paid_at, assigned_engineer, receipt_pdf_url")
+        .select("id, receipt_number, scheduled_date, revenue, payment_method, paid_at, assigned_engineer, receipt_pdf_url, access_token")
         .eq("customer_id", customerId)
         .not("receipt_number", "is", null)
         .order("paid_at", { ascending: false, nullsFirst: false });
@@ -43,9 +45,12 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
 
   const handleDownload = async (job: ReceiptJob) => {
     setDownloading(job.id);
+    const openFallback = () => window.open(`/receipt-view/${job.id}`, "_blank");
     try {
       if (job.receipt_pdf_url) {
-        window.open(job.receipt_pdf_url, "_blank");
+        const signed = await resolveReceiptUrl(job.access_token);
+        if (signed) window.open(signed, "_blank");
+        else openFallback();
         setDownloading(null);
         return;
       }
@@ -53,12 +58,14 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
         body: { job_id: job.id },
       });
       if (!error && data?.pdf_url) {
-        window.open(data.pdf_url, "_blank");
+        const signed = await resolveReceiptUrl(job.access_token);
+        if (signed) window.open(signed, "_blank");
+        else openFallback();
       } else {
-        window.open(`/receipt-view/${job.id}`, "_blank");
+        openFallback();
       }
     } catch {
-      window.open(`/receipt-view/${job.id}`, "_blank");
+      openFallback();
     }
     setDownloading(null);
   };
