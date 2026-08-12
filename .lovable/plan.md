@@ -43,15 +43,20 @@ Existing `partsStatus.test.ts` / `partsRequests.test.ts` re-run to confirm no re
 1. Insert a temporary `parts_requests` row for K&N: `engineer_id` null, `assigned_engineer_id` null, `assigned_to` = Karl's `engineers.id`, status `Open`, description marked `TEMP TRIGGER TEST`.
 2. Update its status `Open → Ordered` as an office actor.
 3. Query `notifications` for a `parts_update` row addressed to Karl's `auth_user_id`; paste the actual row.
-4. Delete the temp parts row and the notification it produced; confirm counts back to baseline.
+4. Confirm as Karl on `/engineer/parts` that the `TEMP TRIGGER TEST` row actually renders in his list — screenshot plus an explicit statement of what appeared, pasted alongside the notification row.
+5. Then delete the temp parts row and the notification it produced; confirm counts back to baseline.
 
 Note on actor: the trigger's office gate reads `auth.uid()`, which is null for tool-run SQL. The update will be executed through an authenticated office session (Playwright against the Parts page, same approach used for the earlier trigger checks) so `auth.uid()` and `get_user_role` resolve properly. If a browser-driven update can't be made to hit this exact row, the fallback is a temporary session-context shim — either way the pasted notification row is the evidence, not a summary.
 
-## Flagged: the engineer's own Parts list still won't show these rows
+## 6. Engineer parts list must show `assigned_to` rows (required, same pass)
 
-`src/pages/engineer/EngineerParts.tsx` filters with `.or("engineer_id.eq.<uid>,assigned_engineer_id.eq.<uid>")` — it never checks `assigned_to`. So after this change the engineer gets the notification, but tapping it lands on a list that doesn't contain the row. RLS is not the blocker: `parts_requests_select` is org-wide and `parts_requests_update_own_open` already covers `assigned_to = get_engineer_id(auth.uid())`, so only the client query needs widening (resolve the viewer's `engineers.id`, add `assigned_to.eq.<engineerId>` to the `.or()`).
+`src/pages/engineer/EngineerParts.tsx` currently filters with `.or("engineer_id.eq.<uid>,assigned_engineer_id.eq.<uid>")` and its header comment explicitly says `assigned_to` is not queried — so without this the new notification deep-links to a list that doesn't contain the row.
 
-This is outside the four approved items, so it is not included above. Say the word and I'll fold it into the same pass — without it the new notification is a dead end.
+- Resolve the viewer's `engineers.id` via the same lookup pattern used elsewhere (`engineers` by `auth_user_id = user.id`).
+- Add `assigned_to.eq.<engineerId>` to the existing `.or()` conditions, only when an engineers row resolves; keep the two uid conditions unchanged so nothing currently visible disappears.
+- Update the stale header comment.
+
+RLS is not a blocker: `parts_requests_select` is org-wide and `parts_requests_update_own_open` already covers `assigned_to = get_engineer_id(auth.uid())`, so the engineer can also action the row once it renders.
 
 ## Technical notes
 
