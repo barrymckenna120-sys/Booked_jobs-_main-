@@ -125,13 +125,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    const orgId = organisation_id || (sc as any).organisation_id;
-    if (!orgId) {
+    // Tenant isolation: the job must belong to the caller's organisation.
+    if ((sc as any).organisation_id && (sc as any).organisation_id !== callerOrgId) {
       return new Response(
-        JSON.stringify({ error: "Service call missing organisation_id" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    const orgId = callerOrgId as string;
 
     // Fetch WhatsApp api_key from tenant_integrations
     // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
