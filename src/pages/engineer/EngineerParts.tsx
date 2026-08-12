@@ -8,10 +8,11 @@ import PartRequestCard from "@/components/engineer/PartRequestCard";
 import type { PartsRequestRow } from "@/lib/partsStatus";
 
 /**
- * Read-only list of the signed-in engineer's parts requests — both the ones they
- * logged themselves (engineer_id) and the ones office assigned to them
- * (assigned_engineer_id). The legacy assigned_to column (engineers.id) is not
- * queried; these two columns hold profiles.user_id, i.e. the auth uid directly.
+ * Read-only list of the signed-in engineer's parts requests: the ones they logged
+ * themselves (engineer_id), the ones office assigned to them directly
+ * (assigned_engineer_id — both hold profiles.user_id, i.e. the auth uid), and the
+ * ones office logged through the New Order form, which reference the engineer via
+ * assigned_to (engineers.id) instead.
  */
 const EngineerParts = () => {
   const { user } = useAuth("/auth");
@@ -46,10 +47,26 @@ const EngineerParts = () => {
 
     const load = async () => {
       setLoading(true);
+
+      // Office-created orders reference the engineer via assigned_to
+      // (engineers.id), so resolve this viewer's engineers row too.
+      const { data: engRow } = await supabase
+        .from("engineers")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      const engineerRowId = (engRow as any)?.id as string | undefined;
+
+      const filters = [
+        `engineer_id.eq.${user.id}`,
+        `assigned_engineer_id.eq.${user.id}`,
+      ];
+      if (engineerRowId) filters.push(`assigned_to.eq.${engineerRowId}`);
+
       const { data, error } = await supabase
         .from("parts_requests" as any)
         .select("*")
-        .or(`engineer_id.eq.${user.id},assigned_engineer_id.eq.${user.id}`)
+        .or(filters.join(","))
         .order("created_at", { ascending: false });
 
       if (cancelled) return;
