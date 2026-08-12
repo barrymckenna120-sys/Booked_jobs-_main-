@@ -43,9 +43,12 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
 
   const handleDownload = async (job: ReceiptJob) => {
     setDownloading(job.id);
+    const openFallback = () => window.open(`/receipt-view/${job.id}`, "_blank");
     try {
       if (job.receipt_pdf_url) {
-        window.open(job.receipt_pdf_url, "_blank");
+        const signed = await resolveReceiptUrl(job.access_token);
+        if (signed) window.open(signed, "_blank");
+        else openFallback();
         setDownloading(null);
         return;
       }
@@ -53,12 +56,14 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
         body: { job_id: job.id },
       });
       if (!error && data?.pdf_url) {
-        window.open(data.pdf_url, "_blank");
+        const signed = await resolveReceiptUrl(job.access_token);
+        if (signed) window.open(signed, "_blank");
+        else openFallback();
       } else {
-        window.open(`/receipt-view/${job.id}`, "_blank");
+        openFallback();
       }
     } catch {
-      window.open(`/receipt-view/${job.id}`, "_blank");
+      openFallback();
     }
     setDownloading(null);
   };
