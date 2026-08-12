@@ -19,6 +19,8 @@ import {
   BLOCKED_AUTH_ERROR as LOCKOUT_BLOCKED_ERROR,
   attemptsRemainingMessage,
   lockoutModalCopy,
+  lockedUntilMessage,
+  lockedUntilModalCopy,
 } from "@/lib/authLockout";
 
 const Auth = () => {
