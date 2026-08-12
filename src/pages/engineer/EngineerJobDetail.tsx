@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { resolveDepositPill } from "@/components/engineer/job-card/InfoPills";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
@@ -746,12 +747,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           )}
 
           {/* Other */}
-          <InfoTile
-            label="Payment"
-            value={job.deposit_paid ? `Paid — €${job.deposit_amount || 0}` : `€${job.deposit_amount || 0} pending`}
-            Icon={job.deposit_paid ? CreditCard : Hourglass}
-            full
-          />
+          {/* Same shared classifier as the job card pill, so the two always agree. */}
+          {(() => {
+            const { pill, balanceLine } = resolveDepositPill(job);
+            if (!pill) return null;
+            return (
+              <InfoTile
+                label="Payment"
+                value={balanceLine ? `${pill.label} · ${balanceLine}` : pill.label}
+                Icon={pill.tone === "success" ? CreditCard : Hourglass}
+                full
+              />
+            );
+          })()}
           <InfoTile label="Last Service" value={customer.last_service_date ? new Date(customer.last_service_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : null} Icon={Calendar} />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
           {job.owner_or_tenant && <InfoTile label="Owner / Tenant" value={job.owner_or_tenant} Icon={Key} />}
