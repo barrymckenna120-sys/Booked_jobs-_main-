@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
     const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "€0.00";
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "cash" ? "Cash" : "Invoice";
-    const nextDue = addMonths(serviceDate, 12);
+    
     const customerName = customer?.name || "Customer";
     const customerAddress = `${customer?.address || ""} ${customer?.eircode || ""}`.trim();
     const engineerName = job.assigned_engineer || "—";
