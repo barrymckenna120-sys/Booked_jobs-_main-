@@ -315,9 +315,21 @@ const Parts = () => {
         <div className="text-center py-16 text-muted-foreground">
           <Wrench className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="font-semibold">No parts needed right now</p>
-          <p className="text-sm mt-1">When engineers flag parts, they'll appear here.</p>
+          <p className="text-sm mt-1">When engineers flag parts they'll appear here — or log a phoned-in order.</p>
+          <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => setNewOrderOpen(true)}>
+            <Plus className="w-4 h-4" strokeWidth={2.5} /> New Order
+          </Button>
         </div>
       )}
+
+      <NewPartsOrderSheet
+        open={newOrderOpen}
+        onClose={() => setNewOrderOpen(false)}
+        organisationId={orgId}
+        onCreated={() => refetch()}
+      />
+
+
 
 
       {arrivedPart && (
