@@ -973,15 +973,61 @@ const JobDetail = () => {
         open={partsNeededOpen}
         onClose={() => setPartsNeededOpen(false)}
         loading={actionLoading}
-        onConfirm={async (notes) => {
+        onConfirm={async (part) => {
           setActionLoading(true);
-          await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" } as any)).eq("id", job.id);
-          logAudit({ action_type: "job_parts_needed", entity_type: "service_call", entity_id: job.id, detail: "Parts needed", metadata: { notes } });
-          toast({ title: "Job marked as Parts Needed" });
+          // Office-logged parts go straight into parts_requests. The DB trigger
+          // (recompute_job_parts_status) moves the job to parts_needed — we must
+          // never write the part into service_calls.notes.
+          const assignedEngineerId = (job as any).assigned_engineer_id ?? null;
+          let engineerUserId: string | null = null;
+          if (assignedEngineerId) {
+            const { data: eng } = await supabase
+              .from("engineers")
+              .select("user_id")
+              .eq("id", assignedEngineerId)
+              .maybeSingle();
+            engineerUserId = (eng as any)?.user_id ?? null;
+          }
+          let officeName: string | null = null;
+          if (user?.id) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            officeName = (prof as any)?.display_name ?? null;
+          }
+          const { error } = await insertPartsRequest({
+            part,
+            organisationId: (job as any).organisation_id,
+            serviceCallId: job.id,
+            customerId: job.customer_id,
+            loggedBy: user?.id ?? null,
+            loggedByName: officeName || "Office",
+            assignedTo: assignedEngineerId,
+            engineerId: engineerUserId,
+          });
           setActionLoading(false);
+          if (error) {
+            toast({ title: "Couldn't save part", description: error.message, variant: "destructive" });
+            return;
+          }
+          await supabase
+            .from("service_calls")
+            .update({ parts_priority: part.priority, parts_logged_at: new Date().toISOString() } as any)
+            .eq("id", job.id);
+          logAudit({
+            action_type: "job_parts_needed",
+            entity_type: "service_call",
+            entity_id: job.id,
+            detail: `Part logged: ${part.description}`,
+            metadata: { description: part.description, priority: part.priority, quantity: part.quantity ?? 1 },
+          });
+          toast({ title: "Part logged", description: "Added to the parts list" });
           setPartsNeededOpen(false);
           fetchJob();
         }}
+
       />
       {/* Take Payment Modal */}
       {paymentOpen && customer && (
