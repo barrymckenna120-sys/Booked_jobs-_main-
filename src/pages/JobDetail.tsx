@@ -28,6 +28,8 @@ import JobMessageThread from "@/components/messages/JobMessageThread";
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import { insertPartsRequest } from "@/lib/partsRequests";
+
 
 type ServiceCall = {
   id: string;
