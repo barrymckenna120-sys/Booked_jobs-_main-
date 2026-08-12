@@ -313,7 +313,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           body: {
             service_call_id: job.id,
             cancellation_reason: cancelReason,
-            organisation_id: (job as any).organisation_id,
           },
         }).catch((err) => console.error('cancel-job-notify failed:', err));
         supabase.functions.invoke('send-cancellation-notice', {
