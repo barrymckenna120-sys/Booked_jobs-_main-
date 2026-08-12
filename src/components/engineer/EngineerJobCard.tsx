@@ -21,7 +21,7 @@ import JobNotesSection from "./JobNotesSection";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import EngineerJobMessages from "@/components/messages/EngineerJobMessages";
 import StatusBadge from "./job-card/StatusBadge";
-import InfoPills from "./job-card/InfoPills";
+import InfoPills, { resolveDepositPill } from "./job-card/InfoPills";
 import QuickActions from "./job-card/QuickActions";
 import SecondaryActions from "./job-card/SecondaryActions";
 import PrimaryActions from "./job-card/PrimaryActions";
@@ -57,6 +57,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showTakePayment, setShowTakePayment] = useState(false);
   const [showMessageOffice, setShowMessageOffice] = useState(false);
   const [showCompletionPayment, setShowCompletionPayment] = useState(false);
+  const [showStandalonePayment, setShowStandalonePayment] = useState(false);
   const [pendingCompletionData, setPendingCompletionData] = useState<{ data: any; jobTagDate: string | null } | null>(null);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
