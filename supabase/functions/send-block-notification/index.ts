@@ -74,6 +74,39 @@ Deno.serve(async (req) => {
       return json({ error: "Server misconfigured: missing RESEND_API_KEY" }, 500);
     }
 
+    // ---- Auth preamble (deactivate-user pattern) ----
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
+    if (userError || !caller) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Authorisation: mirror AdminPanel.tsx's own guard exactly — superadmin only.
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+
+    if ((callerProfile as any)?.role !== "superadmin") {
+      return json({ error: "Forbidden" }, 403);
+    }
+
+
     let body: { email?: string; org_name?: string; reason?: string };
     try {
       body = await req.json();
