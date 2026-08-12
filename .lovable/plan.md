@@ -1,44 +1,35 @@
-# Engineer app v3 — remaining changes (job card + header)
+# Fix "Couldn't load this job — permission denied for function get_user_organisation_id"
 
-Scope: the engineer job card and the engineer header only. The job detail screen is untouched. The primary action stays inline on the card (no sticky bottom bar). Already shipped today: full-width Complete with the "Can't complete this job?" reveal, Order Parts entry point, standalone Take Payment.
+## What's wrong
 
-## 1. Contact popover — three buttons become one
+The engineer job details page fails to load (blank screen) because a database helper function lost its permissions during the recent security lockdown.
 
-File: `src/components/engineer/job-card/QuickActions.tsx`
+Confirmed by querying the database:
 
-Today the row is Call / WhatsApp / Nav / Details, four equal buttons. Replace the first three with a single "Contact" button that opens a small popover with Call, WhatsApp, and Navigate rows. Details stays as its own button; the Certificates button underneath stays exactly as it is, badge included.
+- `public.get_user_organisation_id()` currently grants EXECUTE only to `postgres` and `service_role` — **not** to `authenticated` (logged-in app users).
+- Its sibling helpers (`get_my_org_id`, `get_user_role`, `next_org_invoice_number`) were already re-granted to `authenticated` and work fine.
+- Five row-level security policies still call `get_user_organisation_id()`, so any logged-in read/write against those tables throws "permission denied":
+  - `service_call_tags` (SELECT / INSERT / DELETE) — this is the one the engineer job details page reads, hence the blank screen
+  - `conversations` (SELECT)
+  - `tenant_integrations` (ALL)
 
-- Local `useState` for the popover; tap-outside closes it.
-- The three handlers (`openPhone`, `openWhatsApp`, `openNav`) move into popover rows unchanged — same `tel:`, `wa.me`, and Google Maps URLs, and the same iOS-safe opening path already used here.
-- Each row keeps a 44px minimum tap target and its existing Lucide icon.
+## The fix
 
-## 2. Payment becomes a banner, not a footnote
+One small migration: grant EXECUTE on `public.get_user_organisation_id()` to `authenticated`.
 
-File: `src/components/engineer/job-card/InfoPills.tsx`
+This is safe and does not weaken tenant isolation — the function is `SECURITY DEFINER` and returns only the *calling* user's own organisation id, exactly like the already-granted `get_my_org_id()`. Without the grant, the policies that depend on it can't evaluate at all.
 
-Currently an outstanding balance shows as a small grey line plus an 11px "Take Payment" text link — easy to miss. Replace that with a full-width banner styled like the amber warning treatment: label on the left ("Deposit due" / "Balance due" / "Payment due" with the amount), "Take Payment" on the right, the whole banner tappable.
-
-- The banner only renders when money is actually owed. Nothing owed, no banner.
-- `resolveDepositPill` keeps `resolvePaymentSheetState` as the single source of truth; the change is presentational only. The "Deposit €X paid" success pill stays in the pill row.
-- Banner colours use the existing `warning` tokens, not hardcoded hex.
-- `onTakePayment` prop and the standalone payment flow in `EngineerJobCard.tsx` are unchanged.
-
-## 3. Header overflow menu
-
-File: `src/components/engineer/EngineerLayout.tsx`
-
-Collapse Order Parts, Back to Office, and Log Out into one overflow (`MoreVertical`) menu. The notification bell stays visible on its own — it's the one item worth a glance every time.
-
-- Local `useState` for the menu, full-screen click-catcher behind it to dismiss, menu panel above the card layers.
-- Back to Office keeps its existing `canSwitchToOffice` gate; Order Parts and Log Out remain visible to everyone.
-- Log Out keeps the destructive styling and existing handler. Bottom nav untouched.
+```sql
+GRANT EXECUTE ON FUNCTION public.get_user_organisation_id() TO authenticated;
+```
 
 ## Verification
 
-- Unit test for the payment banner label/amount mapping across the deposit-due, deposit-paid-with-balance, and nothing-owed cases (extends the existing `depositPill.test.ts` coverage).
-- Manual pass on `/engineer/today` at mobile width: Contact popover dials/opens WhatsApp/opens maps, payment banner opens the payment sheet, header menu navigates and logs out.
-- Confirm no console errors and that Complete, Cancel, No Access, and Parts Needed still behave as they do today.
+1. Re-query `pg_proc.proacl` to confirm `authenticated=X` now appears.
+2. Run a read of `service_call_tags` in an authenticated context to confirm no permission error.
+3. Open an engineer job details page in the preview (mobile viewport) and confirm the page renders instead of showing "Couldn't load this job".
+4. Spot-check that a job tag still only resolves within the user's own organisation (no cross-tenant leakage).
 
-## Risk
+## Notes
 
-Low — presentation and local UI state only. No schema, RLS, payment logic, or status transitions change.
+No frontend changes are needed — the app code is correct; only the database grant is missing. If the check in step 2 shows other functions in the same bucket are still missing grants, I'll report them rather than silently widening access.
