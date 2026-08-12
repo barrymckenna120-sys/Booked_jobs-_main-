@@ -44,8 +44,40 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { service_call_id, cancellation_reason, organisation_id } =
-      await req.json();
+    // Authenticated-only: organisation_id is never accepted from the body, it is
+    // derived from the caller's JWT via get_my_org_id().
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+
+    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
+    if (userError || !caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: callerOrgId, error: orgErr } = await supabaseUser.rpc("get_my_org_id");
+    if (orgErr || !callerOrgId) {
+      return new Response(JSON.stringify({ error: "Forbidden: no organisation for caller" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { service_call_id, cancellation_reason } = await req.json();
 
     if (!service_call_id || !cancellation_reason) {
       return new Response(
@@ -65,6 +97,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
 
     const { data: sc, error: scErr } = await supabase
       .from("service_calls")
