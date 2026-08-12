@@ -4,10 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight } from "lucide-react";
+import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight, Plus } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
+import NewPartsOrderSheet from "@/components/parts/NewPartsOrderSheet";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
+
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
@@ -27,8 +30,11 @@ const Parts = () => {
   const [arrivedPart, setArrivedPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const { orgId } = useOrgId();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
+
 
 
   const { data: parts = [], isLoading, refetch } = useQuery({
@@ -163,7 +169,15 @@ const Parts = () => {
         <Wrench className="w-6 h-6 text-amber-500" />
         <h1 className="text-2xl font-extrabold text-foreground">Parts</h1>
         <span className="text-sm text-muted-foreground ml-1">{outstandingCount} total</span>
+        <Button
+          size="sm"
+          className="ml-auto gap-1.5 bg-amber-500 hover:bg-amber-500/90 text-white font-semibold"
+          onClick={() => setNewOrderOpen(true)}
+        >
+          <Plus className="w-4 h-4" strokeWidth={2.5} /> New Order
+        </Button>
       </div>
+
 
       {isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
@@ -301,9 +315,21 @@ const Parts = () => {
         <div className="text-center py-16 text-muted-foreground">
           <Wrench className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="font-semibold">No parts needed right now</p>
-          <p className="text-sm mt-1">When engineers flag parts, they'll appear here.</p>
+          <p className="text-sm mt-1">When engineers flag parts they'll appear here — or log a phoned-in order.</p>
+          <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => setNewOrderOpen(true)}>
+            <Plus className="w-4 h-4" strokeWidth={2.5} /> New Order
+          </Button>
         </div>
       )}
+
+      <NewPartsOrderSheet
+        open={newOrderOpen}
+        onClose={() => setNewOrderOpen(false)}
+        organisationId={orgId}
+        onCreated={() => refetch()}
+      />
+
+
 
 
       {arrivedPart && (
