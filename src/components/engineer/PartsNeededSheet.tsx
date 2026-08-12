@@ -149,6 +149,89 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
         </div>
 
         <div className="space-y-4 pt-4">
+          {requireCustomer && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">Customer</label>
+              {customer ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{customer.name || "Unnamed"}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {[customer.phone, customer.address].filter(Boolean).join(" · ") || "No contact details"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                    onClick={(e) => { e.stopPropagation(); setCustomer(null); }}
+                  >
+                    Change
+                  </Button>
+                </div>
+              ) : manual ? (
+                <div className="space-y-2">
+                  <Input
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    placeholder="Customer name"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary"
+                    onClick={(e) => { e.stopPropagation(); setManual(false); setManualName(""); }}
+                  >
+                    Search existing customers instead
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search by name or phone"
+                      className="pl-9"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  {searching && <p className="text-xs text-muted-foreground">Searching…</p>}
+                  {results.length > 0 && (
+                    <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+                      {results.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setCustomer(c); setSearch(""); setResults([]); }}
+                        >
+                          <p className="text-sm font-medium truncate">{c.name || "Unnamed"}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {[c.phone, c.address].filter(Boolean).join(" · ")}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!searching && search.trim().length >= 2 && results.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No matches.</p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary"
+                    onClick={(e) => { e.stopPropagation(); setManual(true); setSearch(""); setResults([]); }}
+                  >
+                    Customer not in the system — enter name manually
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
