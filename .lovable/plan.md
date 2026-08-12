@@ -28,6 +28,7 @@ New section inserted after the "Amount Paid" block, before the Download button /
   - GPRN
 - Right column heading "Notes" as a boxed callout (light grey background, thin border, rounded corners, matching the existing card/box treatment on the page), content from the job's customer-facing notes only.
 - Empty-state rules: individual empty rows are omitted; a column with nothing to show is hidden and the remaining column spans full width; if both are empty the whole section (and its divider) is not rendered.
+- Remove the hardcoded "Next annual boiler service due" footer line — Next Service Due now appears in the new section, so the old line is a duplicate with a possibly conflicting date.
 
 Typography and spacing reuse the classes already on the page — no new tokens, no changes to the payment block or the thank-you/RGI footer.
 
@@ -36,8 +37,9 @@ Typography and spacing reuse the classes already on the page — no new tokens, 
 - Extend the customer query with brand, model, warranty expiry, next service due and GPRN, and the job query with customer-facing notes.
 - After the Total Paid box, before the closing divider and footer text, draw the same two columns using the existing `addText`/`drawLine`/`roundedRect` helpers: left column as label/value lines at the current 8pt grey label + 9pt value sizing; right column as a rounded light-grey filled box with a thin border and wrapped note text (via jsPDF `splitTextToSize`).
 - Same hide rules as the screen; vertical cursor `y` advances by the taller of the two columns so the existing footer keeps its spacing.
+- Remove the same hardcoded "Next annual boiler service due" line from the PDF footer (thank-you line and RGI line stay).
 
 ## Notes
 
-- The PDF short-circuits when `receipt_pdf_url` is already set, so existing receipts keep their current PDF; new receipts get the new section. No back-fill or regeneration is included.
-- Existing footer line "Next annual boiler service due" is left untouched even though Next Service Due now also appears above it, unless you'd like it removed.
+- The PDF short-circuits when `receipt_pdf_url` is already set, so existing receipts keep their current PDF; only new receipts get the new section. No back-fill or regeneration is included.
+- Nothing else on the screen or PDF layout changes.
