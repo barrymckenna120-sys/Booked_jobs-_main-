@@ -30,8 +30,11 @@ const Parts = () => {
   const [arrivedPart, setArrivedPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
+  const { orgId } = useOrgId();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
+
 
 
   const { data: parts = [], isLoading, refetch } = useQuery({
