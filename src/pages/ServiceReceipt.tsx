@@ -7,6 +7,7 @@ import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, Ale
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
+import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 
 
 const formatDate = (d: string) =>
