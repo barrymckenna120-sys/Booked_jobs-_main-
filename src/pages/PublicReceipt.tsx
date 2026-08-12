@@ -57,6 +57,36 @@ const PublicReceipt = () => {
   const amount = data.revenue ? `€${Number(data.revenue).toFixed(2)}` : "—";
   const serviceDate = data.scheduled_date || data.completed_at;
 
+  // Boiler Details rows (empty rows are omitted entirely)
+  const makeModel = [data.boiler_brand, data.boiler_model].filter(Boolean).join(" ").trim();
+  const warrantyText = (() => {
+    if (!data.warranty_expiry_date) return null;
+    const expiry = new Date(
+      String(data.warranty_expiry_date).includes("T")
+        ? data.warranty_expiry_date
+        : data.warranty_expiry_date + "T00:00:00"
+    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expiry >= today
+      ? `Under Warranty (until ${formatDate(data.warranty_expiry_date)})`
+      : "Warranty Expired";
+  })();
+  const boilerRows: { label: string; value: string }[] = [
+    makeModel ? { label: "Make & Model", value: makeModel } : null,
+    warrantyText ? { label: "Warranty", value: warrantyText } : null,
+    data.next_service_due
+      ? { label: "Next Service Due", value: formatDate(data.next_service_due) }
+      : null,
+    data.gprn ? { label: "GPRN", value: String(data.gprn) } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  const notes = (data.customer_facing_notes || "").trim();
+  const hasBoiler = boilerRows.length > 0;
+  const hasNotes = notes.length > 0;
+  const showDetailsSection = hasBoiler || hasNotes;
+
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
