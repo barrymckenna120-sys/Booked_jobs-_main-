@@ -16,11 +16,6 @@ const formatDate = (d: string | null) => {
   return new Date(d).toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const addMonths = (d: string, months: number) => {
-  const date = new Date(d + "T00:00:00");
-  date.setMonth(date.getMonth() + months);
-  return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
-};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
