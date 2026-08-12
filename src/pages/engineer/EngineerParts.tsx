@@ -124,7 +124,15 @@ const EngineerParts = () => {
   return (
     <>
       <PartsSectionTabs />
-      <div className="text-lg font-extrabold text-foreground">My Parts</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-lg font-extrabold text-foreground">My Parts</div>
+        <Button
+          className="h-10 px-4 text-sm font-extrabold gap-2"
+          onClick={() => setShowRequestSheet(true)}
+        >
+          <Plus className="w-4 h-4" /> Request Part
+        </Button>
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-16">
