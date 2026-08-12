@@ -151,6 +151,13 @@ const EngineerLayout = () => {
                 <Briefcase className="w-4 h-4" /> Back to Office
               </button>
             )}
+            <button
+              onClick={() => navigate("/engineer/parts")}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+              title="Order Parts"
+            >
+              <Package className="w-4 h-4" /> Order Parts
+            </button>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
               onClick={async () => {
