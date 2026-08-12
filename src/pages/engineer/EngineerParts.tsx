@@ -177,6 +177,10 @@ const EngineerParts = () => {
               userId={user?.id ?? null}
               onCancelled={() => setReloadKey((k) => k + 1)}
               jobReference={row.service_call_id ? jobRefs[row.service_call_id] ?? null : null}
+              customerName={
+                row.customer_name ??
+                (row.customer_id ? customerNames[row.customer_id] ?? null : null)
+              }
             />
 
           ))}
