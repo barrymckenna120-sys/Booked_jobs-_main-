@@ -109,7 +109,14 @@ export interface BuildPartsRowArgs {
   loggedBy?: string | null;
   loggedByName?: string | null;
   assignedTo?: string | null;
+  /**
+   * Notify target for office-side updates. Defaults to `loggedBy` (engineer
+   * path: the engineer who logged it hears back). Office-logged requests pass
+   * the assigned engineer's auth id, or null when the job has no engineer.
+   */
+  engineerId?: string | null;
 }
+
 
 /** Builds the insert payload for a single part request (one request = one part). */
 export const buildPartsRequestRow = ({
