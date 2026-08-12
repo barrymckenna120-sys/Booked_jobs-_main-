@@ -182,13 +182,76 @@ Deno.serve(async (req) => {
     addText(amount, pageW - margin - 6, y + 9, { size: 14, bold: true, color: [74, 134, 232], align: "right" });
     y += 22;
 
+    // Section: Boiler Details + Notes (hidden entirely when both are empty)
+    const makeModel = [customer?.boiler_brand, customer?.boiler_model].filter(Boolean).join(" ").trim();
+    const warrantyText = (() => {
+      const raw = customer?.warranty_expiry_date;
+      if (!raw) return null;
+      const expiry = new Date(String(raw).includes("T") ? String(raw) : `${raw}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return expiry >= today ? `Under Warranty (until ${formatDate(String(raw))})` : "Warranty Expired";
+    })();
+    const boilerRows: [string, string][] = [];
+    if (makeModel) boilerRows.push(["Make & Model", makeModel]);
+    if (warrantyText) boilerRows.push(["Warranty", warrantyText]);
+    if (customer?.next_service_due) boilerRows.push(["Next Service Due", formatDate(String(customer.next_service_due))]);
+    if (customer?.gprn) boilerRows.push(["GPRN", String(customer.gprn)]);
+    const notesText = (job.customer_facing_notes || "").trim();
+
+    if (boilerRows.length > 0 || notesText) {
+      const colGap = 8;
+      const colW = (contentW - colGap) / 2;
+      const singleCol = boilerRows.length === 0 || !notesText;
+      const leftX = margin;
+      const rightX = boilerRows.length === 0 ? margin : margin + colW + colGap;
+      const rightW = singleCol ? contentW : colW;
+
+      let leftHeight = 0;
+      if (boilerRows.length > 0) {
+        let ly = y;
+        addText("BOILER DETAILS", leftX, ly, { size: 8, bold: true, color: [107, 114, 128] });
+        ly += 6;
+        for (const [label, value] of boilerRows) {
+          addText(label, leftX, ly, { size: 8, color: [107, 114, 128] });
+          ly += 4;
+          const lines = doc.splitTextToSize(value, singleCol ? contentW : colW) as string[];
+          for (const line of lines) {
+            addText(line, leftX, ly, { size: 9, bold: true });
+            ly += 4.5;
+          }
+          ly += 1.5;
+        }
+        leftHeight = ly - y;
+      }
+
+      let rightHeight = 0;
+      if (notesText) {
+        let ry = y;
+        addText("NOTES", rightX, ry, { size: 8, bold: true, color: [107, 114, 128] });
+        ry += 4;
+        const noteLines = doc.splitTextToSize(notesText, rightW - 8) as string[];
+        const boxH = noteLines.length * 4.5 + 6;
+        doc.setFillColor(245, 247, 250);
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(rightX, ry, rightW, boxH, 3, 3, "FD");
+        let ty = ry + 5.5;
+        for (const line of noteLines) {
+          addText(line, rightX + 4, ty, { size: 9, color: [55, 65, 81] });
+          ty += 4.5;
+        }
+        rightHeight = ry + boxH - y;
+      }
+
+      y += Math.max(leftHeight, rightHeight) + 6;
+    }
+
     drawLine(y);
     y += 8;
 
     // Footer
     addText(`Thank you for choosing ${businessName}.`, margin, y, { size: 9, color: [107, 114, 128] });
-    y += 5;
-    addText(`Next annual boiler service due: ${nextDue}`, margin, y, { size: 9, color: [107, 114, 128] });
     if (rgiNumber) {
       y += 5;
       addText(`RGI Reg: ${rgiNumber}`, margin, y, { size: 9, color: [107, 114, 128] });
