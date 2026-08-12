@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     // Fetch customer
     const { data: customer } = await supabase
       .from("customers")
-      .select("name, address, eircode, phone")
+      .select("name, address, eircode, phone, boiler_brand, boiler_model, warranty_expiry_date, next_service_due, gprn")
       .eq("id", job.customer_id)
       .single();
 
