@@ -169,7 +169,15 @@ const Parts = () => {
         <Wrench className="w-6 h-6 text-amber-500" />
         <h1 className="text-2xl font-extrabold text-foreground">Parts</h1>
         <span className="text-sm text-muted-foreground ml-1">{outstandingCount} total</span>
+        <Button
+          size="sm"
+          className="ml-auto gap-1.5 bg-amber-500 hover:bg-amber-500/90 text-white font-semibold"
+          onClick={() => setNewOrderOpen(true)}
+        >
+          <Plus className="w-4 h-4" strokeWidth={2.5} /> New Order
+        </Button>
       </div>
+
 
       {isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
