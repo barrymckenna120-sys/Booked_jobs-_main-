@@ -98,6 +98,31 @@ const Auth = () => {
     setShowUnblockedNotice(false);
 
     try {
+      // --- Server-truth lockout check (auth.users.banned_until) ---
+      // The client counter below is only for "X attempts remaining" copy; the
+      // real lock state comes from the backend. Fails open on any error.
+      try {
+        const lockCheck = await Promise.race([
+          supabase.functions.invoke("check-lockout-status", {
+            body: { email: email.trim() },
+          }),
+          new Promise((resolve) => setTimeout(() => resolve({ data: null }), 6000)),
+        ]) as { data?: { locked?: boolean; locked_until?: string | null } | null };
+
+        const lockedUntil = lockCheck?.data?.locked ? lockCheck.data.locked_until : null;
+        if (lockedUntil) {
+          setFormError(lockedUntilMessage(lockedUntil));
+          const modal = lockedUntilModalCopy(lockedUntil);
+          setErrorTitle(modal.title);
+          setErrorMessage(modal.message);
+          setErrorModalOpen(true);
+          try { localStorage.setItem(prevBlockedKey(email), "1"); } catch { /* ignore */ }
+          setLoading(false);
+          return;
+        }
+      } catch { /* fail open — never block a legitimate sign-in */ }
+
+
       const authPromise = supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
