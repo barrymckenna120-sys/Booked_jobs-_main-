@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Loader2, Package } from "lucide-react";
+import { Loader2, Package, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import PartsSectionTabs from "@/components/engineer/PartsSectionTabs";
 import PartRequestCard from "@/components/engineer/PartRequestCard";
+import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
+import { insertPartsRequest } from "@/lib/partsRequests";
 import type { PartsRequestRow } from "@/lib/partsStatus";
 
 /**
