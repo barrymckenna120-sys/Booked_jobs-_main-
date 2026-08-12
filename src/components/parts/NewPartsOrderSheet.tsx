@@ -204,8 +204,11 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
       loggedBy: userId,
       loggedByName: officeName || "Office",
       assignedTo: engineerId || null,
-      // Notify target: only a linked login can receive the update notification.
-      engineerId: selectedEngineer?.auth_user_id ?? null,
+      // Office-created orders reference the engineer through assigned_to
+      // (engineers.id) only. engineer_id / assigned_engineer_id stay null per the
+      // schema decision — the notification trigger resolves the login from
+      // assigned_to for this path.
+      engineerId: null,
     });
 
     setSaving(false);
