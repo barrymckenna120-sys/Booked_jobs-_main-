@@ -15,6 +15,8 @@ interface InfoPillsProps {
   /** Job payment fields — classified by the shared resolvePaymentSheetState helper. */
   paymentJob?: PaymentSheetJob | null;
   scheduledDate?: string | null;
+  /** Optional action shown when a deposit or balance is due. */
+  onTakePayment?: () => void;
 }
 
 const formatScheduledDate = (scheduledDate?: string | null) => {
@@ -61,7 +63,7 @@ export function resolveDepositPill(job?: PaymentSheetJob | null): DepositPill {
   return { pill: null, balanceLine: null };
 }
 
-const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate }: InfoPillsProps) => {
+const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate, onTakePayment }: InfoPillsProps) => {
   const timeLabel = TIME_LABELS[timeBlock || ""] || timeBlock || "—";
   const formattedDate = formatScheduledDate(scheduledDate);
   const { pill, balanceLine } = resolveDepositPill(paymentJob);
@@ -92,7 +94,29 @@ const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate 
         )}
       </div>
       {balanceLine && (
-        <div className="mt-1.5 text-[11px] font-semibold text-muted-foreground">{balanceLine}</div>
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground">{balanceLine}</span>
+          {onTakePayment && (
+            <button
+              type="button"
+              onClick={onTakePayment}
+              className="text-[11px] font-bold text-primary hover:underline underline-offset-2"
+            >
+              Take Payment
+            </button>
+          )}
+        </div>
+      )}
+      {!balanceLine && pill && onTakePayment && (
+        <div className="mt-1.5">
+          <button
+            type="button"
+            onClick={onTakePayment}
+            className="text-[11px] font-bold text-primary hover:underline underline-offset-2"
+          >
+            Take Payment
+          </button>
+        </div>
       )}
     </div>
   );
