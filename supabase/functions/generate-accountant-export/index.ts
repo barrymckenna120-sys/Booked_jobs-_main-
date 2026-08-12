@@ -239,16 +239,8 @@ Deno.serve(async (req) => {
       ? emailLocal.charAt(0).toUpperCase() + emailLocal.slice(1).toLowerCase()
       : "there";
 
-    // Resolve org branding for email copy
-    let orgId: string | null = body.organisation_id || null;
-    if (!orgId && body.user_id) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", body.user_id)
-        .maybeSingle();
-      orgId = prof?.organisation_id || null;
-    }
+    // Resolve org branding for email copy (org comes from the caller's JWT)
+    const orgId: string = callerOrgId;
 
     let companyName = "K & N Gas Services";
     let companyPhone = "087 3686252";
