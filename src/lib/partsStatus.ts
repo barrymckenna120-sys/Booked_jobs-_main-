@@ -109,7 +109,14 @@ export interface BuildPartsRowArgs {
   loggedBy?: string | null;
   loggedByName?: string | null;
   assignedTo?: string | null;
+  /**
+   * Notify target for office-side updates. Defaults to `loggedBy` (engineer
+   * path: the engineer who logged it hears back). Office-logged requests pass
+   * the assigned engineer's auth id, or null when the job has no engineer.
+   */
+  engineerId?: string | null;
 }
+
 
 /** Builds the insert payload for a single part request (one request = one part). */
 export const buildPartsRequestRow = ({
@@ -123,6 +130,7 @@ export const buildPartsRequestRow = ({
   loggedBy = null,
   loggedByName = null,
   assignedTo = null,
+  engineerId,
 }: BuildPartsRowArgs) => {
   const description = (part.description ?? "").trim();
   if (description.length === 0) return null;
@@ -140,12 +148,14 @@ export const buildPartsRequestRow = ({
     logged_by: loggedBy,
     logged_by_name: loggedByName,
     assigned_to: assignedTo,
-    // The requesting user is the notify target for office updates — the
-    // notification trigger reads engineer_id / assigned_engineer_id, so this
-    // must be written at insert time or the engineer never hears back.
-    engineer_id: loggedBy,
+    // Notify target for office updates — the notification trigger reads
+    // engineer_id / assigned_engineer_id, so this must be written at insert
+    // time or the engineer never hears back. Engineer path defaults to the
+    // logging user; office path passes the assigned engineer explicitly.
+    engineer_id: engineerId === undefined ? loggedBy : engineerId,
   };
 };
+
 
 
 /**

@@ -101,7 +101,40 @@ describe("buildPartsRequestRow engineer link", () => {
     });
     expect(row?.engineer_id).toBeNull();
   });
+
+  it("office path: logged_by is the office user and engineer_id targets the assigned engineer", () => {
+    const row = buildPartsRequestRow({
+      part: { description: "  Thermostat  ", priority: "normal", quantity: 2 },
+      organisationId: "org-1",
+      serviceCallId: "job-1",
+      customerId: "cust-1",
+      loggedBy: "office-user",
+      loggedByName: "Nicole",
+      assignedTo: "engineer-row-1",
+      engineerId: "engineer-auth-1",
+    });
+    expect(row?.logged_by).toBe("office-user");
+    expect(row?.logged_by_name).toBe("Nicole");
+    expect(row?.assigned_to).toBe("engineer-row-1");
+    expect(row?.engineer_id).toBe("engineer-auth-1");
+    expect(row?.description).toBe("Thermostat");
+    expect(row?.quantity).toBe(2);
+    expect(row?.status).toBe("Open");
+    expect(row?.service_call_id).toBe("job-1");
+  });
+
+  it("office path with no engineer on the job: engineer_id is null, not the office user", () => {
+    const row = buildPartsRequestRow({
+      part: { description: "Flue", priority: "urgent" },
+      organisationId: "org-1",
+      loggedBy: "office-user",
+      engineerId: null,
+    });
+    expect(row?.engineer_id).toBeNull();
+    expect(row?.logged_by).toBe("office-user");
+  });
 });
+
 
 describe("canEngineerCancelPart", () => {
   const me = "user-1";
