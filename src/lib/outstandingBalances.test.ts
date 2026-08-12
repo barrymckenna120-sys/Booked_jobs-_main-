@@ -71,4 +71,44 @@ describe("isOutstandingBalanceJob", () => {
       }),
     ).toBe(false);
   });
+
+  // Engineer-facing list uses the same helper, so these shapes matter there too.
+  describe("engineer-scoped shapes", () => {
+    it("includes the KN-129 shape: real balance_due while deposit_paid is false, job invoiced", () => {
+      expect(
+        isOutstandingBalanceJob({
+          status: "Completed",
+          payment_status: "unpaid",
+          payment_method: "card",
+          invoiced_at: "2026-03-26T14:28:36Z",
+          deposit_paid: false,
+          balance_due: 1230,
+        }),
+      ).toBe(true);
+    });
+
+    it("excludes a zero balance even when the job is invoiced", () => {
+      expect(
+        isOutstandingBalanceJob({
+          status: "Completed",
+          payment_status: "unpaid",
+          invoiced_at: "2026-03-26T14:28:36Z",
+          deposit_paid: true,
+          balance_due: 0,
+        }),
+      ).toBe(false);
+    });
+
+    it("excludes a cancelled job that still carries a balance", () => {
+      expect(
+        isOutstandingBalanceJob({
+          status: "Cancelled",
+          payment_status: "unpaid",
+          invoiced_at: "2026-03-26T14:28:36Z",
+          deposit_paid: true,
+          balance_due: 1230,
+        }),
+      ).toBe(false);
+    });
+  });
 });
