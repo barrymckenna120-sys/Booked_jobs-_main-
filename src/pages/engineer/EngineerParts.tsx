@@ -64,8 +64,6 @@ const EngineerParts = () => {
         .eq("auth_user_id", user.id)
         .maybeSingle();
       const engineerRowId = (engRow as any)?.id as string | undefined;
-      const engineerName = (engRow as any)?.name as string | undefined;
-      const organisationId = (engRow as any)?.organisation_id as string | undefined;
       if (engRow) {
         setEngineer({ id: engRow.id, name: engRow.name, organisation_id: engRow.organisation_id });
       }
