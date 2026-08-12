@@ -144,7 +144,9 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     enabled: !selected && !isNew && search.length >= 2,
   });
 
-  const canProceed = selected ? true : isNew && name.trim() && phone.trim() && address.trim();
+  const canProceed = Boolean(
+    selected ? true : isNew && name.trim() && phone.trim() && address.trim()
+  );
 
   const handleNext = () => {
     if (isNew) {
