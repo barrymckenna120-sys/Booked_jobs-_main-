@@ -23,6 +23,7 @@ const EngineerParts = () => {
   const { toast } = useToast();
   const [rows, setRows] = useState<PartsRequestRow[]>([]);
   const [jobRefs, setJobRefs] = useState<Record<string, string | null>>({});
+  const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [engineer, setEngineer] = useState<{ id: string; name: string; organisation_id: string } | null>(null);
   const [showRequestSheet, setShowRequestSheet] = useState(false);
