@@ -656,6 +656,7 @@ export type Database = {
           under_warranty: boolean | null
           updated_at: string
           user_id: string
+          warranty_expiry_date: string | null
           warranty_reminder_log: Json | null
           warranty_years: number | null
           whatsapp_opt_in: boolean
@@ -716,6 +717,7 @@ export type Database = {
           under_warranty?: boolean | null
           updated_at?: string
           user_id: string
+          warranty_expiry_date?: string | null
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
           whatsapp_opt_in?: boolean
@@ -776,6 +778,7 @@ export type Database = {
           under_warranty?: boolean | null
           updated_at?: string
           user_id?: string
+          warranty_expiry_date?: string | null
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
           whatsapp_opt_in?: boolean
@@ -2390,6 +2393,7 @@ export type Database = {
           confirmed_at: string | null
           conversation_id: string | null
           created_at: string
+          customer_facing_notes: string | null
           customer_id: string
           deposit_amount: number | null
           deposit_paid: boolean
@@ -2480,6 +2484,7 @@ export type Database = {
           confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
+          customer_facing_notes?: string | null
           customer_id: string
           deposit_amount?: number | null
           deposit_paid?: boolean
@@ -2570,6 +2575,7 @@ export type Database = {
           confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
+          customer_facing_notes?: string | null
           customer_id?: string
           deposit_amount?: number | null
           deposit_paid?: boolean
