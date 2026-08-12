@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Car, MapPin, Play, CheckCircle2, XCircle, Ban, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +12,7 @@ interface PrimaryActionsProps {
 }
 
 const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow, onPartsNeeded }: PrimaryActionsProps) => {
+  const [showCantComplete, setShowCantComplete] = useState(false);
   if (status === "Scheduled" || status === "Booked") {
     return (
       <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1" onClick={() => onStatusChange("En Route")}>
@@ -38,41 +40,53 @@ const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow
   if (status === "In Progress") {
     return (
       <div className="space-y-2 mt-1">
-        <div className="flex gap-3">
-          <Button
-            className="flex-[2] h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
-            onClick={onComplete}
+        <Button
+          className="w-full h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
+          onClick={onComplete}
+        >
+          <CheckCircle2 className="w-5 h-5" /> Complete
+        </Button>
+        {!showCantComplete ? (
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:underline focus:underline w-full text-center py-1"
+            onClick={() => setShowCantComplete(true)}
           >
-            <CheckCircle2 className="w-5 h-5" /> Complete
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
-            onClick={onCancel}
-          >
-            <XCircle className="w-5 h-5" />
-          </Button>
-        </div>
-        <div className="flex gap-3">
-          {onNoShow && (
-            <Button
-              variant="outline"
-              className="flex-1 h-[44px] text-destructive border-destructive/30 font-semibold gap-1.5 text-sm"
-              onClick={onNoShow}
-            >
-              <Ban className="w-4 h-4" /> No Access
-            </Button>
-          )}
-          {onPartsNeeded && (
-            <Button
-              variant="outline"
-              className="flex-1 h-[44px] text-amber-500 border-amber-500/30 font-semibold gap-1.5 text-sm"
-              onClick={onPartsNeeded}
-            >
-              <Wrench className="w-4 h-4" /> Parts Needed
-            </Button>
-          )}
-        </div>
+            Can't complete this job?
+          </button>
+        ) : (
+          <>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
+                onClick={onCancel}
+              >
+                <XCircle className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex gap-3">
+              {onNoShow && (
+                <Button
+                  variant="outline"
+                  className="flex-1 h-[44px] text-destructive border-destructive/30 font-semibold gap-1.5 text-sm"
+                  onClick={onNoShow}
+                >
+                  <Ban className="w-4 h-4" /> No Access
+                </Button>
+              )}
+              {onPartsNeeded && (
+                <Button
+                  variant="outline"
+                  className="flex-1 h-[44px] text-amber-500 border-amber-500/30 font-semibold gap-1.5 text-sm"
+                  onClick={onPartsNeeded}
+                >
+                  <Wrench className="w-4 h-4" /> Parts Needed
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -80,32 +94,44 @@ const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow
   if (status === "parts_needed" || status === "parts_ordered") {
     return (
       <div className="space-y-2 mt-1">
-        <div className="flex gap-3">
-          <Button
-            className="flex-[2] h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
-            onClick={onComplete}
+        <Button
+          className="w-full h-[52px] text-base font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
+          onClick={onComplete}
+        >
+          <CheckCircle2 className="w-5 h-5" /> Complete
+        </Button>
+        {!showCantComplete ? (
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:underline focus:underline w-full text-center py-1"
+            onClick={() => setShowCantComplete(true)}
           >
-            <CheckCircle2 className="w-5 h-5" /> Complete
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
-            onClick={onCancel}
-          >
-            <XCircle className="w-5 h-5" />
-          </Button>
-        </div>
-        <div className="flex gap-3">
-          {onNoShow && (
-            <Button
-              variant="outline"
-              className="flex-1 h-[44px] text-destructive border-destructive/30 font-semibold gap-1.5 text-sm"
-              onClick={onNoShow}
-            >
-              <Ban className="w-4 h-4" /> No Access
-            </Button>
-          )}
-        </div>
+            Can't complete this job?
+          </button>
+        ) : (
+          <>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-[52px] text-destructive border-destructive/30 font-bold"
+                onClick={onCancel}
+              >
+                <XCircle className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex gap-3">
+              {onNoShow && (
+                <Button
+                  variant="outline"
+                  className="flex-1 h-[44px] text-destructive border-destructive/30 font-semibold gap-1.5 text-sm"
+                  onClick={onNoShow}
+                >
+                  <Ban className="w-4 h-4" /> No Access
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     );
   }
