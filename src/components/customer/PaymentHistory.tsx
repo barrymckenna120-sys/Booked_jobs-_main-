@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Receipt, Loader2 } from "lucide-react";
+import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 
 type ReceiptJob = {
   id: string;
