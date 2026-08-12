@@ -46,10 +46,26 @@ const EngineerParts = () => {
 
     const load = async () => {
       setLoading(true);
+
+      // Office-created orders reference the engineer via assigned_to
+      // (engineers.id), so resolve this viewer's engineers row too.
+      const { data: engRow } = await supabase
+        .from("engineers")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      const engineerRowId = (engRow as any)?.id as string | undefined;
+
+      const filters = [
+        `engineer_id.eq.${user.id}`,
+        `assigned_engineer_id.eq.${user.id}`,
+      ];
+      if (engineerRowId) filters.push(`assigned_to.eq.${engineerRowId}`);
+
       const { data, error } = await supabase
         .from("parts_requests" as any)
         .select("*")
-        .or(`engineer_id.eq.${user.id},assigned_engineer_id.eq.${user.id}`)
+        .or(filters.join(","))
         .order("created_at", { ascending: false });
 
       if (cancelled) return;
