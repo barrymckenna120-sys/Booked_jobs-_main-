@@ -20,9 +20,13 @@ import type { PartsRequestRow } from "@/lib/partsStatus";
  */
 const EngineerParts = () => {
   const { user } = useAuth("/auth");
+  const { toast } = useToast();
   const [rows, setRows] = useState<PartsRequestRow[]>([]);
   const [jobRefs, setJobRefs] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
+  const [engineer, setEngineer] = useState<{ id: string; name: string; organisation_id: string } | null>(null);
+  const [showRequestSheet, setShowRequestSheet] = useState(false);
+  const [savingPart, setSavingPart] = useState(false);
 
   const [reloadKey, setReloadKey] = useState(0);
   const [searchParams] = useSearchParams();
