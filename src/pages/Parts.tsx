@@ -4,10 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight } from "lucide-react";
+import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight, Plus } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
+import NewPartsOrderSheet from "@/components/parts/NewPartsOrderSheet";
+import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
+
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
