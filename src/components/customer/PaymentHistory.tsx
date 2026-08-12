@@ -14,6 +14,7 @@ type ReceiptJob = {
   paid_at: string | null;
   assigned_engineer: string | null;
   receipt_pdf_url: string | null;
+  access_token: string | null;
 };
 
 interface Props {
