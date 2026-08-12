@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Loader2, Package } from "lucide-react";
+import { Loader2, Package, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import PartsSectionTabs from "@/components/engineer/PartsSectionTabs";
 import PartRequestCard from "@/components/engineer/PartRequestCard";
+import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
+import { insertPartsRequest } from "@/lib/partsRequests";
 import type { PartsRequestRow } from "@/lib/partsStatus";
 
 /**
@@ -16,9 +20,13 @@ import type { PartsRequestRow } from "@/lib/partsStatus";
  */
 const EngineerParts = () => {
   const { user } = useAuth("/auth");
+  const { toast } = useToast();
   const [rows, setRows] = useState<PartsRequestRow[]>([]);
   const [jobRefs, setJobRefs] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
+  const [engineer, setEngineer] = useState<{ id: string; name: string; organisation_id: string } | null>(null);
+  const [showRequestSheet, setShowRequestSheet] = useState(false);
+  const [savingPart, setSavingPart] = useState(false);
 
   const [reloadKey, setReloadKey] = useState(0);
   const [searchParams] = useSearchParams();
@@ -52,10 +60,13 @@ const EngineerParts = () => {
       // (engineers.id), so resolve this viewer's engineers row too.
       const { data: engRow } = await supabase
         .from("engineers")
-        .select("id")
+        .select("id, name, organisation_id")
         .eq("auth_user_id", user.id)
         .maybeSingle();
       const engineerRowId = (engRow as any)?.id as string | undefined;
+      if (engRow) {
+        setEngineer({ id: engRow.id, name: engRow.name, organisation_id: engRow.organisation_id });
+      }
 
       const filters = [
         `engineer_id.eq.${user.id}`,
@@ -111,7 +122,15 @@ const EngineerParts = () => {
   return (
     <>
       <PartsSectionTabs />
-      <div className="text-lg font-extrabold text-foreground">My Parts</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-lg font-extrabold text-foreground">My Parts</div>
+        <Button
+          className="h-10 px-4 text-sm font-extrabold gap-2"
+          onClick={() => setShowRequestSheet(true)}
+        >
+          <Plus className="w-4 h-4" /> Request Part
+        </Button>
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -140,6 +159,39 @@ const EngineerParts = () => {
           ))}
         </div>
       )}
+      <PartsNeededSheet
+        open={showRequestSheet}
+        loading={savingPart}
+        onClose={() => setShowRequestSheet(false)}
+        onConfirm={async (part) => {
+          if (!engineer?.organisation_id || !user?.id) {
+            toast({
+              title: "Couldn't save part",
+              description: "Your organisation could not be resolved. Please refresh and try again.",
+              variant: "destructive",
+            });
+            return;
+          }
+          setSavingPart(true);
+          const { error } = await insertPartsRequest({
+            part,
+            organisationId: engineer.organisation_id,
+            serviceCallId: null,
+            customerId: null,
+            loggedBy: user.id,
+            loggedByName: engineer?.name ?? user?.email ?? null,
+            assignedTo: null,
+          });
+          setSavingPart(false);
+          if (error) {
+            toast({ title: "Couldn't save part", description: error.message, variant: "destructive" });
+            return;
+          }
+          setShowRequestSheet(false);
+          setReloadKey((k) => k + 1);
+          toast({ title: "Part request logged" });
+        }}
+      />
     </>
   );
 };
