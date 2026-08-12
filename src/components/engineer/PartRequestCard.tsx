@@ -30,6 +30,8 @@ const formatCreated = (value: string) => {
 interface Props {
   row: PartsRequestRow;
   jobReference: string | null;
+  /** Resolved display name (row.customer_name, or looked up from customer_id). */
+  customerName?: string | null;
   /** Current engineer's auth uid — drives whether cancel is offered at all. */
   userId?: string | null;
   onCancelled?: () => void;
@@ -37,7 +39,15 @@ interface Props {
   highlighted?: boolean;
 }
 
-const PartRequestCard = ({ row, jobReference, userId = null, onCancelled, highlighted = false }: Props) => {
+const PartRequestCard = ({
+  row,
+  jobReference,
+  customerName,
+  userId = null,
+  onCancelled,
+  highlighted = false,
+}: Props) => {
+  const displayCustomer = customerName ?? row.customer_name ?? null;
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -91,7 +101,7 @@ const PartRequestCard = ({ row, jobReference, userId = null, onCancelled, highli
       </div>
 
       <div className="text-[15px] font-extrabold text-foreground leading-tight">
-        {row.customer_name || "Unknown customer"}
+        {displayCustomer || "Unknown customer"}
       </div>
 
       <div className="text-[14px] text-foreground/90 leading-snug">
@@ -153,7 +163,7 @@ const PartRequestCard = ({ row, jobReference, userId = null, onCancelled, highli
               <XCircle className="w-5 h-5 text-destructive" /> Cancel Part Request
             </div>
             <div className="text-[13px] text-muted-foreground mt-0.5">
-              {row.customer_name || "Unknown customer"}
+              {displayCustomer || "Unknown customer"}
             </div>
           </div>
           <div className="px-5 pt-4 space-y-3">

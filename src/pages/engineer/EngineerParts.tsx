@@ -23,6 +23,7 @@ const EngineerParts = () => {
   const { toast } = useToast();
   const [rows, setRows] = useState<PartsRequestRow[]>([]);
   const [jobRefs, setJobRefs] = useState<Record<string, string | null>>({});
+  const [customerNames, setCustomerNames] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [engineer, setEngineer] = useState<{ id: string; name: string; organisation_id: string } | null>(null);
   const [showRequestSheet, setShowRequestSheet] = useState(false);
@@ -110,6 +111,28 @@ const EngineerParts = () => {
         setJobRefs({});
       }
 
+      // Rows created with a picked customer store customer_id only, so resolve
+      // names for display instead of falling back to "Unknown customer".
+      const customerIds = Array.from(
+        new Set(list.map((r) => r.customer_id).filter((id): id is string => !!id)),
+      );
+      if (customerIds.length > 0) {
+        const { data: custs } = await supabase
+          .from("customers")
+          .select("id, name")
+          .in("id", customerIds);
+        if (!cancelled) {
+          const map: Record<string, string | null> = {};
+          (custs ?? []).forEach((c: any) => {
+            map[c.id] = c.name ?? null;
+          });
+          setCustomerNames(map);
+        }
+      } else if (!cancelled) {
+        setCustomerNames({});
+      }
+
+
       if (!cancelled) setLoading(false);
     };
 
@@ -154,6 +177,10 @@ const EngineerParts = () => {
               userId={user?.id ?? null}
               onCancelled={() => setReloadKey((k) => k + 1)}
               jobReference={row.service_call_id ? jobRefs[row.service_call_id] ?? null : null}
+              customerName={
+                row.customer_name ??
+                (row.customer_id ? customerNames[row.customer_id] ?? null : null)
+              }
             />
 
           ))}
