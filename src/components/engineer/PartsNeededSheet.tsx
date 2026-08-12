@@ -97,11 +97,19 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     e.preventDefault();
     if (!canConfirm) return;
     const parsedQty = parseInt(quantity, 10);
-    onConfirm({
-      description: description.trim(),
-      priority,
-      quantity: Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1,
-    });
+    onConfirm(
+      {
+        description: description.trim(),
+        priority,
+        quantity: Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1,
+      },
+      requireCustomer
+        ? {
+            customerId: customer?.id ?? null,
+            customerName: customer ? null : manualName.trim() || null,
+          }
+        : undefined,
+    );
     reset();
   };
 
