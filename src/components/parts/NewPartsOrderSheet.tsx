@@ -101,7 +101,8 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
     onClose();
   };
 
-  // Active engineers for the assignment picker.
+  // Field engineers only for the assignment picker — owner/office/admin rows are
+  // team members but never the person who fits the part.
   useEffect(() => {
     if (!open || !organisationId) return;
     let cancelled = false;
@@ -111,6 +112,7 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
         .select("id, name, auth_user_id, role")
         .eq("organisation_id", organisationId)
         .eq("status", "active")
+        .in("role", ["engineer"])
         .order("name");
       if (!cancelled) setEngineers(((data as any[]) || []) as EngineerRow[]);
     })();
