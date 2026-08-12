@@ -130,6 +130,7 @@ export const buildPartsRequestRow = ({
   loggedBy = null,
   loggedByName = null,
   assignedTo = null,
+  engineerId,
 }: BuildPartsRowArgs) => {
   const description = (part.description ?? "").trim();
   if (description.length === 0) return null;
@@ -147,12 +148,14 @@ export const buildPartsRequestRow = ({
     logged_by: loggedBy,
     logged_by_name: loggedByName,
     assigned_to: assignedTo,
-    // The requesting user is the notify target for office updates — the
-    // notification trigger reads engineer_id / assigned_engineer_id, so this
-    // must be written at insert time or the engineer never hears back.
-    engineer_id: loggedBy,
+    // Notify target for office updates — the notification trigger reads
+    // engineer_id / assigned_engineer_id, so this must be written at insert
+    // time or the engineer never hears back. Engineer path defaults to the
+    // logging user; office path passes the assigned engineer explicitly.
+    engineer_id: engineerId === undefined ? loggedBy : engineerId,
   };
 };
+
 
 
 /**
