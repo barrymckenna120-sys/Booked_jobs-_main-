@@ -147,7 +147,34 @@ const PublicReceipt = () => {
             <p className="text-gray-500 text-xs uppercase tracking-wide">Amount Paid</p>
             <p className="text-2xl font-bold text-gray-900">{amount}</p>
           </div>
+
+          {showDetailsSection && (
+            <div className="border-t border-gray-100 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {hasBoiler && (
+                <div className={!hasNotes ? "sm:col-span-2" : undefined}>
+                  <p className="text-gray-500 text-xs uppercase tracking-wide">Boiler Details</p>
+                  <div className="mt-2 space-y-2">
+                    {boilerRows.map((row) => (
+                      <div key={row.label}>
+                        <p className="text-gray-500 text-xs uppercase tracking-wide">{row.label}</p>
+                        <p className="font-semibold text-gray-900 text-sm">{row.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {hasNotes && (
+                <div className={!hasBoiler ? "sm:col-span-2" : undefined}>
+                  <p className="text-gray-500 text-xs uppercase tracking-wide">Notes</p>
+                  <div className="mt-2 bg-gray-50 border border-gray-200 rounded-xl p-3">
+                    <p className="text-sm text-gray-700 whitespace-pre-line">{notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
 
         {/* Download PDF */}
         {data.receipt_pdf_url && (
