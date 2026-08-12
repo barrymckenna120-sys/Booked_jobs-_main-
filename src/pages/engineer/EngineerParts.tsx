@@ -111,6 +111,28 @@ const EngineerParts = () => {
         setJobRefs({});
       }
 
+      // Rows created with a picked customer store customer_id only, so resolve
+      // names for display instead of falling back to "Unknown customer".
+      const customerIds = Array.from(
+        new Set(list.map((r) => r.customer_id).filter((id): id is string => !!id)),
+      );
+      if (customerIds.length > 0) {
+        const { data: custs } = await supabase
+          .from("customers")
+          .select("id, name")
+          .in("id", customerIds);
+        if (!cancelled) {
+          const map: Record<string, string | null> = {};
+          (custs ?? []).forEach((c: any) => {
+            map[c.id] = c.name ?? null;
+          });
+          setCustomerNames(map);
+        }
+      } else if (!cancelled) {
+        setCustomerNames({});
+      }
+
+
       if (!cancelled) setLoading(false);
     };
 
