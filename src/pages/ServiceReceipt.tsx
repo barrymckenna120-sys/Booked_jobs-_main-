@@ -151,9 +151,10 @@ const ServiceReceipt = () => {
   };
 
   const handleDownloadPdf = async () => {
-    const url = await generateReceiptPdf();
-    if (url) {
-      openExternalUrl(url);
+    const path = await generateReceiptPdf();
+    const signed = path ? await resolveReceiptUrl(job?.access_token) : null;
+    if (signed) {
+      openExternalUrl(signed);
     } else {
       toast({ title: "Could not generate receipt PDF", variant: "destructive" });
     }
