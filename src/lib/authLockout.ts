@@ -53,3 +53,32 @@ export function lockoutModalCopy(
   }
   return null;
 }
+
+/**
+ * Server-truth lockout copy. Derives the wait from the real ban expiry
+ * (auth.users.banned_until) instead of the hardcoded duration label.
+ */
+export function formatLockoutWait(lockedUntil: string): string {
+  const until = new Date(lockedUntil);
+  const ms = until.getTime() - Date.now();
+  if (Number.isNaN(until.getTime()) || ms <= 0) return "a few moments";
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  const hourPart = `${hours} hour${hours === 1 ? "" : "s"}`;
+  return rem ? `${hourPart} ${rem} minute${rem === 1 ? "" : "s"}` : hourPart;
+}
+
+/** Inline error shown when the server says the account is currently locked. */
+export function lockedUntilMessage(lockedUntil: string): string {
+  return `Account locked. Too many failed attempts — try again in ${formatLockoutWait(lockedUntil)} or reset your password.`;
+}
+
+/** Modal copy for the server-confirmed lockout. */
+export function lockedUntilModalCopy(lockedUntil: string): { title: string; message: string } {
+  return {
+    title: "Account Locked",
+    message: `Too many incorrect email or password attempts. Your account is locked for another ${formatLockoutWait(lockedUntil)}. You can reset your password to sign in sooner.`,
+  };
+}
