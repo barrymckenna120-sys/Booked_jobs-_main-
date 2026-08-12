@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Car, MapPin, Play, CheckCircle2, XCircle, Ban, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +12,7 @@ interface PrimaryActionsProps {
 }
 
 const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow, onPartsNeeded }: PrimaryActionsProps) => {
+  const [showCantComplete, setShowCantComplete] = useState(false);
   if (status === "Scheduled" || status === "Booked") {
     return (
       <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1" onClick={() => onStatusChange("En Route")}>
