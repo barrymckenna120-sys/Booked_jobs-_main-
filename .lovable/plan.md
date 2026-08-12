@@ -28,6 +28,7 @@ New section inserted after the "Amount Paid" block, before the Download button /
   - GPRN
 - Right column heading "Notes" as a boxed callout (light grey background, thin border, rounded corners, matching the existing card/box treatment on the page), content from the job's customer-facing notes only.
 - Empty-state rules: individual empty rows are omitted; a column with nothing to show is hidden and the remaining column spans full width; if both are empty the whole section (and its divider) is not rendered.
+- Remove the hardcoded "Next annual boiler service due" footer line — Next Service Due now appears in the new section, so the old line is a duplicate with a possibly conflicting date.
 
 Typography and spacing reuse the classes already on the page — no new tokens, no changes to the payment block or the thank-you/RGI footer.
 
