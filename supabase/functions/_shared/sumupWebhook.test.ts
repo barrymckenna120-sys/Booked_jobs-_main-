@@ -34,6 +34,7 @@ interface Harness {
   fetches: number;
   discoveries: number;
   loadedById: string[];
+  priorEventChecks: Array<{ serviceCallId: string; checkoutId: string }>;
 }
 
 function run(opts: {
@@ -47,6 +48,11 @@ function run(opts: {
   discovery?: SumUpCheckoutDiscovery;
   /** Job returned by the id (checkout_reference) lookup. */
   jobById?: SumUpWebhookJob | null;
+  /**
+   * Layer 2 signal. undefined = dependency not supplied at all; boolean = the
+   * lookup's answer; Error = a genuine query failure that must be thrown.
+   */
+  hasOtherClaimedEvent?: boolean | Error;
 }) {
   const h: Harness = {
     updates: [],
@@ -56,7 +62,9 @@ function run(opts: {
     fetches: 0,
     discoveries: 0,
     loadedById: [],
+    priorEventChecks: [],
   };
+
   const result = handleSumUpWebhook({
     expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
     presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
