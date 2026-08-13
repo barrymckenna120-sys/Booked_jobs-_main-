@@ -8,9 +8,24 @@ serve(async (req) => {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
   };
 
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status,
+    });
+
+  /** Deliberate non-send: HTTP 200, success true, sent false, explicit reason. */
+  const skip = (reason: string, message: string) =>
+    json({ success: true, sent: false, skipped: true, reason, message });
+
+  /** Send attempt that did not deliver. */
+  const fail = (reason: string, message: string, status = 500) =>
+    json({ success: false, sent: false, reason, message, error: message }, status);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
 
   try {
     const { service_call_id } = await req.json();
