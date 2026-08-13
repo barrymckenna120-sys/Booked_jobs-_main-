@@ -622,10 +622,13 @@ Deno.test("fallback: transient discovery failure is retryable and writes nothing
 });
 
 Deno.test("fallback: re-delivery after backfill matches directly and is a no-op", async () => {
-  // Second delivery: the id lookup now hits, and the job is already paid.
+  // Second delivery: the id lookup now hits, and an earlier claimed event exists
+  // for this job under the first checkout id.
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T09:00:00.000Z", deposit_paid: true }),
+    hasOtherClaimedEvent: true,
   });
+
   const result = await p;
   assertEquals(result.outcome, "duplicate");
   assertEquals(h.discoveries, 0);
