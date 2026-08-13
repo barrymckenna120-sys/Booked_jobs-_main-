@@ -39,6 +39,7 @@ export type SumUpWebhookOutcome =
   | "verification_failed"
   | "not_paid"
   | "duplicate"
+  | "duplicate_check_failed"
   | "paid"
   | "part_paid"
   | "update_failed";
