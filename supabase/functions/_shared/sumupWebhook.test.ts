@@ -125,6 +125,21 @@ function run(opts: {
       h.notifications.push({ jobReference: e.jobReference, amount: e.amount, fullyPaid: e.fullyPaid });
       return Promise.resolve();
     },
+    claimEvent: () => {
+      h.claims++;
+      return Promise.resolve(true);
+    },
+    notifyPaymentFailed: (e) => {
+      h.failureAlerts.push({
+        serviceCallId: e.serviceCallId,
+        jobReference: e.jobReference,
+        checkoutId: e.checkoutId,
+        status: e.status,
+        amount: e.amount,
+      });
+      if (opts.failureAlert) return Promise.reject(opts.failureAlert);
+      return Promise.resolve();
+    },
     now: () => new Date("2026-08-10T09:00:00.000Z"),
   });
   return { h, result };
