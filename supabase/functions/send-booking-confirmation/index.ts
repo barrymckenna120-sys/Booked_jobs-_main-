@@ -61,43 +61,60 @@ serve(async (req) => {
     const tiRows = await tiRes.json();
     const config = Array.isArray(tiRows) && tiRows[0]?.config ? tiRows[0].config : null;
     if (!config) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return skip("no_integration", "WhatsApp is not connected for this business");
     }
 
     const apiKey = config.api_key || (config.api_key_secret ? Deno.env.get(config.api_key_secret) : null);
     const templateName = config?.templates?.booking_confirmation ?? "booking_confirmation";
     if (!apiKey) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key missing in config (set api_key or api_key_secret)" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return skip("no_api_key", "WhatsApp credentials are missing for this business");
     }
 
-    // Fetch customer details
-    const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {
-      headers: dbHeaders,
-    });
+    // Fetch customer details (incl. opt-out flag)
+    const custRes = await fetch(
+      `${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone,opted_out`,
+      { headers: dbHeaders },
+    );
     const custRows = await custRes.json();
     const customer = Array.isArray(custRows) ? custRows[0] : null;
-    if (!customer) {
-      return new Response(JSON.stringify({ success: false, error: "Customer not found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
-      });
+
+    // Shared opt-out / phone guard — same pattern as the other customer-facing sends.
+    const decision = evaluateOptOut(customer);
+    if (decision.skip) {
+      const reason = decision.reason === "customer_opted_out"
+        ? "opted_out"
+        : decision.reason === "no_phone_number"
+          ? "no_phone"
+          : "customer_not_found";
+      const message = reason === "opted_out"
+        ? "Customer opted out of messages"
+        : reason === "no_phone"
+          ? "Customer has no phone number"
+          : "Customer record could not be read";
+      console.warn("send-booking-confirmation skipped", { service_call_id, customer_id: job.customer_id, reason });
+      // Record the skip so the office can see why nothing went out.
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+          method: "POST",
+          headers: dbHeaders,
+          body: JSON.stringify({
+            customer_id: job.customer_id,
+            organisation_id: orgId,
+            message_type: "booking_confirmation",
+            channel: "whatsapp",
+            direction: "outbound",
+            content: `Skipped: ${message}`,
+            status: "skipped",
+            related_id: service_call_id,
+            related_type: "service_call",
+            sent_by: "system",
+            sent_at: new Date().toISOString(),
+          }),
+        });
+      } catch { /* non-critical */ }
+      return skip(reason, message);
     }
-    if (!customer.phone) {
-      console.warn("send-booking-confirmation skipped: customer has no phone", {
-        service_call_id,
-        customer_id: job.customer_id,
-      });
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "no_phone" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-      );
-    }
+
 
     // Fetch settings (message_footer / business_name) by organisation_id
     let messageFooter = "";
