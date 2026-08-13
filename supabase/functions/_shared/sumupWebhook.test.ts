@@ -35,6 +35,14 @@ interface Harness {
   discoveries: number;
   loadedById: string[];
   priorEventChecks: Array<{ serviceCallId: string; checkoutId: string }>;
+  claims: number;
+  failureAlerts: Array<{
+    serviceCallId: string;
+    jobReference: string | null;
+    checkoutId: string;
+    status: string;
+    amount: number | null;
+  }>;
 }
 
 function run(opts: {
