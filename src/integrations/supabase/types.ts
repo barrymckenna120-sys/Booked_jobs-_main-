@@ -1557,6 +1557,7 @@ export type Database = {
           id: string
           message_type: string | null
           organisation_id: string
+          recipient_phone: string | null
           related_id: string | null
           related_type: string | null
           sent_at: string | null
@@ -1573,6 +1574,7 @@ export type Database = {
           id?: string
           message_type?: string | null
           organisation_id: string
+          recipient_phone?: string | null
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -1589,6 +1591,7 @@ export type Database = {
           id?: string
           message_type?: string | null
           organisation_id?: string
+          recipient_phone?: string | null
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
