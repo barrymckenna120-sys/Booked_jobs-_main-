@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { last9Digits } from "../_shared/phone.ts";
+import { last9Digits, normalisePhoneE164 } from "../_shared/phone.ts";
 import { buildRebookTallyUrl, mintShortLink } from "../_shared/rebookLink.ts";
 import { logMessage } from "../_shared/logMessage.ts";
 
