@@ -244,16 +244,7 @@ serve(async (req) => {
         }),
       });
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: errorDetail,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        },
-      );
+      return fail("whatsapp_send_failed", errorDetail, 500);
     }
 
     // Log customer activity on success
@@ -273,13 +264,8 @@ serve(async (req) => {
       /* non-critical */
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, sent: true });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return fail("unexpected_error", error?.message ?? "Unexpected error", 500);
   }
 });
