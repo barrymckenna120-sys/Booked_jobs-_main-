@@ -23,6 +23,9 @@ export const corsHeaders: Record<string, string> = {
     "apikey",
     "content-type",
     "x-org-id",
+    // Superadmin tenant impersonation: injected by the app's fetch interceptor.
+    // Omitting it makes the browser block the POST after a 200 preflight.
+    "x-org-impersonation-token",
     "x-make-secret",
     "x-supabase-client-platform",
     "x-supabase-client-platform-version",
