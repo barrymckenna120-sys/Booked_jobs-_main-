@@ -35,6 +35,14 @@ interface Harness {
   discoveries: number;
   loadedById: string[];
   priorEventChecks: Array<{ serviceCallId: string; checkoutId: string }>;
+  claims: number;
+  failureAlerts: Array<{
+    serviceCallId: string;
+    jobReference: string | null;
+    checkoutId: string;
+    status: string;
+    amount: number | null;
+  }>;
 }
 
 function run(opts: {
@@ -53,6 +61,8 @@ function run(opts: {
    * lookup's answer; Error = a genuine query failure that must be thrown.
    */
   hasOtherClaimedEvent?: boolean | Error;
+  /** Error = the failure alert itself throws; must never change the outcome. */
+  failureAlert?: Error;
 }) {
   const h: Harness = {
     updates: [],
@@ -63,6 +73,8 @@ function run(opts: {
     discoveries: 0,
     loadedById: [],
     priorEventChecks: [],
+    claims: 0,
+    failureAlerts: [],
   };
 
   const result = handleSumUpWebhook({
@@ -111,6 +123,21 @@ function run(opts: {
     },
     notifyOffice: (e) => {
       h.notifications.push({ jobReference: e.jobReference, amount: e.amount, fullyPaid: e.fullyPaid });
+      return Promise.resolve();
+    },
+    claimEvent: () => {
+      h.claims++;
+      return Promise.resolve(true);
+    },
+    notifyPaymentFailed: (e) => {
+      h.failureAlerts.push({
+        serviceCallId: e.serviceCallId,
+        jobReference: e.jobReference,
+        checkoutId: e.checkoutId,
+        status: e.status,
+        amount: e.amount,
+      });
+      if (opts.failureAlert) return Promise.reject(opts.failureAlert);
       return Promise.resolve();
     },
     now: () => new Date("2026-08-10T09:00:00.000Z"),
@@ -669,4 +696,75 @@ Deno.test("never overwrites a known job total", async () => {
   assertEquals(result.outcome, "part_paid");
   assertEquals("revenue" in h.updates[0].patch, false);
   assertEquals(h.updates[0].patch.payment_status, "partial");
+});
+
+// ---------------------------------------------------------------------------
+// BJ-0044 — declined checkouts used to be completely silent: no event row, no
+// job write, no alert. The office now gets told, and nothing else changes.
+// ---------------------------------------------------------------------------
+
+Deno.test("a FAILED checkout alerts the office and writes nothing else", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ job_reference: "KN-480", revenue: 22, balance_due: 11 }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.failureAlerts, [{
+    serviceCallId: JOB_ID,
+    jobReference: "KN-480",
+    checkoutId: CHECKOUT_ID,
+    status: "FAILED",
+    amount: 11,
+  }]);
+  // The money path must stay untouched, and the checkout id must stay claimable.
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+  assertEquals(h.notifications.length, 0);
+});
+
+Deno.test("EXPIRED and CANCELLED also alert; PENDING and unknown statuses stay silent", async () => {
+  for (const status of ["EXPIRED", "CANCELLED", "CANCELED"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureAlerts.length, 1);
+    assertEquals(h.failureAlerts[0].status, status);
+  }
+
+  for (const status of ["PENDING", "", "SOMETHING_NEW"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureAlerts.length, 0);
+    assertEquals(h.updates.length, 0);
+  }
+});
+
+Deno.test("a throwing failure alert never changes the outcome and never writes", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+    failureAlert: new Error("notifications insert exploded"),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+});
+
+Deno.test("a paid checkout is unaffected by the failure path", async () => {
+  const { h, result: p } = run({ jobRow: job({ job_reference: "KN-465" }) });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.failureAlerts.length, 0);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.claims, 1);
+  assertEquals(h.notifications.length, 1);
 });

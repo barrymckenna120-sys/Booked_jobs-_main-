@@ -15,6 +15,7 @@ export type NotificationType =
   | "parts_cancelled"
   | "parts_update"
   | "payment_collected"
+  | "payment_failed"
   | "en_route"
   | "on_site"
   | "in_progress"

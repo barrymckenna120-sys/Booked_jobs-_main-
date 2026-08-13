@@ -135,6 +135,20 @@ export interface SumUpWebhookDeps {
     serviceCallId: string;
     checkoutId: string;
   }) => Promise<boolean>;
+  /**
+   * One office alert per TERMINAL failure (declined / expired / cancelled
+   * checkout). Purely a side effect: it never changes the outcome or status, and
+   * a throw from it is swallowed, because a decline must not make SumUp retry.
+   */
+  notifyPaymentFailed?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    checkoutId: string;
+    status: string;
+    amount: number | null;
+  }) => Promise<void>;
   /** One office notification per confirmed payment. */
 
   notifyOffice?: (entry: {
@@ -164,6 +178,13 @@ export interface SumUpWebhookResult {
 }
 
 const PAID_STATUSES = new Set(["PAID", "SUCCESSFUL", "SUCCEEDED"]);
+
+/**
+ * Statuses the customer cannot recover from on this checkout — the attempt is
+ * over and the link is dead, so the office needs telling. PENDING (and any
+ * unknown/empty status) is still in flight and stays silent.
+ */
+const TERMINAL_FAILURE_STATUSES = new Set(["FAILED", "EXPIRED", "CANCELLED", "CANCELED"]);
 
 /** Constant-time-ish comparison so the secret can't be probed byte by byte. */
 function secretsMatch(a: string, b: string): boolean {
@@ -317,6 +338,27 @@ export async function handleSumUpWebhook(
   const status = (view.status ?? "").toUpperCase();
   if (!PAID_STATUSES.has(status)) {
     log("info", `sumup-webhook: checkout ${checkoutId} status ${status || "unknown"} — no payment recorded`);
+
+    // A declined attempt used to be completely invisible: no event row, no job
+    // write, no alert. Nothing here changes the job or claims the event (the
+    // checkout id must stay claimable in case a real payment follows) — it only
+    // tells the office the attempt failed and the link is dead.
+    if (deps.notifyPaymentFailed && TERMINAL_FAILURE_STATUSES.has(status)) {
+      try {
+        await deps.notifyPaymentFailed({
+          organisationId: job.organisation_id,
+          serviceCallId: job.id,
+          customerId: job.customer_id ?? null,
+          jobReference: job.job_reference ?? null,
+          checkoutId,
+          status,
+          amount: view.amount ?? null,
+        });
+      } catch (_e) {
+        log("error", `sumup-webhook: failure alert failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
+      }
+    }
+
     return { outcome: "not_paid", status: 200, jobId: job.id };
   }
 

@@ -15,6 +15,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   parts_cancelled:   { icon: XCircle,        color: "text-destructive", label: "Part Cancelled" },
   parts_update:      { icon: PackageCheck,   color: "text-amber-500",   label: "Part Update" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
+  payment_failed:    { icon: XCircle,        color: "text-destructive", label: "Payment Failed" },
   quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", label: "Quote Accepted" },
   follow_up:         { icon: AlertTriangle,  color: "text-amber-500",   label: "Follow-up" },
 };
