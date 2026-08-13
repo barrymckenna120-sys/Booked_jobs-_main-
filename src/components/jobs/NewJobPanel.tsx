@@ -1291,6 +1291,47 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         }
       }
 
+      // Send deposit payment link (SumUp + WhatsApp) if toggle is ON.
+      // Only ever for "Deposit Taken" with a real amount — the toggle value is
+      // already forced to false for other payment statuses.
+      if (
+        finalData.payment?.sendDepositLink &&
+        Number(finalData.payment?.depositAmount || 0) > 0 &&
+        newJob?.id
+      ) {
+        try {
+          const { data: depRes, error: depErr } = await supabase.functions.invoke("send-deposit-link", {
+            body: { service_call_id: newJob.id },
+          });
+          if (depErr) {
+            console.error("[NewJobPanel] Deposit link error:", depErr);
+            toast({
+              title: "Deposit link not sent",
+              description: "The job was created, but the deposit payment link could not be sent. Send it from the job.",
+              variant: "destructive",
+            });
+          } else if (depRes && depRes.success === false) {
+            console.error("[NewJobPanel] Deposit link failed:", depRes);
+            toast({
+              title: "Deposit link not sent",
+              description: "The job was created, but the deposit payment link could not be sent. Send it from the job.",
+              variant: "destructive",
+            });
+          } else {
+            console.log("[NewJobPanel] Deposit link result:", depRes);
+          }
+        } catch (depEx) {
+          console.error("[NewJobPanel] Deposit link exception:", depEx);
+          toast({
+            title: "Deposit link not sent",
+            description: "The job was created, but the deposit payment link could not be sent. Send it from the job.",
+            variant: "destructive",
+          });
+        }
+      }
+
+
+
       setJobData(finalData);
       setDone(true);
       queryClient.invalidateQueries({ queryKey: ["schedule-jobs"] });
