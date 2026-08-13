@@ -95,6 +95,8 @@ Deno.serve(async (req) => {
         status,
         channel: "whatsapp",
         sent_by: "telnyx_missed_call",
+        // Always stamped (matched or not) so phone-based dedup works.
+        recipient_phone: phone ? normalisePhoneE164(phone) || phone : null,
       });
 
       // customer_activity.customer_id is NOT NULL — only writable when matched.
