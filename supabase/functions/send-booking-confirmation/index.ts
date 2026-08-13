@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { bookingConfirmationSkip } from "../_shared/bookingConfirmationSkip.ts";
+
 
 serve(async (req) => {
   const corsHeaders = {
@@ -6,18 +8,30 @@ serve(async (req) => {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
   };
 
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status,
+    });
+
+  /** Deliberate non-send: HTTP 200, success true, sent false, explicit reason. */
+  const skip = (reason: string, message: string) =>
+    json({ success: true, sent: false, skipped: true, reason, message });
+
+  /** Send attempt that did not deliver. */
+  const fail = (reason: string, message: string, status = 500) =>
+    json({ success: false, sent: false, reason, message, error: message }, status);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
 
   try {
     const { service_call_id } = await req.json();
 
     if (!service_call_id) {
-      return new Response(JSON.stringify({ success: false, error: "Missing service_call_id" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return fail("missing_service_call_id", "Missing service_call_id", 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -37,18 +51,12 @@ serve(async (req) => {
     const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
     if (!job) {
-      return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
-      });
+      return fail("job_not_found", "Service call not found", 404);
     }
 
     const orgId = job.organisation_id;
     if (!orgId) {
-      return new Response(JSON.stringify({ success: false, error: "Service call missing organisation_id" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return fail("job_missing_organisation", "Service call missing organisation_id", 400);
     }
 
     // Fetch tenant WhatsApp integration config
@@ -59,43 +67,52 @@ serve(async (req) => {
     const tiRows = await tiRes.json();
     const config = Array.isArray(tiRows) && tiRows[0]?.config ? tiRows[0].config : null;
     if (!config) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return skip("no_integration", "WhatsApp is not connected for this business");
     }
 
     const apiKey = config.api_key || (config.api_key_secret ? Deno.env.get(config.api_key_secret) : null);
     const templateName = config?.templates?.booking_confirmation ?? "booking_confirmation";
     if (!apiKey) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp api_key missing in config (set api_key or api_key_secret)" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return skip("no_api_key", "WhatsApp credentials are missing for this business");
     }
 
-    // Fetch customer details
-    const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {
-      headers: dbHeaders,
-    });
+    // Fetch customer details (incl. opt-out flag)
+    const custRes = await fetch(
+      `${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone,opted_out`,
+      { headers: dbHeaders },
+    );
     const custRows = await custRes.json();
     const customer = Array.isArray(custRows) ? custRows[0] : null;
-    if (!customer) {
-      return new Response(JSON.stringify({ success: false, error: "Customer not found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
-      });
+
+    // Shared opt-out / phone guard — same pattern as the other customer-facing sends.
+    const decision = bookingConfirmationSkip(customer);
+    if (decision.skip) {
+      const reason = decision.reason!;
+      const message = decision.message!;
+      console.warn("send-booking-confirmation skipped", { service_call_id, customer_id: job.customer_id, reason });
+      // Record the skip so the office can see why nothing went out.
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+          method: "POST",
+          headers: dbHeaders,
+          body: JSON.stringify({
+            customer_id: job.customer_id,
+            organisation_id: orgId,
+            message_type: "booking_confirmation",
+            channel: "whatsapp",
+            direction: "outbound",
+            content: `Skipped: ${message}`,
+            status: "skipped",
+            related_id: service_call_id,
+            related_type: "service_call",
+            sent_by: "system",
+            sent_at: new Date().toISOString(),
+          }),
+        });
+      } catch { /* non-critical */ }
+      return skip(reason, message);
     }
-    if (!customer.phone) {
-      console.warn("send-booking-confirmation skipped: customer has no phone", {
-        service_call_id,
-        customer_id: job.customer_id,
-      });
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "no_phone" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
-      );
-    }
+
 
     // Fetch settings (message_footer / business_name) by organisation_id
     let messageFooter = "";
@@ -219,16 +236,7 @@ serve(async (req) => {
         }),
       });
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: errorDetail,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        },
-      );
+      return fail("whatsapp_send_failed", errorDetail, 500);
     }
 
     // Log customer activity on success
@@ -248,13 +256,8 @@ serve(async (req) => {
       /* non-critical */
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, sent: true });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return fail("unexpected_error", error?.message ?? "Unexpected error", 500);
   }
 });

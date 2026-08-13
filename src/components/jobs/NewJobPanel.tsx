@@ -22,6 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
+import { classifySendResult, type SendResult } from "@/lib/sendResult";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
@@ -1123,8 +1124,9 @@ const getFirstName = (fullName: string | undefined): string => {
 };
 
 /* ── SUCCESS SCREEN ────────────────────────────────────── */
-const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
+const SuccessScreen = ({ jobData, engineers, onClose, onNewJob, sendResults }: {
   jobData: any; engineers: any[]; onClose: () => void; onNewJob: () => void;
+  sendResults: { confirmation?: SendResult; deposit?: SendResult };
 }) => {
   const navigate = useNavigate();
   const eng = engineers.find((e: any) => e.id === jobData.schedule?.engineerId);
@@ -1134,6 +1136,15 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 
   const firstName = getFirstName(jobData.customer?.name);
   const waMsg = `Hi ${firstName}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
+
+  const confirmation = sendResults?.confirmation;
+  const deposit = sendResults?.deposit;
+  const problems = [
+    confirmation && confirmation.status !== "sent"
+      ? { label: "Booking confirmation", result: confirmation }
+      : null,
+    deposit && deposit.status !== "sent" ? { label: "Deposit payment link", result: deposit } : null,
+  ].filter(Boolean) as { label: string; result: SendResult }[];
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center">
@@ -1150,7 +1161,12 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         {[
           { Icon: CalendarDays, text: "Job appears in the schedule grid immediately" },
           { Icon: HardHat, text: `${eng?.name || "Engineer"} sees it on their app` },
-          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation sent via WhatsApp ✔" }] : []),
+          ...(confirmation && confirmation.status === "sent"
+            ? [{ Icon: MessageCircle, text: "Booking confirmation sent via WhatsApp ✔" }]
+            : []),
+          ...(deposit && deposit.status === "sent"
+            ? [{ Icon: CreditCard, text: "Deposit payment link sent via WhatsApp ✔" }]
+            : []),
           { Icon: Bell, text: "Audit log updated" },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-2.5 mb-2 last:mb-0">
@@ -1160,7 +1176,20 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         ))}
       </div>
 
-      {jobData.sendWhatsApp && (
+      {problems.length > 0 && (
+        <div className="bg-muted/40 border border-border rounded-xl p-3 w-full mb-5 text-left">
+          {problems.map((p, i) => (
+            <div key={i} className="flex items-start gap-2 mb-1.5 last:mb-0">
+              <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="text-[12px] text-muted-foreground">
+                {p.label} {p.result.status === "skipped" ? "skipped" : "failed"} — {p.result.message}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {confirmation?.status === "sent" && (
         <div className="bg-success/5 border border-success/20 rounded-xl p-3 w-full mb-5 text-left">
           <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1.5 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp preview</div>
           <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed font-sans">{waMsg}</pre>
@@ -1183,6 +1212,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const queryClient = useQueryClient();
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
   const [done, setDone] = useState(false);
+  const [sendResults, setSendResults] = useState<{ confirmation?: SendResult; deposit?: SendResult }>({});
   const [saving, setSaving] = useState(false);
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
   const [jobData, setJobData] = useState<any>({
@@ -1358,14 +1388,26 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       });
 
       // Send booking confirmation via WhatsApp Edge Function if toggle is ON
+      const outcomes: { confirmation?: SendResult; deposit?: SendResult } = {};
       if (finalData.sendWhatsApp && newJob?.id) {
+        let result: SendResult;
         try {
-          const { error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
+          const { data: waData, error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
             body: { service_call_id: newJob.id },
           });
-          if (waErr) console.error("[NewJobPanel] Booking confirmation WhatsApp error:", waErr);
+          result = classifySendResult(waErr, waData);
+          console.log("[NewJobPanel] Booking confirmation result:", result, waData, waErr);
         } catch (waEx) {
           console.error("[NewJobPanel] Booking confirmation WhatsApp exception:", waEx);
+          result = classifySendResult(waEx, null);
+        }
+        outcomes.confirmation = result;
+        if (result.status !== "sent") {
+          toast({
+            title: result.status === "skipped" ? "Booking confirmation not sent" : "Booking confirmation failed",
+            description: `The job was created, but the confirmation was ${result.status} — ${result.message}.`,
+            variant: result.status === "failed" ? "destructive" : "default",
+          });
         }
       }
 
@@ -1377,38 +1419,28 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         Number(finalData.payment?.depositAmount || 0) > 0 &&
         newJob?.id
       ) {
+        let result: SendResult;
         try {
           const { data: depRes, error: depErr } = await supabase.functions.invoke("send-deposit-link", {
             body: { service_call_id: newJob.id },
           });
-          if (depErr) {
-            console.error("[NewJobPanel] Deposit link error:", depErr);
-            toast({
-              title: "Deposit link not sent",
-              description: "The job was created, but the deposit payment link could not be sent. Send it from the job.",
-              variant: "destructive",
-            });
-          } else if (depRes && depRes.success === false) {
-            console.error("[NewJobPanel] Deposit link failed:", depRes);
-            toast({
-              title: "Deposit link not sent",
-              description: "The job was created, but the deposit payment link could not be sent. Send it from the job.",
-              variant: "destructive",
-            });
-          } else {
-            console.log("[NewJobPanel] Deposit link result:", depRes);
-          }
+          result = classifySendResult(depErr, depRes);
+          console.log("[NewJobPanel] Deposit link result:", result, depRes, depErr);
         } catch (depEx) {
           console.error("[NewJobPanel] Deposit link exception:", depEx);
+          result = classifySendResult(depEx, null);
+        }
+        outcomes.deposit = result;
+        if (result.status !== "sent") {
           toast({
             title: "Deposit link not sent",
-            description: "The job was created, but the deposit payment link could not be sent. Send it from the job.",
-            variant: "destructive",
+            description: `The job was created, but the deposit payment link was ${result.status} — ${result.message}. You can send it from the job.`,
+            variant: result.status === "failed" ? "destructive" : "default",
           });
         }
       }
 
-
+      setSendResults(outcomes);
 
       setJobData(finalData);
       setDone(true);
@@ -1426,6 +1458,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const handleNewJob = () => {
     setStep(0);
     setDone(false);
+    setSendResults({});
     setJobData({ customer: null, job: null, schedule: null, payment: null, sendWhatsApp: true });
   };
 
@@ -1457,7 +1490,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : done ? (
-            <SuccessScreen jobData={jobData} engineers={engineers} onClose={onClose} onNewJob={handleNewJob} />
+            <SuccessScreen jobData={jobData} engineers={engineers} onClose={onClose} onNewJob={handleNewJob} sendResults={sendResults} />
           ) : step === 0 ? (
             <StepCustomer prefilledCustomer={prefilledCustomer} onNext={handleCustomer} />
           ) : step === 1 ? (
