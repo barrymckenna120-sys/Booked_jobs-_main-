@@ -70,10 +70,16 @@ function run(opts: {
     presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
     body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
     loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
+    hasOtherClaimedEvent: opts.hasOtherClaimedEvent === undefined ? undefined : (e) => {
+      h.priorEventChecks.push(e);
+      if (opts.hasOtherClaimedEvent instanceof Error) return Promise.reject(opts.hasOtherClaimedEvent);
+      return Promise.resolve(opts.hasOtherClaimedEvent === true);
+    },
     loadJobById: (jobId) => {
       h.loadedById.push(jobId);
       return Promise.resolve(opts.jobById ?? null);
     },
+
     discoverCheckout: () => {
       h.discoveries++;
       return Promise.resolve(
