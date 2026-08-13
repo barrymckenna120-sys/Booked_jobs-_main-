@@ -1023,10 +1023,16 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
+          disabled={!orgReady}
           onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment, depositAmount: payment === "deposit" ? (parseFloat(depositAmount) || 0) : null, balanceDue: payment === "deposit" ? Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)) : null, sendDepositLink: payment === "deposit" ? sendDepositLink : false }, sendWhatsApp: sendWA })}
         >
-          <CheckCircle2 className="w-5 h-5" /> Create Job
+          {orgReady ? (
+            <><CheckCircle2 className="w-5 h-5" /> Create Job</>
+          ) : (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Checking organisation…</>
+          )}
         </Button>
+
       </div>
     </div>
   );
