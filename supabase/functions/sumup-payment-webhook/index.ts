@@ -412,7 +412,7 @@ Deno.serve(async (req) => {
           ? "the customer cancelled the payment"
           : "the card payment was declined";
 
-        await supabase.from("notifications").insert(
+        const { error: insErr } = await supabase.from("notifications").insert(
           recipients.map((userId) => ({
             recipient_user_id: userId,
             organisation_id: e.organisationId,
