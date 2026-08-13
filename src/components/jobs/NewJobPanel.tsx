@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidGprnFormat, GPRN_WARNING_MESSAGE } from "@/lib/validation/gprn";
+import { calcDepositAmount } from "@/lib/depositCalc";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
@@ -862,8 +863,8 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 };
 
 /* ── STEP 4: Payment ───────────────────────────────────── */
-const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: {
-  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void; orgReady?: boolean;
+const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, orgId }: {
+  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void; orgReady?: boolean; orgId?: string | null;
 
 }) => {
   const { user } = useAuth();
@@ -889,6 +890,21 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
     enabled: !!user,
   });
 
+  // Tenant deposit percentage — organisation-scoped, resolved on Step 4 mount
+  const { data: depositSettings, isSuccess: depositSettingsLoaded } = useQuery({
+    queryKey: ["deposit-percentage", orgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("deposit_percentage")
+        .eq("organisation_id", orgId!)
+        .maybeSingle();
+      if (error) console.error("[StepPayment] deposit_percentage fetch error:", error);
+      return { depositPercentage: data?.deposit_percentage ?? null };
+    },
+    enabled: !!orgId,
+  });
+
   const getPrice = (jobType: string, prices: typeof defaultPrices) => {
     if (!prices) return 0;
     if (jobType === "Emergency") return prices.emergency;
@@ -906,6 +922,8 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
   const [depositAmount, setDepositAmount] = useState("");
+  const [depositManuallySet, setDepositManuallySet] = useState(false);
+  const [depositError, setDepositError] = useState<string | null>(null);
   const [sendDepositLink, setSendDepositLink] = useState(true);
   const [sendWA, setSendWA] = useState(true);
 
@@ -917,6 +935,47 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
       setPriceInitialized(true);
     }
   }, [defaultPrices, priceInitialized, jobData.job.jobType]);
+
+  const amountNum = parseFloat(amount) || 0;
+  const depositNum = parseFloat(depositAmount) || 0;
+
+  // Pre-fill deposit as the tenant's configured % of the job amount, unless
+  // the office user has manually edited the field. Waits for the settings
+  // fetch so the calculation never runs against not-yet-loaded data.
+  useEffect(() => {
+    if (payment !== "deposit") return;
+    if (depositManuallySet) return;
+    if (!depositSettingsLoaded) return;
+    setDepositAmount(calcDepositAmount(amountNum, depositSettings?.depositPercentage).toFixed(2));
+  }, [payment, depositManuallySet, depositSettingsLoaded, depositSettings?.depositPercentage, amountNum]);
+
+  // Fresh entry into deposit mode re-offers the calculated default
+  const handlePaymentChange = (next: string) => {
+    if (next !== payment && next !== "deposit") {
+      setDepositManuallySet(false);
+      setDepositError(null);
+    }
+    setPayment(next);
+  };
+
+  const handleCreateJob = () => {
+    if (payment === "deposit" && depositNum > amountNum) {
+      setDepositError("Deposit cannot exceed job amount");
+      return;
+    }
+    setDepositError(null);
+    onSubmit({
+      ...jobData,
+      payment: {
+        amount: amountNum,
+        status: payment,
+        depositAmount: payment === "deposit" ? depositNum : null,
+        balanceDue: payment === "deposit" ? Math.max(0, amountNum - depositNum) : null,
+        sendDepositLink: payment === "deposit" ? sendDepositLink : false,
+      },
+      sendWhatsApp: sendWA,
+    });
+  };
 
   const eng = engineers.find((e: any) => e.id === jobData.schedule.engineerId);
   const tb = DEFAULT_TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock) || { label: jobData.schedule.timeBlock };
@@ -965,7 +1024,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
             {PAYMENT_OPTIONS.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setPayment(p.id)}
+                onClick={() => handlePaymentChange(p.id)}
                 className={`flex-1 p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all cursor-pointer ${
                   payment === p.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
@@ -984,8 +1043,22 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Deposit Amount €</Label>
               <div className="relative mt-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
-                <Input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" className="pl-8" />
+                <Input
+                  type="number"
+                  min="0"
+                  value={depositAmount}
+                  onChange={(e) => {
+                    setDepositAmount(e.target.value);
+                    setDepositManuallySet(true);
+                    setDepositError(null);
+                  }}
+                  placeholder="0"
+                  className={cn("pl-8", depositError && "border-destructive focus-visible:ring-destructive")}
+                />
               </div>
+              {depositError && (
+                <p className="text-[11px] font-semibold text-destructive mt-1">{depositError}</p>
+              )}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Balance Due €</Label>
@@ -1024,7 +1097,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: 
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
           disabled={!orgReady}
-          onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment, depositAmount: payment === "deposit" ? (parseFloat(depositAmount) || 0) : null, balanceDue: payment === "deposit" ? Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)) : null, sendDepositLink: payment === "deposit" ? sendDepositLink : false }, sendWhatsApp: sendWA })}
+          onClick={handleCreateJob}
         >
           {orgReady ? (
             <><CheckCircle2 className="w-5 h-5" /> Create Job</>
@@ -1387,7 +1460,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
-            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} orgReady={orgReady} />
+            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} orgReady={orgReady} orgId={orgId} />
           )}
         </div>
       </SheetContent>
