@@ -1151,7 +1151,22 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   };
 
   const handleSubmit = async (finalData: any) => {
-    if (!user) return;
+    if (!user) {
+      console.log("[NewJobPanel] submit blocked: no user");
+      toast({ title: "Session issue", description: "Session issue — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+    if (!orgReady) {
+      console.log("[NewJobPanel] submit blocked: org not ready");
+      toast({ title: "Still loading", description: "Checking your organisation — please try again in a moment.", variant: "destructive" });
+      return;
+    }
+    if (!orgId) {
+      console.log("[NewJobPanel] submit blocked: orgId null");
+      toast({ title: "Organisation not found", description: "Could not resolve your organisation — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
 
     try {
