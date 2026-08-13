@@ -72,12 +72,20 @@ Deno.serve(async (req) => {
     // Records the send after Make's WhatsApp step, so dedup works on the next
     // call. anon cannot write message_log / customer_activity directly.
     if (mode === "log_followup") {
-      const customer_id: string | undefined = body?.customer_id;
-      if (!customer_id) return json({ error: "customer_id is required for log_followup" }, 400);
+      // customer_id is optional: unmatched callers are logged by phone alone
+      // (message_log.customer_id is nullable). At least one identifier is
+      // required so a log row is always traceable back to a caller.
+      const customer_id: string | null = body?.customer_id ?? null;
+      if (!customer_id && !phone) {
+        return json({ error: "customer_id or phone is required for log_followup" }, 400);
+      }
       const status = body?.status === "failed" ? "failed" : "sent";
-      const content = typeof body?.content === "string" && body.content
+      const baseContent = typeof body?.content === "string" && body.content
         ? body.content
         : "Missed call follow-up WhatsApp sent";
+      const content = customer_id
+        ? baseContent
+        : `${baseContent} (unmatched caller${phone ? `: ${phone}` : ""})`;
 
       await logMessage(supabase, {
         organisation_id,
@@ -89,7 +97,8 @@ Deno.serve(async (req) => {
         sent_by: "telnyx_missed_call",
       });
 
-      if (status === "sent") {
+      // customer_activity.customer_id is NOT NULL — only writable when matched.
+      if (status === "sent" && customer_id) {
         await supabase.from("customer_activity").insert({
           organisation_id,
           customer_id,
@@ -99,7 +108,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      return json({ logged: true });
+      return json({ logged: true, customer_id, phone: phone ?? null });
     }
 
     // ---- mode: lookup -------------------------------------------------------

@@ -1,6 +1,7 @@
 export async function logMessage(supabase: any, data: {
   organisation_id: string;
-  customer_id: string;
+  /** Nullable: unmatched callers/recipients have no customer row yet. */
+  customer_id?: string | null;
   message_type: string;
   content: string;
   status: "sent" | "failed";
@@ -10,7 +11,7 @@ export async function logMessage(supabase: any, data: {
   try {
     await supabase.from("message_log").insert({
       organisation_id: data.organisation_id,
-      customer_id: data.customer_id,
+      customer_id: data.customer_id ?? null,
       message_type: data.message_type,
       content: data.content,
       status: data.status,
