@@ -135,6 +135,20 @@ export interface SumUpWebhookDeps {
     serviceCallId: string;
     checkoutId: string;
   }) => Promise<boolean>;
+  /**
+   * One office alert per TERMINAL failure (declined / expired / cancelled
+   * checkout). Purely a side effect: it never changes the outcome or status, and
+   * a throw from it is swallowed, because a decline must not make SumUp retry.
+   */
+  notifyPaymentFailed?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    checkoutId: string;
+    status: string;
+    amount: number | null;
+  }) => Promise<void>;
   /** One office notification per confirmed payment. */
 
   notifyOffice?: (entry: {
