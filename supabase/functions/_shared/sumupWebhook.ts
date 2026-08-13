@@ -338,6 +338,27 @@ export async function handleSumUpWebhook(
   const status = (view.status ?? "").toUpperCase();
   if (!PAID_STATUSES.has(status)) {
     log("info", `sumup-webhook: checkout ${checkoutId} status ${status || "unknown"} — no payment recorded`);
+
+    // A declined attempt used to be completely invisible: no event row, no job
+    // write, no alert. Nothing here changes the job or claims the event (the
+    // checkout id must stay claimable in case a real payment follows) — it only
+    // tells the office the attempt failed and the link is dead.
+    if (deps.notifyPaymentFailed && TERMINAL_FAILURE_STATUSES.has(status)) {
+      try {
+        await deps.notifyPaymentFailed({
+          organisationId: job.organisation_id,
+          serviceCallId: job.id,
+          customerId: job.customer_id ?? null,
+          jobReference: job.job_reference ?? null,
+          checkoutId,
+          status,
+          amount: view.amount ?? null,
+        });
+      } catch (_e) {
+        log("error", `sumup-webhook: failure alert failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
+      }
+    }
+
     return { outcome: "not_paid", status: 200, jobId: job.id };
   }
 
