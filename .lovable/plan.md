@@ -1,44 +1,47 @@
 # Wire the two Step 4 WhatsApp toggles in the New Job wizard
 
-Two separate defects, confirmed by the audit.
+The audit confirmed the deposit toggle is dead UI state — nothing creates a SumUp checkout, nothing writes `service_calls.payment_link`, no WhatsApp goes out, and the deposit reminder never picks the job up because it requires a `payment_link`.
 
-## Problem 1 — "Send deposit payment link" does nothing
+## 1. Shared deposit-link module
 
-The toggle's value reaches `handleSubmit` as `payment.sendDepositLink` and is then never read. Nothing creates a SumUp checkout, nothing writes `service_calls.payment_link`, no WhatsApp goes out, and — because the deposit reminder job requires a `payment_link` — the customer is never chased either. The job is saved with `deposit_amount` and `balance_due` set and `payment_link` empty.
+New `supabase/functions/_shared/depositLink.ts`, extracted from `accept-quote`'s private `sendDepositPaymentWhatsApp`. It accepts `{ service_call_id, deposit_amount, customer_id, organisation_id }` — the organisation is always passed in by the caller and never resolved inside the module, so it cannot be steered across tenants.
 
-**Fix:** move the deposit-link logic that already works on quote acceptance into a shared module and call it from job creation.
+Behaviour preserved exactly: per-organisation SumUp credentials with no global fallback, per-checkout webhook return URL, `payment_link` + `sumup_checkout_id` written back to the job, tenant 360Messenger key resolved through `_shared/whatsappCredentials.ts`, message log row moving pending → sent/failed, customer activity entry only on a successful send. Same skips as today: no deposit, no job, no organisation, customer opted out, no phone, no SumUp credentials.
 
-- Extract the body of `sendDepositPaymentWhatsApp` (currently private to `accept-quote`) into `supabase/functions/_shared/depositLink.ts`, taking `{ service_call_id, deposit_amount, customer_id }` instead of a quote row. Behaviour stays identical: per-org SumUp credentials (no global fallback), per-checkout webhook return URL, write `payment_link` + `sumup_checkout_id` back to the job, tenant 360Messenger key, pending → sent/failed row in the message log, customer activity entry on success.
-- `accept-quote` keeps working exactly as today, now calling the shared module — same skip conditions (no deposit, no converted job, opted out, no phone, no org, no SumUp creds).
-- New function `send-deposit-link` that takes `service_call_id`, requires a signed-in caller, derives the organisation server-side, reads the deposit amount off the job, and runs the shared module. It does not trust an amount or organisation from the request body.
-- The wizard invokes it after the job insert when the deposit toggle is on and a deposit amount exists.
+## 2. accept-quote delegates to it
 
-## Problem 2 — booking confirmation reports success even when it fails
+`accept-quote` calls the shared module instead of its private copy — a pure extraction, no behaviour change, same background-task handling.
 
-The booking-confirmation call is wired, but its error is only written to the console, and the success screen prints "Booking confirmation sent via WhatsApp ✔" regardless. Silent skips are easy to hit: the customer has no phone, the tenant has no messaging integration row, or the send is rejected upstream.
+## 3. New `send-deposit-link` function
 
-**Fix:** read the result of both sends and tell the truth.
+`verify_jwt = true`. Order of operations:
 
-- Capture the outcome of the booking-confirmation call and of the new deposit-link call.
-- The success screen shows a tick only for sends that actually succeeded; anything that failed or was skipped shows a muted warning line with the reason instead.
-- Add a non-blocking warning toast when either send fails. Job creation itself never fails because of a message failure.
-- One gap worth closing while we're here: the booking confirmation does not check the customer's opt-out flag, unlike every other customer-facing send. Skip and report when the customer has opted out.
+1. Resolve the caller's organisation via `get_my_org_id()`.
+2. Load the job and confirm its organisation matches the caller's **before** reading or writing anything else. A mismatch or missing row returns the same not-found response, so it never reveals that a job exists under another tenant.
+3. Read the deposit amount and customer from that job row — never from the request body.
+4. If the job already has a SumUp checkout that is still pending, stop and report it instead of creating a second one. This is what protects against a double-click or duplicate submit.
+5. Run the shared module with the verified data.
+
+## 4. Wizard wiring
+
+After the job insert succeeds, the wizard calls `send-deposit-link` only when the deposit toggle is on **and** a deposit amount greater than zero exists. Payment status "Invoice After" or "Paid in Full" never sends, regardless of toggle state. Failures surface as a non-blocking warning — job creation itself never fails because a message failed.
 
 ## Out of scope
 
-No change to the job insert itself, to organisation resolution, or to any report query or filter.
+No change to the job insert, to organisation resolution in the wizard, or to any report query or filter.
 
-## Verification
+## Verification (evidence, not self-report)
 
-- Create a job with a deposit and both toggles on: deposit WhatsApp arrives, `payment_link` populated on the job, two sent rows in the message log, success screen shows two ticks.
-- Create a job for a customer with no phone: job saves, success screen shows the skip reason, no message rows marked sent.
-- Create a job with deposit toggle off: no SumUp checkout created at all.
-- Accept a quote with a deposit: unchanged end-to-end, proving the extraction was behaviour-neutral.
-- Clean up all test jobs, checkouts, and message rows afterwards.
+- New K&N test job, Deposit Taken + toggle on: WhatsApp received, the actual job row shown with `payment_link` populated, message log row shown with the correct organisation.
+- Toggle off: message log query proves no send was attempted.
+- Rapid resubmit: query proves only one SumUp checkout exists for that job.
+- Direct call to `send-deposit-link` with a Dublin Gas job as a K&N caller: rejected, actual response shown.
+- Accept a quote with a deposit: unchanged end to end, proving the extraction was behaviour-neutral.
+- Invoice After with the toggle on: no checkout created.
+- All test jobs, checkouts, and message rows removed afterwards.
 
 ## Technical notes
 
-- New: `supabase/functions/_shared/depositLink.ts`, `supabase/functions/send-deposit-link/index.ts` (`verify_jwt = true`, org via `get_my_org_id()`).
-- Edited: `supabase/functions/accept-quote/index.ts` (delegates to the shared module), `supabase/functions/send-booking-confirmation/index.ts` (opt-out check, clearer skip reasons in the response), `src/components/jobs/NewJobPanel.tsx` (invoke the deposit send, track both outcomes, honest success screen).
-- Credential resolution stays on the existing tenant-scoped path used by the quote flow; no change to secret names.
+- New: `_shared/depositLink.ts`, `supabase/functions/send-deposit-link/index.ts` (plus its `verify_jwt = true` block in `supabase/config.toml`).
+- Edited: `supabase/functions/accept-quote/index.ts`, `src/components/jobs/NewJobPanel.tsx`.
 - No database migration and no schema change.
