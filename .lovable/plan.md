@@ -1,47 +1,25 @@
-# BJ-0044b — Honest send outcomes in the New Job wizard
+# Fix the WhatsApp quote send failure ("failed to send a request to the edge function")
 
-Today the Step 4 success screen always shows "Booking confirmation sent via WhatsApp ✔" whenever the toggle was on, even if nothing was sent. This makes both sends report their real outcome and surfaces it in the UI.
+## What the evidence shows
 
-## 1. send-booking-confirmation (backend)
+- Acceptance was never the problem. `accept-quote` was not invoked at all in the window (zero log entries), and it is deployed and healthy (live probe returns the expected `400 Missing quote_id or access_token`). Q-2026-0120's data is intact and acceptance-ready.
+- The failure is the WhatsApp send. `POST /functions/v1/send-quote-whatsapp` at 14:26:19 never completed — the browser reports `Failed to fetch`, there is no HTTP status or response body, and the function booted at 14:26:18 then shut down at 14:27:14 having emitted **zero** log lines. The request body never reached the handler.
+- `send-quote-whatsapp` declares its own local CORS block allowing only:
+  `authorization, x-client-info, apikey, content-type, x-org-id`
+  Other functions in this project allow a wider list that also includes the `x-supabase-client-platform` / `x-supabase-client-runtime` family sent by the current client SDK. A preflight that omits a header the browser intends to send returns 200 but the browser then refuses to issue the POST — exactly the observed signature (preflight 200, no POST row in edge logs, no handler logs, client-side "failed to send a request").
 
-- Add the shared opt-out check (`_shared/optOut.ts`, `fetchOptOutDecision` / `evaluateOptOut`) before sending, matching the other customer-facing automated sends.
-- Return a structured payload instead of bare `success`:
-  - sent: `{ success: true, sent: true }`
-  - skipped: `{ success: true, sent: false, skipped: true, reason: "no_phone" | "opted_out" | "no_integration" | "no_api_key" | "customer_not_found", message: "<human readable>" }`
-  - failed: `{ success: false, sent: false, reason: "whatsapp_send_failed", message: "<provider detail>" }`
-- Keep HTTP 200 for skips (so `functions.invoke` returns data, not an error); keep the existing `message_log` / `edge_function_logs` writes. An opted-out customer logs a skip, no provider call.
-- No change to `verify_jwt` or call signature.
+Note: the browser-blocked-POST diagnosis is consistent with every signal but is not yet proven by a single decisive artifact, because a CORS refusal leaves nothing server-side. Step 1 below proves it before the fix is called done.
 
-## 2. NewJobPanel.tsx
+## Plan
 
-- Capture both `data` and `error` from the `send-booking-confirmation` invoke (currently only `error`), and keep capturing both for `send-deposit-link`.
-- Normalise each into a small result object: `{ status: "sent" | "skipped" | "failed", reason?: string }`, derived from `fnError` (→ failed), `fnData.success === false` (→ failed with returned reason), `fnData.skipped` (→ skipped with reason), else sent.
-- Store both results in state and pass them to `SuccessScreen`. Wrapped in try/catch as today — job creation never fails or rolls back on a send outcome.
+1. **Prove it.** Replay the exact same POST from a scripted browser against the running app and capture the console CORS message plus the request's failure reason. Compare against a send through a function that uses the full shared header list.
+2. **Align the CORS headers.** Bring `send-quote-whatsapp` onto the same allow-list the rest of the project uses, including the client-platform/runtime headers, and add explicit allowed methods. Keep every response (success and error) returning those headers.
+3. **Sweep the siblings.** Search all functions for locally declared CORS blocks with the narrow header list and align them in the same pass, so the next function called from the UI does not fail the same way.
+4. **Re-verify.** Resend the quote WhatsApp for a fresh test quote in K&N and confirm: a real HTTP status and JSON body come back, the function logs its handler lines, and a `message_log` row is written. Then clean up the test quote and rows.
 
-## 3. Success screen
+## Technical notes
 
-- Booking confirmation line: tick only when status is `sent`. When skipped or failed, render a muted warning line (amber, `AlertTriangle`) with the specific reason text returned by the function, e.g. "Booking confirmation not sent — customer opted out of messages".
-- Add the same treatment for the deposit link when that toggle ran.
-- Hide the WhatsApp preview block when the confirmation was not actually sent.
-
-## 4. Toasts
-
-- One non-blocking warning toast per failed/skipped send (default/warning variant for skips, destructive for failures), replacing the current generic deposit-link copy with the reason from the function.
-- The "Job created ✔" toast still fires regardless.
-
-## Verification (test tenant, cleaned up after)
-
-1. Customer with phone + working credentials → two ticks, no warning toast.
-2. Customer with phone cleared → job saves, success screen shows "no phone number" skip, no tick.
-3. Customer with `opted_out = true` → "skipped — opted out".
-4. Cavan Gas with a deliberately broken WhatsApp key → failure state with provider reason, no false success.
-
-All test jobs, customers, message_log and notification rows created during verification are deleted afterwards.
-
-## Note on ExtraWorkSheet.tsx
-
-`src/components/engineer/ExtraWorkSheet.tsx` has the same `fnData.success` gap. Not touched in this task; I will confirm in the report whether this exact pattern should be applied there as a follow-up.
-
-## Tests
-
-Deno unit tests for the new skip/failure classification in the booking-confirmation function, plus a small pure helper for the frontend result normalisation with vitest coverage of the four outcomes.
+- `supabase/functions/send-quote-whatsapp/index.ts` lines 5-8: replace the local `corsHeaders` allow-list with the project's standard list and add `Access-Control-Allow-Methods: POST, OPTIONS`.
+- No change to `accept-quote`, `_shared/depositLink.ts`, or any acceptance/deposit logic — the audit clears that path.
+- No database migration; no schema change.
+- Regression coverage: the send path is a network/header concern, so verification is the live re-send plus edge logs rather than a unit test.
