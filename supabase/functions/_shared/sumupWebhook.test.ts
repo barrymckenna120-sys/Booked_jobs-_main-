@@ -324,27 +324,91 @@ Deno.test("unknown checkout reference writes nothing and is reported, not silent
   assertEquals(h.fetches, 0);
 });
 
-Deno.test("duplicate delivery of the same paid event is a no-op", async () => {
+Deno.test("a prior claimed event under a different checkout id is treated as duplicate", async () => {
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T08:00:00.000Z", deposit_paid: true }),
+    hasOtherClaimedEvent: true,
   });
   const result = await p;
   assertEquals(result.outcome, "duplicate");
+  assertEquals(h.priorEventChecks.length, 1);
   assertEquals(h.updates.length, 0);
   assertEquals(h.activities, 0);
   assertEquals(h.messages, 0);
 });
 
-Deno.test("duplicate deposit delivery does not double-log", async () => {
+Deno.test("duplicate deposit delivery does not double-log when a prior event exists", async () => {
   const { h, result: p } = run({
     jobRow: job({ payment_status: "partial", deposit_paid: true }),
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+    hasOtherClaimedEvent: true,
   });
   const result = await p;
   assertEquals(result.outcome, "duplicate");
   assertEquals(h.updates.length, 0);
   assertEquals(h.activities, 0);
 });
+
+// (a) The mis-stamp bug: deposit_paid was stamped by the New Job wizard with no
+// payment behind it. With no claimed event on record the payment must process.
+Deno.test("mis-stamped deposit_paid with no prior claimed event still processes the payment", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "unpaid", deposit_paid: true, balance_due: 2000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+    hasOtherClaimedEvent: false,
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 1500);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+});
+
+// (c) Layer 1 still wins: the same checkout re-delivered never reaches layer 2.
+Deno.test("same checkout re-delivered is stopped by claimEvent before the prior-event check", async () => {
+  const checks: string[] = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: CHECKOUT_ID }),
+    loadJobByCheckoutId: () => Promise.resolve(job()),
+    fetchCheckout: () =>
+      Promise.resolve({ ok: true, status: "PAID", amount: 2000, checkoutReference: JOB_ID }),
+    claimEvent: () => Promise.resolve(false),
+    hasOtherClaimedEvent: (e) => {
+      checks.push(e.checkoutId);
+      return Promise.resolve(false);
+    },
+    updateJob: (_id, patch) => {
+      updates.push(patch);
+      return Promise.resolve(true);
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(checks, []);
+  assertEquals(updates.length, 0);
+});
+
+// (d) A genuine query failure must be retried, never treated as "no prior event".
+Deno.test("prior-event lookup failure returns 500 and writes nothing", async () => {
+  const { h, result: p } = run({
+    hasOtherClaimedEvent: new Error("prior_event_lookup_failed: 42501 permission denied"),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "duplicate_check_failed");
+  assertEquals(result.status, 500);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+  assertEquals(h.notifications.length, 0);
+});
+
 
 Deno.test("a deposit-paid job can still be settled in full later", async () => {
   const { h, result: p } = run({
