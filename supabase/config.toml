@@ -104,3 +104,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.resolve-document-link]
     verify_jwt = false
+  [functions.send-deposit-link]
+    verify_jwt = true
