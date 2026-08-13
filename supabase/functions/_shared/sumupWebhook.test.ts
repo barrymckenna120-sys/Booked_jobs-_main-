@@ -178,7 +178,7 @@ Deno.test("office is notified once per confirmed payment, with the job reference
 });
 
 Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
-  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }) });
+  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }), hasOtherClaimedEvent: true });
   assertEquals((await dup.result).outcome, "duplicate");
   assertEquals(dup.h.notifications.length, 0);
 
