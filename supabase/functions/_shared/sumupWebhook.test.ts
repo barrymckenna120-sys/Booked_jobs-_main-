@@ -61,6 +61,8 @@ function run(opts: {
    * lookup's answer; Error = a genuine query failure that must be thrown.
    */
   hasOtherClaimedEvent?: boolean | Error;
+  /** Error = the failure alert itself throws; must never change the outcome. */
+  failureAlert?: Error;
 }) {
   const h: Harness = {
     updates: [],
@@ -71,6 +73,8 @@ function run(opts: {
     discoveries: 0,
     loadedById: [],
     priorEventChecks: [],
+    claims: 0,
+    failureAlerts: [],
   };
 
   const result = handleSumUpWebhook({
