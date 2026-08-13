@@ -125,7 +125,18 @@ export interface SumUpWebhookDeps {
     organisationId: string | null;
     serviceCallId: string;
   }) => Promise<boolean>;
+  /**
+   * Idempotency layer 2 signal. True when a DIFFERENT checkout id on this same
+   * job already produced a claimed sumup_webhook_events row — i.e. a real,
+   * verified payment was already recorded for the job. Must THROW on a genuine
+   * query failure so the delivery is retried rather than double-applied.
+   */
+  hasOtherClaimedEvent?: (entry: {
+    serviceCallId: string;
+    checkoutId: string;
+  }) => Promise<boolean>;
   /** One office notification per confirmed payment. */
+
   notifyOffice?: (entry: {
     organisationId: string | null;
     serviceCallId: string;
