@@ -10,6 +10,7 @@ import { formatDateIE } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 
 type Props = {
   open: boolean;
@@ -38,6 +39,20 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
   const customerAccessNotes = job.customer_access_notes && job.customer_access_notes !== job.access_notes
     ? job.customer_access_notes
     : null;
+
+  // Payment wording comes from the shared classifier so the drawer agrees with
+  // the Job Detail badge and the engineer job card.
+  const payment = resolvePaymentSheetState(job);
+  const euro = (n: number) => `€${n.toFixed(2)}`;
+  const paymentTone = payment.case === "B" ? "success" : "warning";
+  const paymentLabel =
+    payment.case === "B"
+      ? "Paid"
+      : payment.case === "A"
+        ? `Deposit Paid — ${euro(payment.balanceDue)} due`
+        : payment.case === "D"
+          ? `Deposit ${euro(payment.depositAmount)} due`
+          : "Unpaid";
 
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
@@ -164,8 +179,8 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Payment</span>
-              <p className={`font-semibold mt-0.5 ${job.deposit_paid ? "text-success" : "text-warning"}`}>
-                {job.deposit_paid ? "Paid" : "Unpaid"}
+              <p className={`font-semibold mt-0.5 ${paymentTone === "success" ? "text-success" : "text-warning"}`}>
+                {paymentLabel}
               </p>
             </div>
             <div>

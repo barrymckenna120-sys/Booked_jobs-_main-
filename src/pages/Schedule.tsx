@@ -97,6 +97,10 @@ export type ScheduleJob = {
   assigned_engineer_id: string | null;
   revenue: number | null;
   deposit_paid: boolean;
+  deposit_required?: boolean | null;
+  deposit_amount?: number | null;
+  balance_due?: number | null;
+  payment_status?: string | null;
   notes: string | null;
   boiler_brand: string | null;
   boiler_model: string | null;
@@ -212,6 +216,10 @@ const Schedule = () => {
         assigned_engineer_id: j.assigned_engineer_id,
         revenue: j.revenue,
         deposit_paid: j.deposit_paid,
+        deposit_required: j.deposit_required ?? null,
+        deposit_amount: j.deposit_amount ?? null,
+        balance_due: j.balance_due ?? null,
+        payment_status: j.payment_status ?? null,
         notes: j.notes,
         boiler_brand: j.boiler_brand || null,
         boiler_model: j.customers?.boiler_make_model || null,
