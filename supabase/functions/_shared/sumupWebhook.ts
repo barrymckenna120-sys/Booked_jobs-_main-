@@ -179,6 +179,13 @@ export interface SumUpWebhookResult {
 
 const PAID_STATUSES = new Set(["PAID", "SUCCESSFUL", "SUCCEEDED"]);
 
+/**
+ * Statuses the customer cannot recover from on this checkout — the attempt is
+ * over and the link is dead, so the office needs telling. PENDING (and any
+ * unknown/empty status) is still in flight and stays silent.
+ */
+const TERMINAL_FAILURE_STATUSES = new Set(["FAILED", "EXPIRED", "CANCELLED", "CANCELED"]);
+
 /** Constant-time-ish comparison so the secret can't be probed byte by byte. */
 function secretsMatch(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
