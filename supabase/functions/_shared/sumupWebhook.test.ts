@@ -34,6 +34,7 @@ interface Harness {
   fetches: number;
   discoveries: number;
   loadedById: string[];
+  priorEventChecks: Array<{ serviceCallId: string; checkoutId: string }>;
 }
 
 function run(opts: {
@@ -47,6 +48,11 @@ function run(opts: {
   discovery?: SumUpCheckoutDiscovery;
   /** Job returned by the id (checkout_reference) lookup. */
   jobById?: SumUpWebhookJob | null;
+  /**
+   * Layer 2 signal. undefined = dependency not supplied at all; boolean = the
+   * lookup's answer; Error = a genuine query failure that must be thrown.
+   */
+  hasOtherClaimedEvent?: boolean | Error;
 }) {
   const h: Harness = {
     updates: [],
@@ -56,16 +62,24 @@ function run(opts: {
     fetches: 0,
     discoveries: 0,
     loadedById: [],
+    priorEventChecks: [],
   };
+
   const result = handleSumUpWebhook({
     expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
     presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
     body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
     loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
+    hasOtherClaimedEvent: opts.hasOtherClaimedEvent === undefined ? undefined : (e) => {
+      h.priorEventChecks.push(e);
+      if (opts.hasOtherClaimedEvent instanceof Error) return Promise.reject(opts.hasOtherClaimedEvent);
+      return Promise.resolve(opts.hasOtherClaimedEvent === true);
+    },
     loadJobById: (jobId) => {
       h.loadedById.push(jobId);
       return Promise.resolve(opts.jobById ?? null);
     },
+
     discoverCheckout: () => {
       h.discoveries++;
       return Promise.resolve(
@@ -164,7 +178,7 @@ Deno.test("office is notified once per confirmed payment, with the job reference
 });
 
 Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
-  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }) });
+  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }), hasOtherClaimedEvent: true });
   assertEquals((await dup.result).outcome, "duplicate");
   assertEquals(dup.h.notifications.length, 0);
 
@@ -324,27 +338,91 @@ Deno.test("unknown checkout reference writes nothing and is reported, not silent
   assertEquals(h.fetches, 0);
 });
 
-Deno.test("duplicate delivery of the same paid event is a no-op", async () => {
+Deno.test("a prior claimed event under a different checkout id is treated as duplicate", async () => {
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T08:00:00.000Z", deposit_paid: true }),
+    hasOtherClaimedEvent: true,
   });
   const result = await p;
   assertEquals(result.outcome, "duplicate");
+  assertEquals(h.priorEventChecks.length, 1);
   assertEquals(h.updates.length, 0);
   assertEquals(h.activities, 0);
   assertEquals(h.messages, 0);
 });
 
-Deno.test("duplicate deposit delivery does not double-log", async () => {
+Deno.test("duplicate deposit delivery does not double-log when a prior event exists", async () => {
   const { h, result: p } = run({
     jobRow: job({ payment_status: "partial", deposit_paid: true }),
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+    hasOtherClaimedEvent: true,
   });
   const result = await p;
   assertEquals(result.outcome, "duplicate");
   assertEquals(h.updates.length, 0);
   assertEquals(h.activities, 0);
 });
+
+// (a) The mis-stamp bug: deposit_paid was stamped by the New Job wizard with no
+// payment behind it. With no claimed event on record the payment must process.
+Deno.test("mis-stamped deposit_paid with no prior claimed event still processes the payment", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "unpaid", deposit_paid: true, balance_due: 2000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+    hasOtherClaimedEvent: false,
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 1500);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+});
+
+// (c) Layer 1 still wins: the same checkout re-delivered never reaches layer 2.
+Deno.test("same checkout re-delivered is stopped by claimEvent before the prior-event check", async () => {
+  const checks: string[] = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: CHECKOUT_ID }),
+    loadJobByCheckoutId: () => Promise.resolve(job()),
+    fetchCheckout: () =>
+      Promise.resolve({ ok: true, status: "PAID", amount: 2000, checkoutReference: JOB_ID }),
+    claimEvent: () => Promise.resolve(false),
+    hasOtherClaimedEvent: (e) => {
+      checks.push(e.checkoutId);
+      return Promise.resolve(false);
+    },
+    updateJob: (_id, patch) => {
+      updates.push(patch);
+      return Promise.resolve(true);
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(checks, []);
+  assertEquals(updates.length, 0);
+});
+
+// (d) A genuine query failure must be retried, never treated as "no prior event".
+Deno.test("prior-event lookup failure returns 500 and writes nothing", async () => {
+  const { h, result: p } = run({
+    hasOtherClaimedEvent: new Error("prior_event_lookup_failed: 42501 permission denied"),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "duplicate_check_failed");
+  assertEquals(result.status, 500);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+  assertEquals(h.notifications.length, 0);
+});
+
 
 Deno.test("a deposit-paid job can still be settled in full later", async () => {
   const { h, result: p } = run({
@@ -544,10 +622,13 @@ Deno.test("fallback: transient discovery failure is retryable and writes nothing
 });
 
 Deno.test("fallback: re-delivery after backfill matches directly and is a no-op", async () => {
-  // Second delivery: the id lookup now hits, and the job is already paid.
+  // Second delivery: the id lookup now hits, and an earlier claimed event exists
+  // for this job under the first checkout id.
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T09:00:00.000Z", deposit_paid: true }),
+    hasOtherClaimedEvent: true,
   });
+
   const result = await p;
   assertEquals(result.outcome, "duplicate");
   assertEquals(h.discoveries, 0);
