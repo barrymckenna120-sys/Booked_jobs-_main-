@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { evaluateOptOut } from "../_shared/optOut.ts";
+import { bookingConfirmationSkip } from "../_shared/bookingConfirmationSkip.ts";
 
 
 serve(async (req) => {
@@ -85,18 +85,10 @@ serve(async (req) => {
     const customer = Array.isArray(custRows) ? custRows[0] : null;
 
     // Shared opt-out / phone guard — same pattern as the other customer-facing sends.
-    const decision = evaluateOptOut(customer);
+    const decision = bookingConfirmationSkip(customer);
     if (decision.skip) {
-      const reason = decision.reason === "customer_opted_out"
-        ? "opted_out"
-        : decision.reason === "no_phone_number"
-          ? "no_phone"
-          : "customer_not_found";
-      const message = reason === "opted_out"
-        ? "Customer opted out of messages"
-        : reason === "no_phone"
-          ? "Customer has no phone number"
-          : "Customer record could not be read";
+      const reason = decision.reason!;
+      const message = decision.message!;
       console.warn("send-booking-confirmation skipped", { service_call_id, customer_id: job.customer_id, reason });
       // Record the skip so the office can see why nothing went out.
       try {
