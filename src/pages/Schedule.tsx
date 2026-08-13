@@ -97,6 +97,10 @@ export type ScheduleJob = {
   assigned_engineer_id: string | null;
   revenue: number | null;
   deposit_paid: boolean;
+  deposit_required?: boolean | null;
+  deposit_amount?: number | null;
+  balance_due?: number | null;
+  payment_status?: string | null;
   notes: string | null;
   boiler_brand: string | null;
   boiler_model: string | null;
