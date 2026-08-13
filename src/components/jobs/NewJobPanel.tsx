@@ -1105,7 +1105,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 /* ── MAIN PANEL ────────────────────────────────────────── */
 const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock, prefilledEngineer, prefilledJobType }: NewJobPanelProps) => {
   const { user } = useAuth();
-  const { orgId } = useOrgId();
+  const { orgId, ready: orgReady } = useOrgId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
