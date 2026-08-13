@@ -31,10 +31,7 @@ serve(async (req) => {
     const { service_call_id } = await req.json();
 
     if (!service_call_id) {
-      return new Response(JSON.stringify({ success: false, error: "Missing service_call_id" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return fail("missing_service_call_id", "Missing service_call_id", 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -54,18 +51,12 @@ serve(async (req) => {
     const scRows = await scRes.json();
     const job = Array.isArray(scRows) ? scRows[0] : null;
     if (!job) {
-      return new Response(JSON.stringify({ success: false, error: "Service call not found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
-      });
+      return fail("job_not_found", "Service call not found", 404);
     }
 
     const orgId = job.organisation_id;
     if (!orgId) {
-      return new Response(JSON.stringify({ success: false, error: "Service call missing organisation_id" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return fail("job_missing_organisation", "Service call missing organisation_id", 400);
     }
 
     // Fetch tenant WhatsApp integration config
