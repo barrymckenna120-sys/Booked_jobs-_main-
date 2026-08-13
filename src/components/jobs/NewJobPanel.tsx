@@ -1284,7 +1284,11 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       }
 
       const eng = engineers.find((e: any) => e.id === finalData.schedule.engineerId);
-      const depositPaid = finalData.payment.status === "paid" || finalData.payment.status === "deposit";
+      // "Deposit Taken" only *requests* a deposit (a SumUp link is created/sent) — it is
+      // not proof of payment. deposit_paid is flipped by the SumUp webhook or an
+      // office/engineer-recorded payment. "Paid in Full" behaviour is unchanged.
+      const depositRequired = finalData.payment.status === "deposit";
+      const depositPaid = finalData.payment.status === "paid";
 
       console.log("[NewJobPanel] Inserting service_call", { customerId, jobType: finalData.job.jobType, date: finalData.schedule.date, engineer: eng?.name });
 
@@ -1303,6 +1307,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         status: "Booked",
         revenue: finalData.payment.amount || null,
         deposit_paid: depositPaid,
+        deposit_required: depositRequired,
         deposit_amount: finalData.payment.status === "deposit" ? (finalData.payment.depositAmount || null) : null,
         balance_due: finalData.payment.status === "deposit" ? (finalData.payment.balanceDue || null) : null,
         source: "Manual",
