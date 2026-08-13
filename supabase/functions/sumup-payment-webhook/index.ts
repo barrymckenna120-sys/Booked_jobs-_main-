@@ -429,6 +429,18 @@ Deno.serve(async (req) => {
             },
           })),
         );
+
+        // SumUp delivers the same failure twice within ~100ms, so the read above
+        // can't win the race — the unique index is the real guard. A 23505 here
+        // means the other delivery already alerted, which is the correct outcome.
+        if (insErr) {
+          if (insErr.code === "23505") {
+            console.log(`sumup-payment-webhook: failure alert already sent for checkout ${e.checkoutId} (raced)`);
+          } else {
+            console.error("sumup-payment-webhook: failure alert insert failed", insErr.message);
+          }
+          return;
+        }
         console.log(`sumup-payment-webhook: failure alert sent for ${ref} (${e.status})`);
       } catch (_e) {
         console.error("sumup-payment-webhook: failure alert insert failed", _e);
