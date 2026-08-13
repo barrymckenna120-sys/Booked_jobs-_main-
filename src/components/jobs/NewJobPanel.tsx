@@ -862,8 +862,9 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 };
 
 /* ── STEP 4: Payment ───────────────────────────────────── */
-const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
-  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void;
+const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: {
+  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void; orgReady?: boolean;
+
 }) => {
   const { user } = useAuth();
   const jt = JOB_TYPES.find((j) => j.id === jobData.job.jobType) || JOB_TYPES[0];
