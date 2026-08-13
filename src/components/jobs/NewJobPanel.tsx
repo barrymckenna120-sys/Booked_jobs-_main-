@@ -862,8 +862,9 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 };
 
 /* ── STEP 4: Payment ───────────────────────────────────── */
-const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
-  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void;
+const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true }: {
+  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void; orgReady?: boolean;
+
 }) => {
   const { user } = useAuth();
   const jt = JOB_TYPES.find((j) => j.id === jobData.job.jobType) || JOB_TYPES[0];
@@ -1022,10 +1023,16 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
+          disabled={!orgReady}
           onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment, depositAmount: payment === "deposit" ? (parseFloat(depositAmount) || 0) : null, balanceDue: payment === "deposit" ? Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)) : null, sendDepositLink: payment === "deposit" ? sendDepositLink : false }, sendWhatsApp: sendWA })}
         >
-          <CheckCircle2 className="w-5 h-5" /> Create Job
+          {orgReady ? (
+            <><CheckCircle2 className="w-5 h-5" /> Create Job</>
+          ) : (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Checking organisation…</>
+          )}
         </Button>
+
       </div>
     </div>
   );
@@ -1098,7 +1105,7 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 /* ── MAIN PANEL ────────────────────────────────────────── */
 const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock, prefilledEngineer, prefilledJobType }: NewJobPanelProps) => {
   const { user } = useAuth();
-  const { orgId } = useOrgId();
+  const { orgId, ready: orgReady } = useOrgId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
@@ -1144,7 +1151,22 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   };
 
   const handleSubmit = async (finalData: any) => {
-    if (!user) return;
+    if (!user) {
+      console.log("[NewJobPanel] submit blocked: no user");
+      toast({ title: "Session issue", description: "Session issue — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+    if (!orgReady) {
+      console.log("[NewJobPanel] submit blocked: org not ready");
+      toast({ title: "Still loading", description: "Checking your organisation — please try again in a moment.", variant: "destructive" });
+      return;
+    }
+    if (!orgId) {
+      console.log("[NewJobPanel] submit blocked: orgId null");
+      toast({ title: "Organisation not found", description: "Could not resolve your organisation — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -1220,12 +1242,17 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         area_code: finalData.job.areaCode || null,
         owner_or_tenant: finalData.job.ownerOrTenant || null,
         access_notes: finalData.job.accessNotes || null,
-      } as any).select("id").single();
+      } as any).select("id, organisation_id, status").single();
       if (jobErr) {
-        console.error("[NewJobPanel] Job insert error:", jobErr);
+        console.error("[NewJobPanel] insert failed:", jobErr);
         throw jobErr;
       }
-      console.log("[NewJobPanel] Job created successfully:", newJob?.id);
+      console.log("[NewJobPanel] insert succeeded:", {
+        id: (newJob as any)?.id,
+        organisation_id: (newJob as any)?.organisation_id,
+        status: (newJob as any)?.status,
+      });
+
 
       // Sync job fields back to existing customer profile
       if (!isNewCustomer) {
@@ -1319,7 +1346,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
-            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} />
+            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} orgReady={orgReady} />
           )}
         </div>
       </SheetContent>
