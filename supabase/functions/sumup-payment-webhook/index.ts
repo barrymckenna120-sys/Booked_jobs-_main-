@@ -352,6 +352,89 @@ Deno.serve(async (req) => {
       }
     },
 
+    // A declined/expired/cancelled checkout: same office/admin recipients as a
+    // confirmed payment, but flagged as a failure so the link can be reissued.
+    notifyPaymentFailed: async (e) => {
+      try {
+        if (!e.organisationId) return;
+
+        // SumUp delivers the same failure event more than once. One alert per
+        // checkout only; if the dedupe read fails we skip rather than duplicate.
+        const { data: existing, error: dupErr } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("job_id", e.serviceCallId)
+          .eq("notification_type", "payment_failed")
+          .eq("metadata->>checkout_id", e.checkoutId)
+          .limit(1);
+        if (dupErr) {
+          console.error("sumup-payment-webhook: failure-alert dedupe read failed", dupErr.message);
+          return;
+        }
+        if ((existing ?? []).length > 0) {
+          console.log(`sumup-payment-webhook: failure alert already sent for checkout ${e.checkoutId}`);
+          return;
+        }
+
+        const { data: staff, error } = await supabase
+          .from("profiles")
+          .select("user_id, role")
+          .eq("organisation_id", e.organisationId)
+          .eq("is_active", true)
+          .in("role", ["office", "admin"]);
+
+        if (error) {
+          console.error("sumup-payment-webhook: staff lookup failed", error.message);
+          return;
+        }
+
+        const recipients = (staff ?? [])
+          .map((r: { user_id: string | null }) => r.user_id)
+          .filter((id): id is string => !!id);
+        if (recipients.length === 0) return;
+
+        const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
+
+        let customerName: string | null = null;
+        if (e.customerId) {
+          const { data: cust } = await supabase
+            .from("customers")
+            .select("name")
+            .eq("id", e.customerId)
+            .maybeSingle();
+          customerName = cust?.name ?? null;
+        }
+
+        const amountText = e.amount && e.amount > 0 ? `€${e.amount.toFixed(2)} ` : "";
+        const reason = e.status === "EXPIRED"
+          ? "the payment link expired"
+          : e.status === "CANCELLED" || e.status === "CANCELED"
+          ? "the customer cancelled the payment"
+          : "the card payment was declined";
+
+        await supabase.from("notifications").insert(
+          recipients.map((userId) => ({
+            recipient_user_id: userId,
+            organisation_id: e.organisationId,
+            job_id: e.serviceCallId,
+            role: "office",
+            notification_type: "payment_failed",
+            title: `Payment failed — ${ref}`,
+            body: `${amountText}card payment on ${ref}${customerName ? ` for ${customerName}` : ""} did not go through — ${reason}. That payment link no longer works; send a new one.`,
+            metadata: {
+              source: "sumup",
+              checkout_id: e.checkoutId,
+              status: e.status,
+              amount: e.amount,
+            },
+          })),
+        );
+        console.log(`sumup-payment-webhook: failure alert sent for ${ref} (${e.status})`);
+      } catch (_e) {
+        console.error("sumup-payment-webhook: failure alert insert failed", _e);
+      }
+    },
+
     log: (level, message, detail) => {
       if (level === "error") console.error(message, detail ?? "");
       else console.log(message, detail ?? "");
