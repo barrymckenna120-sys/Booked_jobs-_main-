@@ -1242,12 +1242,17 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         area_code: finalData.job.areaCode || null,
         owner_or_tenant: finalData.job.ownerOrTenant || null,
         access_notes: finalData.job.accessNotes || null,
-      } as any).select("id").single();
+      } as any).select("id, organisation_id, status").single();
       if (jobErr) {
-        console.error("[NewJobPanel] Job insert error:", jobErr);
+        console.error("[NewJobPanel] insert failed:", jobErr);
         throw jobErr;
       }
-      console.log("[NewJobPanel] Job created successfully:", newJob?.id);
+      console.log("[NewJobPanel] insert succeeded:", {
+        id: (newJob as any)?.id,
+        organisation_id: (newJob as any)?.organisation_id,
+        status: (newJob as any)?.status,
+      });
+
 
       // Sync job fields back to existing customer profile
       if (!isNewCustomer) {
