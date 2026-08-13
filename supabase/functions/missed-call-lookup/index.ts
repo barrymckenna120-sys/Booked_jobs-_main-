@@ -182,17 +182,21 @@ Deno.serve(async (req) => {
 
     const customer = (candidates ?? []).find((c) => last9Digits(c.phone) === key) ?? null;
 
-    // 4. Same-day dedup (matched customers only, by design).
+    // 4. Same-day dedup: by customer_id when matched, otherwise by phone so an
+    //    unknown caller ringing repeatedly gets at most one follow-up per day.
     let already_contacted_today = false;
-    if (customer) {
-      const { data: recent } = await supabase
+    {
+      let q = supabase
         .from("message_log")
         .select("id")
         .eq("organisation_id", organisation_id)
-        .eq("customer_id", customer.id)
         .eq("message_type", "missed_call_followup")
         .gte("sent_at", dublinDayStartISO())
         .limit(1);
+      q = customer
+        ? q.eq("customer_id", customer.id)
+        : q.like("recipient_phone", `%${key}`);
+      const { data: recent } = await q;
       already_contacted_today = (recent ?? []).length > 0;
     }
 
