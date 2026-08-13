@@ -39,6 +39,20 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
     ? job.customer_access_notes
     : null;
 
+  // Payment wording comes from the shared classifier so the drawer agrees with
+  // the Job Detail badge and the engineer job card.
+  const payment = resolvePaymentSheetState(job);
+  const euro = (n: number) => `€${n.toFixed(2)}`;
+  const paymentTone = payment.case === "B" ? "success" : "warning";
+  const paymentLabel =
+    payment.case === "B"
+      ? "Paid"
+      : payment.case === "A"
+        ? `Deposit Paid — ${euro(payment.balanceDue)} due`
+        : payment.case === "D"
+          ? `Deposit ${euro(payment.depositAmount)} due`
+          : "Unpaid";
+
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
     try {
