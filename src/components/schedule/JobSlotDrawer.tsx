@@ -164,8 +164,8 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Payment</span>
-              <p className={`font-semibold mt-0.5 ${job.deposit_paid ? "text-success" : "text-warning"}`}>
-                {job.deposit_paid ? "Paid" : "Unpaid"}
+              <p className={`font-semibold mt-0.5 ${paymentTone === "success" ? "text-success" : "text-warning"}`}>
+                {paymentLabel}
               </p>
             </div>
             <div>
