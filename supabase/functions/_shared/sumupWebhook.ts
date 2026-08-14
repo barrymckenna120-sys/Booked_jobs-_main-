@@ -98,13 +98,21 @@ export interface SumUpWebhookDeps {
   fetchCheckout: (checkoutId: string, organisationId: string) => Promise<SumUpCheckoutView>;
   /** Applies the payment patch. Returns false on failure. */
   updateJob: (jobId: string, patch: Record<string, unknown>) => Promise<boolean>;
-  /** One timeline entry per confirmed payment. */
+  /**
+   * One timeline entry per confirmed payment, and one per terminal failure.
+   * `eventType` defaults to "payment_received" so the success path is unchanged;
+   * the failure path passes "payment_failed" plus the checkout id and status,
+   * which the implementation uses for its own idempotency guard.
+   */
   logActivity?: (entry: {
     organisationId: string | null;
     customerId: string | null;
     serviceCallId: string;
     amount: number;
     fullyPaid: boolean;
+    eventType?: "payment_received" | "payment_failed";
+    checkoutId?: string;
+    status?: string;
   }) => Promise<void>;
   /** One message_log entry per confirmed payment. */
   logMessage?: (entry: {
