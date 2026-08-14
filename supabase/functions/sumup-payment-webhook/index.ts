@@ -19,6 +19,16 @@ import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 const JOB_COLUMNS =
   "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at, job_reference";
 
+/** Timeline wording per terminal checkout status. */
+const FAILURE_REASON_LABEL: Record<string, string> = {
+  FAILED: "Declined",
+  EXPIRED: "Expired",
+  CANCELLED: "Cancelled",
+  CANCELED: "Cancelled",
+};
+
+
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
