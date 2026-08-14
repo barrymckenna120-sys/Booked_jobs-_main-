@@ -24,7 +24,67 @@ export interface SumUpDepositArgs {
   returnUrl?: string;
   /** Injectable for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
+  /**
+   * Attempt-tracking (payment_checkout_attempts) — all optional. Supply
+   * supabaseUrl + service-role headers + organisationId and every checkout is
+   * numbered and recorded. Omit them (unit tests, legacy callers) and the
+   * attempt number falls back to 1 and nothing is written; tracking must never
+   * be able to fail a money path.
+   */
+  supabaseUrl?: string;
+  headers?: Record<string, string>;
+  organisationId?: string | null;
+  /** Test seam replacing the PostgREST calls above. */
+  attemptStore?: CheckoutAttemptStore;
 }
+
+export interface CheckoutAttemptStore {
+  /** Existing attempt rows for this job. */
+  count(serviceCallId: string): Promise<number>;
+  record(row: {
+    serviceCallId: string;
+    organisationId: string;
+    checkoutId: string;
+    checkoutReference: string;
+    status: string | null;
+  }): Promise<void>;
+}
+
+/** PostgREST-backed attempt store; used when supabaseUrl + headers are given. */
+function restAttemptStore(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  doFetch: typeof fetch,
+): CheckoutAttemptStore {
+  const base = supabaseUrl.replace(/\/+$/, "");
+  return {
+    async count(serviceCallId) {
+      const res = await doFetch(
+        `${base}/rest/v1/payment_checkout_attempts?service_call_id=eq.${serviceCallId}&select=id`,
+        { headers: { ...headers, Prefer: "count=exact", Range: "0-0" } },
+      );
+      const range = res.headers.get("content-range") ?? "";
+      await res.text();
+      const total = Number(range.split("/")[1]);
+      return Number.isFinite(total) ? total : 0;
+    },
+    async record(row) {
+      const res = await doFetch(`${base}/rest/v1/payment_checkout_attempts`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_call_id: row.serviceCallId,
+          organisation_id: row.organisationId,
+          checkout_id: row.checkoutId,
+          checkout_reference: row.checkoutReference,
+          status: row.status,
+        }),
+      });
+      await res.text();
+    },
+  };
+}
+
 
 /**
  * Builds the per-checkout webhook callback URL for sumup-payment-webhook.
