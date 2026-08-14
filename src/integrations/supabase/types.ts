@@ -1974,6 +1974,51 @@ export type Database = {
           },
         ]
       }
+      payment_checkout_attempts: {
+        Row: {
+          checkout_id: string
+          checkout_reference: string
+          created_at: string
+          id: string
+          organisation_id: string
+          service_call_id: string
+          status: string | null
+        }
+        Insert: {
+          checkout_id: string
+          checkout_reference: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          service_call_id: string
+          status?: string | null
+        }
+        Update: {
+          checkout_id?: string
+          checkout_reference?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          service_call_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_checkout_attempts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean | null
