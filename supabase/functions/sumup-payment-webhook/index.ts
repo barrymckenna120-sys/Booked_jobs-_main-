@@ -341,6 +341,7 @@ Deno.serve(async (req) => {
             organisation_id: e.organisationId,
             job_id: e.serviceCallId,
             notification_type: "payment_collected",
+            role: "office",
             title: `${kind} — ${ref}`,
             body: `€${e.amount.toFixed(2)} paid by card (SumUp)${e.fullyPaid ? " — full payment" : " — deposit"} on ${ref}${customerName ? ` for ${customerName}` : ""}`,
             metadata: { source: "sumup", amount: e.amount, fully_paid: e.fullyPaid },
