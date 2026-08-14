@@ -794,3 +794,90 @@ Deno.test("a paid checkout is unaffected by the failure path", async () => {
   assertEquals(h.claims, 1);
   assertEquals(h.notifications.length, 1);
 });
+
+// ---------------------------------------------------------------------------
+// BJ-0044 (timeline) — the same terminal failures also write ONE
+// customer_activity entry, so the decline is visible on the customer profile.
+// ---------------------------------------------------------------------------
+
+Deno.test("a FAILED checkout writes one payment_failed timeline entry", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ job_reference: "KN-480", revenue: 22, balance_due: 11 }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "not_paid");
+
+  assertEquals(h.failureActivities, [{
+    organisationId: ORG_ID,
+    customerId: "cust-1",
+    serviceCallId: JOB_ID,
+    amount: 11,
+    fullyPaid: false,
+    checkoutId: CHECKOUT_ID,
+    status: "FAILED",
+  }]);
+  // Still nothing on the money path.
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+});
+
+Deno.test("a failed full-amount attempt is not labelled a deposit", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: 11, balance_due: 11 }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "not_paid");
+  assertEquals(h.failureActivities.length, 1);
+  assertEquals(h.failureActivities[0].fullyPaid, true);
+});
+
+Deno.test("EXPIRED and CANCELLED log once each; non-terminal statuses log nothing", async () => {
+  for (const status of ["FAILED", "EXPIRED", "CANCELLED", "CANCELED"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureActivities.length, 1);
+    assertEquals(h.failureActivities[0].status, status);
+  }
+
+  for (const status of ["PENDING", "", "SOMETHING_NEW"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureActivities.length, 0);
+  }
+});
+
+Deno.test("a failed checkout on a job with no customer writes no timeline entry", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ customer_id: null }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "not_paid");
+  assertEquals(h.failureActivities.length, 0);
+  // The office alert still fires — it does not need a customer row.
+  assertEquals(h.failureAlerts.length, 1);
+});
+
+Deno.test("a throwing failure timeline write never changes the outcome", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+    activityLog: new Error("customer_activity insert exploded"),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+});
+
+Deno.test("a paid checkout logs payment_received only, never payment_failed", async () => {
+  const { h, result: p } = run({ jobRow: job({ job_reference: "KN-465" }) });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.activities, 1);
+  assertEquals(h.failureActivities.length, 0);
+});
