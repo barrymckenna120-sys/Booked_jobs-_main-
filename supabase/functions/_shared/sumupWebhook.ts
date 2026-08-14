@@ -355,13 +355,15 @@ export async function handleSumUpWebhook(
     return { outcome: "verification_failed", status: 502, jobId: job.id, error: view.error };
   }
 
-  if (view.checkoutReference && view.checkoutReference !== job.id) {
+  // Both reference shapes accepted — see jobIdFromCheckoutReference.
+  if (view.checkoutReference && jobIdFromCheckoutReference(view.checkoutReference) !== job.id) {
     log(
       "error",
       `sumup-webhook: checkout ${checkoutId} reference ${view.checkoutReference} does not match job ${job.id}`,
     );
     return { outcome: "reference_mismatch", status: 200, jobId: job.id };
   }
+
 
   const status = (view.status ?? "").toUpperCase();
   if (!PAID_STATUSES.has(status)) {
