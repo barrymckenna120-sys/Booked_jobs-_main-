@@ -213,6 +213,24 @@ function isUuid(value: string): boolean {
   return UUID_RE.test(value);
 }
 
+/**
+ * checkout_reference comes in two shapes and BOTH are permanently supported —
+ * this is not a transitional shim, do not "clean it up":
+ *   - `<uuid>::<attempt>` — current format (BJ-0050a), attempt-numbered so a
+ *     resend gets a distinct reference.
+ *   - `<uuid>` — legacy raw service_calls.id. Checkouts created before BJ-0050a
+ *     still live in SumUp, and their webhooks can arrive late (expiry events,
+ *     retries, a customer paying an old link). Dropping this branch would
+ *     silently lose real payments.
+ */
+export function jobIdFromCheckoutReference(reference: string): string {
+  const trimmed = (reference ?? "").trim();
+  const sep = trimmed.indexOf("::");
+  return sep === -1 ? trimmed : trimmed.slice(0, sep);
+}
+
+
+
 
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
