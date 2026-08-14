@@ -300,20 +300,22 @@ export async function handleSumUpWebhook(
       return { outcome: "verification_failed", status: 502, error: discovered.error };
     }
 
-    const reference = (discovered.reference ?? "").trim();
+    const rawReference = (discovered.reference ?? "").trim();
+    const reference = jobIdFromCheckoutReference(rawReference);
     if (!reference || !isUuid(reference)) {
       log(
         "error",
-        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${reference || "empty"}) — ignoring`,
+        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${rawReference || "empty"}) — ignoring`,
       );
       return { outcome: "no_matching_reference", status: 200 };
     }
 
     const candidate = await deps.loadJobById(reference);
     if (!candidate) {
-      log("error", `sumup-webhook: checkout_reference ${reference} matches no service_call — ignoring`);
+      log("error", `sumup-webhook: checkout_reference ${rawReference} matches no service_call — ignoring`);
       return { outcome: "no_matching_reference", status: 200 };
     }
+
 
     // The credentials that could read the checkout must belong to the same
     // tenant as the job, or one tenant could confirm another's job.
