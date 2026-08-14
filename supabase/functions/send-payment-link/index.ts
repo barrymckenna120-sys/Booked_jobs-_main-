@@ -109,7 +109,16 @@ Deno.serve(async (req) => {
       merchantCode: credsResult.credentials.merchantCode,
       description: `Invoice ${job.invoice_number || service_call_id} - balance due`,
       returnUrl: returnUrl ?? undefined,
+      // Attempt tracking (payment_checkout_attempts) — pass-through only.
+      supabaseUrl,
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+      },
+      organisationId: job.organisation_id,
     });
+
 
     if (!checkout.ok || !checkout.url) {
       console.error("send-payment-link 502: SumUp checkout failed", { reason: checkout.error });

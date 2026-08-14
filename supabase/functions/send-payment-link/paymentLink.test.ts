@@ -57,7 +57,7 @@ Deno.test("uses the invoice's own org credentials (K&N)", async () => {
   assertEquals(captured.body.merchant_code, "KN_MERCH");
   assertEquals(captured.body.amount, 247);
   assertEquals(captured.body.currency, "EUR");
-  assertEquals(captured.body.checkout_reference, "job-kn-1");
+  assertEquals(captured.body.checkout_reference, "job-kn-1::1");
 });
 
 Deno.test("no cross-tenant bleed: Dublin Gas invoice uses Dublin Gas merchant", async () => {

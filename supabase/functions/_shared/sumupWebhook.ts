@@ -213,6 +213,24 @@ function isUuid(value: string): boolean {
   return UUID_RE.test(value);
 }
 
+/**
+ * checkout_reference comes in two shapes and BOTH are permanently supported —
+ * this is not a transitional shim, do not "clean it up":
+ *   - `<uuid>::<attempt>` — current format (BJ-0050a), attempt-numbered so a
+ *     resend gets a distinct reference.
+ *   - `<uuid>` — legacy raw service_calls.id. Checkouts created before BJ-0050a
+ *     still live in SumUp, and their webhooks can arrive late (expiry events,
+ *     retries, a customer paying an old link). Dropping this branch would
+ *     silently lose real payments.
+ */
+export function jobIdFromCheckoutReference(reference: string): string {
+  const trimmed = (reference ?? "").trim();
+  const sep = trimmed.indexOf("::");
+  return sep === -1 ? trimmed : trimmed.slice(0, sep);
+}
+
+
+
 
 /** Pulls a checkout id out of any of SumUp's event body shapes. */
 export function extractCheckoutId(body: unknown): string | null {
@@ -282,20 +300,22 @@ export async function handleSumUpWebhook(
       return { outcome: "verification_failed", status: 502, error: discovered.error };
     }
 
-    const reference = (discovered.reference ?? "").trim();
+    const rawReference = (discovered.reference ?? "").trim();
+    const reference = jobIdFromCheckoutReference(rawReference);
     if (!reference || !isUuid(reference)) {
       log(
         "error",
-        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${reference || "empty"}) — ignoring`,
+        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${rawReference || "empty"}) — ignoring`,
       );
       return { outcome: "no_matching_reference", status: 200 };
     }
 
     const candidate = await deps.loadJobById(reference);
     if (!candidate) {
-      log("error", `sumup-webhook: checkout_reference ${reference} matches no service_call — ignoring`);
+      log("error", `sumup-webhook: checkout_reference ${rawReference} matches no service_call — ignoring`);
       return { outcome: "no_matching_reference", status: 200 };
     }
+
 
     // The credentials that could read the checkout must belong to the same
     // tenant as the job, or one tenant could confirm another's job.
@@ -335,13 +355,15 @@ export async function handleSumUpWebhook(
     return { outcome: "verification_failed", status: 502, jobId: job.id, error: view.error };
   }
 
-  if (view.checkoutReference && view.checkoutReference !== job.id) {
+  // Both reference shapes accepted — see jobIdFromCheckoutReference.
+  if (view.checkoutReference && jobIdFromCheckoutReference(view.checkoutReference) !== job.id) {
     log(
       "error",
       `sumup-webhook: checkout ${checkoutId} reference ${view.checkoutReference} does not match job ${job.id}`,
     );
     return { outcome: "reference_mismatch", status: 200, jobId: job.id };
   }
+
 
   const status = (view.status ?? "").toUpperCase();
   if (!PAID_STATUSES.has(status)) {

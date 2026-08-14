@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   extractCheckoutId,
+  jobIdFromCheckoutReference,
   handleSumUpWebhook,
   type SumUpCheckoutDiscovery,
   type SumUpCheckoutView,
@@ -880,4 +881,25 @@ Deno.test("a paid checkout logs payment_received only, never payment_failed", as
   assertEquals((await p).outcome, "paid");
   assertEquals(h.activities, 1);
   assertEquals(h.failureActivities.length, 0);
+});
+
+// --- BJ-0050a: both reference shapes are permanently supported ---
+
+Deno.test("jobIdFromCheckoutReference: attempt-numbered reference yields the job id", () => {
+  assertEquals(
+    jobIdFromCheckoutReference("11111111-1111-1111-1111-111111111111::3"),
+    "11111111-1111-1111-1111-111111111111",
+  );
+});
+
+Deno.test("jobIdFromCheckoutReference: legacy raw uuid passes through unchanged", () => {
+  assertEquals(
+    jobIdFromCheckoutReference("11111111-1111-1111-1111-111111111111"),
+    "11111111-1111-1111-1111-111111111111",
+  );
+});
+
+Deno.test("jobIdFromCheckoutReference: trims and tolerates junk", () => {
+  assertEquals(jobIdFromCheckoutReference("  abc::1  "), "abc");
+  assertEquals(jobIdFromCheckoutReference(""), "");
 });
