@@ -126,7 +126,20 @@ function run(opts: {
       h.updates.push({ jobId, patch });
       return Promise.resolve(opts.updateOk !== false);
     },
-    logActivity: () => {
+    logActivity: (e) => {
+      if (e.eventType === "payment_failed") {
+        h.failureActivities.push({
+          organisationId: e.organisationId,
+          customerId: e.customerId,
+          serviceCallId: e.serviceCallId,
+          amount: e.amount,
+          fullyPaid: e.fullyPaid,
+          checkoutId: e.checkoutId,
+          status: e.status,
+        });
+        if (opts.activityLog) return Promise.reject(opts.activityLog);
+        return Promise.resolve();
+      }
       h.activities++;
       return Promise.resolve();
     },
