@@ -367,6 +367,34 @@ export async function handleSumUpWebhook(
       }
     }
 
+    // Timeline entry for the same terminal failures. Customer-profile activity
+    // only — no job write, no event claim. Skipped without a customer because
+    // customer_activity.customer_id is NOT NULL. A throw is swallowed for the
+    // same reason as the alert above: a decline must not make SumUp retry.
+    if (
+      deps.logActivity &&
+      TERMINAL_FAILURE_STATUSES.has(status) &&
+      job.customer_id
+    ) {
+      const failedAmount = Number(view.amount ?? 0);
+      const failedRevenue = Number(job.revenue ?? 0);
+      try {
+        await deps.logActivity({
+          organisationId: job.organisation_id,
+          customerId: job.customer_id,
+          serviceCallId: job.id,
+          amount: failedAmount,
+          fullyPaid: failedRevenue > 0 ? failedAmount + 1e-9 >= failedRevenue : failedAmount > 0,
+          eventType: "payment_failed",
+          checkoutId,
+          status,
+        });
+      } catch (_e) {
+        log("error", `sumup-webhook: failure activity log failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
+      }
+    }
+
+
     return { outcome: "not_paid", status: 200, jobId: job.id };
   }
 
