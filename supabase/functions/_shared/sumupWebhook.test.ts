@@ -73,6 +73,8 @@ function run(opts: {
   hasOtherClaimedEvent?: boolean | Error;
   /** Error = the failure alert itself throws; must never change the outcome. */
   failureAlert?: Error;
+  /** Error = the failure timeline write throws; must never change the outcome. */
+  activityLog?: Error;
 }) {
   const h: Harness = {
     updates: [],
@@ -85,6 +87,7 @@ function run(opts: {
     priorEventChecks: [],
     claims: 0,
     failureAlerts: [],
+    failureActivities: [],
   };
 
   const result = handleSumUpWebhook({
