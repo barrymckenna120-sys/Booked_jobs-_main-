@@ -43,7 +43,7 @@ Deno.test("returns hosted_checkout_url and posts the documented SumUp payload", 
   assertEquals(headers["Content-Type"], "application/json");
 
   const body = JSON.parse(captured!.init.body as string);
-  assertEquals(body.checkout_reference, "job-uuid-1");
+  assertEquals(body.checkout_reference, "job-uuid-1::1");
   assertEquals(body.amount, 99);
   assertEquals(body.currency, "EUR");
   assertEquals(body.merchant_code, "MCODE1");
