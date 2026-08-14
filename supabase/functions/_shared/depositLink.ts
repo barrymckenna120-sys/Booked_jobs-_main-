@@ -137,7 +137,12 @@ export async function sendDepositLink(
       apiKey: credsResult.credentials.apiKey,
       merchantCode: credsResult.credentials.merchantCode,
       returnUrl: returnUrl ?? undefined,
+      // Attempt tracking (payment_checkout_attempts) — pass-through only.
+      supabaseUrl,
+      headers,
+      organisationId: orgId,
     });
+
 
     if (!checkout.ok || !checkout.url) {
       console.error("SumUp checkout creation failed:", checkout.error);
