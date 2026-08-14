@@ -136,6 +136,25 @@ export async function createSumUpDepositCheckout(
   // SumUp takes major units with up to 2 decimals, not cents.
   const roundedAmount = Math.round(amount * 100) / 100;
 
+  const store = args.attemptStore ??
+    (args.supabaseUrl && args.headers
+      ? restAttemptStore(args.supabaseUrl, args.headers, doFetch)
+      : null);
+
+  // Attempt number, resolved right before the body is built so callers never
+  // have to know about it. A failed count must not block the payment — it just
+  // degrades to attempt 1.
+  let attemptNumber = 1;
+  if (store) {
+    try {
+      attemptNumber = (await store.count(serviceCallId)) + 1;
+    } catch (_e) {
+      console.error(`sumup-checkout: attempt count failed for ${serviceCallId}: ${(_e as Error).message}`);
+      attemptNumber = 1;
+    }
+  }
+  const checkoutReference = `${serviceCallId}::${attemptNumber}`;
+
   let res: Response;
   try {
     res = await doFetch(SUMUP_CHECKOUTS_URL, {
@@ -145,7 +164,7 @@ export async function createSumUpDepositCheckout(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        checkout_reference: serviceCallId,
+        checkout_reference: checkoutReference,
         amount: roundedAmount,
         currency: "EUR",
         merchant_code: merchantCode,
@@ -177,5 +196,24 @@ export async function createSumUpDepositCheckout(
     return { ok: false, error: `sumup_missing_hosted_checkout_url: ${text.slice(0, 300)}` };
   }
 
-  return { ok: true, url, checkoutId: data?.id ?? undefined };
+  const checkoutId = data?.id ?? undefined;
+
+  // Audit row for the attempt we just created. Swallowed on failure for the
+  // same reason as the count above: the customer already has a live checkout.
+  if (store && checkoutId && args.organisationId) {
+    try {
+      await store.record({
+        serviceCallId,
+        organisationId: args.organisationId,
+        checkoutId,
+        checkoutReference,
+        status: (data?.status as string) ?? null,
+      });
+    } catch (_e) {
+      console.error(`sumup-checkout: attempt record failed for ${checkoutId}: ${(_e as Error).message}`);
+    }
+  }
+
+  return { ok: true, url, checkoutId };
 }
+
