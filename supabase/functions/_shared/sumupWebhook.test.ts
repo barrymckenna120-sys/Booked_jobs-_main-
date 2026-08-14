@@ -43,6 +43,16 @@ interface Harness {
     status: string;
     amount: number | null;
   }>;
+  /** payment_failed timeline entries only; `activities` stays payment_received. */
+  failureActivities: Array<{
+    organisationId: string | null;
+    customerId: string | null;
+    serviceCallId: string;
+    amount: number;
+    fullyPaid: boolean;
+    checkoutId?: string;
+    status?: string;
+  }>;
 }
 
 function run(opts: {
