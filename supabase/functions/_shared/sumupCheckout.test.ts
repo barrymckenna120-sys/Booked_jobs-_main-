@@ -212,3 +212,82 @@ Deno.test("buildSumUpReturnUrl builds a secret-bearing URL, or null when unconfi
   assertEquals(buildSumUpReturnUrl("", "secret"), null);
   assertEquals(buildSumUpReturnUrl(undefined, undefined), null);
 });
+
+// --- BJ-0050a: attempt tracking + reference format ---
+
+Deno.test("attempt number comes from existing rows and the attempt is recorded", async () => {
+  let body: any = null;
+  const fetchImpl = ((_url: string, init: RequestInit) => {
+    body = JSON.parse(init.body as string);
+    return Promise.resolve(
+      jsonResponse({ id: "chk_2", status: "PENDING", hosted_checkout_url: "https://x" }),
+    );
+  }) as unknown as typeof fetch;
+
+  const recorded: unknown[] = [];
+  const result = await createSumUpDepositCheckout({
+    amount: 50,
+    serviceCallId: "job-9",
+    apiKey: "k",
+    merchantCode: "M",
+    organisationId: "org-1",
+    fetchImpl,
+    attemptStore: {
+      count: () => Promise.resolve(1),
+      record: (row) => {
+        recorded.push(row);
+        return Promise.resolve();
+      },
+    },
+  });
+
+  assertEquals(result.ok, true);
+  assertEquals(body.checkout_reference, "job-9::2");
+  assertEquals(recorded, [{
+    serviceCallId: "job-9",
+    organisationId: "org-1",
+    checkoutId: "chk_2",
+    checkoutReference: "job-9::2",
+    status: "PENDING",
+  }]);
+});
+
+Deno.test("no store configured: attempt 1, no row, checkout still succeeds", async () => {
+  let body: any = null;
+  const fetchImpl = ((_url: string, init: RequestInit) => {
+    body = JSON.parse(init.body as string);
+    return Promise.resolve(jsonResponse({ id: "chk_3", hosted_checkout_url: "https://x" }));
+  }) as unknown as typeof fetch;
+
+  const result = await createSumUpDepositCheckout({
+    amount: 10,
+    serviceCallId: "job-10",
+    apiKey: "k",
+    merchantCode: "M",
+    fetchImpl,
+  });
+
+  assertEquals(result.ok, true);
+  assertEquals(body.checkout_reference, "job-10::1");
+});
+
+Deno.test("tracking failures never fail the checkout", async () => {
+  const fetchImpl = (() =>
+    Promise.resolve(jsonResponse({ id: "chk_4", hosted_checkout_url: "https://x" }))) as unknown as typeof fetch;
+
+  const result = await createSumUpDepositCheckout({
+    amount: 10,
+    serviceCallId: "job-11",
+    apiKey: "k",
+    merchantCode: "M",
+    organisationId: "org-1",
+    fetchImpl,
+    attemptStore: {
+      count: () => Promise.reject(new Error("db down")),
+      record: () => Promise.reject(new Error("db down")),
+    },
+  });
+
+  assertEquals(result.ok, true);
+  assertEquals(result.checkoutId, "chk_4");
+});
