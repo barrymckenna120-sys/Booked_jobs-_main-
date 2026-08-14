@@ -98,13 +98,21 @@ export interface SumUpWebhookDeps {
   fetchCheckout: (checkoutId: string, organisationId: string) => Promise<SumUpCheckoutView>;
   /** Applies the payment patch. Returns false on failure. */
   updateJob: (jobId: string, patch: Record<string, unknown>) => Promise<boolean>;
-  /** One timeline entry per confirmed payment. */
+  /**
+   * One timeline entry per confirmed payment, and one per terminal failure.
+   * `eventType` defaults to "payment_received" so the success path is unchanged;
+   * the failure path passes "payment_failed" plus the checkout id and status,
+   * which the implementation uses for its own idempotency guard.
+   */
   logActivity?: (entry: {
     organisationId: string | null;
     customerId: string | null;
     serviceCallId: string;
     amount: number;
     fullyPaid: boolean;
+    eventType?: "payment_received" | "payment_failed";
+    checkoutId?: string;
+    status?: string;
   }) => Promise<void>;
   /** One message_log entry per confirmed payment. */
   logMessage?: (entry: {
@@ -358,6 +366,34 @@ export async function handleSumUpWebhook(
         log("error", `sumup-webhook: failure alert failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
       }
     }
+
+    // Timeline entry for the same terminal failures. Customer-profile activity
+    // only — no job write, no event claim. Skipped without a customer because
+    // customer_activity.customer_id is NOT NULL. A throw is swallowed for the
+    // same reason as the alert above: a decline must not make SumUp retry.
+    if (
+      deps.logActivity &&
+      TERMINAL_FAILURE_STATUSES.has(status) &&
+      job.customer_id
+    ) {
+      const failedAmount = Number(view.amount ?? 0);
+      const failedRevenue = Number(job.revenue ?? 0);
+      try {
+        await deps.logActivity({
+          organisationId: job.organisation_id,
+          customerId: job.customer_id,
+          serviceCallId: job.id,
+          amount: failedAmount,
+          fullyPaid: failedRevenue > 0 ? failedAmount + 1e-9 >= failedRevenue : failedAmount > 0,
+          eventType: "payment_failed",
+          checkoutId,
+          status,
+        });
+      } catch (_e) {
+        log("error", `sumup-webhook: failure activity log failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
+      }
+    }
+
 
     return { outcome: "not_paid", status: 200, jobId: job.id };
   }

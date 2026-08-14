@@ -19,6 +19,16 @@ import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 const JOB_COLUMNS =
   "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at, job_reference";
 
+/** Timeline wording per terminal checkout status. */
+const FAILURE_REASON_LABEL: Record<string, string> = {
+  FAILED: "Declined",
+  EXPIRED: "Expired",
+  CANCELLED: "Cancelled",
+  CANCELED: "Cancelled",
+};
+
+
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -267,6 +277,41 @@ Deno.serve(async (req) => {
 
     logActivity: async (e) => {
       try {
+        if (e.eventType === "payment_failed") {
+          // Idempotency, same reasoning as notifications_payment_failed_once:
+          // key on the CHECKOUT, not on job state. A duplicate delivery of one
+          // declined attempt is skipped; a second decline on a new checkout is
+          // a separate attempt and gets its own row.
+          const checkoutId = e.checkoutId ?? "";
+          const { data: existing, error: existingErr } = await supabase
+            .from("customer_activity")
+            .select("id")
+            .eq("service_call_id", e.serviceCallId)
+            .eq("event_type", "payment_failed")
+            .eq("event_data->>checkout_id", checkoutId)
+            .limit(1);
+          if (existingErr) {
+            console.error("sumup-payment-webhook: failure activity dedup check failed", existingErr.message);
+            return;
+          }
+          if (existing && existing.length > 0) {
+            console.log("sumup-payment-webhook: failure activity already logged", { checkout_id: checkoutId });
+            return;
+          }
+
+          const reason = FAILURE_REASON_LABEL[String(e.status ?? "").toUpperCase()] ?? "Failed";
+          await supabase.from("customer_activity").insert({
+            organisation_id: e.organisationId,
+            customer_id: e.customerId,
+            service_call_id: e.serviceCallId,
+            event_type: "payment_failed",
+            event_label: `Payment failed — €${e.amount} — Card (SumUp) — ${reason}${e.fullyPaid ? "" : " — deposit"}`,
+            event_data: { source: "sumup", checkout_id: checkoutId, status: String(e.status ?? "") },
+            created_by: null,
+          });
+          return;
+        }
+
         await supabase.from("customer_activity").insert({
           organisation_id: e.organisationId,
           customer_id: e.customerId,
