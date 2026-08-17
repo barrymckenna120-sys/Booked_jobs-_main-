@@ -1,63 +1,101 @@
-# BJ-B2a — Remove K&N fallbacks from the two Stripe-link functions (diff proposal)
+# Audit — moving the two Stripe-link functions onto SumUp
 
-Read-only. Nothing implemented yet. Two files only: `send-outstanding-invoice-reminders`, `send-extrawork-payment-link`. No `config.toml`, no SumUp, no webhook or `payment_checkout_attempts` changes.
+Read-only. Findings only, no diff. BJ-B2a is superseded by this scoping.
 
-## Current state (confirmed by reading both files)
+## 1. Reuse fit
 
-`send-outstanding-invoice-reminders/index.ts`
+Both functions can call `resolveSumUpCredentials` + `makeRestSumUpConfigLoader` **as-is**. The resolver takes only an org id and a config loader, has no deposit-specific logic, and already hard-fails with a machine-readable reason (`no_sumup_config_for_organisation`, `sumup_config_missing_merchant_code`, `sumup_config_missing_api_key`) — exactly the skip-and-log signal both functions need.
 
-- L17: `const DEFAULT_STRIPE_LINK = "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c"` — K&N's live link.
-- L59: `const stripeLink = cfg.stripe_payment_link || DEFAULT_STRIPE_LINK` — `cfg` is the `360messenger` config, and `stripe_payment_link` is null for every tenant, so every org falls through to K&N's link.
-- L101 and L104: `K & N Gas Services` and `☎️ 087 368 5252` written as literals directly into the message body — not fallbacks at all, no tenant lookup exists in this function.
-- Reminder counters (`invoice_reminder_count`, `invoice_reminder_sent_at`, `invoice_reminder_2_sent_at`) only advance on a successful send (L143-154).
+`createSumUpDepositCheckout` is *nearly* purpose-agnostic but not quite:
 
-`send-extrawork-payment-link/index.ts`
+- `description` is already an optional arg defaulting to `"Deposit - Job Booking"` (sumupCheckout.ts L305) — each caller can pass its own label, so the SumUp dashboard stays readable. No code change needed for that.
+- `checkout_reference` is `${serviceCallId}::${attemptNumber}` (L289) with **no purpose marker**. Attempt numbers are per-job across all purposes, so a job that had a deposit checkout then an invoice checkout produces `<uuid>::1` and `<uuid>::2` with nothing distinguishing them.
 
-- L61: `const paymentLink = job?.payment_link || "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c"` — same K&N link. Note the job's own `payment_link` is the primary source and is often populated by the SumUp path, so the fallback only fires when the job has no link.
-- L71-72: `company_name ?? "K & N Gas Services"` and `company_phone ?? "087 3686252"` from the `360messenger` config. Cavan Gas has an empty-string `company_phone`, which `??` does not catch, so it renders a blank phone; other orgs have no value and get K&N's.
+That matters because of the reuse guard (see §3) and the webhook (§2). A purpose is needed. Two options:
 
-Available tenant source: `public.settings` has `business_name`, `business_phone` (also legacy `company_name`, `company_phone`, `message_footer`). B1 used `settings.business_name` / `settings.business_phone` with an `edge_function_logs` skip-and-log, which is the pattern to repeat.
+- **A — carry purpose in the reference**: `<uuid>::<attempt>::<purpose>`. Self-describing at the SumUp end, but the parser at sumupWebhook.ts L228 splits on the first `::` and the format is documented as permanently supporting exactly two shapes; a third shape widens a money-path parser.
+- **B — carry purpose in `payment_checkout_attempts`** (recommended): add a `purpose` column, pass it through `SumUpDepositArgs`/`CheckoutAttemptStore.record`, and let the webhook read it from the attempt row it already looks up. Reference format untouched, parser untouched, and the reuse guard can filter on it.
 
-## Proposed diff — send-outstanding-invoice-reminders
+Recommend B.
 
-1. Delete `DEFAULT_STRIPE_LINK` (L17) and the `|| DEFAULT_STRIPE_LINK` fallback (L59). Keep reading `stripe_payment_link` from the existing config as the only source.
-2. Add a per-org `settings` read alongside the existing integration read: `business_name, business_phone`.
-3. Pre-flight guard before the send loop — three independent checks, each skipping the whole run (this function is a batch job, so a missing tenant value means no message should go out at all):
-   - no payment link -> insert into `edge_function_logs` and return `{ success: true, skipped: true, reason: "payment_link_not_configured", sent: 0 }`
-   - blank `business_name` -> `reason: "business_name_not_configured"`
-   - blank `business_phone` -> `reason: "business_phone_not_configured"`
-   Blank means null, empty, or whitespace-only (`?.trim() || ""`), so Cavan Gas's empty string is caught.
-4. Replace the two message literals with `businessName` and `businessPhone`. Message wording, the `☎️` glyph, the emoji spacing and the invoice-date/balance formatting all stay byte-identical apart from the substituted values.
-5. Counters, reminder windows, filters, `log-message` payload and 360Messenger call unchanged. Skipping returns before the loop, so nothing increments.
+## 2. Webhook reconciliation
 
-## Proposed diff — send-extrawork-payment-link
+What happens today on a completed deposit checkout (`_shared/sumupWebhook.ts`):
 
-1. Delete the hardcoded Stripe URL at L61: `const paymentLink = job?.payment_link` only.
-2. Replace the two `??` K&N literals (L71-72) with a `settings` read for the job's org, using `?.trim() || ""` so empty strings are treated as missing. The `360messenger` `company_name` / `company_phone` read can stay as a secondary source ahead of the skip, or be dropped — recommend dropping it so there is one source of truth; flag which you prefer.
-3. Skip-and-log before any message is built or logged, per-request (this function is single-send):
-   - no `paymentLink` -> `edge_function_logs` row + `{ success: false, whatsapp_sent: false, skipped: true, reason: "payment_link_not_configured" }` at status 200
-   - blank business name or phone -> same shape with `business_name_not_configured` / `business_phone_not_configured`
-   Guards run before the `message_log` insert (L132) so a skip leaves no pending row, and before the quote status flip to `Sent` (L191) so a skipped quote is not falsely marked sent.
-4. Message template text unchanged; only the interpolated values change.
-5. Untouched: opt-out and phone checks, `getWhatsAppConfig` / `logWhatsAppFailure`, `message_log` lifecycle, quote status update, `customer_activity` insert.
+1. Parse body, extract `checkout_id`. Find the job by stored `service_calls.sumup_checkout_id`, else fall back to parsing `checkout_reference` (both `<uuid>::<attempt>` and legacy bare `<uuid>` are permanently supported, L217-230); a reference matching no job is ignored.
+2. Terminal FAILED / EXPIRED / CANCELLED -> `payment_failed` notification + `customer_activity` row, then `not_paid`. No job columns touched.
+3. Idempotency layer 1: claim `sumup_webhook_events` by unique `checkout_id`; unclaimed re-delivery is a no-op.
+4. Idempotency layer 2: any prior *claimed* event on the same job under a different checkout id -> duplicate no-op. Deliberately ignores `deposit_paid` / `payment_status`.
+5. Success patch on `service_calls` only:
+   - fully paid (`amount >= revenue`): `payment_status: "paid"`, `paid_at`, `deposit_paid: true`, `balance_due: 0`, `payment_method: "card"`
+   - part paid: `payment_status: "partial"`, `paid_at`, `deposit_paid: true`, `balance_due: revenue - amount`, `payment_method: "card"`
+   - `revenue` backfilled from the paid amount when the job has no total; `sumup_checkout_id` backfilled when matched by reference.
+6. Then `logActivity`, `logMessage`, `notifyOffice`.
 
-## Behaviour after the change
+Consequences for the two new purposes:
 
-| Tenant | Before | After |
-|---|---|---|
-| K&N | works, K&N link | unchanged only if `settings` and a Stripe link are populated for K&N — needs checking before rollout, since `stripe_payment_link` is currently null everywhere |
-| Cavan Gas | would send with K&N's link and a blank phone | clean skip, logged reason |
-| Dublin Gas / others | would send with K&N's link | clean skip, logged reason |
+- **It cannot tell the purposes apart today.** Everything keys off the job row; there is no purpose signal anywhere in the payload or the parsed reference.
+- **`deposit_paid: true` is written unconditionally**, including on the fully-paid branch. An outstanding-invoice payment or an extra-work payment would stamp `deposit_paid` on a job that never took a deposit — wrong data feeding the deposit pills and the New Job wizard's deposit state.
+- **Idempotency layer 2 actively breaks the invoice case.** A job that already took a deposit has a claimed event row; the later outstanding-invoice balance payment arrives under a different checkout id and is classified as a duplicate and **discarded**. This is the single biggest blocker: a real second payment on the same job is currently designed to be rejected.
+- Extra-work payments never flip `quotes.status` to `Accepted`, and invoice payments never touch the `invoices` table or the `invoice_reminder_*` counters.
 
-Consequence to accept explicitly: with `stripe_payment_link` null across the board, **both functions skip for every tenant including K&N** until a link is configured. That is the intended safety posture of "remove fallback only, decide rail later" — no money can be routed to K&N from another tenant — but it does mean outstanding-invoice reminders and extra-work links stop sending until the rail decision lands. Confirm that is acceptable, or say the word and I will include a K&N-only `settings` / config population step so K&N keeps working while the others skip.
+Minimum viable webhook change, once purpose is available from the attempt row:
 
-## Verification (on approval, no live customer sends)
+| Purpose | Should set |
+|---|---|
+| `deposit` | unchanged (current behaviour) |
+| `outstanding_invoice` | `payment_status` paid/partial, `paid_at`, `balance_due`, `payment_method: "card"` — **not** `deposit_paid`; consider marking the linked invoice paid |
+| `extra_work` | same as invoice, plus flip the linked `quotes` row to accepted/paid |
 
-- Static: confirm zero remaining occurrences of `buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c`, `K & N Gas Services` and the two phone literals in both files.
-- Scratch-job only, per the live-path rule: call each function against a test job on a non-K&N org and paste the raw JSON plus the raw `edge_function_logs` row proving the skip. No real customer message.
-- Confirm no `message_log` row and no quote status change is created by a skipped extra-work call.
+And layer 2 must become purpose-and-amount aware rather than "any prior claimed event on this job", otherwise legitimate follow-on payments keep being swallowed. That is a change to live, tested webhook logic (46 existing tests) and is the riskiest part of this migration.
 
-## Also registered, not in this task
+## 3. payment_checkout_attempts reuse guard in a batch context
 
-- Low: remove the stale `[functions.create-sumup-checkout]` declaration from `config.toml`.
-- Critical: SumUp merchant-code fields in `CustomerIntegrationsTab.tsx` — blocks tenant 3 payment readiness, needs its own scoping (fields, validation, whether it test-connects to SumUp).
+`findReusableCheckout` is keyed on `(service_call_id, organisation_id)` and takes the newest attempt row. In `send-outstanding-invoice-reminders` each loop iteration is a different job, so the batch itself is safe — no cross-customer bleed, and per-job serial calls are fine.
+
+Two real problems remain:
+
+- **Cross-purpose reuse.** The guard matches only on latest-attempt + `PENDING` + amount equality. If a job's pending deposit checkout happens to be for the same amount as the outstanding balance, the reminder would hand the customer the *deposit* checkout. Adding `purpose` to the attempt row and filtering the `latest()` lookup on it fixes this, and is the second reason to prefer option B in §1.
+- **Batch throughput.** Every iteration adds a `count`, a `latest`, and a SumUp `GET` before the `POST`, so roughly four extra round-trips per customer inside a single Edge Function invocation. With a large reminder batch this risks the function wall-clock limit. Needs either a per-run cap or chunking; worth measuring the current batch sizes before deciding.
+
+Also worth noting: `send-extrawork-payment-link` currently reads `job.payment_link`, which `_shared/depositLink.ts` writes for deposits (depositLink.ts L168-176). Today an extra-work message can therefore send a customer the deposit link. Moving extra-work onto its own checkout removes that latent bug as a side effect.
+
+## 4. Return URL / return flow
+
+`buildSumUpReturnUrl` (sumupCheckout.ts L125-133) is **not** a customer-facing landing page — it is the secret-bearing `sumup-payment-webhook?s=<SUMUP_WEBHOOK_SECRET>` callback, because SumUp has no account-level webhook setting and the subscription rides on each checkout. It carries no deposit-specific content and is reusable verbatim for both new purposes; no change needed.
+
+It returns `null` when `SUPABASE_URL` or `SUMUP_WEBHOOK_SECRET` is missing, and `createSumUpDepositCheckout` then omits `return_url` entirely — creating a checkout that can **never** be confirmed. `depositLink.ts` only `console.error`s in that case (L130-135). Both new callers should treat a null return URL as a hard skip-and-log rather than proceeding, and the deposit path arguably should too (separate ticket).
+
+There is no post-payment customer landing page anywhere in the current flow — the customer just sees SumUp's own confirmation. That is the same experience for all three purposes, so nothing new is required, but if a branded thank-you page is wanted it is new work, not part of this migration.
+
+## 5. K&N behaviour
+
+K&N's row (`merchant_code MBBMEYG7`, `api_key_secret: SUMUP_API_KEY`, `SUMUP_API_KEY` present in secrets) satisfies the resolver with **no additional config** — the resolver is purpose-blind. So yes, K&N works immediately for both functions on the credential side.
+
+One caveat, unverified: I have not confirmed whether K&N's row points at sandbox or live credentials. Earlier in this project a K&N SumUp deposit went missing precisely because the integration was on `sandbox`. Confirming which environment `SUMUP_API_KEY` currently holds should be step one of the build, before any live-path check.
+
+Every other tenant (Dublin Gas, Cavan Gas, Webliveview, both Wexford orgs) has no `sumup` row and gets a clean skip-and-log — the acceptance criterion is met by the resolver's existing no-global-fallback design, no new guard needed.
+
+## 6. Blast radius
+
+| File | Reason |
+|---|---|
+| `_shared/sumupCheckout.ts` | Add `purpose` to args, thread it into `CheckoutAttemptStore.record` and the `latest()` reuse filter |
+| `_shared/sumupWebhook.ts` | Read purpose from the attempt row; branch the success patch per purpose; make idempotency layer 2 purpose-aware so follow-on payments are not discarded |
+| `sumup-payment-webhook/index.ts` | Supply the new attempt-row lookup dependency to the shared module |
+| `send-outstanding-invoice-reminders/index.ts` | Replace `DEFAULT_STRIPE_LINK` and the config link with a per-job SumUp checkout; add `settings`-sourced name/phone and skip-and-log |
+| `send-extrawork-payment-link/index.ts` | Same, plus stop reusing `job.payment_link` as the payment source |
+| Migration: `payment_checkout_attempts` | Add nullable `purpose` column (existing rows read as `deposit`) |
+| `_shared/sumupCheckout.test.ts`, `_shared/sumupWebhook.test.ts` | Extend the 46 existing money-path tests to cover the new purposes and the revised layer-2 rule |
+| `_shared/depositLink.ts` | Pass `purpose: "deposit"` explicitly so the deposit path is not the implicit default |
+
+Not touched: `config.toml`, `accept-quote`, `send-deposit-link`, `send-payment-link` (beyond the shared-module signature), any UI.
+
+## Recommendation before a diff
+
+This is a bigger change than B2a was, and the highest-risk piece is not the two functions — it is making webhook idempotency layer 2 purpose-aware, since today it is designed to reject a second payment on the same job. Suggest splitting into two shippable steps:
+
+1. **Purpose plumbing**: `purpose` column + shared-module threading + webhook branch and revised layer 2, with tests, no caller behaviour change (everything stays `deposit`).
+2. **Cut the two functions over** to SumUp once the webhook can reconcile them correctly.
+
+Also still open from earlier: whether the K&N Stripe fallbacks should be removed *now* as an interim safety fix, since this migration will take longer than a one-line deletion and until it lands every non-K&N tenant using those two functions still points at K&N's live Stripe link.
