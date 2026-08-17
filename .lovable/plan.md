@@ -25,7 +25,7 @@ K&N Gas Services
 {{phone}}
 ```
 
-Today, line 76-79 uses this as the payment **link**, so K&N's live invoice message renders `Pay securely here: Hi {{name}}, thanks for having us today!...` — the raw template, and no actual Stripe link. This is a pre-existing production bug, not something the change introduces. Keeping `template_payment_link` as the link source would make it permanent.
+Line 76-79 uses this as the payment **link**, so the first real K&N invoice send would print `Pay securely here: Hi {{name}}, thanks for having us today!...` — the raw template, and no actual Stripe link. Keeping `template_payment_link` as the link source would make that permanent.
 
 ### Finding 2: the real per-tenant payment link already exists elsewhere
 
