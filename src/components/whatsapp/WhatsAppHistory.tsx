@@ -169,13 +169,21 @@ const WhatsAppHistory = ({
         {!loading && visible.map((m) => (
           <div key={`${m.source}-${m.id}`} className="border-l-2 border-border pl-4 space-y-1">
             <div className="flex items-center justify-between gap-2">
-              <Badge variant="secondary" className="text-xs font-medium">
-                {friendlyType(m.message_type)}
-              </Badge>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Badge variant="secondary" className="text-xs font-medium">
+                  {friendlyType(m.message_type)}
+                </Badge>
+                {highlightJobId && m.related_id === highlightJobId && (
+                  <Badge variant="outline" className="text-xs font-medium shrink-0">
+                    This job
+                  </Badge>
+                )}
+              </div>
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {statusIcon[m.status] || "📤"} {m.status}
               </span>
             </div>
+
             <p className="text-xs text-muted-foreground">
               {formatTimestamp(m.timestamp)}
               {" · "}
