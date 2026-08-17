@@ -83,9 +83,10 @@ Deno.serve(async (req) => {
     // Fetch business name from settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
-      .select("business_name, message_footer")
+      .select("business_name, message_footer, cert_prefix")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
+
 
     // Resolve tenant public URL for the receipt keyed by access_token;
     // null when the org has no public_domain configured — we still send
@@ -99,7 +100,10 @@ Deno.serve(async (req) => {
 
     const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
-    const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
+    // BJ-B3b: tenant-neutral job-ref fallback — org's own cert_prefix, else a generic label.
+    const refPrefix = String(settings?.cert_prefix ?? "").trim();
+    const shortId = job.id.slice(0, 6).toUpperCase();
+    const jobRef = job.job_reference || (refPrefix ? `${refPrefix}-${shortId}` : `Job ${shortId}`);
     const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "invoice" ? "Invoice" : "Cash";
     const receiptNum = job.receipt_number || "";
