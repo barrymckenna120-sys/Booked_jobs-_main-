@@ -87,7 +87,38 @@ serve(async (req) => {
       );
     }
 
-    let tallyFormBase = "https://tally.so/r/RGJDy4";
+    const logClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const logSkip = async (reason: string, detail: string) => {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            function_name: "send-warranty-whatsapp",
+            error_message: `SKIPPED: ${reason} — ${detail}`,
+            payload: { customer_id, message_type, organisation_id: orgId, phone: messengerPhone },
+          }),
+        });
+      } catch (_logErr) { /* non-critical */ }
+      await logMessage(logClient, {
+        organisation_id: orgId,
+        customer_id,
+        message_type,
+        content: `Skipped: ${reason} — ${detail}`,
+        status: "failed",
+        channel: "whatsapp",
+        recipient_phone: `+${messengerPhone}`,
+      });
+    };
+
+    // Tally renewal form URL must be configured per-org. No cross-tenant fallback.
+    let tallyFormBase: string | null = null;
     try {
       const tiTallyRes = await fetch(
         `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.tally&select=config&limit=1`,
@@ -97,8 +128,22 @@ serve(async (req) => {
       const cfg = Array.isArray(tiTallyRows) ? tiTallyRows[0]?.config : null;
       if (cfg?.renewal_form_url) tallyFormBase = cfg.renewal_form_url;
     } catch (_lookupErr) {
-      // Non-critical — fall back to default
+      // Treated as missing — guard below skips.
     }
+
+    if (!tallyFormBase) {
+      await logSkip("missing_renewal_form_url", "tenant_integrations(tally).config.renewal_form_url is not set for this organisation");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "missing_renewal_form_url",
+          organisation_id: orgId,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
 
     // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
     const wa = await fetchWhatsappApiKey(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, orgId);
