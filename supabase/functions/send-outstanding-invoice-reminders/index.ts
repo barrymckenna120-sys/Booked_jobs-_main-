@@ -129,10 +129,10 @@ Deno.serve(async (req) => {
       const balance = Number(j.balance_due || 0).toFixed(2);
 
       const message =
-        `Hi ${firstName}, this is a friendly reminder from K & N Gas Services that you have an outstanding balance of €${balance} for work completed on ${invoiceDate}.\n\n` +
+        `Hi ${firstName}, this is a friendly reminder from ${businessName} that you have an outstanding balance of €${balance} for work completed on ${invoiceDate}.\n\n` +
         `Pay securely here: ${stripeLink}\n\n` +
         `If you have already made payment please ignore this message. Any questions reply to this message.\n\n` +
-        `K & N Gas Services ☎️ 087 368 5252`;
+        `${businessName} ☎️ ${businessPhone}`;
 
       const formData = new FormData();
       formData.append("phonenumber", phone);
