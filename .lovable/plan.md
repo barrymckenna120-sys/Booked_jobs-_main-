@@ -1,15 +1,29 @@
-Landline field on CustomerDetail Contact Information card
+BJ-0054: Add Boiler Location to CustomerDetail Boiler Information card
 
-Current state (verified by reading src/pages/CustomerDetail.tsx):
-- The Contact Information card already renders a Landline field at line 413:
-  `<CustomerFormField label="Landline (optional)" id="landline_phone" ... />`
-- It sits directly below Mobile Number in the same two-column grid.
-- Blur validation uses `validateLandline` (7–15 digit sanity, no format enforcement) at line 201.
-- `validateAll()` at line 215 includes the same landline validation.
-- Save path is generic: `handleChange` updates `form.landline_phone`, and `buildCustomerUpdatePayload(form, originalForm)` will include it if changed. No special handling is required.
+Scope: src/pages/CustomerDetail.tsx, Boiler Information card only.
+
+Current state (verified by reading source):
+- The `customers.boiler_location` column exists and is already typed in `src/integrations/supabase/types.ts`.
+- CustomerDetail.tsx fetches the full customer row (`select("*")` at line 171), so `form.boiler_location` is already available in state.
+- The Boiler Information card (lines 449–692) currently shows: Boiler Brand, Boiler Model, Boiler Type, Installation Date, Warranty Years, Warranty Expiry, Warranty Status. It does **not** show Boiler Location.
+- Save path is generic: `handleChange` mutates `form`, and `buildCustomerUpdatePayload(form, originalForm)` at line 227 will include `boiler_location` if changed. No special save wiring is needed.
 
 Plan
-1. Verify the field is visible and editable in the live preview on an existing customer record.
-2. Confirm that changing the Landline value and pressing Save persists to `customers.landline_phone`.
-3. If the field is missing in the live preview despite being in source, investigate build/deploy or PWA cache gap; otherwise, no further code changes are needed.
-4. (Optional) Confirm the row-level layout matches the user's preference for "next to or below Mobile Number".
+1. Add a "Boiler Location" field to the Boiler Information card in `CustomerDetail.tsx`, placed after Boiler Model and before Boiler Type (or immediately after, depending on logical grouping). Use the same `space-y-1.5` wrapper, `Label`, and `Input` pattern as the existing Boiler Brand/Model fields.
+2. Bind it to `form.boiler_location` with `handleChange("boiler_location", value)`. No validation is required beyond the implicit max-length on the Input; mirror the existing brand/model fields.
+3. Verify the change compiles and the field appears and persists in the preview.
+4. No database migration is required.
+
+Boiler Location audit across display surfaces
+Surfaces that already show Boiler Location:
+- JobDetail.tsx (customer header) — yes
+- IncomingJobs.tsx / JobReviewPanel.tsx — yes
+- EngineerJobDetail.tsx (engineer mobile view) — yes
+- Engineer JobDetailSheet.tsx — yes
+- Schedule.tsx / JobSlotDrawer.tsx (schedule job card panel) — yes
+- NewJobPanel.tsx (New Job wizard) — yes
+
+Surfaces that still lack Boiler Location:
+- CustomerDetail.tsx Boiler Information card — this is the target fix.
+- AddCustomerSheet.tsx — intentionally minimal; it only has Boiler Type, Owner/Tenant, and Warranty Years, with no Brand/Model/Location/Installation Date fields. Out of scope for this card unless you want to expand the add-form boiler section.
+- Import/Export flows (ImportCustomers.tsx, DataTab export, generateTemplate.ts) — these are data import/export templates, not display screens; they do not currently include boiler_location.
