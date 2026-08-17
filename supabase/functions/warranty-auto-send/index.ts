@@ -36,7 +36,7 @@ serve(async (req) => {
   try {
     // Process all active organisations
     const orgsResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/organisations?select=id&is_active=eq.true`,
+      `${SUPABASE_URL}/rest/v1/organisations?select=id&is_archived=eq.false`,
       { headers }
     );
     const organisations = await orgsResponse.json();
