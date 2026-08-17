@@ -83,9 +83,10 @@ Deno.serve(async (req) => {
     // Fetch business name from settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
-      .select("business_name, message_footer")
+      .select("business_name, message_footer, cert_prefix")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
+
 
     // Resolve tenant public URL for the receipt keyed by access_token;
     // null when the org has no public_domain configured — we still send
