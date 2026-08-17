@@ -172,8 +172,18 @@ export default function CustomerIntegrationsTab({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
         <CardTitle>Customer Integrations</CardTitle>
+        {orgId && onViewMessaging && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onViewMessaging(orgId)}
+          >
+            View message status
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-1.5">
