@@ -50,7 +50,25 @@ serve(async (req) => {
     );
     const settings = await settingsRes.json();
     const officeNumber = Array.isArray(settings) ? (settings[0]?.whatsapp_number || settings[0]?.business_phone) : null;
-    const messageFooter = (Array.isArray(settings) && settings[0]?.message_footer) ? settings[0].message_footer : "K&N Gas Services";
+    // BJ-B3b: no tenant literal fallback. Internal office alert, so a blank
+    // footer degrades (footer line omitted) rather than blocking the alert.
+    const messageFooter = String(
+      (Array.isArray(settings) ? settings[0]?.message_footer : "") ?? "",
+    ).trim();
+    if (!messageFooter) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers: dbHeaders,
+          body: JSON.stringify({
+            function_name: "quote-accepted-alert",
+            error_message: "Skipped footer: message_footer_not_configured for organisation",
+            payload: { quote_id, user_id: quote.user_id, reason: "message_footer_not_configured" },
+          }),
+        });
+      } catch { /* non-critical */ }
+    }
+
 
     if (!officeNumber) {
       return new Response(JSON.stringify({ success: true, sent: false, reason: "No office number configured" }), {
