@@ -14,7 +14,9 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const DEFAULT_STRIPE_LINK = "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+// BJ-B2a: no hardcoded payment-link or branding fallbacks. A tenant without its
+// own payment link / business details is skipped and logged — never routed to
+// another tenant's payment account.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -56,7 +58,36 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const cfg = (integration?.config as any) || {};
-    const stripeLink = cfg.stripe_payment_link || DEFAULT_STRIPE_LINK;
+    const stripeLink = String(cfg.stripe_payment_link ?? "").trim();
+
+    // 2b. Tenant business details — single source of truth, no K&N literals.
+    const { data: orgSettings } = await supabase
+      .from("settings")
+      .select("business_name, business_phone")
+      .eq("organisation_id", organisation_id)
+      .maybeSingle();
+
+    const businessName = String(orgSettings?.business_name ?? "").trim();
+    const businessPhone = String(orgSettings?.business_phone ?? "").trim();
+
+    // Pre-flight guards (BJ-B2a). Batch job: a missing tenant value stops the
+    // whole run before any message is sent and before any counter moves.
+    const missing = !stripeLink
+      ? "payment_link_not_configured"
+      : !businessName
+        ? "business_name_not_configured"
+        : !businessPhone
+          ? "business_phone_not_configured"
+          : null;
+
+    if (missing) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-outstanding-invoice-reminders",
+        error_message: `Skipped: ${missing} for organisation`,
+        payload: { organisation_id, reason: missing },
+      });
+      return json({ success: true, skipped: true, reason: missing, sent: 0 });
+    }
 
     const keyRes = await fetchWhatsappApiKeyWithClient(supabase, organisation_id);
     if (!keyRes.apiKey) {
@@ -98,10 +129,10 @@ Deno.serve(async (req) => {
       const balance = Number(j.balance_due || 0).toFixed(2);
 
       const message =
-        `Hi ${firstName}, this is a friendly reminder from K & N Gas Services that you have an outstanding balance of €${balance} for work completed on ${invoiceDate}.\n\n` +
+        `Hi ${firstName}, this is a friendly reminder from ${businessName} that you have an outstanding balance of €${balance} for work completed on ${invoiceDate}.\n\n` +
         `Pay securely here: ${stripeLink}\n\n` +
         `If you have already made payment please ignore this message. Any questions reply to this message.\n\n` +
-        `K & N Gas Services ☎️ 087 368 5252`;
+        `${businessName} ☎️ ${businessPhone}`;
 
       const formData = new FormData();
       formData.append("phonenumber", phone);
