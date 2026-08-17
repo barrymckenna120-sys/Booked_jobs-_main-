@@ -25,10 +25,14 @@ describe("whatsappCatalogue — drift detection", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("loaded the Edge Function sources", () => {
+    expect(Object.keys(FUNCTION_SOURCES).length).toBeGreaterThan(20);
+  });
+
   it("points every entry at an Edge Function that exists", () => {
-    const missing = WHATSAPP_CATALOGUE.filter(
-      (m) => !existsSync(join(FUNCTIONS_DIR, m.fn, "index.ts")),
-    ).map((m) => `${m.id} -> ${m.fn}`);
+    const missing = WHATSAPP_CATALOGUE.filter((m) => !sourceFor(m.fn)).map(
+      (m) => `${m.id} -> ${m.fn}`,
+    );
     expect(missing).toEqual([]);
   });
 
@@ -36,7 +40,7 @@ describe("whatsappCatalogue — drift detection", () => {
     const mismatched: string[] = [];
     for (const m of WHATSAPP_CATALOGUE) {
       if (!m.messageType) continue;
-      const src = readFileSync(join(FUNCTIONS_DIR, m.fn, "index.ts"), "utf8");
+      const src = sourceFor(m.fn) || "";
       if (!src.includes(`"${m.messageType}"`) && !src.includes(`'${m.messageType}'`)) {
         mismatched.push(`${m.id}: "${m.messageType}" not found in ${m.fn}/index.ts`);
       }
