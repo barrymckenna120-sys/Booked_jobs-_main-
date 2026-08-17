@@ -1,14 +1,32 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  CheckCircle,
+  Wrench,
+  Shield,
+  ShieldOff,
+  Calendar,
+  Hash,
+  MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const ROW_ICONS: Record<string, typeof Wrench> = {
+  "Make & Model": Wrench,
+  Warranty: Shield,
+  "Next Service Due": Calendar,
+  GPRN: Hash,
+};
 
 const formatDate = (d: string | null) => {
   if (!d) return "—";
   const date = new Date(d.includes("T") ? d : d + "T00:00:00");
   return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
 };
+
 
 const PublicReceipt = () => {
   const { receiptNumber } = useParams<{ receiptNumber: string }>();
@@ -150,29 +168,67 @@ const PublicReceipt = () => {
 
           {showDetailsSection && (
             <div className="border-t border-gray-100 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {hasBoiler && (
-                <div className={!hasNotes ? "sm:col-span-2" : undefined}>
-                  <p className="text-gray-500 text-xs uppercase tracking-wide">Boiler Details</p>
-                  <div className="mt-2 space-y-2">
-                    {boilerRows.map((row) => (
-                      <div key={row.label}>
-                        <p className="text-gray-500 text-xs uppercase tracking-wide">{row.label}</p>
-                        <p className="font-semibold text-gray-900 text-sm">{row.value}</p>
+              <div className={!hasNotes ? "sm:col-span-2" : undefined}>
+                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wide">
+                  Boiler Details
+                </p>
+                <div className="mt-3 space-y-3">
+                  {boilerRows.map((row) => {
+                    const Icon = ROW_ICONS[row.label] || Wrench;
+                    const isWarranty = row.label === "Warranty";
+                    const warrantyActive = isWarranty && row.value.startsWith("Under Warranty");
+                    const RowIcon = isWarranty ? (warrantyActive ? Shield : ShieldOff) : Icon;
+                    return (
+                      <div key={row.label} className="flex items-start gap-2">
+                        <RowIcon
+                          className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                            warrantyActive ? "text-success" : "text-muted-foreground"
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wide">
+                            {row.label}
+                          </p>
+                          <p
+                            className={`text-[13px] font-semibold break-words ${
+                              isWarranty
+                                ? warrantyActive
+                                  ? "text-success"
+                                  : "text-muted-foreground"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {row.value}
+                          </p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
+                  {!hasBoiler && (
+                    <p className="text-[12px] italic text-muted-foreground">No details on file</p>
+                  )}
                 </div>
-              )}
-              {hasNotes && (
-                <div className={!hasBoiler ? "sm:col-span-2" : undefined}>
-                  <p className="text-gray-500 text-xs uppercase tracking-wide">Notes</p>
-                  <div className="mt-2 bg-gray-50 border border-gray-200 rounded-xl p-3">
-                    <p className="text-sm text-gray-700 whitespace-pre-line">{notes}</p>
+              </div>
+              <div className={!hasBoiler ? "sm:col-span-2" : undefined}>
+                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wide mb-2 sm:text-right">
+                  Notes
+                </p>
+                {hasNotes ? (
+                  <div className="bg-accent border border-accent-foreground/20 rounded-lg px-3 py-2.5">
+                    <div className="flex items-start gap-1.5">
+                      <MessageSquare className="w-3 h-3 mt-0.5 shrink-0 text-accent-foreground" />
+                      <p className="text-[12px] leading-snug text-foreground/80 whitespace-pre-line">
+                        {notes}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-[12px] italic text-muted-foreground sm:text-right">—</p>
+                )}
+              </div>
             </div>
           )}
+
         </div>
 
 
