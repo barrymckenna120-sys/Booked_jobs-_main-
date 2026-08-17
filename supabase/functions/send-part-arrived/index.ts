@@ -101,20 +101,35 @@ serve(async (req) => {
       );
     }
 
-    // Fetch message_footer from settings (by organisation_id) with org-aware fallbacks
-    let messageFooter = "our team";
+    // Fetch message_footer from settings (by organisation_id) with org-aware fallbacks.
+    // Office-initiated one-off send: degrade (omit footer) rather than block the send.
+    let messageFooter = "";
     const settingsRes = await fetch(
       `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer,business_name,company_name&limit=1`,
       { headers }
     );
     const settings = await settingsRes.json();
     if (Array.isArray(settings) && settings[0]) {
-      messageFooter = settings[0].message_footer || settings[0].business_name || settings[0].company_name || messageFooter;
+      messageFooter = (settings[0].message_footer || settings[0].business_name || settings[0].company_name || "").trim();
+    }
+    if (!messageFooter) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            function_name: "send-part-arrived",
+            error_message: `Branding not configured for org ${orgId} — sent without footer`,
+            payload: { organisation_id: orgId, job_id, reason: "message_footer_not_configured", degraded: true },
+          }),
+        });
+      } catch { /* best-effort */ }
     }
 
     const firstName = customer_name.split(" ")[0];
     const baseMessage = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.`;
-    const message = `${baseMessage}\n\n${messageFooter}`;
+    const message = messageFooter ? `${baseMessage}\n\n${messageFooter}` : baseMessage;
+
 
     // Log to message_log
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
