@@ -43,6 +43,8 @@ export interface SendDepositLinkResult {
   skipped?: string;
   sent?: boolean;
   paymentLink?: string;
+  /** True when an existing PENDING checkout was reused instead of created. */
+  reused?: boolean;
   error?: string;
 }
 
