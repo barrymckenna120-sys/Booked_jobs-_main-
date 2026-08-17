@@ -88,7 +88,21 @@ Checked against live data — none of the three can flood a backlog, because all
 
 So the first successful run is expected to be a no-op, and thereafter only genuinely fresh quotes/installs get messaged. The trade-off to note: the same narrow windows mean a day skipped by an outage is lost permanently rather than caught up — that is the existing 24-hour-window gap already documented as its own task, not something this fix changes.
 
+
+## Multi-tenant genericity check — one blocking gap found
+
+Grepped all four functions plus the shared helpers for UUID literals and tenant-specific assumptions: no hardcoded organisation ID anywhere, and the only remaining tenant-specific literal is the known Tally fallback in `send-warranty-whatsapp`.
+
+- `quote-followup-day3` / `day6`: fully generic. They scan `quotes` with no org filter and resolve branding, WhatsApp key, and opt-out per row's `organisation_id`. A new tenant works with no code change.
+- `warranty-auto-send`: **broken tenant enumeration.** Line 39 queries `organisations?select=id&is_active=eq.true`, but `organisations` has no `is_active` column (it has `is_archived`, `archived_at`, `subscription_status`). PostgREST returns a 400 error object, so `organisations` is not an array — the function either iterates nothing or throws, for every tenant including K&N. Fixing the cron alone will not make warranty reminders send; this must be changed to `is_archived=eq.false` (or `not.is.true`) in the same pass.
+- `send-warranty-whatsapp`: generic apart from the Tally fallback (separate task).
+
+Answer to the question: **no** — a brand-new correctly onboarded tenant would get quote follow-ups automatically after the cron fix, but warranty reminders need a third code change (the `is_active` → `is_archived` filter) on top of the cron fix and the Tally fallback fix.
+
+Two lesser notes, not blockers: `warranty-auto-send` filters customers with `opted_out=not.eq.true`, which also excludes rows where `opted_out` is NULL — harmless today (column defaults to `false`, zero NULL rows) but it would silently skip any imported customer with a NULL flag. And a new tenant still needs `settings.business_name`/`business_phone`, a `tally` `renewal_form_url`, and a `360messenger` `api_key_secret` populated; without the Tally URL the K&N form leak applies.
+
 Secondary risk once the jobs actually run: `send-warranty-whatsapp` starts reaching real K&N customers again for the first time since April. K&N is the only tenant with warranty-ready customers (15), and its Tally URL is correctly configured, so the K&N path is safe — but the Tally fallback leak stays live for any other tenant, which is why that fix should land before another tenant gets warranty data.
+
 
 ## Verification after applying (when approved)
 
