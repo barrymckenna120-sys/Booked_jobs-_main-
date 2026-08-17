@@ -3039,6 +3039,63 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          organisation_id: string
+          paid_at: string | null
+          payment_type: string | null
+          service_call_id: string | null
+          status: string | null
+          sumup_checkout_id: string | null
+          sumup_transaction_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          organisation_id: string
+          paid_at?: string | null
+          payment_type?: string | null
+          service_call_id?: string | null
+          status?: string | null
+          sumup_checkout_id?: string | null
+          sumup_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          organisation_id?: string
+          paid_at?: string | null
+          payment_type?: string | null
+          service_call_id?: string | null
+          status?: string | null
+          sumup_checkout_id?: string | null
+          sumup_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           created_at: string | null
