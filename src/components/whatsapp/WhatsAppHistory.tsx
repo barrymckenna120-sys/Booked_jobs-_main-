@@ -216,9 +216,12 @@ const WhatsAppHistory = ({
           </Button>
         )}
 
-        <Button size="sm" className="w-full mt-2" onClick={onSendMessage}>
-          📲 Send Message
-        </Button>
+        {!hideSendButton && (
+          <Button size="sm" className="w-full mt-2" onClick={onSendMessage}>
+            📲 Send Message
+          </Button>
+        )}
+
       </CardContent>
     </Card>
   );
