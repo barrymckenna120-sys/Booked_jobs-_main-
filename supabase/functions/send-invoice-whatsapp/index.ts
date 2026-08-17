@@ -157,25 +157,35 @@ Deno.serve(async (req) => {
     const ok = resp.ok;
 
     // 8. Call log-message edge function
+    // log-message authenticates on x-make-secret, not the service key — without
+    // this header every log call 401s and the send goes unrecorded.
     try {
-      await fetch(`${supabaseUrl}/functions/v1/log-message`, {
+      const logResp = await fetch(`${supabaseUrl}/functions/v1/log-message`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${serviceKey}`,
+          "x-make-secret": Deno.env.get("MAKE_WEBHOOK_SECRET") ?? "",
         },
         body: JSON.stringify({
           service_call_id,
           organisation_id: job.organisation_id,
+          customer_id: job.customer_id,
           message_type: "invoice_sent",
+          channel: "whatsapp",
+          direction: "outbound",
           recipient_phone: phone,
           message_body: message,
-          status: ok ? "success" : "fail",
+          status: ok ? "sent" : "failed",
         }),
       });
+      if (!logResp.ok) {
+        console.error("log-message returned", logResp.status, await logResp.text());
+      }
     } catch (_e) {
       console.error("log-message invoke failed", _e);
     }
+
 
     if (!ok) {
       return json({ error: "Failed to send WhatsApp message", detail: respText }, 502);
