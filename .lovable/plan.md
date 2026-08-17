@@ -54,14 +54,15 @@ Note: **Cavan Gas has zero notification rows**, so a manual run scoped to Cavan 
 3. **Dry run before scheduling** — run the exact `SELECT` counterpart of the DELETE, scoped to K&N Gas Services, and confirm every candidate row has `is_read = true` and an age over 30 days, and that the unread count for that org is unchanged.
 
 
-3. **Schedule** — only after the dry run is reviewed, register the cron job:
+4. **Schedule** — only after the dry run and the privilege check are reviewed, register the cron job:
    ```sql
    select cron.schedule('purge-old-read-notifications', '30 3 * * *',
      $$ select public.purge_old_read_notifications(); $$);
    ```
    03:30 daily keeps it clear of the 09:00 messaging jobs.
 
-4. **Post-enable verification** — re-check total/read/unread counts per org and confirm unread totals are identical to the pre-run numbers above.
+5. **Post-enable verification** — re-check total/read/unread counts per org and confirm unread totals are identical to the pre-run numbers above.
+
 
 ## Safety
 - The DELETE only ever matches `is_read = true`; unread rows are never touched at any age.
