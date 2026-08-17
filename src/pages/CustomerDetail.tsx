@@ -410,6 +410,8 @@ const CustomerDetail = () => {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CustomerFormField label="Customer Name" id="name" value={form.name ?? ""} onChange={(v) => handleChange("name", v)} onBlur={() => blurField("name")} error={errors.name} required maxLength={100} />
             <CustomerFormField label="Mobile Number" id="phone" value={form.phone ?? ""} onChange={(v) => handleChange("phone", v)} onBlur={() => blurField("phone")} error={errors.phone} required maxLength={30} placeholder="083 123 4567" />
+            <CustomerFormField label="Landline (optional)" id="landline_phone" value={form.landline_phone ?? ""} onChange={(v) => handleChange("landline_phone", v)} onBlur={() => blurField("landline_phone")} error={errors.landline_phone} maxLength={30} placeholder="01 441 2618" />
+
             <PlainField label="Email" field="email" value={form.email} />
             <PlainField label="Address" field="address" value={form.address} />
             <CustomerFormField label="Eircode" id="eircode" value={form.eircode ?? ""} onChange={(v) => handleChange("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
