@@ -120,6 +120,7 @@ const BOILER_BRANDS = [
 ];
 
 const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; onNext: (c: any) => void }) => {
+  const { orgId } = useOrgId();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<any>(prefilledCustomer || null);
   const [isNew, setIsNew] = useState(false);
@@ -130,6 +131,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [boiler, setBoiler] = useState("");
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
+  const [errors, setErrors] = useState<CustomerFieldErrors>({});
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
+  const [dupeCheckError, setDupeCheckError] = useState<string | null>(null);
+  const [checkingDupe, setCheckingDupe] = useState(false);
 
   const { data: results = [] } = useQuery({
     queryKey: ["customer-search", search],
@@ -146,17 +151,99 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     enabled: !selected && !isNew && search.length >= 2,
   });
 
+  const clearError = (field: string) => {
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
+  };
+
+  const blurName = () => {
+    const trimmed = name.replace(/\s+/g, " ").trim();
+    if (trimmed !== name) setName(trimmed);
+    const err = validateRequired(trimmed);
+    setErrors((e) => ({ ...e, name: err || "" }));
+  };
+
+  const blurAddress = () => {
+    const err = validateRequired(address);
+    setErrors((e) => ({ ...e, address: err || "" }));
+  };
+
+  // formatPhoneInternational never throws and never rejects input — it blindly
+  // prepends +353, so validatePhone must gate it. Validate first, format after.
+  const blurPhone = () => {
+    const err = validatePhone(phone);
+    if (err) {
+      setErrors((e) => ({ ...e, phone: err }));
+      return;
+    }
+    setErrors((e) => ({ ...e, phone: "" }));
+    setPhone(formatPhoneInternational(phone));
+    setDuplicate(null);
+    setDupeCheckError(null);
+  };
+
+  const blurEircode = () => {
+    if (!eircode.trim()) { setErrors((e) => ({ ...e, eircode: "" })); return; }
+    const err = validateEircode(eircode);
+    if (err) {
+      setErrors((e) => ({ ...e, eircode: err }));
+      return;
+    }
+    setErrors((e) => ({ ...e, eircode: "" }));
+    setEircode(formatEircode(eircode));
+  };
+
+  const phoneValid = isNew ? validatePhone(phone) === null : true;
+
   const canProceed = Boolean(
-    selected ? true : isNew && name.trim() && phone.trim() && address.trim()
+    selected
+      ? true
+      : isNew && name.trim() && phoneValid && address.trim() && !duplicate && !checkingDupe
   );
 
-  const handleNext = () => {
-    if (isNew) {
-      onNext({ id: "NEW", name, phone, address, eircode, boilerType: boiler, isNew: true });
-    } else {
-      onNext(selected);
+  const handleNext = async () => {
+    if (!isNew) { onNext(selected); return; }
+
+    const cleanName = name.replace(/\s+/g, " ").trim();
+    const nextErrors: CustomerFieldErrors = {};
+    const nameErr = validateRequired(cleanName); if (nameErr) nextErrors.name = nameErr;
+    const phoneErr = validatePhone(phone); if (phoneErr) nextErrors.phone = phoneErr;
+    const addressErr = validateRequired(address); if (addressErr) nextErrors.address = addressErr;
+    if (eircode.trim()) {
+      const eircodeErr = validateEircode(eircode); if (eircodeErr) nextErrors.eircode = eircodeErr;
     }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    const cleanPhone = formatPhoneInternational(phone);
+    const cleanEircode = eircode.trim() ? formatEircode(eircode) : "";
+
+    // Fail-safe duplicate check: any error blocks progression.
+    setCheckingDupe(true);
+    setDupeCheckError(null);
+    setDuplicate(null);
+    const { data: dupe, error: dupeErr } = await supabase
+      .from("customers")
+      .select("id, name")
+      .eq("phone", cleanPhone)
+      .eq("organisation_id", orgId!)
+      .maybeSingle();
+    setCheckingDupe(false);
+
+    if (dupeErr) {
+      setDupeCheckError("Couldn't check for duplicates — try again");
+      return;
+    }
+    if (dupe) {
+      setDuplicate({ id: dupe.id, name: dupe.name });
+      return;
+    }
+
+    setName(cleanName);
+    setPhone(cleanPhone);
+    if (cleanEircode) setEircode(cleanEircode);
+    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
   };
+
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
