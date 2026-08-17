@@ -33,6 +33,7 @@ import {
   validateRequired, validatePhone, validatePhoneLegacyShape, validateLandline, validateEircode, validateAreaCode,
   formatEircode, formatPhoneInternational, normalizeAreaCode, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
 
 const formatDateForInput = (val: string | null) => val || "";
 
