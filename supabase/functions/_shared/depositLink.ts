@@ -237,16 +237,8 @@ export async function sendDepositLink(
       }),
     });
 
-    let companyName = "K & N Gas Services";
-    let companyPhone = "087 3686252";
-    const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers },
-    );
-    const tiRows = await tiRes.json();
-    const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-    if (cfg?.company_name) companyName = cfg.company_name;
-    if (cfg?.company_phone) companyPhone = cfg.company_phone;
+
+
 
     // Resolve tenant-scoped 360Messenger API key
     const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
