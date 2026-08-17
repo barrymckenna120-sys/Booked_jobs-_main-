@@ -68,7 +68,14 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
 
 const fieldId = (f: Field) => `${f.type}::${f.key}`;
 
-export default function CustomerIntegrationsTab() {
+interface CustomerIntegrationsTabProps {
+  /** Cross-link into the Messaging catalogue tab for the selected tenant. */
+  onViewMessaging?: (orgId: string) => void;
+}
+
+export default function CustomerIntegrationsTab({
+  onViewMessaging,
+}: CustomerIntegrationsTabProps = {}) {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [orgId, setOrgId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -165,8 +172,18 @@ export default function CustomerIntegrationsTab() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
         <CardTitle>Customer Integrations</CardTitle>
+        {orgId && onViewMessaging && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onViewMessaging(orgId)}
+          >
+            View message status
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-1.5">

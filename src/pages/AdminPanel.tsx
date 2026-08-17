@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
+import MessagingCatalogueTab from "@/components/admin/MessagingCatalogueTab";
 import UserActivityOverview from "@/components/admin/UserActivityOverview";
 import LoginEventsTable from "@/components/admin/LoginEventsTable";
 import { toast } from "sonner";
@@ -385,6 +386,8 @@ export default function AdminPanel() {
   const [latestActivity, setLatestActivity] = useState<Record<string, ActivityEntry>>({});
   const [activityModalOrg, setActivityModalOrg] = useState<Tenant | null>(null);
   const [tabValue, setTabValue] = useState<string>("tenants");
+  // Set when Customer Integrations cross-links into the Messaging catalogue.
+  const [messagingOrgId, setMessagingOrgId] = useState<string | undefined>(undefined);
   const [blockedStatus, setBlockedStatus] = useState<Record<string, { loading: boolean; hasBlocked: boolean }>>({});
   const [blockedStatusFetched, setBlockedStatusFetched] = useState(false);
   const [closeSignals, setCloseSignals] = useState<Record<string, number>>({});
@@ -796,6 +799,7 @@ export default function AdminPanel() {
         <TabsList>
           <TabsTrigger value="tenants">Tenants</TabsTrigger>
           <TabsTrigger value="integrations">Customer Integrations</TabsTrigger>
+          <TabsTrigger value="messaging">Messaging</TabsTrigger>
           <TabsTrigger value="unblock-users">Unblock Users</TabsTrigger>
           <TabsTrigger value="user-activity">User Activity</TabsTrigger>
           <TabsTrigger value="import-runs">Import Runs</TabsTrigger>
@@ -1082,7 +1086,16 @@ export default function AdminPanel() {
         </TabsContent>
 
         <TabsContent value="integrations">
-          <CustomerIntegrationsTab />
+          <CustomerIntegrationsTab
+            onViewMessaging={(orgId) => {
+              setMessagingOrgId(orgId);
+              setTabValue("messaging");
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="messaging">
+          <MessagingCatalogueTab initialOrgId={messagingOrgId} />
         </TabsContent>
 
         <TabsContent value="unblock-users" className="space-y-6">
