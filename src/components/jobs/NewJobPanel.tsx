@@ -25,7 +25,7 @@ import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
 import {
   validateRequired, validatePhone, validateEircode,
-  formatEircode, formatPhoneInternational, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 
 /* ── Types ─────────────────────────────────────────────── */
