@@ -128,9 +128,7 @@ Quote: ${quoteRef}
 Total: €${totalAmount}
 Deposit: €${depositAmount}
 
-Job has been created — open BookedJobs to schedule.
-
-${messageFooter}`;
+Job has been created — open BookedJobs to schedule.${messageFooter ? `\n\n${messageFooter}` : ""}`;
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
