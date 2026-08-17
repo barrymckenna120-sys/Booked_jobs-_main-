@@ -14,7 +14,9 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const DEFAULT_STRIPE_LINK = "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+// BJ-B2a: no hardcoded payment-link or branding fallbacks. A tenant without its
+// own payment link / business details is skipped and logged — never routed to
+// another tenant's payment account.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
