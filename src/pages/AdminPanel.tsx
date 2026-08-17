@@ -802,6 +802,9 @@ export default function AdminPanel() {
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-6">
+      {/* TEMP DEBUG — remove after RLS verification, see BJ-SUMUP-TXNTABLE */}
+      <TransactionsRlsDebugCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Create New Account</CardTitle>
