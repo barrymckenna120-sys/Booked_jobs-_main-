@@ -212,9 +212,6 @@ serve(async (req) => {
       }
     }
 
-    const logClient = (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
-      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-      : null;
 
     if (!response.ok) {
       if (logClient) {
