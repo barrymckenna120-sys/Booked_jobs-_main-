@@ -253,6 +253,27 @@ export async function createSumUpDepositCheckout(
       ? restAttemptStore(args.supabaseUrl, args.headers, doFetch)
       : null);
 
+  // Reuse guard (BJ-0050b): a still-valid PENDING checkout for the same job and
+  // amount is handed back instead of creating a needless duplicate.
+  const reusable = await findReusableCheckout({
+    store,
+    serviceCallId,
+    organisationId: args.organisationId,
+    requestedAmount: roundedAmount,
+    apiKey,
+    fetchImpl: doFetch,
+  });
+  if (reusable) {
+    return {
+      ok: true,
+      url: reusable.url,
+      checkoutId: reusable.checkoutId,
+      checkoutReference: reusable.checkoutReference,
+      reused: true,
+    };
+  }
+
+
   // Attempt number, resolved right before the body is built so callers never
   // have to know about it. A failed count must not block the payment — it just
   // degrades to attempt 1.
