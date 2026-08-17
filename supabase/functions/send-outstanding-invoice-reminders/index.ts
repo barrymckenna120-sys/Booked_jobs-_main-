@@ -58,7 +58,36 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const cfg = (integration?.config as any) || {};
-    const stripeLink = cfg.stripe_payment_link || DEFAULT_STRIPE_LINK;
+    const stripeLink = String(cfg.stripe_payment_link ?? "").trim();
+
+    // 2b. Tenant business details — single source of truth, no K&N literals.
+    const { data: orgSettings } = await supabase
+      .from("settings")
+      .select("business_name, business_phone")
+      .eq("organisation_id", organisation_id)
+      .maybeSingle();
+
+    const businessName = String(orgSettings?.business_name ?? "").trim();
+    const businessPhone = String(orgSettings?.business_phone ?? "").trim();
+
+    // Pre-flight guards (BJ-B2a). Batch job: a missing tenant value stops the
+    // whole run before any message is sent and before any counter moves.
+    const missing = !stripeLink
+      ? "payment_link_not_configured"
+      : !businessName
+        ? "business_name_not_configured"
+        : !businessPhone
+          ? "business_phone_not_configured"
+          : null;
+
+    if (missing) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-outstanding-invoice-reminders",
+        error_message: `Skipped: ${missing} for organisation`,
+        payload: { organisation_id, reason: missing },
+      });
+      return json({ success: true, skipped: true, reason: missing, sent: 0 });
+    }
 
     const keyRes = await fetchWhatsappApiKeyWithClient(supabase, organisation_id);
     if (!keyRes.apiKey) {
