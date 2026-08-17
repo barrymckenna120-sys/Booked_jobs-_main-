@@ -1,29 +1,37 @@
-BJ-0054: Add Boiler Location to CustomerDetail Boiler Information card
+# Audit — Boiler Location in New Job wizard Step 2 (read-only)
 
-Scope: src/pages/CustomerDetail.tsx, Boiler Information card only.
+## 1. There is no Boiler Location dropdown
 
-Current state (verified by reading source):
-- The `customers.boiler_location` column exists and is already typed in `src/integrations/supabase/types.ts`.
-- CustomerDetail.tsx fetches the full customer row (`select("*")` at line 171), so `form.boiler_location` is already available in state.
-- The Boiler Information card (lines 449–692) currently shows: Boiler Brand, Boiler Model, Boiler Type, Installation Date, Warranty Years, Warranty Expiry, Warranty Status. It does **not** show Boiler Location.
-- Save path is generic: `handleChange` mutates `form`, and `buildCustomerUpdatePayload(form, originalForm)` at line 227 will include `boiler_location` if changed. No special save wiring is needed.
+`src/components/jobs/NewJobPanel.tsx:686-690` — Step 2 (Job Details) renders Boiler Location as a **free-text `<Input>`**, sitting beside GPRN:
 
-Plan
-1. Add a "Boiler Location" field to the Boiler Information card in `CustomerDetail.tsx`, placed after Boiler Model and before Boiler Type (or immediately after, depending on logical grouping). Use the same `space-y-1.5` wrapper, `Label`, and `Input` pattern as the existing Boiler Brand/Model fields.
-2. Bind it to `form.boiler_location` with `handleChange("boiler_location", value)`. No validation is required beyond the implicit max-length on the Input; mirror the existing brand/model fields.
-3. Verify the change compiles and the field appears and persists in the preview.
-4. No database migration is required.
+```tsx
+<Label ...>Boiler Location</Label>
+<Input value={boilerLocation} onChange={(e) => setBoilerLocation(e.target.value)}
+       placeholder="e.g. kitchen, attic, utility room" className="mt-1" />
+```
 
-Boiler Location audit across display surfaces
-Surfaces that already show Boiler Location:
-- JobDetail.tsx (customer header) — yes
-- IncomingJobs.tsx / JobReviewPanel.tsx — yes
-- EngineerJobDetail.tsx (engineer mobile view) — yes
-- Engineer JobDetailSheet.tsx — yes
-- Schedule.tsx / JobSlotDrawer.tsx (schedule job card panel) — yes
-- NewJobPanel.tsx (New Job wizard) — yes
+State: `const [boilerLocation, setBoilerLocation] = useState(prefilledCustomer?.boiler_location || "")` (line 494). Passed through `onNext` (line 554), written to the job at line 1462 and back-filled to the customer record at line 1540.
 
-Surfaces that still lack Boiler Location:
-- CustomerDetail.tsx Boiler Information card — this is the target fix.
-- AddCustomerSheet.tsx — intentionally minimal; it only has Boiler Type, Owner/Tenant, and Warranty Years, with no Brand/Model/Location/Installation Date fields. Out of scope for this card unless you want to expand the add-form boiler section.
-- Import/Export flows (ImportCustomers.tsx, DataTab export, generateTemplate.ts) — these are data import/export templates, not display screens; they do not currently include boiler_location.
+So there is no option list — hardcoded, table-backed, or config-backed — because the field was never a select. Nothing is "empty and not rendering".
+
+## 2. The only Step 2 dropdowns are Brand and Model, and they do have data
+
+The two typeahead dropdowns in Step 2 come from `boiler_brands`:
+- `NewJobPanel.tsx:501` — brands: `.select("brand_name").eq("is_default", true).order("brand_name").limit(8)`
+- `NewJobPanel.tsx:514` — models: `.select("model_name").eq("is_default", false).eq("brand_name", ...).limit(8)`
+
+Row counts for K&N (`8c37827f-…d89856`): 6 brand rows (`is_default = true`) and 19 model rows (`is_default = false`). Both are populated, and every `boiler_brands` row in the database belongs to this org. If the report was "the dropdown is empty", it isn't a data gap on brands/models either — models only appear once a brand is typed, and each list is capped at 8.
+
+## 3. Existing Boiler Location data is free text
+
+Distinct values on K&N customers: `kitchen` (3), `landing` (1). Lowercase, unconstrained — consistent with a free-text origin, and there is no lookup table or settings column anywhere for boiler locations (no match for a location list in `src/`, `settings`, or `org_price_list`).
+
+## 4. Impact on BJ-0054 (Customer Detail → Boiler Information)
+
+BJ-0054 as scoped adds a plain text input reading/writing `customers.boiler_location`, matching Step 2 exactly. Nothing in the codebase implies a dropdown, so as scoped the two surfaces stay consistent.
+
+Decision needed before BJ-0054 is built: if you want Boiler Location to become a **controlled dropdown**, that is a separate, larger change — it needs an option source (hardcoded shared array vs. a new per-org lookup table + Settings tab like Boiler Brands), a migration path for existing lowercase free-text values, and the same control applied to Step 2, `AddCustomerSheet`, and Customer Detail together. Doing it after BJ-0054 ships would mean reworking the field twice.
+
+## Recommendation
+
+Ship BJ-0054 as a free-text field to match every other surface, or tell me to plan the dropdown standardisation first (shared `boilerLocations.ts` constant is the cheapest option; per-org table only if K&N wants to edit the list themselves).
