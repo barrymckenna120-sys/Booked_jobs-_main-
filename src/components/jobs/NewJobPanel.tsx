@@ -23,6 +23,10 @@ import { cn } from "@/lib/utils";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
+import {
+  validateRequired, validatePhone, validateEircode,
+  formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
+} from "@/lib/customerValidation";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
@@ -120,6 +124,7 @@ const BOILER_BRANDS = [
 ];
 
 const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; onNext: (c: any) => void }) => {
+  const { orgId } = useOrgId();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<any>(prefilledCustomer || null);
   const [isNew, setIsNew] = useState(false);
@@ -130,6 +135,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [boiler, setBoiler] = useState("");
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
+  const [errors, setErrors] = useState<CustomerFieldErrors>({});
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
+  const [dupeCheckError, setDupeCheckError] = useState<string | null>(null);
+  const [checkingDupe, setCheckingDupe] = useState(false);
 
   const { data: results = [] } = useQuery({
     queryKey: ["customer-search", search],
@@ -146,17 +155,99 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     enabled: !selected && !isNew && search.length >= 2,
   });
 
+  const clearError = (field: string) => {
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
+  };
+
+  const blurName = () => {
+    const trimmed = name.replace(/\s+/g, " ").trim();
+    if (trimmed !== name) setName(trimmed);
+    const err = validateRequired(trimmed);
+    setErrors((e) => ({ ...e, name: err || "" }));
+  };
+
+  const blurAddress = () => {
+    const err = validateRequired(address);
+    setErrors((e) => ({ ...e, address: err || "" }));
+  };
+
+  // formatPhoneInternational never throws and never rejects input — it blindly
+  // prepends +353, so validatePhone must gate it. Validate first, format after.
+  const blurPhone = () => {
+    const err = validatePhone(phone);
+    if (err) {
+      setErrors((e) => ({ ...e, phone: err }));
+      return;
+    }
+    setErrors((e) => ({ ...e, phone: "" }));
+    setPhone(formatPhoneInternational(phone));
+    setDuplicate(null);
+    setDupeCheckError(null);
+  };
+
+  const blurEircode = () => {
+    if (!eircode.trim()) { setErrors((e) => ({ ...e, eircode: "" })); return; }
+    const err = validateEircode(eircode);
+    if (err) {
+      setErrors((e) => ({ ...e, eircode: err }));
+      return;
+    }
+    setErrors((e) => ({ ...e, eircode: "" }));
+    setEircode(formatEircode(eircode));
+  };
+
+  const phoneValid = isNew ? validatePhone(phone) === null : true;
+
   const canProceed = Boolean(
-    selected ? true : isNew && name.trim() && phone.trim() && address.trim()
+    selected
+      ? true
+      : isNew && name.trim() && phoneValid && address.trim() && !duplicate && !checkingDupe
   );
 
-  const handleNext = () => {
-    if (isNew) {
-      onNext({ id: "NEW", name, phone, address, eircode, boilerType: boiler, isNew: true });
-    } else {
-      onNext(selected);
+  const handleNext = async () => {
+    if (!isNew) { onNext(selected); return; }
+
+    const cleanName = name.replace(/\s+/g, " ").trim();
+    const nextErrors: CustomerFieldErrors = {};
+    const nameErr = validateRequired(cleanName); if (nameErr) nextErrors.name = nameErr;
+    const phoneErr = validatePhone(phone); if (phoneErr) nextErrors.phone = phoneErr;
+    const addressErr = validateRequired(address); if (addressErr) nextErrors.address = addressErr;
+    if (eircode.trim()) {
+      const eircodeErr = validateEircode(eircode); if (eircodeErr) nextErrors.eircode = eircodeErr;
     }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    const cleanPhone = formatPhoneInternational(phone);
+    const cleanEircode = eircode.trim() ? formatEircode(eircode) : "";
+
+    // Fail-safe duplicate check: any error blocks progression.
+    setCheckingDupe(true);
+    setDupeCheckError(null);
+    setDuplicate(null);
+    const { data: dupe, error: dupeErr } = await supabase
+      .from("customers")
+      .select("id, name")
+      .eq("phone", cleanPhone)
+      .eq("organisation_id", orgId!)
+      .maybeSingle();
+    setCheckingDupe(false);
+
+    if (dupeErr) {
+      setDupeCheckError("Couldn't check for duplicates — try again");
+      return;
+    }
+    if (dupe) {
+      setDuplicate({ id: dupe.id, name: dupe.name });
+      return;
+    }
+
+    setName(cleanName);
+    setPhone(cleanPhone);
+    if (cleanEircode) setEircode(cleanEircode);
+    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
   };
+
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -239,21 +330,66 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
           <div className="space-y-3">
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Full Name <span className="text-destructive">*</span></Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Niamh Lawlor" className="mt-1" />
+              <Input
+                value={name}
+                onChange={(e) => { setName(e.target.value); clearError("name"); }}
+                onBlur={blurName}
+                placeholder="e.g. Niamh Lawlor"
+                maxLength={100}
+                className={cn("mt-1", errors.name && RED_BORDER)}
+              />
+              {errors.name && <p className="text-xs mt-1 font-medium text-destructive">{errors.name}</p>}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Mobile Number <span className="text-destructive">*</span></Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+353 87 123 4567" className="mt-1" />
+              <Input
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); clearError("phone"); setDuplicate(null); setDupeCheckError(null); }}
+                onBlur={blurPhone}
+                placeholder="083 123 4567"
+                maxLength={30}
+                className={cn("mt-1", errors.phone && RED_BORDER)}
+              />
+              {errors.phone && <p className="text-xs mt-1 font-medium text-destructive">{errors.phone}</p>}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Address <span className="text-destructive">*</span></Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="12 Green Park, Dublin 15" className="mt-1" />
+              <Input
+                value={address}
+                onChange={(e) => { setAddress(e.target.value); clearError("address"); }}
+                onBlur={blurAddress}
+                placeholder="12 Green Park, Dublin 15"
+                maxLength={200}
+                className={cn("mt-1", errors.address && RED_BORDER)}
+              />
+              {errors.address && <p className="text-xs mt-1 font-medium text-destructive">{errors.address}</p>}
             </div>
+            {duplicate && (
+              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-warning flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>"{duplicate.name}" already has this phone number. Search for them above instead of creating a duplicate.</span>
+              </div>
+            )}
+            {dupeCheckError && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-destructive flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{dupeCheckError}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Eircode</Label>
-                <Input value={eircode} onChange={(e) => setEircode(e.target.value.toUpperCase())} placeholder="D15A1B2" className="mt-1" />
+                <Input
+                  value={eircode}
+                  onChange={(e) => { setEircode(e.target.value.toUpperCase()); clearError("eircode"); }}
+                  onBlur={blurEircode}
+                  placeholder="D15 A1B2"
+                  maxLength={10}
+                  className={cn("mt-1", errors.eircode && RED_BORDER)}
+                />
+                {errors.eircode && <p className="text-xs mt-1 font-medium text-destructive">{errors.eircode}</p>}
               </div>
+
               <div className="relative">
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make</Label>
                 <div className="relative mt-1">
@@ -301,8 +437,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border">
-        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed} onClick={handleNext}>
-          {canProceed ? `Continue with ${selected?.name || name} →` : "Select or add a customer"}
+        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed || checkingDupe} onClick={handleNext}>
+          {checkingDupe ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
+          ) : canProceed ? `Continue with ${selected?.name || name} →` : "Select or add a customer"}
         </Button>
       </div>
     </div>
