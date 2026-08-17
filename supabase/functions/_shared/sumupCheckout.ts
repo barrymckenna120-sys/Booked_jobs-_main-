@@ -41,6 +41,15 @@ export interface SumUpDepositArgs {
 export interface CheckoutAttemptStore {
   /** Existing attempt rows for this job. */
   count(serviceCallId: string): Promise<number>;
+  /**
+   * Newest attempt row for this job within the given organisation, or null.
+   * The org filter is defense-in-depth: never scope tenant data on a job id
+   * alone.
+   */
+  latest(
+    serviceCallId: string,
+    organisationId: string,
+  ): Promise<{ checkoutId: string; checkoutReference: string } | null>;
   record(row: {
     serviceCallId: string;
     organisationId: string;
@@ -67,6 +76,28 @@ function restAttemptStore(
       await res.text();
       const total = Number(range.split("/")[1]);
       return Number.isFinite(total) ? total : 0;
+    },
+    async latest(serviceCallId, organisationId) {
+      const res = await doFetch(
+        `${base}/rest/v1/payment_checkout_attempts?service_call_id=eq.${serviceCallId}` +
+          `&organisation_id=eq.${organisationId}` +
+          `&select=checkout_id,checkout_reference&order=created_at.desc&limit=1`,
+        { headers },
+      );
+      const text = await res.text();
+      if (!res.ok) return null;
+      let rows: any;
+      try {
+        rows = JSON.parse(text);
+      } catch {
+        return null;
+      }
+      const row = Array.isArray(rows) ? rows[0] : null;
+      if (!row?.checkout_id) return null;
+      return {
+        checkoutId: String(row.checkout_id),
+        checkoutReference: String(row.checkout_reference ?? ""),
+      };
     },
     async record(row) {
       const res = await doFetch(`${base}/rest/v1/payment_checkout_attempts`, {
@@ -107,7 +138,88 @@ export interface SumUpDepositResult {
   /** hosted_checkout_url — what we save and send to the customer. */
   url?: string;
   checkoutId?: string;
+  /** The reference the checkout carries (`jobId::attempt`). */
+  checkoutReference?: string;
+  /** True when an existing still-valid PENDING checkout was reused. */
+  reused?: boolean;
   error?: string;
+}
+
+export const SUMUP_CHECKOUT_URL_BASE = "https://api.sumup.com/v0.1/checkouts";
+
+export interface ReusableCheckout {
+  checkoutId: string;
+  checkoutReference: string;
+  url: string;
+}
+
+/**
+ * Returns the latest checkout for this job when it is still safe to reuse —
+ * SumUp says PENDING, the amount matches what we are about to charge, and the
+ * GET handed us a usable hosted checkout URL.
+ *
+ * Fail-closed: any lookup problem (non-2xx, unparseable body, network error,
+ * missing URL) returns null so the caller creates a fresh attempt. Creating an
+ * attempt is cheap and always succeeds; reusing a checkout we could not verify
+ * is the real risk.
+ */
+export async function findReusableCheckout(args: {
+  store: CheckoutAttemptStore | null;
+  serviceCallId: string;
+  organisationId?: string | null;
+  requestedAmount: number;
+  apiKey: string;
+  fetchImpl?: typeof fetch;
+}): Promise<ReusableCheckout | null> {
+  const { store, serviceCallId, organisationId, requestedAmount, apiKey } = args;
+  const doFetch = args.fetchImpl ?? fetch;
+  if (!store || !organisationId || !serviceCallId || !apiKey) return null;
+
+  let row: { checkoutId: string; checkoutReference: string } | null = null;
+  try {
+    row = await store.latest(serviceCallId, organisationId);
+  } catch (_e) {
+    console.error(
+      `sumup-checkout: latest attempt lookup failed for ${serviceCallId}: ${(_e as Error).message}`,
+    );
+    return null;
+  }
+  if (!row?.checkoutId) return null;
+
+  let data: any;
+  try {
+    const res = await doFetch(
+      `${SUMUP_CHECKOUT_URL_BASE}/${encodeURIComponent(row.checkoutId)}`,
+      { headers: { Authorization: `Bearer ${apiKey}` } },
+    );
+    const text = await res.text();
+    if (!res.ok) {
+      console.error(`sumup-checkout: reuse lookup http ${res.status} for ${row.checkoutId}`);
+      return null;
+    }
+    data = JSON.parse(text);
+  } catch (_e) {
+    console.error(
+      `sumup-checkout: reuse lookup failed for ${row.checkoutId}: ${(_e as Error).message}`,
+    );
+    return null;
+  }
+
+  const status = String(data?.status ?? "").toUpperCase();
+  if (status !== "PENDING") return null;
+
+  const wanted = Math.round(requestedAmount * 100) / 100;
+  const actual = Math.round(Number(data?.amount) * 100) / 100;
+  if (!Number.isFinite(actual) || actual !== wanted) return null;
+
+  const url = data?.hosted_checkout_url ?? data?.hosted_checkout?.url ?? null;
+  if (!url) return null;
+
+  return {
+    checkoutId: row.checkoutId,
+    checkoutReference: row.checkoutReference || String(data?.checkout_reference ?? ""),
+    url: String(url),
+  };
 }
 
 export const SUMUP_CHECKOUTS_URL = "https://api.sumup.com/v0.1/checkouts";
@@ -140,6 +252,27 @@ export async function createSumUpDepositCheckout(
     (args.supabaseUrl && args.headers
       ? restAttemptStore(args.supabaseUrl, args.headers, doFetch)
       : null);
+
+  // Reuse guard (BJ-0050b): a still-valid PENDING checkout for the same job and
+  // amount is handed back instead of creating a needless duplicate.
+  const reusable = await findReusableCheckout({
+    store,
+    serviceCallId,
+    organisationId: args.organisationId,
+    requestedAmount: roundedAmount,
+    apiKey,
+    fetchImpl: doFetch,
+  });
+  if (reusable) {
+    return {
+      ok: true,
+      url: reusable.url,
+      checkoutId: reusable.checkoutId,
+      checkoutReference: reusable.checkoutReference,
+      reused: true,
+    };
+  }
+
 
   // Attempt number, resolved right before the body is built so callers never
   // have to know about it. A failed count must not block the payment — it just
@@ -214,6 +347,6 @@ export async function createSumUpDepositCheckout(
     }
   }
 
-  return { ok: true, url, checkoutId };
+  return { ok: true, url, checkoutId, checkoutReference, reused: false };
 }
 

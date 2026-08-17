@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildSumUpReturnUrl,
+  findReusableCheckout,
   createSumUpDepositCheckout,
   SUMUP_CHECKOUTS_URL,
 } from "./sumupCheckout.ts";
@@ -234,6 +235,7 @@ Deno.test("attempt number comes from existing rows and the attempt is recorded",
     fetchImpl,
     attemptStore: {
       count: () => Promise.resolve(1),
+      latest: () => Promise.resolve(null),
       record: (row) => {
         recorded.push(row);
         return Promise.resolve();
@@ -284,10 +286,167 @@ Deno.test("tracking failures never fail the checkout", async () => {
     fetchImpl,
     attemptStore: {
       count: () => Promise.reject(new Error("db down")),
+      latest: () => Promise.reject(new Error("db down")),
       record: () => Promise.reject(new Error("db down")),
     },
   });
 
   assertEquals(result.ok, true);
   assertEquals(result.checkoutId, "chk_4");
+});
+
+// --- BJ-0050b: shared reuse guard ---
+
+function reuseStore(row: { checkoutId: string; checkoutReference: string } | null) {
+  const recorded: unknown[] = [];
+  return {
+    recorded,
+    store: {
+      count: () => Promise.resolve(1),
+      latest: () => Promise.resolve(row),
+      record: (r: unknown) => {
+        recorded.push(r);
+        return Promise.resolve();
+      },
+    },
+  };
+}
+
+Deno.test("reuses a PENDING checkout with a matching amount — no POST, no new row", async () => {
+  const calls: { url: string; method: string }[] = [];
+  const fetchImpl = ((url: string, init?: RequestInit) => {
+    calls.push({ url, method: init?.method ?? "GET" });
+    return Promise.resolve(jsonResponse({
+      id: "chk_old",
+      status: "PENDING",
+      amount: 99,
+      checkout_reference: "job-r::1",
+      hosted_checkout_url: "https://checkout.sumup.com/pay/old",
+    }));
+  }) as unknown as typeof fetch;
+
+  const { store, recorded } = reuseStore({ checkoutId: "chk_old", checkoutReference: "job-r::1" });
+  const result = await createSumUpDepositCheckout({
+    amount: 99,
+    serviceCallId: "job-r",
+    apiKey: "k",
+    merchantCode: "M",
+    organisationId: "org-1",
+    fetchImpl,
+    attemptStore: store,
+  });
+
+  assertEquals(result.ok, true);
+  assertEquals(result.reused, true);
+  assertEquals(result.checkoutId, "chk_old");
+  assertEquals(result.checkoutReference, "job-r::1");
+  assertEquals(result.url, "https://checkout.sumup.com/pay/old");
+  assertEquals(recorded.length, 0);
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].method, "GET");
+});
+
+Deno.test("amount mismatch on the PENDING checkout creates a new attempt", async () => {
+  const posts: string[] = [];
+  const fetchImpl = ((url: string, init?: RequestInit) => {
+    if ((init?.method ?? "GET") === "GET") {
+      return Promise.resolve(jsonResponse({
+        id: "chk_old", status: "PENDING", amount: 50,
+        hosted_checkout_url: "https://checkout.sumup.com/pay/old",
+      }));
+    }
+    posts.push(url);
+    return Promise.resolve(jsonResponse({ id: "chk_new", hosted_checkout_url: "https://new" }));
+  }) as unknown as typeof fetch;
+
+  const { store } = reuseStore({ checkoutId: "chk_old", checkoutReference: "job-r::1" });
+  const result = await createSumUpDepositCheckout({
+    amount: 99, serviceCallId: "job-r", apiKey: "k", merchantCode: "M",
+    organisationId: "org-1", fetchImpl, attemptStore: store,
+  });
+
+  assertEquals(result.reused, false);
+  assertEquals(result.checkoutId, "chk_new");
+  assertEquals(posts.length, 1);
+});
+
+Deno.test("terminal statuses are never reused", async () => {
+  for (const status of ["FAILED", "EXPIRED", "PAID"]) {
+    const fetchImpl = ((_url: string, init?: RequestInit) =>
+      Promise.resolve(
+        (init?.method ?? "GET") === "GET"
+          ? jsonResponse({ id: "chk_old", status, amount: 99, hosted_checkout_url: "https://old" })
+          : jsonResponse({ id: "chk_new", hosted_checkout_url: "https://new" }),
+      )) as unknown as typeof fetch;
+
+    const { store } = reuseStore({ checkoutId: "chk_old", checkoutReference: "job-r::1" });
+    const result = await createSumUpDepositCheckout({
+      amount: 99, serviceCallId: "job-r", apiKey: "k", merchantCode: "M",
+      organisationId: "org-1", fetchImpl, attemptStore: store,
+    });
+    assertEquals(result.reused, false, status);
+    assertEquals(result.checkoutId, "chk_new", status);
+  }
+});
+
+Deno.test("fail-closed: GET error, bad body or missing url all create a new attempt", async () => {
+  const badGets: (() => Promise<Response>)[] = [
+    () => Promise.resolve(jsonResponse({ message: "nope" }, 500)),
+    () => Promise.reject(new Error("network down")),
+    () => Promise.resolve(new Response("not json", { status: 200 })),
+    () => Promise.resolve(jsonResponse({ id: "chk_old", status: "PENDING", amount: 99 })),
+  ];
+
+  for (const get of badGets) {
+    const fetchImpl = ((_url: string, init?: RequestInit) =>
+      (init?.method ?? "GET") === "GET"
+        ? get()
+        : Promise.resolve(jsonResponse({ id: "chk_new", hosted_checkout_url: "https://new" }))
+    ) as unknown as typeof fetch;
+
+    const { store } = reuseStore({ checkoutId: "chk_old", checkoutReference: "job-r::1" });
+    const result = await createSumUpDepositCheckout({
+      amount: 99, serviceCallId: "job-r", apiKey: "k", merchantCode: "M",
+      organisationId: "org-1", fetchImpl, attemptStore: store,
+    });
+    assertEquals(result.ok, true);
+    assertEquals(result.reused, false);
+    assertEquals(result.checkoutId, "chk_new");
+  }
+});
+
+Deno.test("no prior attempt row: unchanged 0050a path, reused false", async () => {
+  let body: any = null;
+  const fetchImpl = ((_url: string, init?: RequestInit) => {
+    body = JSON.parse(init!.body as string);
+    return Promise.resolve(jsonResponse({ id: "chk_new", hosted_checkout_url: "https://new" }));
+  }) as unknown as typeof fetch;
+
+  const { store } = reuseStore(null);
+  const result = await createSumUpDepositCheckout({
+    amount: 99, serviceCallId: "job-r", apiKey: "k", merchantCode: "M",
+    organisationId: "org-1", fetchImpl, attemptStore: store,
+  });
+
+  assertEquals(result.reused, false);
+  assertEquals(body.checkout_reference, "job-r::2");
+});
+
+Deno.test("findReusableCheckout returns null without a store or organisation", async () => {
+  const never = (() => Promise.reject(new Error("should not be called"))) as unknown as typeof fetch;
+  assertEquals(
+    await findReusableCheckout({
+      store: null, serviceCallId: "j", organisationId: "org", requestedAmount: 1,
+      apiKey: "k", fetchImpl: never,
+    }),
+    null,
+  );
+  const { store } = reuseStore({ checkoutId: "c", checkoutReference: "j::1" });
+  assertEquals(
+    await findReusableCheckout({
+      store, serviceCallId: "j", organisationId: null, requestedAmount: 1,
+      apiKey: "k", fetchImpl: never,
+    }),
+    null,
+  );
 });
