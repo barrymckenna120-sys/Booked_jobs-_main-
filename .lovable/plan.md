@@ -1,115 +1,85 @@
-# BJ-B3b — Remove last three tenant-identifying literals (diff proposal only)
+# BJ-B3c — generic "our team" fallbacks (diff proposal only)
 
-Same skip-and-log pattern as B1 / B2a / B2b / B3a. Nothing implemented yet.
+## Confirmed lines and fallback chains
 
-## Live exposure check (current config)
+**`supabase/functions/send-part-arrived/index.ts`**
+- Line 105: `let messageFooter = "our team";`
+- Lines 106-113: reads `settings.message_footer, business_name, company_name` for the org, then
+  `messageFooter = settings[0].message_footer || settings[0].business_name || settings[0].company_name || messageFooter;`
+- Footer is appended once: `const message = \`${baseMessage}\n\n${messageFooter}\`;` (line 117)
 
-| Org | settings.message_footer | cert_prefix | Exposed today? |
-|---|---|---|---|
-| K&N Gas Services | `K&N Gas Services` | KN | No |
-| Dublin Gas | populated | DG | No |
-| Webliveview Ltd | populated | WE | No |
-| Cavan Gas | **empty string** | null | **Yes** — both footer fallbacks fire |
-| wexford gas (x2) | no settings row at all | null | **Yes** — both footer fallbacks fire |
+**`supabase/functions/send-upcoming-reminders/index.ts`**
+- Line 57: `messageFooter = s?.message_footer || s?.business_name || s?.company_name || "our team";` inside the per-org `loadOrgConfig` cache
+- Footer is used **twice** in the reminder body (header line and sign-off, lines 148-157)
 
-`service_calls`: 493 rows, **0** with a null/blank `job_reference` — so the `KN-` receipt fallback is dead code in practice today, but it is still a live leak for any future row created before a reference is assigned.
+## Severity: downgrade, don't treat as B1-class
 
----
+This is not the same defect class as B1/B2a/B2b/B3a/B3b. Those fell back to *another tenant's* identity (K&N name, K&N phone, K&N Tally link, K&N job prefix) — a real cross-tenant leak. `"our team"` is tenant-neutral: no tenant's data reaches another tenant's customer. It is a branding/UX gap: the customer gets an unsigned, slightly anonymous message. Correct severity: **low / consistency**, not critical.
 
-## 1. send-reschedule-notification (customer-facing — HIGH)
+Both functions already have the real guards that matter (org resolution, WhatsApp credential resolution, opt-out in `send-upcoming-reminders`), so a misconfigured tenant can already never send with someone else's credentials.
 
-Current, `index.ts:88`:
+## Live exposure
+
+| Org | Resolved footer | Exposed today |
+|---|---|---|
+| K & N Gas Services | `K&N Gas Services` | no |
+| Dublin Gas | full footer line | no |
+| Webliveview Ltd | full footer line | no |
+| Cavan Gas | `Cavan Gas` (via `business_name`) | no — `message_footer` blank but chain resolves |
+| wexford gas (2 rows) | none (no settings row) | yes in theory |
+
+The two `wexford gas` orgs have no `settings` row at all, so they would hit `"our team"`. They have **zero** `service_calls`, so neither function can currently fire for them. Practical live exposure today: **none**.
+
+## Proposed diffs
+
+### 1. `send-upcoming-reminders` — hard skip (matches the B-series pattern)
+
+Automated bulk outreach, no human in the loop, and the footer appears twice in the body — an unsigned reminder is the worst version of this. Treat a blank branding chain exactly like a missing WhatsApp credential (that skip already exists a few lines above).
+
+In `loadOrgConfig`, after the settings read:
 
 ```ts
-let messageFooter = "Karl's Gas Services";
-```
-
-Sourcing: `settings.message_footer` looked up by `organisation_id` (line 90), overwritten only when non-blank (line 94). Note the literal is `"Karl's Gas Services"` — not even the current K&N footer string, so it is stale as well as tenant-specific.
-
-Proposed diff (replaces lines 87-96), placed **before** the message is assembled and before the 360 Messenger call:
-
-```ts
-// Tenant footer (BJ-B3b). This org's own settings only — no shared fallback.
-const settingsRes = await fetch(
-  `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
-  { headers: dbHeaders },
-);
-const settings = await settingsRes.json();
-const messageFooter = String(
-  (Array.isArray(settings) ? settings[0]?.message_footer : "") ?? "",
-).trim();
-
-if (!messageFooter) {
-  // skip-and-log: edge_function_logs + message_log(status:'failed'), HTTP 200
-  return { success: false, skipped: true, reason: "message_footer_not_configured" };
+const resolved = (s?.message_footer || s?.business_name || s?.company_name || "").trim();
+if (!resolved) {
+  await supabase.from("edge_function_logs").insert({
+    function_name: "send-upcoming-reminders",
+    error_message: `Branding not configured for org ${orgId} — skipping reminders`,
+    payload: { organisation_id: orgId, reason: "message_footer_not_configured" },
+  });
+  orgCache.set(orgId, null);
+  return null;
 }
+const cfg = { apiKey, messageFooter: resolved };
 ```
 
-Skip payload mirrors B3a exactly: `edge_function_logs` insert (`function_name: "send-reschedule-notification"`, `error_message: "Skipped: message_footer_not_configured for organisation"`), plus a `message_log` row with `message_type: "reschedule_notification"`, `channel: "whatsapp"`, `status: "failed"`, `error_message`, `related_id`/`related_type`, `sent_by: "system"`. HTTP 200.
+Per-job effect: the existing `if (!orgCfg)` branch already increments `skipped` and pushes a result row — only its `error` string needs widening to `"Branding or WhatsApp integration not configured"`. No `message_log` row per job (the function only writes `message_log` at send time, and a bulk run would otherwise spam one failed row per job); the single `edge_function_logs` row per org per run is the audit trail — same dedup principle approved for `send-area-bulk-whatsapp`.
 
-Untouched: the WhatsApp credential resolver, the customer/phone guards, engineer in-app notification, `customer_activity` insert.
+Reason code: `message_footer_not_configured` (already used in `send-reschedule-notification`).
 
-## 2. quote-accepted-alert (internal office alert — LOW severity, still fix)
+### 2. `send-part-arrived` — degrade, don't skip
 
-Current, `index.ts` (settings block):
+Same spirit as `quote-accepted-alert`: this is an office-initiated, one-at-a-time click from the Parts panel ("Send Message"), telling a waiting customer their part has arrived. Blocking it on a blank footer would break a live operational action for a cosmetic reason, and the office user would see a confusing failure toast.
+
+Proposed: remove the `"our team"` literal and omit the footer line when nothing resolves.
 
 ```ts
-const messageFooter = (Array.isArray(settings) && settings[0]?.message_footer)
-  ? settings[0].message_footer
-  : "K&N Gas Services";
+let messageFooter = "";
+// …existing settings fetch…
+if (Array.isArray(settings) && settings[0]) {
+  messageFooter = (settings[0].message_footer || settings[0].business_name || settings[0].company_name || "").trim();
+}
+
+const message = messageFooter ? `${baseMessage}\n\n${messageFooter}` : baseMessage;
 ```
 
-Recipient confirmed: the message is sent to `officeNumber = settings.whatsapp_number || settings.business_phone` for the quote's own `user_id`, and the accompanying in-app notification is `role: "office"`. **No customer ever receives this.** Worst case today is Cavan Gas office staff seeing "K&N Gas Services" at the bottom of their own alert — embarrassing and confusing, not a cross-tenant data leak. Severity: low. Recommend fixing anyway for consistency and to stop the literal spreading by copy-paste.
+Plus a non-blocking `edge_function_logs` row when `messageFooter` is empty (`reason: "message_footer_not_configured"`, note `degraded: true`) so the gap is visible without failing the send. No change to the response shape — the caller (`PartsPanel.tsx`) still gets `{ success: true }`.
 
-Proposed diff:
+### 3. Not touched
 
-```ts
-const messageFooter = String(
-  (Array.isArray(settings) ? settings[0]?.message_footer : "") ?? "",
-).trim();
-```
+Opt-out guard, WhatsApp credential resolution, `message_log` / `customer_activity` writes, response shapes, `PartsPanel.tsx`, and every existing skip condition stay exactly as they are.
 
-Then, because this is internal-only, prefer a **degrade** over a hard skip: omit the footer line entirely rather than blocking the office alert.
+## Verification plan (on approval)
 
-```ts
-const alertMsg = `✅ Quote Accepted
-...
-Job has been created — open BookedJobs to schedule.${messageFooter ? `\n\n${messageFooter}` : ""}`;
-```
-
-Plus a non-blocking `edge_function_logs` row with `reason: "message_footer_not_configured"` so the config gap is still visible. If you would rather it behave identically to the customer-facing functions, say so and it becomes a hard skip with the same `message_log` failed row — but that would suppress a useful internal alert over a cosmetic gap.
-
-Untouched: office-number guard, WhatsApp config resolution, `message_log` pending/sent flow, `customer_activity`, in-app notification.
-
-## 3. send-whatsapp-receipt (customer-facing — MEDIUM, dead code today)
-
-Current, `index.ts:102`:
-
-```ts
-const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
-```
-
-Proposed tenant-neutral fallback. `settings.cert_prefix` already exists and is populated for K&N (KN), Dublin Gas (DG), Webliveview (WE) but is null for Cavan Gas — so it needs its own fallback, and that fallback must not be a tenant string:
-
-```ts
-// Widen the existing settings select to include cert_prefix.
-const refPrefix = String(settings?.cert_prefix ?? "").trim();
-const jobRef = job.job_reference
-  || (refPrefix ? `${refPrefix}-${job.id.slice(0, 6).toUpperCase()}` : `Job ${job.id.slice(0, 6).toUpperCase()}`);
-```
-
-No skip guard proposed here: a missing job reference is not a branding leak once the literal is gone, and blocking a paid customer's receipt over a cosmetic reference label would be a worse outcome. The generic `Job XXXXXX` label is tenant-neutral.
-
-Untouched: receipt PDF generation, tenant public URL resolution, existing `no phone` / branding guards, `message_log`, `receipt_sent` update.
-
-## Reason codes
-
-Reuses existing vocabulary — `message_footer_not_configured` follows the `company_name_not_configured` / `company_phone_not_configured` / `missing_renewal_form_url` shape already in use. No new code needed for item 3.
-
-## Verification (on approval)
-
-- Cavan Gas scratch job → reschedule notification returns `skipped: message_footer_not_configured`; raw `edge_function_logs` + `message_log` rows.
-- Cavan Gas scratch quote → office alert still sends, footer line absent, log row present.
-- K&N scratch job → both happy paths unchanged, correct footer, test recipient only.
-- Receipt: scratch job with `job_reference` nulled → confirm `Job XXXXXX` for Cavan Gas and `KN-XXXXXX` for K&N via cert_prefix.
-- Cleanup + confirm zero real customers messaged.
+- Scratch org/settings state with a blank branding chain: confirm `send-upcoming-reminders` skips with one `edge_function_logs` row per org and zero `message_log` rows; confirm `send-part-arrived` still sends with the footer line absent and a `degraded` log row present.
+- K&N scratch job for both: happy path unchanged, correct footer, footer still appearing twice in the reminder body.
+- All sends to the internal test number only; scratch rows deleted and absence confirmed.
