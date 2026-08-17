@@ -78,7 +78,13 @@ function formatTimestamp(ts: string): string {
 
 const INITIAL_LIMIT = 3;
 
-const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
+const WhatsAppHistory = ({
+  customerId,
+  onSendMessage,
+  highlightJobId,
+  hideSendButton,
+  title,
+}: Props) => {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,7 +100,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
           .order("created_at", { ascending: false }),
         supabase
           .from("message_log")
-          .select("id, message_type, content, status, sent_by, sent_at")
+          .select("id, message_type, content, status, sent_by, sent_at, related_id")
           .eq("customer_id", customerId)
           .order("sent_at", { ascending: false }),
       ]);
@@ -107,6 +113,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         sent_by: m.sent_by,
         status: m.status || "sent",
         source: "whatsapp" as const,
+        related_id: null,
       }));
 
       const logMessages: UnifiedMessage[] = (logRes.data || []).map((m: any) => ({
@@ -117,7 +124,9 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         sent_by: m.sent_by,
         status: m.status || "sent",
         source: "log" as const,
+        related_id: m.related_id ?? null,
       }));
+
 
       const merged = [...waMessages, ...logMessages]
         .filter((m) => m.timestamp)
