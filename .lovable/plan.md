@@ -66,5 +66,7 @@ Note: **Cavan Gas has zero notification rows**, so a manual run scoped to Cavan 
 
 ## Safety
 - The DELETE only ever matches `is_read = true`; unread rows are never touched at any age.
+- The purge function is not callable from the client: EXECUTE is revoked from PUBLIC, `anon`, and `authenticated`, and that is verified against `pg_proc.proacl` before the schedule is enabled.
 - No changes to `useNotifications.ts`, `NotificationBell.tsx`, or any read/write path — the trigger is server-side only.
 - The badge count from BJ-0053a keeps working; purging read rows cannot change an unread count.
+
