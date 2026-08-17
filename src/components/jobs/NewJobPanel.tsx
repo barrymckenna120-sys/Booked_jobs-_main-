@@ -1448,6 +1448,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           organisation_id: orgId!,
           name: finalData.customer.name,
           phone: finalData.customer.phone,
+          landline_phone: finalData.customer.landline?.trim() || null,
+
           email: finalData.job?.email?.trim() || null,
           address: finalData.customer.address,
           eircode: finalData.customer.eircode || "",

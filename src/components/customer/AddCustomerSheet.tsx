@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
-  validateRequired, validatePhone, validateEircode, validateAreaCode,
+  validateRequired, validatePhone, validateEircode, validateAreaCode, validateLandline,
   formatEircode, formatPhoneInternational, normalizeAreaCode, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -26,6 +27,7 @@ const DEFAULT_WARRANTY_YEARS = "10";
 const EMPTY_FORM = {
   name: "",
   phone: "",
+  landline_phone: "",
   email: "",
   address: "",
   eircode: "",
@@ -35,6 +37,7 @@ const EMPTY_FORM = {
   owner_or_tenant: DEFAULT_OWNER_OR_TENANT,
   warranty_years: DEFAULT_WARRANTY_YEARS,
 };
+
 
 interface AddCustomerSheetProps {
   open: boolean;
