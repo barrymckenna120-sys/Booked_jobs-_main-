@@ -148,7 +148,7 @@ serve(async (req) => {
       const orgCfg = await loadOrgConfig(orgId);
       if (!orgCfg) {
         skipped++;
-        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "WhatsApp integration not configured" });
+        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "Branding or WhatsApp integration not configured" });
         continue;
       }
       const { apiKey, messageFooter } = orgCfg;
