@@ -100,7 +100,10 @@ Deno.serve(async (req) => {
 
     const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
-    const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
+    // BJ-B3b: tenant-neutral job-ref fallback — org's own cert_prefix, else a generic label.
+    const refPrefix = String(settings?.cert_prefix ?? "").trim();
+    const shortId = job.id.slice(0, 6).toUpperCase();
+    const jobRef = job.job_reference || (refPrefix ? `${refPrefix}-${shortId}` : `Job ${shortId}`);
     const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "invoice" ? "Invoice" : "Cash";
     const receiptNum = job.receipt_number || "";
