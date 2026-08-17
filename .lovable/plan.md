@@ -12,20 +12,28 @@ Changes
    - `duplicate: { id: string; name: string } | null` for the normalised-phone duplicate warning.
 3. Wire each quick-add field to validation:
    - **Name**: trim value on blur; store trimmed value; validate required on blur; show error inline.
-   - **Phone**: on blur, run `formatPhoneInternational` and set the formatted value back into state; run `validatePhone` and show error inline.
+   - **Phone**: on blur, run `validatePhone` on the raw value first (it must pass before formatting); if valid, run `formatPhoneInternational` and set the formatted value back into state. Show error inline otherwise.
    - **Eircode**: on blur, run `formatEircode` and set formatted value back; run `validateEircode` and show error inline.
    - **Address**: validate required on blur; show error inline.
-4. Duplicate check before proceeding:
-   - When the user clicks Continue, if `isNew`, query `customers` for an existing row with the same `phone` (already formatted) and current `organisation_id`.
+4. Duplicate check before proceeding (fail safe):
+   - When the user clicks Continue, if `isNew`, query `customers` for an existing row with the same normalised `phone` and current `organisation_id`.
+   - Show a loading state on the Continue button while the check runs (button disabled + "Checking…").
    - If a match is found, set `duplicate` and block progression (same warning pattern as `AddCustomerSheet`, rendered inline in StepCustomer).
+   - If the query returns an error, block progression and show a visible inline error: "Couldn't check for duplicates — try again". Never allow progression on an inconclusive check.
 5. Update `canProceed` (line ~149):
-   - Require `validatePhone(phone) === null` instead of just `phone.trim()`.
-   - Require no active `duplicate`.
+   - Only tighten the `isNew` branch: require `validatePhone(phone) === null` instead of just `phone.trim()`.
+   - The `selected` (existing customer) branch stays exactly as-is — existing records may predate this validation and must not be gated.
+   - Require no active `duplicate` and no in-flight duplicate check.
 6. Update `handleNext`:
    - Re-run all field validations; abort if any fail.
    - Use the formatted phone and trimmed name/eircode in the `onNext` payload so downstream `handleSubmit` stores clean data.
 7. Visual feedback:
    - Apply the existing `validationBorderClass` / `ValidationMessage` pattern from `src/components/shared/FormValidation.tsx` for invalid fields, matching the wizard's current validation styling.
+
+Confirmed behaviour of `formatPhoneInternational` (verified in `src/lib/customerValidation.ts`)
+- It never throws and never returns null. It strips whitespace, removes a leading `+`, a leading `353`, and a leading `0`, then unconditionally prepends `+353`. On garbage input it passes the garbage through with a `+353` prefix (e.g. `"abc"` → `"+353abc"`).
+- Therefore it must never be used as a validity check. `validatePhone` is the gate: its regex `^(\+?353|0)\d{7,10}$` rejects non-numeric and wrong-length input. The plan runs `validatePhone` on the raw value **before** formatting, so malformed input is caught and never reaches the formatter or the database.
+
 
 Testing
 - Add one regression unit test that simulates the quick-add form state:
