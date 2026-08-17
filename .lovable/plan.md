@@ -1,64 +1,80 @@
-# BJ — send-warranty-whatsapp: remove K&N Tally fallback
+# B3a — Remove K&N branding fallback from the deposit-request path
 
-Time-sensitive: `warranty-auto-send` is scheduled again and fires at 09:00 tomorrow.
+Diff proposal only. Nothing implemented.
 
 ## The problem
 
-`send-warranty-whatsapp` hardcodes K&N's booking form as a fallback:
+`supabase/functions/_shared/depositLink.ts` (lines 178–179) seeds branding with K&N's own name and phone before reading the tenant's config:
 
+```ts
+let companyName = "K & N Gas Services";
+let companyPhone = "087 3686252";
 ```
-line 90:  let tallyFormBase = "https://tally.so/r/RGJDy4";
-line 98:  if (cfg?.renewal_form_url) tallyFormBase = cfg.renewal_form_url;
+
+If a tenant's `tenant_integrations.360messenger.config` has a blank `company_name` or `company_phone`, that tenant's deposit request goes out signed with K&N's details. This is the live money path used by both `accept-quote` and `send-deposit-link`, so it is the same severity class as the B1 invoice fix.
+
+## Live exposure today
+
+| Organisation | company_name | company_phone | Exposed? |
+| --- | --- | --- | --- |
+| K & N Gas Services | K & N Gas Services | 087 3686252 | No (its own details) |
+| Dublin Gas | Dublin Gas | 014412618 | No |
+| Webliveview Ltd | Webliveview Ltd | 0872354257 | No |
+| Cavan Gas | Cavan Gas | *(empty)* | **Yes — would send "Cavan Gas ☎ 087 3686252"** |
+| wexford gas (x2) | *(no 360messenger row)* | *(none)* | Yes on both fields, though these orgs stop later at the missing WhatsApp key |
+
+So the leak is real and currently reachable for Cavan Gas: name is correct, phone would silently become K&N's mobile in the message footer.
+
+No message has leaked yet — `message_log` has zero `payment_link` rows containing `087 3686252` for any organisation other than K&N.
+
+## Proposed diff
+
+**1. Remove both hardcoded fallbacks** — read the tenant config into plain trimmed strings, no seeded defaults:
+
+```ts
+const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+const companyName = String(cfg?.company_name ?? "").trim();
+const companyPhone = String(cfg?.company_phone ?? "").trim();
 ```
 
-Any tenant without a configured `renewal_form_url` silently sends its customers to K&N's
-booking form. Confirmed live config in `tenant_integrations` (integration_type = tally):
+**2. Add a skip-and-log guard immediately after that read**, before the WhatsApp key resolution and before message assembly, matching B1/B2a/B2b exactly:
 
-| Organisation | renewal_form_url |
-| --- | --- |
-| K&N Gas Services | https://rebook.kngasservices.ie/ |
-| Dublin Gas | https://tally.so/r/Zjgxva |
-| Cavan Gas | (empty string) |
-| Webliveview Ltd | (null) |
+```ts
+const missingConfig = !companyName
+  ? "company_name_not_configured"
+  : !companyPhone
+    ? "company_phone_not_configured"
+    : null;
 
-Two of four tenants would hit the K&N fallback.
+if (missingConfig) {
+  // edge_function_logs row (function_name: "deposit-link")
+  // message_log row: message_type "payment_link", status "failed",
+  //   content "Skipped: <reason>", related_id = serviceCallId
+  return { ok: true, skipped: missingConfig, paymentLink };
+}
+```
 
-## The fix
+The two Edge Functions that call this module already surface `skipped` as HTTP 200 `{ success: false, skipped: true, reason }`, so their response shape needs no change.
 
-Same skip-and-log pattern already used in `send-payment-received` for missing branding:
+**3. Reason codes** — reuse the exact strings already in use in `send-payment-received`, `send-deposit-reminder`, `send-area-bulk-whatsapp` and `send-extrawork-payment-link`: `company_name_not_configured` and `company_phone_not_configured`. No new vocabulary.
 
-- Remove the hardcoded default. Resolve `renewal_form_url` from the tenant's tally config only.
-- If it is missing, empty, or the lookup fails: do not send. Return HTTP 200 with
-  `{ skipped: true, reason: "missing_renewal_form_url", organisation_id }` and write one
-  `message_log` row recording the skip, so it is visible rather than silent.
-- Also guard the branding name: if `branding.name` resolves to the generic `"our team"`
-  default (no `business_name`/`company_name` in `settings`), skip the same way with reason
-  `missing_branding` rather than sending an unbranded warranty message.
-- No change to `warranty_day14` / `warranty_day28` copy, phone formatting, opt-out handling,
-  or the 360 Messenger send path.
+## Explicitly untouched
 
-Effect on the 09:00 run: K&N and Dublin Gas send exactly as they do today; Cavan Gas and
-Webliveview are skipped with a logged reason instead of leaking K&N's form.
+- SumUp checkout creation, credential resolution, return-URL construction, attempt tracking, and the reuse guard — all unchanged.
+- The `payment_link` / `sumup_checkout_id` write-back to `service_calls` — unchanged.
+- Every existing skip condition stays exactly as-is: `no_deposit_amount`, `no_service_call`, `no_organisation`, `opted_out`, `no_phone`, `no_sumup_credentials`, `checkout_already_pending`, `no_whatsapp_key`.
+- The opt-out guard keeps its current position, ahead of any SumUp work.
+- Message wording itself is unchanged.
 
-## Verification
+## Ordering note (worth a decision)
 
-1. Unit-level check of the guard: warranty send for Cavan Gas returns `skipped: true` /
-   `missing_renewal_form_url` and sends nothing.
-2. Positive path for K&N against a scratch test customer only (per the standing
-   live-path rule — no real customers), confirming the URL is `rebook.kngasservices.ie`.
-3. Confirm `message_log` shows the skip row for the Cavan Gas attempt.
-4. Raw output pasted for each step.
+The branding read sits *after* the SumUp checkout is created. Placing the guard there means a skipped tenant still has a live checkout and a `payment_link` saved on the job — nothing was sent, but a checkout exists. Two options:
 
-## Not in this change
+- **A (minimal, proposed above):** guard where the branding read already is. Smallest diff, no reordering of the money path. A skipped send leaves a valid unused checkout, which the reuse guard will hand back on the next attempt once config is fixed.
+- **B:** move the branding read and guard up to sit beside the opt-out/phone guards, so a misconfigured tenant never creates a checkout at all. Cleaner outcome, but it reorders the money path and needs its own verification pass.
 
-- Populating Cavan Gas / Webliveview `renewal_form_url` — that is tenant config, needs the
-  real form URLs from you.
-- `send-warranty-whatsapp` remains reachable only via the cron'd `warranty-auto-send` and
-  the manual Renewals UI action; no auth changes here.
+Option A is the recommendation for this change; B is a separate follow-up if you want it.
 
-## Technical notes
+## Follow-up items surfaced, not in this diff
 
-- File: `supabase/functions/send-warranty-whatsapp/index.ts` (lines 90-101 for the lookup,
-  118-125 for branding/message assembly).
-- Skip logging reuses `_shared/logMessage.ts`, matching the B2b/B2c guards.
-- No migration, no schema change, no cron change.
+`send-reschedule-notification` ("Karl's Gas Services"), `quote-accepted-alert` ("K&N Gas Services"), and `send-whatsapp-receipt`'s `KN-` job-ref fallback still carry tenant-identifying literals.
