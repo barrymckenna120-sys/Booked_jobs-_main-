@@ -137,9 +137,9 @@ Deno.serve(async (req) => {
       `Invoice #: ${invoiceNumber}\n` +
       `Invoice Date: ${invoiceDate}\n` +
       `Balance Due: ${balanceDue}\n\n` +
-      `Pay securely here: ${stripePaymentLink}\n\n` +
+      `Pay securely here: ${paymentLink}\n\n` +
       `If you have any questions please reply to this message.\n\n` +
-      `${businessName}\n☎️ ${businessPhone}`;
+      `${businessName}${businessPhone ? `\n☎️ ${businessPhone}` : ""}`;
 
 
     // 7. POST to 360 Messenger
