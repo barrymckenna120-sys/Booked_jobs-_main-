@@ -1618,6 +1618,7 @@ export type Database = {
           metadata: Json | null
           notification_type: string
           organisation_id: string | null
+          read_at: string | null
           recipient_user_id: string
           role: string | null
           title: string
@@ -1631,6 +1632,7 @@ export type Database = {
           metadata?: Json | null
           notification_type: string
           organisation_id?: string | null
+          read_at?: string | null
           recipient_user_id: string
           role?: string | null
           title: string
@@ -1644,6 +1646,7 @@ export type Database = {
           metadata?: Json | null
           notification_type?: string
           organisation_id?: string | null
+          read_at?: string | null
           recipient_user_id?: string
           role?: string | null
           title?: string
@@ -3223,6 +3226,7 @@ export type Database = {
         Returns: number
       }
       next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
+      purge_old_read_notifications: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
