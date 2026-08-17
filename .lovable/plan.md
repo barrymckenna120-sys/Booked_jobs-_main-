@@ -1,40 +1,38 @@
-# BJ-0050b: Live parity verification (send-deposit-link + accept-quote)
+# BJ-0050b: disposable K&N test quote + accept-quote live parity
 
-No code changes. This run only produces evidence for the two callers that previously had no reuse protection. It does create real (sandbox) SumUp checkouts and sends a real WhatsApp on the accept-quote path, so it needs approval before running.
+Read-write run on the live K&N tenant, deliberately isolated to one throwaway customer/quote/job. Needs approval because it creates real (sandbox) SumUp checkouts and attempts one real WhatsApp send to a fake number.
 
-## Confirmed before running (read-only checks already done)
+## 1. Seed via the real write path
 
-- K&N Gas Services org id `8c37827f-...d89856` has an active SumUp integration: `integration_type: sumup`, `environment: sandbox`, `merchant_code: MBBMEYG7`, key from `SUMUP_API_KEY`. Dublin Gas has no SumUp integration row, which is why the earlier attempt 404'd — a K&N session is required.
-- K&N users available for a session include an `admin` (officeapp@bookedjobs.ie) and two superadmins.
-- `payment_checkout_attempts` currently holds 5 rows in total, so row counts are easy to attribute.
-- Candidate K&N jobs with a deposit and no checkout yet: KN-472 (EUR 100), KN-471 (EUR 100), KN-473 (EUR 200).
+Sign in the preview as the K&N admin (`officeapp@bookedjobs.ie`), assert `get_my_org_id()` returns `8c37827f-…d89856` before anything else. If it resolves elsewhere, stop and report.
 
-## Steps
+Then drive the app UI (Playwright, localhost preview) through the normal flows:
 
-### 1. Session
+- New customer: name `TEST DO NOT CONTACT`, phone `+353000000000` (unused/fake), email `test-scratch@bookedjobs.ie`, address/eircode marked `TEST` (both are NOT NULL).
+- New quote for that customer via `/quotes/new`: one line item totalling €200, deposit required €50, then send/mark it so `status = 'sent'` — the state `respond_to_quote` expects.
+- Paste the created customer row and the full created quote row (id, `quote_number`, `status`, `deposit`, `access_token` redacted to first 8 chars, `organisation_id`, `total_amount`).
 
-Mint a preview session for the K&N admin user, then assert `get_my_org_id()` returns the K&N org id before any function call. If it resolves anywhere else, stop and report — no guard changes.
+Baseline: record the exact `payment_checkout_attempts` count before Step 2.
 
-### 2. send-deposit-link, twice
+## 2. accept-quote, live, twice
 
-Use KN-472 (deposit EUR 100, `sumup_checkout_id` currently null).
+Accept 1 — the normal customer path: `POST /functions/v1/accept-quote` with `{ quote_id, access_token }` exactly as the public quote page sends it.
 
-- Call 1: expect a new checkout, `reused: false`, exactly one new `payment_checkout_attempts` row with reference `<job-id>::1`.
-- Call 2, immediately, same job and amount: expect `{ success: true, skipped: "checkout_already_pending", payment_link: <same link> }`, no new row.
-- Paste both raw HTTP bodies and the raw `payment_checkout_attempts` rows for that job id before/after each call.
+Expected and to be shown from raw output: `respond_to_quote` succeeds, job created and linked (`converted_job_id`), one new `payment_checkout_attempts` row with reference `<job-id>::1`, a real sandbox checkout id, `reused: false` on the underlying deposit result. WhatsApp to the fake number will fail or no-op — logged, not part of the assertion.
 
-### 3. accept-quote deposit path, twice
+Accept 2 — same call, same quote, immediately after. `accept-quote` is a one-shot state transition: `respond_to_quote` gates on the quote still being pending, so the second call is expected to be rejected before the deposit path runs. That outcome will be reported plainly as "entry point cannot be double-called live", with the raw rejection body, and the step reduces to:
 
-Find a K&N quote with a deposit that is not yet accepted (query first; if none exists, say so rather than inventing one).
+- confirming Accept 1's response shape and the WhatsApp-skip branch match spec, and
+- the already-recorded fallback: two direct `send-payment-link` calls for the same job/amount, which run the same `depositLink.ts` → `createSumUpDepositCheckout` → `findReusableCheckout` code path. Labelled as fallback, not the primary test.
 
-- Accept 1: expect job created/linked, checkout created, WhatsApp sent, one attempt row.
-- Accept 2: `accept-quote` is a one-shot state transition (a quote already `accepted` will not run the deposit path again). If re-triggering is not possible without faking state, that will be stated explicitly and the fallback used instead: two direct calls to `send-payment-link` for the same job and amount, which routes through the same `depositLink.ts`/`createSumUpDepositCheckout` code path. The fallback will be labelled as a fallback, not the primary test.
-- Paste both raw bodies plus the attempt rows.
+Raw HTTP bodies for both calls plus the raw attempt rows before/after each.
 
-### 4. Reporting
+## 3. Cleanup
 
-Raw HTTP responses and raw SQL result rows only, with real checkout ids and counts. Any step that cannot be run live will be reported as not run, with the reason.
+Hard delete, in FK-safe order: the test job's dependent rows (`payment_checkout_attempts`, `customer_activity`, `message_log`, `invoices`/line items if any), then the service call, then `quote_line_items` + the quote, then the customer. Post-cleanup verification queries pasted showing zero remaining rows for each id, and a re-check that `payment_checkout_attempts` is back to its pre-test count.
 
-## Not in scope here
+If any FK blocks a delete, that row is instead flagged as test data (`notes` prefixed `TEST DATA — BJ-0050b, safe to delete`) and reported explicitly rather than left silently behind.
 
-BJ-0052 (engineers `auth_user_id` self-repoint evidence), BJ-0053, BJ-0054 and BJ-0051 stay open as separate items — each gets its own prompt and its own evidence.
+## 4. Evidence
+
+Raw HTTP responses, raw SQL rows, real ids and counts, cleanup verification output. Anything not runnable live is reported as not run with the reason.
