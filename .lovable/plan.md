@@ -1,6 +1,13 @@
 # Remove K&N hardcoded fallbacks from send-invoice-whatsapp
 
+## The bug is latent, not live
+
+`send-invoice-whatsapp` has never successfully sent a message. It writes `message_type: "invoice_sent"` (line 141), and `message_log` holds **0** such rows out of 937 total. No customer has received the broken text. The existing `Pay securely here` messages in `message_log` come from `_shared/depositLink.ts` (types `payment_link` / `deposit_reminder`) and carry correct SumUp URLs; the `invoice` rows come from `create-job-invoice`, which has no such line.
+
+This means there is no "unchanged from today" baseline for K&N to compare against, and the fix carries no risk of altering a message customers already receive.
+
 ## What verification changed about the original diff
+
 
 Two findings from checking the live schema and data mean the originally proposed diff would have shipped a bug.
 
