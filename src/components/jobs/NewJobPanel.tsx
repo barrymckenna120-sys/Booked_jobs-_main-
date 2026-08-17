@@ -23,6 +23,10 @@ import { cn } from "@/lib/utils";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
+import {
+  validateRequired, validatePhone, validateEircode,
+  formatEircode, formatPhoneInternational, type CustomerFieldErrors,
+} from "@/lib/customerValidation";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
