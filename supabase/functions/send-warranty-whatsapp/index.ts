@@ -87,7 +87,38 @@ serve(async (req) => {
       );
     }
 
-    let tallyFormBase = "https://tally.so/r/RGJDy4";
+    const logClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const logSkip = async (reason: string, detail: string) => {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            function_name: "send-warranty-whatsapp",
+            error_message: `SKIPPED: ${reason} — ${detail}`,
+            payload: { customer_id, message_type, organisation_id: orgId, phone: messengerPhone },
+          }),
+        });
+      } catch (_logErr) { /* non-critical */ }
+      await logMessage(logClient, {
+        organisation_id: orgId,
+        customer_id,
+        message_type,
+        content: `Skipped: ${reason} — ${detail}`,
+        status: "failed",
+        channel: "whatsapp",
+        recipient_phone: `+${messengerPhone}`,
+      });
+    };
+
+    // Tally renewal form URL must be configured per-org. No cross-tenant fallback.
+    let tallyFormBase: string | null = null;
     try {
       const tiTallyRes = await fetch(
         `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.tally&select=config&limit=1`,
@@ -97,8 +128,22 @@ serve(async (req) => {
       const cfg = Array.isArray(tiTallyRows) ? tiTallyRows[0]?.config : null;
       if (cfg?.renewal_form_url) tallyFormBase = cfg.renewal_form_url;
     } catch (_lookupErr) {
-      // Non-critical — fall back to default
+      // Treated as missing — guard below skips.
     }
+
+    if (!tallyFormBase) {
+      await logSkip("missing_renewal_form_url", "tenant_integrations(tally).config.renewal_form_url is not set for this organisation");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "missing_renewal_form_url",
+          organisation_id: orgId,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
 
     // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
     const wa = await fetchWhatsappApiKey(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, orgId);
@@ -116,9 +161,25 @@ serve(async (req) => {
 
     // Build message based on type
     const branding = await getOrgBranding(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, orgId);
+
+    // Branding must be configured per-org — never send with a generic/placeholder name.
+    if (!branding.name || branding.name === "our team") {
+      await logSkip("missing_branding", "settings.business_name/company_name is not set for this organisation");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "missing_branding",
+          organisation_id: orgId,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const phoneLine = branding.phone ? `\n\nOr call us on 📞 ${branding.phone}` : "";
     const footerLine = branding.footer || branding.name;
     let message: string;
+
     if (message_type === "warranty_day14") {
       message = `Hi ${first_name}, this is ${branding.name}.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here:\n👉 ${tallyUrl}${phoneLine}\n\n${footerLine}`;
     } else if (message_type === "warranty_day28") {
@@ -167,9 +228,6 @@ serve(async (req) => {
       }
     }
 
-    const logClient = (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
-      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-      : null;
 
     if (!response.ok) {
       if (logClient) {
