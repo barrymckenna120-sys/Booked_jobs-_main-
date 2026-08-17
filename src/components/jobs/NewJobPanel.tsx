@@ -223,6 +223,8 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     if (eircode.trim()) {
       const eircodeErr = validateEircode(eircode); if (eircodeErr) nextErrors.eircode = eircodeErr;
     }
+    const landlineErr = validateLandline(landline); if (landlineErr) nextErrors.landline = landlineErr;
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -253,7 +255,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     setName(cleanName);
     setPhone(cleanPhone);
     if (cleanEircode) setEircode(cleanEircode);
-    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
   };
 
 
