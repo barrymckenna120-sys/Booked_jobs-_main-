@@ -27,19 +27,31 @@ So the leak is real and currently reachable for Cavan Gas: name is correct, phon
 
 No message has leaked yet — `message_log` has zero `payment_link` rows containing `087 3686252` for any organisation other than K&N.
 
-## Proposed diff
+## Proposed diff (Option B — guard before any SumUp call)
 
-**1. Remove both hardcoded fallbacks** — read the tenant config into plain trimmed strings, no seeded defaults:
+**1. Remove both hardcoded fallbacks.**
+
+**2. Move the branding read up** to sit immediately after the `no_phone` guard, so the guard order becomes:
+
+```text
+no_deposit_amount → no_service_call → no_organisation
+  → opted_out → no_phone
+  → company_name_not_configured / company_phone_not_configured   [moved here]
+  → no_sumup_credentials → createSumUpDepositCheckout(...)
+```
+
+A misconfigured tenant now returns before SumUp is touched, so no checkout row and no `payment_checkout_attempts` row is ever created for it.
 
 ```ts
+const tiRes = await fetch(
+  `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+  { headers },
+);
+const tiRows = await tiRes.json();
 const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
 const companyName = String(cfg?.company_name ?? "").trim();
 const companyPhone = String(cfg?.company_phone ?? "").trim();
-```
 
-**2. Add a skip-and-log guard immediately after that read**, before the WhatsApp key resolution and before message assembly, matching B1/B2a/B2b exactly:
-
-```ts
 const missingConfig = !companyName
   ? "company_name_not_configured"
   : !companyPhone
@@ -50,30 +62,30 @@ if (missingConfig) {
   // edge_function_logs row (function_name: "deposit-link")
   // message_log row: message_type "payment_link", status "failed",
   //   content "Skipped: <reason>", related_id = serviceCallId
-  return { ok: true, skipped: missingConfig, paymentLink };
+  return { ok: true, skipped: missingConfig };
 }
 ```
 
-The two Edge Functions that call this module already surface `skipped` as HTTP 200 `{ success: false, skipped: true, reason }`, so their response shape needs no change.
+The skip returns without a `paymentLink`, because none exists yet — both callers already treat `skipped` as HTTP 200 `{ success: false, skipped: true, reason }`.
 
-**3. Reason codes** — reuse the exact strings already in use in `send-payment-received`, `send-deposit-reminder`, `send-area-bulk-whatsapp` and `send-extrawork-payment-link`: `company_name_not_configured` and `company_phone_not_configured`. No new vocabulary.
+**3. Reason codes** — reuse the exact strings already used in `send-payment-received`, `send-deposit-reminder`, `send-area-bulk-whatsapp` and `send-extrawork-payment-link`: `company_name_not_configured` and `company_phone_not_configured`. No new vocabulary.
 
 ## Explicitly untouched
 
-- SumUp checkout creation, credential resolution, return-URL construction, attempt tracking, and the reuse guard — all unchanged.
+- SumUp checkout creation, credential resolution, return-URL construction, attempt tracking, and the BJ-0050b reuse guard — all unchanged, just now reached later.
 - The `payment_link` / `sumup_checkout_id` write-back to `service_calls` — unchanged.
-- Every existing skip condition stays exactly as-is: `no_deposit_amount`, `no_service_call`, `no_organisation`, `opted_out`, `no_phone`, `no_sumup_credentials`, `checkout_already_pending`, `no_whatsapp_key`.
-- The opt-out guard keeps its current position, ahead of any SumUp work.
+- Every existing skip condition stays as-is: `no_deposit_amount`, `no_service_call`, `no_organisation`, `opted_out`, `no_phone`, `no_sumup_credentials`, `checkout_already_pending`, `no_whatsapp_key`.
 - Message wording itself is unchanged.
+- Happy path: for a tenant with both branding fields set, `missingConfig` is null, execution falls through to the identical SumUp block, so checkout creation and the message are byte-identical to today.
 
-## Ordering note (worth a decision)
+## Verification pass (reordering-specific)
 
-The branding read sits *after* the SumUp checkout is created. Placing the guard there means a skipped tenant still has a live checkout and a `payment_link` saved on the job — nothing was sent, but a checkout exists. Two options:
+1. Read the final file top-to-bottom and confirm the three guards (opt-out, phone, branding) all return before the first `resolveSumUpCredentials` / `createSumUpDepositCheckout` call.
+2. Cavan Gas scratch job (`company_phone` blank): expect HTTP 200 skip with `company_phone_not_configured`, **zero** `payment_checkout_attempts` rows for that job, one `edge_function_logs` row, one `message_log` row with `status: 'failed'`.
+3. K&N scratch job to the test recipient: expect a real send, a created checkout, a `payment_checkout_attempts` row, and the message signed `K & N Gas Services ☎ 087 3686252`.
+4. Delete scratch records afterwards and confirm no real customer was messaged.
+5. Raw response bodies and raw query rows pasted verbatim for each step.
 
-- **A (minimal, proposed above):** guard where the branding read already is. Smallest diff, no reordering of the money path. A skipped send leaves a valid unused checkout, which the reuse guard will hand back on the next attempt once config is fixed.
-- **B:** move the branding read and guard up to sit beside the opt-out/phone guards, so a misconfigured tenant never creates a checkout at all. Cleaner outcome, but it reorders the money path and needs its own verification pass.
-
-Option A is the recommendation for this change; B is a separate follow-up if you want it.
 
 ## Follow-up items surfaced, not in this diff
 
