@@ -13,7 +13,7 @@ The code, data step, and all fail-safe (skip) verification are already done and 
 
 Positive-path send under K&N, using scratch data and a test mobile only.
 
-1. Create a scratch customer under K&N named `ZZ TEST — B2b positive`, with the test mobile you provide.
+1. Create a scratch customer under K&N named `ZZ TEST — B2b positive`, mobile `0872354257`.
 2. Create a scratch job for that customer, plus a scratch quote (needed for the quote sender).
 3. Fire `send-payment-received` (the function that gained new sourcing) and `send-quote-whatsapp` (representing the three REST-based footer functions, which share byte-identical guard code).
 4. Confirm each returns a real send — not `skipped` — and that the message body carries K&N's own name, phone, and footer, sourced from their 360messenger config rather than any literal.
@@ -21,10 +21,6 @@ Positive-path send under K&N, using scratch data and a test mobile only.
 6. Delete the scratch customer, job, quote, and their activity/message rows; paste post-cleanup counts.
 
 No K&N config is modified at any point — this is read-only against their branding.
-
-## What I need from you
-
-The test mobile number to use as the recipient. Nothing runs until you give it.
 
 ## Notes
 
