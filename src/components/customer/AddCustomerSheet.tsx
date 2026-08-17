@@ -121,6 +121,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       organisation_id: orgId!,
       name: form.name.trim(),
       phone: cleanPhone,
+      landline_phone: form.landline_phone.trim() || null,
+
       email: form.email.trim() || null,
       address: form.address.trim(),
       eircode: cleanEircode,
