@@ -49,4 +49,6 @@ Re-run `sumupCheckout.test.ts`, `sumupWebhook.test.ts`, `paymentLink.test.ts` gr
 3. Fresh job: `send-deposit-link` twice → first `reused: false`, second returns `skipped: "checkout_already_pending"` with the same payment link.
 4. Fresh job via `accept-quote` deposit path twice → first-attempt behaviour unchanged, second reuses.
 
-Evidence pasted: the full `findReusableCheckout` + integration block, the queried attempt rows, and the test run output.
+Once approved, the build reply will contain the real artifacts: the actual `findReusableCheckout` source and integration block, the actual diffs to the three callers, the raw `deno test` output, and the live K&N sandbox results with real checkout IDs, real `payment_checkout_attempts` row counts, and real response bodies.
+
+Note: nothing has been built yet — this plan is still awaiting approval, so no code, test output, or live results exist to paste.
