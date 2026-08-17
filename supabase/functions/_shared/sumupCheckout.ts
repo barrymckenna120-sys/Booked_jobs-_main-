@@ -41,6 +41,15 @@ export interface SumUpDepositArgs {
 export interface CheckoutAttemptStore {
   /** Existing attempt rows for this job. */
   count(serviceCallId: string): Promise<number>;
+  /**
+   * Newest attempt row for this job within the given organisation, or null.
+   * The org filter is defense-in-depth: never scope tenant data on a job id
+   * alone.
+   */
+  latest(
+    serviceCallId: string,
+    organisationId: string,
+  ): Promise<{ checkoutId: string; checkoutReference: string } | null>;
   record(row: {
     serviceCallId: string;
     organisationId: string;
