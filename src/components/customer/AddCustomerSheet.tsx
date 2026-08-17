@@ -64,6 +64,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     let err: string | null = null;
     if (field === "name") err = validateRequired(val);
     else if (field === "phone") err = validatePhone(val);
+    else if (field === "landline_phone") err = validateLandline(val);
+
     else if (field === "eircode") {
       err = validateEircode(val);
       if (!err) update("eircode", formatEircode(val));
@@ -83,6 +85,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     const phoneErr = validatePhone(form.phone); if (phoneErr) e.phone = phoneErr;
     const eircodeErr = validateEircode(form.eircode); if (eircodeErr) e.eircode = eircodeErr;
     const areaErr = validateAreaCode(form.area_code); if (areaErr) e.area_code = areaErr;
+    const landlineErr = validateLandline(form.landline_phone); if (landlineErr) e.landline_phone = landlineErr;
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
