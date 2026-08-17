@@ -64,19 +64,48 @@ Deno.serve(async (req) => {
       Deno.env.get("THREESIXTY_API_KEY");
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
 
-    // 4. Org settings: branding + payment link + cert prefix
+    // 4. Org settings: branding + cert prefix
     const { data: orgSettings } = await supabase
       .from("settings")
-      .select("business_name, business_phone, template_payment_link, cert_prefix")
+      .select("business_name, business_phone, cert_prefix")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    const businessName = orgSettings?.business_name || "K & N Gas Services";
-    const businessPhone = orgSettings?.business_phone || "087 368 5252";
-    const stripePaymentLink =
-      orgSettings?.template_payment_link ||
-      cfg.stripe_payment_link ||
-      "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+    // Per-tenant Stripe payment link. There is no global fallback — a
+    // customer's payment must never land in another tenant's account.
+    const { data: stripeIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", job.organisation_id)
+      .eq("integration_type", "stripe")
+      .maybeSingle();
+
+    const stripeCfg = (stripeIntegration?.config ?? {}) as Record<string, any>;
+    const paymentLink =
+      typeof stripeCfg.payment_link === "string" ? stripeCfg.payment_link.trim() : "";
+
+    // Tenant-scoped branding only — never fall back to another tenant's details.
+    const businessName = orgSettings?.business_name?.trim() || "";
+    if (!businessName) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-invoice-whatsapp",
+        error_message: "Skipped: settings.business_name not configured for organisation",
+        payload: { organisation_id: job.organisation_id, service_call_id },
+      });
+      return json({ success: true, skipped: true, reason: "business_name_not_configured" });
+    }
+
+    if (!paymentLink) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-invoice-whatsapp",
+        error_message: "Skipped: no Stripe payment link configured for organisation",
+        payload: { organisation_id: job.organisation_id, service_call_id },
+      });
+      return json({ success: true, skipped: true, reason: "payment_link_not_configured" });
+    }
+
+    // Phone is optional — omit the line rather than substitute another tenant's number.
+    const businessPhone = orgSettings?.business_phone?.trim() || "";
     const certPrefix = orgSettings?.cert_prefix || "JOB";
 
     // 5. Normalise phone: strip +, leading 0 -> 353
