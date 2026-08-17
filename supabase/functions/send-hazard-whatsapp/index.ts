@@ -99,8 +99,9 @@ serve(async (req) => {
       if (Array.isArray(engs) && engs[0]?.name) engineerName = engs[0].name;
     }
 
-    // Fetch settings for message_footer (by organisation_id)
-    let messageFooter = "K&N Gas Services";
+    // Fetch settings for message_footer (by organisation_id). No shared
+    // fallback: a blank footer skips-and-logs (BJ-B2c).
+    let messageFooter = "";
     const settingsRes = await fetch(
       `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
       { headers }
@@ -109,6 +110,33 @@ serve(async (req) => {
     if (Array.isArray(settings) && settings[0]?.message_footer) {
       messageFooter = settings[0].message_footer;
     }
+    messageFooter = String(messageFooter).trim();
+
+    if (!messageFooter) {
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          function_name: "send-hazard-whatsapp",
+          error_message: "Skipped: message_footer_not_configured for organisation",
+          payload: {
+            organisation_id: orgId,
+            hazard_id: hazard.id,
+            reason: "message_footer_not_configured",
+          },
+        }),
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          skipped: true,
+          reason: "message_footer_not_configured",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
 
     const firstName = customer.name.split(" ")[0];
 

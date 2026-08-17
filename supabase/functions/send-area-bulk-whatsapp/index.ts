@@ -110,16 +110,35 @@ serve(async (req) => {
           })
         : "soon";
 
-      let companyName = "K & N Gas Services";
-      let companyPhone = "087 3686252";
-      const tiRes = await fetch(
-        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-        { headers: dbHeaders }
-      );
-      const tiRows = await tiRes.json();
-      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-      if (cfg?.company_name) companyName = cfg.company_name;
-      if (cfg?.company_phone) companyPhone = cfg.company_phone;
+      // Tenant branding — this org's own 360messenger config only, no shared
+      // fallback (BJ-B2b). Cached per org so a bulk run fetches identical
+      // config once instead of once per recipient.
+      const { companyName, companyPhone } = await getBranding(orgId);
+      const missingConfig = !companyName
+        ? "company_name_not_configured"
+        : !companyPhone
+          ? "company_phone_not_configured"
+          : null;
+
+      if (missingConfig) {
+        // One log row per org per run, not one per skipped recipient.
+        if (!loggedSkipOrgs.has(orgId)) {
+          loggedSkipOrgs.add(orgId);
+          await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              function_name: "send-area-bulk-whatsapp",
+              error_message: `Skipped: ${missingConfig} for organisation`,
+              payload: { organisation_id: orgId, reason: missingConfig },
+            }),
+          });
+        }
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
 
       const message = `Hi ${firstName},
 

@@ -131,8 +131,9 @@ serve(async (req) => {
 
     console.log("[send-certificate-whatsapp] cert_type_raw:", certTypeRaw, "cert_number:", cert.cert_number, "label:", certTypeLabel);
 
-    // Fetch settings: message_footer + template_certificate
-    let messageFooter = "K&N Gas Services";
+    // Fetch settings: message_footer + template_certificate. No shared footer
+    // fallback: a blank footer skips-and-logs (BJ-B2c).
+    let messageFooter = "";
     const defaultTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
     let messageTemplate = defaultTemplate;
 
@@ -147,6 +148,33 @@ serve(async (req) => {
         if (settings[0].template_certificate) messageTemplate = settings[0].template_certificate;
       }
     }
+    messageFooter = String(messageFooter).trim();
+
+    if (!messageFooter) {
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          function_name: "send-certificate-whatsapp",
+          error_message: "Skipped: message_footer_not_configured for organisation",
+          payload: {
+            organisation_id: orgId,
+            cert_number: cert.cert_number,
+            reason: "message_footer_not_configured",
+          },
+        }),
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          skipped: true,
+          reason: "message_footer_not_configured",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
 
     const firstName = customer.name.split(" ")[0];
 
