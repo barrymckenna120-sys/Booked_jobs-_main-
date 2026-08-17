@@ -107,7 +107,69 @@ export async function sendDepositLink(
       return { ok: true, skipped: "no_phone" };
     }
 
+    // Tenant branding (BJ-B3a). Read BEFORE any SumUp call so a misconfigured
+    // tenant never creates an abandoned checkout. This org's own 360messenger
+    // config only — no shared fallback, ever.
+    const tiRes = await fetch(
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+      { headers },
+    );
+    const tiRows = await tiRes.json();
+    const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+    const companyName = String(cfg?.company_name ?? "").trim();
+    const companyPhone = String(cfg?.company_phone ?? "").trim();
+
+    const missingConfig = !companyName
+      ? "company_name_not_configured"
+      : !companyPhone
+        ? "company_phone_not_configured"
+        : null;
+
+    if (missingConfig) {
+      console.warn("Deposit WhatsApp skipped — branding not configured", {
+        organisation_id: orgId,
+        service_call_id: serviceCallId,
+        reason: missingConfig,
+      });
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            function_name: "deposit-link",
+            error_message: `Skipped: ${missingConfig} for organisation`,
+            payload: {
+              organisation_id: orgId,
+              service_call_id: serviceCallId,
+              customer_id: customerId,
+              reason: missingConfig,
+            },
+          }),
+        });
+        await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            organisation_id: orgId,
+            customer_id: customerId,
+            message_type: "payment_link",
+            channel: "whatsapp",
+            direction: "outbound",
+            content: `Skipped: ${missingConfig}`,
+            status: "failed",
+            error_message: `Skipped: ${missingConfig} for organisation`,
+            related_id: serviceCallId,
+            related_type: "service_call",
+            sent_by: "system",
+            sent_at: new Date().toISOString(),
+          }),
+        });
+      } catch { /* non-critical */ }
+      return { ok: true, skipped: missingConfig };
+    }
+
     // Per-org SumUp credentials. No global fallback by design.
+
     const credsResult = await resolveSumUpCredentials({
       organisationId: orgId,
       loadConfig: makeRestSumUpConfigLoader(supabaseUrl, headers),
@@ -175,16 +237,8 @@ export async function sendDepositLink(
       }),
     });
 
-    let companyName = "K & N Gas Services";
-    let companyPhone = "087 3686252";
-    const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers },
-    );
-    const tiRows = await tiRes.json();
-    const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-    if (cfg?.company_name) companyName = cfg.company_name;
-    if (cfg?.company_phone) companyPhone = cfg.company_phone;
+
+
 
     // Resolve tenant-scoped 360Messenger API key
     const sb = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
