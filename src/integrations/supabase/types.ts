@@ -630,6 +630,7 @@ export type Database = {
           is_archived: boolean
           job_tag: string | null
           job_tag_date: string | null
+          landline_phone: string | null
           last_message_sent_at: string | null
           last_message_type: string | null
           last_reminder_response: string | null
@@ -691,6 +692,7 @@ export type Database = {
           is_archived?: boolean
           job_tag?: string | null
           job_tag_date?: string | null
+          landline_phone?: string | null
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
@@ -752,6 +754,7 @@ export type Database = {
           is_archived?: boolean
           job_tag?: string | null
           job_tag_date?: string | null
+          landline_phone?: string | null
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
