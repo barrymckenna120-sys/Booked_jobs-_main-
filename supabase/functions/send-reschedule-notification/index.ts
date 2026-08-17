@@ -84,16 +84,57 @@ serve(async (req) => {
     }
     console.log("Customer:", { name: customer.name, phone: customer.phone });
 
-    // Fetch message_footer from settings (by organisation_id)
-    let messageFooter = "Karl's Gas Services";
+    // Tenant footer (BJ-B3b). This org's own settings only — no shared fallback.
     const settingsRes = await fetch(
       `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
       { headers: dbHeaders },
     );
     const settings = await settingsRes.json();
-    if (Array.isArray(settings) && settings[0]?.message_footer) {
-      messageFooter = settings[0].message_footer;
+    const messageFooter = String(
+      (Array.isArray(settings) ? settings[0]?.message_footer : "") ?? "",
+    ).trim();
+
+    if (!messageFooter) {
+      const reason = "message_footer_not_configured";
+      console.warn("Reschedule notification skipped — footer not configured", {
+        organisation_id: orgId,
+        service_call_id,
+        reason,
+      });
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers: dbHeaders,
+          body: JSON.stringify({
+            function_name: "send-reschedule-notification",
+            error_message: `Skipped: ${reason} for organisation`,
+            payload: { organisation_id: orgId, service_call_id, customer_id: job.customer_id, reason },
+          }),
+        });
+        await fetch(`${supabaseUrl}/rest/v1/message_log`, {
+          method: "POST",
+          headers: dbHeaders,
+          body: JSON.stringify({
+            organisation_id: orgId,
+            customer_id: job.customer_id,
+            message_type: "reschedule_notification",
+            channel: "whatsapp",
+            direction: "outbound",
+            content: `Skipped: ${reason}`,
+            status: "failed",
+            error_message: `Skipped: ${reason} for organisation`,
+            related_id: service_call_id,
+            related_type: "service_call",
+            sent_by: "system",
+            sent_at: new Date().toISOString(),
+          }),
+        });
+      } catch { /* non-critical */ }
+      return new Response(JSON.stringify({ success: false, skipped: true, reason }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
 
     const firstName = customer.name.split(" ")[0];
     const newDate = job.scheduled_date
