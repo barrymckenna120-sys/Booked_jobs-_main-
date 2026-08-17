@@ -41,6 +41,9 @@ serve(async (req) => {
       const entry = { apiKey: res.apiKey, resolution: res.resolution };
       apiKeyCache.set(orgId, entry);
       return entry;
+    };
+
+
 
     // Per-org cache for tenant branding (company name/phone). Hoisted out of the
     // recipient loop: a bulk run for one org fetched identical config once per
