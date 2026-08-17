@@ -9,7 +9,6 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendDepositLink } from "../_shared/depositLink.ts";
-import { resolveSumUpCredentials, makeRestSumUpConfigLoader } from "../_shared/sumupCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,38 +124,3 @@ Deno.serve(async (req) => {
     return json({ success: false, error: (e as Error).message }, 500);
   }
 });
-
-/**
- * True when the stored checkout is still awaiting payment. Any lookup failure
- * returns true (treat as pending) so a transient SumUp error can never cause a
- * second checkout for the same job.
- */
-async function isCheckoutPending(
-  supabaseUrl: string,
-  headers: Record<string, string>,
-  orgId: string,
-  checkoutId: string,
-): Promise<boolean> {
-  const creds = await resolveSumUpCredentials({
-    organisationId: orgId,
-    loadConfig: makeRestSumUpConfigLoader(supabaseUrl, headers),
-  });
-  if (!creds.ok || !creds.credentials) return false;
-
-  try {
-    const res = await fetch(`https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(checkoutId)}`, {
-      headers: { Authorization: `Bearer ${creds.credentials.apiKey}` },
-    });
-    if (res.status === 404) return false;
-    if (!res.ok) {
-      console.error("send-deposit-link: checkout lookup failed", res.status);
-      return true;
-    }
-    const data = await res.json();
-    const status = String(data?.status ?? "").toUpperCase();
-    return status === "PENDING";
-  } catch (e) {
-    console.error("send-deposit-link: checkout lookup threw", (e as Error).message);
-    return true;
-  }
-}
