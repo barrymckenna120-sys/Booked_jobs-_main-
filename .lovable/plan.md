@@ -1,44 +1,58 @@
 # Remove K&N hardcoded fallbacks from send-invoice-whatsapp
 
-## Current state (verified)
+## What verification changed about the original diff
 
-`supabase/functions/send-invoice-whatsapp/index.ts` sources branding and the payment link at lines 67-80:
+Two findings from checking the live schema and data mean the originally proposed diff would have shipped a bug.
 
-```ts
-const { data: orgSettings } = await supabase
-  .from("settings")
-  .select("business_name, business_phone, template_payment_link, cert_prefix")
-  .eq("organisation_id", job.organisation_id)
-  .maybeSingle();
+### Finding 1: `settings.template_payment_link` is a message template, not a URL
 
-const businessName = orgSettings?.business_name || "K & N Gas Services";
-const businessPhone = orgSettings?.business_phone || "087 368 5252";
-const stripePaymentLink =
-  orgSettings?.template_payment_link ||
-  cfg.stripe_payment_link ||
-  "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
-const certPrefix = orgSettings?.cert_prefix || "JOB";
+K&N's stored value is:
+
+```
+Hi {{name}}, thanks for having us today!
+
+Your invoice for €{{amount}} is ready:
+→ {{payment_link}}
+
+K&N Gas Services 
+{{phone}}
 ```
 
-- Company name and phone: `public.settings` for the job's org, falling back to K&N literals.
-- Payment link: `settings.template_payment_link`, then `tenant_integrations.config.stripe_payment_link` (the 360messenger row fetched at line 53), then a hardcoded K&N Stripe link.
-- The Stripe URL is a **hardcoded literal in this file**, not a shared constant or env var.
-- Opt-out is already handled correctly here (lines 45-48) — no change needed.
+Today, line 76-79 uses this as the payment **link**, so K&N's live invoice message renders `Pay securely here: Hi {{name}}, thanks for having us today!...` — the raw template, and no actual Stripe link. This is a pre-existing production bug, not something the change introduces. Keeping `template_payment_link` as the link source would make it permanent.
 
-### Where else the same Stripe link lives
+### Finding 2: the real per-tenant payment link already exists elsewhere
 
-The literal appears in two other functions, each with its own copy:
+`tenant_integrations` has a dedicated row per org:
 
-- `supabase/functions/send-extrawork-payment-link/index.ts:61` — `job?.payment_link || "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c"`
-- `supabase/functions/send-outstanding-invoice-reminders/index.ts:17` — `const DEFAULT_STRIPE_LINK = "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c"`
+- K&N (`8c37827f-...`): `integration_type='stripe'`, `config.payment_link = https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c` — the exact value that was hardcoded, which is why the fallback firing went unnoticed.
+- Cavan Gas (`62d6c1c3-...`): no `stripe` row at all, and `settings.template_payment_link` is NULL.
 
-Fixing `send-invoice-whatsapp` alone does **not** clear the pre-live Stripe swap item. `"K & N Gas Services"` also appears as a fallback in `send-deposit-reminder`, `trigger-outstanding-reminder`, `send-payment-received`, `send-area-bulk-whatsapp`, `generate-accountant-export`, and `_shared/depositLink.ts`.
+### Finding 3: the `cfg.stripe_payment_link` fallback is dead code
 
-## Proposed change (this function only)
+`cfg` at line 60 is the **360messenger** config. No org has a `stripe_payment_link` key there (K&N's holds only `api_key_secret`, `company_name`, `company_phone`, `country_code`). That branch has never resolved for anyone.
 
-Replace all three K&N fallbacks with tenant-scoped values, and skip-and-log rather than substituting another tenant's data.
+### Confirmed schema
+
+`public.edge_function_logs`: `id` uuid, `function_name` text NOT NULL, `error_message` text NOT NULL, `payload` jsonb, `created_at` timestamptz. Matches the intended insert.
+
+## Revised change (send-invoice-whatsapp only)
+
+Source the payment link from the tenant's `stripe` integration row, drop all three K&N literals, and skip-and-log when the tenant is unconfigured.
 
 ```diff
++    // Per-tenant Stripe payment link. There is no global fallback — a
++    // customer's payment must never land in another tenant's account.
++    const { data: stripeIntegration } = await supabase
++      .from("tenant_integrations")
++      .select("config")
++      .eq("organisation_id", job.organisation_id)
++      .eq("integration_type", "stripe")
++      .maybeSingle();
++
++    const stripeCfg = (stripeIntegration?.config ?? {}) as Record<string, any>;
++    const paymentLink =
++      typeof stripeCfg.payment_link === "string" ? stripeCfg.payment_link.trim() : "";
++
 -    const businessName = orgSettings?.business_name || "K & N Gas Services";
 -    const businessPhone = orgSettings?.business_phone || "087 368 5252";
 -    const stripePaymentLink =
@@ -47,7 +61,7 @@ Replace all three K&N fallbacks with tenant-scoped values, and skip-and-log rath
 -      "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
 -    const certPrefix = orgSettings?.cert_prefix || "JOB";
 +    // Tenant-scoped branding only — never fall back to another tenant's details.
-+    const businessName = orgSettings?.business_name?.trim();
++    const businessName = orgSettings?.business_name?.trim() || "";
 +    if (!businessName) {
 +      await supabase.from("edge_function_logs").insert({
 +        function_name: "send-invoice-whatsapp",
@@ -57,15 +71,10 @@ Replace all three K&N fallbacks with tenant-scoped values, and skip-and-log rath
 +      return json({ success: true, skipped: true, reason: "business_name_not_configured" });
 +    }
 +
-+    // Payment link: org settings template, then this org's own integration config.
-+    // No global fallback — a customer's payment must never land in another tenant's account.
-+    const stripePaymentLink =
-+      orgSettings?.template_payment_link?.trim() ||
-+      (typeof cfg.stripe_payment_link === "string" ? cfg.stripe_payment_link.trim() : "");
-+    if (!stripePaymentLink) {
++    if (!paymentLink) {
 +      await supabase.from("edge_function_logs").insert({
 +        function_name: "send-invoice-whatsapp",
-+        error_message: "Skipped: no payment link configured for organisation",
++        error_message: "Skipped: no Stripe payment link configured for organisation",
 +        payload: { organisation_id: job.organisation_id, service_call_id },
 +      });
 +      return json({ success: true, skipped: true, reason: "payment_link_not_configured" });
@@ -76,25 +85,31 @@ Replace all three K&N fallbacks with tenant-scoped values, and skip-and-log rath
 +    const certPrefix = orgSettings?.cert_prefix || "JOB";
 ```
 
-And make the phone line conditional in the message body (line 113):
+The `settings` select drops `template_payment_link` (it is a template, unrelated to this line) and the message body uses `paymentLink`:
 
 ```diff
+-      .select("business_name, business_phone, template_payment_link, cert_prefix")
++      .select("business_name, business_phone, cert_prefix")
+...
+-      `Pay securely here: ${stripePaymentLink}\n\n` +
++      `Pay securely here: ${paymentLink}\n\n` +
+...
 -      `${businessName}\n☎️ ${businessPhone}`;
 +      `${businessName}${businessPhone ? `\n☎️ ${businessPhone}` : ""}`;
 ```
 
-## Notes
+Opt-out logic (lines 45-48) is untouched. No other function is touched.
 
-- Skips return HTTP 200 with `skipped: true` so callers don't treat a config gap as a send failure, matching the existing opt-out branch at line 47.
-- Every skip writes an `edge_function_logs` row so a missing tenant config is visible rather than silent.
-- `cert_prefix` keeps its `"JOB"` default — that is generic, not K&N-specific.
+## Behaviour change to be aware of
 
-## Out of scope for this change
-
-The other two copies of the hardcoded Stripe link (`send-extrawork-payment-link`, `send-outstanding-invoice-reminders`) and the `"K & N Gas Services"` fallbacks in the six other functions listed above. Say the word and I'll fold them into this change or plan them as a follow-up sweep.
+For K&N this is a **fix, not a no-op**: the message goes from printing a raw template blob to printing the real Stripe URL. That is the correct outcome but it is a visible change to a live customer-facing invoice message, so it needs a sign-off rather than being slipped in as a refactor.
 
 ## Verification
 
-1. Call `send-invoice-whatsapp` for a K&N job (settings populated) — confirm the message renders K&N's real name/phone/link from `settings`, unchanged from today.
-2. Call it for an org with no `template_payment_link` and no `config.stripe_payment_link` — confirm `skipped: true`, `reason: "payment_link_not_configured"`, no 360Messenger call, and an `edge_function_logs` row.
-3. Confirm no `message_log` row is written on a skip.
+1. Call `send-invoice-whatsapp` for a real K&N job — capture the raw response body and the `message_log` content, and confirm the `Pay securely here:` line now shows `https://buy.stripe.com/...` rather than the template text.
+2. Call it for a Cavan Gas test job — Cavan Gas needs no setup (no `stripe` integration row, `template_payment_link` already NULL, so nothing to clear or restore). Confirm the raw body is `{"success":true,"skipped":true,"reason":"payment_link_not_configured"}`, no 360Messenger request is made, and an `edge_function_logs` row is written.
+3. Confirm no `message_log` row is created for the skipped send.
+
+## Still out of scope
+
+The same hardcoded Stripe literal remains in `send-extrawork-payment-link:61` and `send-outstanding-invoice-reminders:17`, and `"K & N Gas Services"` fallbacks remain in six other functions plus `_shared/depositLink.ts`. Those stay untouched here.
