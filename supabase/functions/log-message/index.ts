@@ -57,14 +57,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Normalize empty strings to null so callers can send "" for optional fields.
+    const emptyToNull = (v: unknown) =>
+      v === "" || v === undefined || v === null ? null : v;
+
+    // Support both canonical field names and the aliases used by WhatsApp senders.
+    const serviceCallId = emptyToNull(body.service_call_id) as string | null;
+    const relatedId = emptyToNull(body.related_id) as string | null;
+    const messageBody = emptyToNull(body.message_body) as string | null;
+    const content = emptyToNull(body.content) as string | null;
+
     const { error } = await supabase.from("message_log").insert({
       customer_id: customerId,
       message_type: body.message_type,
       channel: body.channel,
       direction: body.direction,
-      content: body.content,
-      related_id: body.related_id,
-      related_type: body.related_type,
+      content: messageBody ?? content,
+      status: emptyToNull(body.status) as string | null,
+      recipient_phone: emptyToNull(body.recipient_phone) as string | null,
+      related_id: serviceCallId ?? relatedId,
+      related_type: serviceCallId ? "service_call" : (emptyToNull(body.related_type) as string | null),
       sent_by: body.sent_by,
       sent_at: body.sent_at,
       organisation_id: organisationId,
