@@ -688,7 +688,12 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
           </div>
           <div>
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Location</Label>
-            <Input value={boilerLocation} onChange={(e) => setBoilerLocation(e.target.value)} placeholder="e.g. kitchen, attic, utility room" className="mt-1" />
+            <Input value={boilerLocation} onChange={(e) => setBoilerLocation(e.target.value)} placeholder="e.g. kitchen, attic, utility room" className="mt-1" list="new-job-boiler-location-suggestions" />
+            <datalist id="new-job-boiler-location-suggestions">
+              {BOILER_LOCATIONS.map((loc) => (
+                <option key={loc} value={loc} />
+              ))}
+            </datalist>
           </div>
         </div>
 
