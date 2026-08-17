@@ -68,7 +68,14 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
 
 const fieldId = (f: Field) => `${f.type}::${f.key}`;
 
-export default function CustomerIntegrationsTab() {
+interface CustomerIntegrationsTabProps {
+  /** Cross-link into the Messaging catalogue tab for the selected tenant. */
+  onViewMessaging?: (orgId: string) => void;
+}
+
+export default function CustomerIntegrationsTab({
+  onViewMessaging,
+}: CustomerIntegrationsTabProps = {}) {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [orgId, setOrgId] = useState<string>("");
   const [loading, setLoading] = useState(false);
