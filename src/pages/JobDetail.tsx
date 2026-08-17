@@ -25,6 +25,8 @@ import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
+import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
+
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
