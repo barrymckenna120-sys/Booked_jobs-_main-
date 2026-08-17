@@ -24,9 +24,10 @@ import { validationBorderClass, ValidationMessage } from "@/components/shared/Fo
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
 import {
-  validateRequired, validatePhone, validateEircode,
+  validateRequired, validatePhone, validateEircode, validateLandline,
   formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
@@ -186,6 +187,11 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     setDuplicate(null);
     setDupeCheckError(null);
   };
+
+  const blurLandline = () => {
+    setErrors((e) => ({ ...e, landline: validateLandline(landline) || "" }));
+  };
+
 
   const blurEircode = () => {
     if (!eircode.trim()) { setErrors((e) => ({ ...e, eircode: "" })); return; }
