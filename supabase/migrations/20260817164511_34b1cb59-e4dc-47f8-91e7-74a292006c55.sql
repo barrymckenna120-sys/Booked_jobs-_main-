@@ -1,0 +1,4 @@
+delete from public.customer_activity where service_call_id in ('71b93d25-b3c2-4069-9b46-e6c439b582d3','fe912208-352a-4316-a793-3b1014920875') or customer_id in ('c59f7e0f-7a29-4377-89d2-33f88c3acee0','54e11273-4db5-41ea-aae0-b3489f9ebc46');
+delete from public.quotes where id in ('8863dcf2-1bf1-4b4f-83d0-7ef178548f03','916aa427-f06e-4b8a-a983-72e289d8ca35');
+delete from public.service_calls where id in ('71b93d25-b3c2-4069-9b46-e6c439b582d3','fe912208-352a-4316-a793-3b1014920875');
+delete from public.customers where id in ('c59f7e0f-7a29-4377-89d2-33f88c3acee0','54e11273-4db5-41ea-aae0-b3489f9ebc46');
