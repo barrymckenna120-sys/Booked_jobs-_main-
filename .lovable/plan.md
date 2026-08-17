@@ -1,34 +1,59 @@
-# BJ-B2 — read-only audit findings (no code changed)
+# SumUp discovery (read-only) — it exists and it is live
 
-## Findings table
+Headline: SumUp is **built and in production use for quote deposits**. The tracked state ("scoped, not yet built, queued") is stale. It also corrects my own B2 audit line: quote deposits go through **SumUp hosted checkout**, not Stripe. Stripe survives only in the older reminder/invoice functions.
 
-| # | File | Hardcoded literal(s) + line | Per-tenant source available? | Send path |
-|---|---|---|---|---|
-| 1 | send-extrawork-payment-link | `"K & N Gas Services"` L71, `"087 3686252"` L72, K&N Stripe URL `https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c` L61 (payment_link fallback) | Name/phone: `tenant_integrations(360messenger).config.company_name/company_phone` — already read, literals are only fallbacks. Stripe link: NOT in 360messenger config for any org; real per-org value is `tenant_integrations(stripe).config.payment_link` (set for K&N + Dublin Gas only) | Raw 360messenger fetch L149; imports `_shared/whatsapp.ts` helpers (config/phone/failure log) but not a send helper |
-| 2 | send-payment-received | `"K & N Gas Services"` L125 — unconditional, no lookup at all | Yes: `settings.business_name` (populated for 4 of 6 orgs) or 360messenger `company_name` | Raw fetch L132; `_shared/whatsappCredentials.ts` for key only |
-| 3 | send-outstanding-invoice-reminders | `"K & N Gas Services"` L101 and `"K & N Gas Services ☎️ 087 368 5252"` L104 — unconditional; `DEFAULT_STRIPE_LINK` = K&N URL L17, used at L59 | Name/phone: `settings.business_name` / `business_phone`. Stripe: `cfg.stripe_payment_link` is **null for every org**, so every tenant currently falls back to K&N's live Stripe link. Correct source is `tenant_integrations(stripe).config.payment_link` | Raw fetch L112; credentials helper only |
-| 4 | send-deposit-reminder | `"K & N Gas Services"` L81, `"087 3686252"` L82 (fallbacks) | Yes, 360messenger `company_name`/`company_phone` already read | Raw fetch L107 |
-| 5 | send-quote-whatsapp | `"K&N Gas Services"` L88 (message_footer fallback) | `settings.message_footer` — read at L91. **Data problem: Cavan Gas's stored `message_footer` is literally "K&N Gas Services"**, so the DB value is also wrong. `business_name`/`business_phone` come from the request body (client-supplied), not the DB | Raw fetch L176 |
-| 6 | send-certificate-whatsapp | `"K&N Gas Services"` L135 (footer fallback) | Same as #5 — `settings.message_footer`, same Cavan contamination | Raw fetch L228 |
-| 7 | send-hazard-whatsapp | `"K&N Gas Services"` L103 (footer fallback) | Same as #5 | Raw fetch L162 |
-| 8 | send-area-bulk-whatsapp | `"K & N Gas Services"` L113, `"087 3686252"` L114 (fallbacks) | 360messenger config read at L121-122. **Cavan Gas's `company_phone` is an empty string**, which is falsy → silently falls back to K&N's phone | Raw fetch L141 |
-| 9 | trigger-outstanding-reminder | `"K & N Gas Services"` L103, `"087 3686252"` L104 (fallbacks) | 360messenger config already read; passes name/phone onward at L114 | Dispatcher — no direct send |
-| 10 | generate-accountant-export | `"K & N Gas Services"` L246, `"087 3686252"` L247 — used in the export email subject/body L260-271 | 360messenger config read at L256-257; `settings` already queried at L103/L112 for other fields | Email (not WhatsApp). **`verify_jwt = true` confirmed** at `supabase/config.toml` L65-66 — auth untouched |
-| 11 | _shared/depositLink.ts | `"K & N Gas Services"` L178, `"087 3686252"` L179; used in the deposit message L211 | 360messenger config read at L186-187 | Raw fetch L239. **Imported by `send-deposit-link` and `accept-quote` only** — one fix covers both, and both are on the live money path |
+## 1. Secrets
 
-## What the audit changes vs the old table
+Present in project secrets:
 
-Three issues the old audit would not have surfaced:
+- `SUMUP_API_KEY`
+- `SUMUP_WEBHOOK_SECRET`
 
-1. **Cross-tenant Stripe link (highest severity).** `send-outstanding-invoice-reminders` and `send-extrawork-payment-link` fall back to K&N's live Stripe payment link, and the field they read (`360messenger.config.stripe_payment_link`) is null for all six orgs — so every non-K&N tenant using these functions would be collecting money into K&N's Stripe account. Same class as the B1 `template_payment_link` bug, but worse: the fallback is a working URL, so it fails silently.
-2. **Bad DB values, not just bad fallbacks.** Cavan Gas's `settings.message_footer` is "K&N Gas Services" and its `company_phone` is an empty string. Removing the code fallbacks alone does not fix items 5-8 for that tenant; the stored data needs correcting too.
-3. **Two orgs have no settings row at all** (both "wexford gas" rows) — a skip-and-log path is needed, not a fallback.
+No OAuth client id/secret, no merchant-id secret. Merchant code lives in the database, not in secrets.
 
-## Proposed sequencing (for approval, no diffs yet)
+## 2. tenant_integrations
 
-- **B2a — money path first:** items 1, 3, 11 (Stripe link source + K&N literals). Highest blast radius, touches `accept-quote`/`send-deposit-link`.
-- **B2b — messaging literals:** items 2, 4, 8, 9, plus the Cavan Gas data correction for footer/phone.
-- **B2c — footer-only functions:** items 5, 6, 7.
-- **B2d — split out separately as you suggested:** item 10 `generate-accountant-export`. It is post-F1 hardened with `verify_jwt = true`; it gets its own change with no auth or config.toml edits.
+Exactly one `integration_type = 'sumup'` row, K&N Gas Services (updated 06/08/26):
 
-Verification per BJ-B1's rule: scratch jobs and test recipient numbers only, never a real customer's record.
+| field | value |
+|---|---|
+| merchant_code | `MBBMEYG7` |
+| api_key | not stored inline |
+| api_key_secret | `SUMUP_API_KEY` |
+
+No SumUp row for Dublin Gas, Cavan Gas, Webliveview or either wexford gas org. Per the resolver's no-global-fallback rule, those tenants get a clean skip, not a mis-routed payment.
+
+## 3. Edge Functions and shared modules
+
+| File | Role |
+|---|---|
+| `_shared/sumupCredentials.ts` | Per-org credential resolver; inline `api_key` or `api_key_secret` env lookup; hard fail on missing config, no global fallback (L1-17, L43-80) |
+| `_shared/sumupCheckout.ts` | Hosted-checkout creation, `buildSumUpReturnUrl`, attempt numbering via `payment_checkout_attempts`, reuse guard |
+| `_shared/sumupWebhook.ts` | All webhook decision logic: verified-evidence idempotency, terminal FAILED/EXPIRED/CANCELLED handling |
+| `_shared/depositLink.ts` | The quote-deposit path — resolves creds (L110-122), builds return URL (L126-135), creates checkout (L136-148), writes `payment_link` + `sumup_checkout_id` back to the job (L168-176), then WhatsApps the link |
+| `sumup-payment-webhook/index.ts` | Thin HTTP/DB adapter over the shared webhook module; registered as `…/sumup-payment-webhook?s=<SUMUP_WEBHOOK_SECRET>` |
+| `send-payment-link/index.ts` | Balance-payment SumUp checkout (L68-140), same resolver |
+| `send-deposit-link/index.ts` | `verify_jwt = true`, org-checked wrapper that calls `sendDepositLink` |
+| `accept-quote/index.ts` | Resolves org then calls `sendDepositLink` (L213, L227) |
+
+Loose end: `supabase/config.toml` L47-48 declares `[functions.create-sumup-checkout]` but **no such function directory exists** — a stale config entry.
+
+Migrations touching SumUp: `20260325175258` (adds `service_calls.sumup_checkout_id`), `20260811164747` (creates `sumup_webhook_events` + RLS/grants), `20260813183314` (duplicate-delivery index), plus two one-off data migrations.
+
+## 4. Admin panel UI
+
+**No SumUp UI exists.** The only `src/` matches are the temporary RLS debug block in `AdminPanel.tsx` (L280, L343, L805) and comments in `NewJobPanel.tsx`, `SalesLedger.tsx`, `OutstandingBalances.tsx`. `CustomerIntegrationsTab.tsx` has sections for Tally, Stripe, 360Messenger, Make and business details — **no SumUp fields**. Onboarding a tenant's merchant code today requires a direct database write, which is the real gap.
+
+## 5. Quote deposit flow as it stands
+
+`accept-quote` (or `send-deposit-link`, or the New Job wizard toggle) → `_shared/depositLink.ts` → per-org SumUp credentials → hosted checkout with a secret-bearing webhook return URL → `payment_link` + `sumup_checkout_id` saved on the job → WhatsApp send → `sumup-payment-webhook` confirms and flips payment state.
+
+No feature flag, no Stripe alternative branch, no half-built parallel path on this flow.
+
+Live evidence: 21 jobs carry a `sumup_checkout_id`, 10 rows in `payment_checkout_attempts` (latest 17/08/26 13:17), 5 rows in `sumup_webhook_events` (latest 17/08/26 13:18).
+
+## What this means for B2a
+
+B2a as I scoped it is wrong and should be re-cut. The `tenant_integrations(stripe).config.payment_link` work does **not** apply to quote deposits — that path is SumUp and already per-tenant. The Stripe-link problem is confined to `send-outstanding-invoice-reminders` (K&N link as `DEFAULT_STRIPE_LINK`) and `send-extrawork-payment-link` (K&N URL as `payment_link` fallback). Those two are the real money-path items; `_shared/depositLink.ts` only needs the K&N name/phone literals removed.
+
+Proposed next step, for your call: re-cut B2a to those two functions plus a decision on whether the two extra-work/reminder paths should move onto SumUp like the deposit path, rather than keeping a per-tenant Stripe link at all. Also worth logging separately: the missing SumUp fields in the admin integrations tab, and the stale `create-sumup-checkout` config entry.
