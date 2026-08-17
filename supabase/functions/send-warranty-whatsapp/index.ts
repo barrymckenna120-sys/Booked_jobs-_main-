@@ -161,9 +161,25 @@ serve(async (req) => {
 
     // Build message based on type
     const branding = await getOrgBranding(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, orgId);
+
+    // Branding must be configured per-org — never send with a generic/placeholder name.
+    if (!branding.name || branding.name === "our team") {
+      await logSkip("missing_branding", "settings.business_name/company_name is not set for this organisation");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "missing_branding",
+          organisation_id: orgId,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const phoneLine = branding.phone ? `\n\nOr call us on 📞 ${branding.phone}` : "";
     const footerLine = branding.footer || branding.name;
     let message: string;
+
     if (message_type === "warranty_day14") {
       message = `Hi ${first_name}, this is ${branding.name}.\n\nWe are getting in touch to let you know your ${boiler_brand} ${boiler_model} boiler, installed on ${install_date_formatted}, is currently covered under the manufacturer's warranty.\n\n⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.\n\nBook your annual service here:\n👉 ${tallyUrl}${phoneLine}\n\n${footerLine}`;
     } else if (message_type === "warranty_day28") {
