@@ -35,6 +35,13 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
     ],
   },
   {
+    title: "SumUp (Deposits & Payments)",
+    fields: [
+      { type: "sumup", key: "merchant_code", label: "SumUp Merchant Code", placeholder: "MBBMEYG7", help: "From this tenant's own SumUp account. Required — there is deliberately no shared fallback, so a blank value means SumUp checkouts fail for this tenant rather than routing into another tenant's account." },
+      { type: "sumup", key: "api_key_secret", label: "SumUp API Key Secret Name", secret: true, placeholder: "SUMUP_API_KEY_KN_GAS", help: "Name of the backend secret holding this tenant's raw SumUp API key (not the key value itself). The secret must be added separately in Backend → Secrets." },
+    ],
+  },
+  {
     title: "WhatsApp / 360Messenger",
     fields: [
       { type: "360messenger", key: "api_key_secret", label: "360Messenger Secret Name", secret: true, placeholder: "THREESIXTY_API_KEY_DUBLIN_GAS", help: "Name of the Supabase secret that holds the raw 360Messenger API key for this tenant (not the key value itself). The secret must be added separately in Backend → Secrets." },
