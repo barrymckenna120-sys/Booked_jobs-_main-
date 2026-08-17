@@ -30,7 +30,7 @@ import CustomerFormField from "@/components/shared/CustomerFormField";
 import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
 
 import {
-  validateRequired, validatePhone, validateEircode, validateAreaCode,
+  validateRequired, validatePhone, validatePhoneLegacyShape, validateLandline, validateEircode, validateAreaCode,
   formatEircode, formatPhoneInternational, normalizeAreaCode, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 
@@ -186,11 +186,19 @@ const CustomerDetail = () => {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
   };
 
+  // Legacy records may hold a landline in `phone` (pre-dates the mobile-only rule).
+  // Only enforce the strict mobile check when the user has actually edited the field.
+  const validatePhoneField = (val: string): string | null => {
+    const untouched = String(originalForm?.phone ?? "") === val;
+    return untouched ? validatePhoneLegacyShape(val) : validatePhone(val);
+  };
+
   const blurField = (field: string) => {
     const val = String(form[field] ?? "");
     let err: string | null = null;
     if (field === "name") err = validateRequired(val);
-    else if (field === "phone") err = validatePhone(val);
+    else if (field === "phone") err = validatePhoneField(val);
+    else if (field === "landline_phone") err = validateLandline(val);
     else if (field === "eircode") {
       err = validateEircode(val);
       if (!err) handleChange("eircode", formatEircode(val));
@@ -201,12 +209,14 @@ const CustomerDetail = () => {
   const validateAll = (): boolean => {
     const e: CustomerFieldErrors = {};
     const nameErr = validateRequired(String(form.name ?? "")); if (nameErr) e.name = nameErr;
-    const phoneErr = validatePhone(String(form.phone ?? "")); if (phoneErr) e.phone = phoneErr;
+    const phoneErr = validatePhoneField(String(form.phone ?? "")); if (phoneErr) e.phone = phoneErr;
     const eircodeErr = validateEircode(String(form.eircode ?? "")); if (eircodeErr) e.eircode = eircodeErr;
     const areaErr = validateAreaCode(String(form.area_code ?? "")); if (areaErr) e.area_code = areaErr;
+    const landlineErr = validateLandline(String(form.landline_phone ?? "")); if (landlineErr) e.landline_phone = landlineErr;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
 
   const handleSave = async () => {
     if (!validateAll()) return;
