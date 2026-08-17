@@ -347,6 +347,6 @@ export async function createSumUpDepositCheckout(
     }
   }
 
-  return { ok: true, url, checkoutId };
+  return { ok: true, url, checkoutId, checkoutReference, reused: false };
 }
 
