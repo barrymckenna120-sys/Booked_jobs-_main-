@@ -84,8 +84,10 @@ serve(async (req) => {
       );
     }
 
-    // Fetch message_footer from settings (by organisation_id)
-    let messageFooter = "K&N Gas Services";
+    // Fetch message_footer from settings (by organisation_id). No shared
+    // fallback: a blank footer skips-and-logs rather than signing this
+    // tenant's message with another tenant's name (BJ-B2c).
+    let messageFooter = "";
     const settingsRes = await fetch(
       `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
       { headers: dbHeaders },
@@ -94,6 +96,29 @@ serve(async (req) => {
     if (Array.isArray(settings) && settings[0]?.message_footer) {
       messageFooter = settings[0].message_footer;
     }
+    messageFooter = String(messageFooter).trim();
+
+    if (!messageFooter) {
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers: dbHeaders,
+        body: JSON.stringify({
+          function_name: "send-quote-whatsapp",
+          error_message: "Skipped: message_footer_not_configured for organisation",
+          payload: { organisation_id: orgId, quote_id, reason: "message_footer_not_configured" },
+        }),
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          skipped: true,
+          reason: "message_footer_not_configured",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
 
     const firstName = customer_name.split(" ")[0];
     const refNumber = quote_number || `Q-${quote_id.substring(0, 4).toUpperCase()}`;

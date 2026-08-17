@@ -78,8 +78,24 @@ Deno.serve(async (req) => {
         .eq("organisation_id", orgId)
         .eq("integration_type", "360messenger")
         .maybeSingle();
-      const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
-      const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+      // Tenant branding — this org's own config only, no shared fallback (BJ-B2b).
+      const companyName = String((messengerConfig?.config as any)?.company_name ?? "").trim();
+      const companyPhone = String((messengerConfig?.config as any)?.company_phone ?? "").trim();
+      const missingConfig = !companyName
+        ? "company_name_not_configured"
+        : !companyPhone
+          ? "company_phone_not_configured"
+          : null;
+
+      if (missingConfig) {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "send-deposit-reminder",
+          error_message: `Skipped: ${missingConfig} for organisation`,
+          payload: { organisation_id: orgId, service_call_id: job.id, reason: missingConfig },
+        });
+        skipped++;
+        continue;
+      }
 
       const message = `Hi ${customer.name}, this is a reminder that your deposit payment is still outstanding for your booking with ${companyName}.\n\nPlease pay securely here: ${job.payment_link}\n\nIf you have any questions please reply to this message.\n\n${companyName} ☎ ${companyPhone}`;
 

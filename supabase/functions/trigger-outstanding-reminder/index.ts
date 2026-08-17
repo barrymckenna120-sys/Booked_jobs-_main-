@@ -100,8 +100,24 @@ Deno.serve(async (req) => {
       .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const companyName = (messengerIntegration as any)?.config?.company_name ?? "K & N Gas Services";
-    const companyPhone = (messengerIntegration as any)?.config?.company_phone ?? "087 3686252";
+    // Tenant branding — this org's own config only, no shared fallback (BJ-B2b).
+    // A blank value skips the Make webhook entirely rather than pushing another
+    // tenant's business name/phone into the reminder scenario.
+    const companyName = String((messengerIntegration as any)?.config?.company_name ?? "").trim();
+    const companyPhone = String((messengerIntegration as any)?.config?.company_phone ?? "").trim();
+    const missingConfig = !companyName
+      ? "company_name_not_configured"
+      : !companyPhone
+        ? "company_phone_not_configured"
+        : null;
+
+    if (missingConfig) {
+      await logFailure(`Skipped: ${missingConfig} for organisation ${orgId}`);
+      return new Response(
+        JSON.stringify({ success: false, skipped: true, reason: missingConfig }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const makeSecret = Deno.env.get("MAKE_WEBHOOK_SECRET") || "";
 
