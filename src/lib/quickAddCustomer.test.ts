@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   validatePhone,
+  validatePhoneLegacyShape,
+  validateLandline,
   validateEircode,
   validateRequired,
   formatEircode,
   formatPhoneInternational,
 } from "./customerValidation";
+
 
 /**
  * Regression tests for the New Job wizard quick-add customer form
