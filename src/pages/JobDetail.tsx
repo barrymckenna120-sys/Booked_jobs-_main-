@@ -25,6 +25,8 @@ import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
+import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
+
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
@@ -680,6 +682,16 @@ const JobDetail = () => {
           <InlineOfficeReply jobId={job.id} engineerAuthUserId={assignedEngineerAuth} />
         </CardContent>
       </Card>
+
+      {job.customer_id && (
+        <WhatsAppHistory
+          customerId={job.customer_id}
+          highlightJobId={job.id}
+          hideSendButton
+          title="Customer Messages"
+        />
+      )}
+
 
       {/* Take Payment — completed but unpaid */}
       {job.status === "Completed" && !job.payment_method && (

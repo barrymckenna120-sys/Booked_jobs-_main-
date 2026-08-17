@@ -13,12 +13,20 @@ type UnifiedMessage = {
   sent_by: string | null;
   status: string;
   source: "whatsapp" | "log";
+  related_id: string | null;
 };
 
 type Props = {
   customerId: string;
-  onSendMessage: () => void;
+  onSendMessage?: () => void;
+  /** When set, rows linked to this job id get a "This job" badge. */
+  highlightJobId?: string;
+  /** Hide the built-in Send Message button (caller provides its own send UI). */
+  hideSendButton?: boolean;
+  /** Override the default card title. */
+  title?: string;
 };
+
 
 const TYPE_LABELS: Record<string, string> = {
   booking_confirmation: "Booking Confirmation",
@@ -70,7 +78,13 @@ function formatTimestamp(ts: string): string {
 
 const INITIAL_LIMIT = 3;
 
-const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
+const WhatsAppHistory = ({
+  customerId,
+  onSendMessage,
+  highlightJobId,
+  hideSendButton,
+  title,
+}: Props) => {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -86,7 +100,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
           .order("created_at", { ascending: false }),
         supabase
           .from("message_log")
-          .select("id, message_type, content, status, sent_by, sent_at")
+          .select("id, message_type, content, status, sent_by, sent_at, related_id")
           .eq("customer_id", customerId)
           .order("sent_at", { ascending: false }),
       ]);
@@ -99,6 +113,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         sent_by: m.sent_by,
         status: m.status || "sent",
         source: "whatsapp" as const,
+        related_id: null,
       }));
 
       const logMessages: UnifiedMessage[] = (logRes.data || []).map((m: any) => ({
@@ -109,7 +124,9 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         sent_by: m.sent_by,
         status: m.status || "sent",
         source: "log" as const,
+        related_id: m.related_id ?? null,
       }));
+
 
       const merged = [...waMessages, ...logMessages]
         .filter((m) => m.timestamp)
@@ -136,7 +153,7 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">📱 Message History</CardTitle>
+        <CardTitle className="text-base">{title ?? "📱 Message History"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {loading && (
@@ -152,13 +169,21 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
         {!loading && visible.map((m) => (
           <div key={`${m.source}-${m.id}`} className="border-l-2 border-border pl-4 space-y-1">
             <div className="flex items-center justify-between gap-2">
-              <Badge variant="secondary" className="text-xs font-medium">
-                {friendlyType(m.message_type)}
-              </Badge>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Badge variant="secondary" className="text-xs font-medium">
+                  {friendlyType(m.message_type)}
+                </Badge>
+                {highlightJobId && m.related_id === highlightJobId && (
+                  <Badge variant="outline" className="text-xs font-medium shrink-0">
+                    This job
+                  </Badge>
+                )}
+              </div>
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {statusIcon[m.status] || "📤"} {m.status}
               </span>
             </div>
+
             <p className="text-xs text-muted-foreground">
               {formatTimestamp(m.timestamp)}
               {" · "}
@@ -191,9 +216,12 @@ const WhatsAppHistory = ({ customerId, onSendMessage }: Props) => {
           </Button>
         )}
 
-        <Button size="sm" className="w-full mt-2" onClick={onSendMessage}>
-          📲 Send Message
-        </Button>
+        {!hideSendButton && (
+          <Button size="sm" className="w-full mt-2" onClick={onSendMessage}>
+            📲 Send Message
+          </Button>
+        )}
+
       </CardContent>
     </Card>
   );
