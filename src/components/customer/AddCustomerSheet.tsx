@@ -204,6 +204,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
             <CustomerFormField label="Name" id="name" value={form.name} onChange={(v) => update("name", v)} onBlur={() => blurField("name")} error={errors.name} required maxLength={100} />
             <CustomerFormField label="Mobile Number" id="phone" value={form.phone} onChange={(v) => update("phone", v)} onBlur={() => blurField("phone")} error={errors.phone} required maxLength={30} placeholder="083 123 4567" />
+            <CustomerFormField label="Landline (optional)" id="landline_phone" value={form.landline_phone} onChange={(v) => update("landline_phone", v)} onBlur={() => blurField("landline_phone")} error={errors.landline_phone} maxLength={30} placeholder="01 441 2618" />
+
             <CustomerFormField label="Email" id="email" value={form.email} onChange={(v) => update("email", v)} type="email" maxLength={255} />
             <CustomerFormField label="Address" id="address" value={form.address} onChange={(v) => update("address", v)} maxLength={200} />
             <div className="grid grid-cols-2 gap-3">
