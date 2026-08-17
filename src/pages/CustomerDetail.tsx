@@ -533,9 +533,21 @@ const CustomerDetail = () => {
               })()}
               <p className="text-[11px] text-muted-foreground">Start typing or click to see options</p>
             </div>
-            {/* TODO (BJ-0054): Add Boiler Location field here as a free-text <Input> with
-                list="customer-detail-boiler-location-suggestions" and a sibling <datalist>
-                populated from `BOILER_LOCATIONS` in `@/lib/boilerLocations.ts`. */}
+            <div className="space-y-1.5">
+              <Label htmlFor="boiler_location" className="text-xs text-muted-foreground">Boiler Location</Label>
+              <Input
+                id="boiler_location"
+                list="customer-detail-boiler-location-suggestions"
+                value={form.boiler_location ?? ""}
+                onChange={(e) => handleChange("boiler_location", e.target.value)}
+                placeholder="e.g. Kitchen"
+              />
+              <datalist id="customer-detail-boiler-location-suggestions">
+                {BOILER_LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc} />
+                ))}
+              </datalist>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
