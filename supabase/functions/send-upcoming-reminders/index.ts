@@ -46,7 +46,6 @@ serve(async (req) => {
     }
 
 
-    let messageFooter = "";
     const { data: settings } = await supabase
       .from("settings")
       .select("message_footer,business_name,company_name")
@@ -54,11 +53,24 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
     const s: any = settings;
-    messageFooter = s?.message_footer || s?.business_name || s?.company_name || "our team";
+    // No tenant-neutral fallback: an unsigned automated reminder is not sent.
+    const messageFooter = (s?.message_footer || s?.business_name || s?.company_name || "").trim();
+    if (!messageFooter) {
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "send-upcoming-reminders",
+          error_message: `Branding not configured for org ${orgId} — skipping reminders`,
+          payload: { organisation_id: orgId, reason: "message_footer_not_configured" },
+        });
+      } catch (_e) { /* best-effort */ }
+      orgCache.set(orgId, null);
+      return null;
+    }
 
     const cfg = { apiKey, messageFooter };
     orgCache.set(orgId, cfg);
     return cfg;
+
   };
 
   try {
