@@ -152,6 +152,17 @@ export async function sendDepositLink(
     }
 
     const paymentLink = checkout.url;
+
+    // Shared reuse guard (BJ-0050b) already had a live PENDING checkout for
+    // this job and amount — hand it back without re-sending anything.
+    if (checkout.reused) {
+      console.log("SumUp checkout reused — skipping duplicate deposit send", {
+        service_call_id: serviceCallId,
+        sumup_checkout_id: checkout.checkoutId,
+      });
+      return { ok: true, skipped: "checkout_already_pending", paymentLink, reused: true };
+    }
+
     console.log("SumUp hosted checkout generated for org:", orgId);
 
     // Save payment link (+ checkout id) back to service_calls
