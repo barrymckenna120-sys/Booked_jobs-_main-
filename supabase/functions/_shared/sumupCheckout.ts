@@ -77,6 +77,28 @@ function restAttemptStore(
       const total = Number(range.split("/")[1]);
       return Number.isFinite(total) ? total : 0;
     },
+    async latest(serviceCallId, organisationId) {
+      const res = await doFetch(
+        `${base}/rest/v1/payment_checkout_attempts?service_call_id=eq.${serviceCallId}` +
+          `&organisation_id=eq.${organisationId}` +
+          `&select=checkout_id,checkout_reference&order=created_at.desc&limit=1`,
+        { headers },
+      );
+      const text = await res.text();
+      if (!res.ok) return null;
+      let rows: any;
+      try {
+        rows = JSON.parse(text);
+      } catch {
+        return null;
+      }
+      const row = Array.isArray(rows) ? rows[0] : null;
+      if (!row?.checkout_id) return null;
+      return {
+        checkoutId: String(row.checkout_id),
+        checkoutReference: String(row.checkout_reference ?? ""),
+      };
+    },
     async record(row) {
       const res = await doFetch(`${base}/rest/v1/payment_checkout_attempts`, {
         method: "POST",
