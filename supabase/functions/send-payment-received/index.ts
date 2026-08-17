@@ -112,6 +112,35 @@ Deno.serve(async (req) => {
     let phone = String(customer.phone).replace(/[^\d+]/g, "").replace(/^\+/, "");
     if (phone.startsWith("0")) phone = "353" + phone.substring(1);
 
+    // 5b. Tenant branding — this org's own 360messenger config only. No shared
+    // fallback: a blank value skips-and-logs rather than signing this tenant's
+    // message with another tenant's business name (BJ-B2b).
+    const { data: messengerConfig } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", job.organisation_id)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+    const companyName = String((messengerConfig?.config as any)?.company_name ?? "").trim();
+
+    if (!companyName) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-payment-received",
+        error_message: "Skipped: company_name_not_configured for organisation",
+        payload: {
+          organisation_id: job.organisation_id,
+          service_call_id,
+          reason: "company_name_not_configured",
+        },
+      });
+      return json({
+        success: false,
+        whatsapp_sent: false,
+        skipped: true,
+        reason: "company_name_not_configured",
+      }, 200);
+    }
+
     // 6. Build message
     const message =
       `Hi ${customer.name}, thanks for your payment. Here is your receipt:\n\n` +
@@ -122,7 +151,7 @@ Deno.serve(async (req) => {
       `Amount Paid: ${amountPaid}\n\n` +
       (receiptUrl ? `View your receipt here: ${receiptUrl}\n\n` : "") +
       `Thanks,\n` +
-      `K & N Gas Services`;
+      companyName;
 
     // 7. Send via 360 Messenger
     const formData = new FormData();
