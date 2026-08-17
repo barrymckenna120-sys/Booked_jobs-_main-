@@ -1,279 +1,100 @@
-# Add opt-out checks to 9 customer-facing WhatsApp Edge Functions
+# Remove K&N hardcoded fallbacks from send-invoice-whatsapp
 
-## Current state
+## Current state (verified)
 
-`_shared/optOut.ts` already provides a pure `evaluateOptOut()` helper and a `fetchOptOutDecision()` REST fetcher. It is used today by:
-
-- `send-upcoming-reminders` — uses `evaluateOptOut()` on the joined `customers` row and skips opted-out customers before any send.
-- `send-warranty-whatsapp` — fetches `customers.organisation_id, opted_out, phone` and uses `evaluateOptOut()`, returning `{ skipped: true, reason: "customer_opted_out" }` when opted out.
-
-Of the 9 functions below, **none currently check `customers.opted_out`** before sending a WhatsApp message.
-
-## Proposed changes
-
-Add an opt-out guard to every function before the 360Messenger API call. The guard pattern depends on whether the customer row is already loaded:
-
-- If the customer is already fetched, add `opted_out` to the select and use `evaluateOptOut()`.
-- If the customer is not loaded, fetch or use `fetchOptOutDecision()` by `customer_id`.
-
-All functions already return a 200/400/404 on missing data, so the guard should return a 200 `skipped` response (or log a silent skip) to avoid callers treating an opt-out as a failure.
-
-### 1. `send-payment-link` (payment link / balance due)
-
-Current customer fetch:
+`supabase/functions/send-invoice-whatsapp/index.ts` sources branding and the payment link at lines 67-80:
 
 ```ts
-const { data: customer } = await supabase
-  .from("customers")
-  .select("name, phone")
-  .eq("id", job.customer_id)
-  .single();
+const { data: orgSettings } = await supabase
+  .from("settings")
+  .select("business_name, business_phone, template_payment_link, cert_prefix")
+  .eq("organisation_id", job.organisation_id)
+  .maybeSingle();
+
+const businessName = orgSettings?.business_name || "K & N Gas Services";
+const businessPhone = orgSettings?.business_phone || "087 368 5252";
+const stripePaymentLink =
+  orgSettings?.template_payment_link ||
+  cfg.stripe_payment_link ||
+  "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+const certPrefix = orgSettings?.cert_prefix || "JOB";
 ```
 
-Proposed diff:
+- Company name and phone: `public.settings` for the job's org, falling back to K&N literals.
+- Payment link: `settings.template_payment_link`, then `tenant_integrations.config.stripe_payment_link` (the 360messenger row fetched at line 53), then a hardcoded K&N Stripe link.
+- The Stripe URL is a **hardcoded literal in this file**, not a shared constant or env var.
+- Opt-out is already handled correctly here (lines 45-48) — no change needed.
+
+### Where else the same Stripe link lives
+
+The literal appears in two other functions, each with its own copy:
+
+- `supabase/functions/send-extrawork-payment-link/index.ts:61` — `job?.payment_link || "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c"`
+- `supabase/functions/send-outstanding-invoice-reminders/index.ts:17` — `const DEFAULT_STRIPE_LINK = "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c"`
+
+Fixing `send-invoice-whatsapp` alone does **not** clear the pre-live Stripe swap item. `"K & N Gas Services"` also appears as a fallback in `send-deposit-reminder`, `trigger-outstanding-reminder`, `send-payment-received`, `send-area-bulk-whatsapp`, `generate-accountant-export`, and `_shared/depositLink.ts`.
+
+## Proposed change (this function only)
+
+Replace all three K&N fallbacks with tenant-scoped values, and skip-and-log rather than substituting another tenant's data.
 
 ```diff
-- .select("name, phone")
-+ .select("name, phone, opted_out")
-
-  if (!customer?.phone) {
-    ...
-  }
-
-+ // Respect opt-out before sending a payment reminder.
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
-+ const optOut = evaluateOptOut(customer);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+   });
-+ }
-```
-
-### 2. `create-job-invoice` (invoice + WhatsApp)
-
-Current customer fetch:
-
-```ts
-const { data: job, error: jErr } = await sb
-  .from("service_calls")
-  .select("*, customers!inner(name, phone, email, address, eircode)")
-  .eq("id", job_id)
-  .single();
-```
-
-Proposed diff:
-
-```diff
-- .select("*, customers!inner(name, phone, email, address, eircode)")
-+ .select("*, customers!inner(name, phone, email, address, eircode, opted_out)")
-
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
+-    const businessName = orgSettings?.business_name || "K & N Gas Services";
+-    const businessPhone = orgSettings?.business_phone || "087 368 5252";
+-    const stripePaymentLink =
+-      orgSettings?.template_payment_link ||
+-      cfg.stripe_payment_link ||
+-      "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+-    const certPrefix = orgSettings?.cert_prefix || "JOB";
++    // Tenant-scoped branding only — never fall back to another tenant's details.
++    const businessName = orgSettings?.business_name?.trim();
++    if (!businessName) {
++      await supabase.from("edge_function_logs").insert({
++        function_name: "send-invoice-whatsapp",
++        error_message: "Skipped: settings.business_name not configured for organisation",
++        payload: { organisation_id: job.organisation_id, service_call_id },
++      });
++      return json({ success: true, skipped: true, reason: "business_name_not_configured" });
++    }
 +
-  const cust = (job as any).customers;
-+ const optOut = evaluateOptOut(cust);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({
-+     success: true,
-+     invoice_id: invoice.id,
-+     invoice_number: invNum,
-+     pdf_url: pdfUrl,
-+     whatsapp_sent: false,
-+     skipped: true,
-+     reason: optOut.reason,
-+   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-+ }
++    // Payment link: org settings template, then this org's own integration config.
++    // No global fallback — a customer's payment must never land in another tenant's account.
++    const stripePaymentLink =
++      orgSettings?.template_payment_link?.trim() ||
++      (typeof cfg.stripe_payment_link === "string" ? cfg.stripe_payment_link.trim() : "");
++    if (!stripePaymentLink) {
++      await supabase.from("edge_function_logs").insert({
++        function_name: "send-invoice-whatsapp",
++        error_message: "Skipped: no payment link configured for organisation",
++        payload: { organisation_id: job.organisation_id, service_call_id },
++      });
++      return json({ success: true, skipped: true, reason: "payment_link_not_configured" });
++    }
++
++    // Phone is optional — omit the line rather than substitute another tenant's number.
++    const businessPhone = orgSettings?.business_phone?.trim() || "";
++    const certPrefix = orgSettings?.cert_prefix || "JOB";
 ```
 
-### 3. `send-reschedule-notification`
-
-Current customer fetch:
-
-```ts
-const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {
-  headers: dbHeaders,
-});
-```
-
-Proposed diff:
+And make the phone line conditional in the message body (line 113):
 
 ```diff
-- &select=name,phone
-+ &select=name,phone,opted_out
-
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
-+
-  const customer = Array.isArray(custRows) ? custRows[0] : null;
-+ const optOut = evaluateOptOut(customer);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+   });
-+ }
+-      `${businessName}\n☎️ ${businessPhone}`;
++      `${businessName}${businessPhone ? `\n☎️ ${businessPhone}` : ""}`;
 ```
 
-### 4. `cancel-job-notify`
+## Notes
 
-This function already joins `customers(name, phone)` on the service call, so `opted_out` is available without an extra fetch.
+- Skips return HTTP 200 with `skipped: true` so callers don't treat a config gap as a send failure, matching the existing opt-out branch at line 47.
+- Every skip writes an `edge_function_logs` row so a missing tenant config is visible rather than silent.
+- `cert_prefix` keeps its `"JOB"` default — that is generic, not K&N-specific.
 
-Proposed diff:
+## Out of scope for this change
 
-```diff
-  const { data: sc, error: scErr } = await supabase
-    .from("service_calls")
--   .select("id, user_id, customer_id, organisation_id, customers(name, phone)")
-+   .select("id, user_id, customer_id, organisation_id, customers(name, phone, opted_out)")
-    .eq("id", service_call_id)
-    .maybeSingle();
+The other two copies of the hardcoded Stripe link (`send-extrawork-payment-link`, `send-outstanding-invoice-reminders`) and the `"K & N Gas Services"` fallbacks in the six other functions listed above. Say the word and I'll fold them into this change or plan them as a follow-up sweep.
 
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
-+
-  const customer: any = (sc as any).customers;
-+ const optOut = evaluateOptOut(customer);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+   });
-+ }
-```
+## Verification
 
-### 5. `send-quote-whatsapp`
-
-This function reads the quote but does not fetch the customer row. The customer ID is available as `resolvedCustomerId` (from the quote or request body). Use `fetchOptOutDecision()`.
-
-Proposed diff:
-
-```diff
-+ import { fetchOptOutDecision } from "../_shared/optOut.ts"; // add at top
-+
-  const resolvedCustomerId = ...;
-+ if (resolvedCustomerId) {
-+   const optOut = await fetchOptOutDecision(supabaseUrl!, supabaseKey!, resolvedCustomerId);
-+   if (optOut.skip) {
-+     return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+     });
-+   }
-+ }
-```
-
-### 6. `send-certificate-whatsapp`
-
-Current customer fetch:
-
-```ts
-const custRes = await fetch(
-  `${supabaseUrl}/rest/v1/customers?id=eq.${cert.customer_id}&select=name,phone`,
-  { headers }
-);
-```
-
-Proposed diff:
-
-```diff
-- &select=name,phone
-+ &select=name,phone,opted_out
-
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
-+
-  const customer = Array.isArray(custs) ? custs[0] : null;
-+ const optOut = evaluateOptOut(customer);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+   });
-+ }
-```
-
-### 7. `send-hazard-whatsapp`
-
-Current customer fetch:
-
-```ts
-const custRes = await fetch(
-  `${supabaseUrl}/rest/v1/customers?id=eq.${hazard.customer_id}&select=name,phone`,
-  { headers }
-);
-```
-
-Proposed diff:
-
-```diff
-- &select=name,phone
-+ &select=name,phone,opted_out
-
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
-+
-  const customer = Array.isArray(custs) ? custs[0] : null;
-+ const optOut = evaluateOptOut(customer);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+   });
-+ }
-```
-
-### 8. `send-part-arrived`
-
-This function does not fetch the customer row; it receives `customer_name` and `customer_phone` in the body and has `jobRow.customer_id`. Add a fetch for `opted_out` or use `fetchOptOutDecision()`.
-
-Proposed diff (using `fetchOptOutDecision` with the available `customer_id`):
-
-```diff
-+ import { fetchOptOutDecision } from "../_shared/optOut.ts"; // add at top
-+
-  const jobRow = ...;
-+ if (jobRow?.customer_id) {
-+   const optOut = await fetchOptOutDecision(supabaseUrl!, supabaseKey!, jobRow.customer_id);
-+   if (optOut.skip) {
-+     return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+     });
-+   }
-+ }
-```
-
-### 9. `send-whatsapp-receipt`
-
-Current customer fetch:
-
-```ts
-const { data: customer } = await supabase
-  .from("customers")
-  .select("name, phone")
-  .eq("id", job.customer_id)
-  .single();
-```
-
-Proposed diff:
-
-```diff
-- .select("name, phone")
-+ .select("name, phone, opted_out")
-
-+ import { evaluateOptOut } from "../_shared/optOut.ts"; // add at top
-+
-+ const optOut = evaluateOptOut(customer);
-+ if (optOut.skip) {
-+   return new Response(JSON.stringify({ success: true, skipped: true, reason: optOut.reason }), {
-+     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-+   });
-+ }
-```
-
-## Transactional vs outreach note
-
-Per the existing comment in `_shared/optOut.ts`, the helper is intended for "automated (non-transactional)" sends. The list above mixes both:
-
-- **Outreach / reminder-style**: `send-reschedule-notification`, `send-part-arrived`.
-- **Transactional / requested**: `send-payment-link`, `create-job-invoice`, `send-quote-whatsapp`, `send-certificate-whatsapp`, `send-hazard-whatsapp`, `send-whatsapp-receipt`, `cancel-job-notify`.
-
-The proposed diff gates **all 9** at the same point. If the business prefers to keep true transactional sends ungated, we can limit the change to only `send-reschedule-notification` and `send-part-arrived`. Confirm before implementation.
-
-## Testing plan
-
-1. Add a unit test for `evaluateOptOut()` covering `customer_opted_out`, `no_phone_number`, and `customer_not_found`.
-2. For each modified function, verify via direct `curl` to a sandbox org that:
-   - A customer with `opted_out = true` returns `skipped: true` and no `message_log` row is created.
-   - A customer with `opted_out = false` or `NULL` sends normally.
-3. Run existing Edge Function test suite to ensure no field-name regressions in `message_log` inserts.
+1. Call `send-invoice-whatsapp` for a K&N job (settings populated) — confirm the message renders K&N's real name/phone/link from `settings`, unchanged from today.
+2. Call it for an org with no `template_payment_link` and no `config.stripe_payment_link` — confirm `skipped: true`, `reason: "payment_link_not_configured"`, no 360Messenger call, and an `edge_function_logs` row.
+3. Confirm no `message_log` row is written on a skip.
