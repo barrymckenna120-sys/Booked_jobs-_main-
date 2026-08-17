@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   CONFIG_KEYS,
   WHATSAPP_CATALOGUE,
@@ -11,7 +9,15 @@ import {
 } from "./whatsappCatalogue";
 import { TENANT_GAP_COPY } from "./messageStatusCopy";
 
-const FUNCTIONS_DIR = join(process.cwd(), "supabase", "functions");
+// Edge Function sources, read at test time via Vite's raw glob (no node typings needed).
+const FUNCTION_SOURCES = import.meta.glob("/supabase/functions/*/index.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+const sourceFor = (fn: string): string | undefined =>
+  FUNCTION_SOURCES[`/supabase/functions/${fn}/index.ts`];
 
 describe("whatsappCatalogue — drift detection", () => {
   it("has unique ids", () => {
