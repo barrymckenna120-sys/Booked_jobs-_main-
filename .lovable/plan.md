@@ -1,111 +1,64 @@
-# Fix the three broken pg_cron jobs (proposal only)
+# BJ — send-warranty-whatsapp: remove K&N Tally fallback
 
-Align `warranty-auto-send`, `quote-followup-day3`, and `quote-followup-day6` to the cron pattern already working for `job-reminder-2day-0900-dublin` and `send-deposit-reminder-daily`. SQL-only; no Edge Function code changes.
+Time-sensitive: `warranty-auto-send` is scheduled again and fires at 09:00 tomorrow.
 
-## Current commands, side by side
+## The problem
 
-Working — `send-deposit-reminder-daily` (jobid 2, `0 9 * * *`):
+`send-warranty-whatsapp` hardcodes K&N's booking form as a fallback:
 
-```sql
-select net.http_post(
-  url := 'https://<project>.supabase.co/functions/v1/send-deposit-reminder',
-  headers := '{"Authorization": "Bearer <anon key literal>", "Content-Type": "application/json"}'::jsonb,
-  body := '{}'::jsonb
-);
+```
+line 90:  let tallyFormBase = "https://tally.so/r/RGJDy4";
+line 98:  if (cfg?.renewal_form_url) tallyFormBase = cfg.renewal_form_url;
 ```
 
-Working — `job-reminder-2day-0900-dublin` (jobid 9, `0 9 * * *`):
+Any tenant without a configured `renewal_form_url` silently sends its customers to K&N's
+booking form. Confirmed live config in `tenant_integrations` (integration_type = tally):
 
-```sql
-select net.http_post(
-  url := 'https://<project>.supabase.co/functions/v1/job-reminder-2day',
-  headers := '{"Content-Type":"application/json","Authorization":"Bearer <anon key literal>"}'::jsonb,
-  body := '{"scheduled":true,"source":"pg_cron"}'::jsonb
-);
-```
+| Organisation | renewal_form_url |
+| --- | --- |
+| K&N Gas Services | https://rebook.kngasservices.ie/ |
+| Dublin Gas | https://tally.so/r/Zjgxva |
+| Cavan Gas | (empty string) |
+| Webliveview Ltd | (null) |
 
-Broken — `quote-followup-day3` (jobid 6) and `quote-followup-day6` (jobid 7), identical shape:
+Two of four tenants would hit the K&N fallback.
 
-```sql
-select net.http_post(
-  url := 'https://<project>.supabase.co/functions/v1/quote-followup-day3',
-  headers := '{"Content-Type": "application/json", "Authorization": "Bearer '
-             || current_setting('app.service_role_key') || '"}'::jsonb,
-  body := '{}'::jsonb
-);
-```
+## The fix
 
-Broken — `warranty-auto-send` (jobid 3):
+Same skip-and-log pattern already used in `send-payment-received` for missing branding:
 
-```sql
-SELECT net.http_post(
-  url := current_setting('app.supabase_url') || '/functions/v1/warranty-auto-send',
-  headers := jsonb_build_object(
-    'Content-Type', 'application/json',
-    'Authorization', 'Bearer ' || current_setting('app.service_role_key')
-  ),
-  body := '{}'::jsonb
-);
-```
+- Remove the hardcoded default. Resolve `renewal_form_url` from the tenant's tally config only.
+- If it is missing, empty, or the lookup fails: do not send. Return HTTP 200 with
+  `{ skipped: true, reason: "missing_renewal_form_url", organisation_id }` and write one
+  `message_log` row recording the skip, so it is visible rather than silent.
+- Also guard the branding name: if `branding.name` resolves to the generic `"our team"`
+  default (no `business_name`/`company_name` in `settings`), skip the same way with reason
+  `missing_branding` rather than sending an unbranded warranty message.
+- No change to `warranty_day14` / `warranty_day28` copy, phone formatting, opt-out handling,
+  or the 360 Messenger send path.
 
-The only difference is the credential source. The working jobs inline the URL and key as literals; the broken three read `app.supabase_url` / `app.service_role_key`, which are not set on this database. Day3/day6 fail with `invalid input syntax for type json` (NULL collapses the JSON string); warranty fails with `unrecognized configuration parameter "app.supabase_url"`.
+Effect on the 09:00 run: K&N and Dublin Gas send exactly as they do today; Cavan Gas and
+Webliveview are skipped with a logged reason instead of leaking K&N's form.
 
-## Proposed change
+## Verification
 
-Three `cron.alter_job` calls (keeping jobid, name, and `0 9 * * *` schedule untouched), each replacing the command with the inlined-literal form:
+1. Unit-level check of the guard: warranty send for Cavan Gas returns `skipped: true` /
+   `missing_renewal_form_url` and sends nothing.
+2. Positive path for K&N against a scratch test customer only (per the standing
+   live-path rule — no real customers), confirming the URL is `rebook.kngasservices.ie`.
+3. Confirm `message_log` shows the skip row for the Cavan Gas attempt.
+4. Raw output pasted for each step.
 
-```sql
-select cron.alter_job(
-  job_id := 6,
-  command := $$
-  select net.http_post(
-    url := 'https://<project>.supabase.co/functions/v1/quote-followup-day3',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer <anon key literal>"}'::jsonb,
-    body := '{}'::jsonb
-  );
-  $$
-);
-```
+## Not in this change
 
-The same for jobid 7 (`quote-followup-day6`) and jobid 3 (`warranty-auto-send`, with the URL also inlined instead of `current_setting`).
+- Populating Cavan Gas / Webliveview `renewal_form_url` — that is tenant config, needs the
+  real form URLs from you.
+- `send-warranty-whatsapp` remains reachable only via the cron'd `warranty-auto-send` and
+  the manual Renewals UI action; no auth changes here.
 
-All three functions are `verify_jwt = false`, so the anon key in the header is sufficient — exactly as the two working jobs do it. No service-role key is placed in the cron command.
+## Technical notes
 
-Because these literals are project-specific values, this goes through the insert/SQL tool rather than a tracked migration, matching how the working cron jobs were created.
-
-## Confirmations
-
-- This is purely a `cron.alter_job` (SQL-level) change. No edits to `quote-followup-day3/index.ts`, `quote-followup-day6/index.ts`, `warranty-auto-send/index.ts`, or `send-warranty-whatsapp/index.ts`.
-- `send-warranty-whatsapp`'s hardcoded Tally fallback is explicitly out of scope here.
-
-## Backlog risk on first successful run
-
-Checked against live data — none of the three can flood a backlog, because all three filter on a narrow rolling window rather than "everything not yet sent":
-
-- `quote-followup-day3` requires `sent_at` between 4 and 3 days ago. Quotes older than that are permanently skipped. Currently eligible: **0**. (37 quotes have `follow_up_day3_sent = false` across all history, but only ones inside the 24-hour window can ever be picked up.)
-- `quote-followup-day6` requires `sent_at` between 7 and 6 days ago **and** `follow_up_day3_sent = true`. Since day3 has never run, that flag is set on exactly one row (this session's manual test), so day6 has nothing to chase. Currently eligible: **0**.
-- `warranty-auto-send` matches `boiler_installation_date` to exactly `today - 14` and `today - 28`, plus a `warranty_reminder_log` dedup check. Currently eligible: **0** on both dates.
-
-So the first successful run is expected to be a no-op, and thereafter only genuinely fresh quotes/installs get messaged. The trade-off to note: the same narrow windows mean a day skipped by an outage is lost permanently rather than caught up — that is the existing 24-hour-window gap already documented as its own task, not something this fix changes.
-
-
-## Multi-tenant genericity check — one blocking gap found
-
-Grepped all four functions plus the shared helpers for UUID literals and tenant-specific assumptions: no hardcoded organisation ID anywhere, and the only remaining tenant-specific literal is the known Tally fallback in `send-warranty-whatsapp`.
-
-- `quote-followup-day3` / `day6`: fully generic. They scan `quotes` with no org filter and resolve branding, WhatsApp key, and opt-out per row's `organisation_id`. A new tenant works with no code change.
-- `warranty-auto-send`: **broken tenant enumeration.** Line 39 queries `organisations?select=id&is_active=eq.true`, but `organisations` has no `is_active` column (it has `is_archived`, `archived_at`, `subscription_status`). PostgREST returns a 400 error object, so `organisations` is not an array — the function either iterates nothing or throws, for every tenant including K&N. Fixing the cron alone will not make warranty reminders send; this must be changed to `is_archived=eq.false` (or `not.is.true`) in the same pass.
-- `send-warranty-whatsapp`: generic apart from the Tally fallback (separate task).
-
-Answer to the question: **no** — a brand-new correctly onboarded tenant would get quote follow-ups automatically after the cron fix, but warranty reminders need a third code change (the `is_active` → `is_archived` filter) on top of the cron fix and the Tally fallback fix.
-
-Two lesser notes, not blockers: `warranty-auto-send` filters customers with `opted_out=not.eq.true`, which also excludes rows where `opted_out` is NULL — harmless today (column defaults to `false`, zero NULL rows) but it would silently skip any imported customer with a NULL flag. And a new tenant still needs `settings.business_name`/`business_phone`, a `tally` `renewal_form_url`, and a `360messenger` `api_key_secret` populated; without the Tally URL the K&N form leak applies.
-
-Secondary risk once the jobs actually run: `send-warranty-whatsapp` starts reaching real K&N customers again for the first time since April. K&N is the only tenant with warranty-ready customers (15), and its Tally URL is correctly configured, so the K&N path is safe — but the Tally fallback leak stays live for any other tenant, which is why that fix should land before another tenant gets warranty data.
-
-
-## Verification after applying (when approved)
-
-- Re-read `cron.job` for jobids 3, 6, 7 and confirm the commands contain no `current_setting`.
-- Run each command body once manually (or `SELECT cron.schedule`-free direct `net.http_post`) and confirm `cron.job_run_details` shows `succeeded`, plus a fresh `edge_function_logs` row per function.
-- Confirm the functions return `sent: 0, skipped: 0` style no-op payloads, i.e. no live customer message was triggered.
+- File: `supabase/functions/send-warranty-whatsapp/index.ts` (lines 90-101 for the lookup,
+  118-125 for branding/message assembly).
+- Skip logging reuses `_shared/logMessage.ts`, matching the B2b/B2c guards.
+- No migration, no schema change, no cron change.
