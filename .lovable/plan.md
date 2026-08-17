@@ -22,10 +22,6 @@ Positive-path send under K&N, using scratch data and a test mobile only.
 
 No K&N config is modified at any point — this is read-only against their branding.
 
-## What I need from you
-
-The test mobile number to use as the recipient. Nothing runs until you give it.
-
 ## Notes
 
 - `send-deposit-reminder` stays out of scope for a live fire: it is a cron that scans every org and would message real K&N customers. Its guard is the same shape as `send-payment-received`.
