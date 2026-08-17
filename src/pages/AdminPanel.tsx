@@ -277,6 +277,70 @@ function UnblockUserPopover({
   );
 }
 
+// TEMP DEBUG — remove after RLS verification, see BJ-SUMUP-TXNTABLE
+function TransactionsRlsDebugCard() {
+  const [running, setRunning] = useState(false);
+  const [readResult, setReadResult] = useState<string | null>(null);
+  const [writeResult, setWriteResult] = useState<string | null>(null);
+
+  const runTest = async () => {
+    setRunning(true);
+    setReadResult(null);
+    setWriteResult(null);
+    try {
+      const read = await supabase.from("transactions").select("*");
+      setReadResult(JSON.stringify({ data: read.data, error: read.error }, null, 2));
+
+      const write = await supabase
+        .from("transactions")
+        .insert({
+          organisation_id: "62d6c1c3-99cc-47fa-80ce-ea0e36f0d52b",
+          payment_type: "pos",
+          amount: 1,
+          status: "test",
+        })
+        .select();
+      setWriteResult(JSON.stringify({ data: write.data, error: write.error }, null, 2));
+    } catch (err) {
+      setWriteResult(
+        JSON.stringify({ data: null, error: err instanceof Error ? err.message : String(err) }, null, 2)
+      );
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card className="border-dashed">
+      <CardHeader>
+        <CardTitle>Debug: Transactions RLS</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button type="button" variant="outline" onClick={runTest} disabled={running}>
+          {running ? "Running…" : "Debug: Test Transactions RLS"}
+        </Button>
+
+        {(readResult || writeResult) && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Read result</Label>
+              <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs">
+                {readResult ?? "—"}
+              </pre>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Write result</Label>
+              <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs">
+                {writeResult ?? "—"}
+              </pre>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+// END TEMP DEBUG — BJ-SUMUP-TXNTABLE
 
 
 export default function AdminPanel() {
@@ -738,6 +802,9 @@ export default function AdminPanel() {
         </TabsList>
 
         <TabsContent value="tenants" className="space-y-6">
+      {/* TEMP DEBUG — remove after RLS verification, see BJ-SUMUP-TXNTABLE */}
+      <TransactionsRlsDebugCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Create New Account</CardTitle>
