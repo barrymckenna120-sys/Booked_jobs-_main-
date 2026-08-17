@@ -681,6 +681,16 @@ const JobDetail = () => {
         </CardContent>
       </Card>
 
+      {job.customer_id && (
+        <WhatsAppHistory
+          customerId={job.customer_id}
+          highlightJobId={job.id}
+          hideSendButton
+          title="Customer Messages"
+        />
+      )}
+
+
       {/* Take Payment — completed but unpaid */}
       {job.status === "Completed" && !job.payment_method && (
         <Button
