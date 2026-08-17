@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   validatePhone,
+  validatePhoneLegacyShape,
+  validateLandline,
   validateEircode,
   validateRequired,
   formatEircode,
   formatPhoneInternational,
 } from "./customerValidation";
+
 
 /**
  * Regression tests for the New Job wizard quick-add customer form
@@ -46,5 +49,48 @@ describe("quick-add customer normalisation", () => {
     expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", true, false)).toBe(false);
     expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", false, true)).toBe(false);
     expect(canProceedNew("", "0894436301", "20 Harcourt St", false, false)).toBe(false);
+  });
+});
+
+/** BJ-0046 follow-up: Mobile Number must be an Irish mobile; landlines go in their own field. */
+describe("mobile-only primary phone", () => {
+  it("accepts every Irish mobile prefix in national, international and spaced form", () => {
+    for (const p of ["083", "084", "085", "086", "087", "089"]) {
+      expect(validatePhone(`${p}1234567`)).toBeNull();
+      expect(validatePhone(`+353${p.slice(1)}1234567`)).toBeNull();
+      expect(validatePhone(`${p} 123 4567`)).toBeNull();
+    }
+  });
+
+  it("rejects landlines", () => {
+    expect(validatePhone("01 441 2618")).not.toBeNull();
+    expect(validatePhone("+35314412618")).not.toBeNull();
+    expect(validatePhone("0651234567")).not.toBeNull();
+    expect(validatePhone("0211234567")).not.toBeNull();
+  });
+
+  it("keeps a shape-only check for untouched legacy records", () => {
+    expect(validatePhoneLegacyShape("+35314412618")).toBeNull();
+    expect(validatePhoneLegacyShape("0651234567")).toBeNull();
+    expect(validatePhoneLegacyShape("")).not.toBeNull();
+    expect(validatePhoneLegacyShape("12345g")).not.toBeNull();
+  });
+});
+
+describe("optional landline field", () => {
+  it("allows blank", () => {
+    expect(validateLandline("")).toBeNull();
+    expect(validateLandline("   ")).toBeNull();
+  });
+
+  it("accepts plausible landlines in any format", () => {
+    expect(validateLandline("014412618")).toBeNull();
+    expect(validateLandline("01 441 2618")).toBeNull();
+    expect(validateLandline("+353 1 441 2618")).toBeNull();
+  });
+
+  it("rejects too-short and absurdly long input", () => {
+    expect(validateLandline("123")).not.toBeNull();
+    expect(validateLandline("1234567890123456")).not.toBeNull();
   });
 });

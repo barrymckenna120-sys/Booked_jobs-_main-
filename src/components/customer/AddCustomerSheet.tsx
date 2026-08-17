@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import {
-  validateRequired, validatePhone, validateEircode, validateAreaCode,
+  validateRequired, validatePhone, validateEircode, validateAreaCode, validateLandline,
   formatEircode, formatPhoneInternational, normalizeAreaCode, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -26,6 +27,7 @@ const DEFAULT_WARRANTY_YEARS = "10";
 const EMPTY_FORM = {
   name: "",
   phone: "",
+  landline_phone: "",
   email: "",
   address: "",
   eircode: "",
@@ -35,6 +37,7 @@ const EMPTY_FORM = {
   owner_or_tenant: DEFAULT_OWNER_OR_TENANT,
   warranty_years: DEFAULT_WARRANTY_YEARS,
 };
+
 
 interface AddCustomerSheetProps {
   open: boolean;
@@ -61,6 +64,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     let err: string | null = null;
     if (field === "name") err = validateRequired(val);
     else if (field === "phone") err = validatePhone(val);
+    else if (field === "landline_phone") err = validateLandline(val);
+
     else if (field === "eircode") {
       err = validateEircode(val);
       if (!err) update("eircode", formatEircode(val));
@@ -80,6 +85,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     const phoneErr = validatePhone(form.phone); if (phoneErr) e.phone = phoneErr;
     const eircodeErr = validateEircode(form.eircode); if (eircodeErr) e.eircode = eircodeErr;
     const areaErr = validateAreaCode(form.area_code); if (areaErr) e.area_code = areaErr;
+    const landlineErr = validateLandline(form.landline_phone); if (landlineErr) e.landline_phone = landlineErr;
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -114,6 +121,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
       organisation_id: orgId!,
       name: form.name.trim(),
       phone: cleanPhone,
+      landline_phone: form.landline_phone.trim() || null,
+
       email: form.email.trim() || null,
       address: form.address.trim(),
       eircode: cleanEircode,
@@ -160,6 +169,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
     const { error } = await supabase.from("customers").update({
       name: form.name.trim(),
       phone: cleanPhone,
+      landline_phone: form.landline_phone.trim() || null,
+
       email: form.email.trim() || null,
       address: form.address.trim(),
       eircode: cleanEircode,
@@ -193,6 +204,8 @@ const AddCustomerSheet = ({ open, onOpenChange, onSuccess }: AddCustomerSheetPro
           <form onSubmit={handleSubmit} className="space-y-4 mt-6">
             <CustomerFormField label="Name" id="name" value={form.name} onChange={(v) => update("name", v)} onBlur={() => blurField("name")} error={errors.name} required maxLength={100} />
             <CustomerFormField label="Mobile Number" id="phone" value={form.phone} onChange={(v) => update("phone", v)} onBlur={() => blurField("phone")} error={errors.phone} required maxLength={30} placeholder="083 123 4567" />
+            <CustomerFormField label="Landline (optional)" id="landline_phone" value={form.landline_phone} onChange={(v) => update("landline_phone", v)} onBlur={() => blurField("landline_phone")} error={errors.landline_phone} maxLength={30} placeholder="01 441 2618" />
+
             <CustomerFormField label="Email" id="email" value={form.email} onChange={(v) => update("email", v)} type="email" maxLength={255} />
             <CustomerFormField label="Address" id="address" value={form.address} onChange={(v) => update("address", v)} maxLength={200} />
             <div className="grid grid-cols-2 gap-3">

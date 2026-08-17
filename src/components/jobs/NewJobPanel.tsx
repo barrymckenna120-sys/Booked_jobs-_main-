@@ -24,9 +24,10 @@ import { validationBorderClass, ValidationMessage } from "@/components/shared/Fo
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
 import {
-  validateRequired, validatePhone, validateEircode,
+  validateRequired, validatePhone, validateEircode, validateLandline,
   formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
@@ -130,8 +131,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [isNew, setIsNew] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [landline, setLandline] = useState("");
   const [address, setAddress] = useState("");
   const [eircode, setEircode] = useState("");
+
   const [boiler, setBoiler] = useState("");
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
@@ -185,6 +188,11 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     setDupeCheckError(null);
   };
 
+  const blurLandline = () => {
+    setErrors((e) => ({ ...e, landline: validateLandline(landline) || "" }));
+  };
+
+
   const blurEircode = () => {
     if (!eircode.trim()) { setErrors((e) => ({ ...e, eircode: "" })); return; }
     const err = validateEircode(eircode);
@@ -215,6 +223,8 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     if (eircode.trim()) {
       const eircodeErr = validateEircode(eircode); if (eircodeErr) nextErrors.eircode = eircodeErr;
     }
+    const landlineErr = validateLandline(landline); if (landlineErr) nextErrors.landline = landlineErr;
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -245,7 +255,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     setName(cleanName);
     setPhone(cleanPhone);
     if (cleanEircode) setEircode(cleanEircode);
-    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
   };
 
 
@@ -353,6 +363,19 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
               {errors.phone && <p className="text-xs mt-1 font-medium text-destructive">{errors.phone}</p>}
             </div>
             <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Landline (optional)</Label>
+              <Input
+                value={landline}
+                onChange={(e) => { setLandline(e.target.value); clearError("landline"); }}
+                onBlur={blurLandline}
+                placeholder="01 441 2618"
+                maxLength={30}
+                className={cn("mt-1", errors.landline && RED_BORDER)}
+              />
+              {errors.landline && <p className="text-xs mt-1 font-medium text-destructive">{errors.landline}</p>}
+            </div>
+            <div>
+
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Address <span className="text-destructive">*</span></Label>
               <Input
                 value={address}
@@ -1425,6 +1448,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           organisation_id: orgId!,
           name: finalData.customer.name,
           phone: finalData.customer.phone,
+          landline_phone: finalData.customer.landline?.trim() || null,
+
           email: finalData.job?.email?.trim() || null,
           address: finalData.customer.address,
           eircode: finalData.customer.eircode || "",
