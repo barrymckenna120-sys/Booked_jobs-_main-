@@ -330,21 +330,66 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
           <div className="space-y-3">
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Full Name <span className="text-destructive">*</span></Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Niamh Lawlor" className="mt-1" />
+              <Input
+                value={name}
+                onChange={(e) => { setName(e.target.value); clearError("name"); }}
+                onBlur={blurName}
+                placeholder="e.g. Niamh Lawlor"
+                maxLength={100}
+                className={cn("mt-1", errors.name && RED_BORDER)}
+              />
+              {errors.name && <p className="text-xs mt-1 font-medium text-destructive">{errors.name}</p>}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Mobile Number <span className="text-destructive">*</span></Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+353 87 123 4567" className="mt-1" />
+              <Input
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); clearError("phone"); setDuplicate(null); setDupeCheckError(null); }}
+                onBlur={blurPhone}
+                placeholder="083 123 4567"
+                maxLength={30}
+                className={cn("mt-1", errors.phone && RED_BORDER)}
+              />
+              {errors.phone && <p className="text-xs mt-1 font-medium text-destructive">{errors.phone}</p>}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Address <span className="text-destructive">*</span></Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="12 Green Park, Dublin 15" className="mt-1" />
+              <Input
+                value={address}
+                onChange={(e) => { setAddress(e.target.value); clearError("address"); }}
+                onBlur={blurAddress}
+                placeholder="12 Green Park, Dublin 15"
+                maxLength={200}
+                className={cn("mt-1", errors.address && RED_BORDER)}
+              />
+              {errors.address && <p className="text-xs mt-1 font-medium text-destructive">{errors.address}</p>}
             </div>
+            {duplicate && (
+              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-warning flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>"{duplicate.name}" already has this phone number. Search for them above instead of creating a duplicate.</span>
+              </div>
+            )}
+            {dupeCheckError && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-destructive flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{dupeCheckError}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Eircode</Label>
-                <Input value={eircode} onChange={(e) => setEircode(e.target.value.toUpperCase())} placeholder="D15A1B2" className="mt-1" />
+                <Input
+                  value={eircode}
+                  onChange={(e) => { setEircode(e.target.value.toUpperCase()); clearError("eircode"); }}
+                  onBlur={blurEircode}
+                  placeholder="D15 A1B2"
+                  maxLength={10}
+                  className={cn("mt-1", errors.eircode && RED_BORDER)}
+                />
+                {errors.eircode && <p className="text-xs mt-1 font-medium text-destructive">{errors.eircode}</p>}
               </div>
+
               <div className="relative">
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make</Label>
                 <div className="relative mt-1">
