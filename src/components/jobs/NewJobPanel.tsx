@@ -130,8 +130,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [isNew, setIsNew] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [landline, setLandline] = useState("");
   const [address, setAddress] = useState("");
   const [eircode, setEircode] = useState("");
+
   const [boiler, setBoiler] = useState("");
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
@@ -353,6 +355,19 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
               {errors.phone && <p className="text-xs mt-1 font-medium text-destructive">{errors.phone}</p>}
             </div>
             <div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Landline (optional)</Label>
+              <Input
+                value={landline}
+                onChange={(e) => { setLandline(e.target.value); clearError("landline"); }}
+                onBlur={blurLandline}
+                placeholder="01 441 2618"
+                maxLength={30}
+                className={cn("mt-1", errors.landline && RED_BORDER)}
+              />
+              {errors.landline && <p className="text-xs mt-1 font-medium text-destructive">{errors.landline}</p>}
+            </div>
+            <div>
+
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Address <span className="text-destructive">*</span></Label>
               <Input
                 value={address}
