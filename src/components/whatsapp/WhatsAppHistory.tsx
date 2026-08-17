@@ -13,12 +13,20 @@ type UnifiedMessage = {
   sent_by: string | null;
   status: string;
   source: "whatsapp" | "log";
+  related_id: string | null;
 };
 
 type Props = {
   customerId: string;
-  onSendMessage: () => void;
+  onSendMessage?: () => void;
+  /** When set, rows linked to this job id get a "This job" badge. */
+  highlightJobId?: string;
+  /** Hide the built-in Send Message button (caller provides its own send UI). */
+  hideSendButton?: boolean;
+  /** Override the default card title. */
+  title?: string;
 };
+
 
 const TYPE_LABELS: Record<string, string> = {
   booking_confirmation: "Booking Confirmation",
