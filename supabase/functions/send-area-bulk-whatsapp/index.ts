@@ -41,7 +41,31 @@ serve(async (req) => {
       const entry = { apiKey: res.apiKey, resolution: res.resolution };
       apiKeyCache.set(orgId, entry);
       return entry;
+
+    // Per-org cache for tenant branding (company name/phone). Hoisted out of the
+    // recipient loop: a bulk run for one org fetched identical config once per
+    // recipient before. No cross-tenant fallback (BJ-B2b).
+    const brandingCache = new Map<string, { companyName: string; companyPhone: string }>();
+    const getBranding = async (orgId: string) => {
+      const cached = brandingCache.get(orgId);
+      if (cached) return cached;
+      const tiRes = await fetch(
+        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+        { headers: dbHeaders }
+      );
+      const tiRows = await tiRes.json();
+      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+      const entry = {
+        companyName: String(cfg?.company_name ?? "").trim(),
+        companyPhone: String(cfg?.company_phone ?? "").trim(),
+      };
+      brandingCache.set(orgId, entry);
+      return entry;
     };
+
+    // Orgs already logged as skipped this run — keeps it one log row per org.
+    const loggedSkipOrgs = new Set<string>();
+
 
 
     let sent = 0;
