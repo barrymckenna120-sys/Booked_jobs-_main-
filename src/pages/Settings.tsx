@@ -155,7 +155,7 @@ const Settings = () => {
               </div>
             </div>
           )}
-          {activeTab === "messaging" && <MessagingTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "messaging" && <MessagingTab settings={settings} onSave={handleSave} saving={saving} onNavigateToTab={setActiveTab} />}
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "quote_defaults" && <QuoteDefaultsTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "finance" && <FinanceTab settings={settings} onSave={handleSave} saving={saving} />}
