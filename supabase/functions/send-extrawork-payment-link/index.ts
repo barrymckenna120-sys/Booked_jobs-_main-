@@ -51,25 +51,56 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get payment link from service_calls or use fallback
+    // Payment link comes from the job only. BJ-B2a: no hardcoded fallback — a
+    // tenant without its own link is skipped and logged, never routed to
+    // another tenant's payment account.
     const { data: job } = await supabase
       .from("service_calls")
       .select("payment_link, user_id, organisation_id")
       .eq("id", service_call_id)
       .single();
 
-    const paymentLink = job?.payment_link || "https://buy.stripe.com/cNi8wIcUh5h65nfalMcQU0c";
+    const paymentLink = String(job?.payment_link ?? "").trim();
     const userId = job?.user_id;
     const orgId = job?.organisation_id;
 
-    const { data: messengerConfig } = orgId ? await supabase
-      .from("tenant_integrations")
-      .select("config")
+    if (!orgId) {
+      return new Response(JSON.stringify({ error: "Job missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Tenant business details — single source of truth (settings), no literals.
+    const { data: orgSettings } = await supabase
+      .from("settings")
+      .select("business_name, business_phone")
       .eq("organisation_id", orgId)
-      .eq("integration_type", "360messenger")
-      .maybeSingle() : { data: null };
-    const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
-    const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+      .maybeSingle();
+
+    const companyName = String(orgSettings?.business_name ?? "").trim();
+    const companyPhone = String(orgSettings?.business_phone ?? "").trim();
+
+    // Skip-and-log guards (BJ-B2a) — run before the message is built, before the
+    // message_log insert, and before the quote status flips to Sent.
+    const missingConfig = !paymentLink
+      ? "payment_link_not_configured"
+      : !companyName
+        ? "business_name_not_configured"
+        : !companyPhone
+          ? "business_phone_not_configured"
+          : null;
+
+    if (missingConfig) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "send-extrawork-payment-link",
+        error_message: `Skipped: ${missingConfig} for organisation`,
+        payload: { organisation_id: orgId, quote_id, service_call_id, reason: missingConfig },
+      });
+      return new Response(
+        JSON.stringify({ success: false, whatsapp_sent: false, skipped: true, reason: missingConfig }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Build line items summary
     const itemsSummary = (line_items || [])
