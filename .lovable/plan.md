@@ -1,6 +1,13 @@
 # Remove K&N hardcoded fallbacks from send-invoice-whatsapp
 
+## The bug is latent, not live
+
+`send-invoice-whatsapp` has never successfully sent a message. It writes `message_type: "invoice_sent"` (line 141), and `message_log` holds **0** such rows out of 937 total. No customer has received the broken text. The existing `Pay securely here` messages in `message_log` come from `_shared/depositLink.ts` (types `payment_link` / `deposit_reminder`) and carry correct SumUp URLs; the `invoice` rows come from `create-job-invoice`, which has no such line.
+
+This means there is no "unchanged from today" baseline for K&N to compare against, and the fix carries no risk of altering a message customers already receive.
+
 ## What verification changed about the original diff
+
 
 Two findings from checking the live schema and data mean the originally proposed diff would have shipped a bug.
 
@@ -18,7 +25,7 @@ K&N Gas Services
 {{phone}}
 ```
 
-Today, line 76-79 uses this as the payment **link**, so K&N's live invoice message renders `Pay securely here: Hi {{name}}, thanks for having us today!...` — the raw template, and no actual Stripe link. This is a pre-existing production bug, not something the change introduces. Keeping `template_payment_link` as the link source would make it permanent.
+Line 76-79 uses this as the payment **link**, so the first real K&N invoice send would print `Pay securely here: Hi {{name}}, thanks for having us today!...` — the raw template, and no actual Stripe link. Keeping `template_payment_link` as the link source would make that permanent.
 
 ### Finding 2: the real per-tenant payment link already exists elsewhere
 
