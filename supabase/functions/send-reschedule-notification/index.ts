@@ -128,6 +128,18 @@ serve(async (req) => {
       });
     }
 
+    // WhatsApp api_key via shared resolver — resolved only after the config guards.
+    const wa = await fetchWhatsappApiKey(supabaseUrl!, supabaseKey!, orgId);
+    if (!wa.apiKey) {
+      return new Response(JSON.stringify({ success: false, error: `WhatsApp not configured: ${wa.detail}` }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+    const apiKey = wa.apiKey;
+
+
+
 
     const firstName = customer.name.split(" ")[0];
     const newDate = job.scheduled_date
