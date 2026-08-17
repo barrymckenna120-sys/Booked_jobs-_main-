@@ -1,14 +1,32 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download, CheckCircle } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  CheckCircle,
+  Wrench,
+  Shield,
+  ShieldOff,
+  Calendar,
+  Hash,
+  MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const ROW_ICONS: Record<string, typeof Wrench> = {
+  "Make & Model": Wrench,
+  Warranty: Shield,
+  "Next Service Due": Calendar,
+  GPRN: Hash,
+};
 
 const formatDate = (d: string | null) => {
   if (!d) return "—";
   const date = new Date(d.includes("T") ? d : d + "T00:00:00");
   return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
 };
+
 
 const PublicReceipt = () => {
   const { receiptNumber } = useParams<{ receiptNumber: string }>();
