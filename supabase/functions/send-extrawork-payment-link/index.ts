@@ -124,12 +124,7 @@ If you have any questions please call us on ${companyPhone}.
 
 ${companyName} ☎ ${companyPhone}`;
 
-    // Resolve tenant-scoped WhatsApp API key
-    if (!orgId) {
-      return new Response(JSON.stringify({ error: "Job missing organisation_id" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Resolve tenant-scoped WhatsApp API key (orgId already guarded above)
 
     let messengerKey: string;
     let cleanNumber: string;
