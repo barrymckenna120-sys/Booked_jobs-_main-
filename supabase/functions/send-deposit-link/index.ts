@@ -99,27 +99,10 @@ Deno.serve(async (req) => {
       return json({ success: true, skipped: "no_deposit_amount" });
     }
 
-    // Duplicate-submit guard: if this job already has a pending SumUp checkout,
-    // do not create a second one.
-    if (job.sumup_checkout_id) {
-      const pending = await isCheckoutPending(
-        supabaseUrl,
-        headers,
-        callerOrgId,
-        String(job.sumup_checkout_id),
-      );
-      if (pending) {
-        console.log("send-deposit-link: pending checkout already exists", {
-          service_call_id: serviceCallId,
-          sumup_checkout_id: job.sumup_checkout_id,
-        });
-        return json({
-          success: true,
-          skipped: "checkout_already_pending",
-          payment_link: job.payment_link ?? null,
-        });
-      }
-    }
+    // Duplicate-submit guard lives in the shared checkout helper (BJ-0050b):
+    // a still-valid PENDING checkout for this job and amount is reused there,
+    // and surfaces here as result.reused.
+
 
     const result = await sendDepositLink({
       supabaseUrl,
