@@ -153,7 +153,7 @@ const WhatsAppHistory = ({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">📱 Message History</CardTitle>
+        <CardTitle className="text-base">{title ?? "📱 Message History"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {loading && (
