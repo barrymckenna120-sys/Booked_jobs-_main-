@@ -532,6 +532,9 @@ const CustomerDetail = () => {
               })()}
               <p className="text-[11px] text-muted-foreground">Start typing or click to see options</p>
             </div>
+            {/* TODO (BJ-0054): Add Boiler Location field here as a free-text <Input> with
+                list="customer-detail-boiler-location-suggestions" and a sibling <datalist>
+                populated from `BOILER_LOCATIONS` in `@/lib/boilerLocations.ts`. */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
