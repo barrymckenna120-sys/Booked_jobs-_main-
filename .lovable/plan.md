@@ -20,7 +20,7 @@ Boiler serviced and left in good working order.
 - Placed just below the existing tags / last-service rows and above the Issue block, so it reads with the rest of the job summary.
 - Styled with the same customer-facing tint already used for the receipt note on the completion sheet (semantic tokens, no hardcoded colours), a small `Receipt` Lucide icon, label in the existing muted-bold style, body text `whitespace-pre-wrap`.
 - Read-only: no textarea, no save action.
-- Appears on any card with the field populated (Completed, and also Today/Upcoming if a note exists), because the card is shared.
+- Appears on any card with the field populated. In the app the only write path is job completion (`EngineerJobDetail.tsx` sets `customer_facing_notes` from `CompleteSheet`'s `customerNotes`, in the same patch that sets status `Completed`) — no other frontend or edge-function code writes it. But it is not theoretical: **DU-008 is `In Progress` with the note populated** by the Aug 17 seed migration (`20260817235139...sql`), so a Today/Upcoming card can show it. That is acceptable — the block is read-only and correct wherever the field has content.
 
 ## Technical notes
 
