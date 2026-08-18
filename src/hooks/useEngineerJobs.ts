@@ -318,12 +318,32 @@ export const useEngineerJobs = () => {
         payload: safeDbPatch,
         filter: { column: "id", value: jobId },
       });
+      if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
+        addToQueue({
+          table: "customers",
+          operation: "update",
+          payload: customerBoilerUpdate,
+          filter: { column: "id", value: jobForCustomer.customer_id },
+        });
+      }
       toast({
         title: "No connection",
         description: "Update saved and will retry automatically",
         variant: "destructive",
       });
     } else {
+      // Persist boiler make / model / warranty expiry from the completion sheet to the customer
+      if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
+        try {
+          const { error: custErr } = await supabase
+            .from("customers")
+            .update(customerBoilerUpdate)
+            .eq("id", jobForCustomer.customer_id);
+          if (custErr) throw custErr;
+        } catch (custSyncErr) {
+          console.error("[useEngineerJobs] customer boiler details save failed:", custSyncErr);
+        }
+      }
       if (cancelReason) {
         supabase.functions.invoke('send-cancellation-notice', {
           body: { service_call_id: jobId },
