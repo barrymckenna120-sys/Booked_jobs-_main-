@@ -2,17 +2,17 @@ import { describe, it, expect } from "vitest";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 
 describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
-  it("non-deposit job keeps null balance/deposit, not 0", () => {
+  it("non-deposit priced job leaves the full total outstanding", () => {
     expect(buildPaymentPatch({ type: "booking_setup", depositMode: "none", amount: 246 })).toEqual({
       revenue: 246,
       deposit_paid: false,
       deposit_required: false,
       deposit_amount: null,
-      balance_due: null,
+      balance_due: 246,
     });
   });
 
-  it("deposit-required job carries deposit amount and balance", () => {
+  it("deposit-required job carries deposit amount and caller-computed balance", () => {
     expect(
       buildPaymentPatch({
         type: "booking_setup",
@@ -30,6 +30,41 @@ describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
     });
   });
 
+  it("deposit requested but nothing collected yet: full total outstanding, deposit ignored", () => {
+    expect(
+      buildPaymentPatch({
+        type: "booking_setup",
+        depositMode: "deposit",
+        amount: 800,
+        depositAmount: 100,
+        collectedToDate: 0,
+      }).balance_due,
+    ).toBe(800);
+  });
+
+  it("edit-shaped call subtracts money collected to date, never deposit_amount", () => {
+    expect(
+      buildPaymentPatch({ type: "booking_setup", amount: 1000, collectedToDate: 400 }).balance_due,
+    ).toBe(600);
+
+    expect(
+      buildPaymentPatch({
+        type: "booking_setup",
+        depositMode: "deposit",
+        amount: 1000,
+        depositAmount: 100,
+        balanceDue: 900,
+        collectedToDate: 400,
+      }).balance_due,
+    ).toBe(600);
+  });
+
+  it("never returns a negative balance on an over-collected job", () => {
+    expect(
+      buildPaymentPatch({ type: "booking_setup", amount: 100, collectedToDate: 250 }).balance_due,
+    ).toBe(0);
+  });
+
   it("paid-upfront job marks deposit_paid and leaves balance null", () => {
     expect(buildPaymentPatch({ type: "booking_setup", depositMode: "paid", amount: 120 })).toEqual({
       revenue: 120,
@@ -40,10 +75,13 @@ describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
     });
   });
 
-  it("missing amount stays null revenue", () => {
-    expect(buildPaymentPatch({ type: "booking_setup" }).revenue).toBeNull();
+  it("unpriced job stays null revenue and null balance", () => {
+    const patch = buildPaymentPatch({ type: "booking_setup" });
+    expect(patch.revenue).toBeNull();
+    expect(patch.balance_due).toBeNull();
   });
 });
+
 
 describe("buildPaymentPatch — invoice (TakePaymentModal + completion parity)", () => {
   it("writes unpaid with revenue = balance = amount", () => {

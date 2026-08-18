@@ -428,6 +428,9 @@ const Quotes = () => {
           notes: `Created from quote ${quoteRef}`,
           source: "Quote",
           revenue: quote.total_amount || null,
+          // Nothing collected yet on a freshly converted quote — full total outstanding.
+          balance_due: quote.total_amount || null,
+
         } as any).select("id").single();
 
         if (newJob && !jobErr) {

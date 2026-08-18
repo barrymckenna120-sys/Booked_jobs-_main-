@@ -46,6 +46,21 @@ export type PaymentPatchInput = {
   depositAmount?: number | null;
   balanceDue?: number | null;
 
+  /**
+   * booking_setup only — money ACTUALLY collected on this job so far. 0 (or
+   * omitted) for a brand-new booking.
+   *
+   * This is the only permitted subtrahend when deriving balance_due: a
+   * requested-but-unpaid deposit never reduces the balance ("Deposit Taken"
+   * only requests a SumUp link; deposit_paid is flipped by the webhook or a
+   * recorded payment). Any future edit path MUST pass collectedToDate — when
+   * supplied it takes precedence over `balanceDue`, so an edit to an active job
+   * can never re-derive the balance from deposit_amount and wipe out real
+   * payment history.
+   */
+  collectedToDate?: number | null;
+
+
   /** Mark deposit_paid on a settle (SumUp full payment). */
   markDepositPaid?: boolean;
 };
@@ -73,16 +88,28 @@ export function buildPaymentPatch(input: PaymentPatchInput): PaymentPatch {
   const amount = num(input.amount);
 
   switch (input.type) {
-    // ── Job creation (New Job wizard). Preserves null, not 0, for non-deposit jobs.
+    // ── Job creation (New Job wizard). Preserves null, not 0, when unpriced.
+    // balance_due = revenue − money actually collected to date.
     case "booking_setup": {
       const mode: DepositMode = input.depositMode ?? "none";
-      patch.revenue = isSet(input.amount) && amount !== 0 ? amount : null;
+      const total = isSet(input.amount) && amount !== 0 ? amount : null;
+      const dep = mode === "deposit" ? (input.depositAmount || null) : null;
+      const collected = num(input.collectedToDate);
+      patch.revenue = total;
       patch.deposit_paid = mode === "paid";
       patch.deposit_required = mode === "deposit";
-      patch.deposit_amount = mode === "deposit" ? (input.depositAmount || null) : null;
-      patch.balance_due = mode === "deposit" ? (input.balanceDue || null) : null;
+      patch.deposit_amount = dep;
+      patch.balance_due =
+        mode === "paid"
+          ? null // settled upfront, nothing outstanding
+          : total == null
+            ? null // unpriced job
+            : mode === "deposit" && !isSet(input.collectedToDate) && isSet(input.balanceDue)
+              ? input.balanceDue! // caller-computed figure (NewJobPanel today)
+              : round2(Math.max(0, total - collected));
       return patch;
     }
+
 
     // ── Invoice: nothing collected, full total outstanding.
     case "invoice": {
