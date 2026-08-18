@@ -17,13 +17,11 @@ Update Philip Ward's customer record only:
 
 Nothing else on the customer or the job changes.
 
-## 2. Receipt / PDF impact
+## 2. Regenerate the receipt PDF (confirmed)
 
-The receipt page reads live customer data, so the on-screen receipt shows the corrected values immediately. The PDF is a stored file and is served from cache once generated, so the already-issued PDF keeps the old text until it is regenerated.
+Clear the cached PDF link for receipt `KN-2026-5653`, then regenerate it so the stored file shows the corrected boiler details. The receipt link stays the same; nothing is re-sent to the customer.
 
-Plan: after the data fix, regenerate the KN-485-style PDF for receipt `KN-2026-5653` so the stored file matches the corrected record. The link stays the same — no need to re-send anything to the customer unless you want to. Say the word if you would rather leave the historic PDF untouched.
-
-## 3. Placeholder guidance in the completion sheet
+## 3. Placeholder guidance in the engineer completion sheet
 
 In the engineer Complete Job sheet's Boiler details block, change the placeholders only:
 - Boiler make: `e.g. Ideal, Worcester Bosch, Vaillant`
@@ -31,8 +29,15 @@ In the engineer Complete Job sheet's Boiler details block, change the placeholde
 
 No validation, no character limits, no layout change.
 
+## 4. Office-side completion — checked, nothing to mirror
+
+Office completion (Nicole) runs through the office Job Detail page, not the engineer completion sheet. That page's "mark complete" flow only sets status, completion time and an internal note — it has no boiler make/model or customer-receipt-note fields at all, so there is no placeholder to mirror there.
+
+The one office screen where boiler make/model *are* edited is the Customer detail page, and it already carries the same style of guidance ("e.g. Ideal, Worcester, Vaillant") plus brand/model pickers. Optional tidy-up if you want exact parity: align its make placeholder wording to "Worcester Bosch" and add a model example. Say if you'd like that included.
+
 ## Technical notes
 
-- Data fix: single scoped UPDATE on `customers` for id `7607dce9-…4d537` setting `boiler_brand`, `boiler_model`, `boiler_location`.
-- PDF: invoke `generate-receipt-pdf` for KN-437 after clearing the cached `receipt_pdf_url` so it re-renders rather than short-circuiting.
-- UI: `src/components/engineer/CompleteSheet.tsx`, `placeholder` props on the `cs-boiler-make` and `cs-boiler-model` inputs.
+- Data fix: scoped UPDATE on `customers` id `7607dce9-…4d537` setting `boiler_brand`, `boiler_model`, `boiler_location`.
+- PDF: null out `service_calls.receipt_pdf_url` for KN-437, then invoke `generate-receipt-pdf` so it re-renders instead of short-circuiting; verify the new file and inspect the rendered footer.
+- UI: `src/components/engineer/CompleteSheet.tsx`, `placeholder` props on `cs-boiler-make` and `cs-boiler-model`.
+- Office completion path confirmed at `src/pages/JobDetail.tsx` (status/completed_at/notes only).
