@@ -24,6 +24,15 @@ Single file: `src/hooks/useEngineerJobs.ts` (`updateJob`). Mirror the already-pr
 
 Not changed: `sanitizeServiceCallUpdatePayload` keeps stripping all four keys (correct — they are UI-only for `service_calls`), the existing `boiler_make_model` sync block, tags, receipt/invoice numbering, payment handling, notes composition, and `EngineerJobDetail`.
 
+### Staleness of the diff baseline
+
+The hook's `customers` map is merge-only and refreshed inside `fetchAll` (mount, `service_calls` realtime, notification trigger, tab becoming visible, coming back online) — not on card or sheet open. So the baseline can be minutes or hours old. This is acceptable because `CompleteSheet` seeds its inputs from the same record used as the diff baseline: untouched fields diff as unchanged and are omitted, so a stale baseline cannot cause a phantom overwrite. Fields the engineer actively edits are last-write-wins against a concurrent office edit — the same behaviour as the existing Job Detail path. No locking or refetch-on-open is added.
+
+### Rendering safety of the receipt note
+
+`customer_facing_notes` goes from near-zero data to live customer-facing text, so it is worth stating: `PublicReceipt.tsx:222` renders it as a JSX text child (React-escaped) inside a `whitespace-pre-line` paragraph, and the PDF path draws it via jsPDF text calls. The only `dangerouslySetInnerHTML` in the codebase is unrelated (`src/components/ui/chart.tsx`). No change needed; no HTML injection surface.
+
+
 ## Tests
 
 - Unit test for the boiler-diff helper logic: unchanged value -> omitted; edited value -> included trimmed; cleared pre-filled value -> `null`; `undefined` -> omitted.
