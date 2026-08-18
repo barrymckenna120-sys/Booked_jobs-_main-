@@ -123,11 +123,8 @@ Deno.serve(async (req) => {
     const callerId = userData.user.id;
     const callerEmail = userData.user.email?.toLowerCase() ?? "";
 
-    // Use service role for privileged checks and listing
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+
+
 
     // Determine caller role once
     const { data: callerProfile } = await supabaseAdmin
