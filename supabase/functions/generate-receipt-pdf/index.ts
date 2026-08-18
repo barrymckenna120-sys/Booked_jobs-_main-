@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     // Fetch settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
-      .select("business_name, business_phone, business_address, rgi_number, message_footer")
+      .select("business_name, business_phone, business_address, rgi_number, message_footer, receipt_show_boiler_details")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
@@ -194,8 +194,10 @@ Deno.serve(async (req) => {
     if (customer?.next_service_due) boilerRows.push(["Next Service Due", formatDate(String(customer.next_service_due))]);
     if (customer?.gprn) boilerRows.push(["GPRN", String(customer.gprn)]);
     const notesText = (job.customer_facing_notes || "").trim();
+    // Per-tenant toggle; missing/undefined is treated as enabled.
+    const boilerDetailsEnabled = settings?.receipt_show_boiler_details !== false;
 
-    if (boilerRows.length > 0 || notesText) {
+    if (boilerDetailsEnabled && (boilerRows.length > 0 || notesText)) {
       const colGap = 8;
       const colW = (contentW - colGap) / 2;
       const singleCol = boilerRows.length === 0 || !notesText;

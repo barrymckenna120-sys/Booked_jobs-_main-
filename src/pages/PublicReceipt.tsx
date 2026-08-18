@@ -102,7 +102,9 @@ const PublicReceipt = () => {
   const notes = (data.customer_facing_notes || "").trim();
   const hasBoiler = boilerRows.length > 0;
   const hasNotes = notes.length > 0;
-  const showDetailsSection = hasBoiler || hasNotes;
+  // Per-tenant toggle; missing/undefined is treated as enabled.
+  const boilerDetailsEnabled = data.receipt_show_boiler_details !== false;
+  const showDetailsSection = boilerDetailsEnabled && (hasBoiler || hasNotes);
 
 
   return (
