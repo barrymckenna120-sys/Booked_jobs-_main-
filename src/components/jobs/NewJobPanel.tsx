@@ -1140,7 +1140,9 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, or
         amount: amountNum,
         status: payment,
         depositAmount: payment === "deposit" ? depositNum : null,
-        balanceDue: payment === "deposit" ? Math.max(0, amountNum - depositNum) : null,
+        // A deposit requested at creation is NOT yet paid — the full total stays
+        // outstanding until a payment event (SumUp webhook / Take Payment) lands.
+        balanceDue: payment === "deposit" ? amountNum || null : null,
         sendDepositLink: payment === "deposit" ? sendDepositLink : false,
       },
       sendWhatsApp: sendWA,
