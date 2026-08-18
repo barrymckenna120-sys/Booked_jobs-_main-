@@ -274,10 +274,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
         const orgId = (job as any).organisation_id;
-        const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
-          ? Number(confirmedRevenue)
-          : Number((job as any).revenue || 0);
-        dbPatch.balance_due = revenueForInvoice;
+        // balance_due / payment_status / revenue already set by buildPaymentPatch above.
         try {
           const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
           const invNum = await nextInvoiceNumber(orgId);
