@@ -204,8 +204,21 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
     console.log("[updateJob:detail] called with patch.status:", patch.status, "paymentMethod:", patch.paymentMethod, "jobId:", job?.id);
     if (!job) { console.log("[updateJob:detail] early return: no job"); return false; }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Boiler details persist on the customer record — only send keys the engineer actually changed
+    // (clearing a pre-filled value is a real edit and is written as null).
+    const customerBoilerUpdate: Record<string, any> = {};
+    if (boilerMake !== undefined && (boilerMake || "") !== (customer?.boiler_brand || "")) {
+      customerBoilerUpdate.boiler_brand = (boilerMake || "").trim() || null;
+    }
+    if (boilerModel !== undefined && (boilerModel || "") !== (customer?.boiler_model || "")) {
+      customerBoilerUpdate.boiler_model = (boilerModel || "").trim() || null;
+    }
+    if (warrantyExpiry !== undefined && (warrantyExpiry || "") !== (customer?.warranty_expiry_date || "")) {
+      customerBoilerUpdate.warranty_expiry_date = (warrantyExpiry || "").trim() || null;
+    }
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -225,6 +238,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     const jobTagDate = options?.jobTagDate ?? null;
     const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    // Customer-facing receipt note — per visit, this job only
+    if (customerNotes !== undefined) {
+      dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
+    }
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
       dbPatch.payment_collected_by = user?.id || null;
@@ -300,6 +317,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         payload: safeDbPatch,
         filter: { column: "id", value: job.id },
       });
+      if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
+        addToQueue({
+          table: "customers",
+          operation: "update",
+          payload: customerBoilerUpdate,
+          filter: { column: "id", value: job.customer_id },
+        });
+      }
       toast({
         title: "No connection",
         description: "Update saved and will sync automatically when back online",
@@ -319,7 +344,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           body: { service_call_id: job.id },
         }).catch((err) => console.error('send-cancellation-notice failed:', err));
       }
+      // Persist boiler make / model / warranty expiry from the completion sheet to the customer
+      if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
+        try {
+          const { error: custErr } = await supabase.from("customers").update(customerBoilerUpdate).eq("id", job.customer_id);
+          if (custErr) throw custErr;
+          console.log("[updateJob:detail] Customer boiler details saved:", Object.keys(customerBoilerUpdate));
+        } catch (custSyncErr) {
+          console.error("[updateJob:detail] Customer boiler details save failed:", custSyncErr);
+        }
+      }
       // Sync boiler details back to customer record
+
       if (safeDbPatch.boiler_brand !== undefined) {
         try {
           const customerUpdate: Record<string, any> = {};
