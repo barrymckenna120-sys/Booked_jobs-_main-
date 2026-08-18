@@ -467,7 +467,7 @@ const CustomerDetail = () => {
                   }}
                   onFocus={() => { setBrandDropdownOpen(true); setBrandQuery(form.boiler_brand ?? ""); }}
                   onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
-                  placeholder="e.g. Ideal, Worcester, Vaillant"
+                  placeholder="e.g. Ideal, Worcester Bosch, Vaillant"
                   className="pr-9"
                   autoComplete="off"
                 />
@@ -506,7 +506,7 @@ const CustomerDetail = () => {
                   }}
                   onFocus={() => { if ((form.boiler_brand ?? "").trim()) { setModelDropdownOpen(true); setModelQuery(form.boiler_model ?? ""); } }}
                   onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
-                  placeholder="e.g. Logic Heat 18"
+                  placeholder="e.g. Logic Max Combi2 C30"
                   className="pr-9"
                   autoComplete="off"
                 />
