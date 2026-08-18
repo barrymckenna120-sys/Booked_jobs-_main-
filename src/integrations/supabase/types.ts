@@ -2760,6 +2760,7 @@ export type Database = {
           payment_reminder_days_2: number | null
           payment_reminders_enabled: boolean | null
           payment_terms: string | null
+          receipt_show_boiler_details: boolean
           receipts_counter: number
           reminder_message_template: string | null
           renewal_reminder_days_1: number | null
@@ -2814,6 +2815,7 @@ export type Database = {
           payment_reminder_days_2?: number | null
           payment_reminders_enabled?: boolean | null
           payment_terms?: string | null
+          receipt_show_boiler_details?: boolean
           receipts_counter?: number
           reminder_message_template?: string | null
           renewal_reminder_days_1?: number | null
@@ -2868,6 +2870,7 @@ export type Database = {
           payment_reminder_days_2?: number | null
           payment_reminders_enabled?: boolean | null
           payment_terms?: string | null
+          receipt_show_boiler_details?: boolean
           receipts_counter?: number
           reminder_message_template?: string | null
           renewal_reminder_days_1?: number | null
