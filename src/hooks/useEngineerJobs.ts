@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
@@ -214,8 +215,16 @@ export const useEngineerJobs = () => {
 
     // Offline-tolerant: attempt the write; on failure, queue for retry.
 
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Boiler details persist to the customer record — only what the engineer changed.
+    const jobForCustomer = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId);
+    const customerBoilerUpdate = buildBoilerCustomerUpdate(
+      { boilerMake, boilerModel, warrantyExpiry },
+      jobForCustomer?.customer_id ? customers[jobForCustomer.customer_id] : null
+    );
+
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -234,6 +243,10 @@ export const useEngineerJobs = () => {
     const jobTagDate = options?.jobTagDate ?? null;
     const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    // Customer-facing receipt note — per visit, this job only
+    if (customerNotes !== undefined) {
+      dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
+    }
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
       if (paymentMethod === "invoice") {
@@ -305,12 +318,32 @@ export const useEngineerJobs = () => {
         payload: safeDbPatch,
         filter: { column: "id", value: jobId },
       });
+      if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
+        addToQueue({
+          table: "customers",
+          operation: "update",
+          payload: customerBoilerUpdate,
+          filter: { column: "id", value: jobForCustomer.customer_id },
+        });
+      }
       toast({
         title: "No connection",
         description: "Update saved and will retry automatically",
         variant: "destructive",
       });
     } else {
+      // Persist boiler make / model / warranty expiry from the completion sheet to the customer
+      if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
+        try {
+          const { error: custErr } = await supabase
+            .from("customers")
+            .update(customerBoilerUpdate)
+            .eq("id", jobForCustomer.customer_id);
+          if (custErr) throw custErr;
+        } catch (custSyncErr) {
+          console.error("[useEngineerJobs] customer boiler details save failed:", custSyncErr);
+        }
+      }
       if (cancelReason) {
         supabase.functions.invoke('send-cancellation-notice', {
           body: { service_call_id: jobId },
