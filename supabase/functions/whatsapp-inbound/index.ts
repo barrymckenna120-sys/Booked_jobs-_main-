@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
-import { businessToday, parseInboundIntent, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
+import { businessToday, parseInboundIntent, pickActingOrg, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
 import { last9Digits, samePhone } from "../_shared/phone.ts";
 
 const supabase = createClient(
@@ -61,12 +61,16 @@ Deno.serve(async (req: Request) => {
     return earlyResponse;
   }
 
-  const inboundOrgId = sender.organisation_id;
+  const inboundOrgId = sender.logging_organisation_id;
   const customer = sender.primary;
   const senderCustomerIds = sender.customers.map((c) => c.id);
+  // Where replies/notifications/activity are written. Defaults to the newest
+  // record's org (previous behaviour) and is narrowed to the org that actually
+  // owns the reminded job once CONFIRM/CANCEL candidates are known.
+  let actingOrgId = inboundOrgId;
   if (sender.customers.length > 1) {
     console.log(
-      `Inbound ${from} matches ${sender.customers.length} customer records in org ${inboundOrgId}: ${senderCustomerIds.join(", ")}`,
+      `Inbound ${from} matches ${sender.customers.length} customer records across ${sender.orgs.length} org(s): ${senderCustomerIds.join(", ")}`,
     );
   }
 
@@ -104,7 +108,7 @@ Deno.serve(async (req: Request) => {
   // Send a WhatsApp reply to the inbound sender. Never throws.
   async function sendReply(text: string, messageType: string) {
     try {
-      const { apiKey } = await getWhatsAppConfig(supabase, inboundOrgId);
+      const { apiKey } = await getWhatsAppConfig(supabase, actingOrgId);
       if (!from) return;
       const form = new FormData();
       form.append("phonenumber", normalisePhone(from));
@@ -115,7 +119,7 @@ Deno.serve(async (req: Request) => {
         body: form,
       });
       await supabase.from("message_log").insert({
-        organisation_id: inboundOrgId,
+        organisation_id: actingOrgId,
         customer_id: customer?.id ?? null,
         message_type: messageType,
         channel: "whatsapp",
@@ -129,7 +133,7 @@ Deno.serve(async (req: Request) => {
       const msg = (e as Error).message;
       console.error(`Failed to send ${messageType}:`, msg);
       await logWhatsAppFailure(supabase, {
-        organisation_id: inboundOrgId,
+        organisation_id: actingOrgId,
         customer_id: customer?.id ?? null,
         message_type: messageType,
         content: text,
@@ -142,7 +146,7 @@ Deno.serve(async (req: Request) => {
   async function logActivity(label: string, serviceCallId: string | null, customerId?: string | null) {
     try {
       await supabase.from("customer_activity").insert({
-        organisation_id: inboundOrgId,
+        organisation_id: actingOrgId,
         customer_id: customerId ?? customer?.id ?? null,
         service_call_id: serviceCallId,
         event_type: "whatsapp_received",
@@ -164,7 +168,7 @@ Deno.serve(async (req: Request) => {
       const { data: staff } = await supabase
         .from("profiles")
         .select("user_id")
-        .eq("organisation_id", inboundOrgId)
+        .eq("organisation_id", actingOrgId)
         .in("role", ["office", "admin"])
         .eq("is_active", true);
 
@@ -172,7 +176,7 @@ Deno.serve(async (req: Request) => {
         .filter((s: any) => !!s?.user_id)
         .map((s: any) => ({
           recipient_user_id: s.user_id,
-          organisation_id: inboundOrgId,
+          organisation_id: actingOrgId,
           notification_type: "whatsapp_reply",
           title,
           body,
@@ -218,21 +222,32 @@ Deno.serve(async (req: Request) => {
     }
 
     if (intent === "confirm" || intent === "cancel") {
-      const branding = await getOrgBrandingClient(supabase, inboundOrgId);
-      const callUs = branding.phone ? ` on ${branding.phone}` : "";
-
-      // Candidate jobs: reminded, still open. Date/ambiguity rules live in the
-      // pure resolver so they are unit-tested.
+      // Candidate jobs for EVERY record sharing the number. Date/ambiguity and
+      // org-choice rules live in the pure resolvers so they are unit-tested.
       const { data: jobs } = await supabase
         .from("service_calls")
         .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent, customer_id")
         .in("customer_id", senderCustomerIds)
-        .eq("organisation_id", inboundOrgId)
         .eq("reminder_2day_sent", true)
         .order("scheduled_date", { ascending: true });
 
       const today = businessToday();
-      const decision = resolveReplyTarget(jobs ?? [], today);
+      const orgChoice = pickActingOrg(jobs ?? [], today);
+      if (orgChoice.action === "drop" && orgChoice.reason === "cross_org_ambiguous") {
+        console.error(
+          `Inbound ${intent} from ${from}: eligible jobs in more than one organisation — refusing to guess. Job ids: ${(jobs ?? []).map((j: any) => j.id).join(", ")}`,
+        );
+        return earlyResponse;
+      }
+      if (orgChoice.action === "act") actingOrgId = orgChoice.organisation_id;
+
+      const branding = await getOrgBrandingClient(supabase, actingOrgId);
+      const callUs = branding.phone ? ` on ${branding.phone}` : "";
+
+      const decision = resolveReplyTarget(
+        orgChoice.action === "act" ? orgChoice.jobs : [],
+        today,
+      );
       const customerName = (customer as any).name || "customer";
       const ownerName = (jobId: string | null) => {
         const j = (jobs ?? []).find((x: any) => x.id === jobId);
