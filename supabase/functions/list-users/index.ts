@@ -92,13 +92,25 @@ Deno.serve(async (req) => {
     }
 
 
-    // Verify caller identity by passing the JWT explicitly
-    const supabaseUser = createClient(
+    // Verify caller identity. Use the service-role client (auth.getUser(jwt) on an
+    // anon client throws AuthSessionMissingError when the client itself has no
+    // stored session in some runtime/auth-js combinations).
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
     );
 
-    const { data: userData, error: userError } = await supabaseUser.auth.getUser(token);
+    // A non-JWT token (e.g. the publishable/anon key) can never identify a user.
+    if (token.split(".").length !== 3) {
+      console.error("list-users: non-JWT Authorization token received");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
     if (userError || !userData?.user) {
       console.error("getUser error:", userError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -106,6 +118,7 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     const callerId = userData.user.id;
     const callerEmail = userData.user.email?.toLowerCase() ?? "";
