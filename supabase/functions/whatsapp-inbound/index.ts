@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
-import { businessToday, parseInboundIntent, resolveReplyTarget } from "../_shared/cancelIntent.ts";
+import { businessToday, parseInboundIntent, pickActingOrg, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
+import { last9Digits, samePhone } from "../_shared/phone.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -38,27 +39,41 @@ Deno.serve(async (req: Request) => {
 
   console.log(`Inbound from ${from}: ${messageText}`);
 
-  // Try to match customer by phone — check multiple formats
-  const phoneVariants = [
-    from,
-    `+${from}`,
-    `0${from.slice(2)}`,   // 447499999999 → 07499999999 (UK)
-    `0${from.slice(3)}`,   // 353871234567 → 0871234567 (IE)
-  ];
-
-  const { data: customers } = await supabase
+  // A phone number can sit on SEVERAL customer records (shared household
+  // numbers, duplicates). Fetch them all — picking only the newest used to hide
+  // the reminded job when it belonged to a sibling record.
+  const key = last9Digits(from);
+  const { data: candidateCustomers } = await supabase
     .from("customers")
-    .select("id, organisation_id, name")
-    .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
+    .select("id, organisation_id, name, phone, landline_phone, created_at")
+    .or(`phone.ilike.%${key},landline_phone.ilike.%${key}`)
     .order("created_at", { ascending: false })
-    .limit(1);
-  const customer = customers?.[0] ?? null;
+    .limit(50);
 
-  const inboundOrgId = customer?.organisation_id ?? null;
-  if (!inboundOrgId) {
-    console.error(`Inbound WhatsApp from ${from} could not be matched to a known customer/organisation — dropping message to avoid cross-tenant leakage. Body: ${messageText}`);
+  const sender = key
+    ? resolveInboundSender(from, candidateCustomers ?? [], samePhone)
+    : ({ action: "drop", reason: "no_match" } as const);
+
+  if (sender.action === "drop") {
+    console.error(
+      `Inbound WhatsApp from ${from} dropped (${sender.reason}) — no safe customer/organisation match. Body: ${messageText}`,
+    );
     return earlyResponse;
   }
+
+  const inboundOrgId = sender.logging_organisation_id;
+  const customer = sender.primary;
+  const senderCustomerIds = sender.customers.map((c) => c.id);
+  // Where replies/notifications/activity are written. Defaults to the newest
+  // record's org (previous behaviour) and is narrowed to the org that actually
+  // owns the reminded job once CONFIRM/CANCEL candidates are known.
+  let actingOrgId = inboundOrgId;
+  if (sender.customers.length > 1) {
+    console.log(
+      `Inbound ${from} matches ${sender.customers.length} customer records across ${sender.orgs.length} org(s): ${senderCustomerIds.join(", ")}`,
+    );
+  }
+
 
   await supabase.from("whatsapp_messages").insert({
     organisation_id: inboundOrgId,
@@ -93,7 +108,7 @@ Deno.serve(async (req: Request) => {
   // Send a WhatsApp reply to the inbound sender. Never throws.
   async function sendReply(text: string, messageType: string) {
     try {
-      const { apiKey } = await getWhatsAppConfig(supabase, inboundOrgId);
+      const { apiKey } = await getWhatsAppConfig(supabase, actingOrgId);
       if (!from) return;
       const form = new FormData();
       form.append("phonenumber", normalisePhone(from));
@@ -104,7 +119,7 @@ Deno.serve(async (req: Request) => {
         body: form,
       });
       await supabase.from("message_log").insert({
-        organisation_id: inboundOrgId,
+        organisation_id: actingOrgId,
         customer_id: customer?.id ?? null,
         message_type: messageType,
         channel: "whatsapp",
@@ -118,7 +133,7 @@ Deno.serve(async (req: Request) => {
       const msg = (e as Error).message;
       console.error(`Failed to send ${messageType}:`, msg);
       await logWhatsAppFailure(supabase, {
-        organisation_id: inboundOrgId,
+        organisation_id: actingOrgId,
         customer_id: customer?.id ?? null,
         message_type: messageType,
         content: text,
@@ -128,11 +143,11 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  async function logActivity(label: string, serviceCallId: string | null) {
+  async function logActivity(label: string, serviceCallId: string | null, customerId?: string | null) {
     try {
       await supabase.from("customer_activity").insert({
-        organisation_id: inboundOrgId,
-        customer_id: customer?.id ?? null,
+        organisation_id: actingOrgId,
+        customer_id: customerId ?? customer?.id ?? null,
         service_call_id: serviceCallId,
         event_type: "whatsapp_received",
         event_label: label,
@@ -153,7 +168,7 @@ Deno.serve(async (req: Request) => {
       const { data: staff } = await supabase
         .from("profiles")
         .select("user_id")
-        .eq("organisation_id", inboundOrgId)
+        .eq("organisation_id", actingOrgId)
         .in("role", ["office", "admin"])
         .eq("is_active", true);
 
@@ -161,7 +176,7 @@ Deno.serve(async (req: Request) => {
         .filter((s: any) => !!s?.user_id)
         .map((s: any) => ({
           recipient_user_id: s.user_id,
-          organisation_id: inboundOrgId,
+          organisation_id: actingOrgId,
           notification_type: "whatsapp_reply",
           title,
           body,
@@ -180,7 +195,7 @@ Deno.serve(async (req: Request) => {
     await supabase
       .from("customers")
       .update({ last_message_sent_at: createdAt })
-      .eq("id", customer.id);
+      .in("id", senderCustomerIds);
 
     const intent = parseInboundIntent(messageText);
 
@@ -196,7 +211,7 @@ Deno.serve(async (req: Request) => {
           whatsapp_opt_out_source: "inbound_stop",
           last_reminder_response: "stop",
         })
-        .eq("id", customer.id);
+        .in("id", senderCustomerIds);
 
       const branding = await getOrgBrandingClient(supabase, inboundOrgId);
       await sendReply(
@@ -207,22 +222,38 @@ Deno.serve(async (req: Request) => {
     }
 
     if (intent === "confirm" || intent === "cancel") {
-      const branding = await getOrgBrandingClient(supabase, inboundOrgId);
-      const callUs = branding.phone ? ` on ${branding.phone}` : "";
-
-      // Candidate jobs: reminded, still open. Date/ambiguity rules live in the
-      // pure resolver so they are unit-tested.
+      // Candidate jobs for EVERY record sharing the number. Date/ambiguity and
+      // org-choice rules live in the pure resolvers so they are unit-tested.
       const { data: jobs } = await supabase
         .from("service_calls")
-        .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent")
-        .eq("customer_id", customer.id)
-        .eq("organisation_id", inboundOrgId)
+        .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent, customer_id")
+        .in("customer_id", senderCustomerIds)
         .eq("reminder_2day_sent", true)
         .order("scheduled_date", { ascending: true });
 
       const today = businessToday();
-      const decision = resolveReplyTarget(jobs ?? [], today);
+      const orgChoice = pickActingOrg(jobs ?? [], today);
+      if (orgChoice.action === "drop" && orgChoice.reason === "cross_org_ambiguous") {
+        console.error(
+          `Inbound ${intent} from ${from}: eligible jobs in more than one organisation — refusing to guess. Job ids: ${(jobs ?? []).map((j: any) => j.id).join(", ")}`,
+        );
+        return earlyResponse;
+      }
+      if (orgChoice.action === "act") actingOrgId = orgChoice.organisation_id;
+
+      const branding = await getOrgBrandingClient(supabase, actingOrgId);
+      const callUs = branding.phone ? ` on ${branding.phone}` : "";
+
+      const decision = resolveReplyTarget(
+        orgChoice.action === "act" ? orgChoice.jobs : [],
+        today,
+      );
       const customerName = (customer as any).name || "customer";
+      const ownerName = (jobId: string | null) => {
+        const j = (jobs ?? []).find((x: any) => x.id === jobId);
+        const owner = sender.customers.find((c) => c.id === (j as any)?.customer_id);
+        return owner?.name || customerName;
+      };
 
       // No upcoming reminded booking — tell them rather than dropping silently.
       if (decision.action === "none") {
@@ -247,10 +278,10 @@ Deno.serve(async (req: Request) => {
         );
         await notifyStaff(
           intent === "cancel" ? "WhatsApp cancel needs action" : "WhatsApp confirm needs action",
-          `${customerName} replied ${intent.toUpperCase()} but has ${decision.jobs.length} upcoming appointments — please call them back.`,
+          `${ownerName(soonest.id)} replied ${intent.toUpperCase()} but has ${decision.jobs.length} upcoming appointments — please call them back.`,
           soonest.id,
           {
-            customer_id: customer.id,
+            customer_id: (soonest as any).customer_id ?? customer.id,
             intent,
             reason: decision.reason,
             candidate_job_ids: decision.jobs.map((j) => j.id),
@@ -272,12 +303,15 @@ Deno.serve(async (req: Request) => {
         await logActivity(
           `WhatsApp reply "${intent.toUpperCase()}" — ambiguous (${decision.jobs.length} upcoming jobs), escalated to office`,
           soonest.id,
+          (soonest as any).customer_id ?? customer.id,
         );
         return earlyResponse;
       }
 
       // Exactly one match — safe to act.
       const job = decision.job;
+      const jobOwnerId = (job as any).customer_id ?? customer.id;
+      const jobOwnerName = ownerName(job.id);
 
       if (intent === "confirm") {
         await supabase
@@ -285,10 +319,10 @@ Deno.serve(async (req: Request) => {
           .update({ confirmed: true, confirmed_at: new Date().toISOString() })
           .eq("id", job.id);
         await sendReply(
-          `Thanks ${customerName}, your appointment is confirmed. See you then! ${branding.footer || branding.name}`,
+          `Thanks ${jobOwnerName}, your appointment is confirmed. See you then! ${branding.footer || branding.name}`,
           "reply_confirmed",
         );
-        await logActivity("WhatsApp received — Appointment Confirmed", job.id);
+        await logActivity("WhatsApp received — Appointment Confirmed", job.id, jobOwnerId);
       } else {
         await supabase
           .from("service_calls")
@@ -299,16 +333,16 @@ Deno.serve(async (req: Request) => {
           })
           .eq("id", job.id);
         await sendReply(
-          `Thanks ${customerName}, your appointment has been cancelled. To rebook please call us${callUs}. ${branding.footer || branding.name}`,
+          `Thanks ${jobOwnerName}, your appointment has been cancelled. To rebook please call us${callUs}. ${branding.footer || branding.name}`,
           "reply_cancelled",
         );
         await notifyStaff(
           "Job cancelled by customer",
-          `${customerName} cancelled their appointment by WhatsApp reply.`,
+          `${jobOwnerName} cancelled their appointment by WhatsApp reply.`,
           job.id,
-          { customer_id: customer.id, intent, service_call_id: job.id },
+          { customer_id: jobOwnerId, intent, service_call_id: job.id },
         );
-        await logActivity("WhatsApp received — Appointment Cancelled", job.id);
+        await logActivity("WhatsApp received — Appointment Cancelled", job.id, jobOwnerId);
       }
       return earlyResponse;
     }
