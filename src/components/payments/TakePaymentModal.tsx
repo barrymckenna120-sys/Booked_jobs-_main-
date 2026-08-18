@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
