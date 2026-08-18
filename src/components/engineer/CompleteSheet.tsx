@@ -181,7 +181,7 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
                 id="cs-boiler-make"
                 value={boilerMake}
                 onChange={(e) => setBoilerMake(e.target.value)}
-                placeholder="e.g. Ideal"
+                placeholder="e.g. Ideal, Worcester Bosch, Vaillant"
               />
             </div>
             <div className="space-y-1.5">
@@ -190,8 +190,9 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
                 id="cs-boiler-model"
                 value={boilerModel}
                 onChange={(e) => setBoilerModel(e.target.value)}
-                placeholder="e.g. Logic Max C24"
+                placeholder="e.g. Logic Max Combi2 C30"
               />
+
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="cs-warranty-expiry" className="text-[11px] font-medium text-muted-foreground">Warranty expiry date (optional)</Label>
