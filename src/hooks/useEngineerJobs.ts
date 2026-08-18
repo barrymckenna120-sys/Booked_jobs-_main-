@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
