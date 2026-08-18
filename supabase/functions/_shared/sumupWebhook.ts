@@ -469,30 +469,23 @@ export async function handleSumUpWebhook(
 
 
 
-  const patch: Record<string, unknown> = fullyPaid
-    ? {
-      payment_status: "paid",
-      paid_at: now().toISOString(),
-      deposit_paid: true,
-      balance_due: 0,
-      payment_method: "card",
-    }
-    : {
-      payment_status: "partial",
-      // Finance dates payments from paid_at; without it a deposit-only payment
-      // is invisible on Finance -> Sales.
-      paid_at: now().toISOString(),
-      deposit_paid: true,
-      balance_due: revenue > 0 ? Math.max(0, revenue - amount) : job.balance_due ?? null,
-      payment_method: "card",
-    };
-
-  // Externally created checkouts (Make Scenario 5) never write a job total, which
-  // would leave the payment invisible to Finance. Treat the paid amount as the
-  // total so revenue is reported; a known total is never overwritten.
-  if (revenue <= 0 && amount > 0) {
-    patch.revenue = amount;
-  }
+  const patch: Record<string, unknown> = {
+    // Finance dates payments from paid_at; without it a deposit-only payment
+    // is invisible on Finance -> Sales.
+    paid_at: now().toISOString(),
+    payment_method: "card",
+    // Externally created checkouts (Make Scenario 5) never write a job total, which
+    // would leave the payment invisible to Finance. revenueMode "fill" treats the
+    // paid amount as the total in that case; a known total is never overwritten.
+    ...buildPaymentPatch({
+      type: fullyPaid ? "full" : "deposit",
+      amount,
+      revenue,
+      currentBalanceDue: job.balance_due ?? null,
+      revenueMode: "fill",
+      markDepositPaid: true,
+    }),
+  };
 
 
   // Externally created checkout: store its id so a re-delivery matches directly
