@@ -1,6 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,7 +131,7 @@ function UnblockUserPopover({
     setError(null);
     (async () => {
       try {
-        const { data, error: invokeError } = await supabase.functions.invoke("list-users", {
+        const { data, error: invokeError } = await invokeFunction("list-users", {
           body: { org_id: orgId },
         });
         if (cancelled) return;
@@ -404,7 +405,7 @@ export default function AdminPanel() {
       await Promise.all(
         tenants.map(async (t) => {
           try {
-            const { data, error } = await supabase.functions.invoke("list-users", {
+            const { data, error } = await invokeFunction("list-users", {
               body: { org_id: t.id },
             });
             const users = ((data as any)?.users as any[]) || [];
@@ -466,7 +467,7 @@ export default function AdminPanel() {
 
     // Fetch owner emails via list-users edge function
     try {
-      const { data: usersResp } = await supabase.functions.invoke("list-users");
+      const { data: usersResp } = await invokeFunction("list-users");
       const users = (usersResp as any)?.users || [];
       const map: Record<string, string> = {};
       for (const u of users) {
@@ -653,7 +654,7 @@ export default function AdminPanel() {
         [orgId]: { loading: true, hasBlocked: prev[orgId]?.hasBlocked ?? false },
       }));
       try {
-        const { data: lu, error: luErr } = await supabase.functions.invoke("list-users", {
+        const { data: lu, error: luErr } = await invokeFunction("list-users", {
           body: { org_id: orgId },
         });
         const users = ((lu as any)?.users as any[]) || [];

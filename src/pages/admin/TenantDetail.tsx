@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -191,7 +192,7 @@ export default function TenantDetail() {
       const ownerUserId = (orgRow as any)?.owner_user_id;
       if (ownerUserId) {
         try {
-          const { data: usersResp } = await supabase.functions.invoke("list-users");
+          const { data: usersResp } = await invokeFunction("list-users");
           const users = (usersResp as any)?.users || [];
           const u = users.find((u: any) => u?.id === ownerUserId);
           resolvedEmail = u?.email || null;
