@@ -91,17 +91,19 @@ export function businessToday(now: Date = new Date()): string {
 // ------------------------------------------------------------------ sender
 
 /**
- * One phone number can legitimately sit on several customer records (shared
- * household/landlord numbers, plus duplicate records created over time).
+ * One phone number can legitimately sit on several customer records — shared
+ * household/landlord numbers, duplicates created over time, and (for staff test
+ * numbers) records in more than one organisation.
  *
  * Resolving the sender to a single "newest" record is unsafe: the reminded job
  * may belong to one of the OTHER records, so a CANCEL silently matches nothing.
- * Instead every customer sharing the number is returned, and the caller feeds
- * ALL of their jobs into `resolveReplyTarget` — which already refuses to guess
- * between multiple candidates and escalates to staff.
+ * Instead every record sharing the number is returned, grouped by organisation,
+ * and the caller feeds ALL of their jobs into `resolveReplyTarget` — which
+ * already refuses to guess between multiple candidates and escalates to staff.
  *
- * Records spanning more than one organisation are dropped outright: acting
- * would risk a cross-tenant write, and there is no safe way to pick an org.
+ * Organisation choice is never guessed either: logging uses the newest record's
+ * org (unchanged behaviour), while ACTING on a job requires that the eligible
+ * jobs all sit in one org — see `pickActingOrg`.
  */
 export type InboundCustomer = {
   id: string;
@@ -112,16 +114,24 @@ export type InboundCustomer = {
   created_at?: string | null;
 };
 
+export type SenderOrgGroup = {
+  organisation_id: string;
+  customers: InboundCustomer[];
+};
+
 export type SenderDecision =
   | {
       action: "resolved";
-      organisation_id: string;
-      /** Every customer record sharing the inbound number, newest first. */
-      customers: InboundCustomer[];
-      /** Newest record — used for logging/reply attribution only. */
+      /** Newest matching record — reply/logging attribution only. */
       primary: InboundCustomer;
+      /** Org of `primary`; where the inbound message is logged. */
+      logging_organisation_id: string;
+      /** Every matching record, newest first, across all orgs. */
+      customers: InboundCustomer[];
+      /** Same records grouped by org, newest-record org first. */
+      orgs: SenderOrgGroup[];
     }
-  | { action: "drop"; reason: "no_match" | "cross_org_ambiguous" };
+  | { action: "drop"; reason: "no_match" };
 
 /**
  * Match an inbound number against candidate customer rows.
@@ -141,17 +151,47 @@ export function resolveInboundSender(
 
   if (rows.length === 0) return { action: "drop", reason: "no_match" };
 
-  const orgs = new Set(rows.map((c) => String(c.organisation_id)));
-  if (orgs.size > 1) return { action: "drop", reason: "cross_org_ambiguous" };
-
   const sorted = [...rows].sort((a, b) =>
     String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")),
   );
 
+  const orgs: SenderOrgGroup[] = [];
+  for (const c of sorted) {
+    const orgId = String(c.organisation_id);
+    const group = orgs.find((g) => g.organisation_id === orgId);
+    if (group) group.customers.push(c);
+    else orgs.push({ organisation_id: orgId, customers: [c] });
+  }
+
   return {
     action: "resolved",
-    organisation_id: String(sorted[0].organisation_id),
-    customers: sorted,
     primary: sorted[0],
+    logging_organisation_id: String(sorted[0].organisation_id),
+    customers: sorted,
+    orgs,
   };
+}
+
+export type ActingOrgDecision =
+  | { action: "act"; organisation_id: string; jobs: CandidateJob[] }
+  | { action: "drop"; reason: "no_eligible_job" | "cross_org_ambiguous" };
+
+/**
+ * Decide which organisation an inbound CONFIRM/CANCEL may act in, given the
+ * candidate jobs of every customer record sharing the number.
+ *
+ * Exactly one org with eligible jobs -> act there, even if it is not the org of
+ * the newest record. Eligible jobs in two orgs -> never guess, drop and log.
+ */
+export function pickActingOrg(
+  jobs: CandidateJob[] | null | undefined,
+  today: string,
+): ActingOrgDecision {
+  const eligible = (jobs ?? []).filter((j) => isEligibleJob(j, today));
+  if (eligible.length === 0) return { action: "drop", reason: "no_eligible_job" };
+
+  const orgIds = [...new Set(eligible.map((j) => String(j.organisation_id ?? "")))];
+  if (orgIds.length > 1) return { action: "drop", reason: "cross_org_ambiguous" };
+
+  return { action: "act", organisation_id: orgIds[0], jobs: eligible };
 }
