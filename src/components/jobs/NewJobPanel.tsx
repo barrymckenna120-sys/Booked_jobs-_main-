@@ -1140,7 +1140,9 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, or
         amount: amountNum,
         status: payment,
         depositAmount: payment === "deposit" ? depositNum : null,
-        balanceDue: payment === "deposit" ? Math.max(0, amountNum - depositNum) : null,
+        // A deposit requested at creation is NOT yet paid — the full total stays
+        // outstanding until a payment event (SumUp webhook / Take Payment) lands.
+        balanceDue: payment === "deposit" ? amountNum || null : null,
         sendDepositLink: payment === "deposit" ? sendDepositLink : false,
       },
       sendWhatsApp: sendWA,
@@ -1237,10 +1239,11 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, or
                 <Input
                   type="number"
                   readOnly
-                  value={Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)).toFixed(2)}
+                  value={Math.max(0, parseFloat(amount) || 0).toFixed(2)}
                   className="pl-8 bg-muted/50 cursor-not-allowed"
                 />
               </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Full total stays outstanding — the deposit is deducted once it's paid.</p>
             </div>
             <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendDepositLink ? "border-success/40" : "border-border"}`}>
               <div>

@@ -44,6 +44,11 @@ export type PaymentPatchInput = {
   /** booking_setup only. */
   depositMode?: DepositMode;
   depositAmount?: number | null;
+  /**
+   * booking_setup only — caller-computed balance. IGNORED when it is lower than
+   * the total and no `collectedToDate` is supplied: a requested-but-unpaid
+   * deposit must never discount the balance (BJ/KN-490 class of bug).
+   */
   balanceDue?: number | null;
 
   /**
@@ -99,13 +104,20 @@ export function buildPaymentPatch(input: PaymentPatchInput): PaymentPatch {
       patch.deposit_paid = mode === "paid";
       patch.deposit_required = mode === "deposit";
       patch.deposit_amount = dep;
+      // A caller-supplied balanceDue is only trusted when it does NOT discount
+      // the total, or when real money is evidenced (collectedToDate). A
+      // requested-but-unpaid deposit must never reduce the balance.
+      const trustedCallerBalance =
+        isSet(input.balanceDue) && !isSet(input.collectedToDate) && num(input.balanceDue) >= total!
+          ? num(input.balanceDue)
+          : null;
       patch.balance_due =
         mode === "paid"
           ? null // settled upfront, nothing outstanding
           : total == null
             ? null // unpriced job
-            : mode === "deposit" && !isSet(input.collectedToDate) && isSet(input.balanceDue)
-              ? input.balanceDue! // caller-computed figure (NewJobPanel today)
+            : trustedCallerBalance != null
+              ? round2(trustedCallerBalance)
               : round2(Math.max(0, total - collected));
       return patch;
     }
