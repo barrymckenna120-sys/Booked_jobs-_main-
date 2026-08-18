@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
-import { businessToday, parseInboundIntent, resolveReplyTarget } from "../_shared/cancelIntent.ts";
+import { businessToday, parseInboundIntent, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
+import { last9Digits, samePhone } from "../_shared/phone.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -138,11 +139,11 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  async function logActivity(label: string, serviceCallId: string | null) {
+  async function logActivity(label: string, serviceCallId: string | null, customerId?: string | null) {
     try {
       await supabase.from("customer_activity").insert({
         organisation_id: inboundOrgId,
-        customer_id: customer?.id ?? null,
+        customer_id: customerId ?? customer?.id ?? null,
         service_call_id: serviceCallId,
         event_type: "whatsapp_received",
         event_label: label,
@@ -206,7 +207,7 @@ Deno.serve(async (req: Request) => {
           whatsapp_opt_out_source: "inbound_stop",
           last_reminder_response: "stop",
         })
-        .eq("id", customer.id);
+        .in("id", senderCustomerIds);
 
       const branding = await getOrgBrandingClient(supabase, inboundOrgId);
       await sendReply(
@@ -224,8 +225,8 @@ Deno.serve(async (req: Request) => {
       // pure resolver so they are unit-tested.
       const { data: jobs } = await supabase
         .from("service_calls")
-        .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent")
-        .eq("customer_id", customer.id)
+        .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent, customer_id")
+        .in("customer_id", senderCustomerIds)
         .eq("organisation_id", inboundOrgId)
         .eq("reminder_2day_sent", true)
         .order("scheduled_date", { ascending: true });
@@ -233,6 +234,11 @@ Deno.serve(async (req: Request) => {
       const today = businessToday();
       const decision = resolveReplyTarget(jobs ?? [], today);
       const customerName = (customer as any).name || "customer";
+      const ownerName = (jobId: string | null) => {
+        const j = (jobs ?? []).find((x: any) => x.id === jobId);
+        const owner = sender.customers.find((c) => c.id === (j as any)?.customer_id);
+        return owner?.name || customerName;
+      };
 
       // No upcoming reminded booking — tell them rather than dropping silently.
       if (decision.action === "none") {
@@ -257,10 +263,10 @@ Deno.serve(async (req: Request) => {
         );
         await notifyStaff(
           intent === "cancel" ? "WhatsApp cancel needs action" : "WhatsApp confirm needs action",
-          `${customerName} replied ${intent.toUpperCase()} but has ${decision.jobs.length} upcoming appointments — please call them back.`,
+          `${ownerName(soonest.id)} replied ${intent.toUpperCase()} but has ${decision.jobs.length} upcoming appointments — please call them back.`,
           soonest.id,
           {
-            customer_id: customer.id,
+            customer_id: (soonest as any).customer_id ?? customer.id,
             intent,
             reason: decision.reason,
             candidate_job_ids: decision.jobs.map((j) => j.id),
@@ -282,12 +288,15 @@ Deno.serve(async (req: Request) => {
         await logActivity(
           `WhatsApp reply "${intent.toUpperCase()}" — ambiguous (${decision.jobs.length} upcoming jobs), escalated to office`,
           soonest.id,
+          (soonest as any).customer_id ?? customer.id,
         );
         return earlyResponse;
       }
 
       // Exactly one match — safe to act.
       const job = decision.job;
+      const jobOwnerId = (job as any).customer_id ?? customer.id;
+      const jobOwnerName = ownerName(job.id);
 
       if (intent === "confirm") {
         await supabase
@@ -295,10 +304,10 @@ Deno.serve(async (req: Request) => {
           .update({ confirmed: true, confirmed_at: new Date().toISOString() })
           .eq("id", job.id);
         await sendReply(
-          `Thanks ${customerName}, your appointment is confirmed. See you then! ${branding.footer || branding.name}`,
+          `Thanks ${jobOwnerName}, your appointment is confirmed. See you then! ${branding.footer || branding.name}`,
           "reply_confirmed",
         );
-        await logActivity("WhatsApp received — Appointment Confirmed", job.id);
+        await logActivity("WhatsApp received — Appointment Confirmed", job.id, jobOwnerId);
       } else {
         await supabase
           .from("service_calls")
@@ -309,16 +318,16 @@ Deno.serve(async (req: Request) => {
           })
           .eq("id", job.id);
         await sendReply(
-          `Thanks ${customerName}, your appointment has been cancelled. To rebook please call us${callUs}. ${branding.footer || branding.name}`,
+          `Thanks ${jobOwnerName}, your appointment has been cancelled. To rebook please call us${callUs}. ${branding.footer || branding.name}`,
           "reply_cancelled",
         );
         await notifyStaff(
           "Job cancelled by customer",
-          `${customerName} cancelled their appointment by WhatsApp reply.`,
+          `${jobOwnerName} cancelled their appointment by WhatsApp reply.`,
           job.id,
-          { customer_id: customer.id, intent, service_call_id: job.id },
+          { customer_id: jobOwnerId, intent, service_call_id: job.id },
         );
-        await logActivity("WhatsApp received — Appointment Cancelled", job.id);
+        await logActivity("WhatsApp received — Appointment Cancelled", job.id, jobOwnerId);
       }
       return earlyResponse;
     }
