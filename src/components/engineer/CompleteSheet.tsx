@@ -62,6 +62,11 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [followUp, setFollowUp] = useState(false);
   const [followUpNote, setFollowUpNote] = useState("");
   const [officeNote, setOfficeNote] = useState("");
+  const [boilerMake, setBoilerMake] = useState<string>(customer?.boiler_brand ?? "");
+  const [boilerModel, setBoilerModel] = useState<string>(customer?.boiler_model ?? "");
+  const [warrantyExpiry, setWarrantyExpiry] = useState<string>(customer?.warranty_expiry_date ?? "");
+  // Per-visit only — always starts blank, never carried over from a previous job.
+  const [customerNotes, setCustomerNotes] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [jobTagDate, setJobTagDate] = useState<string | null>(null);
 
