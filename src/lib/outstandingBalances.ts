@@ -31,3 +31,20 @@ export function isOutstandingBalanceJob(job: OutstandingCandidate): boolean {
     job.deposit_paid === true
   );
 }
+
+/**
+ * The amount actually owed on a job.
+ *
+ * balance_due is the authoritative field (kept in sync by buildPaymentPatch on
+ * every payment write). The revenue - deposit_amount derivation is only a
+ * fallback for legacy rows that never had balance_due written.
+ */
+export function outstandingBalanceAmount(job: {
+  balance_due?: number | string | null;
+  revenue?: number | string | null;
+  deposit_amount?: number | string | null;
+}): number {
+  const stored = num(job.balance_due);
+  if (stored > 0) return stored;
+  return Math.max(0, num(job.revenue) - num(job.deposit_amount));
+}
