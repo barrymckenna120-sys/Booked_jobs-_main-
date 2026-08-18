@@ -161,6 +161,7 @@ const Settings = () => {
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "quote_defaults" && <QuoteDefaultsTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "finance" && <FinanceTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "receipts" && <ReceiptsTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "integrations" && <IntegrationsTab />}
           {activeTab === "data_security" && (
             <div className="space-y-8">
