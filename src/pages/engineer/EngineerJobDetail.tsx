@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { resolveDepositPill } from "@/components/engineer/job-card/InfoPills";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { createJobInvoice } from "@/lib/createJobInvoice";
@@ -246,10 +247,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.payment_method = paymentMethod;
       dbPatch.payment_collected_by = user?.id || null;
       if (paymentMethod === "invoice") {
-        dbPatch.payment_status = "unpaid";
+        Object.assign(
+          dbPatch,
+          buildPaymentPatch({
+            type: "invoice",
+            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
+            fallbackRevenue: Number((job as any)?.revenue || 0),
+          }),
+        );
       } else {
         dbPatch.paid_at = new Date().toISOString();
-        dbPatch.payment_status = "paid";
+        // Fix: cash/card settle now zeroes balance_due, matching useEngineerJobs.
+        Object.assign(dbPatch, buildPaymentPatch({ type: "full" }));
       }
     }
     if (cancelReason) {
@@ -265,10 +274,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
         const orgId = (job as any).organisation_id;
-        const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
-          ? Number(confirmedRevenue)
-          : Number((job as any).revenue || 0);
-        dbPatch.balance_due = revenueForInvoice;
+        // balance_due / payment_status / revenue already set by buildPaymentPatch above.
         try {
           const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
           const invNum = await nextInvoiceNumber(orgId);

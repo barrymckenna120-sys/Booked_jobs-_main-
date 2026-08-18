@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isOutstandingBalanceJob } from "@/lib/outstandingBalances";
+import { isOutstandingBalanceJob, outstandingBalanceAmount } from "@/lib/outstandingBalances";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ type OutstandingJob = {
   assigned_engineer: string | null;
   revenue: number | null;
   deposit_amount: number | null;
+  balance_due: number | null;
   customer_name: string;
   receipt_number: string | null;
   payment_status: string | null;
@@ -77,6 +78,7 @@ const OutstandingBalances = () => {
                 assigned_engineer: r.assigned_engineer,
                 revenue: r.revenue,
                 deposit_amount: r.deposit_amount,
+                balance_due: r.balance_due,
                 customer_name: r.customers?.name || "Unknown",
                 receipt_number: r.receipt_number,
                 payment_status: r.payment_status,
@@ -142,7 +144,7 @@ const OutstandingBalances = () => {
       const dep = j.deposit_amount || 0;
       acc.total += rev;
       acc.deposit += dep;
-      acc.balance += rev - dep;
+      acc.balance += outstandingBalanceAmount(j);
       return acc;
     },
     { total: 0, deposit: 0, balance: 0 }
@@ -188,7 +190,7 @@ const OutstandingBalances = () => {
             {jobs.map((job) => {
               const rev = job.revenue || 0;
               const dep = job.deposit_amount || 0;
-              const bal = rev - dep;
+              const bal = outstandingBalanceAmount(job);
               const isSending = sendingId === job.id;
               const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
               const od = getOutstandingDays(job.invoiced_at);
@@ -289,7 +291,7 @@ const OutstandingBalances = () => {
                 {jobs.map((job) => {
                   const rev = job.revenue || 0;
                   const dep = job.deposit_amount || 0;
-                  const bal = rev - dep;
+                  const bal = outstandingBalanceAmount(job);
                   const isSending = sendingId === job.id;
                   const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
                   const od = getOutstandingDays(job.invoiced_at);
@@ -409,7 +411,7 @@ const OutstandingBalances = () => {
                 customer_name: reminderModalJob.customer_name,
                 receipt_number: reminderModalJob.receipt_number,
                 invoiced_at: reminderModalJob.invoiced_at,
-                balance_due: (reminderModalJob.revenue || 0) - (reminderModalJob.deposit_amount || 0),
+                balance_due: outstandingBalanceAmount(reminderModalJob),
                 customer_phone: reminderModalJob.customer_phone,
                 payment_status: reminderModalJob.payment_status,
               }

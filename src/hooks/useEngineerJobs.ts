@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
@@ -251,14 +252,21 @@ export const useEngineerJobs = () => {
       dbPatch.payment_method = paymentMethod;
       if (paymentMethod === "invoice") {
         // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
-        dbPatch.payment_status = "unpaid";
+        const jobForPayment = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+        Object.assign(
+          dbPatch,
+          buildPaymentPatch({
+            type: "invoice",
+            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
+            fallbackRevenue: Number((jobForPayment as any)?.revenue || 0),
+          }),
+        );
         if (!dbPatch.status) dbPatch.status = "Completed";
         if (!patch.status) patch.status = "Completed";
       } else {
         dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
-        dbPatch.payment_status = "paid";
-        dbPatch.balance_due = 0;
+        Object.assign(dbPatch, buildPaymentPatch({ type: "full" }));
       }
     }
     if (cancelReason) {
@@ -282,10 +290,7 @@ export const useEngineerJobs = () => {
         const orgId = (job as any)?.organisation_id;
         if (paymentMethod === "invoice") {
           dbPatch.invoiced_at = new Date().toISOString();
-          const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
-            ? Number(confirmedRevenue)
-            : Number((job as any)?.revenue || 0);
-          dbPatch.balance_due = revenueForInvoice;
+          // balance_due / payment_status / revenue already set by buildPaymentPatch above.
           try {
             const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
             const invNum = await nextInvoiceNumber(orgId);

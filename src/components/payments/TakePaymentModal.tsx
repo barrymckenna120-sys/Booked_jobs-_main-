@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -130,12 +131,10 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         const invoiceNum = await nextInvoiceNumber(orgId);
         const updatePayload: Record<string, any> = {
           payment_method: "invoice",
-          payment_status: "unpaid",
           invoiced_at: new Date().toISOString(),
-          revenue: revenueAmt,
-          balance_due: revenueAmt,
           status: "Completed",
           completed_at: new Date().toISOString(),
+          ...buildPaymentPatch({ type: "invoice", amount: revenueAmt }),
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
@@ -202,18 +201,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         receipt_number: receiptNum,
         payment_method: method,
         paid_at: new Date().toISOString(),
-        revenue: parseFloat(amount) || 0,
+        ...buildPaymentPatch({
+          // Deposit collection stays partial; anything else settles the job.
+          type: collectingDeposit ? "deposit" : hasDeposit && isDepositPaid ? "balance" : "full",
+          amount: parseFloat(amount) || 0,
+        }),
       };
-
-      if (collectingDeposit) {
-        updatePayload.deposit_paid = true;
-        updatePayload.payment_status = "partial";
-      } else if (hasDeposit && isDepositPaid) {
-        updatePayload.payment_status = "paid";
-        updatePayload.balance_due = 0;
-      } else {
-        updatePayload.payment_status = "paid";
-      }
 
       await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
 
