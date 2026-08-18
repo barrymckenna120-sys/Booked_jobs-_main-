@@ -126,14 +126,16 @@ const ExtraWorkSheet = ({ job, customer, onClose }: Props) => {
 
     // Handle cash or card — update service_calls revenue
     if (paymentMethod === "cash" || paymentMethod === "card") {
-      const currentRevenue = job.revenue || 0;
-      const currentBalance = job.balance_due || 0;
-      const newRevenue = Math.round((currentRevenue + subtotal) * 100) / 100;
-      const newBalance = Math.round((currentBalance + subtotal) * 100) / 100;
+      const patch = buildPaymentPatch({
+        type: "increment",
+        amount: subtotal,
+        revenue: job.revenue || 0,
+        currentBalanceDue: job.balance_due || 0,
+      });
 
       const { error: updateErr } = await supabase
         .from("service_calls")
-        .update({ revenue: newRevenue, balance_due: newBalance } as any)
+        .update(patch as any)
         .eq("id", job.id);
 
       if (updateErr) {
