@@ -24,7 +24,7 @@ Tag this job                (own bordered box, tags + tag-date picker unchanged)
 ## What gets saved
 
 On completion:
-- Boiler Make, Boiler Model and Warranty Expiry Date are written to the **customer record** (they persist across jobs). Blank fields are saved as empty/unset rather than overwriting with junk; the combined "boiler make & model" field is left alone as agreed.
+- Boiler Make, Boiler Model and Warranty Expiry Date are written to the **customer record** (they persist across jobs); the combined "boiler make & model" field is left alone as agreed. A field left blank because it was already blank is skipped, but clearing a field that was pre-filled (e.g. removing an incorrect warranty date) counts as a real edit and is saved as empty/unset on the customer record.
 - Customer Receipt notes are written to **this job only**, into the field the receipt already reads, so it shows in the receipt's Notes box (respecting the existing per-tenant receipt toggle).
 - Internal office notes, job notes, warranty flag and warranty years are untouched. No other field, layout or behaviour on the screen changes.
 
@@ -39,12 +39,15 @@ On completion:
 - `src/pages/engineer/EngineerJobDetail.tsx` (`updateJob`)
   - Destructure the four new keys alongside `workDone`/`officeNote`.
   - Set `dbPatch.customer_facing_notes` from `customerNotes` on completion (trimmed; empty string → `null`).
-  - After the successful `service_calls` update, run a separate `customers` update for `boiler_brand`, `boiler_model`, `warranty_expiry_date` — only including keys the engineer actually filled/changed, wrapped in try/catch so a customer-sync failure never blocks completion. The existing `boiler_make_model` sync block is left as-is.
-  - Offline queue path unchanged.
+  - After the successful `service_calls` update, run a separate `customers` update containing only the boiler keys that differ from the seeded customer values (cleared → `null`), wrapped in try/catch so a customer-sync failure never blocks completion. The existing `boiler_make_model` sync block is left as-is.
+  - Offline path: `customer_facing_notes` already travels inside the queued `service_calls` payload; the boiler/warranty changes are pushed to the same retry queue as a `customers` update so they are not lost when the completion happens offline.
 
 ## Verification
 
 - Complete a K&N scratch job with pre-existing boiler data: fields pre-filled, edits land on the customer record, receipt note appears on that receipt only.
+- Repeat that same pre-existing-boiler-data test on a Dublin Gas scratch job.
 - Complete a scratch job for a customer with no boiler data: fields blank, saving with blanks leaves the customer record unharmed, warranty date left empty stays unset.
+- Clear a pre-filled warranty date and confirm it is saved as unset on the customer record rather than silently kept.
 - Open a second job for the same customer: boiler fields pre-filled from the update, Customer Receipt notes blank again.
+- Complete a job with the network offline, then restore connectivity and confirm all four new fields sync correctly.
 - Confirm office notes / job notes / tags / payment flow and the receipt PDF are unchanged, and no console errors on mobile viewport.
