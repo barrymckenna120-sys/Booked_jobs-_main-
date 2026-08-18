@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, X, Search, Banknote, CreditCard, FileText } from "lucide-react";
 
