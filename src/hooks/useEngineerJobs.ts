@@ -251,14 +251,21 @@ export const useEngineerJobs = () => {
       dbPatch.payment_method = paymentMethod;
       if (paymentMethod === "invoice") {
         // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
-        dbPatch.payment_status = "unpaid";
+        const jobForPayment = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+        Object.assign(
+          dbPatch,
+          buildPaymentPatch({
+            type: "invoice",
+            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
+            fallbackRevenue: Number((jobForPayment as any)?.revenue || 0),
+          }),
+        );
         if (!dbPatch.status) dbPatch.status = "Completed";
         if (!patch.status) patch.status = "Completed";
       } else {
         dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
-        dbPatch.payment_status = "paid";
-        dbPatch.balance_due = 0;
+        Object.assign(dbPatch, buildPaymentPatch({ type: "full" }));
       }
     }
     if (cancelReason) {
