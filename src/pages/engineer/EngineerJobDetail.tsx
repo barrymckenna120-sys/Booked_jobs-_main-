@@ -344,7 +344,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           body: { service_call_id: job.id },
         }).catch((err) => console.error('send-cancellation-notice failed:', err));
       }
+      // Persist boiler make / model / warranty expiry from the completion sheet to the customer
+      if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
+        try {
+          const { error: custErr } = await supabase.from("customers").update(customerBoilerUpdate).eq("id", job.customer_id);
+          if (custErr) throw custErr;
+          console.log("[updateJob:detail] Customer boiler details saved:", Object.keys(customerBoilerUpdate));
+        } catch (custSyncErr) {
+          console.error("[updateJob:detail] Customer boiler details save failed:", custSyncErr);
+        }
+      }
       // Sync boiler details back to customer record
+
       if (safeDbPatch.boiler_brand !== undefined) {
         try {
           const customerUpdate: Record<string, any> = {};
