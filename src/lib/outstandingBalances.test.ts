@@ -112,3 +112,25 @@ describe("isOutstandingBalanceJob", () => {
     });
   });
 });
+
+describe("outstandingBalanceAmount", () => {
+  it("prefers stored balance_due when present", () => {
+    expect(outstandingBalanceAmount({ balance_due: 300, revenue: 500, deposit_amount: 100 })).toBe(300);
+  });
+
+  it("falls back to revenue - deposit for legacy rows with no balance_due", () => {
+    expect(outstandingBalanceAmount({ balance_due: null, revenue: 500, deposit_amount: 100 })).toBe(400);
+  });
+
+  it("treats zero balance_due as legacy and derives instead", () => {
+    expect(outstandingBalanceAmount({ balance_due: 0, revenue: 250, deposit_amount: 0 })).toBe(250);
+  });
+
+  it("never returns a negative amount", () => {
+    expect(outstandingBalanceAmount({ balance_due: null, revenue: 100, deposit_amount: 250 })).toBe(0);
+  });
+
+  it("parses string numerics from postgres numeric columns", () => {
+    expect(outstandingBalanceAmount({ balance_due: "861.50" })).toBe(861.5);
+  });
+});
