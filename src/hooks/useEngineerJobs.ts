@@ -214,8 +214,16 @@ export const useEngineerJobs = () => {
 
     // Offline-tolerant: attempt the write; on failure, queue for retry.
 
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Boiler details persist to the customer record — only what the engineer changed.
+    const jobForCustomer = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId);
+    const customerBoilerUpdate = buildBoilerCustomerUpdate(
+      { boilerMake, boilerModel, warrantyExpiry },
+      jobForCustomer?.customer_id ? customers[jobForCustomer.customer_id] : null
+    );
+
 
     let notesUpdate = rest.notes;
     if (workDone) {
