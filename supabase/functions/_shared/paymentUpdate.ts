@@ -88,16 +88,28 @@ export function buildPaymentPatch(input: PaymentPatchInput): PaymentPatch {
   const amount = num(input.amount);
 
   switch (input.type) {
-    // ── Job creation (New Job wizard). Preserves null, not 0, for non-deposit jobs.
+    // ── Job creation (New Job wizard). Preserves null, not 0, when unpriced.
+    // balance_due = revenue − money actually collected to date.
     case "booking_setup": {
       const mode: DepositMode = input.depositMode ?? "none";
-      patch.revenue = isSet(input.amount) && amount !== 0 ? amount : null;
+      const total = isSet(input.amount) && amount !== 0 ? amount : null;
+      const dep = mode === "deposit" ? (input.depositAmount || null) : null;
+      const collected = num(input.collectedToDate);
+      patch.revenue = total;
       patch.deposit_paid = mode === "paid";
       patch.deposit_required = mode === "deposit";
-      patch.deposit_amount = mode === "deposit" ? (input.depositAmount || null) : null;
-      patch.balance_due = mode === "deposit" ? (input.balanceDue || null) : null;
+      patch.deposit_amount = dep;
+      patch.balance_due =
+        mode === "paid"
+          ? null // settled upfront, nothing outstanding
+          : total == null
+            ? null // unpriced job
+            : mode === "deposit" && !isSet(input.collectedToDate) && isSet(input.balanceDue)
+              ? input.balanceDue! // caller-computed figure (NewJobPanel today)
+              : round2(Math.max(0, total - collected));
       return patch;
     }
+
 
     // ── Invoice: nothing collected, full total outstanding.
     case "invoice": {
