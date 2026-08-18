@@ -123,24 +123,13 @@ Deno.serve(async (req) => {
       });
       if (res.ok) authUser = await res.json();
       else {
-        let claims: Record<string, unknown> = {};
-        try {
-          claims = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-        } catch (_e) { /* ignore */ }
         console.error(
-          "list-users: /auth/v1/user returned",
+          "list-users: /auth/v1/user rejected the caller token",
           res.status,
           (await res.text()).slice(0, 200),
-          "claims:",
-          JSON.stringify({
-            iss: claims.iss,
-            role: claims.role,
-            has_sub: !!claims.sub,
-            exp: claims.exp,
-            now: Math.floor(Date.now() / 1000),
-          }),
         );
       }
+
 
     } catch (e) {
       console.error("list-users: auth verification failed", e);
