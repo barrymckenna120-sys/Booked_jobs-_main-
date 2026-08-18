@@ -317,6 +317,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         payload: safeDbPatch,
         filter: { column: "id", value: job.id },
       });
+      if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
+        addToQueue({
+          table: "customers",
+          operation: "update",
+          payload: customerBoilerUpdate,
+          filter: { column: "id", value: job.customer_id },
+        });
+      }
       toast({
         title: "No connection",
         description: "Update saved and will sync automatically when back online",
