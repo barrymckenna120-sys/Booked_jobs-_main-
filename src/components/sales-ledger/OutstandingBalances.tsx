@@ -22,6 +22,7 @@ type OutstandingJob = {
   assigned_engineer: string | null;
   revenue: number | null;
   deposit_amount: number | null;
+  balance_due: number | null;
   customer_name: string;
   receipt_number: string | null;
   payment_status: string | null;
