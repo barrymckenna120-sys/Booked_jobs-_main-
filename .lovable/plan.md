@@ -24,7 +24,7 @@ Tag this job                (own bordered box, tags + tag-date picker unchanged)
 ## What gets saved
 
 On completion:
-- Boiler Make, Boiler Model and Warranty Expiry Date are written to the **customer record** (they persist across jobs). Blank fields are saved as empty/unset rather than overwriting with junk; the combined "boiler make & model" field is left alone as agreed.
+- Boiler Make, Boiler Model and Warranty Expiry Date are written to the **customer record** (they persist across jobs); the combined "boiler make & model" field is left alone as agreed. A field left blank because it was already blank is skipped, but clearing a field that was pre-filled (e.g. removing an incorrect warranty date) counts as a real edit and is saved as empty/unset on the customer record.
 - Customer Receipt notes are written to **this job only**, into the field the receipt already reads, so it shows in the receipt's Notes box (respecting the existing per-tenant receipt toggle).
 - Internal office notes, job notes, warranty flag and warranty years are untouched. No other field, layout or behaviour on the screen changes.
 
