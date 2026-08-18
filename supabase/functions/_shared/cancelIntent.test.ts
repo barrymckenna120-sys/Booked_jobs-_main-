@@ -125,3 +125,87 @@ Deno.test("businessToday formats YYYY-MM-DD in Europe/Dublin", () => {
   // 23:30 UTC is 00:30 Dublin the NEXT day during IST.
   assertEquals(businessToday(new Date("2026-08-05T23:30:00Z")), "2026-08-06");
 });
+
+// ---------------------------------------------------------------- sender
+
+import { resolveInboundSender, type InboundCustomer } from "./cancelIntent.ts";
+import { samePhone } from "./phone.ts";
+
+const cust = (over: Partial<InboundCustomer> = {}): InboundCustomer => ({
+  id: over.id ?? "c1",
+  organisation_id: "org-1",
+  name: "Test",
+  phone: "+353892109224",
+  created_at: "2026-01-01T00:00:00Z",
+  ...over,
+});
+
+Deno.test("resolveInboundSender drops when nothing matches", () => {
+  const d = resolveInboundSender("353871111111", [cust()], samePhone);
+  assertEquals(d.action, "drop");
+  assertEquals(d.action === "drop" && d.reason, "no_match");
+});
+
+Deno.test("resolveInboundSender drops on an empty candidate list", () => {
+  assertEquals(resolveInboundSender("353892109224", [], samePhone).action, "drop");
+});
+
+Deno.test("resolveInboundSender returns EVERY record sharing the number, newest first", () => {
+  const d = resolveInboundSender(
+    "353892109224",
+    [
+      cust({ id: "philip", name: "Philip Ward", created_at: "2026-08-05T00:00:00Z" }),
+      cust({ id: "aisling", name: "Aisling Power", created_at: "2026-07-01T00:00:00Z" }),
+    ],
+    samePhone,
+  );
+  assertEquals(d.action, "resolved");
+  if (d.action !== "resolved") return;
+  // Regression: previously only `philip` (newest) was considered, so a reminded
+  // job owned by `aisling` was invisible and CANCEL silently matched nothing.
+  assertEquals(d.customers.map((c) => c.id), ["philip", "aisling"]);
+  assertEquals(d.primary.id, "philip");
+  assertEquals(d.organisation_id, "org-1");
+});
+
+Deno.test("resolveInboundSender matches regardless of stored format, incl. landline", () => {
+  const d = resolveInboundSender(
+    "00353892109224",
+    [
+      cust({ id: "a", phone: "089 210 9224" }),
+      cust({ id: "b", phone: null, landline_phone: "+353892109224" }),
+      cust({ id: "z", phone: "+353871234567" }),
+    ],
+    samePhone,
+  );
+  assertEquals(d.action === "resolved" && d.customers.map((c) => c.id).sort(), ["a", "b"]);
+});
+
+Deno.test("resolveInboundSender refuses to act across organisations", () => {
+  const d = resolveInboundSender(
+    "353892109224",
+    [cust({ id: "a" }), cust({ id: "b", organisation_id: "org-2" })],
+    samePhone,
+  );
+  assertEquals(d.action === "drop" && d.reason, "cross_org_ambiguous");
+});
+
+Deno.test("resolveInboundSender ignores rows with no organisation", () => {
+  const d = resolveInboundSender(
+    "353892109224",
+    [cust({ id: "a", organisation_id: null })],
+    samePhone,
+  );
+  assertEquals(d.action === "drop" && d.reason, "no_match");
+});
+
+Deno.test("jobs from multiple shared-number records escalate instead of acting", () => {
+  const decision = resolveReplyTarget(
+    [
+      job({ id: "kn-477", scheduled_date: "2026-08-07" }),
+      job({ id: "kn-480", scheduled_date: "2026-08-09" }),
+    ],
+    TODAY,
+  );
+  assertEquals(decision.action, "escalate");
+});

@@ -191,7 +191,7 @@ Deno.serve(async (req: Request) => {
     await supabase
       .from("customers")
       .update({ last_message_sent_at: createdAt })
-      .eq("id", customer.id);
+      .in("id", senderCustomerIds);
 
     const intent = parseInboundIntent(messageText);
 
