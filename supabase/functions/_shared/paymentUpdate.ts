@@ -44,6 +44,11 @@ export type PaymentPatchInput = {
   /** booking_setup only. */
   depositMode?: DepositMode;
   depositAmount?: number | null;
+  /**
+   * booking_setup only — caller-computed balance. IGNORED when it is lower than
+   * the total and no `collectedToDate` is supplied: a requested-but-unpaid
+   * deposit must never discount the balance (BJ/KN-490 class of bug).
+   */
   balanceDue?: number | null;
 
   /**
