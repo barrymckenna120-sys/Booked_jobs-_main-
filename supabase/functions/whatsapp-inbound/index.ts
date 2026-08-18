@@ -38,27 +38,37 @@ Deno.serve(async (req: Request) => {
 
   console.log(`Inbound from ${from}: ${messageText}`);
 
-  // Try to match customer by phone — check multiple formats
-  const phoneVariants = [
-    from,
-    `+${from}`,
-    `0${from.slice(2)}`,   // 447499999999 → 07499999999 (UK)
-    `0${from.slice(3)}`,   // 353871234567 → 0871234567 (IE)
-  ];
-
-  const { data: customers } = await supabase
+  // A phone number can sit on SEVERAL customer records (shared household
+  // numbers, duplicates). Fetch them all — picking only the newest used to hide
+  // the reminded job when it belonged to a sibling record.
+  const key = last9Digits(from);
+  const { data: candidateCustomers } = await supabase
     .from("customers")
-    .select("id, organisation_id, name")
-    .or(phoneVariants.map((p) => `phone.eq.${p}`).join(","))
+    .select("id, organisation_id, name, phone, landline_phone, created_at")
+    .or(`phone.ilike.%${key},landline_phone.ilike.%${key}`)
     .order("created_at", { ascending: false })
-    .limit(1);
-  const customer = customers?.[0] ?? null;
+    .limit(50);
 
-  const inboundOrgId = customer?.organisation_id ?? null;
-  if (!inboundOrgId) {
-    console.error(`Inbound WhatsApp from ${from} could not be matched to a known customer/organisation — dropping message to avoid cross-tenant leakage. Body: ${messageText}`);
+  const sender = key
+    ? resolveInboundSender(from, candidateCustomers ?? [], samePhone)
+    : ({ action: "drop", reason: "no_match" } as const);
+
+  if (sender.action === "drop") {
+    console.error(
+      `Inbound WhatsApp from ${from} dropped (${sender.reason}) — no safe customer/organisation match. Body: ${messageText}`,
+    );
     return earlyResponse;
   }
+
+  const inboundOrgId = sender.organisation_id;
+  const customer = sender.primary;
+  const senderCustomerIds = sender.customers.map((c) => c.id);
+  if (sender.customers.length > 1) {
+    console.log(
+      `Inbound ${from} matches ${sender.customers.length} customer records in org ${inboundOrgId}: ${senderCustomerIds.join(", ")}`,
+    );
+  }
+
 
   await supabase.from("whatsapp_messages").insert({
     organisation_id: inboundOrgId,
