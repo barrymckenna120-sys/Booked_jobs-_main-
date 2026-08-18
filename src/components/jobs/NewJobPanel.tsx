@@ -27,6 +27,7 @@ import {
   validateRequired, validatePhone, validateEircode, validateLandline,
   formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
 
 
