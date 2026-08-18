@@ -128,7 +128,7 @@ Deno.test("businessToday formats YYYY-MM-DD in Europe/Dublin", () => {
 
 // ---------------------------------------------------------------- sender
 
-import { resolveInboundSender, type InboundCustomer } from "./cancelIntent.ts";
+import { pickActingOrg, resolveInboundSender, type InboundCustomer } from "./cancelIntent.ts";
 import { samePhone } from "./phone.ts";
 
 const cust = (over: Partial<InboundCustomer> = {}): InboundCustomer => ({
@@ -142,7 +142,6 @@ const cust = (over: Partial<InboundCustomer> = {}): InboundCustomer => ({
 
 Deno.test("resolveInboundSender drops when nothing matches", () => {
   const d = resolveInboundSender("353871111111", [cust()], samePhone);
-  assertEquals(d.action, "drop");
   assertEquals(d.action === "drop" && d.reason, "no_match");
 });
 
@@ -165,7 +164,8 @@ Deno.test("resolveInboundSender returns EVERY record sharing the number, newest 
   // job owned by `aisling` was invisible and CANCEL silently matched nothing.
   assertEquals(d.customers.map((c) => c.id), ["philip", "aisling"]);
   assertEquals(d.primary.id, "philip");
-  assertEquals(d.organisation_id, "org-1");
+  assertEquals(d.logging_organisation_id, "org-1");
+  assertEquals(d.orgs.length, 1);
 });
 
 Deno.test("resolveInboundSender matches regardless of stored format, incl. landline", () => {
@@ -181,31 +181,64 @@ Deno.test("resolveInboundSender matches regardless of stored format, incl. landl
   assertEquals(d.action === "resolved" && d.customers.map((c) => c.id).sort(), ["a", "b"]);
 });
 
-Deno.test("resolveInboundSender refuses to act across organisations", () => {
+Deno.test("resolveInboundSender groups multi-tenant matches, logging to the newest org", () => {
   const d = resolveInboundSender(
     "353892109224",
-    [cust({ id: "a" }), cust({ id: "b", organisation_id: "org-2" })],
+    [
+      cust({ id: "kn", organisation_id: "org-1", created_at: "2026-08-05T00:00:00Z" }),
+      cust({ id: "dg", organisation_id: "org-2", created_at: "2026-05-20T00:00:00Z" }),
+    ],
     samePhone,
+  );
+  assertEquals(d.action, "resolved");
+  if (d.action !== "resolved") return;
+  assertEquals(d.logging_organisation_id, "org-1");
+  assertEquals(d.orgs.map((g) => g.organisation_id), ["org-1", "org-2"]);
+  assertEquals(d.customers.length, 2);
+});
+
+Deno.test("resolveInboundSender ignores rows with no organisation", () => {
+  const d = resolveInboundSender("353892109224", [cust({ organisation_id: null })], samePhone);
+  assertEquals(d.action === "drop" && d.reason, "no_match");
+});
+
+// ------------------------------------------------------------- acting org
+
+Deno.test("pickActingOrg acts in the org owning the only eligible job, not the newest org", () => {
+  const d = pickActingOrg(
+    [
+      job({ id: "old", organisation_id: "org-1", scheduled_date: "2026-07-01" }), // stale
+      job({ id: "kn-484", organisation_id: "org-2" }),
+    ],
+    TODAY,
+  );
+  assertEquals(d.action, "act");
+  assertEquals(d.action === "act" && d.organisation_id, "org-2");
+  assertEquals(d.action === "act" && d.jobs.map((j) => j.id), ["kn-484"]);
+});
+
+Deno.test("pickActingOrg refuses to guess when eligible jobs span organisations", () => {
+  const d = pickActingOrg(
+    [job({ id: "a", organisation_id: "org-1" }), job({ id: "b", organisation_id: "org-2" })],
+    TODAY,
   );
   assertEquals(d.action === "drop" && d.reason, "cross_org_ambiguous");
 });
 
-Deno.test("resolveInboundSender ignores rows with no organisation", () => {
-  const d = resolveInboundSender(
-    "353892109224",
-    [cust({ id: "a", organisation_id: null })],
-    samePhone,
-  );
-  assertEquals(d.action === "drop" && d.reason, "no_match");
+Deno.test("pickActingOrg drops when no job is eligible", () => {
+  assertEquals(pickActingOrg([job({ scheduled_date: "2026-01-01" })], TODAY).action, "drop");
+  assertEquals(pickActingOrg([], TODAY).action, "drop");
 });
 
-Deno.test("jobs from multiple shared-number records escalate instead of acting", () => {
-  const decision = resolveReplyTarget(
+Deno.test("two shared-number records with upcoming jobs escalate rather than act", () => {
+  const chosen = pickActingOrg(
     [
-      job({ id: "kn-477", scheduled_date: "2026-08-07" }),
-      job({ id: "kn-480", scheduled_date: "2026-08-09" }),
+      job({ id: "kn-477", organisation_id: "org-1", scheduled_date: "2026-08-07" }),
+      job({ id: "kn-484", organisation_id: "org-1", scheduled_date: "2026-08-09" }),
     ],
     TODAY,
   );
-  assertEquals(decision.action, "escalate");
+  assertEquals(chosen.action, "act");
+  if (chosen.action !== "act") return;
+  assertEquals(resolveReplyTarget(chosen.jobs, TODAY).action, "escalate");
 });
