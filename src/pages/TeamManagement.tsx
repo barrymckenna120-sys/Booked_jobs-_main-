@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
@@ -212,7 +213,7 @@ const TeamManagement = () => {
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) return;
 
-    const { data, error } = await supabase.functions.invoke("list-users");
+    const { data, error } = await invokeFunction("list-users");
     if (error) {
       const status = (error as any)?.context?.response?.status;
       if (status === 401) return; // session went stale mid-flight — ignore

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -49,7 +50,7 @@ const UserActivityOverview = () => {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase.functions.invoke("list-users", {
+      const { data, error } = await invokeFunction("list-users", {
         body: { scope: "all_orgs" },
       });
       if (cancelled) return;
