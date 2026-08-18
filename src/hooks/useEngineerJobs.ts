@@ -243,6 +243,10 @@ export const useEngineerJobs = () => {
     const jobTagDate = options?.jobTagDate ?? null;
     const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    // Customer-facing receipt note — per visit, this job only
+    if (customerNotes !== undefined) {
+      dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
+    }
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
       if (paymentMethod === "invoice") {
