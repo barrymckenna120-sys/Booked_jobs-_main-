@@ -12,7 +12,7 @@ describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
     });
   });
 
-  it("deposit-required job carries deposit amount and caller-computed balance", () => {
+  it("ignores a caller-supplied balance that discounts an unpaid deposit (KN-490 regression)", () => {
     expect(
       buildPaymentPatch({
         type: "booking_setup",
@@ -26,8 +26,20 @@ describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
       deposit_paid: false,
       deposit_required: true,
       deposit_amount: 100,
-      balance_due: 700,
+      balance_due: 800,
     });
+  });
+
+  it("trusts a caller balance that does not discount the total", () => {
+    expect(
+      buildPaymentPatch({
+        type: "booking_setup",
+        depositMode: "deposit",
+        amount: 800,
+        depositAmount: 100,
+        balanceDue: 800,
+      }).balance_due,
+    ).toBe(800);
   });
 
   it("deposit requested but nothing collected yet: full total outstanding, deposit ignored", () => {
