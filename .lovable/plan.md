@@ -33,4 +33,4 @@ One migration:
 
 - Toggle off for a scratch tenant: confirm the section disappears on screen and from a freshly generated PDF.
 - Toggle back on: confirm the section returns unchanged for K&N (K-045) on both surfaces.
-- Confirm untouched tenants still show the section with no action taken (default ON).
+- Confirm the "default ON, no action taken" behaviour on both K&N and Dublin Gas, not K&N alone.
