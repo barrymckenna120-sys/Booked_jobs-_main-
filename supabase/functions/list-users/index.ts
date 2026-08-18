@@ -110,18 +110,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
-    if (userError || !userData?.user) {
-      console.error("getUser error:", userError);
+    // Verify the JWT against the auth REST endpoint directly. auth-js's
+    // getUser(jwt) throws AuthSessionMissingError in this runtime because the
+    // server-side client has no stored session.
+    let authUser: { id: string; email?: string | null } | null = null;
+    try {
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        },
+      });
+      if (res.ok) authUser = await res.json();
+      else console.error("list-users: /auth/v1/user returned", res.status);
+    } catch (e) {
+      console.error("list-users: auth verification failed", e);
+    }
+
+    if (!authUser?.id) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const callerId = authUser.id;
+    const callerEmail = authUser.email?.toLowerCase() ?? "";
 
-    const callerId = userData.user.id;
-    const callerEmail = userData.user.email?.toLowerCase() ?? "";
 
 
 
