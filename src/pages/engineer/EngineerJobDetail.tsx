@@ -246,10 +246,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       dbPatch.payment_method = paymentMethod;
       dbPatch.payment_collected_by = user?.id || null;
       if (paymentMethod === "invoice") {
-        dbPatch.payment_status = "unpaid";
+        Object.assign(
+          dbPatch,
+          buildPaymentPatch({
+            type: "invoice",
+            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
+            fallbackRevenue: Number((job as any)?.revenue || 0),
+          }),
+        );
       } else {
         dbPatch.paid_at = new Date().toISOString();
-        dbPatch.payment_status = "paid";
+        // Fix: cash/card settle now zeroes balance_due, matching useEngineerJobs.
+        Object.assign(dbPatch, buildPaymentPatch({ type: "full" }));
       }
     }
     if (cancelReason) {
