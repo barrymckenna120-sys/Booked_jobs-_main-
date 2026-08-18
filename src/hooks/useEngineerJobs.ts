@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
