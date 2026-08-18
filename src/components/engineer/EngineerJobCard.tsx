@@ -192,7 +192,19 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         </div>
 
+        {/* Customer receipt note (read-only) */}
+        {job.customer_facing_notes?.trim() && (
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Receipt className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wide text-primary">Notes for customer receipt</span>
+            </div>
+            <div className="text-[13px] text-foreground leading-snug whitespace-pre-wrap">{job.customer_facing_notes.trim()}</div>
+          </div>
+        )}
+
         {/* Issue */}
+
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-lg p-3 mb-4 text-[13px] text-foreground leading-snug flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" /> {job.boiler_issue}
