@@ -1,28 +1,21 @@
-# Verify boiler details + customer receipt notes on job completion
+# Generate and inspect the KN-485 receipt PDF
 
-## Code audit (already done, read-only)
+Verification only — no code or schema changes, and no writes to any job other than the scratch job KN-485.
 
-The two new blocks are present in the completion sheet and correctly wired:
+## Why this is safe
 
-- `CompleteSheet.tsx` renders a "Boiler details" block (Boiler make, Boiler model, Warranty expiry) pre-filled from the customer record, and a "Notes for customer receipt" textarea. All four values are passed out on "Mark as Complete".
-- `EngineerJobDetail.tsx` splits the payload: boiler make/model/warranty are written to `customers` (only when changed, cleared values written as null, also queued when offline), and the receipt note is written to `service_calls.customer_facing_notes` for that visit only.
-- The UI-only keys (`boilerMake`, `boilerModel`, `warrantyExpiry`, `customerNotes`) are stripped from the job update payload, so they cannot cause an unknown-column failure.
-- All four database columns exist: `customers.boiler_brand` (text), `customers.boiler_model` (text), `customers.warranty_expiry_date` (date), `service_calls.customer_facing_notes` (text).
+- KN-485 (`receipt_number` KN-2026-7812) is the scratch job created for this audit; its `receipt_pdf_url` is NULL and no file exists in the `certificates` bucket for it, so nothing existing is overwritten.
+- Its `customer_facing_notes` is populated ("Boiler serviced and left in good working order.") and the customer record has boiler brand, model and warranty expiry, so both columns of the footer section have data.
+- `settings.receipt_show_boiler_details` is `true` for K&N, so the section is enabled.
 
-No defect is visible from code alone. Nothing in the audit explains a blank or erroring block, so the live run is needed to see what actually happens on your device.
+## Steps
 
-## What the live check needs (requires approval — it writes data)
-
-The remaining steps you asked for change data, so they sit outside a read-only audit:
-
-1. Create a fresh scratch job on K&N (test customer, no real phone number) so no real customer record is touched.
-2. Open it in the engineer app, screenshot the completion sheet to confirm both blocks render, and capture any console errors.
-3. Fill Boiler make / model / warranty expiry / customer receipt note, tap Mark as Complete, and record the exact outcome (success, toast, or error).
-4. Immediately query that job and its customer to confirm `boiler_brand`, `boiler_model`, `warranty_expiry_date`, and `customer_facing_notes` were written.
-5. Report findings with screenshots, and confirm the scratch job is the only row touched.
-
-If the fields turn out not to persist, I will report the cause first rather than fixing it in the same pass.
+1. Invoke `generate-receipt-pdf` with `{ "job_id": "11111111-2222-3333-4444-555555550002" }` and capture the raw HTTP response.
+2. Read the function logs immediately after and report any error or warning.
+3. Confirm `service_calls.receipt_pdf_url` for KN-485 is now set and the object exists in the `certificates` bucket with a non-zero size.
+4. Download the PDF, render its pages to images, and visually inspect that the Boiler Details block (Make & Model, Warranty, Next Service Due, GPRN) and the Notes box render side by side without overlap or clipping.
+5. Report the outcome with the rendered page image, plus the exact drawn values.
 
 ## Notes
 
-Read-only, no code changes. If you would rather run step 3 yourself on your phone, I can do steps 1, 4 and 5 only and skip the browser session.
+If generation fails, the report will name the cause only — no fix applied in this pass.
