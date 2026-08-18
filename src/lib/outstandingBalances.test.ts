@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOutstandingBalanceJob } from "./outstandingBalances";
+import { isOutstandingBalanceJob, outstandingBalanceAmount } from "./outstandingBalances";
 
 describe("isOutstandingBalanceJob", () => {
   it("includes a card deposit on a job that has never been invoiced", () => {
