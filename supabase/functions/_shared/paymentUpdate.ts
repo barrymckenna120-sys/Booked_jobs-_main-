@@ -46,6 +46,21 @@ export type PaymentPatchInput = {
   depositAmount?: number | null;
   balanceDue?: number | null;
 
+  /**
+   * booking_setup only — money ACTUALLY collected on this job so far. 0 (or
+   * omitted) for a brand-new booking.
+   *
+   * This is the only permitted subtrahend when deriving balance_due: a
+   * requested-but-unpaid deposit never reduces the balance ("Deposit Taken"
+   * only requests a SumUp link; deposit_paid is flipped by the webhook or a
+   * recorded payment). Any future edit path MUST pass collectedToDate — when
+   * supplied it takes precedence over `balanceDue`, so an edit to an active job
+   * can never re-derive the balance from deposit_amount and wipe out real
+   * payment history.
+   */
+  collectedToDate?: number | null;
+
+
   /** Mark deposit_paid on a settle (SumUp full payment). */
   markDepositPaid?: boolean;
 };
