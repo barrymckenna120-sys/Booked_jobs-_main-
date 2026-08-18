@@ -87,3 +87,71 @@ export function businessToday(now: Date = new Date()): string {
   // en-CA gives YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Dublin" }).format(now);
 }
+
+// ------------------------------------------------------------------ sender
+
+/**
+ * One phone number can legitimately sit on several customer records (shared
+ * household/landlord numbers, plus duplicate records created over time).
+ *
+ * Resolving the sender to a single "newest" record is unsafe: the reminded job
+ * may belong to one of the OTHER records, so a CANCEL silently matches nothing.
+ * Instead every customer sharing the number is returned, and the caller feeds
+ * ALL of their jobs into `resolveReplyTarget` — which already refuses to guess
+ * between multiple candidates and escalates to staff.
+ *
+ * Records spanning more than one organisation are dropped outright: acting
+ * would risk a cross-tenant write, and there is no safe way to pick an org.
+ */
+export type InboundCustomer = {
+  id: string;
+  organisation_id?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  landline_phone?: string | null;
+  created_at?: string | null;
+};
+
+export type SenderDecision =
+  | {
+      action: "resolved";
+      organisation_id: string;
+      /** Every customer record sharing the inbound number, newest first. */
+      customers: InboundCustomer[];
+      /** Newest record — used for logging/reply attribution only. */
+      primary: InboundCustomer;
+    }
+  | { action: "drop"; reason: "no_match" | "cross_org_ambiguous" };
+
+/**
+ * Match an inbound number against candidate customer rows.
+ * `matcher` compares numbers format-agnostically (last 9 significant digits).
+ */
+export function resolveInboundSender(
+  from: string | null | undefined,
+  customers: InboundCustomer[] | null | undefined,
+  matcher: (a: unknown, b: unknown) => boolean,
+): SenderDecision {
+  const rows = (customers ?? []).filter(
+    (c) =>
+      !!c?.id &&
+      !!c?.organisation_id &&
+      (matcher(from, c.phone) || matcher(from, c.landline_phone)),
+  );
+
+  if (rows.length === 0) return { action: "drop", reason: "no_match" };
+
+  const orgs = new Set(rows.map((c) => String(c.organisation_id)));
+  if (orgs.size > 1) return { action: "drop", reason: "cross_org_ambiguous" };
+
+  const sorted = [...rows].sort((a, b) =>
+    String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")),
+  );
+
+  return {
+    action: "resolved",
+    organisation_id: String(sorted[0].organisation_id),
+    customers: sorted,
+    primary: sorted[0],
+  };
+}
