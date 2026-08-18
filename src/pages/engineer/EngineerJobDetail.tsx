@@ -204,8 +204,21 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
     console.log("[updateJob:detail] called with patch.status:", patch.status, "paymentMethod:", patch.paymentMethod, "jobId:", job?.id);
     if (!job) { console.log("[updateJob:detail] early return: no job"); return false; }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Boiler details persist on the customer record — only send keys the engineer actually changed
+    // (clearing a pre-filled value is a real edit and is written as null).
+    const customerBoilerUpdate: Record<string, any> = {};
+    if (boilerMake !== undefined && (boilerMake || "") !== (customer?.boiler_brand || "")) {
+      customerBoilerUpdate.boiler_brand = (boilerMake || "").trim() || null;
+    }
+    if (boilerModel !== undefined && (boilerModel || "") !== (customer?.boiler_model || "")) {
+      customerBoilerUpdate.boiler_model = (boilerModel || "").trim() || null;
+    }
+    if (warrantyExpiry !== undefined && (warrantyExpiry || "") !== (customer?.warranty_expiry_date || "")) {
+      customerBoilerUpdate.warranty_expiry_date = (warrantyExpiry || "").trim() || null;
+    }
 
     let notesUpdate = rest.notes;
     if (workDone) {
