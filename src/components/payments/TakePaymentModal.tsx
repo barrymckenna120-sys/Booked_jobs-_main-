@@ -131,12 +131,10 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         const invoiceNum = await nextInvoiceNumber(orgId);
         const updatePayload: Record<string, any> = {
           payment_method: "invoice",
-          payment_status: "unpaid",
           invoiced_at: new Date().toISOString(),
-          revenue: revenueAmt,
-          balance_due: revenueAmt,
           status: "Completed",
           completed_at: new Date().toISOString(),
+          ...buildPaymentPatch({ type: "invoice", amount: revenueAmt }),
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
