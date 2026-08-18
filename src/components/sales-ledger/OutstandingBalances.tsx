@@ -142,7 +142,7 @@ const OutstandingBalances = () => {
       const dep = j.deposit_amount || 0;
       acc.total += rev;
       acc.deposit += dep;
-      acc.balance += rev - dep;
+      acc.balance += outstandingBalanceAmount(j);
       return acc;
     },
     { total: 0, deposit: 0, balance: 0 }
@@ -188,7 +188,7 @@ const OutstandingBalances = () => {
             {jobs.map((job) => {
               const rev = job.revenue || 0;
               const dep = job.deposit_amount || 0;
-              const bal = rev - dep;
+              const bal = outstandingBalanceAmount(job);
               const isSending = sendingId === job.id;
               const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
               const od = getOutstandingDays(job.invoiced_at);
@@ -289,7 +289,7 @@ const OutstandingBalances = () => {
                 {jobs.map((job) => {
                   const rev = job.revenue || 0;
                   const dep = job.deposit_amount || 0;
-                  const bal = rev - dep;
+                  const bal = outstandingBalanceAmount(job);
                   const isSending = sendingId === job.id;
                   const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
                   const od = getOutstandingDays(job.invoiced_at);
@@ -409,7 +409,7 @@ const OutstandingBalances = () => {
                 customer_name: reminderModalJob.customer_name,
                 receipt_number: reminderModalJob.receipt_number,
                 invoiced_at: reminderModalJob.invoiced_at,
-                balance_due: (reminderModalJob.revenue || 0) - (reminderModalJob.deposit_amount || 0),
+                balance_due: outstandingBalanceAmount(reminderModalJob),
                 customer_phone: reminderModalJob.customer_phone,
                 payment_status: reminderModalJob.payment_status,
               }
