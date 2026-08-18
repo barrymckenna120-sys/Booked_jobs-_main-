@@ -202,18 +202,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         receipt_number: receiptNum,
         payment_method: method,
         paid_at: new Date().toISOString(),
-        revenue: parseFloat(amount) || 0,
+        ...buildPaymentPatch({
+          // Deposit collection stays partial; anything else settles the job.
+          type: collectingDeposit ? "deposit" : hasDeposit && isDepositPaid ? "balance" : "full",
+          amount: parseFloat(amount) || 0,
+        }),
       };
-
-      if (collectingDeposit) {
-        updatePayload.deposit_paid = true;
-        updatePayload.payment_status = "partial";
-      } else if (hasDeposit && isDepositPaid) {
-        updatePayload.payment_status = "paid";
-        updatePayload.balance_due = 0;
-      } else {
-        updatePayload.payment_status = "paid";
-      }
 
       await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
 
