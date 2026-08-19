@@ -309,10 +309,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
         } catch {}
       }
-      // Always write confirmed revenue on completion
-      if (confirmedRevenue !== undefined && confirmedRevenue !== null) {
-        dbPatch.revenue = confirmedRevenue;
-      }
+      // revenue (the booked job price) is intentionally NOT written here — a
+      // payment never rewrites the price. See _shared/paymentUpdate.ts.
+
     }
 
     // Save selected tags to job_tags column — always set on completion
