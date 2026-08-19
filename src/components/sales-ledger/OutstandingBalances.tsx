@@ -22,6 +22,8 @@ type OutstandingJob = {
   assigned_engineer: string | null;
   revenue: number | null;
   deposit_amount: number | null;
+  deposit_required: boolean | null;
+  deposit_paid: boolean | null;
   balance_due: number | null;
   customer_name: string;
   receipt_number: string | null;
@@ -30,6 +32,7 @@ type OutstandingJob = {
   customer_phone: string | null;
   invoiced_at: string | null;
 };
+
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
 
