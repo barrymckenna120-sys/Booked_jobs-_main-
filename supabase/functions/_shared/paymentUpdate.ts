@@ -126,14 +126,20 @@ export function buildPaymentPatch(input: PaymentPatchInput): PaymentPatch {
     }
 
 
-    // ── Invoice: nothing collected, full total outstanding.
+    // ── Invoice: nothing collected now, remaining total outstanding.
     case "invoice": {
-      const resolved = isSet(input.amount) ? amount : num(input.fallbackRevenue);
+      const total = isSet(input.amount) ? amount : num(input.fallbackRevenue);
+      const collected = num(input.collectedToDate);
       patch.payment_status = "unpaid";
-      patch.balance_due = resolved;
-      if (isSet(input.amount)) patch.revenue = amount;
+      patch.balance_due = round2(Math.max(0, total - collected));
+      // revenue is the booked job price — a payment path never rewrites it.
+      // Only an explicit "fill" backfills a job that has no total at all.
+      if (input.revenueMode === "fill" && num(input.revenue) <= 0 && total > 0) {
+        patch.revenue = total;
+      }
       return patch;
     }
+
 
     // ── Part payment (card deposit on site, SumUp deposit webhook).
     case "deposit": {
