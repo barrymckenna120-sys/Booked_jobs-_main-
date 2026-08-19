@@ -398,13 +398,8 @@ const Jobs = () => {
     return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
   };
 
-  const formatWhatsApp = (phone: string | undefined) => {
-    if (!phone) return '';
-    const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('0')) return '353' + digits.slice(1);
-    if (digits.startsWith('353')) return digits;
-    return '353' + digits;
-  };
+  // formatWhatsApp lives in src/lib/whatsappLink.ts (shared with Declined Payments)
+
 
   const getJobBorderClass = (j: Job) => {
     if (IN_PROGRESS_STATUSES.includes(j.status)) return "border-l-4 border-l-warning";

@@ -45,6 +45,8 @@ const FinancePage = () => {
       <div className="-mx-4 sm:-mx-6 -mt-6">
         {activeTab === "overview" && <Finance />}
         {activeTab === "sales-ledger" && <SalesLedger />}
+        {activeTab === "declined" && <DeclinedPayments />}
+
       </div>
     </div>
   );
