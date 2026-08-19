@@ -111,7 +111,23 @@ function restAttemptStore(
           status: row.status,
         }),
       });
-      await res.text();
+      const text = await res.text();
+      if (res.ok) return;
+
+      // A unique violation on checkout_id means the attempt is already on
+      // record — that is the correct end state, not a failure. Same
+      // 23505-as-success reasoning as notifications_payment_failed_once.
+      let code: string | undefined;
+      try {
+        code = JSON.parse(text)?.code;
+      } catch { /* non-JSON error body */ }
+      if (res.status === 409 || code === "23505") {
+        console.warn(`sumup-checkout: attempt row already exists for ${row.checkoutId} — ignoring duplicate`);
+        return;
+      }
+      // Any other failure is logged, never thrown: tracking must not be able
+      // to fail a live checkout.
+      console.error(`sumup-checkout: attempt record http ${res.status} for ${row.checkoutId}`);
     },
   };
 }
