@@ -234,10 +234,16 @@ const OutstandingBalances = () => {
                     {job.job_type} · {job.assigned_engineer || "Unassigned"}
                   </div>
 
-                  <div className="flex items-baseline gap-2 mb-3">
+                  <div className="flex items-baseline gap-2">
                     <span className="text-xl font-bold font-mono" style={{ color: "#D97706" }}>{eur(bal)}</span>
                     <span className="text-xs text-muted-foreground">of {eur(rev)}</span>
                   </div>
+                  <div className="text-[11px] font-semibold mb-3" style={{ color: "#92400E" }}>
+                    {depositDue
+                      ? `Deposit ${eur(job.deposit_amount || 0)} due`
+                      : `Balance ${eur(bal)} due`}
+                  </div>
+
 
                   <div className="flex gap-2">
                     <Button
