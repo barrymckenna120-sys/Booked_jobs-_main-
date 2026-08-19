@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isOutstandingBalanceJob, outstandingBalanceAmount } from "@/lib/outstandingBalances";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
