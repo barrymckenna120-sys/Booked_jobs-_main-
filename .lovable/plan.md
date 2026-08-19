@@ -39,7 +39,7 @@ Add a "Needs Attention" section to the Today screen that surfaces the logged-in 
 - If the engineer-row lookup or the `parts_requests` count query fails for any reason, treat it as a zero count — render nothing.
 - A failure in this new query must never block, delay, or break rendering of the Next Job card, Today's Jobs list, or any other existing content on the screen.
 
-### 4. Out of scope
+### 5. Out of scope
 - No "Incomplete Jobs" row.
 - No changes to the header, Next Job card, Today's Jobs list, Cancelled section, Job Stats, or `EngineerOutstandingBalances`.
 - No changes to `service_calls.parts_ordered` / `parts_needed` columns.
