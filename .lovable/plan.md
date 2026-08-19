@@ -23,6 +23,14 @@ This mirrors the live `debug_logs` / `boiler_brands` pattern (`organisation_id =
 
 3. **There is no declined data yet.** All 15 rows in the table are `status = 'PENDING'` — `FAILED / EXPIRED / CANCELLED` only start appearing after the write-back above is deployed and a real decline occurs. The view ships with a proper empty state.
 
+## Execution order once approved
+
+1. Apply the policy + grant migration above, exactly as written.
+2. Deploy `sumup-payment-webhook` to production (this carries `_shared/sumupWebhook.ts` and `_shared/sumupCheckout.ts`, which deploy as bundled shared modules, not as standalone functions). Confirm back with the deploy tool's live result, then re-check that no other deployed function bundles a stale copy of those shared files — any other SumUp function importing them gets redeployed too.
+3. Only then build the frontend below, and show the diff before it goes live.
+
+
+
 
 ## Amount column — which source
 
