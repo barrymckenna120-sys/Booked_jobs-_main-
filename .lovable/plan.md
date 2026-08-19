@@ -5,7 +5,10 @@ Scope is the sales ledger view only: the query filter, the client filter, and th
 ## Verified current state
 
 - **KN-490** (K&N, `Booked`): revenue 500, deposit_required true, deposit_paid false, deposit_amount 250, balance_due 250, `invoiced_at` null, `payment_method` null, `payment_status` unpaid. It is excluded today purely by the `.or()` prefilter, because it is not invoiced, not invoice-method, and no deposit has been paid.
-- Broadening the filter as specified admits **28 jobs** across both tenants that are currently hidden: 27 carry the pre-fix discounted balance (`balance_due < revenue`, total 19,303.22 owed on 35,451.75 of revenue) and 1 carries a full balance (400 with a 120 deposit requested).
+- Broadening the filter as specified admits **28 jobs** across both tenants that are currently hidden: 27 carry the pre-fix discounted balance (`balance_due < revenue`, total 19,303.22 owed on 35,451.75 of revenue) and 1 carries a full balance (KN-451: 400 with a 120 deposit requested).
+- Reconciled against the earlier 32-row count (32 − 5 + 1 = 28): KN-185, KN-481 and DG-415 are `payment_status = paid`; KN-082 has `balance_due = 0.00`; KN-222 is already visible via its `invoice` payment method. KN-451 is the one row added because it was never `balance_due < revenue`. No tenant scoping difference.
+- KN-451's status is `archived`. The view's only status guard is `status != 'Cancelled'`, so it will appear. This plan adds `archived` to the excluded statuses (query and `isOutstandingBalanceJob`), which drops the newly admitted set to 27 and leaves every currently visible row untouched (no listed job is archived today).
+
 
 ## 1. Query fix — `src/components/sales-ledger/OutstandingBalances.tsx` (line 61)
 
