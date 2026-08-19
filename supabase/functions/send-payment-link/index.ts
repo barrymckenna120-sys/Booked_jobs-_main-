@@ -187,17 +187,22 @@ Deno.serve(async (req) => {
     formData.append("text", message);
 
     // Log to message_log
-    const { data: logRows } = await supabase.from("message_log").insert({
+    const { data: logRows, error: logError } = await supabase.from("message_log").insert({
       channel: "whatsapp",
       message_type: "payment_link",
       customer_id: job.customer_id,
       related_id: service_call_id,
       related_type: "service_call",
+      organisation_id: job.organisation_id,
       content: message,
       sent_by: "system",
       status: "pending",
       direction: "outbound",
     }).select("id");
+
+    if (logError) {
+      console.error("send-payment-link: failed to insert message_log", { service_call_id, error: logError.message });
+    }
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
