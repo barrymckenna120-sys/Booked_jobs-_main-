@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { FileText, CreditCard, BookOpen } from "lucide-react";
+import { CreditCard, BookOpen, XCircle } from "lucide-react";
 import Finance from "./Finance";
 import SalesLedger from "./SalesLedger";
+import DeclinedPayments from "./DeclinedPayments";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: CreditCard },
   { key: "sales-ledger", label: "Sales", icon: BookOpen },
+  { key: "declined", label: "Declined", icon: XCircle },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
+
 
 const FinancePage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
