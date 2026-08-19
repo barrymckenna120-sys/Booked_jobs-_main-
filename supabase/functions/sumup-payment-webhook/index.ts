@@ -56,6 +56,33 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!.replace(/\/+$/, "");
+  const headers: Record<string, string> = {
+    apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+  };
+
+  /**
+   * Stamps the resolved SumUp status onto the attempt row(s) for this checkout.
+   * Audit only — it must never throw or delay the webhook response, so every
+   * failure is logged and swallowed (same pattern as the log writes below).
+   */
+  const recordAttemptStatus = async (checkoutId: string, resolvedStatus: string) => {
+    try {
+      await fetch(
+        `${supabaseUrl}/rest/v1/payment_checkout_attempts?checkout_id=eq.${encodeURIComponent(checkoutId)}`,
+        {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ status: resolvedStatus, updated_at: new Date().toISOString() }),
+        },
+      );
+    } catch (e) {
+      console.error("payment_checkout_attempts status write-back failed", e);
+    }
+  };
+
+
   const loadOrgApiKey = async (organisationId: string): Promise<string | null> => {
     const creds = await resolveSumUpCredentials({
       organisationId,
