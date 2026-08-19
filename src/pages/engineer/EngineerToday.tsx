@@ -171,6 +171,30 @@ const EngineerToday = () => {
       {/* Outstanding Balances — slim banner */}
       <EngineerOutstandingBalances />
 
+      {openPartsCount !== null && openPartsCount > 0 && (
+        <div className="bg-card rounded-xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-warning/10 px-5 py-3 border-b border-warning/20">
+            <h3 className="text-sm font-bold text-warning flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Needs Attention
+            </h3>
+          </div>
+          <button
+            onClick={() => navigate("/engineer/parts")}
+            className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-secondary/50 transition-colors text-left group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+              <Package className="w-4 h-4 text-warning" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl font-bold font-mono text-foreground leading-none">{openPartsCount}</p>
+              <p className="text-xs font-medium text-muted-foreground mt-1">Parts Awaiting</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+          </button>
+        </div>
+      )}
+
       {canAccessOffice && (
         <button
           onClick={() => navigate("/dashboard")}
