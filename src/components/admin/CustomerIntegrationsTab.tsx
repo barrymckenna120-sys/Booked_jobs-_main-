@@ -147,10 +147,13 @@ export default function CustomerIntegrationsTab({
 
       const rows = Object.entries(byType).map(([integration_type, patch]) => {
         const prev = (existing as any[])?.find((r) => r.integration_type === integration_type)?.config ?? {};
+        const cleaned = Object.fromEntries(
+          Object.entries(patch).filter(([, v]) => v !== "" && v != null)
+        );
         return {
           organisation_id: orgId,
           integration_type,
-          config: { ...prev, ...patch },
+          config: { ...prev, ...cleaned },
         };
       });
 
