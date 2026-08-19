@@ -191,33 +191,41 @@ export function useNotifications() {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
   const markAsRead = useCallback(async (id: string) => {
+    setUnreadCount((c) => Math.max(0, c - 1));
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
-  }, []);
+    refreshUnreadCount();
+  }, [refreshUnreadCount]);
 
   const markAllRead = useCallback(async () => {
     if (!user) return;
+    setUnreadCount(0);
     await supabase
       .from("notifications")
       .update({ is_read: true })
       .eq("recipient_user_id", user.id)
       .eq("is_read", false);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  }, [user]);
+    refreshUnreadCount();
+  }, [user, refreshUnreadCount]);
 
   const dismiss = useCallback(async (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    let wasUnread = false;
+    setNotifications((prev) => {
+      wasUnread = prev.some((n) => n.id === id && !n.is_read);
+      return prev.filter((n) => n.id !== id);
+    });
+    if (wasUnread) setUnreadCount((c) => Math.max(0, c - 1));
     const { error } = await supabase.from("notifications").delete().eq("id", id);
     if (error) {
       console.error("Failed to delete notification:", error);
       fetchNotifications();
     }
-  }, [fetchNotifications]);
+    refreshUnreadCount();
+  }, [fetchNotifications, refreshUnreadCount]);
 
   const enableSound = useCallback(
     async (enabled: boolean) => {
