@@ -105,7 +105,9 @@ const DeclinedPayments = () => {
     if (!job) return;
     setSendingId(r.id);
     try {
-      const { data, error } = await supabase.functions.invoke("send-payment-link", {
+      const isDeposit = job.deposit_required && !job.deposit_paid;
+      const fn = isDeposit ? "send-deposit-link" : "send-payment-link";
+      const { data, error } = await supabase.functions.invoke(fn, {
         body: { service_call_id: job.id },
       });
 
