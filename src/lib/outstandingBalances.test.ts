@@ -60,17 +60,46 @@ describe("isOutstandingBalanceJob", () => {
     ).toBe(false);
   });
 
-  it("excludes an uninvoiced, unpaid card job with no payment taken", () => {
+  it("excludes an uninvoiced, unpaid card job with no payment taken and no deposit requested", () => {
     expect(
       isOutstandingBalanceJob({
         payment_status: "unpaid",
         payment_method: "card",
         invoiced_at: null,
+        deposit_required: false,
         deposit_paid: false,
         balance_due: 400,
       }),
     ).toBe(false);
   });
+
+  it("includes the KN-490 shape: deposit requested, unpaid, never invoiced", () => {
+    expect(
+      isOutstandingBalanceJob({
+        status: "Booked",
+        payment_status: "unpaid",
+        payment_method: null,
+        invoiced_at: null,
+        deposit_required: true,
+        deposit_paid: false,
+        balance_due: 250,
+      }),
+    ).toBe(true);
+  });
+
+  it("excludes archived jobs even with a deposit outstanding", () => {
+    expect(
+      isOutstandingBalanceJob({
+        status: "archived",
+        payment_status: "unpaid",
+        invoiced_at: null,
+        deposit_required: true,
+        deposit_paid: false,
+        balance_due: 400,
+      }),
+    ).toBe(false);
+  });
+
 
   // Engineer-facing list uses the same helper, so these shapes matter there too.
   describe("engineer-scoped shapes", () => {
