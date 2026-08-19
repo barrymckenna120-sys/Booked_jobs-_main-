@@ -134,7 +134,14 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
           invoiced_at: new Date().toISOString(),
           status: "Completed",
           completed_at: new Date().toISOString(),
-          ...buildPaymentPatch({ type: "invoice", amount: revenueAmt }),
+          ...buildPaymentPatch({
+            type: "invoice",
+            amount: revenueAmt,
+            revenue: Number(job.revenue || 0),
+            collectedToDate: hasDeposit && isDepositPaid ? Number(job.deposit_amount || 0) : 0,
+            revenueMode: "fill",
+          }),
+
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
