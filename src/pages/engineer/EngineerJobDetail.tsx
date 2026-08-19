@@ -246,6 +246,11 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
       dbPatch.payment_collected_by = user?.id || null;
+      // Money actually collected before this write — a requested-but-unpaid
+      // deposit counts for nothing.
+      const collectedSoFar = (job as any)?.deposit_paid
+        ? Number((job as any)?.deposit_amount || 0)
+        : 0;
       if (paymentMethod === "invoice") {
         Object.assign(
           dbPatch,
@@ -253,14 +258,22 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             type: "invoice",
             amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
             fallbackRevenue: Number((job as any)?.revenue || 0),
+            revenue: Number((job as any)?.revenue || 0),
+            collectedToDate: collectedSoFar,
+            revenueMode: "fill",
           }),
         );
       } else {
         dbPatch.paid_at = new Date().toISOString();
-        // Fix: cash/card settle now zeroes balance_due, matching useEngineerJobs.
-        Object.assign(dbPatch, buildPaymentPatch({ type: "full" }));
+        Object.assign(dbPatch, buildPaymentPatch({
+          type: "full",
+          amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
+          revenue: Number((job as any)?.revenue || 0),
+          collectedToDate: collectedSoFar,
+        }));
       }
     }
+
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
       dbPatch.cancellation_note = cancelNote || null;
@@ -296,10 +309,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
         } catch {}
       }
-      // Always write confirmed revenue on completion
-      if (confirmedRevenue !== undefined && confirmedRevenue !== null) {
-        dbPatch.revenue = confirmedRevenue;
-      }
+      // revenue (the booked job price) is intentionally NOT written here — a
+      // payment never rewrites the price. See _shared/paymentUpdate.ts.
+
     }
 
     // Save selected tags to job_tags column — always set on completion

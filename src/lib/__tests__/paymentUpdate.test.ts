@@ -96,11 +96,41 @@ describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
 
 
 describe("buildPaymentPatch — invoice (TakePaymentModal + completion parity)", () => {
-  it("writes unpaid with revenue = balance = amount", () => {
-    expect(buildPaymentPatch({ type: "invoice", amount: 369 })).toEqual({
+  it("writes unpaid with the full amount outstanding and never rewrites revenue", () => {
+    const patch = buildPaymentPatch({ type: "invoice", amount: 369 });
+    expect(patch).toEqual({
+      payment_status: "unpaid",
+      balance_due: 369,
+    });
+    expect("revenue" in patch).toBe(false);
+  });
+
+  it("keeps a priced job's revenue untouched even with revenueMode fill", () => {
+    const patch = buildPaymentPatch({
+      type: "invoice",
+      amount: 369,
+      revenue: 500,
+      revenueMode: "fill",
+    });
+    expect("revenue" in patch).toBe(false);
+  });
+
+  it("revenueMode fill backfills an unpriced job", () => {
+    expect(
+      buildPaymentPatch({ type: "invoice", amount: 369, revenue: 0, revenueMode: "fill" }),
+    ).toEqual({
       payment_status: "unpaid",
       balance_due: 369,
       revenue: 369,
+    });
+  });
+
+  it("subtracts money already collected from the outstanding balance", () => {
+    expect(
+      buildPaymentPatch({ type: "invoice", amount: 500, revenue: 500, collectedToDate: 250 }),
+    ).toEqual({
+      payment_status: "unpaid",
+      balance_due: 250,
     });
   });
 
@@ -115,6 +145,7 @@ describe("buildPaymentPatch — invoice (TakePaymentModal + completion parity)",
     expect(buildPaymentPatch({ type: "invoice" }).balance_due).toBe(0);
   });
 });
+
 
 describe("buildPaymentPatch — deposit / part payment", () => {
   it("on-site card deposit: partial, deposit_paid, revenue set, balance untouched", () => {
@@ -160,28 +191,79 @@ describe("buildPaymentPatch — deposit / part payment", () => {
 });
 
 describe("buildPaymentPatch — balance / full settle", () => {
-  it("balance settle zeroes balance_due (hadDeposit true)", () => {
-    expect(buildPaymentPatch({ type: "balance", amount: 369 })).toEqual({
+  it("balance settle on a €500 job with a €250 paid deposit settles without touching revenue", () => {
+    const patch = buildPaymentPatch({
+      type: "balance",
+      amount: 250,
+      revenue: 500,
+      collectedToDate: 250,
+    });
+    expect(patch).toEqual({
       payment_status: "paid",
       balance_due: 0,
-      revenue: 369,
+      deposit_paid: true,
     });
+    expect("revenue" in patch).toBe(false);
   });
 
-  it("full settle with no prior deposit also zeroes balance_due (fixed disagreement)", () => {
+  it("full settle on the same shape behaves identically", () => {
+    const patch = buildPaymentPatch({
+      type: "full",
+      amount: 250,
+      revenue: 500,
+      collectedToDate: 250,
+    });
+    expect(patch).toEqual({
+      payment_status: "paid",
+      balance_due: 0,
+      deposit_paid: true,
+    });
+    expect("revenue" in patch).toBe(false);
+  });
+
+  it("short collection stays partial with the true remaining balance", () => {
+    const patch = buildPaymentPatch({
+      type: "full",
+      amount: 100,
+      revenue: 500,
+      collectedToDate: 250,
+    });
+    expect(patch).toEqual({
+      payment_status: "partial",
+      balance_due: 150,
+    });
+    expect("revenue" in patch).toBe(false);
+  });
+
+  it("does not set deposit_paid while money is still outstanding", () => {
+    expect(
+      buildPaymentPatch({ type: "balance", amount: 50, revenue: 500, collectedToDate: 0 }).deposit_paid,
+    ).toBeUndefined();
+  });
+
+  it("never writes revenue on balance/full without revenueMode", () => {
+    expect("revenue" in buildPaymentPatch({ type: "balance", amount: 369 })).toBe(false);
+    expect("revenue" in buildPaymentPatch({ type: "full", amount: 120 })).toBe(false);
+  });
+
+  it("full settle with no known total settles from the collected amount alone", () => {
     expect(buildPaymentPatch({ type: "full", amount: 120 })).toEqual({
       payment_status: "paid",
       balance_due: 0,
-      revenue: 120,
+      deposit_paid: true,
     });
   });
 
   it("completion with undefined confirmedRevenue leaves revenue alone", () => {
-    expect(buildPaymentPatch({ type: "full" })).toEqual({
+    const patch = buildPaymentPatch({ type: "full" });
+    expect(patch).toEqual({
       payment_status: "paid",
       balance_due: 0,
+      deposit_paid: true,
     });
+    expect("revenue" in patch).toBe(false);
   });
+
 
   it("webhook full payment marks deposit_paid and only fills a missing total", () => {
     expect(
