@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase } from "lucide-react";
+import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase, Package, AlertTriangle, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import EngineerOutstandingBalances from "@/components/engineer/EngineerOutstandingBalances";
 import { getNextJobId, type EngineerJobsState } from "@/hooks/useEngineerJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 import type { LucideIcon } from "lucide-react";
 
 const SectionDivider = ({ label }: { label: string }) => (
@@ -36,6 +37,50 @@ const EngineerToday = () => {
   const sortedActive = nextJobId
     ? [todayActive.find((j: any) => j.id === nextJobId), ...todayActive.filter((j: any) => j.id !== nextJobId)]
     : todayActive;
+
+  const [openPartsCount, setOpenPartsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const { data: engRow } = await supabase
+          .from("engineers")
+          .select("id")
+          .eq("auth_user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        const filters = [
+          `engineer_id.eq.${user.id}`,
+          `assigned_engineer_id.eq.${user.id}`,
+        ];
+        const engineerRowId = (engRow as any)?.id;
+        if (engineerRowId) filters.push(`assigned_to.eq.${engineerRowId}`);
+
+        const { count, error } = await supabase
+          .from("parts_requests" as any)
+          .select("id", { count: "exact", head: true })
+          .or(filters.join(","))
+          .eq("status", "Open");
+
+        if (cancelled) return;
+        if (error) {
+          setOpenPartsCount(0);
+          return;
+        }
+        setOpenPartsCount(count ?? 0);
+      } catch {
+        if (!cancelled) setOpenPartsCount(0);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   return (
     <>
@@ -125,6 +170,30 @@ const EngineerToday = () => {
 
       {/* Outstanding Balances — slim banner */}
       <EngineerOutstandingBalances />
+
+      {openPartsCount !== null && openPartsCount > 0 && (
+        <div className="bg-card rounded-xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-warning/10 px-5 py-3 border-b border-warning/20">
+            <h3 className="text-sm font-bold text-warning flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Needs Attention
+            </h3>
+          </div>
+          <button
+            onClick={() => navigate("/engineer/parts")}
+            className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-secondary/50 transition-colors text-left group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+              <Package className="w-4 h-4 text-warning" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl font-bold font-mono text-foreground leading-none">{openPartsCount}</p>
+              <p className="text-xs font-medium text-muted-foreground mt-1">Parts Awaiting</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+          </button>
+        </div>
+      )}
 
       {canAccessOffice && (
         <button
