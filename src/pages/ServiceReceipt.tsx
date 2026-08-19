@@ -142,8 +142,8 @@ const ServiceReceipt = () => {
     try {
       const { data, error } = await invokeFunction<any>("generate-receipt-pdf", {
         body: { job_id: job.id },
-  signOutOnRefreshFailure: false,
-});
+        signOutOnRefreshFailure: false,
+      });
       if (error || !data?.pdf_url) return null;
       // Update local state so we don't re-generate
       setJob((prev: any) => prev ? { ...prev, receipt_pdf_url: data.pdf_url } : prev);
@@ -173,8 +173,8 @@ const ServiceReceipt = () => {
     try {
       const { data, error } = await invokeFunction<any>("send-whatsapp-receipt", {
         body: { job_id: job.id },
-  signOutOnRefreshFailure: false,
-});
+        signOutOnRefreshFailure: false,
+      });
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
