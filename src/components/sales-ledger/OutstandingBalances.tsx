@@ -149,15 +149,16 @@ const OutstandingBalances = () => {
 
   const totals = jobs.reduce(
     (acc, j) => {
-      const rev = j.revenue || 0;
-      const dep = j.deposit_amount || 0;
-      acc.total += rev;
-      acc.deposit += dep;
+      acc.total += j.revenue || 0;
+      // Only count deposits that were actually collected — a requested-but-unpaid
+      // deposit must not inflate the "Deposit Paid" total.
+      if (j.deposit_paid === true) acc.deposit += j.deposit_amount || 0;
       acc.balance += outstandingBalanceAmount(j);
       return acc;
     },
     { total: 0, deposit: 0, balance: 0 }
   );
+
 
   const jobRefStr = (job: any) => job?.job_reference || "KN-" + (job?.id || "").substring(0, 6).toUpperCase();
 
