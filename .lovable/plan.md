@@ -3,6 +3,26 @@
 ## What this does
 After the Step 1 migration adds a unique index on `payment_checkout_attempts.checkout_id`, these two small changes make the payment path use and tolerate that index.
 
+## Confirmations requested
+
+**1. Status vocabulary.** The value written is the same uppercased SumUp status string the handler already decides on: `_shared/sumupWebhook.ts` computes `const status = (view.status ?? "").toUpperCase()` from SumUp's authoritative `GET /v0.1/checkouts/{id}` response, and that exact string is what `notifyPaymentFailed` already receives. `notifyOffice` will receive the same variable. So the written values are only SumUp's own vocabulary — `PAID` / `SUCCESSFUL` / `SUCCEEDED` on the paid path (whichever SumUp returned) and `FAILED` / `EXPIRED` / `CANCELLED` / `CANCELED` on the terminal-failure path. No internal-only string (`paid`, `part_paid`, `duplicate`) is written; the handler's `outcome` is not used for this field.
+
+**2. 409 / 23505 detection.** `restAttemptStore.record()` uses raw `fetch` (not supabase-js), so the check is on the HTTP status code plus the parsed `code` field of PostgREST's JSON error body — no text pattern matching:
+
+```ts
+const text = await res.text();
+if (!res.ok) {
+  let code: string | undefined;
+  try { code = JSON.parse(text)?.code; } catch { /* non-JSON body */ }
+  if (res.status === 409 || code === "23505") {
+    console.warn(`sumup-checkout: attempt row already exists for ${row.checkoutId} — ignoring duplicate`);
+    return;
+  }
+  console.error(`sumup-checkout: attempt record http ${res.status} for ${row.checkoutId}`);
+  return;
+}
+```
+
 ## Changes
 
 ### 1. `supabase/functions/sumup-payment-webhook/index.ts` — write resolved status back to `payment_checkout_attempts`
