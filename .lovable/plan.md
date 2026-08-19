@@ -1,51 +1,49 @@
-# Next Job Card — Single Tap Target
+# Needs Attention Section — Parts Awaiting
+
+## Current state
+- The Today screen is `src/pages/engineer/EngineerToday.tsx`.
+- It already renders the Next Job card, Today's Jobs, Cancelled jobs, Job Stats, and `EngineerOutstandingBalances`.
+- The existing header "Order Parts" button navigates to `/engineer/parts`.
+- `parts_requests` statuses are: `Open`, `Ordered`, `Ready to Fit`, `Cancelled`.
+- `EngineerParts.tsx` already queries a logged-in engineer's own requests using `engineer_id`, `assigned_engineer_id`, and `assigned_to`.
 
 ## Goal
-Make the entire Next Job card on `/engineer/today` tappable so it opens the Job Details screen, except for the action buttons inside it. Add a chevron next to the customer name as the tappable cue.
+Add a "Needs Attention" section to the Today screen that surfaces the logged-in engineer's own not-yet-ordered parts requests (`status = 'Open'`). It must render nothing when the count is zero.
 
-## Affected File
-- `src/components/engineer/EngineerJobCard.tsx`
+## Plan
 
-## Current State
-- The card root has an `onClick` handler, but it is only attached when `isDone` is true (`isDone ? () => navigate(...) : undefined`).
-- Active Next Job cards therefore have no tap-to-open behaviour.
-- The `Details` button in `QuickActions` navigates to `/engineer/job/${jobId}`.
-- Action buttons (Call, WhatsApp, Nav, Details, Certificates, Note, Media, Video, Extra Work, primary status, Message Office, Take Payment, receipt) currently have no `stopPropagation`, so a wrapper click would fire through them.
+### 1. Query parts_requests inside `EngineerToday.tsx`
+- On mount / when `user.id` is available, run a `supabase.from("parts_requests").select("id", { count: "exact", head: true })` query scoped to the signed-in engineer.
+- Use the same three filters already proven in `EngineerParts.tsx`:
+  - `engineer_id.eq.${user.id}`
+  - `assigned_engineer_id.eq.${user.id}`
+  - `assigned_to.eq.${engineerRowId}` (requires resolving the `engineers` row for the auth user first)
+- Filter by `status.eq.Open`.
+- Store only the count in local state; do not fetch the full rows.
 
-## Changes
+### 2. Render the "Needs Attention" section
+- Position the new section at the bottom of the Today screen content, after `EngineerOutstandingBalances` and before the "Switch to Office App" button.
+- If the count is `0`, render absolutely nothing (no card, no divider, no placeholder).
+- If the count is `1` or more, render a card styled like the existing `NeedsAttentionCard` amber pattern:
+  - Amber header: "Needs Attention" with `AlertTriangle` icon.
+  - Single row: `Package` icon, large count, label "Parts Awaiting", and a `ChevronRight`.
+- Tapping the row calls `navigate("/engineer/parts")`.
 
-### 1. Make the whole card tappable for the Next Job
-- Add a wrapper `onClick` on the card root that navigates to `/engineer/job/${job.id}` when `isNextJob` is true.
-- Keep the existing `isDone` navigation behaviour for completed/cancelled/no_show cards unchanged.
-- Ensure the wrapper click does not fire when any inner button is tapped.
+### 3. Reuse existing patterns
+- Use `useAuth` for the current user.
+- Use `useNavigate` for navigation.
+- Use existing Tailwind tokens: `bg-card`, `border-border/60`, `bg-warning/10`, `text-warning`, `rounded-xl`, etc.
+- No new colours, fonts, or component libraries.
 
-### 2. Add chevron cue next to customer name
-- Import `ChevronRight` from `lucide-react`.
-- Place it inline after the customer name in the header, sized and coloured consistently with existing chevrons elsewhere in the app (e.g. `w-4 h-4 text-muted-foreground/30` with a hover transition).
-- Do not change font sizes, weights, or colours of the customer name.
-
-### 3. Stop propagation on all action buttons
-Add `e.stopPropagation()` (or wrap handlers with a stopPropagation helper) to every interactive control inside the card so they do not trigger the card-level navigation:
-- `QuickActions`: Call, WhatsApp, Nav, Details, Certificates buttons.
-- `SecondaryActions`: Note, Media, Video, Extra Work buttons.
-- `PrimaryActions`: status-change / Complete / Cancel / No Access / Parts Needed buttons.
-- Message Office button.
-- Take Payment / receipt buttons shown for Completed / In Progress jobs.
-- Any other clickable elements inside the card (e.g. phone link for completed cards).
-
-Do not change what any button does, its styling, or its layout.
-
-### 4. Preserve payment banner and other non-button content
-- The deposit/balance banner from `InfoPills` / `resolveDepositPill` remains exactly as it is and only shows when money is owed.
-- Tags, service history, notes, media grid, messages, and read-only sections stay unchanged.
+### 4. Out of scope
+- No "Incomplete Jobs" row.
+- No changes to the header, Next Job card, Today's Jobs list, Cancelled section, Job Stats, or `EngineerOutstandingBalances`.
+- No changes to `service_calls.parts_ordered` / `parts_needed` columns.
+- No backend / RLS changes (the existing engineer-scoped read policy already supports this).
 
 ## Verification
-- Tap on the Next Job card background/header/address/issue area → navigates to `/engineer/job/{id}`.
-- Tap Call, WhatsApp, Nav, Details, Certificates → performs its action and does not navigate.
-- Tap primary status button (En Route / Arrived / Start Work / Complete / etc.) → performs status action and does not navigate.
-- Tap Note / Media / Video / Extra Work / Message Office / Take Payment → performs its action and does not navigate.
-- Payment banner still only renders when money is owed.
-- Screenshot of Next Job card shows chevron next to customer name.
-
-## Risk Level
-Low — pure UI/UX change within a single component. No data, auth, payment, scheduling, or RLS logic touched.
+- With outstanding Open parts requests for the signed-in engineer, the "Needs Attention" card appears with the correct count.
+- With zero Open requests, nothing renders.
+- Tapping the row navigates to `/engineer/parts`.
+- The count matches only the signed-in engineer's requests, not the whole organisation.
+- Header, Next Job card, Today's Jobs, and stats remain visually and functionally unchanged.
