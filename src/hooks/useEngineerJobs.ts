@@ -573,6 +573,7 @@ export const useEngineerJobs = () => {
           try {
             const { error: receiptError } = await invokeFunction('send-whatsapp-receipt', {
               body: { job_id: jobId },
+              signOutOnRefreshFailure: false,
             });
             if (receiptError) throw receiptError;
           } catch (err) {
