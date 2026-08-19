@@ -82,9 +82,24 @@ toasts. No payment logic, no `paymentUpdate.ts`, no receipt rendering, no
   the destructive toast, with the app still on `/receipt-view/:id` and still
   signed in. No message reaches a real customer.
 
-## Status
+## Status — two items outstanding
 
-The K&N leg of this is already implemented and green (199/199 vitest, clean
-typecheck, K&N scratch jobs KN-497/KN-495 reproduced the failure and the surfaced
-error). Remaining on approval: the Dublin Gas scratch-job repro with retry +
-toast evidence, and the explicit "401 twice → toast fires" unit case.
+Wrapper defects approved as designed; the code change and the K&N leg are done
+(199/199 vitest, clean typecheck, K&N scratch jobs KN-497/KN-495). Remaining:
+
+1. **Unit case: 401 twice → caller receives the error.** New case in
+   `src/lib/invokeFunction.test.ts` asserting the resolved value itself — the
+   wrapper returns `{ data: null, error }` with the 401 error object to the
+   caller (so `ServiceReceipt` / `useEngineerJobs` / `TakePaymentModal` enter
+   their toast branch), and the underlying invoke was called exactly twice.
+   Both assertions in one case: error surfaced, no third attempt.
+2. **Dublin Gas Playwright leg.** Create a "ZZ SCRATCH" job on Dublin Gas
+   assigned to a Dublin Gas engineer, sign in as that engineer, intercept
+   `**/functions/v1/send-whatsapp-receipt` → 401 for every attempt, run
+   En Route → On Site → Start Work → Complete → Card → Confirm & Complete.
+   Evidence captured: network log showing two POSTs to the function (original +
+   post-refresh retry) and a screenshot of the destructive
+   "Job completed — receipt not sent" toast on `/receipt-view/:id` with the
+   session still active (engineer nav visible, no redirect to `/auth`).
+   Scratch job cleaned up / left flagged after the run.
+
