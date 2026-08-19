@@ -203,20 +203,31 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          organisation_id: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
           name: string
+          organisation_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
           name?: string
+          organisation_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cert2_certificates: {
         Row: {
@@ -1507,20 +1518,31 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          organisation_id: string | null
         }
         Insert: {
           colour: string
           created_at?: string
           id?: string
           name: string
+          organisation_id?: string | null
         }
         Update: {
           colour?: string
           created_at?: string
           id?: string
           name?: string
+          organisation_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_tags_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       login_attempts: {
         Row: {
