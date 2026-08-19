@@ -53,7 +53,9 @@ export type PaymentPatchInput = {
   balanceDue?: number | null;
 
   /**
-   * booking_setup only — money ACTUALLY collected on this job so far. 0 (or
+   * Money ACTUALLY collected on this job before `amount`. Used by booking_setup
+   * and by the invoice / balance / full completion branches. 0 (or
+
    * omitted) for a brand-new booking.
    *
    * This is the only permitted subtrahend when deriving balance_due: a
