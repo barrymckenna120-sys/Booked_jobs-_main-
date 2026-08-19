@@ -201,8 +201,10 @@ const OutstandingBalances = () => {
           <div className="space-y-3 p-3">
             {jobs.map((job) => {
               const rev = job.revenue || 0;
-              const dep = job.deposit_amount || 0;
               const bal = outstandingBalanceAmount(job);
+              const depositDue = resolvePaymentSheetState(job).case === "D";
+              const dep = job.deposit_paid === true ? job.deposit_amount || 0 : 0;
+
               const isSending = sendingId === job.id;
               const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
               const od = getOutstandingDays(job.invoiced_at);
