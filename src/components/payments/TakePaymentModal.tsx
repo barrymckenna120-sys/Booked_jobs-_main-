@@ -212,7 +212,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
           // Deposit collection stays partial; anything else settles the job.
           type: collectingDeposit ? "deposit" : hasDeposit && isDepositPaid ? "balance" : "full",
           amount: parseFloat(amount) || 0,
+          revenue: Number(job.revenue || 0),
+          collectedToDate: !collectingDeposit && hasDeposit && isDepositPaid
+            ? Number(job.deposit_amount || 0)
+            : 0,
         }),
+
       };
 
       await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
