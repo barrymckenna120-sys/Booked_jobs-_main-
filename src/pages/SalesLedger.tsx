@@ -64,7 +64,7 @@ type LedgerJob = {
 type PaymentBadge = "paid" | "part_paid" | "unpaid";
 
 const getPaymentBadge = (row: LedgerJob): PaymentBadge => {
-  if (row.payment_status === "paid" || row.paid_at) return "paid";
+  if (row.payment_status === "paid") return "paid";
   if (row.deposit_paid && (row.balance_due ?? 0) > 0) return "part_paid";
   return "unpaid";
 };
