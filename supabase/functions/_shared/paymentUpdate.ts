@@ -161,20 +161,26 @@ export function buildPaymentPatch(input: PaymentPatchInput): PaymentPatch {
       return patch;
     }
 
-    // ── Settle: balance collected, or paid in full in one go. Always zeroes balance.
+    // ── Settle: balance collected, or paid in full in one go.
+    // balance_due is derived from the job total minus money actually collected;
+    // revenue (the booked price) is never rewritten here.
     case "balance":
     case "full": {
-      patch.payment_status = "paid";
-      patch.balance_due = 0;
-      if (input.markDepositPaid) patch.deposit_paid = true;
-      if (input.revenueMode === "fill") {
-        const known = num(input.revenue);
-        if (known <= 0 && amount > 0) patch.revenue = amount;
-      } else if (isSet(input.amount)) {
+      const known = num(input.revenue);
+      // Only "fill" may write revenue, and only when the job has no total yet.
+      if (input.revenueMode === "fill" && known <= 0 && amount > 0) {
         patch.revenue = amount;
       }
+      const total = known > 0 ? known : amount;
+      const collected = num(input.collectedToDate) + amount;
+      const outstanding = total > 0 ? round2(Math.max(0, total - collected)) : 0;
+      patch.balance_due = outstanding;
+      patch.payment_status = outstanding > 0 ? "partial" : "paid";
+      // A fully paid job must never carry deposit_paid = false.
+      if (outstanding <= 0 || input.markDepositPaid) patch.deposit_paid = true;
       return patch;
     }
+
 
     // ── Extra work added mid-job: additive, never absolute.
     case "increment": {
