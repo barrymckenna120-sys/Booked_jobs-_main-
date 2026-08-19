@@ -202,10 +202,13 @@ const DeclinedPayments = () => {
                 <tr className="border-b border-border text-left">
                   <th className="px-4 py-3 font-semibold text-muted-foreground">Customer</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground">Job Ref</th>
+                  <th className="px-4 py-3 font-semibold text-muted-foreground">Type</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Amount due</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Status</th>
+                  <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">SumUp Ref</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Failed at</th>
                   <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Contact</th>
+
                 </tr>
               </thead>
               <tbody>
