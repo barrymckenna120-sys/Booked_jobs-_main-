@@ -5,9 +5,11 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, CreditCard, Loader2, Phone, MessageCircle } from "lucide-react";
+import { Search, CreditCard, Loader2, Phone, MessageCircle, Send } from "lucide-react";
 import { format } from "date-fns";
 import { formatWhatsApp } from "@/lib/whatsappLink";
 
@@ -31,18 +33,25 @@ interface DeclinedRow {
     balance_due: number | null;
     deposit_amount: number | null;
     deposit_required: boolean | null;
+    deposit_paid: boolean | null;
+    payment_status: string | null;
     customers: { id: string; name: string | null; phone: string | null } | null;
   } | null;
 }
 
 const sel = (s: string): string => s;
 
+/** Calendar day in Europe/Dublin as YYYY-MM-DD. */
+const dublinDay = (d: Date): string => d.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+
 const DeclinedPayments = () => {
   const { user } = useAuth();
   const { canAccessOffice } = useUserRole(user);
   const { ready } = useOrgId();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["declined-payments", user?.id],
@@ -51,7 +60,7 @@ const DeclinedPayments = () => {
         .from("payment_checkout_attempts")
         .select(
           sel(
-            "id, checkout_id, status, updated_at, service_calls!inner(id, job_reference, balance_due, deposit_amount, deposit_required, customers!inner(id, name, phone))",
+            "id, checkout_id, status, updated_at, service_calls!inner(id, job_reference, balance_due, deposit_amount, deposit_required, deposit_paid, payment_status, customers!inner(id, name, phone))",
           ),
         )
         .in("status", DECLINED_STATUSES)
@@ -70,7 +79,52 @@ const DeclinedPayments = () => {
     return value === null || value === undefined ? null : Number(value);
   };
 
-  const filtered = (rows as DeclinedRow[]).filter((r) => {
+  /** True when the job still owes the money this attempt was for. */
+  const stillOutstanding = (r: DeclinedRow) => {
+    const job = r.service_calls;
+    if (!job) return false;
+    if (job.deposit_required) return !job.deposit_paid;
+    return Number(job.balance_due || 0) > 0 && job.payment_status !== "paid";
+  };
+
+  const allRows = rows as DeclinedRow[];
+  const today = dublinDay(new Date());
+
+  const summarise = (list: DeclinedRow[]) => ({
+    count: list.length,
+    total: list.reduce((sum, r) => sum + (amountDue(r) ?? 0), 0),
+  });
+
+  const declinedToday = summarise(
+    allRows.filter((r) => r.updated_at && dublinDay(new Date(r.updated_at)) === today),
+  );
+  const outstanding = summarise(allRows.filter(stillOutstanding));
+
+  const handleSendLink = async (r: DeclinedRow) => {
+    const job = r.service_calls;
+    if (!job) return;
+    setSendingId(r.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-payment-link", {
+        body: { service_call_id: job.id },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Failed to send payment link");
+      }
+
+      toast({
+        title: "✅ Payment link sent",
+        description: `Sent to ${data.customer_name} via WhatsApp`,
+      });
+    } catch (e: any) {
+      toast({ title: "Send failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSendingId(null);
+    }
+  };
+
+  const filtered = allRows.filter((r) => {
     if (!search.trim()) return true;
     const s = search.toLowerCase();
     return (
@@ -78,6 +132,7 @@ const DeclinedPayments = () => {
       (r.service_calls?.job_reference || "").toLowerCase().includes(s)
     );
   });
+
 
   if (!canAccessOffice) {
     return (
