@@ -84,6 +84,11 @@ export function useNotifications() {
     setUnreadCount(count || 0);
   }, [user]);
 
+  const refreshUnreadCountRef = useRef(refreshUnreadCount);
+  useEffect(() => {
+    refreshUnreadCountRef.current = refreshUnreadCount;
+  }, [refreshUnreadCount]);
+
   // Fetch existing notifications
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
