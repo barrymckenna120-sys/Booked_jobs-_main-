@@ -12,17 +12,24 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function invokeFunction<T = any>(
   name: string,
-  options?: { body?: unknown },
+  options?: { body?: unknown; signOutOnRefreshFailure?: boolean },
 ) {
-  const first = await supabase.functions.invoke<T>(name, options as any);
-  const status = (first.error as any)?.context?.response?.status;
+  const { signOutOnRefreshFailure = true, ...invokeOptions } = options ?? {};
+  const first = await supabase.functions.invoke<T>(name, invokeOptions as any);
+  const ctx = (first.error as any)?.context;
+  // FunctionsHttpError puts the Response on `context` itself; older/other
+  // shapes nest it under `context.response`.
+  const status = ctx?.status ?? ctx?.response?.status;
   if (!first.error || status !== 401) return first;
 
   const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
   if (refreshError || !refreshed?.session) {
-    await supabase.auth.signOut();
+    // Background/fire-and-forget calls opt out: a failed receipt send must not
+    // eject the engineer mid-completion.
+    if (signOutOnRefreshFailure) await supabase.auth.signOut();
     return first;
   }
 
-  return await supabase.functions.invoke<T>(name, options as any);
+  return await supabase.functions.invoke<T>(name, invokeOptions as any);
 }
+

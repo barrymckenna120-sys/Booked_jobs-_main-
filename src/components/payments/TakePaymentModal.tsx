@@ -5,6 +5,7 @@ import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -245,12 +246,36 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         }
       }
 
-      // Fire-and-forget: generate receipt PDF so it's ready for WhatsApp
-      supabase.functions.invoke("generate-receipt-pdf", { body: { job_id: job.id } }).catch(() => {});
+      // Generate receipt PDF so it's ready for WhatsApp. Routed through
+      // invokeFunction so a stale session is refreshed and retried once, and a
+      // real failure is visible instead of vanishing silently.
+      invokeFunction("generate-receipt-pdf", { body: { job_id: job.id }, signOutOnRefreshFailure: false })
+        .then(({ error }) => {
+          if (error) throw error;
+        })
+        .catch((err) => {
+          console.error("generate-receipt-pdf error:", err);
+          toast({
+            title: "Receipt PDF not generated",
+            description: "Payment was recorded. Tap Download on the receipt screen to retry.",
+            variant: "destructive",
+          });
+        });
 
-      // Fire-and-forget: send WhatsApp payment-received confirmation
+      // Send WhatsApp payment-received confirmation
       if (updatePayload.payment_status === "paid") {
-        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
+        invokeFunction("send-payment-received", { body: { service_call_id: job.id }, signOutOnRefreshFailure: false })
+          .then(({ error }) => {
+            if (error) throw error;
+          })
+          .catch((err) => {
+            console.error("send-payment-received error:", err);
+            toast({
+              title: "Payment confirmation not sent",
+              description: "Payment was recorded, but the customer wasn't notified.",
+              variant: "destructive",
+            });
+          });
       }
 
       // Navigate to receipt preview screen
@@ -270,8 +295,9 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     if (!job?.id || whatsappSending || whatsappSent) return;
     setWhatsappSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
+      const { data, error } = await invokeFunction<any>("send-whatsapp-receipt", {
         body: { job_id: job.id },
+        signOutOnRefreshFailure: false,
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
