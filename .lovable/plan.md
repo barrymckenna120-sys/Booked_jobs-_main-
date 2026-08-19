@@ -1,65 +1,55 @@
-# KN-500 / KN-498 clobber trace — root cause found, single defect, two entry points
+# BJ-B4g — Fix the EngineerJobCard raw-revenue clobber
 
-Read-only trace complete. BJ-B4 did close the bug in `buildPaymentPatch`, but it never fired on the path that broke these two jobs: the **engineer job card** writes `revenue` as a raw database column, bypassing the payment builder entirely.
+## Part A — Sweep results (read-only, already run)
 
-## 1. KN-500 timeline (Aisling Power, Q-2026-0129)
-
-| Time (UTC, 19 Aug) | What happened | revenue | deposit_amount | balance_due | payment_status |
-|---|---|---|---|---|---|
-| 13:14:41 | Quote accepted → job created by `respond_to_quote` | **2767.50** | 1383.75 | 1383.75 | (null) |
-| 13:15:23 | SumUp deposit webhook (`CHECKOUT_STATUS_CHANGED`, checkout `d73405ba…`) | 2767.50 | 1383.75 | 1383.75 | partial |
-| 13:21:42 | Engineer completed from the job card, Card | **1383.75** | 1383.75 | 1383.75 | partial |
-
-- Quote conversion is **correct**. `respond_to_quote` inserts `revenue = quotes.total_amount` (2767.50), `deposit_amount = 1383.75`, `balance_due = 1383.75`. Verified from the function source and the quote row (`total_amount 2767.5`, `deposit 1383.75`, `vat_rate 23`, status `converted`, `converted_job_id` = KN-500).
-- The deposit stage is **correct**. The webhook calls `buildPaymentPatch` with `revenueMode: "fill"`, which refuses to write revenue when a total already exists.
-- The corruption happened **only at completion**, and not inside `buildPaymentPatch`.
-
-## 2. The mechanism
-
-`src/components/engineer/EngineerJobCard.tsx` lines 353-358 (completion) and 370-373 (standalone payment) call `onUpdate` with the key **`revenue`**:
-
-```
-onUpdate(job.id, { status: "Completed", ...data, paymentMethod: method, revenue: confirmedAmount })
+```sql
+select job_reference, organisation_id, revenue, deposit_amount, balance_due,
+       payment_status, payment_method, completed_at, paid_at, receipt_number
+from service_calls
+where payment_status = 'partial' and revenue = deposit_amount
+  and revenue = balance_due and status <> 'Cancelled';
 ```
 
-`useEngineerJobs.updateJob` (line 220) destructures `confirmedRevenue` — not `revenue`. So:
+| Job | Org | revenue | deposit | balance | method | completed_at | paid_at | receipt |
+|---|---|---|---|---|---|---|---|---|
+| KN-192 | K&N | 184.50 | 184.50 | 184.50 | card | 2026-04-03 20:43 | 2026-04-03 20:42 | K-091 |
+| KN-495 | K&N | 250.00 | 250.00 | 250.00 | card | 2026-08-19 12:19 | 2026-08-19 12:19 | KN-2026-4258 |
+| KN-497 | K&N | 250.00 | 250.00 | 250.00 | card | 2026-08-19 12:14 | 2026-08-19 12:14 | KN-2026-0478 |
+| KN-498 | K&N | 250.00 | 250.00 | 250.00 | card | (null) | 2026-08-19 13:02 | (null) |
+| KN-500 | K&N | 1383.75 | 1383.75 | 1383.75 | card | 2026-08-19 13:21 | 2026-08-19 13:21 | KN-2026-6736 |
 
-1. `revenue` stays in `...rest`, passes the allow-list in `src/types/service-calls.ts:45`, and is written raw as `revenue = 1383.75`. The booked price is destroyed.
-2. `confirmedRevenue` is `undefined`, so `buildPaymentPatch({ type: "full", amount: undefined, revenue: 2767.50, collectedToDate: 1383.75 })` records a €0 payment → `balance_due = 2767.50 − 1383.75 = 1383.75`, `payment_status = "partial"`.
-3. `Object.assign` order means the raw `revenue` survives (the `full` branch never sets revenue).
+Five rows, all K&N, none on Dublin Gas. KN-495 and KN-497 are the ZZ SCRATCH jobs from this morning's BJ-B5 run, so the live-customer exposure is KN-498, KN-500 and KN-192 (April — same shape, predates today, so this signature is not new). No row outside K&N matches, which is consistent with Dublin Gas engineers not having used the card completion path with a deposit on the job.
 
-That reproduces the observed row exactly: revenue 1383.75, balance 1383.75, partial, `paid_at` stamped. It also means **the €1,383.75 the engineer actually collected on site was never recorded as a payment at all**.
+## Part B — The fix
 
-`src/pages/engineer/EngineerJobDetail.tsx:180` does it correctly (`confirmedRevenue: confirmedAmount`). The card path is the only offender.
+### 1. `src/components/engineer/EngineerJobCard.tsx`
 
-## 3. KN-498 vs KN-500 — same bug, different entry point
+Both `PaymentSheet` `onDone` handlers pass `revenue: confirmedAmount` (lines 357 and 372). Change both to `confirmedRevenue: confirmedAmount` — the key `updateJob` actually destructures, which routes the amount through `buildPaymentPatch` instead of writing it straight to the `revenue` column.
 
-KN-498: revenue 250, deposit_amount 250, balance_due 250, partial, `paid_at` 13:02:40, status still `Booked`.
+### 2. Boundary hardening — one deviation from the brief, deliberate
 
-- Same clobber, but via the **standalone** PaymentSheet (line 370) rather than the completion sheet — hence no `status: "Completed"`.
-- Different-looking symptom (revenue = the collected transaction, not "the deposit") is just because a different amount was collected. One defect, two call sites in one file.
+Adding `revenue` to `SERVICE_CALL_UI_ONLY_KEYS` in `src/lib/serviceCallUpdate.ts` would break the fix, because `sanitizeServiceCallUpdatePayload` is called a **second** time (`useEngineerJobs.ts:331`, `EngineerJobDetail.tsx:327`) *after* `buildPaymentPatch` has merged its own legitimate `revenue` into the patch. A blanket blocklist would strip that too — including the unpriced-job fill case.
 
-## 4. Answer on scope
+So instead:
 
-Quote-to-job conversion was **not** the problem and was correctly out of BJ-B4's scope. What BJ-B4 missed is that `updateJob` accepts an arbitrary `revenue` column from callers at all — the builder can't protect a field a caller can write around it.
+- Add a separate export in `src/lib/serviceCallUpdate.ts`: `stripCallerRevenue(patch)` (documented as "only `buildPaymentPatch` may set `revenue` on payment updates"), leaving `SERVICE_CALL_UI_ONLY_KEYS` untouched.
+- Apply it to the caller-supplied `rest` only, in `useEngineerJobs.updateJob` (line 246), `EngineerJobDetail.updateJob` (line 240) and `EngineerApp.tsx:114`.
 
-## 5. Proposed fix (not applied)
+Verified safe: no other caller of the sanitizer passes `revenue` in an update. `Quotes.tsx:430` is an insert, `ExtraWorkSheet` writes its `buildPaymentPatch` result directly without the sanitizer, and `Quotes.tsx:252` / `Schedule.tsx` / `JobDetail.tsx` patches carry no `revenue` key.
 
-1. `EngineerJobCard.tsx` — both `onDone` handlers pass `confirmedRevenue: confirmedAmount` instead of `revenue: confirmedAmount`.
-2. Harden the boundary so this cannot recur: strip `revenue` from the caller-supplied `rest` in `useEngineerJobs.updateJob`, `EngineerJobDetail.updateJob`, and `EngineerApp.tsx:104`, so the payment builder is the only writer of `revenue` on payment paths. Add `revenue` to the blocklist in `src/lib/serviceCallUpdate.ts` next to `confirmedRevenue`.
-3. Tests: a `updateJob` regression test proving a card completion on a job with `revenue 2767.50` / deposit paid 1383.75 leaves revenue at 2767.50 and settles to `paid`, `balance_due 0`; plus a test that a raw `revenue` key in a patch is ignored.
-4. Live repro on a ZZ SCRATCH quote-to-job for both K&N and Dublin Gas, completing from the **card** (not the detail page).
+Two side effects, both benign: the payment-activity label at `useEngineerJobs.ts:378` falls back from `safeDbPatch.revenue` to `confirmedRevenue` (the amount actually collected — the correct figure for that label), and `src/pages/EngineerApp.tsx` has no importers anywhere in `src/`, so it is dead code being hardened for consistency only.
 
-## 6. Data correction needed (real customer)
+### 3. Tests (`src/lib/__tests__/`)
 
-KN-500 is a live booking. Correct values once approved:
+- Regression: a card-shaped completion patch (`confirmedRevenue: 1383.75`) against a job with `revenue 2767.50`, `deposit_amount 1383.75`, `deposit_paid true`, `balance_due 1383.75` → `revenue` stays 2767.50, `balance_due` 0, `payment_status` `paid`.
+- Boundary: a patch containing a raw `revenue` key has it dropped by `stripCallerRevenue`, while `buildPaymentPatch`-derived `revenue` still survives the existing sanitizer.
 
-```
-revenue = 2767.50, deposit_amount = 1383.75, balance_due = 0.00,
-payment_status = 'paid', deposit_paid = true
-```
-(quote total 2767.50; 1383.75 deposit via SumUp + 1383.75 card on site = settled in full).
+## Verification
 
-KN-498's true total cannot be recovered from the row — it needs Barry to confirm the intended job price before correcting; its 250 deposit implies a 500 total but that is an inference, not evidence. A sweep for other rows with this signature (`payment_status = 'partial'` and `revenue = deposit_amount = balance_due`) should run alongside the correction.
+- Full `vitest` run plus `tsgo` typecheck.
+- Live repro on both tenants: create a ZZ SCRATCH quote, accept it (job created with the quote total), take the deposit, then complete **from the job card** (not the detail page). Read back `revenue`, `deposit_amount`, `balance_due`, `payment_status` by SQL and confirm the quote total survives on K&N and Dublin Gas.
+- Diff, test output and repro read-backs shown before this is called done.
 
-Nothing has been changed. Approve and I will apply the fix, then the data correction as a separate reviewed migration.
+## Part C — Data
+
+No writes to KN-500, KN-498, KN-192, KN-495 or KN-497 in this change. Corrections come later as a separate approved migration once you have reviewed the sweep above.
