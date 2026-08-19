@@ -59,9 +59,12 @@ const OutstandingBalances = () => {
       .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
-      // Include invoiced jobs, invoice-method jobs, and any job where money has
-      // already been taken (e.g. a SumUp card deposit on a not-yet-invoiced job).
-      .or("invoiced_at.not.is.null,payment_method.eq.invoice,deposit_paid.eq.true")
+      .not("status", "eq", "archived")
+      // Include invoiced jobs, invoice-method jobs, any job where money has
+      // already been taken (e.g. a SumUp card deposit on a not-yet-invoiced job),
+      // and jobs where a deposit was requested but has not been paid yet.
+      .or("invoiced_at.not.is.null,payment_method.eq.invoice,deposit_paid.eq.true,and(deposit_required.eq.true,deposit_paid.eq.false)")
+
       .order("scheduled_date", { ascending: false })
       .then(({ data: rows, error }) => {
         if (error) {
