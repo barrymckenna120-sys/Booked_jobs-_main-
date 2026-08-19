@@ -367,7 +367,7 @@ const OutstandingBalances = () => {
                             className="rounded-full text-xs font-bold px-2.5 py-0.5"
                             style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}
                           >
-                            Balance Pending
+                            {depositDue ? "Deposit Pending" : "Balance Pending"}
                           </Badge>
                         )}
                       </TableCell>
