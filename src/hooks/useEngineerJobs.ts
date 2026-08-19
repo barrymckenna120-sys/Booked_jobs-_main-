@@ -250,15 +250,23 @@ export const useEngineerJobs = () => {
     }
     if (paymentMethod) {
       dbPatch.payment_method = paymentMethod;
+      const jobForPayment = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
+      // Money actually collected before this write — a requested-but-unpaid
+      // deposit counts for nothing.
+      const collectedSoFar = (jobForPayment as any)?.deposit_paid
+        ? Number((jobForPayment as any)?.deposit_amount || 0)
+        : 0;
       if (paymentMethod === "invoice") {
         // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
-        const jobForPayment = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
         Object.assign(
           dbPatch,
           buildPaymentPatch({
             type: "invoice",
             amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
             fallbackRevenue: Number((jobForPayment as any)?.revenue || 0),
+            revenue: Number((jobForPayment as any)?.revenue || 0),
+            collectedToDate: collectedSoFar,
+            revenueMode: "fill",
           }),
         );
         if (!dbPatch.status) dbPatch.status = "Completed";
@@ -266,8 +274,14 @@ export const useEngineerJobs = () => {
       } else {
         dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
-        Object.assign(dbPatch, buildPaymentPatch({ type: "full" }));
+        Object.assign(dbPatch, buildPaymentPatch({
+          type: "full",
+          amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
+          revenue: Number((jobForPayment as any)?.revenue || 0),
+          collectedToDate: collectedSoFar,
+        }));
       }
+
     }
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
