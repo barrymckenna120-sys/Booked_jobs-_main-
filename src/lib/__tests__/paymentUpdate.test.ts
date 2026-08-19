@@ -96,11 +96,41 @@ describe("buildPaymentPatch — booking_setup (NewJobPanel parity)", () => {
 
 
 describe("buildPaymentPatch — invoice (TakePaymentModal + completion parity)", () => {
-  it("writes unpaid with revenue = balance = amount", () => {
-    expect(buildPaymentPatch({ type: "invoice", amount: 369 })).toEqual({
+  it("writes unpaid with the full amount outstanding and never rewrites revenue", () => {
+    const patch = buildPaymentPatch({ type: "invoice", amount: 369 });
+    expect(patch).toEqual({
+      payment_status: "unpaid",
+      balance_due: 369,
+    });
+    expect("revenue" in patch).toBe(false);
+  });
+
+  it("keeps a priced job's revenue untouched even with revenueMode fill", () => {
+    const patch = buildPaymentPatch({
+      type: "invoice",
+      amount: 369,
+      revenue: 500,
+      revenueMode: "fill",
+    });
+    expect("revenue" in patch).toBe(false);
+  });
+
+  it("revenueMode fill backfills an unpriced job", () => {
+    expect(
+      buildPaymentPatch({ type: "invoice", amount: 369, revenue: 0, revenueMode: "fill" }),
+    ).toEqual({
       payment_status: "unpaid",
       balance_due: 369,
       revenue: 369,
+    });
+  });
+
+  it("subtracts money already collected from the outstanding balance", () => {
+    expect(
+      buildPaymentPatch({ type: "invoice", amount: 500, revenue: 500, collectedToDate: 250 }),
+    ).toEqual({
+      payment_status: "unpaid",
+      balance_due: 250,
     });
   });
 
@@ -115,6 +145,7 @@ describe("buildPaymentPatch — invoice (TakePaymentModal + completion parity)",
     expect(buildPaymentPatch({ type: "invoice" }).balance_due).toBe(0);
   });
 });
+
 
 describe("buildPaymentPatch — deposit / part payment", () => {
   it("on-site card deposit: partial, deposit_paid, revenue set, balance untouched", () => {
