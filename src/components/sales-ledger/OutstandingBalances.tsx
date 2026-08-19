@@ -334,12 +334,21 @@ const OutstandingBalances = () => {
                       <TableCell>{job.job_type}</TableCell>
                       <TableCell>{job.assigned_engineer || "—"}</TableCell>
                       <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
-                      <TableCell className="text-right font-semibold" style={{ color: "#16A34A" }}>
-                        {eur(dep)}
+                      <TableCell
+                        className="text-right font-semibold"
+                        style={{ color: dep > 0 ? "#16A34A" : undefined }}
+                      >
+                        <span className={dep > 0 ? undefined : "text-muted-foreground"}>{eur(dep)}</span>
                       </TableCell>
                       <TableCell className="text-right font-bold" style={{ color: "#D97706" }}>
                         {eur(bal)}
+                        {depositDue && (
+                          <div className="text-[11px] font-semibold" style={{ color: "#92400E" }}>
+                            Deposit {eur(job.deposit_amount || 0)} due
+                          </div>
+                        )}
                       </TableCell>
+
                       <TableCell className="text-center">
                         <Badge className="rounded-full text-xs font-bold px-2.5 py-0.5" style={{ background: od.bg, color: od.color, border: `1px solid ${od.border}` }}>
                           {od.days}d
