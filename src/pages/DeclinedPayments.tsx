@@ -148,6 +148,27 @@ const DeclinedPayments = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <Card className="mb-4">
+        <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:border-r sm:border-border">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Declined today
+            </p>
+            <p className="mt-1 font-mono tabular-nums text-lg font-bold text-foreground">
+              {declinedToday.count} — €{declinedToday.total.toFixed(2)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Still outstanding
+            </p>
+            <p className="mt-1 font-mono tabular-nums text-lg font-bold text-foreground">
+              {outstanding.count} — €{outstanding.total.toFixed(2)}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -157,6 +178,7 @@ const DeclinedPayments = () => {
           className="pl-9"
         />
       </div>
+
 
       {isLoading ? (
         <div className="flex justify-center py-12">
