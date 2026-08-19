@@ -62,6 +62,32 @@ describe("invokeFunction", () => {
     expect(res.error).toBeTruthy();
   });
 
+  // BJ-B5: the caller (useEngineerJobs / ServiceReceipt / TakePaymentModal) only
+  // shows its destructive toast if the 401 error is actually handed back after the
+  // retry. Assert the returned value itself, not just the absence of a 3rd attempt.
+  it("hands the 401 error back to the caller after two failures so the toast path fires", async () => {
+    const failure = unauthorized();
+    invoke.mockResolvedValue(failure);
+    refreshSession.mockResolvedValue({ data: { session: { access_token: "fresh" } }, error: null });
+
+    const res = await invokeFunction("send-whatsapp-receipt", { body: { job_id: "j1" } });
+
+    // one refresh, exactly two attempts, no third
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledTimes(2);
+
+    // the caller receives the real error object (not null, not swallowed)
+    expect(res.data).toBeNull();
+    expect(res.error).toBe(failure.error);
+    expect(res.error?.message).toBe("Unauthorized");
+
+    // and a caller-shaped `if (error) toast(...)` branch therefore runs
+    const toast = vi.fn();
+    if (res.error) toast({ title: "Job completed — receipt not sent", variant: "destructive" });
+    expect(toast).toHaveBeenCalledTimes(1);
+  });
+
+
   it("signs out and returns the original error when the refresh fails", async () => {
     invoke.mockResolvedValue(unauthorized());
     refreshSession.mockResolvedValue({ data: { session: null }, error: { message: "invalid refresh token" } });
