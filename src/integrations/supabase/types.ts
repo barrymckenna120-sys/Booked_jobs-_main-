@@ -1989,6 +1989,7 @@ export type Database = {
           organisation_id: string
           service_call_id: string
           status: string | null
+          updated_at: string
         }
         Insert: {
           checkout_id: string
@@ -1998,6 +1999,7 @@ export type Database = {
           organisation_id: string
           service_call_id: string
           status?: string | null
+          updated_at?: string
         }
         Update: {
           checkout_id?: string
@@ -2007,6 +2009,7 @@ export type Database = {
           organisation_id?: string
           service_call_id?: string
           status?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
