@@ -1,39 +1,33 @@
-# Engineer Header Simplification — Today Screen
+# Engineer Header Simplification — All Engineer Screens
 
 ## Goal
-Strip the engineer app header back to a compact top bar containing only the BookedJobs logo/name, the notification bell with its real unread count, and the Order Parts button. Keep the existing overflow menu (Back to Office for managers, Log Out) unchanged. Remove the large "Good Morning, [name]" greeting and the decorative full-height blue gradient panel.
+
+Strip the engineer app header back to a compact top bar containing only the BookedJobs logo/name, the notification bell with its real unread count, and the Order Parts button. Keep the existing overflow menu (Back to Office for managers, Log Out) unchanged. Remove the "Good Morning, [name]" greeting and the decorative full-height blue gradient panel — these are being removed from all four engineer screens (Today, Upcoming, Completed, Parts), since the header is shared.
 
 ## Scope
-This is a purely visual/layout change in the shared engineer layout component. No data fetching, hooks, business logic, bottom navigation, or job cards are changed.
+
+Purely visual/layout change in the shared engineer layout component. No data fetching, hooks, business logic, bottom navigation, or job cards are changed.
 
 ## Affected File
+
 `src/components/engineer/EngineerLayout.tsx`
 
 ## Changes
 
-1. **Remove unused header content**
-   - Delete the `greeting()` helper.
-   - Delete the `formatDateHeading()` helper.
-   - Remove the `Hand` and `PartyPopper` imports.
+1. Delete the `greeting()` helper, `formatDateHeading()` helper, and the `Hand` and `PartyPopper` imports.
 
-2. **Simplify the header JSX**
-   - Replace the full-height `bg-gradient-to-br from-primary to-primary-dark` panel and its decorative circular background elements with a compact top bar.
-   - Keep the top row exactly as structured today:
-     - Left: BookedJobs logo + "BookedJobs" text.
-     - Right: Back to Office button (managers only), Order Parts button, NotificationBell with `unreadCount`, Log Out button.
-   - Remove the date heading, the "Good Morning, [name]" greeting, and the jobs-remaining / all-done status line.
+2. Replace the full-height `bg-gradient-to-br from-primary to-primary-dark` panel and its decorative circular background elements with a compact top bar. Keep the top row structured exactly as today: logo/name on the left; Back to Office (managers only), Order Parts, NotificationBell with unreadCount, Log Out on the right.
 
-3. **Preserve everything else**
-   - Keep all hooks, state, data fetching, and auth logic intact.
-   - Keep the offline banner, notification drawer, sound prompt, notification banner, message alert banner, onboarding tour, and bottom navigation exactly as they are.
-   - Keep page content padding and safe-area handling unchanged.
+3. Remove the date heading, greeting, and jobs-remaining/all-done status line.
+
+4. Reuse the existing header background colour and existing button/icon components exactly as they render today — no new colours, fonts, font sizes/weights, or styling anywhere in this change.
+
+5. Keep all hooks, state, data fetching, auth logic, the offline banner, notification drawer, sound prompt, notification banner, message alert banner, onboarding tour, and bottom navigation exactly as they are. Keep page content padding and safe-area handling unchanged.
 
 ## Verification
-- Visual check of `/engineer/today` to confirm the compact header renders correctly.
-- Confirm notification bell still displays the real unread count.
-- Confirm Order Parts button still navigates to `/engineer/parts`.
-- Confirm manager overflow menu still shows "Back to Office" and "Log Out".
-- Confirm bottom navigation and job cards are unaffected.
 
-## Note
-The header lives in `EngineerLayout.tsx`, which is the shared layout for Today, Upcoming, Completed, and Parts. This change will therefore apply to all engineer screens, not only Today. If the simplified header should be Today-only, a separate Today-specific header component would need to be created instead.
+- Screenshot of /engineer/today, /engineer/upcoming, /engineer/completed, and /engineer/parts confirming the compact header renders consistently on all four.
+- Confirm notification bell still shows the real unread count.
+- Confirm Order Parts still navigates to /engineer/parts.
+- Confirm manager overflow menu still shows Back to Office and Log Out.
+- Confirm bottom navigation and job cards are unaffected on all four screens.
