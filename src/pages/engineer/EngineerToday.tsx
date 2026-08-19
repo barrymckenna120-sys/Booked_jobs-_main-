@@ -38,6 +38,50 @@ const EngineerToday = () => {
     ? [todayActive.find((j: any) => j.id === nextJobId), ...todayActive.filter((j: any) => j.id !== nextJobId)]
     : todayActive;
 
+  const [openPartsCount, setOpenPartsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const { data: engRow } = await supabase
+          .from("engineers")
+          .select("id")
+          .eq("auth_user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        const filters = [
+          `engineer_id.eq.${user.id}`,
+          `assigned_engineer_id.eq.${user.id}`,
+        ];
+        const engineerRowId = (engRow as any)?.id;
+        if (engineerRowId) filters.push(`assigned_to.eq.${engineerRowId}`);
+
+        const { count, error } = await supabase
+          .from("parts_requests" as any)
+          .select("id", { count: "exact", head: true })
+          .or(filters.join(","))
+          .eq("status", "Open");
+
+        if (cancelled) return;
+        if (error) {
+          setOpenPartsCount(0);
+          return;
+        }
+        setOpenPartsCount(count ?? 0);
+      } catch {
+        if (!cancelled) setOpenPartsCount(0);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   return (
     <>
       {/* In progress banner */}
