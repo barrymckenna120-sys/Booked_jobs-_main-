@@ -1,145 +1,39 @@
-# SumUp checkout attempt status write-back — actual diff (Steps 2 + 3)
+# Declined Payments view (office/admin only)
 
-Tests already pass on the current code: `deno test _shared/sumupWebhook.test.ts _shared/sumupCheckout.test.ts` → **67 passed | 0 failed (158ms)**. They will be re-run after the diff is applied.
+## Two blockers found before any UI can work
 
-Confirmations you asked for:
+1. **The table is unreadable from the app today.** `payment_checkout_attempts` has exactly one policy — `ALL` for `service_role` — and no policy or grant for `authenticated`. A frontend query returns zero rows / permission error no matter how it's written. To ship this view I need one small DB change: a `SELECT` policy for org members plus `GRANT SELECT ... TO authenticated`. That's a policy/grant addition only — no column, index, trigger or webhook code touched. If you'd rather not add it, the alternative is a read-only Edge Function using the service role, which is more code and still a backend change.
+2. **There is no declined data yet.** All 15 rows in the table are `status = 'PENDING'`. The status write-back that produces `FAILED / EXPIRED / CANCELLED` was applied but not deployed, so the list will be legitimately empty until that ships and a real decline occurs. The view will be built with a proper empty state.
 
-1. **Status vocabulary** — the written value is `status`, computed in `_shared/sumupWebhook.ts` as `(view.status ?? "").toUpperCase()` straight from SumUp's authoritative `GET /v0.1/checkouts/{id}`. So only `PAID` / `SUCCESSFUL` / `SUCCEEDED` (paid path) or `FAILED` / `EXPIRED` / `CANCELLED` / `CANCELED` (terminal path) reach the column. The handler's internal `outcome` (`paid`, `part_paid`, `duplicate`) is never written.
-2. **409 / 23505 detection** — HTTP status code plus PostgREST's parsed JSON `code` field, no text matching: `if (res.status === 409 || code === "23505")`.
+## Amount column — which source
 
-## Diff
+`payment_checkout_attempts` has no `amount` column (columns: id, service_call_id, organisation_id, checkout_id, checkout_reference, status, created_at, updated_at). So amount must come from the job. Recommendation: show `service_calls.deposit_amount` when `deposit_required` is true, otherwise `balance_due`, labelled "Amount due". This is the amount still owed now, which is what an office user chasing a decline needs. It is not a guaranteed reproduction of the exact declined checkout amount — that isn't recoverable from stored data.
 
-### `supabase/functions/_shared/sumupWebhook.ts`
+## Where it goes
 
-```diff
-@@ -162,12 +162,16 @@
-   /** One office notification per confirmed payment. */
- 
-   notifyOffice?: (entry: {
-     organisationId: string | null;
-     serviceCallId: string;
-     customerId: string | null;
-     jobReference: string | null;
-     amount: number;
-     fullyPaid: boolean;
-+    /** SumUp's own checkout id and uppercased status, for attempt write-back. */
-+    checkoutId: string;
-+    status: string;
-   }) => Promise<void>;
-@@ -525,10 +529,12 @@
-   if (deps.notifyOffice) {
-     await deps.notifyOffice({
-       organisationId: job.organisation_id,
-       serviceCallId: job.id,
-       customerId: job.customer_id ?? null,
-       jobReference: job.job_reference ?? null,
-       amount,
-       fullyPaid,
-+      checkoutId,
-+      status,
-     });
-   }
+New sub-tab **"Declined"** inside the existing Finance page (`/finance`, `src/pages/FinancePage.tsx`), sitting after Overview and Sales. Finance is already office-gated and is where payment chasing lives, so no new route or nav entry is needed.
+
+## Query
+
+```
+supabase.from("payment_checkout_attempts")
+  .select(`id, checkout_id, status, updated_at,
+           service_calls!inner(id, job_reference, balance_due, deposit_amount, deposit_required,
+             customers!inner(id, name, phone))`)
+  .in("status", ["FAILED", "EXPIRED", "CANCELLED", "CANCELED"])
+  .order("updated_at", { ascending: false })
 ```
 
-### `supabase/functions/sumup-payment-webhook/index.ts`
+Org scoping comes from the new RLS policy (`organisation_id = get_my_org_id()`), same as every other tenant table — no client-side org filter, matching the QuotesList pattern.
 
-```diff
-@@ -54,6 +54,36 @@
-   const supabase = createClient(
-     Deno.env.get("SUPABASE_URL")!,
-     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-   );
- 
-+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!.replace(/\/+$/, "");
-+  const headers: Record<string, string> = {
-+    apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-+    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
-+  };
-+
-+  /**
-+   * Stamps the resolved SumUp status onto the attempt row(s) for this checkout.
-+   * Audit only — it must never throw or delay the webhook response, so every
-+   * failure is logged and swallowed (same pattern as the log writes below).
-+   */
-+  const recordAttemptStatus = async (checkoutId: string, resolvedStatus: string) => {
-+    try {
-+      await fetch(
-+        `${supabaseUrl}/rest/v1/payment_checkout_attempts?checkout_id=eq.${encodeURIComponent(checkoutId)}`,
-+        {
-+          method: "PATCH",
-+          headers: { ...headers, "Content-Type": "application/json", Prefer: "return=minimal" },
-+          body: JSON.stringify({ status: resolvedStatus, updated_at: new Date().toISOString() }),
-+        },
-+      );
-+    } catch (e) {
-+      console.error("payment_checkout_attempts status write-back failed", e);
-+    }
-+  };
-+
-```
+## Component structure
 
-```diff
-@@ notifyOffice: async (e) => {  (after the notifications insert)
-         await supabase.from("notifications").insert(
-           recipients.map((userId) => ({ ... })),
-         );
- 
-+        await recordAttemptStatus(e.checkoutId, e.status);
-+
-       } catch (_e) {
-         console.error("sumup-payment-webhook: notification insert failed", _e);
-       }
-```
+- `src/pages/DeclinedPayments.tsx` — modelled on `src/pages/QuotesList.tsx`: `useAuth` + `useUserRole` (`canAccessOffice` guard) + `useOrgId().ready` gate, `useQuery`, search box, card-wrapped table, loading spinner, empty state.
+- Columns: Customer, Job Ref (links to `/jobs/:id`), Amount due, Status badge, Failed at (`updated_at`, `dd MMM HH:mm` via date-fns), Contact.
+- Status badges reuse the destructive/warning token classes already in `QuotesList`'s `STATUS_BADGE` (no hardcoded colours).
+- Contact actions copy the `Jobs.tsx` pattern exactly: `tel:` link plus `https://wa.me/<formatted>`. The inline `formatWhatsApp` helper in `Jobs.tsx` will be lifted to `src/lib/whatsappLink.ts` and imported by both, so there's one implementation.
+- `FinancePage.tsx`: add the third tab entry and render the new page.
 
-```diff
-@@ notifyPaymentFailed: async (e) => {  (first statement, before the dedupe read)
-     notifyPaymentFailed: async (e) => {
-       try {
-         if (!e.organisationId) return;
- 
-+        // Terminal status is final for this checkout — record it even if the
-+        // alert itself is deduped away below.
-+        await recordAttemptStatus(e.checkoutId, e.status);
-+
-         // SumUp delivers the same failure event more than once. One alert per
-```
+## Scope
 
-### `supabase/functions/_shared/sumupCheckout.ts`
-
-```diff
-@@ -102,15 +102,29 @@
-     async record(row) {
-       const res = await doFetch(`${base}/rest/v1/payment_checkout_attempts`, {
-         method: "POST",
-         headers: { ...headers, "Content-Type": "application/json" },
-         body: JSON.stringify({
-           service_call_id: row.serviceCallId,
-           organisation_id: row.organisationId,
-           checkout_id: row.checkoutId,
-           checkout_reference: row.checkoutReference,
-           status: row.status,
-         }),
-       });
--      await res.text();
-+      const text = await res.text();
-+      if (res.ok) return;
-+
-+      // A unique violation on checkout_id means the attempt is already on
-+      // record — that is the correct end state, not a failure. Same
-+      // 23505-as-success reasoning as notifications_payment_failed_once.
-+      let code: string | undefined;
-+      try {
-+        code = JSON.parse(text)?.code;
-+      } catch { /* non-JSON error body */ }
-+      if (res.status === 409 || code === "23505") {
-+        console.warn(`sumup-checkout: attempt row already exists for ${row.checkoutId} — ignoring duplicate`);
-+        return;
-+      }
-+      // Any other failure is logged, never thrown: tracking must not be able
-+      // to fail a live checkout.
-+      console.error(`sumup-checkout: attempt record http ${res.status} for ${row.checkoutId}`);
-     },
-```
-
-## After approval
-Apply exactly this diff, re-run both Deno test files and show the output. **No deploy** until you say so.
+Frontend read-only plus the one RLS policy + grant migration described above. No changes to `payment_checkout_attempts` columns, `sumup-payment-webhook`, or any `_shared/` payment code.
