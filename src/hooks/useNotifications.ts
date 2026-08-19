@@ -69,6 +69,26 @@ export function useNotifications() {
 
   // Audio unlock is now handled globally in AppLayout via unlockAudio()
 
+  // Server-side unread count — not limited by the 50-row drawer fetch.
+  // Keeps the explicit recipient_user_id filter: the RLS SELECT policy allows
+  // org-wide reads for admin/owner/office, so omitting it would inflate this.
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_user_id", user.id)
+      .eq("is_read", false);
+    setUnreadCount(count || 0);
+  }, [user]);
+
+  const refreshUnreadCountRef = useRef(refreshUnreadCount);
+  useEffect(() => {
+    refreshUnreadCountRef.current = refreshUnreadCount;
+  }, [refreshUnreadCount]);
+
   // Fetch existing notifications
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -86,7 +106,8 @@ export function useNotifications() {
   useEffect(() => {
     if (!user) return;
     fetchNotifications();
-  }, [user, fetchNotifications]);
+    refreshUnreadCount();
+  }, [user, fetchNotifications, refreshUnreadCount]);
 
   // Fetch sound preference
   useEffect(() => {
@@ -143,6 +164,10 @@ export function useNotifications() {
           const n = payload.new as AppNotification;
           console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
           setNotifications((prev) => [n, ...prev]);
+          if (!n.is_read) setUnreadCount((c) => c + 1);
+          // Reconcile against the server (ref, so this handler isn't re-subscribed)
+          refreshUnreadCountRef.current?.();
+
 
           // initialLoadDone guard removed — Realtime INSERT only fires for rows
           // created after subscribe, so the 1s suppression skipped real alerts.
@@ -176,33 +201,41 @@ export function useNotifications() {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
   const markAsRead = useCallback(async (id: string) => {
+    setUnreadCount((c) => Math.max(0, c - 1));
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
-  }, []);
+    refreshUnreadCount();
+  }, [refreshUnreadCount]);
 
   const markAllRead = useCallback(async () => {
     if (!user) return;
+    setUnreadCount(0);
     await supabase
       .from("notifications")
       .update({ is_read: true })
       .eq("recipient_user_id", user.id)
       .eq("is_read", false);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  }, [user]);
+    refreshUnreadCount();
+  }, [user, refreshUnreadCount]);
 
   const dismiss = useCallback(async (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    let wasUnread = false;
+    setNotifications((prev) => {
+      wasUnread = prev.some((n) => n.id === id && !n.is_read);
+      return prev.filter((n) => n.id !== id);
+    });
+    if (wasUnread) setUnreadCount((c) => Math.max(0, c - 1));
     const { error } = await supabase.from("notifications").delete().eq("id", id);
     if (error) {
       console.error("Failed to delete notification:", error);
       fetchNotifications();
     }
-  }, [fetchNotifications]);
+    refreshUnreadCount();
+  }, [fetchNotifications, refreshUnreadCount]);
 
   const enableSound = useCallback(
     async (enabled: boolean) => {
