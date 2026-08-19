@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
-import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw } from "lucide-react";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
@@ -41,6 +41,8 @@ interface EngineerJobCardProps {
   isNextJob?: boolean;
   photos?: { url: string; name: string }[];
 }
+
+const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
 const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
   const navigate = useNavigate();
@@ -96,12 +98,18 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
     job.status === "Cancelled" ? "destructive" : "primary"
   }))`;
 
+  const openJobDetails = () => {
+    if (isDone || isNextJob) {
+      navigate(`/engineer/job/${job.id}`);
+    }
+  };
+
   return (
     <>
       <div
-        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-70 cursor-pointer" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md" : "border-border/60"}`}
+        className={`bg-card rounded-2xl border border-l-4 p-5 mb-4 transition-all ${isDone ? "opacity-70 cursor-pointer" : ""} ${isNextJob ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20 shadow-md cursor-pointer" : "border-border/60"}`}
         style={{ borderLeftColor }}
-        onClick={isDone ? () => navigate(`/engineer/job/${job.id}`) : undefined}
+        onClick={openJobDetails}
       >
         {/* Next Job Badge */}
         {isNextJob && (
@@ -116,7 +124,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
             <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job)}</div>
-            <div className="text-xl font-bold text-gray-900 leading-tight">{customer.name}</div>
+            <div className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-1">
+              {customer.name}
+              {isNextJob && <ChevronRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />}
+            </div>
           </div>
         <div className="flex items-center shrink-0">
           <StatusBadge status={job.status} />
@@ -151,19 +162,23 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
 
         {/* Always-visible phone for completed cards */}
         {isDone && customer.phone && (
-          <a href={`tel:${customer.phone}`} className="text-[13px] text-primary font-semibold mb-3 flex items-center gap-1.5 active:opacity-70">
-            <Phone className="w-3.5 h-3.5 shrink-0" /> {customer.phone}
-          </a>
+          <div onClick={stopProp}>
+            <a href={`tel:${customer.phone}`} className="text-[13px] text-primary font-semibold mb-3 flex items-center gap-1.5 active:opacity-70">
+              <Phone className="w-3.5 h-3.5 shrink-0" /> {customer.phone}
+            </a>
+          </div>
         )}
 
-        <InfoPills
-          timeBlock={job.time_block}
-          jobType={job.job_type}
-          boilerBrand={job.boiler_brand}
-          paymentJob={job}
-          scheduledDate={job.scheduled_date}
-          onTakePayment={(depositPill || depositBalanceLine) ? () => setShowStandalonePayment(true) : undefined}
-        />
+        <div onClick={stopProp}>
+          <InfoPills
+            timeBlock={job.time_block}
+            jobType={job.job_type}
+            boilerBrand={job.boiler_brand}
+            paymentJob={job}
+            scheduledDate={job.scheduled_date}
+            onTakePayment={(depositPill || depositBalanceLine) ? () => setShowStandalonePayment(true) : undefined}
+          />
+        </div>
 
         {/* Saved Tags */}
         {jobTags.length > 0 && (
@@ -211,60 +226,70 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         )}
 
-        <QuickActions jobId={job.id} customerPhone={customer.phone} customerAddress={customer.address} customerEircode={customer.eircode} />
+        <div onClick={stopProp}>
+          <QuickActions jobId={job.id} customerPhone={customer.phone} customerAddress={customer.address} customerEircode={customer.eircode} />
+        </div>
 
         {/* Collapsible Service History & Notes */}
-        <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
-        <JobNotesSection jobId={job.id} customerId={job.customer_id} jobNotes={job.notes} />
-        <EngineerMediaGrid jobId={job.id} />
-        <EngineerJobMessages jobId={job.id} officeUserId={officeOwnerId || job.user_id} />
+        <div onClick={stopProp}>
+          <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
+          <JobNotesSection jobId={job.id} customerId={job.customer_id} jobNotes={job.notes} />
+          <EngineerMediaGrid jobId={job.id} />
+          <EngineerJobMessages jobId={job.id} officeUserId={officeOwnerId || job.user_id} />
+        </div>
 
         {!isDone && (
-          <SecondaryActions
-            isActive={isActive}
-            job={job}
-            customer={customer}
-            onNote={() => setShowNote(true)}
-            onPhotos={() => setShowPhotos(true)}
-            onExtraWork={() => setShowExtraWork(true)}
-          />
+          <div onClick={stopProp}>
+            <SecondaryActions
+              isActive={isActive}
+              job={job}
+              customer={customer}
+              onNote={() => setShowNote(true)}
+              onPhotos={() => setShowPhotos(true)}
+              onExtraWork={() => setShowExtraWork(true)}
+            />
+          </div>
         )}
 
         {!isDone && (
-          <PrimaryActions
-            status={job.status}
-            onStatusChange={(newStatus) => onUpdate(job.id, { status: newStatus })}
-            onComplete={() => setShowComplete(true)}
-            onCancel={() => setShowCancel(true)}
-            onNoShow={() => setShowNoShow(true)}
-            onPartsNeeded={() => setShowPartsNeeded(true)}
-          />
+          <div onClick={stopProp}>
+            <PrimaryActions
+              status={job.status}
+              onStatusChange={(newStatus) => onUpdate(job.id, { status: newStatus })}
+              onComplete={() => setShowComplete(true)}
+              onCancel={() => setShowCancel(true)}
+              onNoShow={() => setShowNoShow(true)}
+              onPartsNeeded={() => setShowPartsNeeded(true)}
+            />
+          </div>
         )}
 
         {/* Message Office button */}
         {!isDone && (
-          <Button
-            variant="outline"
-            className="w-full h-[52px] text-base font-extrabold gap-2 mt-2 bg-white border-[#4A86E8] text-[#4A86E8] hover:bg-[#4A86E8]/5"
-            onClick={() => setShowMessageOffice(true)}
-          >
-            <Mail className="w-5 h-5" /> 📩 Message Office
-          </Button>
+          <div onClick={stopProp}>
+            <Button
+              variant="outline"
+              className="w-full h-[52px] text-base font-extrabold gap-2 mt-2 bg-white border-[#4A86E8] text-[#4A86E8] hover:bg-[#4A86E8]/5"
+              onClick={() => setShowMessageOffice(true)}
+            >
+              <Mail className="w-5 h-5" /> 📩 Message Office
+            </Button>
+          </div>
         )}
 
         {job.status === "Completed" && (
-          <>
+          <div onClick={stopProp}>
             <JobPhotoThumbnails photos={photos} />
             <div className="bg-success/10 rounded-xl p-3.5 flex items-center gap-2.5 mt-1">
               <CheckCircle2 className="w-5 h-5 text-success" />
               <div className="text-[13px] font-bold text-success">Completed</div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Take Payment button for Completed / In Progress */}
         {["Completed", "In Progress"].includes(job.status) && (
-          <div className="mt-3">
+          <div className="mt-3" onClick={stopProp}>
             {job.receipt_number ? (
               <button
                 onClick={() => window.location.href = `/receipt-view/${job.id}`}
