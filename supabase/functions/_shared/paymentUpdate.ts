@@ -41,8 +41,9 @@ export type PaymentPatchInput = {
    */
   revenueMode?: "set" | "fill";
 
-  /** booking_setup only. */
+  /** booking_setup only (deposit request fields). */
   depositMode?: DepositMode;
+
   depositAmount?: number | null;
   /**
    * booking_setup only — caller-computed balance. IGNORED when it is lower than
