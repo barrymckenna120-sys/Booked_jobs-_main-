@@ -101,7 +101,8 @@ export function useNotifications() {
   useEffect(() => {
     if (!user) return;
     fetchNotifications();
-  }, [user, fetchNotifications]);
+    refreshUnreadCount();
+  }, [user, fetchNotifications, refreshUnreadCount]);
 
   // Fetch sound preference
   useEffect(() => {
