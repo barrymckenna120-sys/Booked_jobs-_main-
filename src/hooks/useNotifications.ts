@@ -159,6 +159,10 @@ export function useNotifications() {
           const n = payload.new as AppNotification;
           console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
           setNotifications((prev) => [n, ...prev]);
+          if (!n.is_read) setUnreadCount((c) => c + 1);
+          // Reconcile against the server (ref, so this handler isn't re-subscribed)
+          refreshUnreadCountRef.current?.();
+
 
           // initialLoadDone guard removed — Realtime INSERT only fires for rows
           // created after subscribe, so the 1s suppression skipped real alerts.
