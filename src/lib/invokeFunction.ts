@@ -15,8 +15,12 @@ export async function invokeFunction<T = any>(
   options?: { body?: unknown },
 ) {
   const first = await supabase.functions.invoke<T>(name, options as any);
-  const status = (first.error as any)?.context?.response?.status;
+  const ctx = (first.error as any)?.context;
+  // FunctionsHttpError puts the Response on `context` itself; older/other
+  // shapes nest it under `context.response`.
+  const status = ctx?.status ?? ctx?.response?.status;
   if (!first.error || status !== 401) return first;
+
 
   const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
   if (refreshError || !refreshed?.session) {

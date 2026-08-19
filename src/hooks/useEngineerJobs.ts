@@ -7,6 +7,7 @@ import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
 
@@ -566,11 +567,22 @@ export const useEngineerJobs = () => {
           navigate(`/invoice-view/${jobId}`);
         } else {
           toast({ title: "Job completed ✔" });
-          supabase.functions.invoke('send-whatsapp-receipt', {
-            body: { job_id: jobId }
-          }).catch((err) => {
-            console.warn('[WhatsApp] Receipt send failed:', err);
-          });
+          // Routed through invokeFunction: a stale session is refreshed and the
+          // call retried once. If it still fails the engineer sees it instead of
+          // the failure vanishing into console.warn (see KN-494).
+          try {
+            const { error: receiptError } = await invokeFunction('send-whatsapp-receipt', {
+              body: { job_id: jobId },
+            });
+            if (receiptError) throw receiptError;
+          } catch (err) {
+            console.error('[WhatsApp] Receipt send failed:', err);
+            toast({
+              title: "Job completed — receipt not sent",
+              description: "Tap Send via WhatsApp on the receipt screen to try again.",
+              variant: "destructive",
+            });
+          }
           navigate(`/receipt-view/${jobId}`);
         }
       } else if (patch.status === "Cancelled") {

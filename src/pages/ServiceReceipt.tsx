@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
+import { invokeFunction } from "@/lib/invokeFunction";
 
 
 const formatDate = (d: string) =>
@@ -139,7 +140,7 @@ const ServiceReceipt = () => {
     if (job.receipt_pdf_url) return job.receipt_pdf_url;
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
+      const { data, error } = await invokeFunction<any>("generate-receipt-pdf", {
         body: { job_id: job.id },
       });
       if (error || !data?.pdf_url) return null;
@@ -169,7 +170,7 @@ const ServiceReceipt = () => {
     setWhatsappSending(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
+      const { data, error } = await invokeFunction<any>("send-whatsapp-receipt", {
         body: { job_id: job.id },
       });
 
