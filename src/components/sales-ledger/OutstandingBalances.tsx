@@ -84,7 +84,10 @@ const OutstandingBalances = () => {
                 assigned_engineer: r.assigned_engineer,
                 revenue: r.revenue,
                 deposit_amount: r.deposit_amount,
+                deposit_required: r.deposit_required ?? null,
+                deposit_paid: r.deposit_paid ?? null,
                 balance_due: r.balance_due,
+
                 customer_name: r.customers?.name || "Unknown",
                 receipt_number: r.receipt_number,
                 payment_status: r.payment_status,
