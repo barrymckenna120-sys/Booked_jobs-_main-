@@ -1,55 +1,58 @@
-# BJ-B4g — Fix the EngineerJobCard raw-revenue clobber
+# Data correction — KN-500 only
 
-## Part A — Sweep results (read-only, already run)
+One row, no code. Separate from BJ-B4g.
 
-```sql
-select job_reference, organisation_id, revenue, deposit_amount, balance_due,
-       payment_status, payment_method, completed_at, paid_at, receipt_number
-from service_calls
-where payment_status = 'partial' and revenue = deposit_amount
-  and revenue = balance_due and status <> 'Cancelled';
+## Current row (read just now)
+
+```text
+id               ca238d96-debf-46b5-b30f-a3dba7c1d0aa
+job_reference    KN-500        organisation_id  8c37827f… (K&N)
+status           Completed     payment_method   card
+revenue          1383.75       deposit_amount   1383.75
+balance_due      1383.75       payment_status   partial
+deposit_paid     true          receipt_number   KN-2026-6736
+paid_at          2026-08-19 13:21:42+00
+completed_at     2026-08-19 13:21:42+00
+invoiced_at      (null)
 ```
 
-| Job | Org | revenue | deposit | balance | method | completed_at | paid_at | receipt |
-|---|---|---|---|---|---|---|---|---|
-| KN-192 | K&N | 184.50 | 184.50 | 184.50 | card | 2026-04-03 20:43 | 2026-04-03 20:42 | K-091 |
-| KN-495 | K&N | 250.00 | 250.00 | 250.00 | card | 2026-08-19 12:19 | 2026-08-19 12:19 | KN-2026-4258 |
-| KN-497 | K&N | 250.00 | 250.00 | 250.00 | card | 2026-08-19 12:14 | 2026-08-19 12:14 | KN-2026-0478 |
-| KN-498 | K&N | 250.00 | 250.00 | 250.00 | card | (null) | 2026-08-19 13:02 | (null) |
-| KN-500 | K&N | 1383.75 | 1383.75 | 1383.75 | card | 2026-08-19 13:21 | 2026-08-19 13:21 | KN-2026-6736 |
+`KN-500` matches exactly one row, so the reference is a safe key.
 
-Five rows, all K&N, none on Dublin Gas. KN-495 and KN-497 are the ZZ SCRATCH jobs from this morning's BJ-B5 run, so the live-customer exposure is KN-498, KN-500 and KN-192 (April — same shape, predates today, so this signature is not new). No row outside K&N matches, which is consistent with Dublin Gas engineers not having used the card completion path with a deposit on the job.
+## The change
 
-## Part B — The fix
+A single `UPDATE` on `public.service_calls`, scoped by primary key and guarded by both the reference and the org so it cannot touch anything else:
 
-### 1. `src/components/engineer/EngineerJobCard.tsx`
+```sql
+update public.service_calls
+set revenue        = 2767.50,
+    deposit_amount = 1383.75,
+    balance_due    = 0.00,
+    payment_status = 'paid',
+    deposit_paid   = true
+where id = 'ca238d96-debf-46b5-b30f-a3dba7c1d0aa'
+  and job_reference = 'KN-500'
+  and organisation_id = '8c37827f-ce2c-4507-a821-a5e807d89856';
+```
 
-Both `PaymentSheet` `onDone` handlers pass `revenue: confirmedAmount` (lines 357 and 372). Change both to `confirmedRevenue: confirmedAmount` — the key `updateJob` actually destructures, which routes the amount through `buildPaymentPatch` instead of writing it straight to the `revenue` column.
+| Field | From | To |
+|---|---|---|
+| revenue | 1383.75 | 2767.50 |
+| deposit_amount | 1383.75 | 1383.75 (unchanged) |
+| balance_due | 1383.75 | 0.00 |
+| payment_status | partial | paid |
+| deposit_paid | true | true (unchanged) |
 
-### 2. Boundary hardening — one deviation from the brief, deliberate
+Untouched: `status`, `paid_at`, `completed_at`, `receipt_number`, the customer record, the quote row, and every other job — including KN-498, KN-192, KN-495 and KN-497 from the sweep.
 
-Adding `revenue` to `SERVICE_CALL_UI_ONLY_KEYS` in `src/lib/serviceCallUpdate.ts` would break the fix, because `sanitizeServiceCallUpdatePayload` is called a **second** time (`useEngineerJobs.ts:331`, `EngineerJobDetail.tsx:327`) *after* `buildPaymentPatch` has merged its own legitimate `revenue` into the patch. A blanket blocklist would strip that too — including the unpriced-job fill case.
+Note: the existing receipt `KN-2026-6736` was generated from the clobbered figures, so its stored PDF may still show €1,383.75 as the job total. Regenerating it is not part of this correction — say the word if you want it refreshed afterwards.
 
-So instead:
+## Verification after the write
 
-- Add a separate export in `src/lib/serviceCallUpdate.ts`: `stripCallerRevenue(patch)` (documented as "only `buildPaymentPatch` may set `revenue` on payment updates"), leaving `SERVICE_CALL_UI_ONLY_KEYS` untouched.
-- Apply it to the caller-supplied `rest` only, in `useEngineerJobs.updateJob` (line 246), `EngineerJobDetail.updateJob` (line 240) and `EngineerApp.tsx:114`.
+1. Re-read the full row and show it.
+2. Confirm the clobber-signature sweep no longer returns KN-500 (expect KN-192, KN-495, KN-497, KN-498 remaining).
+3. Confirm row counts elsewhere are unchanged (`payment_status` breakdown before/after).
+4. Browser check on the live preview: KN-500 absent from Outstanding Balances (the query excludes `payment_status = 'paid'`), and Sales Ledger showing "Paid" with €2,767.50 — screenshots for both.
 
-Verified safe: no other caller of the sanitizer passes `revenue` in an update. `Quotes.tsx:430` is an insert, `ExtraWorkSheet` writes its `buildPaymentPatch` result directly without the sanitizer, and `Quotes.tsx:252` / `Schedule.tsx` / `JobDetail.tsx` patches carry no `revenue` key.
+## Technical note
 
-Two side effects, both benign: the payment-activity label at `useEngineerJobs.ts:378` falls back from `safeDbPatch.revenue` to `confirmedRevenue` (the amount actually collected — the correct figure for that label), and `src/pages/EngineerApp.tsx` has no importers anywhere in `src/`, so it is dead code being hardened for consistency only.
-
-### 3. Tests (`src/lib/__tests__/`)
-
-- Regression: a card-shaped completion patch (`confirmedRevenue: 1383.75`) against a job with `revenue 2767.50`, `deposit_amount 1383.75`, `deposit_paid true`, `balance_due 1383.75` → `revenue` stays 2767.50, `balance_due` 0, `payment_status` `paid`.
-- Boundary: a patch containing a raw `revenue` key has it dropped by `stripCallerRevenue`, while `buildPaymentPatch`-derived `revenue` still survives the existing sanitizer.
-
-## Verification
-
-- Full `vitest` run plus `tsgo` typecheck.
-- Live repro on both tenants: create a ZZ SCRATCH quote, accept it (job created with the quote total), take the deposit, then complete **from the job card** (not the detail page). Read back `revenue`, `deposit_amount`, `balance_due`, `payment_status` by SQL and confirm the quote total survives on K&N and Dublin Gas.
-- Diff, test output and repro read-backs shown before this is called done.
-
-## Part C — Data
-
-No writes to KN-500, KN-498, KN-192, KN-495 or KN-497 in this change. Corrections come later as a separate approved migration once you have reviewed the sweep above.
+Row updates go through the insert/update tool rather than a schema migration. The `notify_on_job_change` trigger on `service_calls` will fire for this update, as it does for any edit — expected and harmless.
