@@ -225,6 +225,9 @@ const DeclinedPayments = () => {
                     >
                       <td className="px-4 py-3 font-bold text-foreground">{customer?.name || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{job?.job_reference || "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {job?.deposit_required ? "Deposit" : "Balance"}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold">
                         {due === null ? <span className="text-muted-foreground/50">—</span> : `€${due.toFixed(2)}`}
                       </td>
@@ -237,36 +240,60 @@ const DeclinedPayments = () => {
                           {status || "—"}
                         </span>
                       </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground font-mono tabular-nums">
+                        {r.checkout_id ? (
+                          <span title={r.checkout_id}>{r.checkout_id.slice(0, 8)}</span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground font-mono tabular-nums">
                         {r.updated_at ? format(new Date(r.updated_at), "dd MMM HH:mm") : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        {customer?.phone ? (
-                          <div
-                            className="flex items-center justify-center gap-3"
-                            onClick={(e) => e.stopPropagation()}
+                        <div
+                          className="flex items-center justify-center gap-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {customer?.phone ? (
+                            <>
+                              <a
+                                href={`tel:${customer.phone}`}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary"
+                              >
+                                <Phone className="w-4 h-4" /> Call
+                              </a>
+                              <a
+                                href={`https://wa.me/${formatWhatsApp(customer.phone)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"
+                              >
+                                <MessageCircle className="w-4 h-4" /> WhatsApp
+                              </a>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={sendingId === r.id}
+                            onClick={() => handleSendLink(r)}
                           >
-                            <a
-                              href={`tel:${customer.phone}`}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-primary"
-                            >
-                              <Phone className="w-4 h-4" /> Call
-                            </a>
-                            <a
-                              href={`https://wa.me/${formatWhatsApp(customer.phone)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"
-                            >
-                              <MessageCircle className="w-4 h-4" /> WhatsApp
-                            </a>
-                          </div>
-                        ) : (
-                          <span className="block text-center text-muted-foreground/30">—</span>
-                        )}
+                            {sendingId === r.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
+                            <span className="ml-1">Send New Payment Link</span>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
+
                 })}
               </tbody>
             </table>
