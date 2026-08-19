@@ -2,7 +2,7 @@
 
 ## Goal
 
-Strip the engineer app header back to a compact top bar containing only the BookedJobs logo/name, the notification bell with its real unread count, and the Order Parts button. Keep the existing overflow menu (Back to Office for managers, Log Out) unchanged. Remove the "Good Morning, [name]" greeting and the decorative full-height blue gradient panel — these are being removed from all four engineer screens (Today, Upcoming, Completed, Parts), since the header is shared.
+Strip the engineer app header back to a compact top bar containing only the BookedJobs logo/name, the notification bell with its real unread count, and the Order Parts button. Keep the existing overflow menu (Back to Office for managers, Log Out) unchanged. Remove the "Good Morning, [name]" greeting and the decorative full-height blue gradient panel from all four engineer screens (Today, Upcoming, Completed, Parts), since the header is shared.
 
 ## Scope
 
@@ -29,5 +29,5 @@ Purely visual/layout change in the shared engineer layout component. No data fet
 - Screenshot of /engineer/today, /engineer/upcoming, /engineer/completed, and /engineer/parts confirming the compact header renders consistently on all four.
 - Confirm notification bell still shows the real unread count.
 - Confirm Order Parts still navigates to /engineer/parts.
-- Confirm manager overflow menu still shows Back to Office and Log Out.
+- Confirm manager overflow menu still shows Back to Office and Log Out — tap Back to Office and confirm it actually navigates, not just that the button is visible.
 - Confirm bottom navigation and job cards are unaffected on all four screens.
