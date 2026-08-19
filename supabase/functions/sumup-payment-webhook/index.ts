@@ -420,6 +420,9 @@ Deno.serve(async (req) => {
           })),
         );
 
+        await recordAttemptStatus(e.checkoutId, e.status);
+
+
       } catch (_e) {
         console.error("sumup-payment-webhook: notification insert failed", _e);
       }
