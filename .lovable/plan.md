@@ -1,45 +1,39 @@
-# Fix `send-payment-link` message_log insert
+# Engineer Header Simplification — Today Screen
 
-## What this does
-Adds the required `organisation_id` to the `message_log` insert in `supabase/functions/send-payment-link/index.ts` and logs any insert error instead of silently proceeding.
+## Goal
+Strip the engineer app header back to a compact top bar containing only the BookedJobs logo/name, the notification bell with its real unread count, and the Order Parts button. Keep the existing overflow menu (Back to Office for managers, Log Out) unchanged. Remove the large "Good Morning, [name]" greeting and the decorative full-height blue gradient panel.
 
-## Diff
+## Scope
+This is a purely visual/layout change in the shared engineer layout component. No data fetching, hooks, business logic, bottom navigation, or job cards are changed.
 
-File: `supabase/functions/send-payment-link/index.ts`
+## Affected File
+`src/components/engineer/EngineerLayout.tsx`
 
-```diff
-     // Log to message_log
--    const { data: logRows } = await supabase.from("message_log").insert({
-+    const { data: logRows, error: logError } = await supabase.from("message_log").insert({
-       channel: "whatsapp",
-       message_type: "payment_link",
-       customer_id: job.customer_id,
-+      organisation_id: job.organisation_id,
-       related_id: service_call_id,
-       related_type: "service_call",
-       content: message,
-       sent_by: "system",
-       status: "pending",
-       direction: "outbound",
-     }).select("id");
- 
-     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
-+
-+    if (logError) {
-+      console.error("send-payment-link: failed to insert message_log", {
-+        error: logError.message,
-+        service_call_id,
-+        organisation_id: job.organisation_id,
-+      });
-+    }
-```
+## Changes
 
-## Verification after approval
-1. Apply the diff.
-2. Run Deno tests for affected shared modules (if any are impacted).
-3. Run the project's typecheck / unit test suite.
-4. Deploy only after you confirm the results look good.
+1. **Remove unused header content**
+   - Delete the `greeting()` helper.
+   - Delete the `formatDateHeading()` helper.
+   - Remove the `Hand` and `PartyPopper` imports.
 
-## Notes
-- No other logic changes.
-- The parent SumUp/WhatsApp send continues even if logging fails (log-and-continue discipline).
+2. **Simplify the header JSX**
+   - Replace the full-height `bg-gradient-to-br from-primary to-primary-dark` panel and its decorative circular background elements with a compact top bar.
+   - Keep the top row exactly as structured today:
+     - Left: BookedJobs logo + "BookedJobs" text.
+     - Right: Back to Office button (managers only), Order Parts button, NotificationBell with `unreadCount`, Log Out button.
+   - Remove the date heading, the "Good Morning, [name]" greeting, and the jobs-remaining / all-done status line.
+
+3. **Preserve everything else**
+   - Keep all hooks, state, data fetching, and auth logic intact.
+   - Keep the offline banner, notification drawer, sound prompt, notification banner, message alert banner, onboarding tour, and bottom navigation exactly as they are.
+   - Keep page content padding and safe-area handling unchanged.
+
+## Verification
+- Visual check of `/engineer/today` to confirm the compact header renders correctly.
+- Confirm notification bell still displays the real unread count.
+- Confirm Order Parts button still navigates to `/engineer/parts`.
+- Confirm manager overflow menu still shows "Back to Office" and "Log Out".
+- Confirm bottom navigation and job cards are unaffected.
+
+## Note
+The header lives in `EngineerLayout.tsx`, which is the shared layout for Today, Upcoming, Completed, and Parts. This change will therefore apply to all engineer screens, not only Today. If the simplified header should be Today-only, a separate Today-specific header component would need to be created instead.
