@@ -191,5 +191,16 @@ Added / updated cases:
 
 Verification: full vitest suite plus `tsgo` typecheck, then a click-through of an engineer Card completion and the office Take Payment modal.
 
+## `payment_status = "partial"` — confirmed safe to write
+`service_calls.payment_status` is plain `text` (default `'unpaid'`) with no enum and no check constraint, and `partial` already exists on 4 live rows written by the SumUp deposit branch. No migration required.
+
+Consumers verified: Outstanding Balances (office + engineer), `PaymentSummaryCard`, `paymentSheetAmount`, `JobDetail` badge, `financeMetrics` and the paid-transition trigger all handle `partial` correctly.
+
+Three pre-existing consumers do **not**, and are left untouched here (separate ticket):
+- `get-outstanding-invoices` and `send-outstanding-invoice-reminders` filter `.eq("payment_status","unpaid")`, so part-paid jobs are never chased.
+- `SalesLedger.tsx:67` badges any row with `paid_at` as "Paid" regardless of `payment_status`, so a short-collected `partial` row would show as fully paid.
+- `generate-accountant-export:44` labels anything non-`paid` as unpaid while `financeMetrics` counts its collected money as revenue.
+
 ## Out of scope
-`booking_setup`, Outstanding Balances, receipts, the SumUp webhook call site, terminal SumUp statuses, and any historical data backfill for the 11 rows above.
+`booking_setup`, Outstanding Balances, receipts, the SumUp webhook call site, terminal SumUp statuses, the three `partial`-blind consumers listed above, and any historical data backfill for the 11 rows above.
+
