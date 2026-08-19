@@ -69,6 +69,21 @@ export function useNotifications() {
 
   // Audio unlock is now handled globally in AppLayout via unlockAudio()
 
+  // Server-side unread count — not limited by the 50-row drawer fetch.
+  // Keeps the explicit recipient_user_id filter: the RLS SELECT policy allows
+  // org-wide reads for admin/owner/office, so omitting it would inflate this.
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_user_id", user.id)
+      .eq("is_read", false);
+    setUnreadCount(count || 0);
+  }, [user]);
+
   // Fetch existing notifications
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
