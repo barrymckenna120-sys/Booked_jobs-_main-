@@ -32,8 +32,10 @@ export function isOutstandingBalanceJob(job: OutstandingCandidate): boolean {
     !!job.invoiced_at ||
     (job.payment_method || "").toLowerCase() === "invoice" ||
     job.deposit_paid === true ||
-    // A deposit was requested and has not been paid yet — still worth chasing.
-    (job.deposit_required === true && job.deposit_paid !== true)
+    // A deposit was requested and has not been paid yet (deposit_paid is
+    // already known to be non-true on this branch) — still worth chasing.
+    job.deposit_required === true
+
   );
 }
 
