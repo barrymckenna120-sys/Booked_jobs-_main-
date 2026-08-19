@@ -168,6 +168,9 @@ export interface SumUpWebhookDeps {
     jobReference: string | null;
     amount: number;
     fullyPaid: boolean;
+    /** SumUp's own checkout id and uppercased status, for attempt write-back. */
+    checkoutId: string;
+    status: string;
   }) => Promise<void>;
 
 
@@ -530,6 +533,8 @@ export async function handleSumUpWebhook(
       jobReference: job.job_reference ?? null,
       amount,
       fullyPaid,
+      checkoutId,
+      status,
     });
   }
 
