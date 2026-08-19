@@ -434,6 +434,10 @@ Deno.serve(async (req) => {
       try {
         if (!e.organisationId) return;
 
+        // Terminal status is final for this checkout — record it even if the
+        // alert itself is deduped away below.
+        await recordAttemptStatus(e.checkoutId, e.status);
+
         // SumUp delivers the same failure event more than once. One alert per
         // checkout only; if the dedupe read fails we skip rather than duplicate.
         const { data: existing, error: dupErr } = await supabase
