@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
     if (preferred_date) {
       customerUpdate.next_service_due = preferred_date;
     }
-    await supabase.from("customers").update(customerUpdate).eq("id", customer.id);
+    await supabase.from("customers").update(customerUpdate).eq("id", matchedCustomer.id);
 
     await logInvocation(supabase, body, organisation_id, `success:job=${job.id}`);
 
@@ -242,9 +242,9 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         job_id: job.id,
-        customer_id: customer.id,
-        customer_name: customer.name,
-        phone: customer.phone,
+        customer_id: matchedCustomer.id,
+        customer_name: matchedCustomer.name,
+        phone: matchedCustomer.phone,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
