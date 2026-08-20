@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
     );
 
     if (customerMatched && matchedCustomerId) {
-      customerId = existing.id;
+      customerId = matchedCustomerId;
       await supabase
         .from("customers")
         .update({
