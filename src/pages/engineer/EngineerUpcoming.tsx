@@ -10,12 +10,15 @@ const EngineerUpcoming = () => {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const { upcomingJobs, customers, loading, updateJob } = useOutletContext<EngineerJobsState>();
 
-  // Group by date
+  // Group by date, then sort each day by time block (earliest first, unparseable last).
   const grouped: Record<string, any[]> = {};
   upcomingJobs.forEach((j: any) => {
     const d = j.scheduled_date || "Unscheduled";
     if (!grouped[d]) grouped[d] = [];
     grouped[d].push(j);
+  });
+  Object.keys(grouped).forEach((d) => {
+    grouped[d].sort((a: any, b: any) => timeBlockStartMinutes(a.time_block) - timeBlockStartMinutes(b.time_block));
   });
 
   return (
