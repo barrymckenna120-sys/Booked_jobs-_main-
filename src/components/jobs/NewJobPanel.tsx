@@ -416,10 +416,35 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
               />
               {errors.address && <p className="text-xs mt-1 font-medium text-destructive">{errors.address}</p>}
             </div>
-            {duplicate && (
-              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-warning flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>"{duplicate.name}" already has this phone number. Search for them above instead of creating a duplicate.</span>
+            {duplicates.length > 0 && !dupeAcknowledged && (
+              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] text-warning space-y-2">
+                <div className="flex items-start gap-2 font-semibold">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>
+                    {duplicates.length === 1
+                      ? "1 existing customer already has this phone number:"
+                      : `${duplicates.length} existing customers already have this phone number:`}
+                  </span>
+                </div>
+                <ul className="pl-6 space-y-0.5 font-medium">
+                  {duplicates.map((d) => (
+                    <li key={d.id} className="truncate">{d.name || "Unnamed customer"} · {d.phone}</li>
+                  ))}
+                </ul>
+                <p className="pl-6 text-[12px] font-medium text-warning/80">
+                  Search for them above instead of creating a duplicate — or continue if this is a different person on the same number.
+                </p>
+                <div className="pl-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px] font-bold"
+                    onClick={() => { setDupeAcknowledged(true); handleNext(); }}
+                  >
+                    Create anyway
+                  </Button>
+                </div>
               </div>
             )}
             {dupeCheckError && (
