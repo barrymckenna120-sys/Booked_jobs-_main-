@@ -218,7 +218,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const canProceed = Boolean(
     selected
       ? true
-      : isNew && name.trim() && phoneValid && address.trim() && !duplicate && !checkingDupe
+      : isNew && name.trim() && phoneValid && address.trim() && !checkingDupe
   );
 
   const handleNext = async () => {
@@ -240,31 +240,51 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     const cleanPhone = formatPhoneInternational(phone);
     const cleanEircode = eircode.trim() ? formatEircode(eircode) : "";
 
-    // Fail-safe duplicate check: any error blocks progression.
+    const proceed = () => {
+      setName(cleanName);
+      setPhone(cleanPhone);
+      if (cleanEircode) setEircode(cleanEircode);
+      onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    };
+
+    // Already warned about the matches and the user chose to continue.
+    if (dupeAcknowledged) { proceed(); return; }
+
+    // Org must be resolved, otherwise the filter becomes `eq.undefined` and 400s.
+    if (!orgId) {
+      setDupeCheckError("Still loading your organisation — try again in a moment");
+      return;
+    }
+
+    // Duplicate check. Matched by last-9 digits so 0894… and +353894… are the
+    // same line. A list query (never .maybeSingle()) because several customers
+    // legitimately share one household number — multiple rows must not throw.
     setCheckingDupe(true);
     setDupeCheckError(null);
-    setDuplicate(null);
-    const { data: dupe, error: dupeErr } = await supabase
+    setDuplicates([]);
+    const { data: rows, error: dupeErr } = await supabase
       .from("customers")
-      .select("id, name")
-      .eq("phone", cleanPhone)
-      .eq("organisation_id", orgId!)
-      .maybeSingle();
+      .select("id, name, phone")
+      .eq("organisation_id", orgId)
+      .limit(5000);
     setCheckingDupe(false);
 
+    // A real query failure (network, RLS, 400) still blocks.
     if (dupeErr) {
       setDupeCheckError("Couldn't check for duplicates — try again");
       return;
     }
-    if (dupe) {
-      setDuplicate({ id: dupe.id, name: dupe.name });
+
+    const key = last9Digits(cleanPhone);
+    const matches = key ? (rows ?? []).filter((c) => last9Digits(c.phone) === key) : [];
+
+    // Warn, but never hard-block: the user can confirm with "Create anyway".
+    if (matches.length > 0) {
+      setDuplicates(matches);
       return;
     }
 
-    setName(cleanName);
-    setPhone(cleanPhone);
-    if (cleanEircode) setEircode(cleanEircode);
-    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    proceed();
   };
 
 
