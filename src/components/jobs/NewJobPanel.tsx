@@ -383,7 +383,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Mobile Number <span className="text-destructive">*</span></Label>
               <Input
                 value={phone}
-                onChange={(e) => { setPhone(e.target.value); clearError("phone"); setDuplicate(null); setDupeCheckError(null); }}
+                onChange={(e) => { setPhone(e.target.value); clearError("phone"); clearDupeState(); }}
                 onBlur={blurPhone}
                 placeholder="083 123 4567"
                 maxLength={30}
