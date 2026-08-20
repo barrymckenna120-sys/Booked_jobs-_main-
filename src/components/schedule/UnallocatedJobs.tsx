@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CalendarDays, Clock, X, ArrowUpDown, Camera, RotateCw } from "lucide-react";
-import { format, isToday, differenceInHours } from "date-fns";
+import { format, isToday } from "date-fns";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 
 type Props = {
   jobs: ScheduleJob[];
@@ -43,17 +44,6 @@ const formatTimestamp = (dateStr: string | null | undefined) => {
     return format(date, "d MMM");
   } catch {
     return "";
-  }
-};
-
-const isNew = (dateStr: string | null | undefined) => {
-  if (!dateStr) return false;
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return false;
-    return differenceInHours(new Date(), date) < 24;
-  } catch {
-    return false;
   }
 };
 
@@ -161,9 +151,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
                     <Camera className="w-2.5 h-2.5" /> {job.media_count}
                   </span>
                 )}
-                {isNew(job.created_at) && (
-                  <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/20 text-[10px]">New</Badge>
-                )}
+                <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
               </div>
               {onJobClick ? (
                 <button

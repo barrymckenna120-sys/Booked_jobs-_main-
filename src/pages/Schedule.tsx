@@ -118,6 +118,7 @@ export type ScheduleJob = {
   confirmed?: boolean | null;
   confirmed_at?: string | null;
   source?: string | null;
+  customer_status_at_booking?: string | null;
 };
 
 const Schedule = () => {
@@ -237,6 +238,7 @@ const Schedule = () => {
         confirmed: j.confirmed ?? false,
         confirmed_at: j.confirmed_at || null,
         source: j.source || null,
+        customer_status_at_booking: j.customer_status_at_booking ?? null,
       })) as ScheduleJob[];
     },
     enabled: !!user && ready,

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Plus, ChevronLeft, ChevronRight, MapPin, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import AddCustomerSheet from "@/components/customer/AddCustomerSheet";
 import { extractRefDigits } from "@/lib/jobRefSearch";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 
 const PAGE_SIZE = 15;
 
@@ -37,10 +38,40 @@ const Customers = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
+  // Derived (not stored): customers whose ONLY job was booked as a new customer
+  const [newCustomerIds, setNewCustomerIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user && ready) fetchCustomers();
   }, [user, ready]);
+
+  // Derive the "New Customer" badge from existing job rows: exactly one job total
+  // and that job was booked with customer_status_at_booking = 'new'.
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    supabase
+      .from("service_calls")
+      .select("customer_id, customer_status_at_booking")
+      .eq("organisation_id", orgId)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const counts = new Map<string, { total: number; newAtBooking: number }>();
+        for (const row of data as any[]) {
+          if (!row.customer_id) continue;
+          const entry = counts.get(row.customer_id) || { total: 0, newAtBooking: 0 };
+          entry.total += 1;
+          if (row.customer_status_at_booking === "new") entry.newAtBooking += 1;
+          counts.set(row.customer_id, entry);
+        }
+        const ids = new Set<string>();
+        counts.forEach((v, id) => {
+          if (v.total === 1 && v.newAtBooking === 1) ids.add(id);
+        });
+        setNewCustomerIds(ids);
+      });
+    return () => { cancelled = true; };
+  }, [orgId, customers.length]);
 
   // Realtime: re-fetch on INSERT so new customers appear instantly
   useEffect(() => {
@@ -312,7 +343,12 @@ const Customers = () => {
                 <TableBody>
                   {paginated.map((c) => (
                     <TableRow key={c.id} className="cursor-pointer hover:bg-primary-light transition-colors" onClick={() => navigate(`/customers/${c.id}`)}>
-                      <TableCell className="font-semibold">{c.name}</TableCell>
+                      <TableCell className="font-semibold">
+                        <span className="inline-flex items-center gap-1.5 flex-wrap">
+                          {c.name}
+                          <NewCustomerBadge status={newCustomerIds.has(c.id) ? "new" : null} size="sm" />
+                        </span>
+                      </TableCell>
                       <TableCell>{c.phone}</TableCell>
                       <TableCell className="hidden md:table-cell">{c.address}</TableCell>
                       <TableCell className="hidden md:table-cell">{c.eircode}</TableCell>
