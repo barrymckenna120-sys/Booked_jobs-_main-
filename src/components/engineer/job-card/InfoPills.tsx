@@ -15,6 +15,8 @@ interface InfoPillsProps {
   /** Job payment fields — classified by the shared resolvePaymentSheetState helper. */
   paymentJob?: PaymentSheetJob | null;
   scheduledDate?: string | null;
+  /** service_calls.customer_status_at_booking — only 'new' renders a pill. */
+  customerStatusAtBooking?: string | null;
   /** Optional action shown when a deposit or balance is due. */
   onTakePayment?: () => void;
 }
