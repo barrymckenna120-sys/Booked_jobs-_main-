@@ -175,8 +175,8 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .insert({
-        customer_id: customer.id,
-        user_id: customer.user_id,
+        customer_id: matchedCustomer.id,
+        user_id: matchedCustomer.user_id,
         organisation_id,
         job_type: "Boiler Service",
         status: "Pending Payment",
@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
         time_block: preferred_time || null,
         source: source === "renewal_tally" ? "Renewal Tally Rebooking" : "Tally Rebooking",
         tally_submission_id: submissionId,
+        customer_status_at_booking: "existing",
       })
       .select("id")
       .single();
