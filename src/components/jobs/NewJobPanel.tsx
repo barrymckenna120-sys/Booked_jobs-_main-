@@ -180,6 +180,12 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
 
   // formatPhoneInternational never throws and never rejects input — it blindly
   // prepends +353, so validatePhone must gate it. Validate first, format after.
+  const clearDupeState = () => {
+    setDuplicates([]);
+    setDupeAcknowledged(false);
+    setDupeCheckError(null);
+  };
+
   const blurPhone = () => {
     const err = validatePhone(phone);
     if (err) {
@@ -188,8 +194,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     }
     setErrors((e) => ({ ...e, phone: "" }));
     setPhone(formatPhoneInternational(phone));
-    setDuplicate(null);
-    setDupeCheckError(null);
+    clearDupeState();
   };
 
   const blurLandline = () => {
