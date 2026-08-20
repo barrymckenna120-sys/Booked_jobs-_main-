@@ -142,7 +142,8 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
   const [errors, setErrors] = useState<CustomerFieldErrors>({});
-  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
+  const [duplicates, setDuplicates] = useState<Array<{ id: string; name: string; phone: string | null }>>([]);
+  const [dupeAcknowledged, setDupeAcknowledged] = useState(false);
   const [dupeCheckError, setDupeCheckError] = useState<string | null>(null);
   const [checkingDupe, setCheckingDupe] = useState(false);
 
