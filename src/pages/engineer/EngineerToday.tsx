@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase, Package, AlertTriangle, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
+import EngineerCompactJobRow from "@/components/engineer/EngineerCompactJobRow";
+
 import EngineerOutstandingBalances from "@/components/engineer/EngineerOutstandingBalances";
 import { getNextJobId, type EngineerJobsState } from "@/hooks/useEngineerJobs";
 import { useAuth } from "@/hooks/useAuth";
@@ -131,9 +133,24 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {sortedActive.map((job: any) => (
-            <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} isNextJob={job.id === nextJobId} />
-          ))}
+          {sortedActive.length > 0 && (
+            <EngineerJobCard
+              key={sortedActive[0].id}
+              job={sortedActive[0]}
+              customer={customers[sortedActive[0].customer_id] || {}}
+              onUpdate={updateJob}
+              isNextJob={sortedActive[0].id === nextJobId}
+            />
+          )}
+
+          {sortedActive.length > 1 && (
+            <>
+              <SectionDivider label="REST OF DAY" />
+              {sortedActive.slice(1).map((job: any) => (
+                <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
+              ))}
+            </>
+          )}
 
           {todayCancelled.length > 0 && (
             <>
@@ -145,11 +162,12 @@ const EngineerToday = () => {
                     fadingJobIds.has(job.id) ? "opacity-0 scale-95 max-h-0 overflow-hidden" : "opacity-100 scale-100"
                   }`}
                 >
-                  <EngineerJobCard job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} />
+                  <EngineerCompactJobRow job={job} customer={customers[job.customer_id] || {}} />
                 </div>
               ))}
             </>
           )}
+
         </>
       )}
 
