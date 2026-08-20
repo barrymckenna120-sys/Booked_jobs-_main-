@@ -310,7 +310,7 @@ serve(async (req) => {
 
       if (userId) {
         const usersRes = await fetch(
-          `${supabaseUrl}/rest/v1/engineers?organisation_id=eq.${orgId}&role=in.(admin,office)&status=eq.active&auth_user_id=not.is.null&select=auth_user_id`,
+          `${supabaseUrl}/rest/v1/engineers?organisation_id=eq.${orgId}&role=in.(admin,office,owner)&status=eq.active&auth_user_id=not.is.null&select=auth_user_id`,
           { headers }
         );
         const adminUsers = await usersRes.json();
