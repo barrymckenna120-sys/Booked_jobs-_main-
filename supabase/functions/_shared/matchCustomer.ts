@@ -92,13 +92,14 @@ export async function matchCustomer(
   if (cleanEmail) {
     const { data } = await supabase
       .from("customers")
-      .select("id, phone, updated_at, created_at")
+      .select("id, user_id, phone, updated_at, created_at")
       .eq("organisation_id", organisationId)
       .ilike("email", cleanEmail);
 
     const rows = (data ?? []) as CustomerRow[];
     if (rows.length > 0) {
-      return { matched: true, customerId: rows.slice().sort(byMostRecentlyActive)[0].id };
+      const winner = rows.slice().sort(byMostRecentlyActive)[0];
+      return { matched: true, customerId: winner.id, customer: winner };
     }
   }
 
