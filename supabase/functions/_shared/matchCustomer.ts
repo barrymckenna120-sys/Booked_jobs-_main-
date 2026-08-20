@@ -76,7 +76,7 @@ export async function matchCustomer(
   if (key) {
     const { data } = await supabase
       .from("customers")
-      .select("id, user_id, phone, updated_at, created_at")
+      .select("id, user_id, name, phone, updated_at, created_at")
       .eq("organisation_id", organisationId);
 
     const rows = ((data ?? []) as CustomerRow[]).filter(
