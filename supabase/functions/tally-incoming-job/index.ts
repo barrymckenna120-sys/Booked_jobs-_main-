@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
 
 const corsHeaders = {
@@ -260,16 +261,15 @@ Deno.serve(async (req) => {
 
     console.log("[tally-incoming-job] orgData.id:", orgData.id, "userId:", userId);
 
-    const { data: existing } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("phone", normalisedPhone)
-      .eq("organisation_id", orgData.id)
-      .limit(1)
-      .maybeSingle();
+    const { matched: customerMatched, customerId: matchedCustomerId } = await matchCustomer(
+      supabase,
+      orgData.id,
+      normalisedPhone,
+      email,
+    );
 
-    if (existing) {
-      customerId = existing.id;
+    if (customerMatched && matchedCustomerId) {
+      customerId = matchedCustomerId;
       await supabase
         .from("customers")
         .update({
@@ -338,6 +338,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         organisation_id: orgData?.id,
         customer_id: customerId,
+        customer_status_at_booking: customerMatched ? "existing" : "new",
         job_type: "Boiler Service",
         status: "Pending",
         source: "Tally Form",
