@@ -208,6 +208,24 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         </div>
 
+        {/* Boiler model / location from customer record */}
+        {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim() || customer?.boiler_location?.trim()) && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs">
+            {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim()) && (
+              <div className="flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                <span className="font-bold text-foreground">{(customer.boiler_make_model?.trim() || customer.boiler_model?.trim())}</span>
+              </div>
+            )}
+            {customer?.boiler_location?.trim() && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                <span className="font-bold text-foreground">{customer.boiler_location.trim()}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Customer receipt note (read-only) */}
         {job.customer_facing_notes?.trim() && (
           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-3">
