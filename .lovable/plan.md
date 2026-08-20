@@ -15,8 +15,8 @@ Both are assigned to the engineer record "barry manager", which has no linked lo
 
 Two scratch jobs, today's date, assigned to nicole's engineer record, for the existing test customer "ZZ Scratch Boiler Audit" — no real customer or existing job row touched. They stay in place afterwards as fixtures.
 
-1. Payment-pill row: status Booked, later time block so it is not the next job, deposit required EUR 250, deposit unpaid, revenue EUR 500 — same shape as KN-490.
-2. Cancelled row: status Cancelled, paid/zero balance so the pill does not confuse the check.
+1. Payment-pill row: created through the office New Job flow (`NewJobPanel`, Step 4) with "deposit required" set and no deposit collected — the same write path the office uses for a real deposit-request booking, so `deposit_required` / `deposit_paid` / `balance_due` land via the shared payment logic rather than hand-set values. Later time block so it is not the next job.
+2. Cancelled row: created through the same New Job flow, then cancelled via the office cancel action (the real status-change path), not by writing `status` directly.
 
 ## Verification
 
@@ -28,8 +28,12 @@ Sign into the engineer app as the existing engineer login and capture, at phone 
 
 Report both screenshots and confirm no console errors.
 
+## Cleanup
+
+After the screenshots, delete both scratch jobs through the app's real job-deletion path (office job delete action), not a raw row delete — so dependent rows and side effects are handled the way production does it. Then report a final query confirming zero scratch/test jobs remain scheduled for today.
+
 ## Technical notes
 
-- Inserts go into `service_calls` with `organisation_id` = K&N, `assigned_engineer_id` = nicole's engineer id, `customer_id` = the ZZ Scratch customer, `scheduled_date` = today (Europe/Dublin).
-- Payment fields set directly to the target state rather than routed through payment helpers, since this is fixture data, not a payment flow test.
+- Both jobs are created via the office UI (driven with Playwright as the office login) for the K&N tenant, assigned to nicole's engineer record, customer "ZZ Scratch Boiler Audit", scheduled today (Europe/Dublin).
+- No direct `service_calls` field writes for the payment state. If the office flow turns out not to expose a deposit-required option that reaches the shared payment logic — or the cancel/delete actions are gated in a way this login cannot reach — I will stop and state that explicitly before considering a direct write, rather than falling back silently.
 - `EngineerCompactJobRow` already reads `resolveDepositPill(job)` and `getStatusConfig(job.status)`, so no component change is expected; if the pill does not render, that is a real finding and gets its own fix prompt.
