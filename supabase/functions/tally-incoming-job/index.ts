@@ -338,6 +338,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         organisation_id: orgData?.id,
         customer_id: customerId,
+        customer_status_at_booking: customerMatched ? "existing" : "new",
         job_type: "Boiler Service",
         status: "Pending",
         source: "Tally Form",
