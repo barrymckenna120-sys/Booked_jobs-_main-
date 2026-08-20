@@ -2474,6 +2474,7 @@ export type Database = {
           created_at: string
           customer_facing_notes: string | null
           customer_id: string
+          customer_status_at_booking: string | null
           deposit_amount: number | null
           deposit_paid: boolean
           deposit_required: boolean
@@ -2565,6 +2566,7 @@ export type Database = {
           created_at?: string
           customer_facing_notes?: string | null
           customer_id: string
+          customer_status_at_booking?: string | null
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
@@ -2656,6 +2658,7 @@ export type Database = {
           created_at?: string
           customer_facing_notes?: string | null
           customer_id?: string
+          customer_status_at_booking?: string | null
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
