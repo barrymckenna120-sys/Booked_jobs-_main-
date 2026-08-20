@@ -44,11 +44,11 @@ matchCustomer(supabase, organisationId, phone, email?)
 Lookup order, all scoped to `organisation_id`:
 
 1. Exact match on the normalised `+353…` phone.
-2. Fall back to last-9-digit match (the `tally-boiler-rebook` strategy: fetch org customers' `id, phone`, compare `last9Digits`).
-3. If a non-empty `email` was supplied and no phone match, exact `email` match.
+2. Fall back to last-9-digit match (the `tally-boiler-rebook` strategy: fetch org customers' `id, phone, updated_at`, compare `last9Digits`).
+3. If a non-empty `email` was supplied and no phone match, case-insensitive `email` match (`ilike` or `lower()` on both sides).
 4. Otherwise `{ matched: false, customerId: null }`.
 
-Deterministic ordering (oldest customer first) is used when more than one row could match, so repeated calls return the same id.
+Tie-breaking: when more than one row could match, pick the most recently active customer. `customers.updated_at` is reliably maintained by `update_customers_updated_at`, so order by `updated_at desc` (then by `created_at desc` or `id asc` as a stable secondary key).
 
 ## Not doing in this step
 
