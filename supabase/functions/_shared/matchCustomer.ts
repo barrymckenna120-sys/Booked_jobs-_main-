@@ -20,10 +20,13 @@ import { last9Digits, normalisePhoneE164 } from "./phone.ts";
 export interface MatchCustomerResult {
   matched: boolean;
   customerId: string | null;
+  customer?: { id: string; user_id?: string | null; name?: string | null; phone?: string | null } | null;
 }
 
 interface CustomerRow {
   id: string;
+  user_id?: string | null;
+  name?: string | null;
   phone: string | null;
   updated_at: string | null;
   created_at: string | null;
@@ -55,7 +58,7 @@ export async function matchCustomer(
   if (normalised) {
     const { data } = await supabase
       .from("customers")
-      .select("id, phone, updated_at, created_at")
+      .select("id, user_id, name, phone, updated_at, created_at")
       .eq("organisation_id", organisationId)
       .eq("phone", normalised)
       .order("updated_at", { ascending: false })
@@ -64,7 +67,8 @@ export async function matchCustomer(
 
     const rows = (data ?? []) as CustomerRow[];
     if (rows.length > 0) {
-      return { matched: true, customerId: rows.slice().sort(byMostRecentlyActive)[0].id };
+      const winner = rows.slice().sort(byMostRecentlyActive)[0];
+      return { matched: true, customerId: winner.id, customer: winner };
     }
   }
 
@@ -72,14 +76,15 @@ export async function matchCustomer(
   if (key) {
     const { data } = await supabase
       .from("customers")
-      .select("id, phone, updated_at, created_at")
+      .select("id, user_id, name, phone, updated_at, created_at")
       .eq("organisation_id", organisationId);
 
     const rows = ((data ?? []) as CustomerRow[]).filter(
       (r) => last9Digits(r.phone) === key,
     );
     if (rows.length > 0) {
-      return { matched: true, customerId: rows.slice().sort(byMostRecentlyActive)[0].id };
+      const winner = rows.slice().sort(byMostRecentlyActive)[0];
+      return { matched: true, customerId: winner.id, customer: winner };
     }
   }
 
@@ -88,13 +93,14 @@ export async function matchCustomer(
   if (cleanEmail) {
     const { data } = await supabase
       .from("customers")
-      .select("id, phone, updated_at, created_at")
+      .select("id, user_id, name, phone, updated_at, created_at")
       .eq("organisation_id", organisationId)
       .ilike("email", cleanEmail);
 
     const rows = (data ?? []) as CustomerRow[];
     if (rows.length > 0) {
-      return { matched: true, customerId: rows.slice().sort(byMostRecentlyActive)[0].id };
+      const winner = rows.slice().sort(byMostRecentlyActive)[0];
+      return { matched: true, customerId: winner.id, customer: winner };
     }
   }
 

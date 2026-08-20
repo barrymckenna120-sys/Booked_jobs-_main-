@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { last9Digits, normalisePhoneE164 } from "../_shared/phone.ts";
+import { matchCustomer } from "../_shared/matchCustomer.ts";
+import { normalisePhoneE164 } from "../_shared/phone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +68,7 @@ Deno.serve(async (req) => {
 
     const {
       phone,
+      email,
       preferred_date,
       preferred_time,
       organisation_id,
@@ -129,35 +131,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Look up customer by last-9-digit phone match within the org.
-    const incomingLast9 = last9Digits(normalisedPhone);
-    if (!incomingLast9) {
-      await logInvocation(supabase, body, organisation_id, "bad_request_invalid_phone");
-      return new Response(JSON.stringify({ error: "Invalid phone" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Look up customer via shared matcher (exact phone, last-9 fallback, email fallback).
+    const { matched: customerMatched, customer: matchedCustomer } = await matchCustomer(
+      supabase,
+      organisation_id,
+      normalisedPhone,
+      email,
+    );
 
-    const { data: candidates, error: custErr } = await supabase
-      .from("customers")
-      .select("id, name, phone, user_id")
-      .eq("organisation_id", organisation_id);
-
-    if (custErr) {
-      console.error("Customer lookup error:", custErr);
-      await logInvocation(supabase, body, organisation_id, `db_error:${custErr.message}`);
-      return new Response(JSON.stringify({ error: "Database error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const customer = (candidates ?? []).find(
-      (c: { phone: string | null }) => last9Digits(c.phone) === incomingLast9,
-    ) ?? null;
-
-    if (!customer) {
+    if (!customerMatched || !matchedCustomer) {
       // Notify office of unmatched rebook (unchanged behaviour).
       const { data: settings } = await supabase
         .from("settings")
@@ -193,8 +175,8 @@ Deno.serve(async (req) => {
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
       .insert({
-        customer_id: customer.id,
-        user_id: customer.user_id,
+        customer_id: matchedCustomer.id,
+        user_id: matchedCustomer.user_id,
         organisation_id,
         job_type: "Boiler Service",
         status: "Pending Payment",
@@ -202,6 +184,7 @@ Deno.serve(async (req) => {
         time_block: preferred_time || null,
         source: source === "renewal_tally" ? "Renewal Tally Rebooking" : "Tally Rebooking",
         tally_submission_id: submissionId,
+        customer_status_at_booking: "existing",
       })
       .select("id")
       .single();
@@ -251,7 +234,7 @@ Deno.serve(async (req) => {
     if (preferred_date) {
       customerUpdate.next_service_due = preferred_date;
     }
-    await supabase.from("customers").update(customerUpdate).eq("id", customer.id);
+    await supabase.from("customers").update(customerUpdate).eq("id", matchedCustomer.id);
 
     await logInvocation(supabase, body, organisation_id, `success:job=${job.id}`);
 
@@ -259,9 +242,9 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         job_id: job.id,
-        customer_id: customer.id,
-        customer_name: customer.name,
-        phone: customer.phone,
+        customer_id: matchedCustomer.id,
+        customer_name: matchedCustomer.name,
+        phone: matchedCustomer.phone,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
