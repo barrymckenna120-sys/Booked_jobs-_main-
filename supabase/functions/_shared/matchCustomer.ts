@@ -20,7 +20,7 @@ import { last9Digits, normalisePhoneE164 } from "./phone.ts";
 export interface MatchCustomerResult {
   matched: boolean;
   customerId: string | null;
-  customer?: { id: string; user_id?: string | null; name?: string | null } | null;
+  customer?: { id: string; user_id?: string | null; name?: string | null; phone?: string | null } | null;
 }
 
 interface CustomerRow {
