@@ -6,6 +6,7 @@ import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 
 type Props = {
   weekDays: Date[];
@@ -195,6 +196,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                               <div className="flex items-center gap-1 mt-1">
                                 {jobTypeBadge(job.job_type)}
                                 {mediaBadge(job.media_count)}
+                                <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
                               {selectedEngineer === "all" && job.assigned_engineer && (
@@ -255,6 +257,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} size="sm" />
                             {jobTypeBadge(job.job_type)}
                             {mediaBadge(job.media_count)}
+                            <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
                           </div>
                         </div>
