@@ -19,6 +19,7 @@ const EngineerCompactJobRow = ({ job, customer }: EngineerCompactJobRowProps) =>
   const status = getStatusConfig(job.status);
   const { pill } = resolveDepositPill(job);
   const timeLabel = TIME_LABELS[job.time_block || ""] || job.time_block || "—";
+  const jobRef = job.job_reference || `KN-${job.id?.slice(0, 6).toUpperCase() || "???"}`;
   const address = [customer?.address, job.area_code || customer?.area_code, customer?.eircode]
     .filter(Boolean)
     .join(", ");
@@ -36,6 +37,8 @@ const EngineerCompactJobRow = ({ job, customer }: EngineerCompactJobRowProps) =>
       <span className="flex-1 min-w-0">
         <span className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-bold text-foreground truncate">{customer?.name || "—"}</span>
+          <span className="text-[11px] font-mono text-muted-foreground/70 shrink-0">· {jobRef}</span>
+
           <span className={`${status.bg} ${status.color} rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0`}>
             {status.label}
           </span>
