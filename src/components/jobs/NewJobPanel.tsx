@@ -1517,6 +1517,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           balanceDue: finalData.payment.balanceDue,
         }),
         source: "Manual",
+        customer_status_at_booking: isNewCustomer ? "new" : "existing",
         incoming_status: "Accepted",
         email: finalData.job.email || null,
         job_issue: finalData.job.jobIssue || null,
