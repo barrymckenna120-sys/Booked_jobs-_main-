@@ -46,6 +46,24 @@ export const validateLandline = (raw: string): string | null => {
   return null;
 };
 
+/**
+ * Last-9-digit matching key, for comparing an inbound/typed number against
+ * stored numbers regardless of format ("0894436301", "+353894436301",
+ * "089 443 6301" all → "894436301"). Returns "" when there are fewer than 9
+ * digits, so an unmatchable value never accidentally matches another.
+ *
+ * Deliberate frontend twin of `last9Digits` in
+ * `supabase/functions/_shared/phone.ts` — Edge Function modules cannot be
+ * imported into the Vite bundle. Keep the two in sync; both are unit-tested.
+ */
+export const last9Digits = (raw: string | null | undefined): string => {
+  if (!raw || typeof raw !== "string") return "";
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 9 ? digits.slice(-9) : "";
+};
+
+
+
 
 export const validateEircode = (raw: string): string | null => {
   const stripped = raw.replace(/\s+/g, "");

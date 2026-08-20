@@ -25,7 +25,7 @@ import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
 import {
   validateRequired, validatePhone, validateEircode, validateLandline,
-  formatEircode, formatPhoneInternational, RED_BORDER, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, last9Digits, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
@@ -142,7 +142,8 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
   const [errors, setErrors] = useState<CustomerFieldErrors>({});
-  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
+  const [duplicates, setDuplicates] = useState<Array<{ id: string; name: string; phone: string | null }>>([]);
+  const [dupeAcknowledged, setDupeAcknowledged] = useState(false);
   const [dupeCheckError, setDupeCheckError] = useState<string | null>(null);
   const [checkingDupe, setCheckingDupe] = useState(false);
 
@@ -179,6 +180,12 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
 
   // formatPhoneInternational never throws and never rejects input — it blindly
   // prepends +353, so validatePhone must gate it. Validate first, format after.
+  const clearDupeState = () => {
+    setDuplicates([]);
+    setDupeAcknowledged(false);
+    setDupeCheckError(null);
+  };
+
   const blurPhone = () => {
     const err = validatePhone(phone);
     if (err) {
@@ -187,8 +194,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     }
     setErrors((e) => ({ ...e, phone: "" }));
     setPhone(formatPhoneInternational(phone));
-    setDuplicate(null);
-    setDupeCheckError(null);
+    clearDupeState();
   };
 
   const blurLandline = () => {
@@ -212,10 +218,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
   const canProceed = Boolean(
     selected
       ? true
-      : isNew && name.trim() && phoneValid && address.trim() && !duplicate && !checkingDupe
+      : isNew && name.trim() && phoneValid && address.trim() && !checkingDupe
   );
 
-  const handleNext = async () => {
+  const handleNext = async (force = false) => {
     if (!isNew) { onNext(selected); return; }
 
     const cleanName = name.replace(/\s+/g, " ").trim();
@@ -234,31 +240,51 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     const cleanPhone = formatPhoneInternational(phone);
     const cleanEircode = eircode.trim() ? formatEircode(eircode) : "";
 
-    // Fail-safe duplicate check: any error blocks progression.
+    const proceed = () => {
+      setName(cleanName);
+      setPhone(cleanPhone);
+      if (cleanEircode) setEircode(cleanEircode);
+      onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    };
+
+    // Already warned about the matches and the user chose to continue.
+    if (force || dupeAcknowledged) { proceed(); return; }
+
+    // Org must be resolved, otherwise the filter becomes `eq.undefined` and 400s.
+    if (!orgId) {
+      setDupeCheckError("Still loading your organisation — try again in a moment");
+      return;
+    }
+
+    // Duplicate check. Matched by last-9 digits so 0894… and +353894… are the
+    // same line. A list query (never .maybeSingle()) because several customers
+    // legitimately share one household number — multiple rows must not throw.
     setCheckingDupe(true);
     setDupeCheckError(null);
-    setDuplicate(null);
-    const { data: dupe, error: dupeErr } = await supabase
+    setDuplicates([]);
+    const { data: rows, error: dupeErr } = await supabase
       .from("customers")
-      .select("id, name")
-      .eq("phone", cleanPhone)
-      .eq("organisation_id", orgId!)
-      .maybeSingle();
+      .select("id, name, phone")
+      .eq("organisation_id", orgId)
+      .limit(5000);
     setCheckingDupe(false);
 
+    // A real query failure (network, RLS, 400) still blocks.
     if (dupeErr) {
       setDupeCheckError("Couldn't check for duplicates — try again");
       return;
     }
-    if (dupe) {
-      setDuplicate({ id: dupe.id, name: dupe.name });
+
+    const key = last9Digits(cleanPhone);
+    const matches = key ? (rows ?? []).filter((c) => last9Digits(c.phone) === key) : [];
+
+    // Warn, but never hard-block: the user can confirm with "Create anyway".
+    if (matches.length > 0) {
+      setDuplicates(matches);
       return;
     }
 
-    setName(cleanName);
-    setPhone(cleanPhone);
-    if (cleanEircode) setEircode(cleanEircode);
-    onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    proceed();
   };
 
 
@@ -357,7 +383,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Mobile Number <span className="text-destructive">*</span></Label>
               <Input
                 value={phone}
-                onChange={(e) => { setPhone(e.target.value); clearError("phone"); setDuplicate(null); setDupeCheckError(null); }}
+                onChange={(e) => { setPhone(e.target.value); clearError("phone"); clearDupeState(); }}
                 onBlur={blurPhone}
                 placeholder="083 123 4567"
                 maxLength={30}
@@ -390,10 +416,35 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
               />
               {errors.address && <p className="text-xs mt-1 font-medium text-destructive">{errors.address}</p>}
             </div>
-            {duplicate && (
-              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-warning flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>"{duplicate.name}" already has this phone number. Search for them above instead of creating a duplicate.</span>
+            {duplicates.length > 0 && !dupeAcknowledged && (
+              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] text-warning space-y-2">
+                <div className="flex items-start gap-2 font-semibold">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>
+                    {duplicates.length === 1
+                      ? "1 existing customer already has this phone number:"
+                      : `${duplicates.length} existing customers already have this phone number:`}
+                  </span>
+                </div>
+                <ul className="pl-6 space-y-0.5 font-medium">
+                  {duplicates.map((d) => (
+                    <li key={d.id} className="truncate">{d.name || "Unnamed customer"} · {d.phone}</li>
+                  ))}
+                </ul>
+                <p className="pl-6 text-[12px] font-medium text-warning/80">
+                  Search for them above instead of creating a duplicate — or continue if this is a different person on the same number.
+                </p>
+                <div className="pl-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px] font-bold"
+                    onClick={() => { setDupeAcknowledged(true); handleNext(true); }}
+                  >
+                    Create anyway
+                  </Button>
+                </div>
               </div>
             )}
             {dupeCheckError && (
@@ -463,7 +514,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border">
-        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed || checkingDupe} onClick={handleNext}>
+        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed || checkingDupe} onClick={() => handleNext()}>
           {checkingDupe ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
           ) : canProceed ? `Continue with ${selected?.name || name} →` : "Select or add a customer"}
