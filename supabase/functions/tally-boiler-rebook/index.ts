@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { last9Digits, normalisePhoneE164 } from "../_shared/phone.ts";
+import { matchCustomer } from "../_shared/matchCustomer.ts";
+import { normalisePhoneE164 } from "../_shared/phone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
