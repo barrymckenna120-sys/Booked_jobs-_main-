@@ -221,7 +221,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       : isNew && name.trim() && phoneValid && address.trim() && !checkingDupe
   );
 
-  const handleNext = async () => {
+  const handleNext = async (force = false) => {
     if (!isNew) { onNext(selected); return; }
 
     const cleanName = name.replace(/\s+/g, " ").trim();
