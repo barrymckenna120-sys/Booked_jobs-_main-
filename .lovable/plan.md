@@ -1,24 +1,43 @@
-# Replace 24h "New" badge with real customer-status badge in UnallocatedJobs
+# KN-512 matching: findings and follow-up
 
-## Goal
-Close BJ-0051 and the schedule-card piece of BJ-0047 by replacing the misleading 24-hour freshness badge in `UnallocatedJobs.tsx` with a badge driven by `service_calls.customer_status_at_booking`.
+## What the audit found
 
-## Changes
-1. **src/pages/Schedule.tsx**
-   - Add `customer_status_at_booking?: string | null;` to the `ScheduleJob` type.
-   - Pass `j.customer_status_at_booking || null` through in the row mapping.
+KN-512 was stored as `customer_status_at_booking = 'existing'` and that is correct
+behaviour, not a bug:
 
-2. **src/components/schedule/UnallocatedJobs.tsx**
-   - Remove the `isNew(dateStr)` freshness helper and the `differenceInHours` import.
-   - Add `UserPlus` icon import.
-   - Replace the `{isNew(job.created_at) && ...}` badge with a real badge rendered only when `job.customer_status_at_booking === "new"`.
-   - Use the same emerald visual treatment (`bg-emerald-500/15 text-emerald-600 border-emerald-500/20`) and label "New Customer" to match the engineer app.
+- `+353872354257` is shared by 12 customer rows in the K&N organisation (test data
+  accumulated since February).
+- `matchCustomer` step 1 (exact E.164 phone) matched, and the documented tie-break
+  (`updated_at desc`, then `created_at desc`, then `id asc`) selected
+  `joey the slips` (`0f611303-…`, updated 2026-08-20 14:35:51).
 
-## Out of scope
-- `WeeklyGrid.tsx` status filter (BJ-0052) — separate concern, different file.
-- No other components touched.
+Two consequences worth acting on:
 
-## Verification
-- Typecheck passes.
-- Screenshot of schedule/unallocated view showing a job with `customer_status_at_booking = 'new'` displaying the badge.
-- Screenshot of a job with `'existing'` or `null` showing no badge.
+1. Any future Tally booking from that number will always be `existing`, so it can
+   never be used to test the "new customer" path again.
+2. The winning row is unstable — editing any of the other 11 duplicates changes
+   which customer the next booking attaches to.
+
+## Proposed follow-up (pick one or both)
+
+### A. Clean up the duplicate test rows (recommended, data-only)
+
+Produce a report of the duplicate groups (rows sharing a last-9 phone key) with
+job/quote/invoice counts per row, so it's clear which rows are safe to remove.
+Nothing is deleted without your explicit approval on the report.
+
+No code changes. Removes the instability at the source.
+
+### B. Use a reserved scratch number for future status testing
+
+Keep a dedicated unused test number for verifying the `new` path, and stop
+reusing `+353872354257` for booking tests. Documented as a project rule so it is
+applied automatically in future verification runs.
+
+## Not proposed
+
+- No change to `_shared/matchCustomer.ts`. Its tie-break is behaving exactly as
+  specified; loosening or tightening it to work around duplicated test data would
+  change live matching for real customers.
+- No change to `tally-incoming-job`. The field is set on the only `service_calls`
+  insert; the other exit paths return an existing row without inserting.
