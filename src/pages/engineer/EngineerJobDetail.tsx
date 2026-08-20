@@ -969,6 +969,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         </div>
 
+        {/* Service history, media and messages — same components as the Today card */}
+        <div>
+          <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
+          <EngineerMediaGrid jobId={job.id} />
+          <EngineerJobMessages jobId={job.id} officeUserId={officeOwnerId || job.user_id} />
+        </div>
+
+
+
         {/* Cancellation details */}
         {job.status === "Cancelled" && job.cancellation_reason && (
           <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3">
