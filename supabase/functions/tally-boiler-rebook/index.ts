@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
 
     const {
       phone,
+      email,
       preferred_date,
       preferred_time,
       organisation_id,
