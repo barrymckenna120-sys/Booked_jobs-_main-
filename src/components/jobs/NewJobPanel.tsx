@@ -514,7 +514,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border">
-        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed || checkingDupe} onClick={handleNext}>
+        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed || checkingDupe} onClick={() => handleNext()}>
           {checkingDupe ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
           ) : canProceed ? `Continue with ${selected?.name || name} →` : "Select or add a customer"}
