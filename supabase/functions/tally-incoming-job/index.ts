@@ -261,15 +261,14 @@ Deno.serve(async (req) => {
 
     console.log("[tally-incoming-job] orgData.id:", orgData.id, "userId:", userId);
 
-    const { data: existing } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("phone", normalisedPhone)
-      .eq("organisation_id", orgData.id)
-      .limit(1)
-      .maybeSingle();
+    const { matched: customerMatched, customerId: matchedCustomerId } = await matchCustomer(
+      supabase,
+      orgData.id,
+      normalisedPhone,
+      email,
+    );
 
-    if (existing) {
+    if (customerMatched && matchedCustomerId) {
       customerId = existing.id;
       await supabase
         .from("customers")
