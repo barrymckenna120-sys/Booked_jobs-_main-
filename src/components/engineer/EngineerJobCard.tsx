@@ -176,6 +176,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             boilerBrand={job.boiler_brand}
             paymentJob={job}
             scheduledDate={job.scheduled_date}
+            customerStatusAtBooking={job.customer_status_at_booking}
             onTakePayment={(depositPill || depositBalanceLine) ? () => setShowStandalonePayment(true) : undefined}
           />
         </div>

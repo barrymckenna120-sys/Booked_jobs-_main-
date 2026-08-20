@@ -1,4 +1,4 @@
-import { Wrench, Flame, CreditCard, Hourglass, CalendarDays } from "lucide-react";
+import { Wrench, Flame, CreditCard, Hourglass, CalendarDays, UserPlus } from "lucide-react";
 import { format, isValid, parseISO } from "date-fns";
 import { resolvePaymentSheetState, type PaymentSheetJob } from "@/lib/paymentSheetAmount";
 
@@ -15,6 +15,8 @@ interface InfoPillsProps {
   /** Job payment fields — classified by the shared resolvePaymentSheetState helper. */
   paymentJob?: PaymentSheetJob | null;
   scheduledDate?: string | null;
+  /** service_calls.customer_status_at_booking — only 'new' renders a pill. */
+  customerStatusAtBooking?: string | null;
   /** Optional action shown when a deposit or balance is due. */
   onTakePayment?: () => void;
 }
@@ -63,7 +65,7 @@ export function resolveDepositPill(job?: PaymentSheetJob | null): DepositPill {
   return { pill: null, balanceLine: null };
 }
 
-const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate, onTakePayment }: InfoPillsProps) => {
+const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate, customerStatusAtBooking, onTakePayment }: InfoPillsProps) => {
   const timeLabel = TIME_LABELS[timeBlock || ""] || timeBlock || "—";
   const formattedDate = formatScheduledDate(scheduledDate);
   const { pill, balanceLine } = resolveDepositPill(paymentJob);
@@ -77,6 +79,12 @@ const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate,
         <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
           <Wrench className="w-3 h-3 text-muted-foreground" /> {jobType}
         </span>
+        {customerStatusAtBooking === "new" && (
+          <span className="bg-emerald-500/15 border border-emerald-500/25 rounded-full px-2.5 py-0.5 text-xs font-bold text-emerald-600 flex items-center gap-1">
+            <UserPlus className="w-3 h-3" /> New Customer
+          </span>
+        )}
+
         {boilerBrand && (
           <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
             <Flame className="w-3 h-3 text-muted-foreground" /> {boilerBrand}
