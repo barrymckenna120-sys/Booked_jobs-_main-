@@ -7,6 +7,7 @@ import {
   validateRequired,
   formatEircode,
   formatPhoneInternational,
+  last9Digits,
 } from "./customerValidation";
 
 
@@ -16,9 +17,10 @@ import {
  * un-normalised phone, untrimmed name, unformatted eircode.
  */
 
-// Mirrors StepCustomer's canProceed for the isNew branch.
-const canProceedNew = (name: string, phone: string, address: string, duplicate: boolean, checking: boolean) =>
-  Boolean(name.trim() && validatePhone(phone) === null && address.trim() && !duplicate && !checking);
+// Mirrors StepCustomer's canProceed for the isNew branch. Duplicates are a
+// warning, not a gate, so they are deliberately absent here.
+const canProceedNew = (name: string, phone: string, address: string, checking: boolean) =>
+  Boolean(name.trim() && validatePhone(phone) === null && address.trim() && !checking);
 
 describe("quick-add customer normalisation", () => {
   it("normalises a leading-0 Irish mobile to +353", () => {
