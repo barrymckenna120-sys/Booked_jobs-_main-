@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
 
 const corsHeaders = {
