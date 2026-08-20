@@ -248,7 +248,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     };
 
     // Already warned about the matches and the user chose to continue.
-    if (dupeAcknowledged) { proceed(); return; }
+    if (force || dupeAcknowledged) { proceed(); return; }
 
     // Org must be resolved, otherwise the filter becomes `eq.undefined` and 400s.
     if (!orgId) {
