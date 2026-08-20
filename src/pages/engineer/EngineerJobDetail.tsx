@@ -19,6 +19,9 @@ import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
 import ExtraWorkSheet from "@/components/engineer/ExtraWorkSheet";
 import JobCertsTab from "@/components/engineer/JobCertsTab";
+import JobServiceHistory from "@/components/engineer/JobServiceHistory";
+import EngineerMediaGrid from "@/components/engineer/EngineerMediaGrid";
+import EngineerJobMessages from "@/components/messages/EngineerJobMessages";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -65,6 +68,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [callNotes, setCallNotes] = useState<any[]>([]);
   const [jobTags, setJobTags] = useState<{ name: string; colour: string }[]>([]);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
+  const [officeOwnerId, setOfficeOwnerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,11 +130,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
       setJob(jobData);
 
-      const [custRes, notesRes, certRes, tagsRes] = await Promise.all([
+      const [custRes, notesRes, certRes, tagsRes, orgRes] = await Promise.all([
         supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
         supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
         supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
         supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
+        (jobData as any).organisation_id
+          ? supabase.from("organisations").select("owner_user_id").eq("id", (jobData as any).organisation_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null } as any),
       ]);
 
       const queryError = custRes.error || notesRes.error || certRes.error || tagsRes.error;
@@ -139,6 +146,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       if (custRes.data) setCustomer(custRes.data);
       if (notesRes.data) setCallNotes(notesRes.data);
       setCertificate(certRes.data || null);
+      setOfficeOwnerId((orgRes as any)?.data?.owner_user_id ?? (jobData as any).user_id ?? null);
       setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
     } catch (e: any) {
       setError(e?.message || "Something went wrong loading this job.");
@@ -960,6 +968,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             </Button>
           </div>
         </div>
+
+        {/* Service history, media and messages — same components as the Today card */}
+        <div>
+          <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
+          <EngineerMediaGrid jobId={job.id} />
+          <EngineerJobMessages jobId={job.id} officeUserId={officeOwnerId || job.user_id} />
+        </div>
+
+
 
         {/* Cancellation details */}
         {job.status === "Cancelled" && job.cancellation_reason && (
