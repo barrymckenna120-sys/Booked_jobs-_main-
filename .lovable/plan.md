@@ -1,30 +1,24 @@
-# Engineer job card "New Customer" badge
+# Replace 24h "New" badge with real customer-status badge in UnallocatedJobs
 
-Add an emerald "New Customer" pill to the engineer-facing job card, rendered only when `customer_status_at_booking === 'new'`.
+## Goal
+Close BJ-0051 and the schedule-card piece of BJ-0047 by replacing the misleading 24-hour freshness badge in `UnallocatedJobs.tsx` with a badge driven by `service_calls.customer_status_at_booking`.
 
-## What changes
+## Changes
+1. **src/pages/Schedule.tsx**
+   - Add `customer_status_at_booking?: string | null;` to the `ScheduleJob` type.
+   - Pass `j.customer_status_at_booking || null` through in the row mapping.
 
-1. Confirm fetch coverage
-   - `src/hooks/useEngineerJobs.ts` already queries `service_calls` with `.select("*")`, so `customer_status_at_booking` is present on every job object passed to the card. No select-list change is required.
+2. **src/components/schedule/UnallocatedJobs.tsx**
+   - Remove the `isNew(dateStr)` freshness helper and the `differenceInHours` import.
+   - Add `UserPlus` icon import.
+   - Replace the `{isNew(job.created_at) && ...}` badge with a real badge rendered only when `job.customer_status_at_booking === "new"`.
+   - Use the same emerald visual treatment (`bg-emerald-500/15 text-emerald-600 border-emerald-500/20`) and label "New Customer" to match the engineer app.
 
-2. Update `src/components/engineer/job-card/InfoPills.tsx`
-   - Add optional prop `customerStatusAtBooking?: string | null`.
-   - Inside the existing pill row (`flex flex-wrap gap-2`), conditionally render a pill when `customerStatusAtBooking === "new"`.
-   - Styling: emerald tone distinct from the existing blue date/job-type pills and amber payment banners, e.g. `bg-emerald-500/15 text-emerald-600 border-emerald-500/20 rounded-full px-2.5 py-0.5 text-xs font-semibold`.
-   - Label: "New Customer".
-
-3. Wire `src/components/engineer/EngineerJobCard.tsx`
-   - Pass `customerStatusAtBooking={job.customer_status_at_booking}` to the `<InfoPills />` call.
-   - No other props or logic are touched.
-
-## What does not change
-
-- Payment logic, deposit pills, balance lines, and `PrimaryActions` / `SecondaryActions` / `QuickActions` are untouched.
-- `SERVICE_CALL_BASE_SELECT` in `src/types/service-calls.ts` is not modified (the engineer path uses `*`).
-- Office/schedule cards are not modified.
+## Out of scope
+- `WeeklyGrid.tsx` status filter (BJ-0052) — separate concern, different file.
+- No other components touched.
 
 ## Verification
-
 - Typecheck passes.
-- In the engineer preview, a job with `customer_status_at_booking = 'new'` shows the emerald "New Customer" pill in the same row as the date and job-type pills.
-- Jobs with `'existing'` or `null` show no badge.
+- Screenshot of schedule/unallocated view showing a job with `customer_status_at_booking = 'new'` displaying the badge.
+- Screenshot of a job with `'existing'` or `null` showing no badge.
