@@ -15,6 +15,7 @@ import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 import { formatWhatsApp } from "@/lib/whatsappLink";
 
 
@@ -48,6 +49,7 @@ type Job = {
   job_reference?: string | null;
   confirmed?: boolean | null;
   confirmed_at?: string | null;
+  customer_status_at_booking?: string | null;
 };
 
 const Jobs = () => {
@@ -65,6 +67,7 @@ const Jobs = () => {
   const [search, setSearch] = useState("");
   const [refSearch, setRefSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [customerStatusFilter, setCustomerStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get("payment") || "all");
   const [page, setPage] = useState(0);
   const [completedPage, setCompletedPage] = useState(0);
@@ -202,7 +205,12 @@ const Jobs = () => {
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
       const refDigits = refSearch ? extractRefDigits(refSearch) : null;
       const matchRef = !refSearch || (refDigits ? matchesJobRef(j.job_reference, refDigits) : false);
-      return matchStatus && matchType && matchSearch && matchPayment && matchRef;
+      const matchCustomerStatus =
+        customerStatusFilter === "all" ||
+        (customerStatusFilter === "new"
+          ? j.customer_status_at_booking === "new"
+          : j.customer_status_at_booking !== "new");
+      return matchStatus && matchType && matchSearch && matchPayment && matchRef && matchCustomerStatus;
     });
 
   const applySorting = (list: Job[], overrideDir?: "asc" | "desc") => {
@@ -316,6 +324,7 @@ const Jobs = () => {
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
                 <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} size="sm" className="ml-1.5 align-middle" />
+                <NewCustomerBadge status={j.customer_status_at_booking} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
                   <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
@@ -419,7 +428,10 @@ const Jobs = () => {
       {/* Row 1: Customer + Status */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-foreground truncate">{j.customer_name}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="font-bold text-foreground truncate">{j.customer_name}</p>
+            <NewCustomerBadge status={j.customer_status_at_booking} size="sm" />
+          </div>
           {j.customer_address && (
             <p className="text-xs text-muted-foreground truncate">{j.customer_address}</p>
           )}
@@ -577,6 +589,14 @@ const Jobs = () => {
             <SelectItem value="cash">Cash</SelectItem>
             <SelectItem value="card">Card</SelectItem>
             <SelectItem value="invoice">Invoice</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={customerStatusFilter} onValueChange={setCustomerStatusFilter}>
+          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            <SelectItem value="all">All Customers</SelectItem>
+            <SelectItem value="new">New Customers</SelectItem>
+            <SelectItem value="existing">Existing Customers</SelectItem>
           </SelectContent>
         </Select>
       </div>

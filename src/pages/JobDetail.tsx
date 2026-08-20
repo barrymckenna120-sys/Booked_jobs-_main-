@@ -30,6 +30,7 @@ import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 import { insertPartsRequest } from "@/lib/partsRequests";
 
 
@@ -526,6 +527,7 @@ const JobDetail = () => {
             {jobTypeBadge(job.job_type)}
             {statusBadge(job.status)}
             <JobConfirmedBadge confirmed={(job as any).confirmed} confirmedAt={(job as any).confirmed_at} />
+            <NewCustomerBadge status={(job as any).customer_status_at_booking} />
             {job.status === "Completed" && job.payment_method && (
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-success/10 text-success">
                 ✅ Paid
