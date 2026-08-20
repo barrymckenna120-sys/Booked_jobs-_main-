@@ -700,6 +700,25 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             <div className="text-[13px] text-white/70 mt-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" /> {customer.address}
             </div>
+            {(job.customer_status_at_booking === "new" || job.source === "Renewal") && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                {job.customer_status_at_booking === "new" && (
+                  <span className="bg-emerald-500/20 border border-emerald-300/30 rounded-full px-2 py-0.5 text-[10px] font-bold text-emerald-50 flex items-center gap-1">
+                    <UserPlus className="w-3 h-3" /> New Customer
+                  </span>
+                )}
+                {job.source === "Renewal" && (
+                  <span
+                    className="bg-amber-400/20 border border-amber-200/30 rounded-full px-2 py-0.5 text-[10px] font-bold text-amber-50 flex items-center gap-1"
+                    title="Rebooking (Renewal)"
+                    aria-label="Rebooking (Renewal)"
+                  >
+                    <RotateCw className="w-3 h-3" /> Rebooking
+                  </span>
+                )}
+              </div>
+            )}
+
             {job.status === "Completed" && job.completed_at && (
               <div className="text-[13px] text-white/90 mt-1 font-semibold">
                 Completed {new Date(job.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date(job.completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
