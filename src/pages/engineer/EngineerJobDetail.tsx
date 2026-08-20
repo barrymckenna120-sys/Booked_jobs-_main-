@@ -907,6 +907,17 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
+        {/* Customer receipt note (read-only) — same field the Today card shows */}
+        {job.customer_facing_notes?.trim() && (
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Receipt className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wide text-primary">Notes for customer receipt</span>
+            </div>
+            <div className="text-[13px] text-foreground leading-snug whitespace-pre-wrap">{job.customer_facing_notes.trim()}</div>
+          </div>
+        )}
+
         {/* Notes */}
         {job.notes && (
           <div className="bg-secondary rounded-xl border border-border p-3">
