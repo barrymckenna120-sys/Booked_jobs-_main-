@@ -440,7 +440,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
                     variant="outline"
                     size="sm"
                     className="h-8 text-[12px] font-bold"
-                    onClick={() => { setDupeAcknowledged(true); handleNext(); }}
+                    onClick={() => { setDupeAcknowledged(true); handleNext(true); }}
                   >
                     Create anyway
                   </Button>
