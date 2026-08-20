@@ -19,6 +19,7 @@ const EngineerCompactJobRow = ({ job, customer }: EngineerCompactJobRowProps) =>
   const status = getStatusConfig(job.status);
   const { pill } = resolveDepositPill(job);
   const timeLabel = TIME_LABELS[job.time_block || ""] || job.time_block || "—";
+  const jobRef = job.job_reference || `KN-${job.id?.slice(0, 6).toUpperCase() || "???"}`;
   const address = [customer?.address, job.area_code || customer?.area_code, customer?.eircode]
     .filter(Boolean)
     .join(", ");
