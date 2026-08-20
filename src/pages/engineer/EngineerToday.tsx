@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase, Package, AlertTriangle, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
+import EngineerCompactJobRow from "@/components/engineer/EngineerCompactJobRow";
+
 import EngineerOutstandingBalances from "@/components/engineer/EngineerOutstandingBalances";
 import { getNextJobId, type EngineerJobsState } from "@/hooks/useEngineerJobs";
 import { useAuth } from "@/hooks/useAuth";
