@@ -1,4 +1,4 @@
-import { Wrench, Flame, CreditCard, Hourglass, CalendarDays } from "lucide-react";
+import { Wrench, Flame, CreditCard, Hourglass, CalendarDays, UserPlus } from "lucide-react";
 import { format, isValid, parseISO } from "date-fns";
 import { resolvePaymentSheetState, type PaymentSheetJob } from "@/lib/paymentSheetAmount";
 
