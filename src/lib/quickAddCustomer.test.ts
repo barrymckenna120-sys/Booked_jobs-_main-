@@ -45,14 +45,90 @@ describe("quick-add customer normalisation", () => {
     expect(formatPhoneInternational("12345g")).toBe("+35312345g");
   });
 
-  it("blocks Continue on invalid phone, duplicates, or an in-flight check", () => {
-    expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", false, false)).toBe(true);
-    expect(canProceedNew("Fred White", "12345", "20 Harcourt St", false, false)).toBe(false);
-    expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", true, false)).toBe(false);
-    expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", false, true)).toBe(false);
-    expect(canProceedNew("", "0894436301", "20 Harcourt St", false, false)).toBe(false);
+  it("blocks Continue on invalid phone or an in-flight check", () => {
+    expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", false)).toBe(true);
+    expect(canProceedNew("Fred White", "12345", "20 Harcourt St", false)).toBe(false);
+    expect(canProceedNew("Fred White", "0894436301", "20 Harcourt St", true)).toBe(false);
+    expect(canProceedNew("", "0894436301", "20 Harcourt St", false)).toBe(false);
   });
 });
+
+/**
+ * BJ duplicate-check fix: the check matched on exact `+353…` string equality
+ * via `.maybeSingle()`, which ERRORS when several customers share a number
+ * (15 K&N rows share +353892109224). It now matches on last-9 digits over a
+ * list query, and duplicates warn instead of hard-blocking.
+ */
+describe("quick-add duplicate check", () => {
+  // Mirrors the matching in StepCustomer.handleNext.
+  const findMatches = (typed: string, rows: Array<{ id: string; name: string; phone: string | null }>) => {
+    const key = last9Digits(formatPhoneInternational(typed));
+    return key ? rows.filter((r) => last9Digits(r.phone) === key) : [];
+  };
+
+  const rows = [
+    { id: "a", name: "Aisling Power", phone: "+353892109224" },
+    { id: "b", name: "ZZ Scratch Boiler Audit", phone: "089 210 9224" },
+    { id: "c", name: "Jim Wong", phone: "0892109224" },
+    { id: "d", name: "Sean Murphy", phone: "+353871234567" },
+    { id: "e", name: "No Phone", phone: null },
+  ];
+
+  it("matches the same line across every stored format", () => {
+    expect(last9Digits("+353894436301")).toBe("894436301");
+    expect(last9Digits("0894436301")).toBe("894436301");
+    expect(last9Digits("089 443 6301")).toBe("894436301");
+    expect(last9Digits("(089) 443-6301")).toBe("894436301");
+  });
+
+  it("returns an empty key for unmatchable input so blanks never match each other", () => {
+    expect(last9Digits("")).toBe("");
+    expect(last9Digits("12345")).toBe("");
+    expect(last9Digits(null)).toBe("");
+    expect(last9Digits(undefined)).toBe("");
+    expect(findMatches("12345", rows)).toHaveLength(0);
+  });
+
+  it("returns EVERY match instead of erroring on multiple rows", () => {
+    const matches = findMatches("0892109224", rows);
+    expect(matches).toHaveLength(3);
+    expect(matches.map((m) => m.name)).toEqual([
+      "Aisling Power",
+      "ZZ Scratch Boiler Audit",
+      "Jim Wong",
+    ]);
+  });
+
+  it("finds a match typed in a different format to the stored value", () => {
+    expect(findMatches("087 123 4567", rows).map((m) => m.name)).toEqual(["Sean Murphy"]);
+  });
+
+  it("returns nothing for a genuinely unused number", () => {
+    expect(findMatches("0834567890", rows)).toHaveLength(0);
+  });
+
+  // Mirrors the gate order in handleNext: force/ack short-circuits the query.
+  const gate = (opts: { force: boolean; acked: boolean; matches: number; queryFailed: boolean }) => {
+    if (opts.force || opts.acked) return "proceed";
+    if (opts.queryFailed) return "blocked-error";
+    return opts.matches > 0 ? "warned" : "proceed";
+  };
+
+  it("warns on matches, but Create anyway proceeds", () => {
+    expect(gate({ force: false, acked: false, matches: 3, queryFailed: false })).toBe("warned");
+    expect(gate({ force: true, acked: false, matches: 3, queryFailed: false })).toBe("proceed");
+    expect(gate({ force: false, acked: true, matches: 3, queryFailed: false })).toBe("proceed");
+  });
+
+  it("still hard-blocks on a real query failure", () => {
+    expect(gate({ force: false, acked: false, matches: 0, queryFailed: true })).toBe("blocked-error");
+  });
+
+  it("proceeds with no warning when there are no matches", () => {
+    expect(gate({ force: false, acked: false, matches: 0, queryFailed: false })).toBe("proceed");
+  });
+});
+
 
 /** BJ-0046 follow-up: Mobile Number must be an Irish mobile; landlines go in their own field. */
 describe("mobile-only primary phone", () => {
