@@ -612,7 +612,16 @@ export const useEngineerJobs = () => {
   };
 
   // Derived today data
-  const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled"));
+  // A job settled in full leaves the active list even though its status is
+  // untouched — payment_status "paid" is the gate, so a €0 / never-charged job
+  // (which stays "unpaid") is unaffected.
+  const isFullyPaidUnfinished = (j: any) =>
+    j.status !== "Completed" && j.status !== "Cancelled" &&
+    Number(j.balance_due) <= 0 && j.payment_status === "paid";
+  const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled" && !isFullyPaidUnfinished(j)));
+  // Paid but the Complete form still has to be filled in — surfaced under its
+  // own heading so it is never mistaken for a closed job.
+  const todayPaidNeedsCompletion = sortByTime(todayJobs.filter(isFullyPaidUnfinished));
   const todayCompleted = sortByTime(todayJobs.filter((j) => j.status === "Completed"));
   const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled" && !hiddenJobIds.has(j.id)));
   const todayInProgress = todayJobs.filter((j) => ["En Route", "On Site", "In Progress"].includes(j.status));
