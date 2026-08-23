@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
-import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw, ChevronRight, Flame } from "lucide-react";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw, ChevronRight, Flame, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
