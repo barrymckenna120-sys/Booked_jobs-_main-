@@ -1145,6 +1145,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           job={job}
           customer={customer}
           onClose={() => { setShowPayment(false); setCompleteData(null); setCompleteJobTagDate(null); }}
+          onCompleteOnly={async () => {
+            if (!completeData) return;
+            setShowPayment(false);
+            // Already fully paid — completion fields only, no payment write.
+            try {
+              await updateJob({ status: "Completed", ...completeData }, { jobTagDate: completeJobTagDate });
+            } catch (err) {
+              console.error("onCompleteOnly flow error:", err);
+              toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
+            }
+            setCompleteData(null);
+            setCompleteJobTagDate(null);
+          }}
           onDone={handlePaymentDone}
         />
       )}
