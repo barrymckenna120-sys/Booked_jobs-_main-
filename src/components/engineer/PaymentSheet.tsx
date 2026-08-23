@@ -31,7 +31,7 @@ const METHODS = [
 
 const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
 
-const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
+const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
 
