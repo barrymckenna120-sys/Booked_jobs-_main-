@@ -40,6 +40,21 @@ const EngineerToday = () => {
     ? [todayActive.find((j: any) => j.id === nextJobId), ...todayActive.filter((j: any) => j.id !== nextJobId)]
     : todayActive;
 
+  // Look-ahead view state — purely local, never written anywhere.
+  const [viewedJobRef, setViewedJobRef] = useState<string | null>(null);
+  const viewedJob = viewedJobRef ? todayActive.find((j: any) => j.id === viewedJobRef) : undefined;
+  // If the previewed job leaves the active list (realtime payment/completion),
+  // drop back to the actual current job rather than showing a stale card.
+  useEffect(() => {
+    if (viewedJobRef && !viewedJob) setViewedJobRef(null);
+  }, [viewedJobRef, viewedJob]);
+
+  const isViewingAhead = !!viewedJob;
+  const displayedJob = viewedJob || sortedActive[0];
+  const displayedIndex = displayedJob ? todayActive.findIndex((j: any) => j.id === displayedJob.id) : -1;
+  const nextViewJob = displayedIndex >= 0 ? todayActive[displayedIndex + 1] : undefined;
+
+
   const [openPartsCount, setOpenPartsCount] = useState<number | null>(null);
 
   useEffect(() => {
