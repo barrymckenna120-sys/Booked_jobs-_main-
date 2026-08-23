@@ -2104,6 +2104,7 @@ export type Database = {
           is_active: boolean
           onboarding_complete: boolean | null
           organisation_id: string
+          receives_ops_notifications: boolean
           role: string | null
           sound_alerts_enabled: boolean | null
           updated_at: string
@@ -2118,6 +2119,7 @@ export type Database = {
           is_active?: boolean
           onboarding_complete?: boolean | null
           organisation_id: string
+          receives_ops_notifications?: boolean
           role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
@@ -2132,6 +2134,7 @@ export type Database = {
           is_active?: boolean
           onboarding_complete?: boolean | null
           organisation_id?: string
+          receives_ops_notifications?: boolean
           role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
