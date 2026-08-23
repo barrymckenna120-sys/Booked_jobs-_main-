@@ -30,6 +30,7 @@ const Parts = () => {
   const [arrivedPart, setArrivedPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [showFitted, setShowFitted] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const { orgId } = useOrgId();
   const [searchParams] = useSearchParams();
@@ -43,7 +44,7 @@ const Parts = () => {
       const { data } = await supabase
         .from("parts_requests" as any)
         .select("*, service_calls(id, job_reference, assigned_engineer, follow_up_detail), customers(name, address, phone)")
-        .in("status", ["Open", "Ordered", "Ready to Fit", "Cancelled"])
+        .in("status", ["Open", "Ordered", "Ready to Fit", "Fitted", "Cancelled"])
         .order("created_at", { ascending: false });
       return (data as any[]) || [];
     },
@@ -77,6 +78,7 @@ const Parts = () => {
     .sort((a: any, b: any) => priorityRank(a.priority) - priorityRank(b.priority));
   const ordered = parts.filter((p: any) => p.status === "Ordered");
   const ready = parts.filter((p: any) => p.status === "Ready to Fit");
+  const fitted = parts.filter((p: any) => p.status === "Fitted");
   const cancelled = parts.filter((p: any) => p.status === "Cancelled");
   // "Total" stays an outstanding-work count — cancelled rows are terminal and excluded,
   // matching the sidebar badge in AppLayout.
