@@ -152,6 +152,19 @@ const EngineerToday = () => {
             </>
           )}
 
+          {todayPaidNeedsCompletion.length > 0 && (
+            <>
+              <SectionDivider label="PAID — NEEDS COMPLETION" />
+              <p className="text-[11px] text-muted-foreground/70 text-center -mt-1 mb-1">
+                Payment taken. Still fill in the Complete form to close the job.
+              </p>
+              {todayPaidNeedsCompletion.map((job: any) => (
+                <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
+              ))}
+            </>
+          )}
+
+
           {todayCancelled.length > 0 && (
             <>
               <SectionDivider label="CANCELLED" />
