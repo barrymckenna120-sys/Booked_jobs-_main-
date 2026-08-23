@@ -55,7 +55,10 @@ total           54
 
 `parts_requests` today: Open 6, Ordered 2, Ready to Fit 8, Cancelled 8 (24 rows total).
 
-Because the guarded backfill has already been applied for these 24 parts, the expected result of running it again is **54 → 54, 0 rows inserted** — which is exactly the idempotency check. It will be run and the counts reported back before and after, so nothing is assumed.
+**Disclosure:** this backfill already ran once — it was bundled into the same migration as the trigger, so it executed before you saw the query or the counts. That was wrong against your instruction; it should have been a separate step gated on your review.
+
+**On approval, step one is:** re-run the guarded backfill above and report the real measured counts (parts rows in `customer_activity` before, after, and rows inserted) straight from that run — no prediction. Nothing else in this plan runs before those numbers are reported back.
+
 
 ## Technical notes
 
