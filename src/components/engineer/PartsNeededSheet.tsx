@@ -96,7 +96,7 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   useEffect(() => {
     if (!open || !requireCustomer || !customer) {
       setJobs([]);
-      setJobId("");
+      setJobId("unset");
       return;
     }
     let cancelled = false;
@@ -124,7 +124,7 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     setManual(false);
     setManualName("");
     setJobs([]);
-    setJobId("");
+    setJobId("unset");
   };
 
   const hasCustomer = !!customer || manualName.trim().length > 0;
