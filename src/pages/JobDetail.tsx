@@ -125,6 +125,7 @@ import {
   type PartStatus,
 } from "@/lib/partsRequests";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
+import PartStatusTrail from "@/components/parts/PartStatusTrail";
 
 
 const useJobParts = (jobId: string) =>
