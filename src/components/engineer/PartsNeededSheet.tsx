@@ -270,6 +270,35 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
             </div>
           )}
 
+          {requireCustomer && customer && jobs.length > 0 && (
+            <div className="space-y-2">
+              <label htmlFor="part-job" className="text-sm font-semibold text-foreground">
+                Job
+              </label>
+              <select
+                id="part-job"
+                value={jobId}
+                onChange={(e) => setJobId(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">No job (phone order)</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {[j.job_reference || "Job", j.job_type, j.scheduled_date, j.status]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Linking the job means the office sees the reference instead of "No job linked".
+              </p>
+            </div>
+          )}
+
+
+
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
