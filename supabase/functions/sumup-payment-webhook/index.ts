@@ -413,10 +413,10 @@ Deno.serve(async (req) => {
         return;
       }
 
-      const res = await fetch(`${Deno.env.get("SUPABASE_URL")!}/functions/v1/send-whatsapp-receipt`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-receipt`, {
         method: "POST",
         headers: {
-          ...serviceHeaders,
+          ...headers,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ job_id: e.serviceCallId }),
