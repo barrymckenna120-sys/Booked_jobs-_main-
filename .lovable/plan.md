@@ -1,38 +1,58 @@
-# BJ-0058 — Fully paid jobs leave Today's active list
+# BJ-0057 — Manual look-ahead navigation on Today's Jobs
 
-Client-side filter change in one file: `src/hooks/useEngineerJobs.ts`. No status writes, no `buildPaymentPatch`, no Edge Function, no webhook, no trigger, no new subscription.
+## Goal
+Add a client-side look-ahead mode to the engineer Today's Jobs screen. The engineer can preview the next job's full card without changing the actual active job, then return to the current job. Cancelling the Complete sheet also advances the view to the next job.
 
-## The change
+## Scope
+- Client-side React state only.
+- Two files: `src/pages/engineer/EngineerToday.tsx` and `src/components/engineer/EngineerJobCard.tsx`.
+- One prop change in `src/components/engineer/CompleteSheet.tsx` so its Cancel button can advance the view.
+- No writes to `service_calls.status`, no payment logic, no Edge Functions, webhooks, or DB triggers.
 
-`todayActive` (line 615) gains one condition so a job that is fully paid drops out of the active list even though its status is unchanged:
+## Plan
 
-```
-todayActive = sortByTime(todayJobs.filter((j) =>
-  j.status !== "Completed"
-  && j.status !== "Cancelled"
-  && !(Number(j.balance_due) <= 0 && j.payment_status === "paid")
-));
-```
+### 1. EngineerToday.tsx — view state and displayed job
+- Add local state: `const [viewedJobRef, setViewedJobRef] = useState<string | null>(null);`
+- Keep `getNextJobId(todayActive)` as the source of truth for the actual next job.
+- Compute `displayedJob`:
+  - If `viewedJobRef` is set and the job still exists in `todayActive`, show that job.
+  - Otherwise fall back to the actual next job (`sortedActive[0]`).
+- Add `useEffect` that re-validates `viewedJobRef` whenever `todayActive` changes. If the referenced job is no longer active, reset `viewedJobRef` to `null`.
+- Compute `nextViewJob`: the job after `displayedJob` in `todayActive` (by time order). If `displayedJob` is the last active job, return `null`.
+- Pass to `EngineerJobCard`:
+  - `isViewingAhead: boolean` — true when `viewedJobRef` is set and valid.
+  - `onAdvanceView: () => void` — sets `viewedJobRef` to `nextViewJob.id`.
+  - `onBackView: () => void` — resets `viewedJobRef` to `null`.
+  - Keep `isNextJob` unchanged so styling still reflects the actual next job.
+- Update the "Today's Jobs" count and `REST OF DAY` list so they continue to reflect `todayActive`, not the look-ahead view.
 
-`todayCompleted`, `todayCancelled`, `todayInProgress`, `upcomingJobs` and `completedJobs` are untouched.
+### 2. EngineerJobCard.tsx — Next Job / Back controls
+- Accept new optional props: `isViewingAhead`, `onAdvanceView`, `onBackView`.
+- When `isViewingAhead` is true, render a "Back to current job" control at the top of the card (e.g. a subtle button or badge). Clicking it calls `onBackView()`.
+- When `isViewingAhead` is false and `onAdvanceView` is provided and there is a next job, render a "Next Job" control on the card. Clicking it calls `onAdvanceView()`.
+- Ensure these controls do not conflict with existing card taps or sheet opens. Use `stopProp` where needed.
+- The existing `isNextJob` badge and styling remain based on the actual next job.
 
-## Semantics check (no-charge jobs)
+### 3. CompleteSheet.tsx — Cancel advances the view
+- Add optional prop `onAdvanceView?: () => void`.
+- Change the Cancel button's `onClick` from `onClose` to:
+  ```ts
+  () => {
+    onClose();
+    onAdvanceView?.();
+  }
+  ```
+- This is a view-state-only change: it still closes the sheet and does not write to the DB.
 
-Confirmed against live data: `payment_status` values in use are `unpaid` (393 rows), `paid` (111), `partial` (7), `pending` (2). Unpriced / never-charged jobs sit at `unpaid` — 188 of the `unpaid` rows have `revenue = 0`, and 345 have `balance_due` NULL. Because the new condition requires `payment_status === "paid"`, a €0 job that was never charged stays in the active list. `Number(null) <= 0` is true, so the `paid` half of the condition is what carries the exclusion — jobs marked paid with a NULL balance (41 rows exist) are also excluded, which is the intended "nothing outstanding" case.
+### 4. Verification
+- Manual check with a scratch job:
+  1. Open Today's Jobs with multiple active jobs.
+  2. Confirm the actual next job card is shown and has a "Next Job" control.
+  3. Tap "Next Job" — the card switches to the following job, a "Back" control appears, and no DB write occurs.
+  4. Tap "Back" — returns to the actual next job.
+  5. Open the Complete sheet on the actual next job and press Cancel — sheet closes and view advances to the next job.
+  6. Simulate a realtime update that removes the viewed job (e.g. complete it from another session) and confirm the view falls back to the actual next job.
+- Confirm no console errors and mobile layout is not broken.
 
-## One consequence handled
-
-`todayCompleted` keys on `status === "Completed"`, so a job excluded by the new filter appears in **no** Today section: not Active, not Completed, not Cancelled. The engineer would lose the route into the Complete form for that job from Today's Jobs.
-
-Chosen approach: **Option B with a distinct grouping**. Paid-but-not-completed jobs get their own small section in `EngineerToday.tsx` (e.g. "Paid — Needs Completion"), separate from the `todayCompleted` "Completed" section, so engineers can still tap into the existing Complete form but cannot confuse them with fully closed jobs.
-
-Note: this grouping is a UI-only change in `EngineerToday.tsx`. Combined with the filter change in `useEngineerJobs.ts`, **two files** are touched. If the single-file constraint is strict, the only way is Option A (filter only, with the lost-route tradeoff).
-
-
-
-## Verification
-
-- Vitest run for the touched modules' existing tests.
-- Playwright against the preview signed in as an engineer: scratch job scheduled today, take full payment by cash from the job card, then screenshot Today's Jobs showing the job gone from Active, the "Paid — Needs Completion" section visible, and the "Next Job" badge moved to the following job — with no Complete or status button pressed.
-- Confirm via `git diff` that only `src/hooks/useEngineerJobs.ts` and `src/pages/engineer/EngineerToday.tsx` are changed.
-
+## Risk
+Low. Purely additive view state; no data model or backend changes.
