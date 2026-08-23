@@ -109,6 +109,14 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly }: Props)
               </div>
             )}
           </div>
+          {onCompleteOnly && (
+            <Button
+              className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
+              onClick={onCompleteOnly}
+            >
+              <CheckCircle2 className="w-5 h-5" /> Complete Job
+            </Button>
+          )}
           <Button className="w-full h-12 text-base font-extrabold" variant="secondary" onClick={onClose}>
             Close
           </Button>
