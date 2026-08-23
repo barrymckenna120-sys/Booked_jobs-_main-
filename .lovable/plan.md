@@ -1,70 +1,49 @@
-# BJ-0069 / BJ-0070 — Parts history on customer + job records (revised)
+# Engineer "My Parts" — add the full status trail
 
-Item #1 is dropped. No new "Fitted" status, no `fitted_at` / `fitted_by` columns, no auto-mark-on-completion trigger, and no changes to `sync_job_status_from_parts` or `recompute_job_parts_status`.
+## Answer first: it is NOT included
 
-Parts keep exactly their current statuses: **Open / Ordered / Ready to Fit / Cancelled**.
+The engineer app's My Parts screen does not have the trail treatment. Confirmed by reading the code:
 
-## What ships
+- `PartStatusTrail` is currently imported in exactly three places: `CustomerPartsHistory.tsx`, and twice in `JobDetail.tsx` (active + history groups).
+- The engineer card (`src/components/engineer/PartRequestCard.tsx`) shows only the logged timestamp plus a single latest-status stamp (`formatPartStatusStamp`) — one line, latest stage only. An engineer looking at a "Ready to Fit" part cannot see when it was logged or ordered.
 
-1. **Customer Parts section** — on the customer record, a "Parts" card listing every parts request ever raised for that customer (direct read, no aggregation table), each with its status trail: Logged → Ordered → Ready to fit, plus Cancelled where it applies, with date + time on each step.
-2. **Activity timeline entries** — parts lifecycle events appear in the customer activity timeline: part logged, part ordered, part ready to fit, part cancelled. No "fitted" event, since that status doesn't exist.
-3. **Job Detail persistent Parts section** — parts never disappear from a job. Active parts (Open / Ordered / Ready to Fit) sit in the working area; Cancelled parts move into a timestamped "History" group that stays on the job permanently.
-4. **Backfill** — historical parts requests get their timeline entries, run once and safe to re-run.
+So the office/customer surfaces have the full history and the engineer surface does not. Scoping and implementing it now, before this closes.
 
-## Backfill query (for review before running)
+## What changes
 
-Idempotent: each candidate row is guarded by a `NOT EXISTS` check on the same customer + part + event type, so a second run inserts nothing.
-
-```sql
--- one INSERT per lifecycle stamp that exists on the row
-INSERT INTO public.customer_activity
-  (organisation_id, customer_id, service_call_id, event_type, description, event_data, created_at)
-SELECT c.organisation_id, c.id, pr.service_call_id, e.event_type, e.description,
-       jsonb_build_object('parts_request_id', pr.id, 'description', pr.description,
-                          'quantity', pr.quantity, 'priority', pr.priority, 'backfilled', true),
-       e.stamp
-FROM public.parts_requests pr
-JOIN public.customers c
-  ON c.id = COALESCE(pr.customer_id, (SELECT customer_id FROM public.service_calls s WHERE s.id = pr.service_call_id))
-CROSS JOIN LATERAL (VALUES
-  ('part_logged',    'Part logged',       pr.created_at),
-  ('part_ordered',   'Part ordered',      pr.ordered_at),
-  ('part_ready',     'Part ready to fit', pr.ready_at),
-  ('part_cancelled', 'Part cancelled',    pr.cancelled_at)
-) AS e(event_type, description, stamp)
-WHERE e.stamp IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM public.customer_activity ca
-    WHERE ca.customer_id = c.id
-      AND ca.event_type = e.event_type
-      AND ca.event_data->>'parts_request_id' = pr.id::text
-  );
-```
-
-### Before / after row counts
-
-Current `customer_activity` parts rows (already present from the earlier run of this backfill):
+On every card in My Parts, replace the single latest-status stamp with the same shared trail component the customer record and Job Detail use:
 
 ```text
-part_logged     24
-part_ordered    14
-part_ready       8
-part_cancelled   8
-total           54
+Ready to Fit                         [status pill]
+Mary Byrne
+new burner · x1
+[Urgent]
+  Logged      11 Aug 2026, 3:23pm
+  Ordered     11 Aug 2026, 3:26pm
+  Ready to fit 11 Aug 2026, 3:29pm
 ```
 
-`parts_requests` today: Open 6, Ordered 2, Ready to Fit 8, Cancelled 8 (24 rows total).
+Cancelled parts show Logged → Ordered → Cancelled in the same way, so a cancelled request still reads correctly weeks later.
 
-**Disclosure:** this backfill already ran once — it was bundled into the same migration as the trigger, so it executed before you saw the query or the counts. That was wrong against your instruction; it should have been a separate step gated on your review.
+Everything else on the card stays exactly as it is: job reference link, customer name, description, priority pill, office-update note block, and the Cancel Request flow.
 
-**On approval, step one is:** re-run the guarded backfill above and report the real measured counts (parts rows in `customer_activity` before, after, and rows inserted) straight from that run — no prediction. Nothing else in this plan runs before those numbers are reported back.
+## Scope boundaries
 
+- One component touched. No database changes, no migration, no backfill — all four timestamps (`created_at`, `ordered_at`, `ready_at`, `cancelled_at`) already exist and are already selected by the screen's `select("*")`.
+- No new status. Statuses stay Open / Ordered / Ready to Fit / Cancelled.
+- No change to the office Parts page, the customer record, or Job Detail — those already have the trail.
 
 ## Technical notes
 
-- `log_parts_request_activity()` trigger (already in place) fires on INSERT and on real status transitions only (`NEW.status IS NOT DISTINCT FROM OLD.status` → no-op). Branches: `part_logged`, `part_ordered`, `part_ready`, `part_cancelled`. No fitted branch. Customer resolved from `parts_requests.customer_id`, falling back to the linked job's customer; rows with no resolvable customer are skipped.
-- `PART_STATUSES` = `["Open", "Ordered", "Ready to Fit", "Cancelled"]` in `src/lib/partsStatus.ts`; `buildPartStatusTrail` emits `logged / ordered / ready / cancelled` steps only.
-- Shared UI: `src/components/parts/PartStatusTrail.tsx` (per-part trail) and `src/components/parts/CustomerPartsHistory.tsx` (customer card), reused by `CustomerDetail.tsx`.
-- `CustomerActivityTimeline.tsx` renders parts `event_data` detail (quantity, priority, notes) with pills for the four parts event types.
-- `JobDetail.tsx` splits parts into active vs. history with `formatPartStatusStamp` from `src/lib/partsDates.ts` for date + time display.
-- No schema change, no constraint change, no new trigger on `service_calls`.
+- `src/components/engineer/PartRequestCard.tsx`
+  - Import `PartStatusTrail` from `@/components/parts/PartStatusTrail` — reuse, do not reimplement, so the three surfaces cannot drift.
+  - Render `<PartStatusTrail row={row} className="pt-2 border-t border-border/60" />` below the priority/meta row.
+  - Drop the `formatPartStatusStamp` line and its now-unused import from this file (the helper stays in `partsDates.ts` for other callers).
+  - The trail self-hides when no stage has a timestamp, so nothing regresses for sparse rows.
+- Trail label/colour mapping and timestamp formatting come from the existing `buildPartStatusTrail` + `formatPartTimestamp`, so labels and dot colours match the office surfaces exactly.
+
+## Verification
+
+- Signed-in Playwright pass on the engineer My Parts screen, screenshot showing a multi-stage part (logged → ordered → ready) and a cancelled part with its full trail.
+- Confirm the Cancel Request button and office-note block still render and work.
+- Typecheck clean, no console errors.
