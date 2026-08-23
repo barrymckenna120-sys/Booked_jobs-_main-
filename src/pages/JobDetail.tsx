@@ -266,9 +266,29 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     Cancel
                   </Button>
                 )}
+                {canEditTracking && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground gap-1.5"
+                    onClick={() => setEditingPart(part)}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" strokeWidth={2.5} /> Cost / ETA
+                  </Button>
+                )}
               </div>
               <PartStatusTrail row={part} className="pt-2 border-t border-border/60" />
+              {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told and quote reference. */}
+              <PartTrackingDetails row={part} />
+              <PartCommentsThread
+                partsRequestId={part.id}
+                organisationId={part.organisation_id || job.organisation_id}
+                authorName={engineerName || user?.email || null}
+                authorRole={role}
+                className="pt-2 border-t border-border/60"
+              />
             </div>
+
           );
         })}
 
