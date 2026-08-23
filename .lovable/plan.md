@@ -1,32 +1,38 @@
-# BJ-0079 — Today's Jobs: card split and Next Job advance
+# BJ-0081 — Receipt on webhook-confirmed full payment
 
-Three sequenced steps. Each is a separate reviewed change; nothing else in the engineer app moves.
+Single concern: when a SumUp webhook confirms a payment that brings a job to fully paid, send the customer the same receipt the completion flow sends. Nothing else in the webhook changes.
 
-## Step 1 — Confirm the stale-cache cause (no code change)
+## What changes
 
-Symptom A (all 4 jobs as full cards) cannot be produced by the current source: only one full card is ever rendered. The most likely cause is an old cached bundle on Karl's device.
+1. `supabase/functions/_shared/sumupWebhook.ts`
+   - Add one new optional dependency, `sendReceipt`, to `SumUpWebhookDeps`.
+   - Call it only on the `fullyPaid === true` path, after `updateJob` / `logActivity` / `logMessage` / `notifyOffice` have all run, wrapped in try/catch so a send failure never changes the outcome and never makes SumUp retry a payment we already recorded.
+   - Deposit-only / partial payments do not send anything.
+   - `updateJob`, `logActivity`, `logMessage`, `recordAttemptStatus`, office notifications and every existing outcome stay byte-identical.
 
-- Karl opens the engineer app with `?sw=off` appended, then hard-reloads.
-- Expected after reload: one full card (KN-516, the only unpaid/active job) plus a `PAID — NEEDS COMPLETION` section listing KN-514, KN-513, KN-491, KN-498 as compact rows.
-- If that is what he sees, symptom A is closed as cache. If he still sees 4 full cards, stop and re-open the audit before touching code.
+2. `supabase/functions/sumup-payment-webhook/index.ts`
+   - Implement `sendReceipt` with a duplicate guard, in this order:
+     - Re-read `service_calls.receipt_sent` for the job. If true, log `receipt skipped (already sent)` and return.
+     - Look for an existing `message_log` row for the job with `message_type` in (`receipt`, `payment_received`). If one exists, log `receipt skipped (duplicate)` and return.
+     - Otherwise invoke `send-whatsapp-receipt` with `{ job_id }` using the service-role key (same function the engineer completion flow uses; it stamps `receipt_sent = true` on success, so any later completion flow will not re-send).
 
-## Step 2 — Fix the Next Job look-ahead index
+3. No changes to `TakePaymentModal.tsx`, `useEngineerJobs.ts`, `send-whatsapp-receipt`, `send-payment-received`, the database schema, or any other function.
 
-The displayed order is `sortedActive` (next job hoisted to the front), but the look-ahead walks `todayActive`. Once there are two or more active jobs this advances to the wrong job, and does nothing when the displayed job happens to be last in `todayActive`.
+## Notes on the idempotency requirement
 
-- In `src/pages/engineer/EngineerToday.tsx`, compute `displayedIndex` and `nextViewJob` against `sortedActive` instead of `todayActive`.
-- Keep the existing behaviour where the button is hidden when there is no following job (this is why it is absent for Karl today — one active job only).
+Per-checkout dedup already exists and is stronger than a message lookup: `sumup_webhook_events.checkout_id` is UNIQUE and is claimed before any write, so a given checkout id can only reach the send path once. `message_log` has no `checkout_id` column, so the second layer is necessarily per-job (`receipt_sent` plus a receipt/payment message row) — which is exactly what protects against the completion flow having already sent one. Both layers are logged when they skip.
 
-## Step 3 — Wire the time-block normaliser
+`send-whatsapp-receipt` is chosen over `send-payment-received` because it is the function that sets `receipt_sent` / `receipt_sent_at`, generates the receipt PDF, and tolerates a job with no `receipt_number` or `completed_at` — the state KN-513 is in.
 
-`TIME_ORDER` and `TIME_RANGES` in `src/hooks/useEngineerJobs.ts` only know `9am–11am`, `11am–1pm`, `2pm–5pm`. Real rows use `8am–11am` and `11am–2pm`, which sort last (weight 99) and miss block matching in `getNextJobId`, falling through to a generic first-active fallback.
+## Verification
 
-- Use the existing `src/lib/timeBlock.ts` normaliser for both sorting and `getNextJobId` block comparison, so any block spelling maps to a start/end hour.
-- Extend the existing `timeBlock.ts` test suite with the real-world blocks seen in production data.
+- Unit tests on the shared module: fully-paid → `sendReceipt` called once; deposit/partial → not called; duplicate delivery (claim rejected) → not called; `sendReceipt` throwing → outcome still `paid`.
+- Live path: a fresh scratch job with a reserved test phone number, driven to PAID via a real checkout, then a second delivery of the same checkout to prove no second send. Then a scratch job that already has a completion-flow receipt, to prove the guard skips.
+- Queries reported afterwards: `service_calls.receipt_sent/receipt_sent_at`, `message_log` rows for the scratch job, and the webhook log lines showing send vs skip.
+- KN-513 belongs to a real customer, so no message is sent to it during verification. Whether to send its missing receipt now is a separate call for Barry once this is live.
 
-## Technical notes
+## Sequence
 
-- Files touched: `src/pages/engineer/EngineerToday.tsx` (Step 2), `src/hooks/useEngineerJobs.ts` and `src/lib/timeBlock.ts` tests (Step 3).
-- No database writes in any step.
-- BJ-0058 grouping (`todayPaidNeedsCompletion`) stays exactly as it is — it is behaving correctly.
-- Verification per step: typecheck plus build, unit tests for Step 3, and a click-through of Today's Jobs for an engineer with 2+ active jobs to confirm Next Job walks display order.
+1. Apply both file edits, show the diff, hold for approval before deploy.
+2. Run typecheck/build and the unit tests.
+3. Deploy, run the scratch-job verification, report the queries and logs.
