@@ -72,11 +72,13 @@ Deno.serve(async (req) => {
       .eq("id", service_call_id)
       .single();
 
-    if (jobErr || !job) {
-      console.log("send-payment-link 404: job not found", { service_call_id, jobErr: jobErr?.message });
-      return new Response(JSON.stringify({ error: "Job not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (jobErr || !job || job.organisation_id !== callerOrgId) {
+      console.log("send-payment-link: job not found for caller organisation", {
+        service_call_id,
+        caller_organisation_id: callerOrgId,
+        jobErr: jobErr?.message,
       });
+      return json({ success: false, error: "not_found" }, 404);
     }
 
     const { data: customer } = await supabase
