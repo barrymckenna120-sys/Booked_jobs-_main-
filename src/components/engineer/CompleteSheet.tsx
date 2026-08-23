@@ -28,9 +28,11 @@ interface Props {
   customer: any;
   onClose: () => void;
   onDone: (data: any, jobTagDate: string | null) => void;
+  /** View-state only: advance Today's Jobs look-ahead when Cancel is pressed. */
+  onAdvanceView?: () => void;
 }
 
-const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
+const CompleteSheet = ({ job, customer, onClose, onDone, onAdvanceView }: Props) => {
   const [workDone, setWorkDone] = useState("");
   const [userHasTyped, setUserHasTyped] = useState(false);
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
@@ -277,7 +279,10 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
         >
           <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>
-        <button onClick={onClose} className="w-full text-center text-muted-foreground text-sm font-semibold py-1">
+        <button
+          onClick={() => { onClose(); onAdvanceView?.(); }}
+          className="w-full text-center text-muted-foreground text-sm font-semibold py-1"
+        >
           Cancel
         </button>
       </div>

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import EngineerMediaGrid from "./EngineerMediaGrid";
-import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw, ChevronRight, Flame } from "lucide-react";
+import { MapPin, AlertTriangle, Play, CheckCircle2, CreditCard, Receipt, Phone, RotateCw, ChevronRight, Flame, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CompleteSheet from "./CompleteSheet";
 import CancelSheet from "./CancelSheet";
@@ -40,11 +40,17 @@ interface EngineerJobCardProps {
   onUpdate: (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => void;
   isNextJob?: boolean;
   photos?: { url: string; name: string }[];
+  /** View-state only: true when the engineer is previewing a later job. */
+  isViewingAhead?: boolean;
+  /** View-state only: show the next job's card. Undefined when there is none. */
+  onAdvanceView?: () => void;
+  /** View-state only: return to the actual current job. */
+  onBackView?: () => void;
 }
 
 const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
-const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
+const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [], isViewingAhead = false, onAdvanceView, onBackView }: EngineerJobCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showDetail, setShowDetail] = useState(false);
@@ -111,12 +117,38 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         style={{ borderLeftColor }}
         onClick={openJobDetails}
       >
-        {/* Next Job Badge */}
-        {isNextJob && (
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse flex items-center gap-1">
-              <Play className="w-3 h-3" /> Next Job
-            </span>
+        {/* Next Job Badge + look-ahead controls (view state only, no writes) */}
+        {(isNextJob || isViewingAhead || onAdvanceView) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-2" onClick={stopProp}>
+            {isNextJob && (
+              <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                <Play className="w-3 h-3" /> Next Job
+              </span>
+            )}
+            {isViewingAhead && (
+              <span className="bg-muted text-muted-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                Looking ahead
+              </span>
+            )}
+            <span className="flex-1" />
+            {isViewingAhead && onBackView && (
+              <button
+                type="button"
+                onClick={onBackView}
+                className="flex items-center gap-1 rounded-full border border-border bg-secondary/60 px-2.5 py-1 text-[11px] font-bold text-foreground active:opacity-70"
+              >
+                <ArrowLeft className="w-3 h-3" /> Back
+              </button>
+            )}
+            {onAdvanceView && (
+              <button
+                type="button"
+                onClick={onAdvanceView}
+                className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary active:opacity-70"
+              >
+                Next Job <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
 
@@ -343,7 +375,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       </div>
 
       {showDetail && <JobDetailSheet job={job} customer={customer} onClose={() => setShowDetail(false)} onStart={(id: string) => onUpdate(id, { status: "In Progress" })} />}
-      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onDone={(data: any, jobTagDate: string | null) => { setPendingCompletionData({ data, jobTagDate }); setShowComplete(false); setShowCompletionPayment(true); }} />}
+      {showComplete && <CompleteSheet job={job} customer={customer} onClose={() => setShowComplete(false)} onAdvanceView={onAdvanceView} onDone={(data: any, jobTagDate: string | null) => { setPendingCompletionData({ data, jobTagDate }); setShowComplete(false); setShowCompletionPayment(true); }} />}
       {showCancel && <CancelSheet job={job} customer={customer} onClose={() => setShowCancel(false)} onDone={(reason: string, note: string) => { onUpdate(job.id, { status: "Cancelled", cancelReason: reason, cancelNote: note }); setShowCancel(false); }} />}
       {showNote && <NoteSheet job={job} customer={customer} onClose={() => setShowNote(false)} onSave={(note: string) => { onUpdate(job.id, { notes: note }); setShowNote(false); }} />}
       {showPhotos && <MediaSheet job={job} customer={customer} onClose={() => setShowPhotos(false)} onSave={() => setShowPhotos(false)} />}

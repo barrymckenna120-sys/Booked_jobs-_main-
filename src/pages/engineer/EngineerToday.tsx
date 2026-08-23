@@ -40,6 +40,21 @@ const EngineerToday = () => {
     ? [todayActive.find((j: any) => j.id === nextJobId), ...todayActive.filter((j: any) => j.id !== nextJobId)]
     : todayActive;
 
+  // Look-ahead view state — purely local, never written anywhere.
+  const [viewedJobRef, setViewedJobRef] = useState<string | null>(null);
+  const viewedJob = viewedJobRef ? todayActive.find((j: any) => j.id === viewedJobRef) : undefined;
+  // If the previewed job leaves the active list (realtime payment/completion),
+  // drop back to the actual current job rather than showing a stale card.
+  useEffect(() => {
+    if (viewedJobRef && !viewedJob) setViewedJobRef(null);
+  }, [viewedJobRef, viewedJob]);
+
+  const isViewingAhead = !!viewedJob;
+  const displayedJob = viewedJob || sortedActive[0];
+  const displayedIndex = displayedJob ? todayActive.findIndex((j: any) => j.id === displayedJob.id) : -1;
+  const nextViewJob = displayedIndex >= 0 ? todayActive[displayedIndex + 1] : undefined;
+
+
   const [openPartsCount, setOpenPartsCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -133,20 +148,23 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {sortedActive.length > 0 && (
+          {displayedJob && (
             <EngineerJobCard
-              key={sortedActive[0].id}
-              job={sortedActive[0]}
-              customer={customers[sortedActive[0].customer_id] || {}}
+              key={displayedJob.id}
+              job={displayedJob}
+              customer={customers[displayedJob.customer_id] || {}}
               onUpdate={updateJob}
-              isNextJob={sortedActive[0].id === nextJobId}
+              isNextJob={displayedJob.id === nextJobId}
+              isViewingAhead={isViewingAhead}
+              onAdvanceView={nextViewJob ? () => setViewedJobRef(nextViewJob.id) : undefined}
+              onBackView={() => setViewedJobRef(null)}
             />
           )}
 
           {sortedActive.length > 1 && (
             <>
               <SectionDivider label="REST OF DAY" />
-              {sortedActive.slice(1).map((job: any) => (
+              {sortedActive.filter((job: any) => job.id !== displayedJob?.id).map((job: any) => (
                 <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
               ))}
             </>
