@@ -32,6 +32,7 @@ Note: this grouping is a UI-only change in `EngineerToday.tsx`. Combined with th
 
 ## Verification
 
-- Vitest run for the touched module's existing tests.
-- Playwright against the preview signed in as an engineer: scratch job scheduled today, take full payment by cash from the job card, then screenshot Today's Jobs showing the job gone from Active and the "Next Job" badge moved to the following job — with no Complete or status button pressed.
-- Confirm via `git diff` that `src/hooks/useEngineerJobs.ts` is the only changed file.
+- Vitest run for the touched modules' existing tests.
+- Playwright against the preview signed in as an engineer: scratch job scheduled today, take full payment by cash from the job card, then screenshot Today's Jobs showing the job gone from Active, the "Paid — Needs Completion" section visible, and the "Next Job" badge moved to the following job — with no Complete or status button pressed.
+- Confirm via `git diff` that only `src/hooks/useEngineerJobs.ts` and `src/pages/engineer/EngineerToday.tsx` are changed.
+
