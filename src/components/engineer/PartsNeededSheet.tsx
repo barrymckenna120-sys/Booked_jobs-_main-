@@ -294,7 +294,9 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
                 onClick={(e) => e.stopPropagation()}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">No job (phone order)</option>
+                <option value="unset" disabled>
+                  Select a job…
+                </option>
                 {jobs.map((j) => (
                   <option key={j.id} value={j.id}>
                     {[j.job_reference || "Job", j.job_type, j.scheduled_date, j.status]
@@ -302,10 +304,18 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
                       .join(" · ")}
                   </option>
                 ))}
+                <option value="none">No job (phone order)</option>
               </select>
-              <p className="text-xs text-muted-foreground">
-                Linking the job means the office sees the reference instead of "No job linked".
-              </p>
+              {jobChoiceMissing ? (
+                <p className="text-xs font-medium text-[#DC2626]">
+                  Choose a job, or "No job (phone order)"
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Linking the job means the office sees the reference instead of "No job linked".
+                </p>
+              )}
+
             </div>
           )}
 
