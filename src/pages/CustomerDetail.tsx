@@ -23,6 +23,7 @@ import CustomerHazardNotices from "@/components/customer/CustomerHazardNotices";
 import CustomerQuotes from "@/components/customer/CustomerQuotes";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import CustomerActivityTimeline from "@/components/customer/CustomerActivityTimeline";
+import CustomerPartsHistory from "@/components/parts/CustomerPartsHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
@@ -878,6 +879,10 @@ const CustomerDetail = () => {
 
             <CollapsibleSection title="Service History & Certificates" count={(sectionCounts.serviceJobs ?? 0) + (sectionCounts.certs ?? 0)}>
               <ServiceHistory customerId={id} onCountsReady={(jobCount, certCount) => setSectionCounts(prev => ({ ...prev, serviceJobs: jobCount, certs: certCount }))} />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Parts" count={sectionCounts.parts}>
+              <CustomerPartsHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, parts: n }))} />
             </CollapsibleSection>
 
             {/* Hazard Notices — only renders when data exists */}
