@@ -205,7 +205,7 @@ const EngineerParts = () => {
               row={row}
               highlighted={highlightId === row.id}
               userId={user?.id ?? null}
-              authorName={engineerName ?? null}
+              authorName={engineer?.name ?? null}
               onCancelled={() => setReloadKey((k) => k + 1)}
               jobReference={row.service_call_id ? jobRefs[row.service_call_id] ?? null : null}
               customerName={
