@@ -158,10 +158,10 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // BJ-0069 — the section is permanent: active work up top, fitted/cancelled
-  // parts kept below with their timestamps so the job's parts record survives.
-  const active = parts.filter((p: any) => p.status !== "Cancelled" && p.status !== "Fitted");
-  const history = parts.filter((p: any) => p.status === "Cancelled" || p.status === "Fitted");
+  // BJ-0069 — the section is permanent: active work up top, cancelled parts kept
+  // below with their timestamps so the job's parts record survives.
+  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  const history = parts.filter((p: any) => p.status === "Cancelled");
   const isOrdered = job.status === "parts_ordered";
   const isArrived = job.status === "parts_arrived";
   const noActive = active.length === 0;
