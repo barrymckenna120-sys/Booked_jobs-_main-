@@ -160,7 +160,7 @@ const fmtPartsLoggedAt = (iso: string) => {
   return `${day} ${mon} ${year}, ${time}`;
 };
 
-const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: () => void }) => {
+const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: (readyPartIds: string[]) => void }) => {
   const { data: parts = [], refetch } = useJobParts(job.id);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -296,7 +296,11 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
           <Button
             className="gap-2 text-white font-bold w-full sm:w-auto"
             style={{ backgroundColor: "#22C55E" }}
-            onClick={() => onPartsArrived?.()}
+            onClick={() =>
+              onPartsArrived?.(
+                active.filter((p: any) => p.status === "Ready to Fit").map((p: any) => p.id),
+              )
+            }
           >
             <CalendarClock className="w-4 h-4" /> Tell customer parts arrived
           </Button>
@@ -385,6 +389,9 @@ const JobDetail = () => {
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partsNeededOpen, setPartsNeededOpen] = useState(false);
   const [partsArrivedOpen, setPartsArrivedOpen] = useState(false);
+  // BJ-0071 — parts the "parts arrived" WhatsApp covers, so the send stamps
+  // customer_notified_* on each one.
+  const [arrivedPartIds, setArrivedPartIds] = useState<string[]>([]);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -589,7 +596,7 @@ const JobDetail = () => {
 
       {/* Parts section — permanent (BJ-0069): renders whenever the job has any
           parts request, regardless of job status. Self-hides when there are none. */}
-      <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
+      <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={(ids) => { setArrivedPartIds(ids); setPartsArrivedOpen(true); }} />
 
 
       {/* Header */}
@@ -1150,6 +1157,7 @@ const JobDetail = () => {
           customerName={customer.name}
           customerPhone={customer.phone}
           followUpDetail={(job as any).follow_up_detail}
+          partsRequestIds={arrivedPartIds}
           onSent={fetchJob}
         />
       )}
