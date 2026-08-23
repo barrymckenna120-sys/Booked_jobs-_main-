@@ -111,16 +111,12 @@ const PartRequestCard = ({
             {priority.emoji} {priority.label}
           </span>
         )}
-        <span className="text-[12px] text-muted-foreground font-medium">
-          {formatPartTimestamp(row.created_at)}
-        </span>
-        {statusStamp && (
-          <span className="text-[12px] text-muted-foreground/80 font-medium">
-            · {statusStamp.label} {statusStamp.value}
-          </span>
-        )}
-
       </div>
+
+      {/* BJ-0069/0070 — same permanent trail as the customer record and Job Detail,
+          so the engineer sees every stage with its own timestamp, not just the latest. */}
+      <PartStatusTrail row={row} className="pt-2 border-t border-border/60" />
+
 
       {row.notes && (
         <div
