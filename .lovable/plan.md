@@ -27,36 +27,38 @@ Also worth noting: because no job is linked (see Finding 2), a creation notifica
 
 ## Finding 2 — BJ-0065: "No job linked" rows
 
-**Confirmed as real NULLs in the database, not a UI resolution failure.**
+**Confirmed as real NULLs in the database, not a per-screen display bug.** Your screenshot of the engineer "My Parts" screen is the same data seen from a second consumer, which matches the audit: the label is correct on both screens because the link genuinely isn't stored.
 
 The parts table links to a job through `service_call_id`. Of 23 rows, **16 have a job, 7 are NULL** — and all the named examples are genuinely NULL:
 
 - fred test1 (both new rows) — NULL
 - Aisling Power, Aoife Walsh, Alan Byrne, joey the slips, Paul Higgins — NULL
-- KN-427 / KN-421 rows — populated, and the UI resolves them correctly
+- KN-427 / KN-421 rows — populated, and both screens resolve them correctly
 
-The Parts page reads the job reference through a joined `service_calls` relation and falls back to "No job linked" when it is absent, so the label is accurate.
+Both consumers read the same column and render the same fallback: the office Parts page uses a joined `service_calls` relation, and the engineer "My Parts" screen resolves job references in a second lookup keyed off `service_call_id`, showing "No job linked" when it is NULL. Neither screen is dropping a link that exists.
 
 Two creation paths produce NULLs, for different reasons:
 
-1. **Engineer's standalone Parts page** — passes `serviceCallId: null` unconditionally. The sheet lets the engineer pick a customer but offers no job picker, so a request logged there can never link to a job. This is the fred test1 case.
+1. **Engineer's standalone Parts page** — passes `serviceCallId: null` unconditionally. The sheet lets the engineer pick a customer but offers no job picker, so a request logged there can never link to a job. This is the fred test1 case, and it is the root cause behind what your screenshot shows.
 2. **Office "New Order" sheet** — has an optional job dropdown (populated from the customer's last 10 jobs); when left blank it saves NULL. Deliberate — phoned-in orders often precede the job. This is the Aisling / Aoife / Alan case (all logged by Nicole).
 
 Paths that *do* link correctly: the engineer job card's "Parts needed" sheet and office Job Detail both pass the job id.
 
-**Proposed fix (needs approval):** add a job picker to the engineer's standalone parts sheet — after a customer is chosen, list that customer's recent open/scheduled jobs with an explicit "No job (phone order)" option — so path 1 stops silently dropping the link. Leave the office sheet's optional behaviour as is. Existing NULL rows are historical and would stay NULL unless you want a manual tidy-up.
+**Proposed fix (needs approval):** fix it at the creation layer — add a job picker to the engineer's standalone parts sheet so that after a customer is chosen it lists that customer's recent open/scheduled jobs with an explicit "No job (phone order)" option. That removes the silent drop for both consumers at once; no display change is needed on either screen. Leave the office sheet's optional behaviour as is. Existing NULL rows are historical and would stay NULL unless you want a manual tidy-up.
 
 ---
 
 ## Finding 3 — BJ-0066: Missing time on parts order date
 
-**Confirmed. Full timestamps are stored; the office UI formats the time away.**
+**Confirmed. Full timestamps are stored; both screens format the time away for older rows.**
 
-Schema: `created_at`, `ordered_at`, `ready_at`, `cancelled_at` are all full `timestamptz` — e.g. the "Ready to Fit" row for Paul Higgins holds `ordered_at = 14 Aug 07:26:53` and `ready_at = 14 Aug 07:26:54`. No precision is lost at the database level.
+Schema: `created_at`, `ordered_at`, `ready_at`, `cancelled_at` are all full `timestamptz` — e.g. the "Ready to Fit" row for Paul Higgins holds `ordered_at = 14 Aug 07:26:53` and `ready_at = 14 Aug 07:26:54`. No precision is lost at the database level, so this is display-only on both screens.
 
-The office Parts page's date helper formats day/month/year only and drops the time, and the card renders only `created_at` — `ordered_at` / `ready_at` are never shown at all. The engineer's parts card is already better: it shows "Today, 2:23pm" / "Yesterday, …" and falls back to a plain date for older rows.
+- **Office Parts page** — its date helper formats day/month/year only, and the card renders only `created_at`; `ordered_at` / `ready_at` are never shown at all.
+- **Engineer "My Parts"** — shows "Today, 2:23pm" / "Yesterday, …" for recent rows, but falls back to a plain date with no time for anything older. That is exactly why KN-427 reads as a bare date in your screenshot, while today's fred test1 rows show a time.
 
-**Proposed fix (needs approval):** reuse the engineer card's relative-plus-time formatting on the office Parts page, and show the status timestamp alongside the logged timestamp (Ordered at / Ready at) for rows that have progressed. Europe/Dublin display throughout.
+**Proposed fix (needs approval):** always include the time in the older-than-yesterday branch on the engineer card (e.g. "27 Jul, 1:42pm"), and apply the same relative-plus-time formatting on the office Parts page, which additionally should show the status timestamp (Ordered at / Ready at) for rows that have progressed. Europe/Dublin display throughout, shared formatter so the two screens can't drift again.
+
 
 ---
 
