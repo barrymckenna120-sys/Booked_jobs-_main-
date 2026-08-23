@@ -3,10 +3,11 @@ import { StickyNote, Building2, XCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
+import PartStatusTrail from "@/components/parts/PartStatusTrail";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { updatePartStatus } from "@/lib/partsRequests";
-import { formatPartStatusStamp, formatPartTimestamp } from "@/lib/partsDates";
+
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
