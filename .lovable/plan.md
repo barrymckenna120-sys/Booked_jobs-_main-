@@ -26,6 +26,9 @@ Confirmed against live data: `payment_status` values in use are `unpaid` (393 ro
 
 Chosen approach: **Option B with a distinct grouping**. Paid-but-not-completed jobs get their own small section in `EngineerToday.tsx` (e.g. "Paid — Needs Completion"), separate from the `todayCompleted` "Completed" section, so engineers can still tap into the existing Complete form but cannot confuse them with fully closed jobs.
 
+Note: this grouping is a UI-only change in `EngineerToday.tsx`. Combined with the filter change in `useEngineerJobs.ts`, **two files** are touched. If the single-file constraint is strict, the only way is Option A (filter only, with the lost-route tradeoff).
+
+
 
 ## Verification
 
