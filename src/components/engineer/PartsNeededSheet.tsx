@@ -20,10 +20,20 @@ interface CustomerRow {
   address: string | null;
 }
 
+interface JobRow {
+  id: string;
+  job_reference: string | null;
+  job_type: string | null;
+  scheduled_date: string | null;
+  status: string | null;
+}
+
 /** Either a picked customer id or a typed-in name — the DB requires one of them. */
 export interface PartCustomerSelection {
   customerId: string | null;
   customerName: string | null;
+  /** Job the part belongs to. Null for genuine phone orders with no job yet. */
+  serviceCallId: string | null;
 }
 
 interface Props {
@@ -49,6 +59,9 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   const [customer, setCustomer] = useState<CustomerRow | null>(null);
   const [manual, setManual] = useState(false);
   const [manualName, setManualName] = useState("");
+  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [jobId, setJobId] = useState("");
+
 
   // Debounced customer search — same query shape as the office New Order form.
   useEffect(() => {
@@ -75,6 +88,27 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     return () => { cancelled = true; clearTimeout(t); };
   }, [search, open, requireCustomer, organisationId, customer, manual]);
 
+  // Once a customer is picked, offer their recent jobs so the request can be
+  // linked (BJ-0065: this path used to always save a job-less row).
+  useEffect(() => {
+    if (!open || !requireCustomer || !customer) {
+      setJobs([]);
+      setJobId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("service_calls")
+        .select("id, job_reference, job_type, scheduled_date, status")
+        .eq("customer_id", customer.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (!cancelled) setJobs(((data as any[]) || []) as JobRow[]);
+    })();
+    return () => { cancelled = true; };
+  }, [open, requireCustomer, customer]);
+
   if (!open) return null;
 
   const reset = () => {
@@ -86,6 +120,8 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     setCustomer(null);
     setManual(false);
     setManualName("");
+    setJobs([]);
+    setJobId("");
   };
 
   const hasCustomer = !!customer || manualName.trim().length > 0;
@@ -107,9 +143,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
         ? {
             customerId: customer?.id ?? null,
             customerName: customer ? null : manualName.trim() || null,
+            serviceCallId: customer ? jobId || null : null,
           }
         : undefined,
     );
+
     reset();
   };
 
@@ -231,6 +269,35 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
               )}
             </div>
           )}
+
+          {requireCustomer && customer && jobs.length > 0 && (
+            <div className="space-y-2">
+              <label htmlFor="part-job" className="text-sm font-semibold text-foreground">
+                Job
+              </label>
+              <select
+                id="part-job"
+                value={jobId}
+                onChange={(e) => setJobId(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">No job (phone order)</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {[j.job_reference || "Job", j.job_type, j.scheduled_date, j.status]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Linking the job means the office sees the reference instead of "No job linked".
+              </p>
+            </div>
+          )}
+
+
 
           <Textarea
             value={description}

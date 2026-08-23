@@ -19,10 +19,10 @@ import {
   type PartStatus,
 } from "@/lib/partsRequests";
 
-const fmtDate = (iso: string | null) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
-};
+import { formatPartStatusStamp, formatPartTimestamp } from "@/lib/partsDates";
+
+const fmtDate = (iso: string | null) => formatPartTimestamp(iso) || "—";
+
 
 const Parts = () => {
   const navigate = useNavigate();
@@ -138,10 +138,16 @@ const Parts = () => {
               <p className="text-sm text-muted-foreground mt-0.5 truncate">
                 {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
               </p>
-              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                 <span>🔧 {engineerOf(part)}</span>
                 <span>📅 {fmtDate(part.created_at)}</span>
+                {formatPartStatusStamp(part) && (
+                  <span>
+                    📦 {formatPartStatusStamp(part)!.label} {formatPartStatusStamp(part)!.value}
+                  </span>
+                )}
               </div>
+
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
               {sCfg && (

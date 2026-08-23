@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { StickyNote, Building2, XCircle, Loader2 } from "lucide-react";
-import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { updatePartStatus } from "@/lib/partsRequests";
+import { formatPartStatusStamp, formatPartTimestamp } from "@/lib/partsDates";
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
@@ -16,16 +16,6 @@ import {
 } from "@/lib/partsStatus";
 
 
-const formatCreated = (value: string) => {
-  try {
-    const d = parseISO(value);
-    if (isToday(d)) return `Today, ${format(d, "h:mmaaa").toLowerCase()}`;
-    if (isYesterday(d)) return `Yesterday, ${format(d, "h:mmaaa").toLowerCase()}`;
-    return format(d, "d MMM yyyy");
-  } catch {
-    return "";
-  }
-};
 
 interface Props {
   row: PartsRequestRow;
@@ -60,6 +50,8 @@ const PartRequestCard = ({
   const priority = PART_PRIORITY_CONFIG[(row.priority ?? "").toLowerCase()];
   const officeUpdate = isOfficeUpdate(row);
   const canCancel = canEngineerCancelPart(row, userId);
+  const statusStamp = formatPartStatusStamp(row);
+
 
   const cancel = async () => {
     setSaving(true);
@@ -120,8 +112,14 @@ const PartRequestCard = ({
           </span>
         )}
         <span className="text-[12px] text-muted-foreground font-medium">
-          {formatCreated(row.created_at)}
+          {formatPartTimestamp(row.created_at)}
         </span>
+        {statusStamp && (
+          <span className="text-[12px] text-muted-foreground/80 font-medium">
+            · {statusStamp.label} {statusStamp.value}
+          </span>
+        )}
+
       </div>
 
       {row.notes && (
