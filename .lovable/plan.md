@@ -1,53 +1,43 @@
-# Step 2: Service Worker Update Safety
+# BJ-0059: send-payment-link tenant/org verification
 
 ## Goal
-Prevent a newly deployed service worker from taking over automatically, clean up stale caches, and keep old JS/CSS chunks loadable for tabs that are open during a deployment.
+Lock down `send-payment-link` so it verifies the caller's JWT and confirms the caller belongs to the same organisation as the target job before reading amounts or creating a SumUp checkout.
+
+## Scope
+Only these files will change:
+- `supabase/config.toml` — add function-specific entry
+- `supabase/functions/send-payment-link/index.ts` — add auth + tenant check
+
+No other functions, shared helpers, or UI files will be touched.
 
 ## Changes
 
-### 1. `vite.config.ts` — workbox options
+### 1. `supabase/config.toml`
 
-Current workbox block contains:
-
-```text
-skipWaiting: true,
-clientsClaim: true,
-```
-
-Change to:
+Add:
 
 ```text
-// skipWaiting and clientsClaim intentionally omitted so the new SW waits
-// until the user confirms via the in-app update banner.
-clientsClaim: true,
-cleanupOutdatedCaches: true,
+[functions.send-payment-link]
+  verify_jwt = true
 ```
 
-Add a runtime-caching entry for built assets:
+### 2. `supabase/functions/send-payment-link/index.ts`
 
-```text
-{
-  urlPattern: ({ request }) => request.destination === "script" || request.destination === "style",
-  handler: "StaleWhileRevalidate",
-  options: {
-    cacheName: "assets",
-    expiration: {
-      maxEntries: 50,
-      maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-    },
-  },
-},
-```
+Mirror the pattern already used in `send-deposit-link/index.ts`:
 
-### 2. `src/components/pwa/PWAUpdateBanner.tsx` — activation confirmation
-
-Current banner already calls `updateServiceWorker(true)` when the user taps "Refresh". This posts the skip-waiting message to the waiting worker, so no change is required unless the read shows otherwise.
+1. Read `Authorization` header and reject with 401 if it is missing or not `Bearer ...`.
+2. Build a caller-scoped Supabase client using `SUPABASE_ANON_KEY` and the incoming `Authorization` header (plus `x-org-impersonation-token` if present).
+3. Call `asCaller.auth.getUser()` and reject with 401 on failure.
+4. Call `asCaller.rpc("get_my_org_id")` to resolve `callerOrgId`; reject with 403 on failure.
+5. Fetch the job row from `service_calls` (using service-role client) and check `job.organisation_id === callerOrgId` BEFORE any amount/SumUp logic.
+6. Return 404 with message `not_found` when the job is missing or the org mismatches, so cross-tenant job IDs are not leaked.
+7. Leave the existing balance-due calculation, SumUp checkout creation, WhatsApp message composition, and message_log writes unchanged.
 
 ## Verification
 
-- Run the build and confirm no typecheck or build errors.
-- Inspect the generated `dist/sw.js` to confirm `skipWaiting` is no longer forced and the `assets` cache entry exists.
+- Typecheck/build the project after the edit.
+- Show the full git diff for the two files before any deploy.
 
-## Deployment Note
+## Deployment note
 
-The final behaviour — old tabs loading their own chunks during a deploy and the banner correctly activating the new version — can only be confirmed after a real deployment and a subsequent version bump. This plan covers code changes only; the live-tab test is a separate step.
+No deploy will be performed; the diff is for review only, per standing workflow.
