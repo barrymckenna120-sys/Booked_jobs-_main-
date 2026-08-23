@@ -50,15 +50,6 @@ export default defineConfig(({ mode }) => ({
               networkTimeoutSeconds: 15,
             },
           },
-          {
-            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api",
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-            },
-          },
         ],
       },
     }),
