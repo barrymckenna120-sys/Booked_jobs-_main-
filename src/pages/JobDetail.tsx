@@ -321,13 +321,31 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     </span>
                   </div>
                   <PartStatusTrail row={part} />
+                  <PartTrackingDetails row={part} />
+                  <PartCommentsThread
+                    partsRequestId={part.id}
+                    organisationId={part.organisation_id || job.organisation_id}
+                    authorName={engineerName || user?.email || null}
+                    authorRole={role}
+                    className="pt-2 border-t border-border/60"
+                  />
                 </div>
               );
             })}
           </div>
         )}
+
+        {editingPart && (
+          <PartTrackingEditSheet
+            open={!!editingPart}
+            onClose={() => setEditingPart(null)}
+            part={editingPart}
+            onSaved={() => refetch()}
+          />
+        )}
       </CardContent>
     </Card>
+
   );
 };
 
