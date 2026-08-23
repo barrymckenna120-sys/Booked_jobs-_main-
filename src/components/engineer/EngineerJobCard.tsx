@@ -40,11 +40,17 @@ interface EngineerJobCardProps {
   onUpdate: (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => void;
   isNextJob?: boolean;
   photos?: { url: string; name: string }[];
+  /** View-state only: true when the engineer is previewing a later job. */
+  isViewingAhead?: boolean;
+  /** View-state only: show the next job's card. Undefined when there is none. */
+  onAdvanceView?: () => void;
+  /** View-state only: return to the actual current job. */
+  onBackView?: () => void;
 }
 
 const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
-const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [] }: EngineerJobCardProps) => {
+const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [], isViewingAhead = false, onAdvanceView, onBackView }: EngineerJobCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showDetail, setShowDetail] = useState(false);
