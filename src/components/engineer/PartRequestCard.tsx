@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
 import PartStatusTrail from "@/components/parts/PartStatusTrail";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { updatePartStatus } from "@/lib/partsRequests";
@@ -25,6 +27,8 @@ interface Props {
   customerName?: string | null;
   /** Current engineer's auth uid — drives whether cancel is offered at all. */
   userId?: string | null;
+  /** Engineer's display name, stamped on any comment they post. */
+  authorName?: string | null;
   onCancelled?: () => void;
   /** Ring the card when opened from a parts notification deep link. */
   highlighted?: boolean;
@@ -35,9 +39,11 @@ const PartRequestCard = ({
   jobReference,
   customerName,
   userId = null,
+  authorName = null,
   onCancelled,
   highlighted = false,
 }: Props) => {
+
   const displayCustomer = customerName ?? row.customer_name ?? null;
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
