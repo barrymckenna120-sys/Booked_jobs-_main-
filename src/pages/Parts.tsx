@@ -129,14 +129,17 @@ const Parts = () => {
   // fine, but a sleeping tab misses both the poll and realtime, so refetch on
   // foreground and on reconnect.
   useEffect(() => {
+    const refresh = () => {
+      void refetch();
+    };
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") refetch();
+      if (document.visibilityState === "visible") refresh();
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("online", refetch);
+    window.addEventListener("online", refresh);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("online", refetch);
+      window.removeEventListener("online", refresh);
     };
   }, [refetch]);
 
