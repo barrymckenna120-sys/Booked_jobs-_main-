@@ -117,12 +117,38 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         style={{ borderLeftColor }}
         onClick={openJobDetails}
       >
-        {/* Next Job Badge */}
-        {isNextJob && (
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse flex items-center gap-1">
-              <Play className="w-3 h-3" /> Next Job
-            </span>
+        {/* Next Job Badge + look-ahead controls (view state only, no writes) */}
+        {(isNextJob || isViewingAhead || onAdvanceView) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-2" onClick={stopProp}>
+            {isNextJob && (
+              <span className="bg-primary text-primary-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                <Play className="w-3 h-3" /> Next Job
+              </span>
+            )}
+            {isViewingAhead && (
+              <span className="bg-muted text-muted-foreground text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                Looking ahead
+              </span>
+            )}
+            <span className="flex-1" />
+            {isViewingAhead && onBackView && (
+              <button
+                type="button"
+                onClick={onBackView}
+                className="flex items-center gap-1 rounded-full border border-border bg-secondary/60 px-2.5 py-1 text-[11px] font-bold text-foreground active:opacity-70"
+              >
+                <ArrowLeft className="w-3 h-3" /> Back
+              </button>
+            )}
+            {onAdvanceView && (
+              <button
+                type="button"
+                onClick={onAdvanceView}
+                className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary active:opacity-70"
+              >
+                Next Job <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
 
