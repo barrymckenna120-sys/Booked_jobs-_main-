@@ -12,7 +12,10 @@ interface Props {
   customer: any;
   onClose: () => void;
   onDone: (method: string, confirmedAmount: number) => void;
+  /** Fully-paid jobs only: mark complete without touching any payment field. */
+  onCompleteOnly?: () => void;
 }
+
 
 const DEFAULT_PRICES: Record<string, string> = {
   "Boiler Service": "default_service_price",
