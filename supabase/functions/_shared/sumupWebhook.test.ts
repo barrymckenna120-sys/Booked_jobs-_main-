@@ -44,6 +44,7 @@ interface Harness {
     status: string;
     amount: number | null;
   }>;
+  receipts: Array<{ serviceCallId: string; amount: number; checkoutId: string }>;
   /** payment_failed timeline entries only; `activities` stays payment_received. */
   failureActivities: Array<{
     organisationId: string | null;
@@ -76,6 +77,10 @@ function run(opts: {
   failureAlert?: Error;
   /** Error = the failure timeline write throws; must never change the outcome. */
   activityLog?: Error;
+  /** Error = the receipt send throws; must never change the outcome. */
+  receiptSend?: Error;
+  /** false = a re-delivery whose event claim is rejected. */
+  claimOk?: boolean;
 }) {
   const h: Harness = {
     updates: [],
@@ -89,6 +94,7 @@ function run(opts: {
     claims: 0,
     failureAlerts: [],
     failureActivities: [],
+    receipts: [],
   };
 
   const result = handleSumUpWebhook({
@@ -154,7 +160,12 @@ function run(opts: {
     },
     claimEvent: () => {
       h.claims++;
-      return Promise.resolve(true);
+      return Promise.resolve(opts.claimOk !== false);
+    },
+    sendReceipt: (e) => {
+      h.receipts.push({ serviceCallId: e.serviceCallId, amount: e.amount, checkoutId: e.checkoutId });
+      if (opts.receiptSend) return Promise.reject(opts.receiptSend);
+      return Promise.resolve();
     },
     notifyPaymentFailed: (e) => {
       h.failureAlerts.push({
@@ -902,4 +913,55 @@ Deno.test("jobIdFromCheckoutReference: legacy raw uuid passes through unchanged"
 Deno.test("jobIdFromCheckoutReference: trims and tolerates junk", () => {
   assertEquals(jobIdFromCheckoutReference("  abc::1  "), "abc");
   assertEquals(jobIdFromCheckoutReference(""), "");
+});
+
+
+// BJ-0059 — receipt on a webhook-confirmed FULL payment.
+
+Deno.test("BJ-0059: a full payment sends the customer receipt exactly once", async () => {
+  const { h, result: p } = run({});
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.receipts.length, 1);
+  assertEquals(h.receipts[0].serviceCallId, JOB_ID);
+  assertEquals(h.receipts[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.receipts[0].amount, 2000);
+});
+
+Deno.test("BJ-0059: a deposit-only payment never sends a receipt", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.receipts.length, 0);
+});
+
+Deno.test("BJ-0059: a re-delivery whose claim is rejected sends nothing", async () => {
+  const { h, result: p } = run({ claimOk: false });
+  const result = await p;
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(h.receipts.length, 0);
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("BJ-0059: a throwing receipt send leaves the outcome paid", async () => {
+  const { h, result: p } = run({ receiptSend: new Error("360 down") });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.receipts.length, 1);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+  assertEquals(h.notifications.length, 1);
+});
+
+Deno.test("BJ-0059: a not-paid checkout never sends a receipt", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "FAILED", amount: 2000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(h.receipts.length, 0);
 });
