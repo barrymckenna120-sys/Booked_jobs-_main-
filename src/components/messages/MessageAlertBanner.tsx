@@ -12,9 +12,16 @@ interface MessageAlert {
   senderName: string;
   message: string;
   jobId: string | null;
+  notificationType: string;
+  metadata: Record<string, unknown> | null;
 }
 
-const MessageAlertBanner = () => {
+interface Props {
+  /** Route prefix for job links: "/jobs" in the office app, "/engineer/job" in the engineer app. */
+  jobPathPrefix?: string;
+}
+
+const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<MessageAlert[]>([]);
