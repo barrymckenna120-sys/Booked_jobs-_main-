@@ -1,67 +1,60 @@
-# BJ-0060 — Superadmin always receives office job notifications
+# BJ-0060 amendment — opt-in ops-notification flag instead of role = 'superadmin'
 
 ## Problem
 
-Office-facing job notifications (En Route, On Site, Start Work, etc.) are addressed only to
-rows in `engineers` with role admin/office/owner and a linked login. A superadmin session has
-no `engineers` row, so the office app bell and sound never fire for that session — which is why
-Karl's En Route on KN-515 produced a notification for Nicole but nothing for the superadmin
-who was logged in.
+The shipped trigger resolves extra recipients from `profiles.role = 'superadmin'`, which matches
+three accounts (Linda plus two developer test accounts). All three currently receive every
+tenant's office job notifications.
 
-## Change
+Confirmed on the live function: it references `public.profiles` in 12 places (one per office
+recipient loop), and `profiles` has no `receives_ops_notifications` column yet.
 
-One migration that redefines `public.notify_on_job_change()`. Every office-recipient loop gets
-the same replacement — the existing engineers query is wrapped in a subquery that also unions in
-every superadmin login, with the actor-exclusion applied once on the outside so a superadmin's
-own actions still don't notify themselves.
+## Change — one migration
 
-Recipient resolution becomes:
+1. `ALTER TABLE public.profiles ADD COLUMN receives_ops_notifications boolean NOT NULL DEFAULT false;`
+2. `UPDATE public.profiles SET receives_ops_notifications = true WHERE user_id = 'ed429061-7b76-4272-af4a-25249ee6d719';`
+   (Linda only — everyone else stays false by default.)
+3. `CREATE OR REPLACE FUNCTION public.notify_on_job_change()` with all 12 recipient unions changed
+   from the role check to:
 
 ```text
-SELECT DISTINCT auth_user_id FROM (
-  SELECT auth_user_id FROM public.engineers
-  WHERE organisation_id = NEW.organisation_id
-    AND role IN ('admin','office','owner')
-    AND status = 'active'
-    AND auth_user_id IS NOT NULL
-  UNION
-  SELECT user_id FROM public.profiles
-  WHERE role = 'superadmin' AND user_id IS NOT NULL
-) recipients
-WHERE (auth.uid() IS NULL OR auth_user_id <> auth.uid())
+UNION
+SELECT user_id FROM public.profiles
+WHERE receives_ops_notifications = true AND user_id IS NOT NULL
 ```
 
-Superadmins are resolved dynamically from `profiles` rather than hardcoding
-`ed429061-7b76-4272-af4a-25249ee6d719`, so adding or changing a superadmin needs no migration.
-
-### Applied to all 12 office loops, identically
-
-INSERT-time: Tally Form `new_job`, `new_repair`.
-UPDATE-time: reassigned-office, en_route, on_site, in_progress, cancelled-office, no_show,
-parts_needed, payment_collected, completed, follow_up.
-
-(Your task named 8; the quoted pattern actually occurs 12 times. All 12 are treated the same,
-per your answer, so there is no variation between branches.)
-
-### Explicitly unchanged
-
-- The three single-recipient engineer INSERTs (new job assigned, reassigned-to-engineer,
-  cancelled-engineer notice) — they use `SELECT ... INTO` and are untouched.
-- Actor-exclusion semantics, notification titles/bodies/metadata, branch conditions, `role`
-  column values, `organisation_id` stamping.
-- No `engineers` table data changes, no client-side code changes.
+Everything else in the function is re-emitted byte-identical: branch conditions, titles/bodies,
+metadata, `organisation_id` stamping, the outer actor-exclusion
+`(auth.uid() IS NULL OR auth_user_id <> auth.uid())`, and the three single-recipient engineer
+INSERTs. Column is additive with a safe default, so no client or types changes are required.
 
 ## Verification
 
-1. Create a scratch job in K&N assigned to Karl.
-2. Press En Route as Karl through the engineer app.
-3. Confirm exactly two `notifications` rows for that job: Nicole (`574c0743…`) and the
-   superadmin (`ed429061…`), both with `organisation_id` set and type `en_route`.
-4. Confirm the office app bell badge increments and the sound fires while signed in as the
-   superadmin (the existing `useNotifications` realtime filter matches on `recipient_user_id`).
-5. Delete the scratch job and its activity rows.
+1. Query `profiles` for every row with `receives_ops_notifications = true` — expect exactly one
+   (Linda, `ed429061…`).
+2. Confirm the new pattern occurs 12 times in the live function and the old role pattern 0 times.
+3. Scratch job in K&N assigned to Karl, flip to En Route through the real engineer path.
+4. Confirm `notifications` for that job holds exactly 2 `en_route` rows — Nicole (`574c0743…`)
+   and Linda (`ed429061…`) — not 4. Confirm `organisation_id` is stamped on both.
+5. Delete the scratch job, customer, notifications and activity rows; re-confirm zero remain.
+
+## Bell/sound sign-in gap
+
+I can mint a preview session for a chosen auth user in this environment and drive the office app
+as Linda in a headless browser, so I will attempt the signed-in check: load the office app as
+Linda, trigger the En Route change, and capture the bell badge incrementing.
+
+Audio output cannot be captured headlessly — I can only verify the sound code path is reached
+(the `playDoubleBeep` branch in `useNotifications`), not hear it. If minting Linda's session is
+declined or fails, I will say so explicitly and hand Barry this manual check instead:
+
+1. Sign in to the office app as Linda on a device with sound on and tap once anywhere first
+   (browser audio unlock).
+2. Have Karl press En Route on the scratch job.
+3. Expect the bell badge to increment and a double beep within a second or two, with the banner
+   naming the job.
 
 ## Note
 
-Superadmin is platform-wide, so this routes office job notifications for every tenant to the
-superadmin bell — expected for an operator account, but it will be noisier as more orgs go live.
+The flag is opt-in and platform-wide by design: any future operator who should receive all
+tenants' ops notifications gets the flag set, with no migration needed.
