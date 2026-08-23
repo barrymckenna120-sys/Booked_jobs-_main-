@@ -157,13 +157,17 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  // BJ-0069 — the section is permanent: active work up top, fitted/cancelled
+  // parts kept below with their timestamps so the job's parts record survives.
+  const active = parts.filter((p: any) => p.status !== "Cancelled" && p.status !== "Fitted");
+  const history = parts.filter((p: any) => p.status === "Cancelled" || p.status === "Fitted");
   const isOrdered = job.status === "parts_ordered";
   const isArrived = job.status === "parts_arrived";
-  const accentBorder = isArrived ? "border-[#7C3AED]" : isOrdered ? "border-blue-500" : "border-amber-500";
-  const accentBg = isArrived ? "bg-[#FAF5FF]" : isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
-  const accentTitle = isArrived ? "text-[#6D28D9]" : isOrdered ? "text-blue-800" : "text-amber-800";
-  const title = isArrived ? "Parts Ready to Fit" : isOrdered ? "Parts Ordered" : "Parts Needed";
+  const noActive = active.length === 0;
+  const accentBorder = noActive ? "border-border" : isArrived ? "border-[#7C3AED]" : isOrdered ? "border-blue-500" : "border-amber-500";
+  const accentBg = noActive ? "" : isArrived ? "bg-[#FAF5FF]" : isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
+  const accentTitle = noActive ? "" : isArrived ? "text-[#6D28D9]" : isOrdered ? "text-blue-800" : "text-amber-800";
+  const title = noActive ? "Parts" : isArrived ? "Parts Ready to Fit" : isOrdered ? "Parts Ordered" : "Parts Needed";
 
   const advance = async (part: any, status: PartStatus) => {
     setBusyId(part.id);
