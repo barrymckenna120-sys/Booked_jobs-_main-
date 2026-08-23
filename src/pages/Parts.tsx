@@ -399,6 +399,15 @@ const Parts = () => {
 
 
 
+      {editingPart && (
+        <PartTrackingEditSheet
+          open={!!editingPart}
+          onClose={() => setEditingPart(null)}
+          part={editingPart}
+          onSaved={() => refetch()}
+        />
+      )}
+
       {arrivedPart && (
         <PartsArrivedModal
           open={!!arrivedPart}
@@ -407,12 +416,14 @@ const Parts = () => {
           customerName={nameOf(arrivedPart)}
           customerPhone={phoneOf(arrivedPart)}
           followUpDetail={arrivedPart.service_calls?.follow_up_detail || arrivedPart.description}
+          partsRequestIds={[arrivedPart.id]}
           onSent={() => {
             setArrivedPart(null);
             refetch();
           }}
         />
       )}
+
     </div>
   );
 };
