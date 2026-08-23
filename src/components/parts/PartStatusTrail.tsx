@@ -12,7 +12,7 @@ const DOT_COLOUR: Record<string, string> = {
   logged: "bg-amber-500",
   ordered: "bg-blue-500",
   ready: "bg-[#7C3AED]",
-  fitted: "bg-[#15803D]",
+  
   cancelled: "bg-muted-foreground",
 };
 
@@ -21,7 +21,7 @@ interface Props {
     created_at?: string | null;
     ordered_at?: string | null;
     ready_at?: string | null;
-    fitted_at?: string | null;
+    
     cancelled_at?: string | null;
     status?: string | null;
   };

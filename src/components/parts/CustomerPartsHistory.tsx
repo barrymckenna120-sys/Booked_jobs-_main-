@@ -71,8 +71,8 @@ const CustomerPartsHistory = ({ customerId, onCountReady }: Props) => {
   }
 
   const sorted = [...parts].sort((a, b) => {
-    const aTerminal = a.status === "Fitted" || a.status === "Cancelled";
-    const bTerminal = b.status === "Fitted" || b.status === "Cancelled";
+    const aTerminal = a.status === "Cancelled";
+    const bTerminal = b.status === "Cancelled";
     if (aTerminal !== bTerminal) return aTerminal ? 1 : -1;
     if (!aTerminal) return priorityRank(a.priority) - priorityRank(b.priority);
     return 0;
