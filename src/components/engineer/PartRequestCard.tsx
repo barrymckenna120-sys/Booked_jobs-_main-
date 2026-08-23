@@ -154,6 +154,17 @@ const PartRequestCard = ({
         </div>
       )}
 
+      {/* Same thread the office sees — engineers can add context on a part. */}
+      <PartCommentsThread
+        partsRequestId={row.id}
+        organisationId={(row as any).organisation_id}
+        authorName={authorName}
+        authorRole="engineer"
+        compact
+        className="pt-2 border-t border-border/60"
+      />
+
+
       {canCancel && (
         <button
           onClick={() => setConfirming(true)}
