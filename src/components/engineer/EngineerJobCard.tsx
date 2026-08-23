@@ -94,10 +94,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   });
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
-  const isPartsStatus = job.status === "parts_needed" || job.status === "parts_ordered";
+  const isPartsStatus = job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived";
   const { pill: depositPill, balanceLine: depositBalanceLine } = resolveDepositPill(job);
 
-  const borderLeftColor = job.status === "parts_ordered" ? "#2563EB" : job.status === "parts_needed" ? "#F59E0B" : `hsl(var(--${
+  const borderLeftColor = job.status === "parts_arrived" ? "#7C3AED" : job.status === "parts_ordered" ? "#2563EB" : job.status === "parts_needed" ? "#F59E0B" : `hsl(var(--${
     job.job_type === "Emergency" ? "destructive" :
     isActive ? "warning" :
     job.status === "Completed" ? "success" :
@@ -184,6 +184,11 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {job.status === "parts_ordered" && (
           <p className="text-xs mb-1 truncate" style={{ color: "#2563EB" }}>
             Parts Ordered — office is sourcing your parts
+          </p>
+        )}
+        {job.status === "parts_arrived" && (
+          <p className="text-xs mb-1 truncate" style={{ color: "#7C3AED" }}>
+            Parts ready to fit — book the return visit
           </p>
         )}
 

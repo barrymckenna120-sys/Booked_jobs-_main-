@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, PackageCheck, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
@@ -36,6 +36,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   Cancelled:     { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
   parts_needed:  { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
   parts_ordered: { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
+  // BJ-0078 — engineer-facing label; office keeps "Awaiting Booking".
+  parts_arrived: { color: "text-[#7C3AED]",   bg: "bg-[#F3E8FF]",      label: "Parts Ready to Fit" },
 };
 
 const TIME_LABELS: Record<string, string> = {
@@ -599,7 +601,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (!job || !rescheduleDate) return;
     setActionLoading(true);
     const patch: Record<string, any> = { scheduled_date: rescheduleDate, time_block: rescheduleTime || null };
-    if (job.status === "parts_needed" || job.status === "parts_ordered") {
+    if (job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") {
       patch.status = "Scheduled";
     }
     const { error } = await supabase
@@ -896,6 +898,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             </div>
           </div>
         )}
+
+        {/* Parts Ready to Fit banner (BJ-0078) */}
+        {job.status === "parts_arrived" && (
+          <div className="rounded-r-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: "#FAF5FF", borderLeft: "3px solid #7C3AED" }}>
+            <PackageCheck className="w-4 h-4 shrink-0" style={{ color: "#7C3AED" }} />
+            <div>
+              <div className="text-[13px] font-bold" style={{ color: "#7C3AED" }}>Parts Ready to Fit</div>
+              <div className="text-[11px] text-muted-foreground">Parts are in — book the return visit</div>
+            </div>
+          </div>
+        )}
+
+
 
         {/* Boiler issue */}
         {job.boiler_issue && (
