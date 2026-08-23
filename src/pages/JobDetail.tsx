@@ -163,7 +163,12 @@ const fmtPartsLoggedAt = (iso: string) => {
 const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: () => void }) => {
   const { data: parts = [], refetch } = useJobParts(job.id);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { role, engineerName } = useUserRole(user);
+  const canEditTracking = canEditPartsOfficeFields(role);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingPart, setEditingPart] = useState<any>(null);
+
 
   // BJ-0069 — the section is permanent: active work up top, cancelled parts kept
   // below with their timestamps so the job's parts record survives.
