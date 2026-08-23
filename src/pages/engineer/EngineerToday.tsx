@@ -114,7 +114,7 @@ const EngineerToday = () => {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
-          {todayActive.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
+          {todayActive.length === 0 && todayPaidNeedsCompletion.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">No jobs scheduled today</div>
@@ -125,7 +125,7 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {todayActive.length === 0 && completedTodayCount > 0 && (
+          {todayActive.length === 0 && todayPaidNeedsCompletion.length === 0 && completedTodayCount > 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <PartyPopper className="w-12 h-12 mx-auto mb-3 text-success" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">All jobs completed for today.</div>
