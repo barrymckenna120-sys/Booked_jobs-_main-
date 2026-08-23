@@ -88,6 +88,27 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     return () => { cancelled = true; clearTimeout(t); };
   }, [search, open, requireCustomer, organisationId, customer, manual]);
 
+  // Once a customer is picked, offer their recent jobs so the request can be
+  // linked (BJ-0065: this path used to always save a job-less row).
+  useEffect(() => {
+    if (!open || !requireCustomer || !customer) {
+      setJobs([]);
+      setJobId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("service_calls")
+        .select("id, job_reference, job_type, scheduled_date, status")
+        .eq("customer_id", customer.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (!cancelled) setJobs(((data as any[]) || []) as JobRow[]);
+    })();
+    return () => { cancelled = true; };
+  }, [open, requireCustomer, customer]);
+
   if (!open) return null;
 
   const reset = () => {
@@ -99,6 +120,8 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     setCustomer(null);
     setManual(false);
     setManualName("");
+    setJobs([]);
+    setJobId("");
   };
 
   const hasCustomer = !!customer || manualName.trim().length > 0;
@@ -120,9 +143,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
         ? {
             customerId: customer?.id ?? null,
             customerName: customer ? null : manualName.trim() || null,
+            serviceCallId: customer ? jobId || null : null,
           }
         : undefined,
     );
+
     reset();
   };
 
