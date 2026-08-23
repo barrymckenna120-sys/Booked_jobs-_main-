@@ -30,7 +30,7 @@ export const formatPartTimestamp = (value: string | null | undefined): string =>
 export const formatPartStatusStamp = (row: {
   ordered_at?: string | null;
   ready_at?: string | null;
-  fitted_at?: string | null;
+  
   cancelled_at?: string | null;
 }): { label: string; value: string } | null => {
   if (row.cancelled_at) {
