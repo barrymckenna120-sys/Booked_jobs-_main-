@@ -161,8 +161,6 @@ const RouteFallback = () => (
   </div>
 );
 
-import DevPartsPreview from "./pages/DevPartsPreview";
-
 function AppContent() {
   // redirectTo is intentionally empty: protected areas (AppLayout, OfficeRoute,
   // EngineerLayout) run their own auth redirects. A router-root redirect would
@@ -176,7 +174,6 @@ function AppContent() {
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/dev/parts-preview" element={<DevPartsPreview />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
