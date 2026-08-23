@@ -30,6 +30,7 @@ const Parts = () => {
   const [arrivedPart, setArrivedPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [showFitted, setShowFitted] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const { orgId } = useOrgId();
   const [searchParams] = useSearchParams();
@@ -43,7 +44,7 @@ const Parts = () => {
       const { data } = await supabase
         .from("parts_requests" as any)
         .select("*, service_calls(id, job_reference, assigned_engineer, follow_up_detail), customers(name, address, phone)")
-        .in("status", ["Open", "Ordered", "Ready to Fit", "Cancelled"])
+        .in("status", ["Open", "Ordered", "Ready to Fit", "Fitted", "Cancelled"])
         .order("created_at", { ascending: false });
       return (data as any[]) || [];
     },
@@ -77,6 +78,7 @@ const Parts = () => {
     .sort((a: any, b: any) => priorityRank(a.priority) - priorityRank(b.priority));
   const ordered = parts.filter((p: any) => p.status === "Ordered");
   const ready = parts.filter((p: any) => p.status === "Ready to Fit");
+  const fitted = parts.filter((p: any) => p.status === "Fitted");
   const cancelled = parts.filter((p: any) => p.status === "Cancelled");
   // "Total" stays an outstanding-work count — cancelled rows are terminal and excluded,
   // matching the sidebar badge in AppLayout.
@@ -283,11 +285,64 @@ const Parts = () => {
                     <CalendarClock className="w-3 h-3" /> Tell customer
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 text-[11px] h-7 px-2.5 border-[#15803D] text-[#15803D] hover:bg-[#DCFCE7]"
+                  disabled={busyId === part.id}
+                  onClick={(e) => { e.stopPropagation(); advance(part, "Fitted"); }}
+                >
+                  <Wrench className="w-3 h-3" /> Mark Fitted
+                </Button>
               </PartCard>
             ))}
           </div>
         </section>
       )}
+
+      {fitted.length > 0 && (
+        <section>
+          <button
+            type="button"
+            onClick={() => setShowFitted((v) => !v)}
+            className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className={`w-4 h-4 transition-transform ${showFitted ? "rotate-90" : ""}`} strokeWidth={2.5} />
+            <PartStatusIcon status="Fitted" className="w-3.5 h-3.5" strokeWidth={2.5} />
+            Fitted ({fitted.length})
+          </button>
+          {showFitted && (
+            <div className="mt-3 space-y-1.5">
+              {fitted.map((part: any) => (
+                <div
+                  key={part.id}
+                  id={`part-${part.id}`}
+                  onClick={() => goToJob(part)}
+                  className={`rounded-lg border bg-muted/20 px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors ${
+                    highlightId === part.id ? "border-primary ring-2 ring-primary/40" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {nameOf(part)}
+                        {part.service_calls?.job_reference ? ` · ${part.service_calls.job_reference}` : ""}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-[#15803D] font-semibold whitespace-nowrap">
+                      Fitted {fmtDate(part.fitted_at || part.updated_at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
 
       {cancelled.length > 0 && (
         <section>

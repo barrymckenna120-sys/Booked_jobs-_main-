@@ -1,5 +1,5 @@
 /** Pure parts helpers — no Supabase client import, safe to unit test. */
-export const PART_STATUSES = ["Open", "Ordered", "Ready to Fit", "Cancelled"] as const;
+export const PART_STATUSES = ["Open", "Ordered", "Ready to Fit", "Fitted", "Cancelled"] as const;
 export type PartStatus = (typeof PART_STATUSES)[number];
 
 export const PART_PRIORITIES = ["urgent", "normal", "low"] as const;
@@ -35,6 +35,8 @@ export interface PartsRequestRow {
 
   ordered_at: string | null;
   ready_at: string | null;
+  fitted_at?: string | null;
+  fitted_by?: string | null;
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
@@ -95,6 +97,7 @@ export const PART_STATUS_CONFIG: Record<string, { label: string; bg: string; tex
   Open: { label: "Open", bg: "bg-[#FEF3C7]", text: "text-[#D97706]" },
   Ordered: { label: "Ordered", bg: "bg-blue-100", text: "text-blue-600" },
   "Ready to Fit": { label: "Ready to Fit", bg: "bg-[#F3E8FF]", text: "text-[#7C3AED]" },
+  Fitted: { label: "Fitted", bg: "bg-[#DCFCE7]", text: "text-[#15803D]" },
   Cancelled: { label: "Cancelled", bg: "bg-muted", text: "text-muted-foreground" },
 };
 
@@ -170,7 +173,55 @@ export const PART_STATUS_ICON_KEY: Record<PartStatus, string> = {
   Open: "Clock",
   Ordered: "Truck",
   "Ready to Fit": "PackageCheck",
+  Fitted: "Wrench",
   Cancelled: "XCircle",
+};
+
+/**
+ * BJ-0069/0070 — permanent, readable status trail for one part.
+ *
+ * Every stage the row actually reached, in lifecycle order, each with its own
+ * timestamp. Stages never reached are omitted rather than shown as pending, so
+ * the trail reads correctly months later regardless of the current status.
+ */
+export interface PartTrailStep {
+  key: "logged" | "ordered" | "ready" | "fitted" | "cancelled";
+  label: string;
+  at: string;
+}
+
+export const buildPartStatusTrail = (row: {
+  created_at?: string | null;
+  ordered_at?: string | null;
+  ready_at?: string | null;
+  fitted_at?: string | null;
+  cancelled_at?: string | null;
+  status?: string | null;
+}): PartTrailStep[] => {
+  const steps: PartTrailStep[] = [];
+  const push = (key: PartTrailStep["key"], label: string, at: string | null | undefined) => {
+    if (at) steps.push({ key, label, at });
+  };
+  push("logged", "Logged", row.created_at);
+  push("ordered", "Ordered", row.ordered_at);
+  push("ready", "Ready to fit", row.ready_at);
+  push("fitted", "Fitted", row.fitted_at);
+  push("cancelled", "Cancelled", row.cancelled_at);
+  return steps;
+};
+
+/** The next stage a part can be advanced to, or null when it is terminal. */
+export const nextPartStatus = (status: string | null | undefined): PartStatus | null => {
+  switch (status) {
+    case "Open":
+      return "Ordered";
+    case "Ordered":
+      return "Ready to Fit";
+    case "Ready to Fit":
+      return "Fitted";
+    default:
+      return null;
+  }
 };
 
 /**

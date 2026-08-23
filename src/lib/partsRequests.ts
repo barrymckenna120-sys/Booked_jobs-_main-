@@ -16,6 +16,11 @@ export const updatePartStatus = async (id: string, status: PartStatus) => {
   const patch: Record<string, any> = { status };
   if (status === "Ordered") patch.ordered_at = new Date().toISOString();
   if (status === "Ready to Fit") patch.ready_at = new Date().toISOString();
+  if (status === "Fitted") {
+    patch.fitted_at = new Date().toISOString();
+    const { data } = await supabase.auth.getUser();
+    patch.fitted_by = data?.user?.id ?? null;
+  }
   if (status === "Cancelled") {
     patch.cancelled_at = new Date().toISOString();
     // The notification trigger resolves the display name from cancelled_by —

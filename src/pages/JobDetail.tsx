@@ -125,6 +125,7 @@ import {
   type PartStatus,
 } from "@/lib/partsRequests";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
+import PartStatusTrail from "@/components/parts/PartStatusTrail";
 
 
 const useJobParts = (jobId: string) =>
@@ -157,13 +158,17 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  // BJ-0069 — the section is permanent: active work up top, fitted/cancelled
+  // parts kept below with their timestamps so the job's parts record survives.
+  const active = parts.filter((p: any) => p.status !== "Cancelled" && p.status !== "Fitted");
+  const history = parts.filter((p: any) => p.status === "Cancelled" || p.status === "Fitted");
   const isOrdered = job.status === "parts_ordered";
   const isArrived = job.status === "parts_arrived";
-  const accentBorder = isArrived ? "border-[#7C3AED]" : isOrdered ? "border-blue-500" : "border-amber-500";
-  const accentBg = isArrived ? "bg-[#FAF5FF]" : isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
-  const accentTitle = isArrived ? "text-[#6D28D9]" : isOrdered ? "text-blue-800" : "text-amber-800";
-  const title = isArrived ? "Parts Ready to Fit" : isOrdered ? "Parts Ordered" : "Parts Needed";
+  const noActive = active.length === 0;
+  const accentBorder = noActive ? "border-border" : isArrived ? "border-[#7C3AED]" : isOrdered ? "border-blue-500" : "border-amber-500";
+  const accentBg = noActive ? "" : isArrived ? "bg-[#FAF5FF]" : isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
+  const accentTitle = noActive ? "" : isArrived ? "text-[#6D28D9]" : isOrdered ? "text-blue-800" : "text-amber-800";
+  const title = noActive ? "Parts" : isArrived ? "Parts Ready to Fit" : isOrdered ? "Parts Ordered" : "Parts Needed";
 
   const advance = async (part: any, status: PartStatus) => {
     setBusyId(part.id);
@@ -178,15 +183,15 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
     onStatusChange();
   };
 
-  if (active.length === 0) return null;
+  if (parts.length === 0) return null;
 
   return (
     <Card className={`border-l-4 ${accentBorder} ${accentBg}`}>
       <CardHeader className="pb-2">
         <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
-          {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
+          {noActive ? <Package className="w-4 h-4 text-muted-foreground" /> : isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
           {title}
-          <span className="text-xs font-semibold text-muted-foreground">({active.length})</span>
+          <span className="text-xs font-semibold text-muted-foreground">({noActive ? parts.length : active.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -238,6 +243,17 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     <PackageCheck className="w-4 h-4" /> Part Arrived
                   </Button>
                 )}
+                {part.status === "Ready to Fit" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-[#15803D] text-[#15803D] hover:bg-[#DCFCE7]"
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Fitted")}
+                  >
+                    <Wrench className="w-4 h-4" /> Mark Fitted
+                  </Button>
+                )}
                 {part.status !== "Ready to Fit" && (
                   <Button
                     variant="ghost"
@@ -250,6 +266,7 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                   </Button>
                 )}
               </div>
+              <PartStatusTrail row={part} className="pt-2 border-t border-border/60" />
             </div>
           );
         })}
@@ -262,6 +279,31 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
           >
             <CalendarClock className="w-4 h-4" /> Tell customer parts arrived
           </Button>
+        )}
+
+        {history.length > 0 && (
+          <div className="pt-1 space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              History ({history.length})
+            </p>
+            {history.map((part: any) => {
+              const sCfg = PART_STATUS_CONFIG[part.status] || PART_STATUS_CONFIG.Cancelled;
+              return (
+                <div key={part.id} className="rounded-lg bg-background/70 border border-border/60 p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm font-medium ${part.status === "Cancelled" ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                      {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                      <PartStatusIcon status={part.status} className="w-3 h-3" strokeWidth={2.5} />
+                      {sCfg.label}
+                    </span>
+                  </div>
+                  <PartStatusTrail row={part} />
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
