@@ -220,7 +220,7 @@ const EngineerLayout = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/engineer/job"
       />
-      <MessageAlertBanner />
+      <MessageAlertBanner jobPathPrefix="/engineer/job" />
       {user && (
         <OnboardingTour
           open={showTour}
