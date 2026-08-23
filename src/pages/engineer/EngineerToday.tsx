@@ -29,7 +29,7 @@ const EngineerToday = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { canAccessOffice } = useUserRole(user);
-  const { todayActive, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
+  const { todayActive, todayPaidNeedsCompletion, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
   const todayKey = new Date().toISOString().split("T")[0];
   const completedTodayCount = completedJobs.filter((job: any) =>
     job.scheduled_date === todayKey || job.completed_at?.slice(0, 10) === todayKey
@@ -114,7 +114,7 @@ const EngineerToday = () => {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
-          {todayActive.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
+          {todayActive.length === 0 && todayPaidNeedsCompletion.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">No jobs scheduled today</div>
@@ -125,7 +125,7 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {todayActive.length === 0 && completedTodayCount > 0 && (
+          {todayActive.length === 0 && todayPaidNeedsCompletion.length === 0 && completedTodayCount > 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <PartyPopper className="w-12 h-12 mx-auto mb-3 text-success" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">All jobs completed for today.</div>
@@ -151,6 +151,19 @@ const EngineerToday = () => {
               ))}
             </>
           )}
+
+          {todayPaidNeedsCompletion.length > 0 && (
+            <>
+              <SectionDivider label="PAID — NEEDS COMPLETION" />
+              <p className="text-[11px] text-muted-foreground/70 text-center -mt-1 mb-1">
+                Payment taken. Still fill in the Complete form to close the job.
+              </p>
+              {todayPaidNeedsCompletion.map((job: any) => (
+                <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
+              ))}
+            </>
+          )}
+
 
           {todayCancelled.length > 0 && (
             <>
