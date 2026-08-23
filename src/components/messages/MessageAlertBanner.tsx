@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Mail } from "lucide-react";
 import { playMessageBeep } from "@/utils/audio";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 interface MessageAlert {
   id: string;
@@ -11,9 +12,16 @@ interface MessageAlert {
   senderName: string;
   message: string;
   jobId: string | null;
+  notificationType: string;
+  metadata: Record<string, unknown> | null;
 }
 
-const MessageAlertBanner = () => {
+interface Props {
+  /** Route prefix for job links: "/jobs" in the office app, "/engineer/job" in the engineer app. */
+  jobPathPrefix?: string;
+}
+
+const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<MessageAlert[]>([]);
@@ -45,6 +53,8 @@ const MessageAlertBanner = () => {
             senderName,
             message: n.body || "",
             jobId: n.job_id,
+            notificationType: n.notification_type,
+            metadata: n.metadata ?? null,
           };
           setAlerts((prev) => [alert, ...prev]);
         }
@@ -62,8 +72,16 @@ const MessageAlertBanner = () => {
     // Mark notification as read
     supabase.from("notifications").update({ is_read: true }).eq("id", alert.notificationId).then(() => {});
     setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
-    if (alert.jobId) navigate(`/jobs/${alert.jobId}`);
-  }, [navigate]);
+    const target = resolveNotificationTarget(
+      {
+        notification_type: alert.notificationType,
+        job_id: alert.jobId,
+        metadata: alert.metadata,
+      },
+      jobPathPrefix,
+    );
+    if (target) navigate(target);
+  }, [navigate, jobPathPrefix]);
 
   const handleDismiss = useCallback((e: React.MouseEvent | React.TouchEvent, alert: MessageAlert) => {
     e.stopPropagation();

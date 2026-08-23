@@ -316,7 +316,7 @@ const AppLayoutInner = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
-      <MessageAlertBanner />
+      <MessageAlertBanner jobPathPrefix="/jobs" />
       {user && (
         <OnboardingTour
           open={showTour}
