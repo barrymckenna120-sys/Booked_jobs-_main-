@@ -1,5 +1,5 @@
 /** Pure parts helpers — no Supabase client import, safe to unit test. */
-export const PART_STATUSES = ["Open", "Ordered", "Ready to Fit", "Cancelled"] as const;
+export const PART_STATUSES = ["Open", "Ordered", "Ready to Fit", "Fitted", "Cancelled"] as const;
 export type PartStatus = (typeof PART_STATUSES)[number];
 
 export const PART_PRIORITIES = ["urgent", "normal", "low"] as const;
@@ -35,6 +35,8 @@ export interface PartsRequestRow {
 
   ordered_at: string | null;
   ready_at: string | null;
+  fitted_at?: string | null;
+  fitted_by?: string | null;
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
