@@ -37,10 +37,6 @@ export const formatPartStatusStamp = (row: {
     const value = formatPartTimestamp(row.cancelled_at);
     return value ? { label: "Cancelled", value } : null;
   }
-  if (row.fitted_at) {
-    const value = formatPartTimestamp(row.fitted_at);
-    return value ? { label: "Fitted", value } : null;
-  }
   if (row.ready_at) {
     const value = formatPartTimestamp(row.ready_at);
     return value ? { label: "Ready", value } : null;
