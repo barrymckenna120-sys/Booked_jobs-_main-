@@ -242,6 +242,17 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     <PackageCheck className="w-4 h-4" /> Part Arrived
                   </Button>
                 )}
+                {part.status === "Ready to Fit" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-[#15803D] text-[#15803D] hover:bg-[#DCFCE7]"
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Fitted")}
+                  >
+                    <Wrench className="w-4 h-4" /> Mark Fitted
+                  </Button>
+                )}
                 {part.status !== "Ready to Fit" && (
                   <Button
                     variant="ghost"
@@ -254,6 +265,7 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                   </Button>
                 )}
               </div>
+              <PartStatusTrail row={part} className="pt-2 border-t border-border/60" />
             </div>
           );
         })}
@@ -266,6 +278,31 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
           >
             <CalendarClock className="w-4 h-4" /> Tell customer parts arrived
           </Button>
+        )}
+
+        {history.length > 0 && (
+          <div className="pt-1 space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              History ({history.length})
+            </p>
+            {history.map((part: any) => {
+              const sCfg = PART_STATUS_CONFIG[part.status] || PART_STATUS_CONFIG.Cancelled;
+              return (
+                <div key={part.id} className="rounded-lg bg-background/70 border border-border/60 p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm font-medium ${part.status === "Cancelled" ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                      {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                      <PartStatusIcon status={part.status} className="w-3 h-3" strokeWidth={2.5} />
+                      {sCfg.label}
+                    </span>
+                  </div>
+                  <PartStatusTrail row={part} />
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
