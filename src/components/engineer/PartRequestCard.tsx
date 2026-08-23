@@ -124,6 +124,12 @@ const PartRequestCard = ({
           so the engineer sees every stage with its own timestamp, not just the latest. */}
       <PartStatusTrail row={row} className="pt-2 border-t border-border/60" />
 
+      {/* BJ-0071 / BJ-0072 — read-only here: cost, ETA, customer-told and quote
+          reference are office-writable only (enforced by the DB trigger). */}
+      <PartTrackingDetails row={row as any} />
+
+
+
 
       {row.notes && (
         <div
