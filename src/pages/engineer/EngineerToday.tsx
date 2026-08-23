@@ -148,20 +148,23 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {sortedActive.length > 0 && (
+          {displayedJob && (
             <EngineerJobCard
-              key={sortedActive[0].id}
-              job={sortedActive[0]}
-              customer={customers[sortedActive[0].customer_id] || {}}
+              key={displayedJob.id}
+              job={displayedJob}
+              customer={customers[displayedJob.customer_id] || {}}
               onUpdate={updateJob}
-              isNextJob={sortedActive[0].id === nextJobId}
+              isNextJob={displayedJob.id === nextJobId}
+              isViewingAhead={isViewingAhead}
+              onAdvanceView={nextViewJob ? () => setViewedJobRef(nextViewJob.id) : undefined}
+              onBackView={() => setViewedJobRef(null)}
             />
           )}
 
           {sortedActive.length > 1 && (
             <>
               <SectionDivider label="REST OF DAY" />
-              {sortedActive.slice(1).map((job: any) => (
+              {sortedActive.filter((job: any) => job.id !== displayedJob?.id).map((job: any) => (
                 <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
               ))}
             </>
