@@ -1,4 +1,4 @@
-import { Clock, Truck, PackageCheck, XCircle, type LucideProps } from "lucide-react";
+import { Clock, Truck, PackageCheck, Wrench, XCircle, type LucideProps } from "lucide-react";
 import { PART_STATUS_ICON_KEY } from "@/lib/partsStatus";
 
 /**
@@ -13,6 +13,7 @@ const GLYPHS: Record<string, React.ComponentType<LucideProps>> = {
   Clock,
   Truck,
   PackageCheck,
+  Wrench,
   XCircle,
 };
 
