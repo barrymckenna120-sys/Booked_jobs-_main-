@@ -183,7 +183,7 @@ export const PART_STATUS_ICON_KEY: Record<PartStatus, string> = {
  * the trail reads correctly months later regardless of the current status.
  */
 export interface PartTrailStep {
-  key: "logged" | "ordered" | "ready" | "fitted" | "cancelled";
+  key: "logged" | "ordered" | "ready" | "cancelled";
   label: string;
   at: string;
 }
@@ -192,7 +192,6 @@ export const buildPartStatusTrail = (row: {
   created_at?: string | null;
   ordered_at?: string | null;
   ready_at?: string | null;
-  fitted_at?: string | null;
   cancelled_at?: string | null;
   status?: string | null;
 }): PartTrailStep[] => {
@@ -203,7 +202,6 @@ export const buildPartStatusTrail = (row: {
   push("logged", "Logged", row.created_at);
   push("ordered", "Ordered", row.ordered_at);
   push("ready", "Ready to fit", row.ready_at);
-  push("fitted", "Fitted", row.fitted_at);
   push("cancelled", "Cancelled", row.cancelled_at);
   return steps;
 };
@@ -215,8 +213,6 @@ export const nextPartStatus = (status: string | null | undefined): PartStatus | 
       return "Ordered";
     case "Ordered":
       return "Ready to Fit";
-    case "Ready to Fit":
-      return "Fitted";
     default:
       return null;
   }
