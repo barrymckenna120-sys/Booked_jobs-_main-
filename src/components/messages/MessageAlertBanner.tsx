@@ -53,6 +53,8 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
             senderName,
             message: n.body || "",
             jobId: n.job_id,
+            notificationType: n.notification_type,
+            metadata: n.metadata ?? null,
           };
           setAlerts((prev) => [alert, ...prev]);
         }
