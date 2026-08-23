@@ -10,11 +10,13 @@ import { Package, PackageCheck, MessageCircle, Loader2, X } from "lucide-react";
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
+  markCustomerNotified,
   priorityRank,
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
 
 
 const PartsPanel = () => {
@@ -61,6 +63,18 @@ const PartsPanel = () => {
         },
       });
       if (error) throw error;
+      // BJ-0071 — record on the part that the customer was told, so the history
+      // answers "has the customer been told" without guesswork.
+      const { error: notifyError } = await markCustomerNotified(part.id, "whatsapp");
+      if (notifyError) {
+        toast({
+          title: "Message sent, but not recorded on the part",
+          description: notifyError.message,
+          variant: "destructive",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["parts-panel"] });
+      queryClient.invalidateQueries({ queryKey: ["parts-page-requests"] });
       toast({ title: `Message sent to ${nameOf(part)}` });
     } catch (err: any) {
       toast({ title: "Failed to send", description: err.message, variant: "destructive" });
@@ -156,10 +170,12 @@ const PartsPanel = () => {
                 </div>
               </div>
 
-              <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 space-y-1.5">
                 <p className="text-sm font-medium text-amber-800">
                   ⚠️ {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
                 </p>
+                {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told, quote ref. */}
+                <PartTrackingDetails row={part} />
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
