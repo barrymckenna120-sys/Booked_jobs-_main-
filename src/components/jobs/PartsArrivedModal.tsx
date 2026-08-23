@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { markCustomerNotified } from "@/lib/partsRequests";
 
 type Props = {
   open: boolean;
@@ -16,10 +17,17 @@ type Props = {
   customerName: string;
   customerPhone: string;
   followUpDetail?: string | null;
+  /**
+   * BJ-0071 — parts this message is about. On a successful send each row is
+   * stamped customer_notified_at/_by/_method = 'whatsapp', so months later the
+   * record shows the customer was told rather than leaving it to memory.
+   */
+  partsRequestIds?: string[];
   onSent: () => void;
 };
 
-const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, followUpDetail, onSent }: Props) => {
+const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, followUpDetail, partsRequestIds = [], onSent }: Props) => {
+
   const { toast } = useToast();
   const { user } = useAuth();
   const firstName = customerName.split(" ")[0];
@@ -69,9 +77,24 @@ const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, 
         .update(sanitizeServiceCallUpdatePayload({ status: "parts_arrived" } as any))
         .eq("id", jobId);
 
+      // BJ-0071 — record on the part itself that the customer was told. Office
+      // roles only (DB trigger); a failure here must not lose the sent message,
+      // so it warns rather than throwing.
+      for (const partId of partsRequestIds) {
+        const { error: notifyError } = await markCustomerNotified(partId, "whatsapp");
+        if (notifyError) {
+          toast({
+            title: "Message sent, but not recorded on the part",
+            description: notifyError.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       toast({ title: `WhatsApp sent to ${customerName} ✅`, duration: 4000 });
       onSent();
       onClose();
+
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {

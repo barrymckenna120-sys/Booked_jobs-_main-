@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
 import PartStatusTrail from "@/components/parts/PartStatusTrail";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { updatePartStatus } from "@/lib/partsRequests";
@@ -25,6 +27,8 @@ interface Props {
   customerName?: string | null;
   /** Current engineer's auth uid — drives whether cancel is offered at all. */
   userId?: string | null;
+  /** Engineer's display name, stamped on any comment they post. */
+  authorName?: string | null;
   onCancelled?: () => void;
   /** Ring the card when opened from a parts notification deep link. */
   highlighted?: boolean;
@@ -35,9 +39,11 @@ const PartRequestCard = ({
   jobReference,
   customerName,
   userId = null,
+  authorName = null,
   onCancelled,
   highlighted = false,
 }: Props) => {
+
   const displayCustomer = customerName ?? row.customer_name ?? null;
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
@@ -118,6 +124,12 @@ const PartRequestCard = ({
           so the engineer sees every stage with its own timestamp, not just the latest. */}
       <PartStatusTrail row={row} className="pt-2 border-t border-border/60" />
 
+      {/* BJ-0071 / BJ-0072 — read-only here: cost, ETA, customer-told and quote
+          reference are office-writable only (enforced by the DB trigger). */}
+      <PartTrackingDetails row={row as any} />
+
+
+
 
       {row.notes && (
         <div
@@ -141,6 +153,17 @@ const PartRequestCard = ({
           {row.notes}
         </div>
       )}
+
+      {/* Same thread the office sees — engineers can add context on a part. */}
+      <PartCommentsThread
+        partsRequestId={row.id}
+        organisationId={(row as any).organisation_id}
+        authorName={authorName}
+        authorRole="engineer"
+        compact
+        className="pt-2 border-t border-border/60"
+      />
+
 
       {canCancel && (
         <button

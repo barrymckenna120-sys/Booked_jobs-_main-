@@ -120,12 +120,19 @@ const statusBadge = (status: string) => {
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
+  canEditPartsOfficeFields,
   priorityRank,
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import PartStatusTrail from "@/components/parts/PartStatusTrail";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartTrackingEditSheet from "@/components/parts/PartTrackingEditSheet";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
+import { useUserRole } from "@/hooks/useUserRole";
+import { SlidersHorizontal } from "lucide-react";
+
 
 
 const useJobParts = (jobId: string) =>
@@ -153,10 +160,15 @@ const fmtPartsLoggedAt = (iso: string) => {
   return `${day} ${mon} ${year}, ${time}`;
 };
 
-const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: () => void }) => {
+const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: (readyPartIds: string[]) => void }) => {
   const { data: parts = [], refetch } = useJobParts(job.id);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { role, engineerName } = useUserRole(user);
+  const canEditTracking = canEditPartsOfficeFields(role);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingPart, setEditingPart] = useState<any>(null);
+
 
   // BJ-0069 — the section is permanent: active work up top, cancelled parts kept
   // below with their timestamps so the job's parts record survives.
@@ -254,9 +266,29 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     Cancel
                   </Button>
                 )}
+                {canEditTracking && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground gap-1.5"
+                    onClick={() => setEditingPart(part)}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" strokeWidth={2.5} /> Cost / ETA
+                  </Button>
+                )}
               </div>
               <PartStatusTrail row={part} className="pt-2 border-t border-border/60" />
+              {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told and quote reference. */}
+              <PartTrackingDetails row={part} />
+              <PartCommentsThread
+                partsRequestId={part.id}
+                organisationId={part.organisation_id || job.organisation_id}
+                authorName={engineerName || user?.email || null}
+                authorRole={role}
+                className="pt-2 border-t border-border/60"
+              />
             </div>
+
           );
         })}
 
@@ -264,7 +296,11 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
           <Button
             className="gap-2 text-white font-bold w-full sm:w-auto"
             style={{ backgroundColor: "#22C55E" }}
-            onClick={() => onPartsArrived?.()}
+            onClick={() =>
+              onPartsArrived?.(
+                active.filter((p: any) => p.status === "Ready to Fit").map((p: any) => p.id),
+              )
+            }
           >
             <CalendarClock className="w-4 h-4" /> Tell customer parts arrived
           </Button>
@@ -289,13 +325,31 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     </span>
                   </div>
                   <PartStatusTrail row={part} />
+                  <PartTrackingDetails row={part} />
+                  <PartCommentsThread
+                    partsRequestId={part.id}
+                    organisationId={part.organisation_id || job.organisation_id}
+                    authorName={engineerName || user?.email || null}
+                    authorRole={role}
+                    className="pt-2 border-t border-border/60"
+                  />
                 </div>
               );
             })}
           </div>
         )}
+
+        {editingPart && (
+          <PartTrackingEditSheet
+            open={!!editingPart}
+            onClose={() => setEditingPart(null)}
+            part={editingPart}
+            onSaved={() => refetch()}
+          />
+        )}
       </CardContent>
     </Card>
+
   );
 };
 
@@ -335,6 +389,9 @@ const JobDetail = () => {
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partsNeededOpen, setPartsNeededOpen] = useState(false);
   const [partsArrivedOpen, setPartsArrivedOpen] = useState(false);
+  // BJ-0071 — parts the "parts arrived" WhatsApp covers, so the send stamps
+  // customer_notified_* on each one.
+  const [arrivedPartIds, setArrivedPartIds] = useState<string[]>([]);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -539,7 +596,7 @@ const JobDetail = () => {
 
       {/* Parts section — permanent (BJ-0069): renders whenever the job has any
           parts request, regardless of job status. Self-hides when there are none. */}
-      <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
+      <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={(ids) => { setArrivedPartIds(ids); setPartsArrivedOpen(true); }} />
 
 
       {/* Header */}
@@ -1100,6 +1157,7 @@ const JobDetail = () => {
           customerName={customer.name}
           customerPhone={customer.phone}
           followUpDetail={(job as any).follow_up_detail}
+          partsRequestIds={arrivedPartIds}
           onSent={fetchJob}
         />
       )}

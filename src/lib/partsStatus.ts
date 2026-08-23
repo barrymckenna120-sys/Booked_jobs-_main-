@@ -116,6 +116,18 @@ export interface BuildPartsRowArgs {
    * the assigned engineer's auth id, or null when the job has no engineer.
    */
   engineerId?: string | null;
+  /**
+   * BJ-0071 / BJ-0072 — optional office-only tracking values captured at
+   * creation. SUPPLIER cost and admin references only: these never influence
+   * revenue, quotes or what the customer is charged. The DB trigger
+   * protect_parts_request_office_fields rejects them for non-office actors, so
+   * the engineer create path must leave them undefined.
+   */
+  officeTracking?: {
+    quotedCost?: number | null;
+    expectedDeliveryDate?: string | null;
+    quoteReference?: string | null;
+  } | null;
 }
 
 
@@ -132,6 +144,7 @@ export const buildPartsRequestRow = ({
   loggedByName = null,
   assignedTo = null,
   engineerId,
+  officeTracking = null,
 }: BuildPartsRowArgs) => {
   const description = (part.description ?? "").trim();
   if (description.length === 0) return null;
@@ -154,6 +167,13 @@ export const buildPartsRequestRow = ({
     // time or the engineer never hears back. Engineer path defaults to the
     // logging user; office path passes the assigned engineer explicitly.
     engineer_id: engineerId === undefined ? loggedBy : engineerId,
+    ...(officeTracking
+      ? {
+          quoted_cost: officeTracking.quotedCost ?? null,
+          expected_delivery_date: officeTracking.expectedDeliveryDate || null,
+          quote_reference: officeTracking.quoteReference?.trim() || null,
+        }
+      : {}),
   };
 };
 

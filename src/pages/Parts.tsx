@@ -4,16 +4,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight, Plus } from "lucide-react";
+import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight, Plus, SlidersHorizontal } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import NewPartsOrderSheet from "@/components/parts/NewPartsOrderSheet";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartTrackingEditSheet from "@/components/parts/PartTrackingEditSheet";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
+  canEditPartsOfficeFields,
   priorityRank,
   updatePartStatus,
   type PartStatus,
@@ -27,7 +33,11 @@ const fmtDate = (iso: string | null) => formatPartTimestamp(iso) || "—";
 const Parts = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { role, engineerName } = useUserRole(user);
+  const canEditTracking = canEditPartsOfficeFields(role);
   const [arrivedPart, setArrivedPart] = useState<any>(null);
+  const [editingPart, setEditingPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
   
@@ -35,6 +45,7 @@ const Parts = () => {
   const { orgId } = useOrgId();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
+
 
 
 
@@ -133,6 +144,7 @@ const Parts = () => {
   const PartCard = ({ part, borderColor, children }: { part: any; borderColor: string; children?: React.ReactNode }) => {
     const pCfg = PART_PRIORITY_CONFIG[part.priority];
     const sCfg = PART_STATUS_CONFIG[part.status];
+    const [showThread, setShowThread] = useState(false);
     return (
       <Card
         id={`part-${part.id}`}
@@ -164,6 +176,9 @@ const Parts = () => {
                 )}
               </div>
 
+              {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told and quote ref. */}
+              <PartTrackingDetails row={part} className="mt-2" />
+
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
               {sCfg && (
@@ -178,12 +193,41 @@ const Parts = () => {
                 </span>
               )}
               {children}
+              {canEditTracking && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-[11px] h-7 px-2 text-muted-foreground"
+                  onClick={(e) => { e.stopPropagation(); setEditingPart(part); }}
+                >
+                  <SlidersHorizontal className="w-3 h-3" strokeWidth={2.5} /> Cost / ETA
+                </Button>
+              )}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowThread((v) => !v); }}
+            className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showThread ? "rotate-90" : ""}`} strokeWidth={2.5} />
+            Comments
+          </button>
+          {showThread && (
+            <PartCommentsThread
+              partsRequestId={part.id}
+              organisationId={part.organisation_id || orgId}
+              authorName={engineerName || user?.email || null}
+              authorRole={role}
+              className="mt-2"
+            />
+          )}
         </CardContent>
       </Card>
     );
   };
+
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -355,6 +399,15 @@ const Parts = () => {
 
 
 
+      {editingPart && (
+        <PartTrackingEditSheet
+          open={!!editingPart}
+          onClose={() => setEditingPart(null)}
+          part={editingPart}
+          onSaved={() => refetch()}
+        />
+      )}
+
       {arrivedPart && (
         <PartsArrivedModal
           open={!!arrivedPart}
@@ -363,12 +416,14 @@ const Parts = () => {
           customerName={nameOf(arrivedPart)}
           customerPhone={phoneOf(arrivedPart)}
           followUpDetail={arrivedPart.service_calls?.follow_up_detail || arrivedPart.description}
+          partsRequestIds={[arrivedPart.id]}
           onSent={() => {
             setArrivedPart(null);
             refetch();
           }}
         />
       )}
+
     </div>
   );
 };

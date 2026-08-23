@@ -78,6 +78,11 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [priority, setPriority] = useState<PartPriority>("normal");
+  // BJ-0071 / BJ-0072 — supplier cost, ETA and quote reference. Tracking only:
+  // never feeds revenue, quotes or the customer's price.
+  const [quotedCost, setQuotedCost] = useState("");
+  const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [quoteReference, setQuoteReference] = useState("");
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -94,6 +99,9 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
     setDescription("");
     setQuantity("1");
     setPriority("normal");
+    setQuotedCost("");
+    setExpectedDelivery("");
+    setQuoteReference("");
   };
 
   const close = () => {
@@ -209,6 +217,11 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
       // schema decision — the notification trigger resolves the login from
       // assigned_to for this path.
       engineerId: null,
+      officeTracking: {
+        quotedCost: quotedCost.trim() && Number.isFinite(Number(quotedCost)) ? Number(quotedCost) : null,
+        expectedDeliveryDate: expectedDelivery || null,
+        quoteReference,
+      },
     });
 
     setSaving(false);
@@ -387,6 +400,43 @@ const NewPartsOrderSheet = ({ open, onClose, organisationId, onCreated }: Props)
                 </button>
               );
             })}
+          </div>
+
+          {/* Cost / ETA / quote reference — office only (DB trigger enforces) */}
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="parts-order-cost" className="text-xs font-semibold">Quoted cost (€)</Label>
+                <Input
+                  id="parts-order-cost"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={quotedCost}
+                  onChange={(e) => setQuotedCost(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="parts-order-eta" className="text-xs font-semibold">Expected delivery</Label>
+                <Input
+                  id="parts-order-eta"
+                  type="date"
+                  value={expectedDelivery}
+                  onChange={(e) => setExpectedDelivery(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="parts-order-quote-ref" className="text-xs font-semibold">Quote reference</Label>
+              <Input
+                id="parts-order-quote-ref"
+                placeholder="e.g. Q-2026-0114"
+                value={quoteReference}
+                onChange={(e) => setQuoteReference(e.target.value)}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Supplier cost, for internal tracking only — this never changes what the customer is charged.
+            </p>
           </div>
 
           {/* Engineer */}

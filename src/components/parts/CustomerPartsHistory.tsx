@@ -5,6 +5,8 @@ import { Loader2, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import PartStatusTrail from "@/components/parts/PartStatusTrail";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+
 import { PART_PRIORITY_CONFIG, PART_STATUS_CONFIG, priorityRank } from "@/lib/partsStatus";
 
 /**
@@ -124,9 +126,13 @@ const CustomerPartsHistory = ({ customerId, onCountReady }: Props) => {
 
             <PartStatusTrail row={part} className="pt-1 border-t border-border/60" />
 
+            {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told and quote reference. */}
+            <PartTrackingDetails row={part} />
+
             {part.notes && (
               <p className="text-[12px] text-foreground/80 bg-secondary rounded-md px-2 py-1.5 leading-snug">{part.notes}</p>
             )}
+
           </div>
         );
       })}
