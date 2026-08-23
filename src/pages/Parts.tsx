@@ -4,16 +4,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight, Plus } from "lucide-react";
+import { Wrench, Package, CalendarClock, PackageCheck, X, ChevronRight, Plus, SlidersHorizontal } from "lucide-react";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import NewPartsOrderSheet from "@/components/parts/NewPartsOrderSheet";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartTrackingEditSheet from "@/components/parts/PartTrackingEditSheet";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
+  canEditPartsOfficeFields,
   priorityRank,
   updatePartStatus,
   type PartStatus,
@@ -27,7 +33,11 @@ const fmtDate = (iso: string | null) => formatPartTimestamp(iso) || "—";
 const Parts = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { role, engineerName } = useUserRole(user);
+  const canEditTracking = canEditPartsOfficeFields(role);
   const [arrivedPart, setArrivedPart] = useState<any>(null);
+  const [editingPart, setEditingPart] = useState<any>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
   
@@ -35,6 +45,7 @@ const Parts = () => {
   const { orgId } = useOrgId();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
+
 
 
 

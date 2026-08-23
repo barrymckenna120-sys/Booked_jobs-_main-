@@ -77,9 +77,24 @@ const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, 
         .update(sanitizeServiceCallUpdatePayload({ status: "parts_arrived" } as any))
         .eq("id", jobId);
 
+      // BJ-0071 — record on the part itself that the customer was told. Office
+      // roles only (DB trigger); a failure here must not lose the sent message,
+      // so it warns rather than throwing.
+      for (const partId of partsRequestIds) {
+        const { error: notifyError } = await markCustomerNotified(partId, "whatsapp");
+        if (notifyError) {
+          toast({
+            title: "Message sent, but not recorded on the part",
+            description: notifyError.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       toast({ title: `WhatsApp sent to ${customerName} ✅`, duration: 4000 });
       onSent();
       onClose();
+
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
