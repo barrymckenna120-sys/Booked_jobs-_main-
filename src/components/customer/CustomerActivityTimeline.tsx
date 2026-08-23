@@ -181,6 +181,9 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
           <div className="space-y-2">
             {displayedActivities.map((a) => {
               const pill = PILL_CONFIG[a.event_type] || PILL_CONFIG.note_general;
+              const partDetail = String(a.event_type ?? "").startsWith("part_")
+                ? partDetailLine(a.event_data)
+                : null;
               return (
                 <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm">
                   <div className="flex-1 min-w-0">
@@ -188,6 +191,10 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
                       <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${pill.className}`}>{pill.label}</span>
                     </div>
                     <p className="text-foreground text-[13px] mt-1">{a.event_label}</p>
+                    {partDetail && <p className="text-[11px] text-muted-foreground mt-0.5">{partDetail}</p>}
+                    {partDetail && a.event_data?.notes && (
+                      <p className="text-[11px] text-foreground/75 mt-0.5 italic">“{a.event_data.notes}”</p>
+                    )}
                     <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
                       <span>{formatTimestamp(a.created_at)}</span>
                       {a.created_by && profileMap[a.created_by] && (
