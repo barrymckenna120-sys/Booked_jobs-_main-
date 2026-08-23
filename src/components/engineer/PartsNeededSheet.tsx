@@ -151,7 +151,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
         ? {
             customerId: customer?.id ?? null,
             customerName: customer ? null : manualName.trim() || null,
-            serviceCallId: customer ? jobId || null : null,
+            // "none" = explicit phone order; "unset" only survives here when the
+            // customer has no eligible jobs, which also means no job link.
+            serviceCallId:
+              customer && jobId !== "none" && jobId !== "unset" ? jobId : null,
+
           }
         : undefined,
     );
