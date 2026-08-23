@@ -51,7 +51,7 @@ const PartRequestCard = ({
   const priority = PART_PRIORITY_CONFIG[(row.priority ?? "").toLowerCase()];
   const officeUpdate = isOfficeUpdate(row);
   const canCancel = canEngineerCancelPart(row, userId);
-  const statusStamp = formatPartStatusStamp(row);
+  
 
 
   const cancel = async () => {
