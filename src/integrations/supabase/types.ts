@@ -1855,22 +1855,72 @@ export type Database = {
         }
         Relationships: []
       }
+      parts_request_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          author_role: string | null
+          body: string
+          created_at: string
+          id: string
+          organisation_id: string
+          parts_request_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          parts_request_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          parts_request_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_request_comments_parts_request_id_fkey"
+            columns: ["parts_request_id"]
+            isOneToOne: false
+            referencedRelation: "parts_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parts_requests: {
         Row: {
+          actual_cost: number | null
           assigned_engineer_id: string | null
           assigned_to: string | null
           boiler_brand_model: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          cost_currency: string
           created_at: string
           created_by: string | null
           customer_address: string | null
           customer_eircode: string | null
           customer_id: string | null
           customer_name: string | null
+          customer_notified_at: string | null
+          customer_notified_by: string | null
+          customer_notified_method: string | null
           customer_phone: string | null
           description: string
           engineer_id: string | null
+          expected_delivery_date: string | null
           id: string
           logged_by: string | null
           logged_by_name: string | null
@@ -1880,26 +1930,34 @@ export type Database = {
           photo_url: string | null
           priority: string
           quantity: number
+          quote_reference: string | null
+          quoted_cost: number | null
           ready_at: string | null
           service_call_id: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          actual_cost?: number | null
           assigned_engineer_id?: string | null
           assigned_to?: string | null
           boiler_brand_model?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          cost_currency?: string
           created_at?: string
           created_by?: string | null
           customer_address?: string | null
           customer_eircode?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          customer_notified_at?: string | null
+          customer_notified_by?: string | null
+          customer_notified_method?: string | null
           customer_phone?: string | null
           description: string
           engineer_id?: string | null
+          expected_delivery_date?: string | null
           id?: string
           logged_by?: string | null
           logged_by_name?: string | null
@@ -1909,26 +1967,34 @@ export type Database = {
           photo_url?: string | null
           priority?: string
           quantity?: number
+          quote_reference?: string | null
+          quoted_cost?: number | null
           ready_at?: string | null
           service_call_id?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          actual_cost?: number | null
           assigned_engineer_id?: string | null
           assigned_to?: string | null
           boiler_brand_model?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          cost_currency?: string
           created_at?: string
           created_by?: string | null
           customer_address?: string | null
           customer_eircode?: string | null
           customer_id?: string | null
           customer_name?: string | null
+          customer_notified_at?: string | null
+          customer_notified_by?: string | null
+          customer_notified_method?: string | null
           customer_phone?: string | null
           description?: string
           engineer_id?: string | null
+          expected_delivery_date?: string | null
           id?: string
           logged_by?: string | null
           logged_by_name?: string | null
@@ -1938,6 +2004,8 @@ export type Database = {
           photo_url?: string | null
           priority?: string
           quantity?: number
+          quote_reference?: string | null
+          quoted_cost?: number | null
           ready_at?: string | null
           service_call_id?: string | null
           status?: string
