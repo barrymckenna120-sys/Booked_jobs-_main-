@@ -120,12 +120,19 @@ const statusBadge = (status: string) => {
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
+  canEditPartsOfficeFields,
   priorityRank,
   updatePartStatus,
   type PartStatus,
 } from "@/lib/partsRequests";
 import PartStatusIcon from "@/components/parts/PartStatusIcon";
 import PartStatusTrail from "@/components/parts/PartStatusTrail";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartTrackingEditSheet from "@/components/parts/PartTrackingEditSheet";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
+import { useUserRole } from "@/hooks/useUserRole";
+import { SlidersHorizontal } from "lucide-react";
+
 
 
 const useJobParts = (jobId: string) =>
