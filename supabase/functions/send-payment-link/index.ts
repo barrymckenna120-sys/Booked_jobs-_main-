@@ -24,14 +24,46 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { service_call_id, invoice_pdf_url } = await req.json();
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return json({ success: false, error: "unauthorized" }, 401);
+    }
+
+    let body: Record<string, unknown> = {};
+    try { body = await req.json(); } catch { /* empty body */ }
+    const service_call_id = typeof body.service_call_id === "string" ? body.service_call_id.trim() : "";
+    const invoice_pdf_url = typeof body.invoice_pdf_url === "string" ? body.invoice_pdf_url : undefined;
 
     if (!service_call_id) {
       console.log("send-payment-link 400: missing service_call_id");
-      return new Response(JSON.stringify({ error: "service_call_id is required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "service_call_id is required" }, 400);
     }
+
+    // Caller identity + organisation, derived server-side. Never from the body.
+    const asCaller = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+          ...(req.headers.get("x-org-impersonation-token")
+            ? { "x-org-impersonation-token": req.headers.get("x-org-impersonation-token")! }
+            : {}),
+        },
+      },
+    });
+
+    const { data: userData, error: userErr } = await asCaller.auth.getUser();
+    if (userErr || !userData?.user) {
+      return json({ success: false, error: "unauthorized" }, 401);
+    }
+
+    const { data: callerOrg, error: orgErr } = await asCaller.rpc("get_my_org_id");
+    if (orgErr || !callerOrg) {
+      console.error("send-payment-link: could not resolve caller organisation", orgErr?.message);
+      return json({ success: false, error: "organisation_not_resolved" }, 403);
+    }
+    const callerOrgId = callerOrg as string;
 
     // Fetch job + customer
     const { data: job, error: jobErr } = await supabase
