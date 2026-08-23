@@ -1,49 +1,39 @@
-# BJ-0063 — Message notification title + "View Job" navigation
+# BJ-0069/0070 — Permanent parts record on the customer and job
 
-Two separate defects, two separate fixes. They are not the same bug: the title comes from a database trigger, the broken button is frontend routing.
+Goal: a customer's parts history is complete and readable months later — part description, quantity, exact date/time ordered, and every status step with its own timestamp — without leaving the customer record.
 
-## Fix 1 — Richer title (database trigger only)
+## What gets built
 
-`notify_on_job_message()` currently writes `'New Message – ' || job_reference` and never looks up the sender or the customer. Change it to write:
+### 1. "Fitted" as a real status
+Parts currently stop at Ready to Fit. Add a fourth live status `Fitted` with its own `fitted_at` timestamp:
+- Office and engineer parts screens gain a "Mark Fitted" step after Ready to Fit.
+- Job completion marks any Ready to Fit parts on that job as Fitted automatically (timestamped at completion).
+- Status colours/icons extended for Fitted (slate/green, distinct from Cancelled).
 
-```text
-Karl – Mary Byrne (KN-515)
-```
+### 2. Parts section on the customer record (full detail)
+A new "Parts" section on the Customer Detail page, reading parts requests directly so nothing depends on event logging:
+- One block per part: quantity × description, priority, linked job reference (or "No job linked"), who logged it, notes.
+- A vertical status trail per part with exact date and time for each step reached: Logged → Ordered → Ready to Fit → Fitted, or Cancelled (with who cancelled).
+- Grouped newest-first, collapsed by default with a count, matching the existing collapsible sections.
 
-Format: `{sender name} – {customer name} ({job reference})`, with graceful degradation when a part is missing (`Sender – Customer`, `Customer (KN-515)`, or the bare job reference as a last resort).
+### 3. Parts entries in the Activity Timeline
+So parts also appear inline in chronological history alongside Job Booked / Job Completed:
+- A database trigger writes one activity entry per transition (logged, ordered, ready to fit, fitted, cancelled), each with the part description, quantity, job reference and part id retained in its detail payload.
+- The timeline gains coloured pills for these entries and shows the retained part detail under the label, not just a one-line summary.
+- Only fires when the part is linked to a customer; job-linked parts inherit the job's customer so nothing is lost.
 
-Where each piece comes from, added to the single existing lookup on `service_calls`:
-- customer name: join `customers` on `service_calls.customer_id`
-- job reference: already fetched
-- sender name: `engineers.name` when `sender_role = 'engineer'`, otherwise `profiles.display_name`, falling back to `'Engineer'` / `'Office'`
+### 4. Backfill
+A one-off data pass writes historical entries from every existing part's stored timestamps, so parts ordered before this change appear in the timeline with their real dates, not today's date.
 
-The message body stays exactly as it is (`LEFT(NEW.message, 100)`). Both branches of the trigger (engineer→office and office→engineer) get the same title format, so the banner reads consistently in both apps.
+### 5. Job Detail — Parts section (BJ-0069)
+The existing parts card only appears when there are open parts. Replace it with a persistent "Parts" section that follows the page's existing card convention (icon + `text-base` title + count), placed after Job Information:
+- Shows active parts with their action buttons as today, plus fitted and cancelled parts in a "History" group with timestamps.
+- Renders nothing only when the job has never had a part.
 
-Existing notifications keep their old titles — new ones only. Say the word if you want history rewritten too.
+## Technical notes
 
-## Fix 2 — "View Job" button (frontend only, still needed)
-
-Still a live, separate bug. `MessageAlertBanner.tsx` hardcodes the office route:
-
-```ts
-if (alert.jobId) navigate(`/jobs/${alert.jobId}`);
-```
-
-The banner is mounted in both layouts — office (`AppLayout`) and engineer (`EngineerLayout`) — but `/jobs/:id` only exists inside the office layout. The engineer job route is `/engineer/job/:id`. So when an engineer taps "View Job" it pushes a route their app doesn't serve and nothing usable happens.
-
-Every other notification surface already solves this by taking a `jobPathPrefix` prop (`"/jobs"` from the office layout, `"/engineer/job"` from the engineer layout) and running it through the shared `resolveNotificationTarget` helper. `MessageAlertBanner` is the only one that never got the prop.
-
-Fix: give `MessageAlertBanner` the same `jobPathPrefix` prop, pass it from both layouts, and resolve the target through the existing shared helper instead of the hardcoded string.
-
-## Scope guarantee
-
-No other notification type's title or body changes:
-- `notify_on_job_message()` only ever fires on inserts into `job_messages`, and only writes rows with `notification_type = 'message'`. Parts (`notify_on_parts_request_change`), job status (`notify_on_job_change`), quote-viewed (`mark_quote_viewed`), certificate and payment notifications are all separate functions and are not touched.
-- Customer-facing WhatsApp/email copy is unaffected — this trigger writes only to the internal `notifications` table.
-- Fix 2 touches routing only, and improves the target for every type shown in that banner (which today is `message` only, since the banner filters on `notification_type === "message"`).
-
-## Verification
-
-- Trigger: insert an engineer preset message on a scratch job and read back the notification row to confirm the title renders as `Karl – Mary Byrne (KN-515)`; repeat for an office reply; confirm a missing customer name degrades cleanly.
-- Routing: confirm "View Job" lands on `/engineer/job/:id` in the engineer app and `/jobs/:id` in the office app.
-- Confirm existing frontend tests (including `notificationTarget.test.ts`) still pass.
+- Migration: `parts_requests.status` CHECK extended with `Fitted`; add `fitted_at timestamptz`, `fitted_by uuid`. New `log_parts_request_activity()` trigger on INSERT/UPDATE writing `customer_activity` rows with `event_type` values `part_logged`, `part_ordered`, `part_ready`, `part_fitted`, `part_cancelled` and `event_data` holding `{parts_request_id, description, quantity, priority, job_reference, status}`. Resolves `customer_id` from the row, falling back to the linked job. `organisation_id` always set. Actor resolved to `profiles.id` like the existing job triggers.
+- Backfill runs as a separate data statement after the migration, keyed off `created_at`/`ordered_at`/`ready_at`/`cancelled_at`, guarded against re-running.
+- Frontend: extend `src/lib/partsStatus.ts` (`PART_STATUS_CONFIG`, transitions) and `updatePartStatus` in `src/lib/partsRequests.ts` for Fitted; new `src/components/parts/CustomerPartsHistory.tsx` used by `CustomerDetail.tsx`; extend `PILL_CONFIG` and add an `event_data` detail renderer in `CustomerActivityTimeline.tsx`; rework `PartsNeededSection` in `JobDetail.tsx` into a persistent section with a history group. Timestamps via the existing `src/lib/partsDates.ts` helper (Europe/Dublin).
+- `sync_job_status_from_parts` reviewed so Fitted is treated as resolved and does not hold a job in `parts_ordered`/`parts_arrived`.
+- Unit tests for the status transition map, the Fitted-on-completion rule, and the status-trail builder. Verified live on a scratch job, then scratch data deleted.
