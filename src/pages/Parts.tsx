@@ -125,6 +125,21 @@ const Parts = () => {
     };
   }, [refetch]);
 
+  // BJ-0075: match EngineerParts — a laptop left on this tab overnight polls
+  // fine, but a sleeping tab misses both the poll and realtime, so refetch on
+  // foreground and on reconnect.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", refetch);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", refetch);
+    };
+  }, [refetch]);
+
   const advance = async (part: any, status: PartStatus) => {
     setBusyId(part.id);
     const { error } = await updatePartStatus(part.id, status);
