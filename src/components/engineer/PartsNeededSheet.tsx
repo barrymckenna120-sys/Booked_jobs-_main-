@@ -20,10 +20,20 @@ interface CustomerRow {
   address: string | null;
 }
 
+interface JobRow {
+  id: string;
+  job_reference: string | null;
+  job_type: string | null;
+  scheduled_date: string | null;
+  status: string | null;
+}
+
 /** Either a picked customer id or a typed-in name — the DB requires one of them. */
 export interface PartCustomerSelection {
   customerId: string | null;
   customerName: string | null;
+  /** Job the part belongs to. Null for genuine phone orders with no job yet. */
+  serviceCallId: string | null;
 }
 
 interface Props {
@@ -49,6 +59,9 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   const [customer, setCustomer] = useState<CustomerRow | null>(null);
   const [manual, setManual] = useState(false);
   const [manualName, setManualName] = useState("");
+  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [jobId, setJobId] = useState("");
+
 
   // Debounced customer search — same query shape as the office New Order form.
   useEffect(() => {
