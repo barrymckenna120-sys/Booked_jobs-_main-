@@ -175,6 +175,34 @@ BEGIN
     INSERT INTO _v VALUES ('B engineer status-only','FAIL - rejected: '||SQLERRM);
   END;
 
+  -- B2. real Cancel Request flow: engineer moves an OWNED Open row to Cancelled,
+  --     stamping cancelled_at/cancelled_by exactly as the client helper does.
+  --     This exercises the RLS WITH CHECK path, not a no-op update.
+  BEGIN
+    SELECT id INTO v_own_open_id
+      FROM public.parts_requests
+     WHERE status = 'Open'
+       AND (logged_by = v_eng_uid
+            OR engineer_id = v_eng_uid
+            OR assigned_engineer_id = v_eng_uid
+            OR assigned_to = public.get_engineer_id(v_eng_uid))
+     LIMIT 1;
+
+    IF v_own_open_id IS NULL THEN
+      INSERT INTO _v VALUES ('B2 engineer Open->Cancelled','SKIPPED - no owned Open row for this engineer');
+    ELSE
+      UPDATE public.parts_requests
+         SET status       = 'Cancelled',
+             cancelled_at = now(),
+             cancelled_by = v_eng_uid
+       WHERE id = v_own_open_id;
+      INSERT INTO _v VALUES ('B2 engineer Open->Cancelled','PASS - allowed');
+    END IF;
+  EXCEPTION WHEN others THEN
+    INSERT INTO _v VALUES ('B2 engineer Open->Cancelled','FAIL - rejected: '||SQLERRM);
+  END;
+
+
   -- C. anon API request writing a cost field -> must RAISE (the fixed hole)
   PERFORM set_config('request.jwt.claims', '{"role":"anon"}', true);
   BEGIN
