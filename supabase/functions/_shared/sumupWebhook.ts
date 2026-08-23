@@ -557,6 +557,30 @@ export async function handleSumUpWebhook(
     });
   }
 
+  // BJ-0059 — receipt to the customer, full payments only, strictly last.
+  // The payment is already committed at this point, so any failure here is
+  // logged and dropped: the outcome stays `paid` and SumUp is not asked to
+  // retry a payment we have recorded.
+  if (deps.sendReceipt && fullyPaid) {
+    try {
+      await deps.sendReceipt({
+        organisationId: job.organisation_id,
+        serviceCallId: job.id,
+        customerId: job.customer_id ?? null,
+        jobReference: job.job_reference ?? null,
+        amount,
+        checkoutId,
+      });
+    } catch (_e) {
+      log(
+        "error",
+        `sumup-webhook: receipt send failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`,
+      );
+    }
+  }
+
+
+
 
   log("info", `sumup-webhook: job ${job.id} → ${fullyPaid ? "paid" : "partial"} (€${amount})`);
   return {
