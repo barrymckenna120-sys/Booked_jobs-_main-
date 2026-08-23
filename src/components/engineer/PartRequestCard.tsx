@@ -3,10 +3,11 @@ import { StickyNote, Building2, XCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { partStatusGlyph } from "@/components/parts/PartStatusIcon";
+import PartStatusTrail from "@/components/parts/PartStatusTrail";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { updatePartStatus } from "@/lib/partsRequests";
-import { formatPartStatusStamp, formatPartTimestamp } from "@/lib/partsDates";
+
 import {
   PART_PRIORITY_CONFIG,
   PART_STATUS_CONFIG,
@@ -50,7 +51,7 @@ const PartRequestCard = ({
   const priority = PART_PRIORITY_CONFIG[(row.priority ?? "").toLowerCase()];
   const officeUpdate = isOfficeUpdate(row);
   const canCancel = canEngineerCancelPart(row, userId);
-  const statusStamp = formatPartStatusStamp(row);
+  
 
 
   const cancel = async () => {
@@ -111,16 +112,12 @@ const PartRequestCard = ({
             {priority.emoji} {priority.label}
           </span>
         )}
-        <span className="text-[12px] text-muted-foreground font-medium">
-          {formatPartTimestamp(row.created_at)}
-        </span>
-        {statusStamp && (
-          <span className="text-[12px] text-muted-foreground/80 font-medium">
-            · {statusStamp.label} {statusStamp.value}
-          </span>
-        )}
-
       </div>
+
+      {/* BJ-0069/0070 — same permanent trail as the customer record and Job Detail,
+          so the engineer sees every stage with its own timestamp, not just the latest. */}
+      <PartStatusTrail row={row} className="pt-2 border-t border-border/60" />
+
 
       {row.notes && (
         <div
