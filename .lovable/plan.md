@@ -146,9 +146,11 @@ CREATE TEMP TABLE _v(step text, outcome text) ON COMMIT DROP;
 
 DO $$
 DECLARE
-  v_part_id  uuid;
-  v_eng_uid  uuid;
-  v_off_uid  uuid;
+  v_part_id      uuid;
+  v_eng_uid      uuid;
+  v_off_uid      uuid;
+  v_own_open_id  uuid;
+
 BEGIN
   SELECT id INTO v_part_id FROM public.parts_requests ORDER BY created_at DESC LIMIT 1;
   SELECT auth_user_id INTO v_eng_uid FROM public.engineers
