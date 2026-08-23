@@ -29,7 +29,7 @@ const EngineerToday = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { canAccessOffice } = useUserRole(user);
-  const { todayActive, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
+  const { todayActive, todayPaidNeedsCompletion, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
   const todayKey = new Date().toISOString().split("T")[0];
   const completedTodayCount = completedJobs.filter((job: any) =>
     job.scheduled_date === todayKey || job.completed_at?.slice(0, 10) === todayKey
