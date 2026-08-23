@@ -60,7 +60,10 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   const [manual, setManual] = useState(false);
   const [manualName, setManualName] = useState("");
   const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [jobId, setJobId] = useState("");
+  // BJ-0073 — "unset" forces an explicit choice when the customer has eligible
+  // jobs, so a request can no longer silently inherit "no job".
+  const [jobId, setJobId] = useState<string>("unset");
+
 
 
   // Debounced customer search — same query shape as the office New Order form.
