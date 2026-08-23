@@ -91,7 +91,9 @@ const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow
     );
   }
 
-  if (status === "parts_needed" || status === "parts_ordered") {
+  // BJ-0078 — parts_arrived shares this branch: a job whose parts are ready to
+  // fit must offer Complete, same as the other two parts statuses.
+  if (status === "parts_needed" || status === "parts_ordered" || status === "parts_arrived") {
     return (
       <div className="space-y-2 mt-1">
         <Button

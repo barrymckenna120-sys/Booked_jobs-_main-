@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, PackageCheck, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
@@ -36,6 +36,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   Cancelled:     { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
   parts_needed:  { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
   parts_ordered: { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
+  // BJ-0078 — engineer-facing label; office keeps "Awaiting Booking".
+  parts_arrived: { color: "text-[#7C3AED]",   bg: "bg-[#F3E8FF]",      label: "Parts Ready to Fit" },
 };
 
 const TIME_LABELS: Record<string, string> = {
