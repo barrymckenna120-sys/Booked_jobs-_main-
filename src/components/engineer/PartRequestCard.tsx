@@ -110,8 +110,14 @@ const PartRequestCard = ({
           </span>
         )}
         <span className="text-[12px] text-muted-foreground font-medium">
-          {formatCreated(row.created_at)}
+          {formatPartTimestamp(row.created_at)}
         </span>
+        {statusStamp && (
+          <span className="text-[12px] text-muted-foreground/80 font-medium">
+            · {statusStamp.label} {statusStamp.value}
+          </span>
+        )}
+
       </div>
 
       {row.notes && (
