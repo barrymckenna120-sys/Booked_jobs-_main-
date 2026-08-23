@@ -1,7 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { buildPartsRequestRow, type BuildPartsRowArgs, type PartStatus } from "./partsStatus";
+import { stripPartsCostFields, type NotifiedMethod } from "./partsCost";
 
 export * from "./partsStatus";
+export * from "./partsCost";
+
 
 /** Inserts exactly one parts request. One request = one part, end to end. */
 export const insertPartsRequest = async (args: BuildPartsRowArgs) => {
