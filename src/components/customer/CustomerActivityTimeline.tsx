@@ -44,7 +44,7 @@ const PILL_CONFIG: Record<string, { label: string; className: string }> = {
   part_logged: { label: "Part Logged", className: "bg-[#FEF3C7] text-[#D97706]" },
   part_ordered: { label: "Part Ordered", className: "bg-blue-100 text-blue-700" },
   part_ready: { label: "Part Ready to Fit", className: "bg-[#F3E8FF] text-[#7C3AED]" },
-  part_fitted: { label: "Part Fitted", className: "bg-[#DCFCE7] text-[#15803D]" },
+  
   part_cancelled: { label: "Part Cancelled", className: "bg-muted text-muted-foreground" },
 };
 

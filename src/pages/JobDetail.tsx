@@ -158,10 +158,10 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // BJ-0069 — the section is permanent: active work up top, fitted/cancelled
-  // parts kept below with their timestamps so the job's parts record survives.
-  const active = parts.filter((p: any) => p.status !== "Cancelled" && p.status !== "Fitted");
-  const history = parts.filter((p: any) => p.status === "Cancelled" || p.status === "Fitted");
+  // BJ-0069 — the section is permanent: active work up top, cancelled parts kept
+  // below with their timestamps so the job's parts record survives.
+  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  const history = parts.filter((p: any) => p.status === "Cancelled");
   const isOrdered = job.status === "parts_ordered";
   const isArrived = job.status === "parts_arrived";
   const noActive = active.length === 0;
@@ -241,17 +241,6 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     onClick={() => advance(part, "Ready to Fit")}
                   >
                     <PackageCheck className="w-4 h-4" /> Part Arrived
-                  </Button>
-                )}
-                {part.status === "Ready to Fit" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-[#15803D] text-[#15803D] hover:bg-[#DCFCE7]"
-                    disabled={busyId === part.id}
-                    onClick={() => advance(part, "Fitted")}
-                  >
-                    <Wrench className="w-4 h-4" /> Mark Fitted
                   </Button>
                 )}
                 {part.status !== "Ready to Fit" && (
