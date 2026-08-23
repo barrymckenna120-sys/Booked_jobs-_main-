@@ -39,6 +39,24 @@ const PILL_CONFIG: Record<string, { label: string; className: string }> = {
   payment_failed: { label: "Payment Failed", className: "bg-destructive/10 text-destructive" },
   certificate_sent: { label: "Certificate Sent", className: "bg-blue-100 text-blue-700" },
   whatsapp_sent: { label: "WhatsApp", className: "bg-orange-100 text-orange-700" },
+  whatsapp_received: { label: "WhatsApp", className: "bg-orange-100 text-orange-700" },
+  // BJ-0070 — parts lifecycle entries, one per transition.
+  part_logged: { label: "Part Logged", className: "bg-[#FEF3C7] text-[#D97706]" },
+  part_ordered: { label: "Part Ordered", className: "bg-blue-100 text-blue-700" },
+  part_ready: { label: "Part Ready to Fit", className: "bg-[#F3E8FF] text-[#7C3AED]" },
+  part_fitted: { label: "Part Fitted", className: "bg-[#DCFCE7] text-[#15803D]" },
+  part_cancelled: { label: "Part Cancelled", className: "bg-muted text-muted-foreground" },
+};
+
+/** Detail line for parts entries — keeps the part readable months later. */
+const partDetailLine = (data: any): string | null => {
+  if (!data || typeof data !== "object") return null;
+  const bits: string[] = [];
+  if (data.quantity) bits.push(`Qty ${data.quantity}`);
+  if (data.priority) bits.push(`${String(data.priority)} priority`);
+  if (data.job_reference) bits.push(String(data.job_reference));
+  if (data.logged_by_name) bits.push(`logged by ${data.logged_by_name}`);
+  return bits.length > 0 ? bits.join(" · ") : null;
 };
 
 const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false }: Props) => {
