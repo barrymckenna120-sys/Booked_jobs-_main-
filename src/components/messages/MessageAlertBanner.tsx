@@ -72,8 +72,16 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
     // Mark notification as read
     supabase.from("notifications").update({ is_read: true }).eq("id", alert.notificationId).then(() => {});
     setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
-    if (alert.jobId) navigate(`/jobs/${alert.jobId}`);
-  }, [navigate]);
+    const target = resolveNotificationTarget(
+      {
+        notification_type: alert.notificationType,
+        job_id: alert.jobId,
+        metadata: alert.metadata,
+      },
+      jobPathPrefix,
+    );
+    if (target) navigate(target);
+  }, [navigate, jobPathPrefix]);
 
   const handleDismiss = useCallback((e: React.MouseEvent | React.TouchEvent, alert: MessageAlert) => {
     e.stopPropagation();
