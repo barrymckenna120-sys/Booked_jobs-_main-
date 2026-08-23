@@ -205,7 +205,7 @@ const EngineerParts = () => {
           const { error } = await insertPartsRequest({
             part,
             organisationId: engineer.organisation_id,
-            serviceCallId: null,
+            serviceCallId: selection?.serviceCallId ?? null,
             customerId: selection?.customerId ?? null,
             customerName: selection?.customerId ? null : selection?.customerName ?? null,
             loggedBy: user.id,
