@@ -128,7 +128,12 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   };
 
   const hasCustomer = !!customer || manualName.trim().length > 0;
-  const canConfirm = description.trim().length > 0 && (!requireCustomer || hasCustomer);
+  // BJ-0073 — when the picked customer has eligible jobs, a choice is mandatory.
+  const jobChoiceRequired = !!requireCustomer && !!customer && jobs.length > 0;
+  const jobChoiceMissing = jobChoiceRequired && jobId === "unset";
+  const canConfirm =
+    description.trim().length > 0 && (!requireCustomer || hasCustomer) && !jobChoiceMissing;
+
 
 
   const handleConfirm = (e: React.MouseEvent) => {
