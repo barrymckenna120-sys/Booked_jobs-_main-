@@ -676,7 +676,7 @@ export const useEngineerJobs = () => {
 
   return {
     user, authLoading, loading, engineerName, isEngineerNotLinked,
-    todayActive, todayCompleted, todayCancelled, todayInProgress,
+    todayActive, todayPaidNeedsCompletion, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
     updateJob, fetchAll, fadingJobIds, isOnline,
   };
