@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Mail } from "lucide-react";
 import { playMessageBeep } from "@/utils/audio";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 interface MessageAlert {
   id: string;
