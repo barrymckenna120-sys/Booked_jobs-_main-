@@ -537,10 +537,10 @@ const JobDetail = () => {
         </div>
       )}
 
-      {/* Parts Needed / Ordered Section */}
-      {(job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") && (
-        <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
-      )}
+      {/* Parts section — permanent (BJ-0069): renders whenever the job has any
+          parts request, regardless of job status. Self-hides when there are none. */}
+      <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
+
 
       {/* Header */}
       <div className="flex items-start gap-3">
