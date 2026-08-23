@@ -19,10 +19,10 @@ import {
   type PartStatus,
 } from "@/lib/partsRequests";
 
-const fmtDate = (iso: string | null) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
-};
+import { formatPartStatusStamp, formatPartTimestamp } from "@/lib/partsDates";
+
+const fmtDate = (iso: string | null) => formatPartTimestamp(iso) || "—";
+
 
 const Parts = () => {
   const navigate = useNavigate();
