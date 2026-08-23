@@ -60,7 +60,10 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   const [manual, setManual] = useState(false);
   const [manualName, setManualName] = useState("");
   const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [jobId, setJobId] = useState("");
+  // BJ-0073 — "unset" forces an explicit choice when the customer has eligible
+  // jobs, so a request can no longer silently inherit "no job".
+  const [jobId, setJobId] = useState<string>("unset");
+
 
 
   // Debounced customer search — same query shape as the office New Order form.
@@ -93,7 +96,7 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
   useEffect(() => {
     if (!open || !requireCustomer || !customer) {
       setJobs([]);
-      setJobId("");
+      setJobId("unset");
       return;
     }
     let cancelled = false;
@@ -121,11 +124,16 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
     setManual(false);
     setManualName("");
     setJobs([]);
-    setJobId("");
+    setJobId("unset");
   };
 
   const hasCustomer = !!customer || manualName.trim().length > 0;
-  const canConfirm = description.trim().length > 0 && (!requireCustomer || hasCustomer);
+  // BJ-0073 — when the picked customer has eligible jobs, a choice is mandatory.
+  const jobChoiceRequired = !!requireCustomer && !!customer && jobs.length > 0;
+  const jobChoiceMissing = jobChoiceRequired && jobId === "unset";
+  const canConfirm =
+    description.trim().length > 0 && (!requireCustomer || hasCustomer) && !jobChoiceMissing;
+
 
 
   const handleConfirm = (e: React.MouseEvent) => {
@@ -143,7 +151,11 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
         ? {
             customerId: customer?.id ?? null,
             customerName: customer ? null : manualName.trim() || null,
-            serviceCallId: customer ? jobId || null : null,
+            // "none" = explicit phone order; "unset" only survives here when the
+            // customer has no eligible jobs, which also means no job link.
+            serviceCallId:
+              customer && jobId !== "none" && jobId !== "unset" ? jobId : null,
+
           }
         : undefined,
     );
@@ -282,7 +294,9 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
                 onClick={(e) => e.stopPropagation()}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">No job (phone order)</option>
+                <option value="unset" disabled>
+                  Select a job…
+                </option>
                 {jobs.map((j) => (
                   <option key={j.id} value={j.id}>
                     {[j.job_reference || "Job", j.job_type, j.scheduled_date, j.status]
@@ -290,10 +304,18 @@ const PartsNeededSheet = ({ open, onClose, onConfirm, loading, requireCustomer, 
                       .join(" · ")}
                   </option>
                 ))}
+                <option value="none">No job (phone order)</option>
               </select>
-              <p className="text-xs text-muted-foreground">
-                Linking the job means the office sees the reference instead of "No job linked".
-              </p>
+              {jobChoiceMissing ? (
+                <p className="text-xs font-medium text-[#DC2626]">
+                  Choose a job, or "No job (phone order)"
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Linking the job means the office sees the reference instead of "No job linked".
+                </p>
+              )}
+
             </div>
           )}
 
