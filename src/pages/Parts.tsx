@@ -144,6 +144,7 @@ const Parts = () => {
   const PartCard = ({ part, borderColor, children }: { part: any; borderColor: string; children?: React.ReactNode }) => {
     const pCfg = PART_PRIORITY_CONFIG[part.priority];
     const sCfg = PART_STATUS_CONFIG[part.status];
+    const [showThread, setShowThread] = useState(false);
     return (
       <Card
         id={`part-${part.id}`}
@@ -175,6 +176,9 @@ const Parts = () => {
                 )}
               </div>
 
+              {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told and quote ref. */}
+              <PartTrackingDetails row={part} className="mt-2" />
+
             </div>
             <div className="flex flex-col items-end gap-1.5 shrink-0">
               {sCfg && (
@@ -189,12 +193,41 @@ const Parts = () => {
                 </span>
               )}
               {children}
+              {canEditTracking && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-[11px] h-7 px-2 text-muted-foreground"
+                  onClick={(e) => { e.stopPropagation(); setEditingPart(part); }}
+                >
+                  <SlidersHorizontal className="w-3 h-3" strokeWidth={2.5} /> Cost / ETA
+                </Button>
+              )}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowThread((v) => !v); }}
+            className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showThread ? "rotate-90" : ""}`} strokeWidth={2.5} />
+            Comments
+          </button>
+          {showThread && (
+            <PartCommentsThread
+              partsRequestId={part.id}
+              organisationId={part.organisation_id || orgId}
+              authorName={engineerName || user?.email || null}
+              authorRole={role}
+              className="mt-2"
+            />
+          )}
         </CardContent>
       </Card>
     );
   };
+
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
