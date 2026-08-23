@@ -899,6 +899,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
+        {/* Parts Ready to Fit banner (BJ-0078) */}
+        {job.status === "parts_arrived" && (
+          <div className="rounded-r-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: "#FAF5FF", borderLeft: "3px solid #7C3AED" }}>
+            <PackageCheck className="w-4 h-4 shrink-0" style={{ color: "#7C3AED" }} />
+            <div>
+              <div className="text-[13px] font-bold" style={{ color: "#7C3AED" }}>Parts Ready to Fit</div>
+              <div className="text-[11px] text-muted-foreground">Parts are in — book the return visit</div>
+            </div>
+          </div>
+        )}
+
+
+
         {/* Boiler issue */}
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3">
