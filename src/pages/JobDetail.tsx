@@ -243,17 +243,6 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
                     <PackageCheck className="w-4 h-4" /> Part Arrived
                   </Button>
                 )}
-                {part.status === "Ready to Fit" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-[#15803D] text-[#15803D] hover:bg-[#DCFCE7]"
-                    disabled={busyId === part.id}
-                    onClick={() => advance(part, "Fitted")}
-                  >
-                    <Wrench className="w-4 h-4" /> Mark Fitted
-                  </Button>
-                )}
                 {part.status !== "Ready to Fit" && (
                   <Button
                     variant="ghost"
