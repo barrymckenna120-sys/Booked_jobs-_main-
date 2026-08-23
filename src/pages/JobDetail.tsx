@@ -182,15 +182,15 @@ const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any;
     onStatusChange();
   };
 
-  if (active.length === 0) return null;
+  if (parts.length === 0) return null;
 
   return (
     <Card className={`border-l-4 ${accentBorder} ${accentBg}`}>
       <CardHeader className="pb-2">
         <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
-          {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
+          {noActive ? <Package className="w-4 h-4 text-muted-foreground" /> : isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
           {title}
-          <span className="text-xs font-semibold text-muted-foreground">({active.length})</span>
+          <span className="text-xs font-semibold text-muted-foreground">({noActive ? parts.length : active.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
