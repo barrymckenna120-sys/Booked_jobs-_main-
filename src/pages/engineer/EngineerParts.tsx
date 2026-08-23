@@ -142,6 +142,36 @@ const EngineerParts = () => {
     };
   }, [user?.id, reloadKey]);
 
+  // BJ-0068: office-created orders never appeared here because the list only
+  // refetched on the engineer's own actions, and this PWA screen stays mounted
+  // for hours. Follow the useEngineerJobs pattern: realtime + foreground refetch.
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel("engineer-parts-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "parts_requests" }, () => {
+        setReloadKey((k) => k + 1);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const refresh = () => setReloadKey((k) => k + 1);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", refresh);
+    };
+  }, [user?.id]);
+
   return (
     <>
       <PartsSectionTabs />

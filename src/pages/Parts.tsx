@@ -98,6 +98,20 @@ const Parts = () => {
     return () => clearTimeout(t);
   }, [highlightId, parts]);
 
+  // BJ-0068: engineer-logged requests only showed up on the next 30s poll —
+  // subscribe to the table so the list reflects changes immediately.
+  useEffect(() => {
+    const channel = supabase
+      .channel("office-parts-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "parts_requests" }, () => {
+        refetch();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
+
   const advance = async (part: any, status: PartStatus) => {
     setBusyId(part.id);
     const { error } = await updatePartStatus(part.id, status);
