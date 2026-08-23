@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { markCustomerNotified } from "@/lib/partsRequests";
 
 type Props = {
   open: boolean;
@@ -16,10 +17,17 @@ type Props = {
   customerName: string;
   customerPhone: string;
   followUpDetail?: string | null;
+  /**
+   * BJ-0071 — parts this message is about. On a successful send each row is
+   * stamped customer_notified_at/_by/_method = 'whatsapp', so months later the
+   * record shows the customer was told rather than leaving it to memory.
+   */
+  partsRequestIds?: string[];
   onSent: () => void;
 };
 
-const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, followUpDetail, onSent }: Props) => {
+const PartsArrivedModal = ({ open, onClose, jobId, customerName, customerPhone, followUpDetail, partsRequestIds = [], onSent }: Props) => {
+
   const { toast } = useToast();
   const { user } = useAuth();
   const firstName = customerName.split(" ")[0];
