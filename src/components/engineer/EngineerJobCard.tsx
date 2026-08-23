@@ -424,6 +424,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           job={job}
           customer={customer}
           onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); }}
+          onCompleteOnly={() => {
+            setShowCompletionPayment(false);
+            // Already fully paid — write completion fields only, never payment fields.
+            onUpdate(job.id, {
+              status: "Completed",
+              ...pendingCompletionData.data,
+            }, { jobTagDate: pendingCompletionData.jobTagDate });
+            setPendingCompletionData(null);
+          }}
           onDone={(method: string, confirmedAmount: number) => {
             setShowCompletionPayment(false);
             onUpdate(job.id, {

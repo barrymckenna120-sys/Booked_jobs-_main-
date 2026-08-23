@@ -12,7 +12,10 @@ interface Props {
   customer: any;
   onClose: () => void;
   onDone: (method: string, confirmedAmount: number) => void;
+  /** Fully-paid jobs only: mark complete without touching any payment field. */
+  onCompleteOnly?: () => void;
 }
+
 
 const DEFAULT_PRICES: Record<string, string> = {
   "Boiler Service": "default_service_price",
@@ -28,7 +31,7 @@ const METHODS = [
 
 const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
 
-const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
+const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -106,6 +109,14 @@ const PaymentSheet = ({ job, customer, onClose, onDone }: Props) => {
               </div>
             )}
           </div>
+          {onCompleteOnly && (
+            <Button
+              className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
+              onClick={onCompleteOnly}
+            >
+              <CheckCircle2 className="w-5 h-5" /> Complete Job
+            </Button>
+          )}
           <Button className="w-full h-12 text-base font-extrabold" variant="secondary" onClick={onClose}>
             Close
           </Button>
