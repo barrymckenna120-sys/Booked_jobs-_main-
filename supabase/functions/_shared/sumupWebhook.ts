@@ -173,6 +173,25 @@ export interface SumUpWebhookDeps {
     status: string;
   }) => Promise<void>;
 
+  /**
+   * BJ-0059 — customer receipt for a webhook-confirmed FULL payment.
+   *
+   * Only called when this event brings the job to fully paid; a deposit-only or
+   * partial payment never sends. Runs last, after the job write and every log /
+   * notification, and a throw is swallowed by the caller: the payment is already
+   * recorded, so a failed send must not change the outcome or make SumUp retry.
+   * The duplicate guard (receipt_sent, prior receipt message) lives in the
+   * implementation — the per-checkout guard is the sumup_webhook_events claim.
+   */
+  sendReceipt?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    amount: number;
+    checkoutId: string;
+  }) => Promise<void>;
+
 
   /** Injectable clock for tests. */
   now?: () => Date;
@@ -537,6 +556,30 @@ export async function handleSumUpWebhook(
       status,
     });
   }
+
+  // BJ-0059 — receipt to the customer, full payments only, strictly last.
+  // The payment is already committed at this point, so any failure here is
+  // logged and dropped: the outcome stays `paid` and SumUp is not asked to
+  // retry a payment we have recorded.
+  if (deps.sendReceipt && fullyPaid) {
+    try {
+      await deps.sendReceipt({
+        organisationId: job.organisation_id,
+        serviceCallId: job.id,
+        customerId: job.customer_id ?? null,
+        jobReference: job.job_reference ?? null,
+        amount,
+        checkoutId,
+      });
+    } catch (_e) {
+      log(
+        "error",
+        `sumup-webhook: receipt send failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`,
+      );
+    }
+  }
+
+
 
 
   log("info", `sumup-webhook: job ${job.id} → ${fullyPaid ? "paid" : "partial"} (€${amount})`);

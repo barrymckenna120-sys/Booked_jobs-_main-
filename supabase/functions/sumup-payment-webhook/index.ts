@@ -372,7 +372,69 @@ Deno.serve(async (req) => {
       }
     },
 
+    // BJ-0059 — a webhook-confirmed FULL payment now sends the customer the same
+    // receipt the engineer completion flow sends. Guards, in order:
+    //   1. receipt_sent on the job (set by send-whatsapp-receipt itself, so the
+    //      completion flow and this path can never both send).
+    //   2. an existing receipt / payment_received message_log row for the job.
+    // Per-checkout dedup is already handled upstream by the UNIQUE claim on
+    // sumup_webhook_events.checkout_id, which is taken before any write.
+    sendReceipt: async (e) => {
+      const { data: job, error: jobErr } = await supabase
+        .from("service_calls")
+        .select("receipt_sent")
+        .eq("id", e.serviceCallId)
+        .maybeSingle();
+      if (jobErr) {
+        console.error("sumup-payment-webhook: receipt_sent read failed", jobErr.message);
+        return;
+      }
+      if (job?.receipt_sent) {
+        console.log(
+          `sumup-payment-webhook: receipt skipped (already sent) for job ${e.serviceCallId} checkout ${e.checkoutId}`,
+        );
+        return;
+      }
+
+      const { data: priorMessages, error: msgErr } = await supabase
+        .from("message_log")
+        .select("id")
+        .eq("related_id", e.serviceCallId)
+        .in("message_type", ["receipt", "payment_received"])
+        .limit(1);
+      if (msgErr) {
+        console.error("sumup-payment-webhook: receipt dedupe read failed", msgErr.message);
+        return;
+      }
+      if ((priorMessages ?? []).length > 0) {
+        console.log(
+          `sumup-payment-webhook: receipt skipped (duplicate) for job ${e.serviceCallId} checkout ${e.checkoutId}`,
+        );
+        return;
+      }
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-receipt`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ job_id: e.serviceCallId }),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error(
+          `sumup-payment-webhook: send-whatsapp-receipt HTTP ${res.status} for job ${e.serviceCallId}: ${text.slice(0, 300)}`,
+        );
+        return;
+      }
+      console.log(
+        `sumup-payment-webhook: receipt sent for job ${e.serviceCallId} checkout ${e.checkoutId}: ${text.slice(0, 200)}`,
+      );
+    },
+
     // Office/admin users of the owning org get a bell notification, matching the
+
     // recipient rule used by the quote-accepted alert.
     notifyOffice: async (e) => {
       try {
