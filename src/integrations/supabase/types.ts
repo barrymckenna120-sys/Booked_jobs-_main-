@@ -1871,8 +1871,6 @@ export type Database = {
           customer_phone: string | null
           description: string
           engineer_id: string | null
-          fitted_at: string | null
-          fitted_by: string | null
           id: string
           logged_by: string | null
           logged_by_name: string | null
@@ -1902,8 +1900,6 @@ export type Database = {
           customer_phone?: string | null
           description: string
           engineer_id?: string | null
-          fitted_at?: string | null
-          fitted_by?: string | null
           id?: string
           logged_by?: string | null
           logged_by_name?: string | null
@@ -1933,8 +1929,6 @@ export type Database = {
           customer_phone?: string | null
           description?: string
           engineer_id?: string | null
-          fitted_at?: string | null
-          fitted_by?: string | null
           id?: string
           logged_by?: string | null
           logged_by_name?: string | null
