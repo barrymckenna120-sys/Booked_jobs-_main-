@@ -601,7 +601,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (!job || !rescheduleDate) return;
     setActionLoading(true);
     const patch: Record<string, any> = { scheduled_date: rescheduleDate, time_block: rescheduleTime || null };
-    if (job.status === "parts_needed" || job.status === "parts_ordered") {
+    if (job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") {
       patch.status = "Scheduled";
     }
     const { error } = await supabase
