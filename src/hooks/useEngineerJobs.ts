@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload, stripCallerRevenue, PaymentAmountError } from "@/lib/serviceCallUpdate";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { buildEngineerPaymentPlan } from "@/lib/engineerPaymentPlan";
+
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -65,6 +67,11 @@ export const useEngineerJobs = () => {
   // Resolved public.engineers.id for the signed-in auth user (NOT the auth uid).
   // Used by debugLog so debug_logs.engineer_id references a real engineers row.
   const engineerIdRef = useRef<string | null>(null);
+  // Resolved public.profiles.id for the signed-in user, cached at fetch time so
+  // write paths never need a network read for it (offline safety: the ledger
+  // row's recorded_by must be available with no connection).
+  const profileIdRef = useRef<string | null>(null);
+
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
@@ -132,6 +139,19 @@ export const useEngineerJobs = () => {
 
       const engineerId = engData?.id;
       engineerIdRef.current = engineerId ?? null;
+
+      // Cache profiles.id once, while online, for later write paths.
+      try {
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profileRow?.id) profileIdRef.current = profileRow.id;
+      } catch (e) {
+        console.warn("[useEngineerJobs] profile id lookup failed", e);
+      }
+
 
       console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
       console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
@@ -268,41 +288,34 @@ export const useEngineerJobs = () => {
     if (customerNotes !== undefined) {
       dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
     }
+    // Shared timestamp: the job row, the ledger row and completed_at must agree.
+    const paidAtIso = new Date().toISOString();
+    const jobForPayment = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
+    // Pure decision layer: what this payment writes, whether it completes the
+    // job, the ledger row, and whether a receipt goes out. See
+    // src/lib/engineerPaymentPlan.ts.
+    const paymentPlan = buildEngineerPaymentPlan({
+      patch,
+      paymentMethod,
+      confirmedRevenue,
+      job: jobForPayment,
+      jobId,
+      paidAt: paidAtIso,
+      recordedBy: profileIdRef.current,
+      entry: patch.status ? "completion" : "standalone",
+    });
+
     if (paymentMethod) {
-      dbPatch.payment_method = paymentMethod;
-      const jobForPayment = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
-      // Money actually collected before this write — a requested-but-unpaid
-      // deposit counts for nothing.
-      const collectedSoFar = (jobForPayment as any)?.deposit_paid
-        ? Number((jobForPayment as any)?.deposit_amount || 0)
-        : 0;
+      Object.assign(dbPatch, paymentPlan.dbPatchAdditions);
       if (paymentMethod === "invoice") {
         // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
-        Object.assign(
-          dbPatch,
-          buildPaymentPatch({
-            type: "invoice",
-            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-            fallbackRevenue: Number((jobForPayment as any)?.revenue || 0),
-            revenue: Number((jobForPayment as any)?.revenue || 0),
-            collectedToDate: collectedSoFar,
-            revenueMode: "fill",
-          }),
-        );
         if (!dbPatch.status) dbPatch.status = "Completed";
         if (!patch.status) patch.status = "Completed";
       } else {
-        dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
-        Object.assign(dbPatch, buildPaymentPatch({
-          type: "full",
-          amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-          revenue: Number((jobForPayment as any)?.revenue || 0),
-          collectedToDate: collectedSoFar,
-        }));
       }
-
     }
+
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
       dbPatch.cancellation_note = cancelNote || null;
@@ -343,6 +356,10 @@ export const useEngineerJobs = () => {
           const yr = new Date().getFullYear();
           const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
           dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
+          // A standalone Take Payment may already have minted a receipt (and a
+          // PDF) on this job. Clearing the stored URL forces send-whatsapp-receipt
+          // to regenerate rather than resend the stale document.
+          dbPatch.receipt_pdf_url = null;
         }
       } catch {}
     }
@@ -351,12 +368,23 @@ export const useEngineerJobs = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
 
     if (error) {
-      addToQueue({
+      const jobUpdateQueueId = addToQueue({
         table: "service_calls",
         operation: "update",
         payload: safeDbPatch,
         filter: { column: "id", value: jobId },
       });
+      // Dependent: the ledger row is only replayed once the job update lands,
+      // and is dropped with it if that update is ever dropped. Divergence is
+      // therefore bounded to "job paid, ledger missing" — never the reverse.
+      if (paymentPlan.ledgerRow) {
+        addToQueue({
+          table: "job_payments",
+          operation: "insert",
+          payload: paymentPlan.ledgerRow,
+          dependsOnId: jobUpdateQueueId,
+        });
+      }
       if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
         addToQueue({
           table: "customers",
@@ -365,6 +393,7 @@ export const useEngineerJobs = () => {
           filter: { column: "id", value: jobForCustomer.customer_id },
         });
       }
+
       toast({
         title: "No connection",
         description: "Update saved and will retry automatically",
@@ -392,7 +421,6 @@ export const useEngineerJobs = () => {
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
           const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
-          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
           const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
@@ -402,12 +430,62 @@ export const useEngineerJobs = () => {
             service_call_id: jobId,
             event_type: "payment_received",
             event_label: `Payment received — €${amountStr} — ${methodLabel}`,
-            created_by: profile?.id || null,
+            created_by: profileIdRef.current,
           } as any);
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
       }
+
+      // Append-only payment ledger. The payment is already recorded on the job,
+      // so a failure here is loud but non-blocking; a network failure is queued.
+      if (paymentPlan.ledgerRow) {
+        try {
+          const { error: ledgerError } = await supabase
+            .from("job_payments")
+            .insert(paymentPlan.ledgerRow as any);
+          if (ledgerError) throw ledgerError;
+        } catch (e: any) {
+          console.error("LEDGER_INSERT_FAILED job_payments:", e);
+          if (!isOnline) {
+            // No dependency needed — the job row already carries the payment.
+            addToQueue({ table: "job_payments", operation: "insert", payload: paymentPlan.ledgerRow });
+          } else {
+            toast({
+              title: "Payment recorded, but not added to the payment ledger",
+              description: e?.message || "Please let the office know so it can be reconciled.",
+              variant: "destructive",
+            });
+          }
+        }
+      }
+
+      // Standalone Take Payment (no status in the patch): a receipt goes out on
+      // full payment even when the job is not marked Completed yet. Skipped
+      // offline — Edge Function calls cannot be queued.
+      if (paymentPlan.fireReceipt && isOnline) {
+        invokeFunction("generate-receipt-pdf", { body: { job_id: jobId }, signOutOnRefreshFailure: false })
+          .then(({ error: pdfError }) => { if (pdfError) throw pdfError; })
+          .catch((err) => {
+            console.error("generate-receipt-pdf error:", err);
+            toast({
+              title: "Receipt PDF not generated",
+              description: "Payment was recorded. Tap Download on the receipt screen to retry.",
+              variant: "destructive",
+            });
+          });
+        invokeFunction("send-whatsapp-receipt", { body: { job_id: jobId }, signOutOnRefreshFailure: false })
+          .then(({ error: waError }) => { if (waError) throw waError; })
+          .catch((err) => {
+            console.error("[WhatsApp] Receipt send failed:", err);
+            toast({
+              title: "Payment recorded — receipt not sent",
+              description: "Tap Send via WhatsApp on the receipt screen to try again.",
+              variant: "destructive",
+            });
+          });
+      }
+
 
 
 
@@ -466,13 +544,8 @@ export const useEngineerJobs = () => {
           }
 
           if (tagRows.length > 0) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("id")
-              .eq("user_id", user!.id)
-              .maybeSingle();
+            const profileId = profileIdRef.current;
 
-            const profileId = profile?.id || null;
 
             const inserts = tagRows
               .filter((row: any) => !existingIds.has(row.id))
