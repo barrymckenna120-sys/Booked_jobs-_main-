@@ -154,6 +154,34 @@ export interface SumUpWebhookDeps {
    */
 
   /**
+   * Appends one row to the job_payments ledger for this confirmed payment.
+   *
+   * Called only AFTER updateJob has succeeded, so a ledger row can never exist
+   * for a job write that failed. It is a side effect: a throw is swallowed and
+   * the outcome/status are unchanged — the money is already recorded on the job,
+   * and SumUp's re-delivery would be deduped by the claim anyway, so a failure
+   * must be loud in the logs rather than retried. The DB-level guarantee is the
+   * partial unique index on job_payments (checkout_id) WHERE source =
+   * 'sumup_webhook'.
+   *
+   * `paymentType` is the LEDGER classification and is intentionally different
+   * from the type handed to buildPaymentPatch ("full"/"balance", which only
+   * selects the arithmetic branch).
+   */
+  recordPayment?: (row: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    amount: number;
+    paymentType: "deposit" | "balance" | "full";
+    checkoutId: string;
+    paidAt: string;
+    metadata: Record<string, unknown>;
+  }) => Promise<void>;
+
+
+
+  /**
    * One office alert per TERMINAL failure (declined / expired / cancelled
    * checkout). Purely a side effect: it never changes the outcome or status, and
    * a throw from it is swallowed, because a decline must not make SumUp retry.
