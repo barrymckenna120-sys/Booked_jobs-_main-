@@ -268,41 +268,34 @@ export const useEngineerJobs = () => {
     if (customerNotes !== undefined) {
       dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
     }
+    // Shared timestamp: the job row, the ledger row and completed_at must agree.
+    const paidAtIso = new Date().toISOString();
+    const jobForPayment = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
+    // Pure decision layer: what this payment writes, whether it completes the
+    // job, the ledger row, and whether a receipt goes out. See
+    // src/lib/engineerPaymentPlan.ts.
+    const paymentPlan = buildEngineerPaymentPlan({
+      patch,
+      paymentMethod,
+      confirmedRevenue,
+      job: jobForPayment,
+      jobId,
+      paidAt: paidAtIso,
+      recordedBy: profileIdRef.current,
+      entry: patch.status ? "completion" : "standalone",
+    });
+
     if (paymentMethod) {
-      dbPatch.payment_method = paymentMethod;
-      const jobForPayment = [...todayJobs, ...upcomingJobs].find(j => j.id === jobId);
-      // Money actually collected before this write — a requested-but-unpaid
-      // deposit counts for nothing.
-      const collectedSoFar = (jobForPayment as any)?.deposit_paid
-        ? Number((jobForPayment as any)?.deposit_amount || 0)
-        : 0;
+      Object.assign(dbPatch, paymentPlan.dbPatchAdditions);
       if (paymentMethod === "invoice") {
         // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
-        Object.assign(
-          dbPatch,
-          buildPaymentPatch({
-            type: "invoice",
-            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-            fallbackRevenue: Number((jobForPayment as any)?.revenue || 0),
-            revenue: Number((jobForPayment as any)?.revenue || 0),
-            collectedToDate: collectedSoFar,
-            revenueMode: "fill",
-          }),
-        );
         if (!dbPatch.status) dbPatch.status = "Completed";
         if (!patch.status) patch.status = "Completed";
       } else {
-        dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
-        Object.assign(dbPatch, buildPaymentPatch({
-          type: "full",
-          amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-          revenue: Number((jobForPayment as any)?.revenue || 0),
-          collectedToDate: collectedSoFar,
-        }));
       }
-
     }
+
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
       dbPatch.cancellation_note = cancelNote || null;
