@@ -40,16 +40,13 @@ async function authoriseRequest(req: Request): Promise<{ ok: boolean; reason?: s
   if (isMachineCaller(req)) return { ok: true };
   const token = bearerToken(req);
   if (!token) return { ok: false, reason: "missing_credentials" };
-  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  if (!supabaseUrl) return { ok: false, reason: "auth_unavailable" };
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceKey) return { ok: false, reason: "auth_unavailable" };
   try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
-    });
-    if (!res.ok) return { ok: false, reason: `invalid_token_${res.status}` };
-    const user = await res.json();
-    if (!user?.id) return { ok: false, reason: "no_user" };
+    const authClient = createClient(supabaseUrl, serviceKey);
+    const { data, error } = await authClient.auth.getUser(token);
+    if (error || !data?.user?.id) return { ok: false, reason: "invalid_token" };
     return { ok: true };
   } catch (_e) {
     return { ok: false, reason: `auth_check_failed: ${(_e as Error).message}` };
