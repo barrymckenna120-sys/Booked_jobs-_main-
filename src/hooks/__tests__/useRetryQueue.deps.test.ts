@@ -1,5 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+// Minimal browser stubs — the queue is localStorage-backed and emits a
+// window event on every write. Node's test environment has neither.
+const store = new Map<string, string>();
+(globalThis as any).localStorage = {
+  getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+  setItem: (k: string, v: string) => void store.set(k, v),
+  removeItem: (k: string) => void store.delete(k),
+  clear: () => store.clear(),
+};
+(globalThis as any).window = { dispatchEvent: () => true };
+(globalThis as any).CustomEvent = class {
+  constructor(public type: string) {}
+};
+
+
 // Per-table failure control for the mocked Supabase client.
 const failing = new Set<string>();
 const attempted: string[] = [];
