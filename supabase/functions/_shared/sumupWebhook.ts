@@ -63,8 +63,18 @@ export interface SumUpCheckoutView {
   status?: string;
   amount?: number | null;
   checkoutReference?: string | null;
+  /**
+   * Ledger metadata, taken from the successful transaction on the checkout.
+   * Identifiers only — the card block SumUp returns (last 4 digits, scheme) is
+   * deliberately NOT surfaced here and must never be stored.
+   */
+  paidAt?: string | null;
+  transactionId?: string | null;
+  transactionCode?: string | null;
+  currency?: string | null;
   error?: string;
 }
+
 
 /**
  * Result of the reference-discovery pass used when a checkout id matches no job
