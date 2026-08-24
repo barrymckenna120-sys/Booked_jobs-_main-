@@ -63,8 +63,18 @@ export interface SumUpCheckoutView {
   status?: string;
   amount?: number | null;
   checkoutReference?: string | null;
+  /**
+   * Ledger metadata, taken from the successful transaction on the checkout.
+   * Identifiers only — the card block SumUp returns (last 4 digits, scheme) is
+   * deliberately NOT surfaced here and must never be stored.
+   */
+  paidAt?: string | null;
+  transactionId?: string | null;
+  transactionCode?: string | null;
+  currency?: string | null;
   error?: string;
 }
+
 
 /**
  * Result of the reference-discovery pass used when a checkout id matches no job
@@ -142,6 +152,34 @@ export interface SumUpWebhookDeps {
    * same-amount guard would not help either). The unique checkout_id claim is
    * the only idempotency layer; see claimEvent above.
    */
+
+  /**
+   * Appends one row to the job_payments ledger for this confirmed payment.
+   *
+   * Called only AFTER updateJob has succeeded, so a ledger row can never exist
+   * for a job write that failed. It is a side effect: a throw is swallowed and
+   * the outcome/status are unchanged — the money is already recorded on the job,
+   * and SumUp's re-delivery would be deduped by the claim anyway, so a failure
+   * must be loud in the logs rather than retried. The DB-level guarantee is the
+   * partial unique index on job_payments (checkout_id) WHERE source =
+   * 'sumup_webhook'.
+   *
+   * `paymentType` is the LEDGER classification and is intentionally different
+   * from the type handed to buildPaymentPatch ("full"/"balance", which only
+   * selects the arithmetic branch).
+   */
+  recordPayment?: (row: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    amount: number;
+    paymentType: "deposit" | "balance" | "full";
+    checkoutId: string;
+    paidAt: string;
+    metadata: Record<string, unknown>;
+  }) => Promise<void>;
+
+
 
   /**
    * One office alert per TERMINAL failure (declined / expired / cancelled
@@ -451,6 +489,17 @@ export async function handleSumUpWebhook(
     ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
     : 0;
   const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
+  // LEDGER classification for job_payments — distinct from the type handed to
+  // buildPaymentPatch below. Nothing already collected means this is the first
+  // money on the job (a deposit, or the whole thing); anything collected before
+  // makes this a balance payment.
+  const ledgerType: "deposit" | "balance" | "full" = collectedToDate > 0
+    ? "balance"
+    : fullyPaid
+    ? "full"
+    : "deposit";
+
+
 
   // Idempotency, layer 1 — DUPLICATE DELIVERY of the same callback.
   // SumUp retries delivery (1 min / 5 min / 20 min / 2 h), always for the same
@@ -515,6 +564,43 @@ export async function handleSumUpWebhook(
     log("error", `sumup-webhook: failed to update job ${job.id}`);
     return { outcome: "update_failed", status: 500, jobId: job.id, amount, patch };
   }
+
+  // Append-only payment ledger. Runs only on a successful job write, and never
+  // changes the outcome: see recordPayment in the deps doc for why a failure is
+  // logged loudly instead of retried.
+  if (deps.recordPayment) {
+    try {
+      await deps.recordPayment({
+        organisationId: job.organisation_id,
+        serviceCallId: job.id,
+        customerId: job.customer_id ?? null,
+        amount,
+        paymentType: ledgerType,
+        checkoutId,
+        paidAt: view.paidAt ?? now().toISOString(),
+        metadata: {
+          source: "sumup",
+          checkout_status: status,
+          checkout_reference: view.checkoutReference ?? null,
+          transaction_id: view.transactionId ?? null,
+          transaction_code: view.transactionCode ?? null,
+          currency: view.currency ?? null,
+          fully_paid: fullyPaid,
+          collected_to_date_before: collectedToDate,
+          job_revenue_at_time: revenue,
+          backfilled_checkout_id: backfillCheckoutId,
+        },
+      });
+    } catch (_e) {
+      log(
+        "error",
+        `LEDGER_INSERT_FAILED sumup-webhook job_id=${job.id} checkout_id=${checkoutId} amount=${amount}`,
+        (_e as Error)?.message ?? String(_e),
+      );
+    }
+  }
+
+
 
   if (deps.logActivity) {
     await deps.logActivity({

@@ -262,8 +262,16 @@ Deno.serve(async (req) => {
         status: String(res.data?.status ?? ""),
         amount: Number.isFinite(amount) ? amount : 0,
         checkoutReference: res.data?.checkout_reference ?? null,
+        // Ledger metadata only — identifiers and the transaction timestamp.
+        // res.data.transactions[].card (last 4 digits, scheme) is deliberately
+        // never read or stored.
+        paidAt: txn?.timestamp ?? null,
+        transactionId: txn?.id ?? null,
+        transactionCode: txn?.transaction_code ?? null,
+        currency: res.data?.currency ?? txn?.currency ?? null,
       };
     },
+
 
 
     updateJob: async (jobId, patch) => {
@@ -274,6 +282,50 @@ Deno.serve(async (req) => {
       }
       return true;
     },
+
+    /**
+     * Append-only ledger row for this confirmed card payment.
+     *
+     * job_payments has no UPDATE/DELETE policy by design. The DB guarantee that
+     * one checkout can only ever produce one row on this path is the partial
+     * unique index idx_job_payments_sumup_checkout_unique — a 23505 here means
+     * the row already exists, which is the correct end state, so it is logged at
+     * info. Any other failure is logged with the LEDGER_INSERT_FAILED prefix and
+     * swallowed: the job itself is already updated, and making SumUp retry would
+     * only hit the event claim.
+     */
+    recordPayment: async (row) => {
+      const { error } = await supabase.from("job_payments").insert({
+        organisation_id: row.organisationId,
+        service_call_id: row.serviceCallId,
+        customer_id: row.customerId,
+        amount: row.amount,
+        payment_type: row.paymentType,
+        method: "sumup",
+        source: "sumup_webhook",
+        checkout_id: row.checkoutId,
+        reverses_payment_id: null,
+        note: null,
+        metadata: row.metadata,
+        recorded_by: null,
+        paid_at: row.paidAt,
+      });
+      if (!error) return;
+      if ((error as { code?: string }).code === "23505") {
+        console.log(
+          `sumup-payment-webhook: ledger row already exists for checkout ${row.checkoutId} — no-op`,
+        );
+        return;
+      }
+      console.error("LEDGER_INSERT_FAILED sumup-payment-webhook", {
+        job_id: row.serviceCallId,
+        checkout_id: row.checkoutId,
+        amount: row.amount,
+        code: (error as { code?: string }).code ?? null,
+        message: error.message,
+      });
+    },
+
 
     logActivity: async (e) => {
       try {

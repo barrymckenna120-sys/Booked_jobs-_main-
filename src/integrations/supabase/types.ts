@@ -1555,13 +1555,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "job_payments_checkout_id_fkey"
-            columns: ["checkout_id"]
-            isOneToOne: false
-            referencedRelation: "payment_checkout_attempts"
-            referencedColumns: ["checkout_id"]
-          },
-          {
             foreignKeyName: "job_payments_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
