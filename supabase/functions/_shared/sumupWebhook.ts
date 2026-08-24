@@ -489,9 +489,13 @@ export async function handleSumUpWebhook(
     // would leave the payment invisible to Finance. revenueMode "fill" treats the
     // paid amount as the total in that case; a known total is never overwritten.
     ...buildPaymentPatch({
-      type: fullyPaid ? "full" : "deposit",
+      // "balance"/"full" share the cumulative branch: balance_due is derived
+      // from revenue minus (collectedToDate + this payment), never overwritten
+      // from this payment alone.
+      type: fullyPaid ? "full" : "balance",
       amount,
       revenue,
+      collectedToDate,
       currentBalanceDue: job.balance_due ?? null,
       revenueMode: "fill",
       markDepositPaid: true,
