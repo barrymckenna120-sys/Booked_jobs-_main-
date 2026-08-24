@@ -158,43 +158,16 @@ Deno.serve(async (req) => {
       return true;
     },
 
-    /**
-     * Idempotency layer 2 — has a DIFFERENT checkout on this same job already
-     * produced a claimed webhook event? That is the only trustworthy "already
-     * paid" signal; job.deposit_paid / payment_status are not (the New Job
-     * wizard used to stamp deposit_paid with no payment behind it).
-     *
-     * Error buckets are explicit — nothing is swallowed:
-     *   - query succeeded, empty result (data = [] / PGRST116 no rows) => false
-     *   - anything else (network failure, 42501 permission denied, 42P01/42703
-     *     undefined table/column, 42601/22P02 malformed query, unknown code)
-     *     => throw, so the handler answers 500 and SumUp retries.
-     */
-    hasOtherClaimedEvent: async ({ serviceCallId, checkoutId }) => {
-      let data: unknown[] | null = null;
-      let error: { code?: string; message?: string } | null = null;
-      try {
-        const res = await supabase
-          .from("sumup_webhook_events")
-          .select("checkout_id")
-          .eq("service_call_id", serviceCallId)
-          .neq("checkout_id", checkoutId)
-          .limit(1);
-        data = res.data;
-        error = res.error;
-      } catch (_e) {
-        // Transport-level failure (fetch/connection): never treat as "no rows".
-        throw new Error(`prior_event_lookup_failed: ${(_e as Error)?.message ?? String(_e)}`);
-      }
+    // NOTE: there is deliberately NO per-job duplicate guard here.
+    // The unique claim above (sumup_webhook_events.checkout_id) is the ONLY
+    // idempotency layer: it stops SumUp's re-deliveries of the same checkout.
+    // A different checkout id on the same job is a SECOND REAL CARD CHARGE
+    // (deposit via send-deposit-link, then balance via send-payment-link — and
+    // 50/50 splits mean the two amounts are routinely identical), so it must be
+    // applied. Do not reintroduce a per-job or same-amount guard: it silently
+    // discards genuine customer payments.
 
-      if (error) {
-        // PGRST116 = "no rows returned" from PostgREST — a successful empty read.
-        if (error.code === "PGRST116") return false;
-        throw new Error(`prior_event_lookup_failed: ${error.code ?? "unknown"} ${error.message ?? ""}`.trim());
-      }
 
-      return (data ?? []).length > 0;
-    },
 
 
 
