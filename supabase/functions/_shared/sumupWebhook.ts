@@ -134,16 +134,15 @@ export interface SumUpWebhookDeps {
     organisationId: string | null;
     serviceCallId: string;
   }) => Promise<boolean>;
-  /**
-   * Idempotency layer 2 signal. True when a DIFFERENT checkout id on this same
-   * job already produced a claimed sumup_webhook_events row — i.e. a real,
-   * verified payment was already recorded for the job. Must THROW on a genuine
-   * query failure so the delivery is retried rather than double-applied.
+  /*
+   * There is deliberately NO second, per-job idempotency dependency here.
+   * A previous version blocked any event on a job that already had a claimed
+   * event under a different checkout id, which silently discarded genuine
+   * second payments (deposit then balance — commonly a 50/50 split, so a
+   * same-amount guard would not help either). The unique checkout_id claim is
+   * the only idempotency layer; see claimEvent above.
    */
-  hasOtherClaimedEvent?: (entry: {
-    serviceCallId: string;
-    checkoutId: string;
-  }) => Promise<boolean>;
+
   /**
    * One office alert per TERMINAL failure (declined / expired / cancelled
    * checkout). Purely a side effect: it never changes the outcome or status, and
