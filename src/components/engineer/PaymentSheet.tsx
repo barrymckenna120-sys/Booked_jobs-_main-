@@ -11,9 +11,11 @@ interface Props {
   job: any;
   customer: any;
   onClose: () => void;
-  onDone: (method: string, confirmedAmount: number) => void;
+  onDone: (method: string, confirmedAmount: number) => void | Promise<void>;
   /** Fully-paid jobs only: mark complete without touching any payment field. */
   onCompleteOnly?: () => void;
+  /** Failure message shown inline; sheet stays open with entered data intact. */
+  errorMessage?: string | null;
 }
 
 
@@ -31,7 +33,7 @@ const METHODS = [
 
 const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
 
-const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly }: Props) => {
+const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMessage }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -186,6 +188,12 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly }: Props)
             })}
           </div>
         </div>
+
+        {errorMessage && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-[13px] font-semibold text-destructive">
+            {errorMessage}
+          </div>
+        )}
 
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
