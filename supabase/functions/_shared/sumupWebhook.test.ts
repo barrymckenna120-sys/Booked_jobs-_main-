@@ -54,7 +54,19 @@ interface Harness {
     checkoutId?: string;
     status?: string;
   }>;
+  /** job_payments ledger rows appended for confirmed payments. */
+  payments: Array<{
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    amount: number;
+    paymentType: string;
+    checkoutId: string;
+    paidAt: string;
+    metadata: Record<string, unknown>;
+  }>;
 }
+
 
 function run(opts: {
   jobRow?: SumUpWebhookJob | null;
