@@ -140,6 +140,19 @@ export const useEngineerJobs = () => {
       const engineerId = engData?.id;
       engineerIdRef.current = engineerId ?? null;
 
+      // Cache profiles.id once, while online, for later write paths.
+      try {
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profileRow?.id) profileIdRef.current = profileRow.id;
+      } catch (e) {
+        console.warn("[useEngineerJobs] profile id lookup failed", e);
+      }
+
+
       console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
       console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
       console.log("[DEBUG] Upcoming query filters: scheduled_date >", todayISO(), '| statuses: ["Scheduled","Booked","En Route","On Site","In Progress","parts_needed","parts_ordered","parts_arrived"] | engineer_id =', engineerId || "NOT FILTERED");
