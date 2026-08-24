@@ -262,8 +262,16 @@ Deno.serve(async (req) => {
         status: String(res.data?.status ?? ""),
         amount: Number.isFinite(amount) ? amount : 0,
         checkoutReference: res.data?.checkout_reference ?? null,
+        // Ledger metadata only — identifiers and the transaction timestamp.
+        // res.data.transactions[].card (last 4 digits, scheme) is deliberately
+        // never read or stored.
+        paidAt: txn?.timestamp ?? null,
+        transactionId: txn?.id ?? null,
+        transactionCode: txn?.transaction_code ?? null,
+        currency: res.data?.currency ?? txn?.currency ?? null,
       };
     },
+
 
 
     updateJob: async (jobId, patch) => {
