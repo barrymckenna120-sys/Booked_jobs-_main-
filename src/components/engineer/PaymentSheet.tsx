@@ -11,9 +11,11 @@ interface Props {
   job: any;
   customer: any;
   onClose: () => void;
-  onDone: (method: string, confirmedAmount: number) => void;
+  onDone: (method: string, confirmedAmount: number) => void | Promise<void>;
   /** Fully-paid jobs only: mark complete without touching any payment field. */
   onCompleteOnly?: () => void;
+  /** Failure message shown inline; sheet stays open with entered data intact. */
+  errorMessage?: string | null;
 }
 
 
