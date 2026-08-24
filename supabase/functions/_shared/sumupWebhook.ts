@@ -444,7 +444,13 @@ export async function handleSumUpWebhook(
 
   const amount = Number(view.amount ?? 0);
   const revenue = Number(job.revenue ?? 0);
-  const fullyPaid = revenue > 0 ? amount + 1e-9 >= revenue : amount > 0;
+  // Money already collected on this job, inferred from the outstanding balance.
+  // Without this a €250 balance on a €500 job (deposit already paid) looks like
+  // a fresh part payment and leaves €250 wrongly outstanding.
+  const collectedToDate = revenue > 0 && job.balance_due != null
+    ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
+    : 0;
+  const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
 
   // Idempotency, layer 1 — DUPLICATE DELIVERY of the same callback.
   // SumUp retries delivery (1 min / 5 min / 20 min / 2 h), always for the same
