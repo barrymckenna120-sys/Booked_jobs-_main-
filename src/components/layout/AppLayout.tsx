@@ -90,7 +90,6 @@ const AppLayoutInner = () => {
     refetchInterval: 30000,
   });
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
-  const mobileNavRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     unlockAudio();
@@ -101,33 +100,6 @@ const AppLayoutInner = () => {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
-
-  useEffect(() => {
-    const nav = mobileNavRef.current;
-    if (!nav) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      // Always start at 0 (Dashboard visible) — don't restore stale scroll positions
-      nav.scrollLeft = 0;
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    const nav = mobileNavRef.current;
-    if (!nav) return;
-
-    const persistScroll = () => {
-      window.sessionStorage.setItem(MOBILE_NAV_SCROLL_STORAGE_KEY, String(nav.scrollLeft));
-    };
-
-    nav.addEventListener("scroll", persistScroll, { passive: true });
-
-    return () => {
-      nav.removeEventListener("scroll", persistScroll);
-    };
   }, []);
 
   if (!roleLoading && isEngineer && !canAccessOffice) {
