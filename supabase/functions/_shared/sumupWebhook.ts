@@ -489,6 +489,17 @@ export async function handleSumUpWebhook(
     ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
     : 0;
   const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
+  // LEDGER classification for job_payments — distinct from the type handed to
+  // buildPaymentPatch below. Nothing already collected means this is the first
+  // money on the job (a deposit, or the whole thing); anything collected before
+  // makes this a balance payment.
+  const ledgerType: "deposit" | "balance" | "full" = collectedToDate > 0
+    ? "balance"
+    : fullyPaid
+    ? "full"
+    : "deposit";
+
+
 
   // Idempotency, layer 1 — DUPLICATE DELIVERY of the same callback.
   // SumUp retries delivery (1 min / 5 min / 20 min / 2 h), always for the same
