@@ -103,7 +103,9 @@ function run(opts: {
     failureAlerts: [],
     failureActivities: [],
     receipts: [],
+    payments: [],
   };
+
 
   const result = handleSumUpWebhook({
     expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
