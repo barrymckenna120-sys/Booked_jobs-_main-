@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, PackageCheck, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
-import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { buildEngineerPaymentPlan, type EngineerLedgerRow } from "@/lib/engineerPaymentPlan";
 import { resolveDepositPill } from "@/components/engineer/job-card/InfoPills";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { createJobInvoice } from "@/lib/createJobInvoice";
