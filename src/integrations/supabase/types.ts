@@ -1501,6 +1501,96 @@ export type Database = {
           },
         ]
       }
+      job_payments: {
+        Row: {
+          amount: number
+          checkout_id: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          metadata: Json | null
+          method: string
+          note: string | null
+          organisation_id: string
+          paid_at: string
+          payment_type: string
+          recorded_by: string | null
+          reverses_payment_id: string | null
+          service_call_id: string
+          source: string
+        }
+        Insert: {
+          amount: number
+          checkout_id?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          metadata?: Json | null
+          method: string
+          note?: string | null
+          organisation_id: string
+          paid_at: string
+          payment_type: string
+          recorded_by?: string | null
+          reverses_payment_id?: string | null
+          service_call_id: string
+          source: string
+        }
+        Update: {
+          amount?: number
+          checkout_id?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          metadata?: Json | null
+          method?: string
+          note?: string | null
+          organisation_id?: string
+          paid_at?: string
+          payment_type?: string
+          recorded_by?: string | null
+          reverses_payment_id?: string | null
+          service_call_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_payments_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "payment_checkout_attempts"
+            referencedColumns: ["checkout_id"]
+          },
+          {
+            foreignKeyName: "job_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_reverses_payment_id_fkey"
+            columns: ["reverses_payment_id"]
+            isOneToOne: false
+            referencedRelation: "job_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_tags: {
         Row: {
           colour: string
