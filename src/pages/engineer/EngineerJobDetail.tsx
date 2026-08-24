@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, PackageCheck, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
-import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { buildEngineerPaymentPlan, type EngineerLedgerRow } from "@/lib/engineerPaymentPlan";
 import { resolveDepositPill } from "@/components/engineer/job-card/InfoPills";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { createJobInvoice } from "@/lib/createJobInvoice";
@@ -92,6 +92,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [completeJobTagDate, setCompleteJobTagDate] = useState<string | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
+  const profileIdRef = useRef<string | null>(null);
+
 
   useEffect(() => {
     if (authLoading) return;
@@ -111,6 +113,22 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
       });
   }, [user]);
+
+  // profiles.id cached while online so the job_payments row's recorded_by never
+  // needs a network read at write time (offline safety), mirroring useEngineerJobs.
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data, error: profErr }) => {
+        if (profErr) { console.warn("[EngineerJobDetail] profile id lookup failed", profErr); return; }
+        if (data?.id) profileIdRef.current = data.id;
+      });
+  }, [user]);
+
 
   const fetchJob = async () => {
     setLoading(true);
@@ -253,36 +271,27 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (customerNotes !== undefined) {
       dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
     }
+    // Payment columns + ledger row come from the shared decision layer, so this
+    // screen, the standalone PaymentSheet and TakePaymentModal all agree on
+    // cumulative math and completion gating.
+    const paidAt = new Date().toISOString();
+    let ledgerRow: EngineerLedgerRow | null = null;
     if (paymentMethod) {
-      dbPatch.payment_method = paymentMethod;
       dbPatch.payment_collected_by = user?.id || null;
-      // Money actually collected before this write — a requested-but-unpaid
-      // deposit counts for nothing.
-      const collectedSoFar = (job as any)?.deposit_paid
-        ? Number((job as any)?.deposit_amount || 0)
-        : 0;
-      if (paymentMethod === "invoice") {
-        Object.assign(
-          dbPatch,
-          buildPaymentPatch({
-            type: "invoice",
-            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-            fallbackRevenue: Number((job as any)?.revenue || 0),
-            revenue: Number((job as any)?.revenue || 0),
-            collectedToDate: collectedSoFar,
-            revenueMode: "fill",
-          }),
-        );
-      } else {
-        dbPatch.paid_at = new Date().toISOString();
-        Object.assign(dbPatch, buildPaymentPatch({
-          type: "full",
-          amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-          revenue: Number((job as any)?.revenue || 0),
-          collectedToDate: collectedSoFar,
-        }));
-      }
+      const plan = buildEngineerPaymentPlan({
+        patch,
+        paymentMethod,
+        confirmedRevenue,
+        job,
+        jobId: job.id,
+        paidAt,
+        recordedBy: profileIdRef.current,
+        entry: "completion",
+      });
+      Object.assign(dbPatch, plan.dbPatchAdditions);
+      ledgerRow = plan.ledgerRow;
     }
+
 
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
@@ -293,7 +302,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     // Set completed_at and generate receipt number on completion
     if (patch.status === "Completed") {
-      dbPatch.completed_at = new Date().toISOString();
+      dbPatch.completed_at = paidAt;
+      // A cached PDF from an earlier payment on this job would be re-sent as-is
+      // by send-whatsapp-receipt; drop it so the receipt regenerates from the
+      // settled figures.
+      dbPatch.receipt_pdf_url = null;
+
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
         const orgId = (job as any).organisation_id;
@@ -339,12 +353,21 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
       console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
-      addToQueue({
+      const jobItemId = addToQueue({
         table: "service_calls",
         operation: "update",
         payload: safeDbPatch,
         filter: { column: "id", value: job.id },
       });
+      // The ledger row must never land without the job write that justifies it.
+      if (ledgerRow) {
+        addToQueue({
+          table: "job_payments",
+          operation: "insert",
+          payload: ledgerRow as any,
+          dependsOnId: jobItemId,
+        });
+      }
       if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
         addToQueue({
           table: "customers",
@@ -361,6 +384,20 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       return false;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      // Append-only payment ledger. Never blocks the job: the job write is the
+      // source of truth and has already committed.
+      if (ledgerRow) {
+        const { error: ledgerErr } = await supabase.from("job_payments").insert(ledgerRow as any);
+        if (ledgerErr) {
+          console.error("[updateJob:detail] job_payments insert failed", ledgerErr);
+          addToQueue({ table: "job_payments", operation: "insert", payload: ledgerRow as any });
+          toast({
+            title: "Payment recorded",
+            description: "The payment record will finish syncing shortly.",
+          });
+        }
+      }
+
       if (cancelReason) {
         supabase.functions.invoke('cancel-job-notify', {
           body: {

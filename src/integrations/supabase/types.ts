@@ -1299,6 +1299,7 @@ export type Database = {
           invoice_number: string | null
           job_id: string | null
           organisation_id: string
+          paid_at: string | null
           pdf_url: string | null
           quote_id: string | null
           sent_at: string | null
@@ -1318,6 +1319,7 @@ export type Database = {
           invoice_number?: string | null
           job_id?: string | null
           organisation_id: string
+          paid_at?: string | null
           pdf_url?: string | null
           quote_id?: string | null
           sent_at?: string | null
@@ -1337,6 +1339,7 @@ export type Database = {
           invoice_number?: string | null
           job_id?: string | null
           organisation_id?: string
+          paid_at?: string | null
           pdf_url?: string | null
           quote_id?: string | null
           sent_at?: string | null
