@@ -92,6 +92,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [completeJobTagDate, setCompleteJobTagDate] = useState<string | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
+  const profileIdRef = useRef<string | null>(null);
+
 
   useEffect(() => {
     if (authLoading) return;
