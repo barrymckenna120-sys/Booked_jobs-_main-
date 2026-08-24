@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { filterDueCustomers } from "../_shared/renewalDedup.ts";
+import { authoriseRequest, unauthorisedResponse } from "../_shared/functionAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,12 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const auth = await authoriseRequest(req);
+  if (!auth.ok) {
+    console.warn(`renewal-reminder-14: unauthorized call (${auth.reason})`);
+    return unauthorisedResponse(corsHeaders, auth.reason);
   }
 
   try {

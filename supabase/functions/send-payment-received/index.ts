@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
+import { authoriseRequest, unauthorisedResponse } from "../_shared/functionAuth.ts";
 
 
 const corsHeaders = {
@@ -17,6 +18,12 @@ const json = (body: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const auth = await authoriseRequest(req);
+  if (!auth.ok) {
+    console.warn(`send-payment-received: unauthorized call (${auth.reason})`);
+    return unauthorisedResponse(corsHeaders, auth.reason);
   }
 
   try {
