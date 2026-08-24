@@ -37,7 +37,7 @@ const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6)
 interface EngineerJobCardProps {
   job: any;
   customer: any;
-  onUpdate: (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => void;
+  onUpdate: (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => void | Promise<void>;
   isNextJob?: boolean;
   photos?: { url: string; name: string }[];
   /** View-state only: true when the engineer is previewing a later job. */
@@ -438,14 +438,21 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             }, { jobTagDate: pendingCompletionData.jobTagDate });
             setPendingCompletionData(null);
           }}
-          onDone={(method: string, confirmedAmount: number) => {
+          errorMessage={paymentError}
+          onDone={async (method: string, confirmedAmount: number) => {
+            setPaymentError(null);
+            try {
+              await onUpdate(job.id, {
+                status: "Completed",
+                ...pendingCompletionData.data,
+                paymentMethod: method,
+                confirmedRevenue: confirmedAmount,
+              }, { jobTagDate: pendingCompletionData.jobTagDate });
+            } catch (e: any) {
+              setPaymentError(e?.message || "Couldn't record the payment — please try again");
+              return; // sheet stays open, entered amount + method preserved
+            }
             setShowCompletionPayment(false);
-            onUpdate(job.id, {
-              status: "Completed",
-              ...pendingCompletionData.data,
-              paymentMethod: method,
-              revenue: confirmedAmount,
-            }, { jobTagDate: pendingCompletionData.jobTagDate });
             setPendingCompletionData(null);
           }}
         />
