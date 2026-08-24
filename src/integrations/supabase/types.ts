@@ -142,7 +142,6 @@ export type Database = {
           header_text_color: string
           id: string
           organisation_id: string
-          organisation_id_ref: string | null
           primary_color: string
           secondary_color: string
           section_label_color: string
@@ -160,7 +159,6 @@ export type Database = {
           header_text_color?: string
           id?: string
           organisation_id: string
-          organisation_id_ref?: string | null
           primary_color?: string
           secondary_color?: string
           section_label_color?: string
@@ -178,7 +176,6 @@ export type Database = {
           header_text_color?: string
           id?: string
           organisation_id?: string
-          organisation_id_ref?: string | null
           primary_color?: string
           secondary_color?: string
           section_label_color?: string
@@ -187,15 +184,7 @@ export type Database = {
           table_row_color?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "brand_settings_organisation_id_ref_fkey"
-            columns: ["organisation_id_ref"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       categories: {
         Row: {
