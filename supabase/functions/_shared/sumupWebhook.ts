@@ -565,6 +565,43 @@ export async function handleSumUpWebhook(
     return { outcome: "update_failed", status: 500, jobId: job.id, amount, patch };
   }
 
+  // Append-only payment ledger. Runs only on a successful job write, and never
+  // changes the outcome: see recordPayment in the deps doc for why a failure is
+  // logged loudly instead of retried.
+  if (deps.recordPayment) {
+    try {
+      await deps.recordPayment({
+        organisationId: job.organisation_id,
+        serviceCallId: job.id,
+        customerId: job.customer_id ?? null,
+        amount,
+        paymentType: ledgerType,
+        checkoutId,
+        paidAt: view.paidAt ?? now().toISOString(),
+        metadata: {
+          source: "sumup",
+          checkout_status: status,
+          checkout_reference: view.checkoutReference ?? null,
+          transaction_id: view.transactionId ?? null,
+          transaction_code: view.transactionCode ?? null,
+          currency: view.currency ?? null,
+          fully_paid: fullyPaid,
+          collected_to_date_before: collectedToDate,
+          job_revenue_at_time: revenue,
+          backfilled_checkout_id: backfillCheckoutId,
+        },
+      });
+    } catch (_e) {
+      log(
+        "error",
+        `LEDGER_INSERT_FAILED sumup-webhook job_id=${job.id} checkout_id=${checkoutId} amount=${amount}`,
+        (_e as Error)?.message ?? String(_e),
+      );
+    }
+  }
+
+
+
   if (deps.logActivity) {
     await deps.logActivity({
       organisationId: job.organisation_id,
