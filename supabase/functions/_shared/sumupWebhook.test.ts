@@ -87,8 +87,11 @@ function run(opts: {
   receiptSend?: Error;
   /** false = a re-delivery whose event claim is rejected. */
   claimOk?: boolean;
+  /** Error = the ledger insert throws; must never change the outcome. */
+  ledgerInsert?: Error;
 }) {
   const h: Harness = {
+
     updates: [],
     activities: 0,
     messages: 0,
