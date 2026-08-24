@@ -112,6 +112,22 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       });
   }, [user]);
 
+  // profiles.id cached while online so the job_payments row's recorded_by never
+  // needs a network read at write time (offline safety), mirroring useEngineerJobs.
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data, error: profErr }) => {
+        if (profErr) { console.warn("[EngineerJobDetail] profile id lookup failed", profErr); return; }
+        if (data?.id) profileIdRef.current = data.id;
+      });
+  }, [user]);
+
+
   const fetchJob = async () => {
     setLoading(true);
     setError(null);
