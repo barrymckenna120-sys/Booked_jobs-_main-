@@ -67,6 +67,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [showCompletionPayment, setShowCompletionPayment] = useState(false);
   const [showStandalonePayment, setShowStandalonePayment] = useState(false);
   const [pendingCompletionData, setPendingCompletionData] = useState<{ data: any; jobTagDate: string | null } | null>(null);
+  /** Inline failure message for the payment sheets — keeps the sheet open. */
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
 
@@ -462,12 +464,19 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           job={job}
           customer={customer}
           onClose={() => setShowStandalonePayment(false)}
-          onDone={(method: string, confirmedAmount: number) => {
+          errorMessage={paymentError}
+          onDone={async (method: string, confirmedAmount: number) => {
+            setPaymentError(null);
+            try {
+              await onUpdate(job.id, {
+                paymentMethod: method,
+                confirmedRevenue: confirmedAmount,
+              });
+            } catch (e: any) {
+              setPaymentError(e?.message || "Couldn't record the payment — please try again");
+              return; // sheet stays open, entered amount + method preserved
+            }
             setShowStandalonePayment(false);
-            onUpdate(job.id, {
-              paymentMethod: method,
-              revenue: confirmedAmount,
-            });
           }}
         />
       )}
