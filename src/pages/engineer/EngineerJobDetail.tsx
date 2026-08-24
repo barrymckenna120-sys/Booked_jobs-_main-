@@ -271,36 +271,27 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (customerNotes !== undefined) {
       dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
     }
+    // Payment columns + ledger row come from the shared decision layer, so this
+    // screen, the standalone PaymentSheet and TakePaymentModal all agree on
+    // cumulative math and completion gating.
+    const paidAt = new Date().toISOString();
+    let ledgerRow: EngineerLedgerRow | null = null;
     if (paymentMethod) {
-      dbPatch.payment_method = paymentMethod;
       dbPatch.payment_collected_by = user?.id || null;
-      // Money actually collected before this write — a requested-but-unpaid
-      // deposit counts for nothing.
-      const collectedSoFar = (job as any)?.deposit_paid
-        ? Number((job as any)?.deposit_amount || 0)
-        : 0;
-      if (paymentMethod === "invoice") {
-        Object.assign(
-          dbPatch,
-          buildPaymentPatch({
-            type: "invoice",
-            amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-            fallbackRevenue: Number((job as any)?.revenue || 0),
-            revenue: Number((job as any)?.revenue || 0),
-            collectedToDate: collectedSoFar,
-            revenueMode: "fill",
-          }),
-        );
-      } else {
-        dbPatch.paid_at = new Date().toISOString();
-        Object.assign(dbPatch, buildPaymentPatch({
-          type: "full",
-          amount: confirmedRevenue !== undefined && confirmedRevenue !== null ? Number(confirmedRevenue) : undefined,
-          revenue: Number((job as any)?.revenue || 0),
-          collectedToDate: collectedSoFar,
-        }));
-      }
+      const plan = buildEngineerPaymentPlan({
+        patch,
+        paymentMethod,
+        confirmedRevenue,
+        job,
+        jobId: job.id,
+        paidAt,
+        recordedBy: profileIdRef.current,
+        entry: "completion",
+      });
+      Object.assign(dbPatch, plan.dbPatchAdditions);
+      ledgerRow = plan.ledgerRow;
     }
+
 
     if (cancelReason) {
       dbPatch.cancellation_reason = cancelReason;
