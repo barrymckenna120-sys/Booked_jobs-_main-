@@ -166,10 +166,30 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     setProcStep(0);
 
     try {
+      // Authoritative pre-write read. organisation_id is never taken from the
+      // caller's prop: the ledger insert runs as `authenticated` against
+      // job_payments_insert (WITH CHECK organisation_id = get_my_org_id()), and
+      // revenue/balance_due/status must be the values as they are *before* this
+      // payment is applied.
+      const { data: scRow, error: scError } = await supabase
+        .from("service_calls")
+        .select("organisation_id, customer_id, status, revenue, balance_due")
+        .eq("id", job.id)
+        .single();
+      if (scError) throw scError;
+      if (!scRow) throw new Error("Job not found — payment not recorded.");
+      const orgId = (scRow as any).organisation_id as string;
+
+      // recorded_by / created_by, resolved once regardless of paid or partial.
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: profile } = authUser
+        ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle()
+        : { data: null };
+
       const { data: settingsRow } = await supabase
         .from("settings")
         .select("cert_prefix")
-        .eq("organisation_id", (job as any).organisation_id)
+        .eq("organisation_id", orgId)
         .maybeSingle();
       const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
       const yr = new Date().getFullYear();
@@ -205,42 +225,88 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setProcStep(1);
       setProcStep(2);
 
+      // One timestamp for the job row and the ledger row so they agree exactly.
+      const paidAtIso = new Date().toISOString();
+      const paidAmount = parseFloat(amount) || 0;
+      // Cumulative: everything already collected on this job, not just the
+      // deposit. Read pre-write. See src/lib/priorCollected.ts.
+      const alreadyCollected = collectingDeposit
+        ? 0
+        : priorCollected((scRow as any).revenue, (scRow as any).balance_due);
+      const paymentType = collectingDeposit ? "deposit" : hasDeposit && isDepositPaid ? "balance" : "full";
+
       const updatePayload: Record<string, any> = {
         receipt_number: receiptNum,
         payment_method: method,
-        paid_at: new Date().toISOString(),
+        paid_at: paidAtIso,
         ...buildPaymentPatch({
           // Deposit collection stays partial; anything else settles the job.
-          type: collectingDeposit ? "deposit" : hasDeposit && isDepositPaid ? "balance" : "full",
-          amount: parseFloat(amount) || 0,
-          revenue: Number(job.revenue || 0),
-          collectedToDate: !collectingDeposit && hasDeposit && isDepositPaid
-            ? Number(job.deposit_amount || 0)
-            : 0,
+          type: paymentType,
+          amount: paidAmount,
+          revenue: Number((scRow as any).revenue || 0),
+          collectedToDate: alreadyCollected,
         }),
 
       };
 
-      await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
+      // BJ-0061a: settle-and-complete, but only where the work is known done.
+      // Three of the four entry points into this modal gate the button on
+      // In Progress / Completed; the engineer outstanding-balances ledger does
+      // not and can reach Booked jobs, which must not be auto-completed here.
+      const priorStatus = String((scRow as any).status || "").toLowerCase();
+      const workDone = priorStatus === "in progress" || priorStatus === "completed";
+      if (updatePayload.payment_status === "paid" && workDone) {
+        updatePayload.status = "Completed";
+        updatePayload.completed_at = paidAtIso;
+      }
+
+      const { error: updateError } = await supabase
+        .from("service_calls")
+        .update(sanitizeServiceCallUpdatePayload(updatePayload as any))
+        .eq("id", job.id);
+      // Nothing downstream may run on a failed write — no activity row, no
+      // ledger row, no PDF, no WhatsApp, no navigation to the receipt.
+      if (updateError) throw updateError;
+
+      // Append-only payment ledger. Payment is already recorded on the job, so
+      // a failure here is loud but non-blocking.
+      try {
+        const { error: ledgerError } = await supabase.from("job_payments").insert({
+          organisation_id: orgId,
+          service_call_id: job.id,
+          customer_id: (scRow as any).customer_id,
+          amount: paidAmount,
+          payment_type: paymentType,
+          method,
+          source: "office_modal",
+          checkout_id: null,
+          recorded_by: profile?.id || null,
+          paid_at: paidAtIso,
+          metadata: { receipt_number: receiptNum },
+        } as any);
+        if (ledgerError) throw ledgerError;
+      } catch (e: any) {
+        console.error("LEDGER_INSERT_FAILED job_payments:", e);
+        toast({
+          title: "Payment recorded, but not added to the payment ledger",
+          description: e?.message || "Please let the office know so it can be reconciled.",
+          variant: "destructive",
+        });
+      }
 
       // Log payment_received activity when fully paid
       if (updatePayload.payment_status === "paid") {
         try {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle() : { data: null };
-          const { data: scRow } = await supabase.from("service_calls").select("organisation_id, customer_id").eq("id", job.id).single();
           const methodLabel = method === "cash" ? "Cash" : "Card";
-          const amountStr = Number(parseFloat(amount) || 0).toLocaleString("en-IE", { maximumFractionDigits: 0 });
-          if (scRow) {
-            await supabase.from("customer_activity").insert({
-              organisation_id: scRow.organisation_id,
-              customer_id: scRow.customer_id,
-              service_call_id: job.id,
-              event_type: "payment_received",
-              event_label: `Payment received — €${amountStr} — ${methodLabel}`,
-              created_by: profile?.id || null,
-            } as any);
-          }
+          const activityAmount = Number(paidAmount).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          await supabase.from("customer_activity").insert({
+            organisation_id: orgId,
+            customer_id: (scRow as any).customer_id,
+            service_call_id: job.id,
+            event_type: "payment_received",
+            event_label: `Payment received — €${activityAmount} — ${methodLabel}`,
+            created_by: profile?.id || null,
+          } as any);
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
@@ -289,6 +355,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setStep(1);
     }
   };
+
 
 
   const handleWhatsApp = async () => {
