@@ -30,7 +30,7 @@ Verified against the live database and the function directory:
 
 Nothing assumes only the invoice or engineer path performs the transition; every listener keys off the row state, not the caller.
 
-**Risk:** a job settled through this modal before the work is done (payment taken up front on a case-C job) would now be marked Completed and enter the review queue early. This already happens on the invoice branch today, so it is consistent rather than new — flagging it as the one behaviour change to confirm with Barry.
+**Risk:** on a job at `In Progress`/`Completed`, full payment now enters the Google review queue ~2h later. That is the intended BJ-0061a outcome but it is customer-facing, so worth confirming with Barry. Pre-work jobs reached via the engineer outstanding-balances ledger are excluded by condition 2, so no early review requests from that route.
 
 ## 2. Silent-failure fix
 
