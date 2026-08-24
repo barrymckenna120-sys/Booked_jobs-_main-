@@ -1,6 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { filterDueCustomers } from "../_shared/renewalDedup.ts";
-import { authoriseRequest, unauthorisedResponse } from "../_shared/functionAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +7,48 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
+
+/**
+ * Auth guard (audit finding #1) — this function used to be anonymously
+ * invokable. Accepts exactly the credentials our real callers already send:
+ *  - Make.com / internal machine callers: `x-webhook-secret` or `x-make-secret`
+ *    === MAKE_WEBHOOK_SECRET, or `Authorization: Bearer <service role key>`.
+ *  - Signed-in app users: a valid Supabase user JWT.
+ * The anon/publishable key alone is rejected — that is the hole being closed.
+ */
+function bearerToken(req: Request): string {
+  const auth = req.headers.get("authorization") ?? "";
+  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+}
+
+function isMachineCaller(req: Request): boolean {
+  const expected = (Deno.env.get("MAKE_WEBHOOK_SECRET") ?? "").trim();
+  const provided = (req.headers.get("x-webhook-secret") ?? req.headers.get("x-make-secret") ?? "").trim();
+  if (expected && provided && provided === expected) return true;
+  const serviceRoleKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  const token = bearerToken(req);
+  return Boolean(serviceRoleKey && token && token === serviceRoleKey);
+}
+
+async function authoriseRequest(req: Request): Promise<{ ok: boolean; reason?: string }> {
+  if (isMachineCaller(req)) return { ok: true };
+  const token = bearerToken(req);
+  if (!token) return { ok: false, reason: "missing_credentials" };
+  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  if (!supabaseUrl) return { ok: false, reason: "auth_unavailable" };
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
+    });
+    if (!res.ok) return { ok: false, reason: `invalid_token_${res.status}` };
+    const user = await res.json();
+    if (!user?.id) return { ok: false, reason: "no_user" };
+    return { ok: true };
+  } catch (_e) {
+    return { ok: false, reason: `auth_check_failed: ${(_e as Error).message}` };
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,7 +58,10 @@ Deno.serve(async (req) => {
   const auth = await authoriseRequest(req);
   if (!auth.ok) {
     console.warn(`renewal-reminder-14: unauthorized call (${auth.reason})`);
-    return unauthorisedResponse(corsHeaders, auth.reason);
+    return new Response(JSON.stringify({ error: "Unauthorized", reason: auth.reason }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

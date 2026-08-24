@@ -3,7 +3,6 @@ import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { businessToday, parseInboundIntent, pickActingOrg, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
 import { last9Digits, samePhone } from "../_shared/phone.ts";
-import { isMachineCaller } from "../_shared/functionAuth.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -20,6 +19,20 @@ const supabase = createClient(
  * through with a loud warning, so live inbound WhatsApp cannot break before the
  * 360Messenger webhook URL is updated. Setting the secret turns the guard on.
  */
+function bearerToken(req: Request): string {
+  const auth = req.headers.get("authorization") ?? "";
+  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+}
+
+function isMachineCaller(req: Request): boolean {
+  const expected = (Deno.env.get("MAKE_WEBHOOK_SECRET") ?? "").trim();
+  const provided = (req.headers.get("x-webhook-secret") ?? req.headers.get("x-make-secret") ?? "").trim();
+  if (expected && provided && provided === expected) return true;
+  const serviceRoleKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  const token = bearerToken(req);
+  return Boolean(serviceRoleKey && token && token === serviceRoleKey);
+}
+
 function isAuthorisedInbound(req: Request): boolean {
   if (isMachineCaller(req)) return true;
   const expected = (Deno.env.get("WHATSAPP_INBOUND_SECRET") ?? "").trim();
