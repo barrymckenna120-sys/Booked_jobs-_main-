@@ -1,105 +1,161 @@
-# SumUp webhook: allow a second genuine payment (layer-2 guard)
+# job_payments wiring in the SumUp webhook — pre-implementation report
 
-Scope: `supabase/functions/_shared/sumupWebhook.ts` and its adapter `supabase/functions/sumup-payment-webhook/index.ts` (+ existing unit tests). Nothing touching `job_payments`.
+Read-only analysis of the four points. No implementation yet.
 
-## 1. Current logic (verified, unchanged)
+## 1. payment_type derivation — confirmed, no extra lookups
 
-Shared module, `sumupWebhook.ts:478-492` — after the layer-1 claim, before `buildPaymentPatch`:
-
-```ts
-if (deps.hasOtherClaimedEvent) {
-  let priorClaimed: boolean;
-  try {
-    priorClaimed = await deps.hasOtherClaimedEvent({ serviceCallId: job.id, checkoutId });
-  } catch (_e) { /* log */ return { outcome: "duplicate_check_failed", status: 500, ... }; }
-  if (priorClaimed) return { outcome: "duplicate", status: 200, jobId: job.id, amount };
-}
-```
-
-Adapter implementation, `sumup-payment-webhook/index.ts:173-199`:
-
-```ts
-supabase.from("sumup_webhook_events")
-  .select("checkout_id")
-  .eq("service_call_id", serviceCallId)
-  .neq("checkout_id", checkoutId)
-  .limit(1)
-// PGRST116 -> false; any other error or transport failure -> throw (500, SumUp retries)
-```
-
-So: **any** claimed event on the job under a different checkout id kills the current event. A deposit via `send-deposit-link` followed by a balance via `send-payment-link` is exactly that shape, so the balance payment is discarded.
-
-## 2. What layer 2 was actually protecting
-
-Layer 1 (`sumup_webhook_events.checkout_id` UNIQUE) already covers SumUp's own re-delivery schedule (1 min / 5 min / 20 min / 2 h) — same checkout id, insert fails, no-op.
-
-Layer 2 was added for the case layer 1 misses: **two different checkout ids representing the same intended money.** Before/alongside BJ-0050a, each resend of a payment link minted a fresh checkout (`jobId::attempt`), so one job could hold several live links for the same amount. If the customer opened an older link, or Make created a checkout in parallel with ours, two distinct checkout ids could both go PAID for one intended payment. Layer 2 also deliberately avoided reading `deposit_paid` / `payment_status`, because the New Job wizard used to stamp `deposit_paid` with no money behind it — so the only trustworthy "already paid" signal it had was a prior claimed event row.
-
-Two things have changed since:
-- `findReusableCheckout` now reuses the latest still-PENDING checkout when the amount matches, so a resend of the *same* amount no longer mints a second id. Genuinely duplicate concurrent ids for one intended payment are now the exception, not the norm.
-- Two distinct PAID checkouts really are two real card charges. Blanket-dropping the second one hides money rather than protecting anything.
-
-Conclusion: layer 2 as written is the wrong shape. The residual risk it guarded (two live links for the same amount both paid) is better handled by making the payment math cumulative and, if we want a same-amount guard at all, scoping it narrowly — not by rejecting every second payment on a job.
-
-### Proposed narrowing
-
-Replace the per-job guard with a **same-amount, short-window** guard, keeping the dependency name and the strict error buckets:
-
-- Guard fires only when a prior claimed event on this job has (a) a different checkout id, (b) the same amount (to the cent), and (c) `created_at` within a small window (proposal: 24 h). That is the "two links for one intended payment" case.
-- Any prior claimed event with a *different* amount, or outside the window, no longer blocks: the event proceeds to `buildPaymentPatch` and `updateJob`.
-- Error handling unchanged: query failure still throws -> `duplicate_check_failed` / 500 so SumUp retries rather than risking a double-apply.
-- Requires the amount to be readable per prior event. `sumup_webhook_events` has no amount column, so the adapter joins the amount from `payment_checkout_attempts.checkout_id` (already unique) for the prior checkout ids. If the amount cannot be resolved for a prior event, treat it as *not* a duplicate (fail-open on classification, since layer 1 still covers re-delivery and the money is real) and log it.
-
-If you prefer the simpler route, the alternative is to drop layer 2 entirely and rely on layer 1 plus the cumulative math in point 3. Say which you want; the plan below is written for the narrowed version and reduces to a deletion if you pick that.
-
-## 3. `fullyPaid` / patch type for a balance payment — currently WRONG
-
-Today, `sumupWebhook.ts:447-449` and `496-512`:
-
-```ts
-const amount    = Number(view.amount ?? 0);     // this checkout only
-const revenue   = Number(job.revenue ?? 0);     // job total
-const fullyPaid = revenue > 0 ? amount + 1e-9 >= revenue : amount > 0;
-...
-buildPaymentPatch({ type: fullyPaid ? "full" : "deposit", amount, revenue,
-                    currentBalanceDue: job.balance_due, revenueMode: "fill",
-                    markDepositPaid: true })
-```
-
-No prior payment is considered. For a €500 job with a €250 deposit already paid (`balance_due = 250`), a €250 balance checkout gives `fullyPaid = false`, `type: "deposit"`, and the `deposit` branch of `buildPaymentPatch` sets `balance_due = 500 - 250 = 250` and `payment_status = "partial"` — i.e. even once unblocked, the job would still show €250 outstanding after being paid in full.
-
-So unblocking alone is not enough. The classification must be made cumulative:
+At the `buildPaymentPatch()` call site both inputs already exist as locals a few lines above:
 
 ```ts
 const collectedToDate = revenue > 0 && job.balance_due != null
-  ? Math.max(0, revenue - Number(job.balance_due))
+  ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
   : 0;
 const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
-
-buildPaymentPatch({
-  type: fullyPaid ? "full" : "balance",
-  amount, revenue, collectedToDate,
-  revenueMode: "fill",
-  markDepositPaid: true,
-})
 ```
 
-`buildPaymentPatch`'s `balance`/`full` branch derives `balance_due = max(0, revenue - (collectedToDate + amount))` and `payment_status = paid | partial`, never rewrites `revenue` (except `fill` on an unpriced job), and still forces `deposit_paid = true`. Checked against the existing branches:
+So the ledger classification is a pure expression, zero additional reads:
 
-- Balance €250 on €500 with €250 collected -> `full`, `balance_due = 0`, `paid`.
-- First €250 deposit on €500 (`balance_due = 500`) -> `collectedToDate = 0`, `balance`, `balance_due = 250`, `partial`, `deposit_paid = true` — same effective outcome as today's `deposit` branch.
-- One-shot €500 on €500 -> `full`, `balance_due = 0`, `paid` — unchanged.
-- Unpriced job (Make Scenario 5, `revenue` null) -> `collectedToDate = 0`, `fullyPaid` from `amount > 0`, `revenueMode: "fill"` writes `revenue = amount`, `balance_due = 0`, `paid` — unchanged.
-- Overpayment -> `balance_due` clamps at 0, `paid`.
+```ts
+const ledgerType = collectedToDate > 0 ? "balance" : (fullyPaid ? "full" : "deposit");
+```
 
-## Implementation steps (after you approve)
+This is deliberately distinct from the `type: fullyPaid ? "full" : "balance"` passed into
+`buildPaymentPatch` (that value only selects the cumulative arithmetic branch and must not
+change). All three values are allowed by the `job_payments.payment_type` CHECK constraint.
 
-1. `sumupWebhook.ts`: derive `collectedToDate` from `revenue - balance_due`, make `fullyPaid` cumulative, pass `type: fullyPaid ? "full" : "balance"` with `collectedToDate`.
-2. `sumupWebhook.ts`: extend the `hasOtherClaimedEvent` dep signature with `amount` and a window, and update the doc comment to state that a second genuine payment must pass.
-3. `sumup-payment-webhook/index.ts`: reimplement the guard as same-amount + 24 h window (amount resolved via `payment_checkout_attempts`), keeping the throw-on-error buckets.
-4. `sumupWebhook.test.ts`: keep the existing re-delivery (layer 1) and error-bucket cases; retarget the two layer-2 tests (lines ~246, ~409); add regression tests for deposit-then-balance -> `paid` with `balance_due = 0`, and same-amount-within-window -> still `duplicate`.
+Edge cases worth naming:
+- Unpriced job (Make Scenario 5, `revenue` null): `collectedToDate = 0`, `fullyPaid = amount > 0`
+  → `"full"`. Correct — `revenueMode:"fill"` makes that payment the whole job total.
+- A stale/incorrect `balance_due` (e.g. `deposit_paid` stamped with no money behind it, the old
+  New Job wizard bug) would misclassify a first payment as `"balance"`. Classification only, no
+  money impact.
 
-## Notes
+## 2. Partial unique index — no conflict, recommended
 
-- No `job_payments` work here.
-- Money path, so full test coverage before deploy; no data backfill in this step. KN-520-style historical jobs that lost a balance payment would need a separate, review-gated data fix.
+Current indexes on `job_payments`: `job_payments_pkey`, `idx_job_payments_service_call`,
+`idx_job_payments_org`, `idx_job_payments_checkout` (plain btree on `checkout_id`).
+
+`CREATE UNIQUE INDEX idx_job_payments_sumup_checkout_unique ON public.job_payments (checkout_id)
+WHERE source = 'sumup_webhook';` coexists fine with the plain index — Postgres allows any number
+of indexes on the same column, and a partial unique index only constrains rows matching its
+predicate. The plain index stays useful for lookups across all sources. Nulls are also distinct in
+Postgres, so non-SumUp rows with a null `checkout_id` are unaffected.
+
+It gives exactly the DB-level guarantee asked for: one ledger row per checkout on this path,
+independent of the layer-1 claim, and independent of the removed layer-2 guard (a second genuine
+checkout on the same job is a different `checkout_id` and still inserts).
+
+### Blocker found — the existing FK will reject 27% of real checkouts
+
+`job_payments.checkout_id` has `REFERENCES public.payment_checkout_attempts(checkout_id)`.
+Checked against live data:
+
+```
+sumup_webhook_events joined to payment_checkout_attempts:
+  total paid checkouts seen: 15
+  with no attempt row:        4
+```
+
+Those 4 are externally created checkouts (Make Scenario 5 / older deposit links) that never wrote
+an attempt row — the same population the webhook's discovery + backfill path exists for. Inserting
+their ledger row would raise a foreign-key violation.
+
+Options (needs your call before implementation):
+- **A. Drop the FK on `job_payments.checkout_id`**, keep the column as a plain text reference plus
+  the partial unique index. Simplest; the ledger stays writable for every real payment.
+- **B. Keep the FK and have the webhook upsert a `payment_checkout_attempts` row** for discovered
+  checkouts before inserting. Preserves referential integrity but makes the webhook write to a
+  table it currently only PATCHes, and backfills a synthetic "attempt" that never happened here.
+- **C. Keep the FK and set `checkout_id = null`** when no attempt row exists, recording the id in
+  `metadata` only. Keeps the schema untouched but defeats the partial unique index for exactly the
+  externally created checkouts, and loses the join.
+
+Recommendation: **A**. The unique index, not the FK, is what protects this path.
+
+## 3. Insert payload
+
+```ts
+{
+  organisation_id: job.organisation_id,      // non-null past line ~370's org check
+  service_call_id: job.id,
+  customer_id: job.customer_id,              // NOT NULL in DB; type-nullable only, 0 real nulls
+  amount,                                    // authoritative SumUp amount (txn amount preferred)
+  payment_type: ledgerType,                  // "deposit" | "balance" | "full" per #1
+  method: "sumup",
+  source: "sumup_webhook",
+  checkout_id: checkoutId,
+  reverses_payment_id: null,
+  note: null,
+  metadata: { ... see below },
+  recorded_by: null,                         // no user; service_role write
+  paid_at: paidAt,                           // see below
+}
+```
+
+**`paid_at`** — prefer SumUp's own transaction timestamp, fall back to webhook-received time:
+`transactions[0].timestamp ?? new Date().toISOString()`. Note this is *not* currently exposed:
+`SumUpCheckoutView` carries only `ok/status/amount/checkoutReference`, and the adapter reads
+`transactions[0]` but discards everything except the amount. Implementation will add
+`paidAt?: string | null` (and the metadata fields below) to that interface.
+
+Keeping the SumUp timestamp matters because Finance dates revenue from payment time; the redelivery
+window is up to ~2 hours, so webhook-received time can land the money on the wrong day.
+
+**`metadata`** — an explicit allow-list, never the raw view object. SumUp's checkout response
+includes a `transactions[].card` block (`last_4_digits`, `type`); no PAN, no CVV, no expiry — SumUp
+never returns those — but last-4 is customer card data with no use in this ledger, so it is excluded:
+
+```ts
+metadata: {
+  source: "sumup",
+  checkout_status: status,                       // "PAID"
+  checkout_reference: view.checkoutReference,
+  transaction_id: txn?.id ?? null,
+  transaction_code: txn?.transaction_code ?? null,
+  currency: view.currency ?? null,
+  fully_paid: fullyPaid,
+  collected_to_date_before: collectedToDate,
+  job_revenue_at_time: revenue,
+  backfilled_checkout_id: backfillCheckoutId,
+}
+```
+
+That is safe to store (identifiers and our own derived numbers only) and is enough to reconcile a
+row against SumUp's dashboard later.
+
+## 4. Placement and failure semantics
+
+Placement: **immediately after** the successful `deps.updateJob(...)` at line ~522 and before the
+activity/message/notification writes — inside the existing `if (!ok) return "update_failed"` gate,
+so a ledger row is never written for a job update that failed.
+
+Ordering rationale: `service_calls` is what the app reads; `job_payments` is the audit ledger. If
+only one can land, the job must be the one that lands.
+
+Recommendation: **sequential writes, not an RPC transaction.** Reasons:
+- The two writes cannot be made atomic without moving both into one Postgres function, which would
+  pull `buildPaymentPatch`'s output through an RPC boundary and duplicate money logic in SQL — the
+  opposite of the single-source-of-truth invariant this module holds.
+- SumUp's redelivery is not a usable retry for this: layer 1 has already claimed the checkout, so a
+  retry returns `duplicate` and never reaches the insert. A failed insert is therefore permanent
+  until reconciled — which is precisely why the failure must be loud rather than retried.
+- Divergence direction is bounded and detectable: job updated, ledger row missing. Step 3's
+  reconciliation query (paid `service_calls` with no matching `job_payments` row for their
+  `sumup_checkout_id`) finds exactly this shape.
+
+So the insert failure handling will be:
+- `console.error` with a distinctive, greppable prefix including `job_id`, `checkout_id`, `amount`
+  and the PG error — e.g. `LEDGER_INSERT_FAILED sumup-webhook ...`.
+- Outcome/HTTP status unchanged (still 200 `paid`) — the money *is* recorded on the job; making
+  SumUp retry would only produce a `duplicate` no-op.
+- A `23505` unique violation on the new partial index is logged at info, not error: it means the
+  ledger row already exists, which is the correct end state.
+
+If you would rather have the ledger be non-negotiable, the alternative is to return 500 on insert
+failure — but that leaves the job already updated and the retry deduped away, so it buys nothing.
+
+## Decisions needed before implementation
+
+1. FK option A / B / C from section 2.
+2. Confirm the metadata allow-list (excluding card last-4) rather than the raw payload.
+3. Confirm sequential-writes-with-loud-logging over an RPC transaction.
