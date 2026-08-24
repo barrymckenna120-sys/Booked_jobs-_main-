@@ -430,7 +430,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); }}
+          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); setPaymentError(null); }}
           onCompleteOnly={() => {
             setShowCompletionPayment(false);
             // Already fully paid — write completion fields only, never payment fields.
@@ -463,7 +463,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => setShowStandalonePayment(false)}
+          onClose={() => { setShowStandalonePayment(false); setPaymentError(null); }}
           errorMessage={paymentError}
           onDone={async (method: string, confirmedAmount: number) => {
             setPaymentError(null);
