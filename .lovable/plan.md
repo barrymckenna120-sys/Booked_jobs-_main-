@@ -15,7 +15,7 @@ CREATE TABLE public.job_payments (
   payment_type text NOT NULL CHECK (payment_type IN ('deposit','balance','full','extra_work','refund','correction')),
   method text NOT NULL CHECK (method IN ('card','cash','sumup','bank_transfer','invoice')),
   source text NOT NULL CHECK (source IN ('office_modal','engineer_app','sumup_webhook','invoice','manual')),
-  checkout_id text,
+  checkout_id text REFERENCES public.payment_checkout_attempts(checkout_id),
   reverses_payment_id uuid REFERENCES public.job_payments(id),
   note text,
   metadata jsonb,
@@ -44,13 +44,13 @@ CREATE POLICY job_payments_service_role ON public.job_payments
 ```
 
 ## Notes
-- `checkout_id` is `text` to match `payment_checkout_attempts.checkout_id`.
+- `checkout_id` is `text` and now has a foreign-key reference to `payment_checkout_attempts(checkout_id)`, which is backed by a unique index (`payment_checkout_attempts_checkout_id_key`).
 - `service_call_id` and `customer_id` use `ON DELETE RESTRICT` to protect the financial audit trail.
 - No UPDATE or DELETE policies — append-only by design.
 - **Pre-run finding:** `src/pages/CustomerDetail.tsx:288` calls `supabase.from("customers").delete().eq("id", id)`. Once a customer has `job_payments` rows, that delete will be blocked. No direct `service_calls` delete path was found.
 
 ## Verification after run
-- Table created with listed columns/types/constraints.
+- Table created with listed columns/types/constraints/foreign keys.
 - RLS enabled.
 - Three policies present (`job_payments_select`, `job_payments_insert`, `job_payments_service_role`).
 - Three indexes present (`idx_job_payments_service_call`, `idx_job_payments_org`, `idx_job_payments_checkout`).
