@@ -465,9 +465,9 @@ Deno.test("mis-stamped deposit_paid with no prior claimed event still processes 
   assertEquals(h.messages, 1);
 });
 
-// (c) Layer 1 still wins: the same checkout re-delivered never reaches layer 2.
-Deno.test("same checkout re-delivered is stopped by claimEvent before the prior-event check", async () => {
-  const checks: string[] = [];
+// (b) Layer 1 is the ONLY idempotency layer: a true re-delivery of the same
+// checkout id is a no-op, and nothing is written.
+Deno.test("same checkout re-delivered is stopped by claimEvent", async () => {
   const updates: Array<Record<string, unknown>> = [];
   const result = await handleSumUpWebhook({
     expectedSecret: "s3cret-token",
@@ -477,10 +477,6 @@ Deno.test("same checkout re-delivered is stopped by claimEvent before the prior-
     fetchCheckout: () =>
       Promise.resolve({ ok: true, status: "PAID", amount: 2000, checkoutReference: JOB_ID }),
     claimEvent: () => Promise.resolve(false),
-    hasOtherClaimedEvent: (e) => {
-      checks.push(e.checkoutId);
-      return Promise.resolve(false);
-    },
     updateJob: (_id, patch) => {
       updates.push(patch);
       return Promise.resolve(true);
@@ -488,22 +484,7 @@ Deno.test("same checkout re-delivered is stopped by claimEvent before the prior-
     now: () => new Date("2026-08-10T09:00:00.000Z"),
   });
   assertEquals(result.outcome, "duplicate");
-  assertEquals(checks, []);
   assertEquals(updates.length, 0);
-});
-
-// (d) A genuine query failure must be retried, never treated as "no prior event".
-Deno.test("prior-event lookup failure returns 500 and writes nothing", async () => {
-  const { h, result: p } = run({
-    hasOtherClaimedEvent: new Error("prior_event_lookup_failed: 42501 permission denied"),
-  });
-  const result = await p;
-  assertEquals(result.outcome, "duplicate_check_failed");
-  assertEquals(result.status, 500);
-  assertEquals(h.updates.length, 0);
-  assertEquals(h.activities, 0);
-  assertEquals(h.messages, 0);
-  assertEquals(h.notifications.length, 0);
 });
 
 
