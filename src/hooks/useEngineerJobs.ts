@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload, stripCallerRevenue, PaymentAmountError } from "@/lib/serviceCallUpdate";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { buildEngineerPaymentPlan } from "@/lib/engineerPaymentPlan";
+
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
