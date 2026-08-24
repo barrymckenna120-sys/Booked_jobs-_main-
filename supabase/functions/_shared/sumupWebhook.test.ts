@@ -35,7 +35,6 @@ interface Harness {
   fetches: number;
   discoveries: number;
   loadedById: string[];
-  priorEventChecks: Array<{ serviceCallId: string; checkoutId: string }>;
   claims: number;
   failureAlerts: Array<{
     serviceCallId: string;
@@ -68,11 +67,6 @@ function run(opts: {
   discovery?: SumUpCheckoutDiscovery;
   /** Job returned by the id (checkout_reference) lookup. */
   jobById?: SumUpWebhookJob | null;
-  /**
-   * Layer 2 signal. undefined = dependency not supplied at all; boolean = the
-   * lookup's answer; Error = a genuine query failure that must be thrown.
-   */
-  hasOtherClaimedEvent?: boolean | Error;
   /** Error = the failure alert itself throws; must never change the outcome. */
   failureAlert?: Error;
   /** Error = the failure timeline write throws; must never change the outcome. */
@@ -90,7 +84,6 @@ function run(opts: {
     fetches: 0,
     discoveries: 0,
     loadedById: [],
-    priorEventChecks: [],
     claims: 0,
     failureAlerts: [],
     failureActivities: [],
@@ -102,11 +95,6 @@ function run(opts: {
     presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
     body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
     loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
-    hasOtherClaimedEvent: opts.hasOtherClaimedEvent === undefined ? undefined : (e) => {
-      h.priorEventChecks.push(e);
-      if (opts.hasOtherClaimedEvent instanceof Error) return Promise.reject(opts.hasOtherClaimedEvent);
-      return Promise.resolve(opts.hasOtherClaimedEvent === true);
-    },
     loadJobById: (jobId) => {
       h.loadedById.push(jobId);
       return Promise.resolve(opts.jobById ?? null);
@@ -243,7 +231,7 @@ Deno.test("office is notified once per confirmed payment, with the job reference
 });
 
 Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
-  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }), hasOtherClaimedEvent: true });
+  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }) });
   assertEquals((await dup.result).outcome, "duplicate");
   assertEquals(dup.h.notifications.length, 0);
 
@@ -406,7 +394,6 @@ Deno.test("unknown checkout reference writes nothing and is reported, not silent
 Deno.test("a prior claimed event under a different checkout id is treated as duplicate", async () => {
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T08:00:00.000Z", deposit_paid: true }),
-    hasOtherClaimedEvent: true,
   });
   const result = await p;
   assertEquals(result.outcome, "duplicate");
@@ -420,7 +407,6 @@ Deno.test("duplicate deposit delivery does not double-log when a prior event exi
   const { h, result: p } = run({
     jobRow: job({ payment_status: "partial", deposit_paid: true }),
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
-    hasOtherClaimedEvent: true,
   });
   const result = await p;
   assertEquals(result.outcome, "duplicate");
@@ -434,7 +420,6 @@ Deno.test("mis-stamped deposit_paid with no prior claimed event still processes 
   const { h, result: p } = run({
     jobRow: job({ payment_status: "unpaid", deposit_paid: true, balance_due: 2000 }),
     view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
-    hasOtherClaimedEvent: false,
   });
   const result = await p;
   assertEquals(result.outcome, "part_paid");
@@ -691,7 +676,6 @@ Deno.test("fallback: re-delivery after backfill matches directly and is a no-op"
   // for this job under the first checkout id.
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T09:00:00.000Z", deposit_paid: true }),
-    hasOtherClaimedEvent: true,
   });
 
   const result = await p;
