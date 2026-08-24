@@ -53,7 +53,7 @@ payment_type    : "deposit" | "balance" | "full"   (see below)
 method          : paymentMethod                     ("cash" | "card")
 source          : "engineer_app"
 checkout_id     : null
-recorded_by     : profiles.id for the current user  (resolved before the write)
+recorded_by     : profileIdRef.current (cached — see §3b)         [nullable, no FK]
 paid_at         : the shared paidAt ISO
 metadata        : { receipt_number: <dbPatch.receipt_number ?? null>, entry: <"completion" | "standalone"> }
 ```
