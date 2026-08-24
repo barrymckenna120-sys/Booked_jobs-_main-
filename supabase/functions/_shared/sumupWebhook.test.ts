@@ -231,7 +231,8 @@ Deno.test("office is notified once per confirmed payment, with the job reference
 });
 
 Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
-  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }) });
+  // duplicate = layer 1: the same checkout id re-delivered, claim rejected.
+  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }), claimOk: false });
   assertEquals((await dup.result).outcome, "duplicate");
   assertEquals(dup.h.notifications.length, 0);
 
@@ -686,10 +687,11 @@ Deno.test("fallback: transient discovery failure is retryable and writes nothing
 });
 
 Deno.test("fallback: re-delivery after backfill matches directly and is a no-op", async () => {
-  // Second delivery: the id lookup now hits, and an earlier claimed event exists
-  // for this job under the first checkout id.
+  // Second delivery of the SAME checkout: the id lookup now hits and the event
+  // claim is rejected (unique checkout_id), so nothing is written again.
   const { h, result: p } = run({
     jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T09:00:00.000Z", deposit_paid: true }),
+    claimOk: false,
   });
 
   const result = await p;
