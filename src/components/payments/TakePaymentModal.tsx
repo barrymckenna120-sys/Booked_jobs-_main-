@@ -5,6 +5,7 @@ import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { priorCollected } from "@/lib/priorCollected";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useToast } from "@/hooks/use-toast";
 import {
