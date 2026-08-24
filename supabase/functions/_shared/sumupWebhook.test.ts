@@ -167,6 +167,21 @@ function run(opts: {
       h.claims++;
       return Promise.resolve(opts.claimOk !== false);
     },
+    recordPayment: (row) => {
+      h.payments.push({
+        organisationId: row.organisationId,
+        serviceCallId: row.serviceCallId,
+        customerId: row.customerId,
+        amount: row.amount,
+        paymentType: row.paymentType,
+        checkoutId: row.checkoutId,
+        paidAt: row.paidAt,
+        metadata: row.metadata,
+      });
+      if (opts.ledgerInsert) return Promise.reject(opts.ledgerInsert);
+      return Promise.resolve();
+    },
+
     sendReceipt: (e) => {
       h.receipts.push({ serviceCallId: e.serviceCallId, amount: e.amount, checkoutId: e.checkoutId });
       if (opts.receiptSend) return Promise.reject(opts.receiptSend);
