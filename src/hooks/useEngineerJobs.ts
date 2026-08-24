@@ -392,7 +392,6 @@ export const useEngineerJobs = () => {
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
           const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
-          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
           const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
@@ -402,12 +401,62 @@ export const useEngineerJobs = () => {
             service_call_id: jobId,
             event_type: "payment_received",
             event_label: `Payment received — €${amountStr} — ${methodLabel}`,
-            created_by: profile?.id || null,
+            created_by: profileIdRef.current,
           } as any);
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
       }
+
+      // Append-only payment ledger. The payment is already recorded on the job,
+      // so a failure here is loud but non-blocking; a network failure is queued.
+      if (paymentPlan.ledgerRow) {
+        try {
+          const { error: ledgerError } = await supabase
+            .from("job_payments")
+            .insert(paymentPlan.ledgerRow as any);
+          if (ledgerError) throw ledgerError;
+        } catch (e: any) {
+          console.error("LEDGER_INSERT_FAILED job_payments:", e);
+          if (!isOnline) {
+            // No dependency needed — the job row already carries the payment.
+            addToQueue({ table: "job_payments", operation: "insert", payload: paymentPlan.ledgerRow });
+          } else {
+            toast({
+              title: "Payment recorded, but not added to the payment ledger",
+              description: e?.message || "Please let the office know so it can be reconciled.",
+              variant: "destructive",
+            });
+          }
+        }
+      }
+
+      // Standalone Take Payment (no status in the patch): a receipt goes out on
+      // full payment even when the job is not marked Completed yet. Skipped
+      // offline — Edge Function calls cannot be queued.
+      if (paymentPlan.fireReceipt && isOnline) {
+        invokeFunction("generate-receipt-pdf", { body: { job_id: jobId }, signOutOnRefreshFailure: false })
+          .then(({ error: pdfError }) => { if (pdfError) throw pdfError; })
+          .catch((err) => {
+            console.error("generate-receipt-pdf error:", err);
+            toast({
+              title: "Receipt PDF not generated",
+              description: "Payment was recorded. Tap Download on the receipt screen to retry.",
+              variant: "destructive",
+            });
+          });
+        invokeFunction("send-whatsapp-receipt", { body: { job_id: jobId }, signOutOnRefreshFailure: false })
+          .then(({ error: waError }) => { if (waError) throw waError; })
+          .catch((err) => {
+            console.error("[WhatsApp] Receipt send failed:", err);
+            toast({
+              title: "Payment recorded — receipt not sent",
+              description: "Tap Send via WhatsApp on the receipt screen to try again.",
+              variant: "destructive",
+            });
+          });
+      }
+
 
 
 
