@@ -9,7 +9,15 @@ Add to the card/cash payload (currently 208-222), matching the invoice branch:
 - `status: "Completed"`
 - `completed_at: new Date().toISOString()`
 
-**Gated, not unconditional.** Only set when the payment settles the job — i.e. when the patch coming out of `buildPaymentPatch` has `payment_status === "paid"`. A case-D deposit collection (`collectingDeposit`) leaves the job at its current status, because the work has not happened yet; marking a pre-work deposit as Completed would be a new bug worse than the one being fixed. Build the patch into a local first, then conditionally add the two fields.
+**Gated, not unconditional.** Both fields are set only when *both* conditions hold:
+
+1. The payment settles the job — the patch from `buildPaymentPatch` has `payment_status === "paid"` (so a case-D deposit collection never flips status).
+2. The job's **pre-payment** status is `In Progress` or `Completed`, compared case-insensitively (one live row carries lowercase `completed`).
+
+Rationale from the entry-point audit: `Jobs.tsx:318` and `EngineerJobCard.tsx:349` gate the button on `["Completed","In Progress"]`, and `JobDetail.tsx:787` on `Completed` — all imply work started or finished. But `EngineerOutstandingBalances.tsx:187` has **no status gate** (only unpaid, non-cancelled, invoiced-or-deposit-paid), and live data shows it reaching 9 `Booked` jobs plus `archived` / `no_show` rows — KN-519 among them. Condition 2 keeps those untouched: the payment is recorded, completion stays the separate office action it already is.
+
+No new checkbox or confirmation step. `status` is the only work-done signal available (no `work_completed` flag exists on the row or the prop interface at lines 22-35), and it is reliable on the three gated entry points. A "Work has been completed" toggle would add a click to the common case and invite mis-clicks on a path that now feeds customer-facing review messages.
+
 
 ### What actually listens for `status: "Completed"`
 
