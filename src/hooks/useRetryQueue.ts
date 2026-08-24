@@ -12,6 +12,13 @@ export type RetryQueueItem = {
   filter?: { column: string; value: string };
   createdAt: number;
   attempts: number;
+  /**
+   * Id of another queued item this one depends on. The dependent is only
+   * replayed once its dependency has succeeded, and is DROPPED if the
+   * dependency is dropped. This bounds divergence to one safe direction:
+   * a job update can exist without its ledger row, never the reverse.
+   */
+  dependsOnId?: string;
 };
 
 const readQueue = (): RetryQueueItem[] => {
@@ -34,7 +41,10 @@ const writeQueue = (items: RetryQueueItem[]) => {
   }
 };
 
-export const addToQueue = (item: Omit<RetryQueueItem, "id" | "createdAt" | "attempts">) => {
+/** Returns the queued item's id so a caller can chain a dependent item to it. */
+export const addToQueue = (
+  item: Omit<RetryQueueItem, "id" | "createdAt" | "attempts">,
+): string => {
   const queue = readQueue();
   const newItem: RetryQueueItem = {
     ...item,
@@ -44,7 +54,9 @@ export const addToQueue = (item: Omit<RetryQueueItem, "id" | "createdAt" | "atte
   };
   queue.push(newItem);
   writeQueue(queue);
+  return newItem.id;
 };
+
 
 let processing = false;
 
