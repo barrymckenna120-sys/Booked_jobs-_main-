@@ -9,7 +9,15 @@ Add to the card/cash payload (currently 208-222), matching the invoice branch:
 - `status: "Completed"`
 - `completed_at: new Date().toISOString()`
 
-**Gated, not unconditional.** Only set when the payment settles the job — i.e. when the patch coming out of `buildPaymentPatch` has `payment_status === "paid"`. A case-D deposit collection (`collectingDeposit`) leaves the job at its current status, because the work has not happened yet; marking a pre-work deposit as Completed would be a new bug worse than the one being fixed. Build the patch into a local first, then conditionally add the two fields.
+**Gated, not unconditional.** Both fields are set only when *both* conditions hold:
+
+1. The payment settles the job — the patch from `buildPaymentPatch` has `payment_status === "paid"` (so a case-D deposit collection never flips status).
+2. The job's **pre-payment** status is `In Progress` or `Completed`, compared case-insensitively (one live row carries lowercase `completed`).
+
+Rationale from the entry-point audit: `Jobs.tsx:318` and `EngineerJobCard.tsx:349` gate the button on `["Completed","In Progress"]`, and `JobDetail.tsx:787` on `Completed` — all imply work started or finished. But `EngineerOutstandingBalances.tsx:187` has **no status gate** (only unpaid, non-cancelled, invoiced-or-deposit-paid), and live data shows it reaching 9 `Booked` jobs plus `archived` / `no_show` rows — KN-519 among them. Condition 2 keeps those untouched: the payment is recorded, completion stays the separate office action it already is.
+
+No new checkbox or confirmation step. `status` is the only work-done signal available (no `work_completed` flag exists on the row or the prop interface at lines 22-35), and it is reliable on the three gated entry points. A "Work has been completed" toggle would add a click to the common case and invite mis-clicks on a path that now feeds customer-facing review messages.
+
 
 ### What actually listens for `status: "Completed"`
 
@@ -22,7 +30,7 @@ Verified against the live database and the function directory:
 
 Nothing assumes only the invoice or engineer path performs the transition; every listener keys off the row state, not the caller.
 
-**Risk:** a job settled through this modal before the work is done (payment taken up front on a case-C job) would now be marked Completed and enter the review queue early. This already happens on the invoice branch today, so it is consistent rather than new — flagging it as the one behaviour change to confirm with Barry.
+**Risk:** on a job at `In Progress`/`Completed`, full payment now enters the Google review queue ~2h later. That is the intended BJ-0061a outcome but it is customer-facing, so worth confirming with Barry. Pre-work jobs reached via the engineer outstanding-balances ledger are excluded by condition 2, so no early review requests from that route.
 
 ## 2. Silent-failure fix
 
