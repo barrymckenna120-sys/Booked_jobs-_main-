@@ -391,27 +391,60 @@ Deno.test("unknown checkout reference writes nothing and is reported, not silent
   assertEquals(h.fetches, 0);
 });
 
-Deno.test("a prior claimed event under a different checkout id is treated as duplicate", async () => {
+// (a) 50/50 split — the money-loss regression. A second, different checkout for
+// the SAME amount as the deposit must settle the job, never be dropped.
+Deno.test("balance payment on a deposit-paid job settles it (50/50 split, matching amounts)", async () => {
   const { h, result: p } = run({
-    jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T08:00:00.000Z", deposit_paid: true }),
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
   });
   const result = await p;
-  assertEquals(result.outcome, "duplicate");
-  assertEquals(h.priorEventChecks.length, 1);
-  assertEquals(h.updates.length, 0);
-  assertEquals(h.activities, 0);
-  assertEquals(h.messages, 0);
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  // The booked price is never rewritten from a payment amount.
+  assertEquals(h.updates[0].patch.revenue, undefined);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+  assertEquals(h.notifications, [{ jobReference: null, amount: 500, fullyPaid: true }]);
 });
 
-Deno.test("duplicate deposit delivery does not double-log when a prior event exists", async () => {
+// A partial second payment stays partial, with cumulative arithmetic.
+Deno.test("second partial payment reduces the balance cumulatively", async () => {
   const { h, result: p } = run({
-    jobRow: job({ payment_status: "partial", deposit_paid: true }),
-    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 700 }),
+    view: { ok: true, status: "PAID", amount: 300, checkoutReference: JOB_ID },
   });
   const result = await p;
-  assertEquals(result.outcome, "duplicate");
-  assertEquals(h.updates.length, 0);
-  assertEquals(h.activities, 0);
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.balance_due, 400);
+});
+
+// (e) Overpayment clamps rather than going negative.
+Deno.test("overpayment clamps balance_due at 0 and marks the job paid", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 600, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+});
+
+// (c) One-shot full payment on a fresh job — unchanged behaviour.
+Deno.test("one-shot full payment on an untouched job is unchanged", async () => {
+  const { h, result: p } = run({ jobRow: job({ revenue: 2000, balance_due: 2000 }) });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.updates[0].patch.revenue, undefined);
 });
 
 // (a) The mis-stamp bug: deposit_paid was stamped by the New Job wizard with no
