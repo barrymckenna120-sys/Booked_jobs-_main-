@@ -154,4 +154,12 @@ New file `src/lib/engineerPaymentPlan.test.ts` covering a new pure helper `src/l
 6. **Ledger row shape** — asserts `source: "engineer_app"`, `checkout_id: null`, correct `payment_type` for deposit/balance/full, `amount` from `confirmedRevenue`, shared `paid_at`, and that every FK-required field (`organisation_id`, `service_call_id`, `customer_id`) is present in the literal (self-contained for queue replay).
 7. **Receipt firing, paid-but-not-completed** — no `status`, payment settles in full, prior status `Booked`: asserts `fireReceipt === true` while `dbPatchAdditions.status` is absent. Plus `fireReceipt === false` for `paymentMethod: "invoice"` and for a partial payment.
 
-Run: `bunx vitest run` — full suite green (274 currently) plus the new file.
+New file `src/hooks/__tests__/useRetryQueue.deps.test.ts` for the §3a dependency semantics (localStorage-backed, Supabase client mocked):
+
+8. **Dependent defers without burning attempts** — job update fails, ledger insert queued with `dependsOnId`: after one pass the ledger item is still queued with `attempts === 0` and no insert was attempted.
+9. **Dependent replays after its dependency succeeds** — job update succeeds on pass 2, ledger insert then runs in the same pass and the queue empties.
+10. **Dependent is dropped when its dependency is dropped** — job update fails 3 times: the ledger insert is dropped too, is never sent, and the queue empties. This is the invariant test — no ledger row without its job update.
+11. **Existing callers unchanged** — an item with no `dependsOnId` replays exactly as today (success clears it; 3 failures drop it).
+
+Run: `bunx vitest run` — full suite green (274 currently) plus the two new files.
+
