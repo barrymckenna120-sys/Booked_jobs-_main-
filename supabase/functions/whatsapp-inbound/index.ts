@@ -9,11 +9,55 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+/**
+ * 360Messenger cannot send custom headers, so this webhook is authenticated by
+ * a shared secret carried in the URL (`?s=<WHATSAPP_INBOUND_SECRET>`), the same
+ * pattern as sumup-payment-webhook. Internal/machine callers with the Make
+ * secret or the service-role key are also accepted.
+ *
+ * Rollout note: while WHATSAPP_INBOUND_SECRET is unset the request is allowed
+ * through with a loud warning, so live inbound WhatsApp cannot break before the
+ * 360Messenger webhook URL is updated. Setting the secret turns the guard on.
+ */
+function bearerToken(req: Request): string {
+  const auth = req.headers.get("authorization") ?? "";
+  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+}
+
+function isMachineCaller(req: Request): boolean {
+  const expected = (Deno.env.get("MAKE_WEBHOOK_SECRET") ?? "").trim();
+  const provided = (req.headers.get("x-webhook-secret") ?? req.headers.get("x-make-secret") ?? "").trim();
+  if (expected && provided && provided === expected) return true;
+  const serviceRoleKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  const token = bearerToken(req);
+  return Boolean(serviceRoleKey && token && token === serviceRoleKey);
+}
+
+function isAuthorisedInbound(req: Request): boolean {
+  if (isMachineCaller(req)) return true;
+  const expected = (Deno.env.get("WHATSAPP_INBOUND_SECRET") ?? "").trim();
+  if (!expected) {
+    console.warn("whatsapp-inbound: WHATSAPP_INBOUND_SECRET not set — webhook is still open");
+    return true;
+  }
+  const provided = (new URL(req.url).searchParams.get("s") ?? "").trim();
+  return provided === expected;
+}
+
 Deno.serve(async (req: Request) => {
   const earlyResponse = new Response(JSON.stringify({ status: "ok" }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+
+  if (!isAuthorisedInbound(req)) {
+    console.warn("whatsapp-inbound: rejected call with missing/invalid secret");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
 
   let payload: any = null;
   try {
