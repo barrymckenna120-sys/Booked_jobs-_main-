@@ -343,6 +343,10 @@ export const useEngineerJobs = () => {
           const yr = new Date().getFullYear();
           const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
           dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
+          // A standalone Take Payment may already have minted a receipt (and a
+          // PDF) on this job. Clearing the stored URL forces send-whatsapp-receipt
+          // to regenerate rather than resend the stale document.
+          dbPatch.receipt_pdf_url = null;
         }
       } catch {}
     }
@@ -351,12 +355,23 @@ export const useEngineerJobs = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
 
     if (error) {
-      addToQueue({
+      const jobUpdateQueueId = addToQueue({
         table: "service_calls",
         operation: "update",
         payload: safeDbPatch,
         filter: { column: "id", value: jobId },
       });
+      // Dependent: the ledger row is only replayed once the job update lands,
+      // and is dropped with it if that update is ever dropped. Divergence is
+      // therefore bounded to "job paid, ledger missing" — never the reverse.
+      if (paymentPlan.ledgerRow) {
+        addToQueue({
+          table: "job_payments",
+          operation: "insert",
+          payload: paymentPlan.ledgerRow,
+          dependsOnId: jobUpdateQueueId,
+        });
+      }
       if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
         addToQueue({
           table: "customers",
@@ -365,6 +380,7 @@ export const useEngineerJobs = () => {
           filter: { column: "id", value: jobForCustomer.customer_id },
         });
       }
+
       toast({
         title: "No connection",
         description: "Update saved and will retry automatically",
