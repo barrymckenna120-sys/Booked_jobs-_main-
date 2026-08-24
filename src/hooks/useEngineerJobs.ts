@@ -466,13 +466,8 @@ export const useEngineerJobs = () => {
           }
 
           if (tagRows.length > 0) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("id")
-              .eq("user_id", user!.id)
-              .maybeSingle();
+            const profileId = profileIdRef.current;
 
-            const profileId = profile?.id || null;
 
             const inserts = tagRows
               .filter((row: any) => !existingIds.has(row.id))
