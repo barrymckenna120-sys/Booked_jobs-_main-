@@ -67,6 +67,11 @@ export const useEngineerJobs = () => {
   // Resolved public.engineers.id for the signed-in auth user (NOT the auth uid).
   // Used by debugLog so debug_logs.engineer_id references a real engineers row.
   const engineerIdRef = useRef<string | null>(null);
+  // Resolved public.profiles.id for the signed-in user, cached at fetch time so
+  // write paths never need a network read for it (offline safety: the ledger
+  // row's recorded_by must be available with no connection).
+  const profileIdRef = useRef<string | null>(null);
+
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
