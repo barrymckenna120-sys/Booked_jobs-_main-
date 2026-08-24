@@ -353,12 +353,21 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
       console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
-      addToQueue({
+      const jobItemId = addToQueue({
         table: "service_calls",
         operation: "update",
         payload: safeDbPatch,
         filter: { column: "id", value: job.id },
       });
+      // The ledger row must never land without the job write that justifies it.
+      if (ledgerRow) {
+        addToQueue({
+          table: "job_payments",
+          operation: "insert",
+          payload: ledgerRow as any,
+          dependsOnId: jobItemId,
+        });
+      }
       if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
         addToQueue({
           table: "customers",
@@ -375,6 +384,20 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       return false;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      // Append-only payment ledger. Never blocks the job: the job write is the
+      // source of truth and has already committed.
+      if (ledgerRow) {
+        const { error: ledgerErr } = await supabase.from("job_payments").insert(ledgerRow as any);
+        if (ledgerErr) {
+          console.error("[updateJob:detail] job_payments insert failed", ledgerErr);
+          addToQueue({ table: "job_payments", operation: "insert", payload: ledgerRow as any });
+          toast({
+            title: "Payment recorded",
+            description: "The payment record will finish syncing shortly.",
+          });
+        }
+      }
+
       if (cancelReason) {
         supabase.functions.invoke('cancel-job-notify', {
           body: {
