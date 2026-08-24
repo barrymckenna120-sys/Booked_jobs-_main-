@@ -997,3 +997,133 @@ Deno.test("BJ-0059: a not-paid checkout never sends a receipt", async () => {
   assertEquals(result.outcome, "not_paid");
   assertEquals(h.receipts.length, 0);
 });
+
+// ---------------------------------------------------------------------------
+// job_payments ledger rows. payment_type here is the LEDGER classification and
+// is deliberately different from the type handed to buildPaymentPatch.
+// ---------------------------------------------------------------------------
+
+Deno.test("ledger: first partial payment on an untouched job is recorded as a deposit", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: 1000, balance_due: 1000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "part_paid");
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "deposit");
+  assertEquals(h.payments[0].amount, 500);
+  assertEquals(h.payments[0].serviceCallId, JOB_ID);
+  assertEquals(h.payments[0].organisationId, ORG_ID);
+  assertEquals(h.payments[0].customerId, "cust-1");
+  assertEquals(h.payments[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 0);
+  assertEquals(h.payments[0].metadata.fully_paid, false);
+  assertEquals(h.payments[0].metadata.job_revenue_at_time, 1000);
+});
+
+Deno.test("ledger: balance payment on a deposit-paid job is recorded as a balance (50/50 split)", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "balance");
+  assertEquals(h.payments[0].amount, 500);
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 500);
+  assertEquals(h.payments[0].metadata.fully_paid, true);
+});
+
+Deno.test("ledger: one-shot full payment is recorded as full", async () => {
+  const { h, result: p } = run({ jobRow: job({ revenue: 2000, balance_due: 2000 }) });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "full");
+  assertEquals(h.payments[0].amount, 2000);
+});
+
+Deno.test("ledger: unpriced job (revenueMode fill) is recorded as full", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: null, balance_due: null, payment_status: null }),
+    view: { ok: true, status: "PAID", amount: 750, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.updates[0].patch.revenue, 750);
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "full");
+  assertEquals(h.payments[0].metadata.job_revenue_at_time, 0);
+});
+
+Deno.test("ledger: overpayment records the real amount while the job balance clamps at 0", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 600, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.payments[0].paymentType, "balance");
+  assertEquals(h.payments[0].amount, 600);
+});
+
+Deno.test("ledger: paid_at prefers SumUp's transaction timestamp, falls back to webhook time", async () => {
+  const withTs = run({
+    view: {
+      ok: true,
+      status: "PAID",
+      amount: 2000,
+      checkoutReference: JOB_ID,
+      paidAt: "2026-08-09T18:30:00.000Z",
+      transactionId: "txn_1",
+      transactionCode: "TCODE1",
+      currency: "EUR",
+    },
+  });
+  await withTs.result;
+  assertEquals(withTs.h.payments[0].paidAt, "2026-08-09T18:30:00.000Z");
+  assertEquals(withTs.h.payments[0].metadata.transaction_id, "txn_1");
+  assertEquals(withTs.h.payments[0].metadata.transaction_code, "TCODE1");
+  assertEquals(withTs.h.payments[0].metadata.currency, "EUR");
+
+  const noTs = run({});
+  await noTs.result;
+  assertEquals(noTs.h.payments[0].paidAt, "2026-08-10T09:00:00.000Z");
+  assertEquals(noTs.h.payments[0].metadata.transaction_id, null);
+});
+
+Deno.test("ledger: no row is written when the job update fails", async () => {
+  const { h, result: p } = run({ updateOk: false });
+  assertEquals((await p).outcome, "update_failed");
+  assertEquals(h.payments.length, 0);
+});
+
+Deno.test("ledger: no row is written for a re-delivery (layer 1) or an unpaid checkout", async () => {
+  const dup = run({ claimOk: false });
+  assertEquals((await dup.result).outcome, "duplicate");
+  assertEquals(dup.h.payments.length, 0);
+
+  const unpaid = run({ view: { ok: true, status: "PENDING", amount: 2000, checkoutReference: JOB_ID } });
+  assertEquals((await unpaid.result).outcome, "not_paid");
+  assertEquals(unpaid.h.payments.length, 0);
+});
+
+Deno.test("ledger: a failing insert (unique violation or otherwise) never changes the response", async () => {
+  const dupIndex = Object.assign(new Error("duplicate key value violates unique constraint"), {
+    code: "23505",
+  });
+  const unique = run({ ledgerInsert: dupIndex });
+  const uniqueResult = await unique.result;
+  assertEquals(uniqueResult.outcome, "paid");
+  assertEquals(uniqueResult.status, 200);
+  assertEquals(unique.h.updates.length, 1);
+  assertEquals(unique.h.activities, 1);
+  assertEquals(unique.h.messages, 1);
+  assertEquals(unique.h.notifications.length, 1);
+
+  const broken = run({ ledgerInsert: new Error("connection reset") });
+  const brokenResult = await broken.result;
+  assertEquals(brokenResult.outcome, "paid");
+  assertEquals(brokenResult.status, 200);
+  assertEquals(broken.h.activities, 1);
+  assertEquals(broken.h.notifications.length, 1);
+});
