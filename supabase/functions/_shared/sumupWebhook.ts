@@ -471,29 +471,12 @@ export async function handleSumUpWebhook(
     }
   }
 
-  // Idempotency, layer 2 — a SECOND, DIFFERENT checkout on the same job whose
-  // payment was already recorded by a real, claimed webhook.
-  //
-  // Deliberately does NOT read job.deposit_paid / job.payment_status: those can
-  // be true for reasons unrelated to a real payment (the New Job wizard used to
-  // stamp deposit_paid at creation), which silently discarded genuine payments.
-  // The only trustworthy signal is a prior CLAIMED event row for this job under
-  // a different checkout id.
-  if (deps.hasOtherClaimedEvent) {
-    let priorClaimed: boolean;
-    try {
-      priorClaimed = await deps.hasOtherClaimedEvent({ serviceCallId: job.id, checkoutId });
-    } catch (_e) {
-      const message = (_e as Error)?.message ?? String(_e);
-      log("error", `sumup-webhook: prior-event lookup failed for job ${job.id}: ${message}`);
-      // Unknown DB state — retry rather than risk double-applying a payment.
-      return { outcome: "duplicate_check_failed", status: 500, jobId: job.id, amount, error: message };
-    }
-    if (priorClaimed) {
-      log("info", `sumup-webhook: duplicate delivery for job ${job.id} — no-op`);
-      return { outcome: "duplicate", status: 200, jobId: job.id, amount };
-    }
-  }
+  // There is no layer 2. A prior claimed event under a DIFFERENT checkout id on
+  // the same job means a second real card charge (deposit then balance), so it
+  // must be applied — the cumulative collectedToDate above keeps the arithmetic
+  // right. Do not add a per-job or same-amount duplicate check here.
+
+
 
 
 
