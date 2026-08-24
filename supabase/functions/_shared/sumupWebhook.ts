@@ -41,7 +41,6 @@ export type SumUpWebhookOutcome =
   | "verification_failed"
   | "not_paid"
   | "duplicate"
-  | "duplicate_check_failed"
   | "paid"
   | "part_paid"
   | "update_failed";
@@ -135,16 +134,15 @@ export interface SumUpWebhookDeps {
     organisationId: string | null;
     serviceCallId: string;
   }) => Promise<boolean>;
-  /**
-   * Idempotency layer 2 signal. True when a DIFFERENT checkout id on this same
-   * job already produced a claimed sumup_webhook_events row — i.e. a real,
-   * verified payment was already recorded for the job. Must THROW on a genuine
-   * query failure so the delivery is retried rather than double-applied.
+  /*
+   * There is deliberately NO second, per-job idempotency dependency here.
+   * A previous version blocked any event on a job that already had a claimed
+   * event under a different checkout id, which silently discarded genuine
+   * second payments (deposit then balance — commonly a 50/50 split, so a
+   * same-amount guard would not help either). The unique checkout_id claim is
+   * the only idempotency layer; see claimEvent above.
    */
-  hasOtherClaimedEvent?: (entry: {
-    serviceCallId: string;
-    checkoutId: string;
-  }) => Promise<boolean>;
+
   /**
    * One office alert per TERMINAL failure (declined / expired / cancelled
    * checkout). Purely a side effect: it never changes the outcome or status, and
@@ -446,7 +444,13 @@ export async function handleSumUpWebhook(
 
   const amount = Number(view.amount ?? 0);
   const revenue = Number(job.revenue ?? 0);
-  const fullyPaid = revenue > 0 ? amount + 1e-9 >= revenue : amount > 0;
+  // Money already collected on this job, inferred from the outstanding balance.
+  // Without this a €250 balance on a €500 job (deposit already paid) looks like
+  // a fresh part payment and leaves €250 wrongly outstanding.
+  const collectedToDate = revenue > 0 && job.balance_due != null
+    ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
+    : 0;
+  const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
 
   // Idempotency, layer 1 — DUPLICATE DELIVERY of the same callback.
   // SumUp retries delivery (1 min / 5 min / 20 min / 2 h), always for the same
@@ -467,29 +471,12 @@ export async function handleSumUpWebhook(
     }
   }
 
-  // Idempotency, layer 2 — a SECOND, DIFFERENT checkout on the same job whose
-  // payment was already recorded by a real, claimed webhook.
-  //
-  // Deliberately does NOT read job.deposit_paid / job.payment_status: those can
-  // be true for reasons unrelated to a real payment (the New Job wizard used to
-  // stamp deposit_paid at creation), which silently discarded genuine payments.
-  // The only trustworthy signal is a prior CLAIMED event row for this job under
-  // a different checkout id.
-  if (deps.hasOtherClaimedEvent) {
-    let priorClaimed: boolean;
-    try {
-      priorClaimed = await deps.hasOtherClaimedEvent({ serviceCallId: job.id, checkoutId });
-    } catch (_e) {
-      const message = (_e as Error)?.message ?? String(_e);
-      log("error", `sumup-webhook: prior-event lookup failed for job ${job.id}: ${message}`);
-      // Unknown DB state — retry rather than risk double-applying a payment.
-      return { outcome: "duplicate_check_failed", status: 500, jobId: job.id, amount, error: message };
-    }
-    if (priorClaimed) {
-      log("info", `sumup-webhook: duplicate delivery for job ${job.id} — no-op`);
-      return { outcome: "duplicate", status: 200, jobId: job.id, amount };
-    }
-  }
+  // There is no layer 2. A prior claimed event under a DIFFERENT checkout id on
+  // the same job means a second real card charge (deposit then balance), so it
+  // must be applied — the cumulative collectedToDate above keeps the arithmetic
+  // right. Do not add a per-job or same-amount duplicate check here.
+
+
 
 
 
@@ -502,9 +489,13 @@ export async function handleSumUpWebhook(
     // would leave the payment invisible to Finance. revenueMode "fill" treats the
     // paid amount as the total in that case; a known total is never overwritten.
     ...buildPaymentPatch({
-      type: fullyPaid ? "full" : "deposit",
+      // "balance"/"full" share the cumulative branch: balance_due is derived
+      // from revenue minus (collectedToDate + this payment), never overwritten
+      // from this payment alone.
+      type: fullyPaid ? "full" : "balance",
       amount,
       revenue,
+      collectedToDate,
       currentBalanceDue: job.balance_due ?? null,
       revenueMode: "fill",
       markDepositPaid: true,
