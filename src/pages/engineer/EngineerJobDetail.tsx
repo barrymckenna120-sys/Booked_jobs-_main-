@@ -302,7 +302,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     // Set completed_at and generate receipt number on completion
     if (patch.status === "Completed") {
-      dbPatch.completed_at = new Date().toISOString();
+      dbPatch.completed_at = paidAt;
+      // A cached PDF from an earlier payment on this job would be re-sent as-is
+      // by send-whatsapp-receipt; drop it so the receipt regenerates from the
+      // settled figures.
+      dbPatch.receipt_pdf_url = null;
+
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
         const orgId = (job as any).organisation_id;
