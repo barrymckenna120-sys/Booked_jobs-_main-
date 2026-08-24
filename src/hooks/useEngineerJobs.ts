@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { sanitizeServiceCallUpdatePayload, stripCallerRevenue, PaymentAmountError } from "@/lib/serviceCallUpdate";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { createJobInvoice } from "@/lib/createJobInvoice";
@@ -219,6 +219,25 @@ export const useEngineerJobs = () => {
 
     const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Fail loudly before ANY write: a cash/card confirmation with no usable
+    // amount must never reach buildPaymentPatch (it would record nothing while
+    // still marking the job Completed).
+    if (paymentMethod && paymentMethod !== "invoice") {
+      const amt =
+        confirmedRevenue === undefined || confirmedRevenue === null
+          ? NaN
+          : Number(confirmedRevenue);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        console.error("[useEngineerJobs] payment confirmation with no amount", {
+          jobId,
+          paymentMethod,
+          confirmedRevenue,
+          patch,
+        });
+        throw new PaymentAmountError();
+      }
+    }
 
     // Boiler details persist to the customer record — only what the engineer changed.
     const jobForCustomer = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId);
