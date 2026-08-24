@@ -53,7 +53,7 @@ payment_type    : "deposit" | "balance" | "full"   (see below)
 method          : paymentMethod                     ("cash" | "card")
 source          : "engineer_app"
 checkout_id     : null
-recorded_by     : profiles.id for the current user  (resolved before the write)
+recorded_by     : profileIdRef.current (cached — see §3b)         [nullable, no FK]
 paid_at         : the shared paidAt ISO
 metadata        : { receipt_number: <dbPatch.receipt_number ?? null>, entry: <"completion" | "standalone"> }
 ```
@@ -67,10 +67,37 @@ Built for **every** cash/card payment through `updateJob` — i.e. both the stan
 
 Failure handling, two branches:
 
-- **`service_calls` update failed (offline):** in the existing error branch (353-372), `addToQueue({ table: "job_payments", operation: "insert", payload: <the literal above>, filter: undefined })` is queued **after** the `service_calls` update item, so the queue replays in that order. The existing "No connection — update saved and will retry automatically" toast is unchanged and covers both. Queue ordering is best-effort by design (max 3 attempts, then dropped with a console error) — same reliability contract the `service_calls` update already has.
-- **`service_calls` update succeeded:** insert inline right after the activity-row block, wrapped in try/catch. Payment is already on the job, so a ledger failure is loud but non-blocking — same `LEDGER_INSERT_FAILED job_payments` console error and "Payment recorded, but not added to the payment ledger" destructive toast as `TakePaymentModal:289-296`. If the insert itself fails with a network error it is queued via `addToQueue` rather than dropped.
+- **`service_calls` update failed (offline):** in the existing error branch (353-372) the ledger row is queued as a **dependent** item (see §3a). The existing "No connection — update saved and will retry automatically" toast is unchanged and covers both.
+- **`service_calls` update succeeded:** insert inline right after the activity-row block, wrapped in try/catch. Payment is already on the job, so a ledger failure is loud but non-blocking — same `LEDGER_INSERT_FAILED job_payments` console error and "Payment recorded, but not added to the payment ledger" destructive toast as `TakePaymentModal:289-296`. If the insert itself fails with a network error it is queued via `addToQueue` (no dependency needed — the job row is already correct).
 
 RLS: the insert runs as `authenticated` against `job_payments_insert` (`WITH CHECK organisation_id = get_my_org_id()`). The engineer's `organisation_id` matches the job's, so no policy change is needed.
+
+### 3a. Queue-ordering integrity — dependent items (resolves the divergence direction)
+
+Insertion order alone is not enough: two independent items with independent 3-attempt budgets can drop the `service_calls` update while the later ledger insert succeeds, producing a ledger row for a payment never recorded on the job — the *unsafe* direction, and the reverse of the invariant the SumUp webhook holds.
+
+`useRetryQueue.ts` gains one optional field and matching replay semantics. No transaction is possible across two PostgREST calls, so option (a) is ruled out; this is option **(b)** — a true dependency:
+
+```
+RetryQueueItem += dependsOnId?: string
+```
+
+`addToQueue` returns the created item's `id` so the caller can chain. In `processQueue`, for each item with a `dependsOnId`:
+
+- dependency **still present** in the queue (not yet replayed) → **defer**: push to `remaining` unchanged and **do not increment `attempts`**, so a dependent never burns its budget waiting.
+- dependency **succeeded** in this pass, or is absent because it already succeeded in an earlier pass → replay normally.
+- dependency **dropped** (hit `MAX_ATTEMPTS`) → **drop the dependent too**, with a distinct `[retry-queue] dropping dependent of failed item` console error. This is the guarantee: a ledger row can never outlive the job update it belongs to.
+
+Tracking is a `Set` of ids succeeded/dropped within the pass, checked against the ids still in the queue. Existing callers (`EngineerJobDetail`, the three cert flows, `GasInstallationCertForm`, `GasInstallationFlow`, and the boiler-customer update in this hook) never set `dependsOnId`, so their behaviour is byte-identical.
+
+Residual divergence after this change is one-directional only: **job updated, ledger row missing** (job update replays, ledger insert then hits its own 3-attempt cap). That is exactly the direction Step 3's reconciliation already covers, so no widening of the reconciliation query is required — but Step 3 must still be told the `engineer_app` source now exists.
+
+### 3b. `recorded_by` — cached, not fetched at write time
+
+Currently **not** cached: `useEngineerJobs.ts:395` (payment activity row) and `:469` (job-tag `added_by`) each do a live `profiles.select("id").eq("user_id", user.id)` at write time. Offline, both silently resolve to `null`.
+
+Fix: mirror the existing `engineerIdRef` pattern (declared line 67, populated in `fetchAll` around line 134) with a `profileIdRef`, populated by the same online mount-time lookup. The ledger literal reads `profileIdRef.current`, and the two existing call sites at 395/469 are switched to it as well (removing two write-path round-trips). `job_payments.recorded_by` is `uuid` with **no FK and no NOT NULL** — confirmed: the table's four FKs are `organisation_id`, `service_call_id`, `customer_id`, `reverses_payment_id` — so a `null` fallback (engineer opened the app offline from cache and the ref was never filled) is legal and inserts cleanly. It degrades attribution, never the payment record.
+
 
 ## 4. Receipts
 
@@ -127,4 +154,12 @@ New file `src/lib/engineerPaymentPlan.test.ts` covering a new pure helper `src/l
 6. **Ledger row shape** — asserts `source: "engineer_app"`, `checkout_id: null`, correct `payment_type` for deposit/balance/full, `amount` from `confirmedRevenue`, shared `paid_at`, and that every FK-required field (`organisation_id`, `service_call_id`, `customer_id`) is present in the literal (self-contained for queue replay).
 7. **Receipt firing, paid-but-not-completed** — no `status`, payment settles in full, prior status `Booked`: asserts `fireReceipt === true` while `dbPatchAdditions.status` is absent. Plus `fireReceipt === false` for `paymentMethod: "invoice"` and for a partial payment.
 
-Run: `bunx vitest run` — full suite green (274 currently) plus the new file.
+New file `src/hooks/__tests__/useRetryQueue.deps.test.ts` for the §3a dependency semantics (localStorage-backed, Supabase client mocked):
+
+8. **Dependent defers without burning attempts** — job update fails, ledger insert queued with `dependsOnId`: after one pass the ledger item is still queued with `attempts === 0` and no insert was attempted.
+9. **Dependent replays after its dependency succeeds** — job update succeeds on pass 2, ledger insert then runs in the same pass and the queue empties.
+10. **Dependent is dropped when its dependency is dropped** — job update fails 3 times: the ledger insert is dropped too, is never sent, and the queue empties. This is the invariant test — no ledger row without its job update.
+11. **Existing callers unchanged** — an item with no `dependsOnId` replays exactly as today (success clears it; 3 failures drop it).
+
+Run: `bunx vitest run` — full suite green (274 currently) plus the two new files.
+
