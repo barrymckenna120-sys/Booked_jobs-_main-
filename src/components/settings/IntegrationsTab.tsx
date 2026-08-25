@@ -189,6 +189,9 @@ const IntegrationsTab = () => {
         </CardContent>
       </Card>
 
+      <SumUpIntegrationCard />
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-bold">WhatsApp</CardTitle>
