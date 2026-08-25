@@ -166,7 +166,11 @@ const QuoteAcceptance = () => {
         }
       );
       const result = await response.json();
-      if (result.success) {
+      // already_actioned = this quote was approved earlier (the job, office
+      // notification and payment link were created then). Show the accepted
+      // state instead of a generic failure, and do NOT re-trigger the payment
+      // link — approval stays single-shot.
+      if (result.success || result.error === "already_actioned") {
         setAccepted(true);
       } else {
         setApproveError(true);
