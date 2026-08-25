@@ -265,7 +265,11 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const fileName = `receipt-${receiptNum || job.id.slice(0, 8)}.pdf`;
+    // Storage keys only allow a safe ASCII subset — receiptNum can be a
+    // placeholder like "—" when no receipt number exists yet, which produces
+    // an InvalidKey 400 on upload. Sanitize, then fall back to the job id.
+    const safeRef = String(receiptNum || "").replace(/[^A-Za-z0-9._-]/g, "");
+    const fileName = `receipt-${safeRef || job.id.slice(0, 8)}.pdf`;
     const storagePath = `${job.organisation_id}/${fileName}`;
     const { error: uploadError } = await supabase.storage
       .from("certificates")
