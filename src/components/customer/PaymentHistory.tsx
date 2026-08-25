@@ -76,6 +76,24 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
     setDownloading(null);
   };
 
+  const handleCopy = async (job: ReceiptJob) => {
+    const text = buildReceiptText({ ...job, customerName });
+    if (!text) {
+      toast({ title: "No receipt to copy", description: "This payment has no receipt yet.", variant: "destructive" });
+      return;
+    }
+    setCopying(job.id);
+    const ok = await copyTextToClipboard(text);
+    setCopying(null);
+    toast(
+      ok
+        ? { title: "Receipt copied", description: `${job.receipt_number} copied to clipboard.` }
+        : { title: "Couldn't copy", description: "Clipboard access was blocked. Try again or download the receipt.", variant: "destructive" },
+    );
+  };
+
+
+
   const formatDate = (val: string | null) =>
     val ? new Date(val).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
