@@ -271,6 +271,7 @@ const AppLayoutInner = () => {
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
+        surface="office"
         open={notifOpen}
         onOpenChange={setNotifOpen}
         notifications={notifications}
