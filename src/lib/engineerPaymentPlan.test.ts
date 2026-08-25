@@ -196,3 +196,41 @@ describe("engineerPaymentPlan — receipt firing", () => {
     expect(plan({ paymentMethod: "cash", confirmedRevenue: 100 }).fireReceipt).toBe(false);
   });
 });
+
+describe("engineerPaymentPlan — revenue from the collected amount (BJ-0062)", () => {
+  it("unpriced job + €180 cash sets revenue to the collected amount and settles it", () => {
+    const result = plan({
+      paymentMethod: "cash",
+      confirmedRevenue: 180,
+      job: job({ revenue: null, balance_due: null }),
+    });
+    expect(result.dbPatchAdditions.revenue).toBe(180);
+    expect(result.dbPatchAdditions.balance_due).toBe(0);
+    expect(result.dbPatchAdditions.payment_status).toBe("paid");
+  });
+
+  it("Case A: €100 deposit of €400 already taken, €300 balance → revenue untouched", () => {
+    const result = plan({
+      paymentMethod: "card",
+      confirmedRevenue: 300,
+      job: job({ revenue: 400, balance_due: 300 }),
+    });
+    expect(result.dbPatchAdditions).not.toHaveProperty("revenue");
+    expect(result.dbPatchAdditions.balance_due).toBe(0);
+    expect(result.dbPatchAdditions.payment_status).toBe("paid");
+  });
+
+  it("priced €400 job, no deposit, €250 collected → revenue untouched, balance/status derived", () => {
+    const result = plan({
+      paymentMethod: "cash",
+      confirmedRevenue: 250,
+      job: job({ revenue: 400, balance_due: 400 }),
+    });
+    // Job stays priced at 400 — a payment path never reprices a priced job.
+    expect(result.dbPatchAdditions).not.toHaveProperty("revenue");
+    // Actual current behaviour: 400 − 250 outstanding, so still partial.
+    expect(result.dbPatchAdditions.balance_due).toBe(150);
+    expect(result.dbPatchAdditions.payment_status).toBe("partial");
+    expect(result.dbPatchAdditions).not.toHaveProperty("status");
+  });
+});
