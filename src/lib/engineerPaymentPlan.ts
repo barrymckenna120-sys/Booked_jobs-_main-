@@ -94,6 +94,15 @@ export function buildEngineerPaymentPlan(input: EngineerPaymentPlanInput): Engin
     };
   }
 
+  // BJ-0062: an UNPRICED job (revenue null/0/negative) takes its total from the
+  // amount the engineer actually collected — otherwise it stays at €0 revenue
+  // forever. A job that already HAS a total is never repriced by a payment: a
+  // short/over payment leaves `revenue` untouched and balance_due / payment_status
+  // are derived from revenue vs. collected as before.
+  const unpriced = !(jobRevenue > 0);
+  const amountKnown = Number.isFinite(amount as number) && (amount as number) > 0;
+  const fillRevenue = unpriced && amountKnown;
+
   const dbPatchAdditions: Record<string, any> = {
     payment_method: paymentMethod,
     paid_at: paidAt,
@@ -102,8 +111,11 @@ export function buildEngineerPaymentPlan(input: EngineerPaymentPlanInput): Engin
       amount,
       revenue: jobRevenue,
       collectedToDate: collectedSoFar,
+      ...(fillRevenue ? { revenueMode: "fill" as const } : {}),
     }),
+    ...(fillRevenue ? { revenue: amount as number } : {}),
   };
+
 
   const settled = dbPatchAdditions.payment_status === "paid";
   const standalone = !patch.status;
