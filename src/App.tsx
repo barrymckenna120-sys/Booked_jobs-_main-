@@ -174,6 +174,7 @@ function AppContent() {
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
