@@ -23,6 +23,13 @@ import {
   lockedUntilModalCopy,
 } from "@/lib/authLockout";
 
+/** Only same-origin relative paths are honoured as a post-login redirect. */
+const safeNextPath = (raw: string | null): string | null => {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+};
+
 const Auth = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
