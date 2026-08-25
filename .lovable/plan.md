@@ -21,6 +21,20 @@ Read-only metadata and source review across:
 6. **Payments** — SumUp checkout creation, webhook signature verification, dedup layers, `job_payments` append-only design, server-side amount derivation, per-tenant credential resolution.
 7. **Secrets** — env var usage across functions; verify nothing is logged, echoed, or returned.
 
+### Edge-function classification (done before any probe)
+
+Every function is first assigned one of four classes, and that class defines its expected trust boundary:
+
+| Class | Expected behaviour |
+| --- | --- |
+| Authenticated | Must reject an unauthenticated request with 401/403 |
+| Internal (cron, service-role, machine-called) | Must reject an unauthenticated request with 401/403 |
+| Public / token-protected | May return 200, but must fail safely on a missing or invalid token and must expose no tenant or customer data |
+| Webhook / provider-facing | Must validate signature or shared secret; must not act on unsigned or replayed input |
+
+The classification, its justification, and the expected status are recorded in the edge-function matrix before probing. A 200 is only a finding when the response body or resulting behaviour exceeds that class's boundary.
+
+
 Also run the Supabase database linter and record its output as corroborating evidence.
 
 ## Phase 2 — Read-only live probes
@@ -29,7 +43,7 @@ Each probe recorded with Test ID, timestamp, role, target, expected vs actual, H
 
 - **Anonymous reads**: with the publishable key only, attempt `SELECT` against every table expected to be protected — customers, service_calls, invoices, job_payments, quotes, certificates, profiles, engineers, tenant_integrations, settings, organisations, audit_log, and the rest. Expect empty result or permission error; any returned row is a P0.
 - **Anonymous RPC reads**: call the public-by-design RPCs (`get_quote_by_token`, `get_receipt_public`, `get_cert_pdf`, `get_booking_link_by_token`) with invalid tokens and confirm they leak nothing; call the internal ones (`get_my_org_id`, `get_org_profile_directory`, `verify_impersonation_token`) anonymously and confirm rejection.
-- **Unauthenticated edge-function calls**: no auth header, empty or invalid body, against every function. Expect 401/403. Record any function that returns 200 or performs work. Sensitive-side-effect functions are probed with a deliberately non-existent ID so a missing guard cannot touch real records, and each is followed by a `message_log` / `job_payments` check to prove nothing fired.
+- **Unauthenticated edge-function calls**: no auth header, empty or invalid body, against every function, judged against its assigned class. Authenticated and internal functions must return 401/403 — anything else is a finding. Public/token-protected functions are probed with a missing token and an invalid token; the pass condition is a safe failure with no tenant or customer data in the body, not a particular status code. Webhook functions are probed unsigned and must be rejected before any state change. Every 200 is triaged against the function's intended boundary rather than flagged automatically. Sensitive-side-effect functions are probed with a deliberately non-existent ID so a missing guard cannot touch real records, and each is followed by a `message_log` / `job_payments` check to prove nothing fired.
 - **Storage read checks**: anonymous fetch of an object path in each private bucket; confirm 400/403. Confirm public buckets expose only branding assets.
 - **Signed-URL behaviour**: inspect TTL and confirm a URL cannot be widened by path manipulation, using an existing test-owned media path.
 
