@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
 import { debugLog } from "@/utils/debugLog";
-import { shouldShowOnSurface, surfaceRoleScope } from "@/lib/notificationSurface";
+import { shouldShowOnSurface } from "@/lib/notificationSurface";
 
 export type NotificationType =
   | "new_job"
@@ -62,8 +62,20 @@ function vibrateHighPriority() {
  * alerts such as SumUp `payment_failed` never surface on an engineer's bell,
  * banner, toast or unread count. Omitted (Office App) = no scoping.
  */
-export function useNotifications(surface?: "engineer") {
-  const roleScope = surfaceRoleScope(surface);
+export function useNotifications(surface?: "engineer" | "office") {
+  // Engineer bell: engineer-scoped rows only.
+  // Office bell: everything except engineer-scoped rows (users who are both get
+  // an engineer copy of each job event, which otherwise doubles the badge and
+  // pushes office alerts such as quote_accepted out of the 50-row window).
+  const applyRoleScope = useCallback(
+    // deliberately untyped-generic: same filter shape for the count and list queries
+    <T extends { eq: (c: string, v: string) => T; not: (c: string, o: string, v: string) => T }>(q: T): T => {
+      if (surface === "engineer") return q.eq("role", "engineer");
+      if (surface === "office") return q.not("role", "eq", "engineer");
+      return q;
+    },
+    [surface]
+  );
 
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -85,15 +97,16 @@ export function useNotifications(surface?: "engineer") {
 
   const refreshUnreadCount = useCallback(async () => {
     if (!user) return;
-    let q = supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("recipient_user_id", user.id)
-      .eq("is_read", false);
-    if (roleScope) q = q.eq("role", roleScope);
+    const q = applyRoleScope(
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_user_id", user.id)
+        .eq("is_read", false)
+    );
     const { count } = await q;
     setUnreadCount(count || 0);
-  }, [user, roleScope]);
+  }, [user, applyRoleScope]);
 
   const refreshUnreadCountRef = useRef(refreshUnreadCount);
   useEffect(() => {
@@ -103,16 +116,17 @@ export function useNotifications(surface?: "engineer") {
   // Fetch existing notifications
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    let q = supabase
-      .from("notifications")
-      .select("*")
-      .eq("recipient_user_id", user.id);
-    if (roleScope) q = q.eq("role", roleScope);
+    const q = applyRoleScope(
+      supabase
+        .from("notifications")
+        .select("*")
+        .eq("recipient_user_id", user.id)
+    );
     const { data } = await q.order("created_at", { ascending: false }).limit(50);
     setNotifications((data as AppNotification[]) || []);
     console.log("[useNotifications] initial fetch", { userId: user.id, rows: (data ?? []).length, unread: (data ?? []).filter((n: any) => !n.is_read).length });
     setLoading(false);
-  }, [user, roleScope]);
+  }, [user, applyRoleScope]);
 
 
   useEffect(() => {
@@ -209,7 +223,7 @@ export function useNotifications(surface?: "engineer") {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, roleScope]);
+  }, [userId, surface]);
 
   // Keep ref in sync so the realtime handler always sees the latest preference
   useEffect(() => {
