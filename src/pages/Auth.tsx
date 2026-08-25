@@ -60,6 +60,7 @@ const Auth = () => {
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const isRecovery = params.get("type") === "recovery" || hash.includes("type=recovery");
+    const nextPath = safeNextPath(params.get("next"));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
@@ -68,7 +69,7 @@ const Auth = () => {
       }
       if (isRecovery) return;
       if (session?.user) {
-        navigate("/dashboard", { replace: true });
+        navigate(nextPath ?? "/dashboard", { replace: true });
       }
     });
 
@@ -80,7 +81,7 @@ const Auth = () => {
     if (!isRecovery) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          navigate("/dashboard", { replace: true });
+          navigate(nextPath ?? "/dashboard", { replace: true });
         }
       });
     }
