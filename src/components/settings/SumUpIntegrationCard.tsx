@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,44 +7,65 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Save, Plug, Unplug } from "lucide-react";
+import {
+  Loader2, CheckCircle2, XCircle, AlertTriangle, Save, Plug, Unplug, ChevronDown, ChevronUp,
+} from "lucide-react";
+import {
+  environmentMismatchWarning,
+  normaliseEnvironment,
+  validateSumUpForm,
+  valuesForEnvironment,
+  type SumUpEnvironment,
+  type SumUpEnvironmentEntry,
+  type SumUpFormErrors,
+} from "@/lib/sumupIntegrationForm";
 
 type Status = "loading" | "connected" | "not_connected" | "error";
 
 interface SumUpState {
   merchant_code: string;
   api_key_secret: string;
+  environment?: SumUpEnvironment;
+  environments?: Partial<Record<SumUpEnvironment, SumUpEnvironmentEntry>>;
   secret_present: boolean;
   configured: boolean;
 }
 
-const MERCHANT_CODE_RE = /^[A-Z0-9]{4,20}$/;
-const SECRET_NAME_RE = /^[A-Z][A-Z0-9_]{2,120}$/;
-
 /**
- * Tenant-facing SumUp setup. The API key VALUE is never handled here — the form
- * takes the NAME of the backend secret holding it, matching how the payment
- * functions resolve per-organisation credentials.
+ * Tenant-facing SumUp setup, driven entirely by the caller's own organisation
+ * (resolved server-side in the `sumup-integration` function). Nothing here is
+ * specific to any tenant, and the API key VALUE is never handled in the
+ * frontend — the form takes the NAME of the backend secret holding it.
  */
 const SumUpIntegrationCard = () => {
   const { toast } = useToast();
   const [status, setStatus] = useState<Status>("loading");
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [open, setOpen] = useState(false);
   const [merchantCode, setMerchantCode] = useState("");
   const [secretName, setSecretName] = useState("");
+  const [environment, setEnvironment] = useState<SumUpEnvironment>("test");
+  const [environments, setEnvironments] =
+    useState<Partial<Record<SumUpEnvironment, SumUpEnvironmentEntry>>>({});
   const [secretPresent, setSecretPresent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [errors, setErrors] = useState<{ merchant?: string; secret?: string }>({});
+  const [errors, setErrors] = useState<SumUpFormErrors>({});
 
   const applyState = useCallback((s: SumUpState) => {
+    const env = normaliseEnvironment(s.environment);
     setMerchantCode(s.merchant_code ?? "");
     setSecretName(s.api_key_secret ?? "");
+    setEnvironment(env);
+    setEnvironments(s.environments ?? {});
     setSecretPresent(!!s.secret_present);
     if (!s.merchant_code && !s.api_key_secret) {
       setStatus("not_connected");
@@ -87,26 +108,32 @@ const SumUpIntegrationCard = () => {
     })();
   }, [call, applyState]);
 
-  const validate = () => {
-    const next: { merchant?: string; secret?: string } = {};
-    const code = merchantCode.trim().toUpperCase();
-    const secret = secretName.trim();
-    if (!code) next.merchant = "Merchant Code is required.";
-    else if (!MERCHANT_CODE_RE.test(code)) next.merchant = "4–20 letters or digits, e.g. MBBMEYG7.";
-    if (!secret) next.secret = "Secret name is required.";
-    else if (/^sup_(sk|pk)/i.test(secret)) next.secret = "That's the key itself — enter the secret's NAME instead.";
-    else if (!SECRET_NAME_RE.test(secret)) next.secret = "Uppercase letters, digits and underscores only, e.g. SUMUP_API_KEY_DUBLIN_GAS.";
-    setErrors(next);
-    return Object.keys(next).length === 0;
+  /** Switching environment loads that environment's own saved pair, never the other's. */
+  const handleEnvironmentChange = (value: string) => {
+    const next = normaliseEnvironment(value);
+    setEnvironment(next);
+    const saved = valuesForEnvironment(next, environments);
+    setMerchantCode(saved.merchantCode);
+    setSecretName(saved.secretName);
+    setErrors({});
   };
 
+  const mismatch = useMemo(
+    () => environmentMismatchWarning(environment, secretName),
+    [environment, secretName],
+  );
+
   const handleSave = async () => {
-    if (!validate()) return;
+    const found = validateSumUpForm({ merchantCode, secretName, environment });
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+
     setSaving(true);
     try {
       const res = await call("save", {
         merchant_code: merchantCode.trim().toUpperCase(),
         api_key_secret: secretName.trim(),
+        environment,
       });
       applyState(res);
       if (res.warning) {
@@ -167,7 +194,7 @@ const SumUpIntegrationCard = () => {
       return <Badge className="gap-1 bg-primary/10 text-primary hover:bg-primary/10"><CheckCircle2 className="w-3 h-3" />Connected</Badge>;
     }
     if (status === "error") {
-      return <Badge variant="destructive" className="gap-1"><AlertTriangle className="w-3 h-3" />Connection Error</Badge>;
+      return <Badge variant="destructive" className="gap-1"><AlertTriangle className="w-3 h-3" />Error</Badge>;
     }
     return <Badge variant="secondary" className="gap-1"><XCircle className="w-3 h-3" />Not Connected</Badge>;
   };
@@ -183,11 +210,21 @@ const SumUpIntegrationCard = () => {
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <Plug className="w-4 h-4" />SumUp
             </CardTitle>
-            <CardDescription>Take and track customer card payments through your own SumUp account</CardDescription>
+            <CardDescription>
+              Take and track customer card payments through your own SumUp merchant account
+            </CardDescription>
           </div>
-          {statusBadge()}
+          <div className="flex items-center gap-2 shrink-0">
+            {status !== "not_connected" && status !== "loading" && (
+              <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
+                {environment}
+              </Badge>
+            )}
+            {statusBadge()}
+          </div>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-4">
         {statusMessage && (
           <p className={`text-xs ${status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
@@ -195,65 +232,102 @@ const SumUpIntegrationCard = () => {
           </p>
         )}
 
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">SumUp Merchant Code</Label>
-          <Input
-            value={merchantCode}
-            onChange={(e) => setMerchantCode(e.target.value.toUpperCase())}
-            placeholder="e.g. MBBMEYG7"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {errors.merchant
-            ? <p className="text-xs text-destructive">{errors.merchant}</p>
-            : <p className="text-xs text-muted-foreground">Found in your SumUp dashboard under Profile → Merchant profile.</p>}
-        </div>
+        {!open ? (
+          <Button variant="outline" onClick={() => setOpen(true)} disabled={status === "loading"}>
+            <ChevronDown className="w-4 h-4 mr-2" />
+            {hasConfig ? "Edit SumUp setup" : "Set up SumUp"}
+          </Button>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Provider</Label>
+                <Input value="sumup" readOnly disabled className="font-mono text-xs" />
+                <p className="text-xs text-muted-foreground">Fixed provider key stored against your organisation.</p>
+              </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">API Key Secret Name</Label>
-          <Input
-            value={secretName}
-            onChange={(e) => setSecretName(e.target.value)}
-            placeholder="e.g. SUMUP_API_KEY_DUBLIN_GAS"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {errors.secret
-            ? <p className="text-xs text-destructive">{errors.secret}</p>
-            : (
-              <p className="text-xs text-muted-foreground">
-                Enter the <strong>name</strong> of the backend secret holding your SumUp API key — never the key itself.
-                {secretName && (
-                  <> Secret currently {secretPresent ? "found" : "not found"} on the server.</>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Environment</Label>
+                <Select value={environment} onValueChange={handleEnvironmentChange}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="test">Test (sandbox)</SelectItem>
+                    <SelectItem value="live">Live</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.environment
+                  ? <p className="text-xs text-destructive">{errors.environment}</p>
+                  : <p className="text-xs text-muted-foreground">Test and Live keep separate merchant codes and secrets.</p>}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">SumUp Merchant Code</Label>
+              <Input
+                value={merchantCode}
+                onChange={(e) => setMerchantCode(e.target.value.toUpperCase())}
+                placeholder="e.g. MBBMEYG7"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {errors.merchant
+                ? <p className="text-xs text-destructive">{errors.merchant}</p>
+                : <p className="text-xs text-muted-foreground">
+                    Found in your SumUp dashboard under Profile → Merchant profile. Sandbox and live accounts have different codes.
+                  </p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">API Key Secret Name</Label>
+              <Input
+                value={secretName}
+                onChange={(e) => setSecretName(e.target.value)}
+                placeholder={environment === "live" ? "e.g. SUMUP_API_KEY_ACME" : "e.g. SUMUP_API_KEY_ACME_TEST"}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {errors.secret
+                ? <p className="text-xs text-destructive">{errors.secret}</p>
+                : (
+                  <p className="text-xs text-muted-foreground">
+                    Enter the <strong>name</strong> of the backend secret holding your SumUp API key — never the key itself.
+                    {secretName && (
+                      <> Secret currently {secretPresent ? "found" : "not found"} on the server.</>
+                    )}
+                  </p>
                 )}
-              </p>
-            )}
-        </div>
+              {mismatch && <p className="text-xs text-destructive">{mismatch}</p>}
+            </div>
 
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button onClick={handleSave} disabled={busy}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Configuration
-          </Button>
-          <Button variant="outline" onClick={handleTest} disabled={busy || !hasConfig}>
-            {testing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plug className="w-4 h-4 mr-2" />}
-            Test Connection
-          </Button>
-          <Button variant="ghost" className="text-destructive hover:text-destructive"
-            onClick={() => setConfirmOpen(true)} disabled={busy || !hasConfig}>
-            <Unplug className="w-4 h-4 mr-2" />Disconnect SumUp
-          </Button>
-        </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button onClick={handleSave} disabled={busy}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Integration
+              </Button>
+              <Button variant="outline" onClick={handleTest} disabled={busy || !hasConfig}>
+                {testing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plug className="w-4 h-4 mr-2" />}
+                Test Connection
+              </Button>
+              <Button variant="ghost" className="text-destructive hover:text-destructive"
+                onClick={() => setConfirmOpen(true)} disabled={busy || !hasConfig}>
+                <Unplug className="w-4 h-4 mr-2" />Remove Integration
+              </Button>
+              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+                <ChevronUp className="w-4 h-4 mr-2" />Close
+              </Button>
+            </div>
 
-        <p className="text-xs text-muted-foreground">
-          Test Connection only reads your SumUp merchant profile — it never creates a payment.
-        </p>
+            <p className="text-xs text-muted-foreground">
+              Test Connection only reads your SumUp merchant profile — it never creates a payment.
+            </p>
+          </>
+        )}
       </CardContent>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect SumUp?</AlertDialogTitle>
+            <AlertDialogTitle>Remove SumUp integration?</AlertDialogTitle>
             <AlertDialogDescription>
               Your saved merchant code and secret reference will be removed, and card payment links will stop
               working until SumUp is reconnected. Existing payment records are not affected.
@@ -266,7 +340,7 @@ const SumUpIntegrationCard = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {disconnecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Disconnect
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
