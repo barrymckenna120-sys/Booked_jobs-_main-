@@ -38,6 +38,8 @@ interface Props {
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onDismiss: (id: string) => void;
+  /** Hides tabs that can never match on this surface (Office bell excludes engineer rows). */
+  surface?: "engineer" | "office";
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -54,9 +56,15 @@ const NotificationDrawer = ({
   onMarkRead,
   onMarkAllRead,
   onDismiss,
+  surface,
 }: Props) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const tabs = TABS.filter((t) => {
+    if (surface === "office") return t.key !== "engineer";
+    if (surface === "engineer") return t.key !== "office";
+    return true;
+  });
 
   const handleNotificationClick = (n: AppNotification) => {
     if (!n.is_read) onMarkRead(n.id);
@@ -86,7 +94,7 @@ const NotificationDrawer = ({
 
         {/* Filter Tabs */}
         <div className="flex gap-1 px-4 pb-3">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}

@@ -202,6 +202,7 @@ const EngineerLayout = () => {
         })}
       </div>
       <NotificationDrawer
+        surface="engineer"
         open={notifOpen}
         onOpenChange={setNotifOpen}
         notifications={notifications}
