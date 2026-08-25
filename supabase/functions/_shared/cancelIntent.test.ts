@@ -168,18 +168,21 @@ Deno.test("resolveInboundSender returns EVERY record sharing the number, newest 
   assertEquals(d.orgs.length, 1);
 });
 
-Deno.test("resolveInboundSender matches regardless of stored format, incl. landline", () => {
+Deno.test("resolveInboundSender matches regardless of formatting, but NOT across country codes", () => {
   const d = resolveInboundSender(
     "00353892109224",
     [
       cust({ id: "a", phone: "089 210 9224" }),
       cust({ id: "b", phone: null, landline_phone: "+353892109224" }),
       cust({ id: "z", phone: "+353871234567" }),
+      // Same last 9 digits, different country — must NOT be pulled in.
+      cust({ id: "morocco", phone: "+212892109224" }),
     ],
     samePhone,
   );
   assertEquals(d.action === "resolved" && d.customers.map((c) => c.id).sort(), ["a", "b"]);
 });
+
 
 Deno.test("resolveInboundSender groups multi-tenant matches, logging to the newest org", () => {
   const d = resolveInboundSender(
