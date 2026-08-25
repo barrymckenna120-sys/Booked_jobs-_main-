@@ -269,9 +269,9 @@ const SumUpIntegrationCard = () => {
               Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
-      </AlertDialogContent>
+        </AlertDialogContent>
       </AlertDialog>
+
     </Card>
   );
 };
