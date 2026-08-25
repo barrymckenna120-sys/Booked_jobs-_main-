@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { businessToday, parseInboundIntent, pickActingOrg, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
+import { logCustomerAudit } from "../_shared/auditLog.ts";
 import { last9Digits, samePhone } from "../_shared/phone.ts";
 
 const supabase = createClient(
@@ -367,6 +368,14 @@ Deno.serve(async (req: Request) => {
           "reply_confirmed",
         );
         await logActivity("WhatsApp received — Appointment Confirmed", job.id, jobOwnerId);
+        await logCustomerAudit(supabase, {
+          action_type: "job_confirmed",
+          entity_id: job.id,
+          detail: `${jobOwnerName} confirmed their appointment by WhatsApp reply`,
+          organisation_id: actingOrgId,
+          customer_name: jobOwnerName,
+          metadata: { intent: "confirm", customer_id: jobOwnerId, service_call_id: job.id },
+        });
       } else {
         await supabase
           .from("service_calls")
@@ -387,6 +396,19 @@ Deno.serve(async (req: Request) => {
           { customer_id: jobOwnerId, intent, service_call_id: job.id },
         );
         await logActivity("WhatsApp received — Appointment Cancelled", job.id, jobOwnerId);
+        await logCustomerAudit(supabase, {
+          action_type: "job_cancelled",
+          entity_id: job.id,
+          detail: `Cancelled: Customer cancelled via WhatsApp`,
+          organisation_id: actingOrgId,
+          customer_name: jobOwnerName,
+          metadata: {
+            intent: "cancel",
+            reason: "Customer cancelled via WhatsApp",
+            customer_id: jobOwnerId,
+            service_call_id: job.id,
+          },
+        });
       }
       return earlyResponse;
     }
