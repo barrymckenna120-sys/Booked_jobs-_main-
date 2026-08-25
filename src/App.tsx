@@ -27,6 +27,7 @@ import AdminViewAsBanner from "@/components/admin/AdminViewAsBanner";
 // Lazy: everything behind a navigation. Keeps the landing page and login
 // bundle small on first visit (mobile / slow connections).
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Jobs = lazy(() => import("./pages/Jobs"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
