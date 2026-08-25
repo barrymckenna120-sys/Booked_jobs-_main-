@@ -1,32 +1,47 @@
-# Fix: blocked/locked user status and unblock feedback in Super Admin
+# Make scenario reconciliation for the 7 guarded functions
 
-## What I verified first
+No code change is needed: every guarded function already accepts `x-webhook-secret: <MAKE_WEBHOOK_SECRET>` (and `x-make-secret` as an alias). Since you hold the secret value, this is a configuration sweep in Make, not a fix here. The `401 invalid_token` on the Dublin Gas 30-day scenario means it sent an `Authorization: Bearer` token that is not a valid user JWT or the service-role key — almost certainly the publishable/anon key, which the guard now rejects by design.
 
-- Lockout state lives in **one** place: the auth-side ban (`banned_until`), set for 1 hour by the `lock-failed-login` function after 5 failed attempts. Lockouts have genuinely fired (5 lockout alerts recorded, one expired ban still visible on an account). No user is banned right now, and there is no second custom counter table driving login (`login_attempts` is not consulted by the sign-in path).
-- The **Unblock** action Super Admin uses (`reset-auth-block`) does clear the ban and resets a matching engineer row. It works server-side.
-- The Super Admin **cross-tenant user table** ("User Activity — Overview") requests users with `scope: "all_orgs"`. That branch of the users function builds each row **without any blocked flag**, even though the function already computes blocked state for the other branches. So no lock status can appear beside a username there.
-- Blocked status is only rendered inside the small "Unblock User" popover on the Unblock Users tab. After a successful unblock, that popover's user list is **never refetched** — only the tenant-level button style refreshes — so the user still shows "Blocked" and the action looks like it did nothing.
+## What the code and database tell us
 
-## Root cause
+Callers inside this project (JWT-authenticated, unaffected):
 
-Two display/refresh gaps, not an auth or tenant-isolation fault:
+- `send-payment-received` — `src/components/payments/TakePaymentModal.tsx`, `src/pages/engineer/EngineerJobDetail.tsx`
 
-1. The cross-tenant user list omits blocked state entirely, so Super Admin shows no Blocked/Locked status beside any username.
-2. After Unblock succeeds, the user list showing the status is not re-read, so the stale "Blocked" row makes it look like access was not restored. Compounding this, bans auto-expire after 1 hour, so by the time an admin looks the state may already have cleared with nothing ever shown.
+Scheduled jobs in the database: 6 cron entries (`job-reminder-2day`, `quote-followup-day3`, `quote-followup-day6`, `send-deposit-reminder-daily`, `warranty-auto-send`, `purge-old-read-notifications`). **None** of them call any of the 7 guarded functions.
 
-## The fix (3 files)
+So the only callers of `get-tomorrows-jobs`, `get-upcoming-jobs`, `get-outstanding-invoices` and `renewal-reminder-7/14/30` are Make scenarios. Edge HTTP logs only retain about the last hour, so the historical evidence comes from `message_log`.
 
-1. `supabase/functions/list-users/index.ts` — in the `all_orgs` branch, include `blocked` and `banned_until` on each row, reusing the blocked map the function already builds (plus the existing engineer-status merge). No auth, permission, or tenant-scoping changes.
-2. `src/components/admin/UserActivityOverview.tsx` — add a **Status** column: a red "Blocked" badge (with the unlock time) or a neutral "Active" badge, and highlight blocked rows. Tenant filter, sorting and existing columns unchanged.
-3. `src/pages/AdminPanel.tsx` — after `reset-auth-block` succeeds, refetch the org user list behind the Unblock popover (a refresh counter fed into the popover's existing load effect) so the row flips to Active immediately, and keep the existing success toast.
+## Evidence of which reminder paths actually fire, per tenant
 
-Nothing else changes: login flow, the lockout rule, `lock-failed-login`, `reset-auth-block`, `unblock-user`, RLS and tenant scoping all stay as they are.
+| Path | K&N Gas | Dublin Gas |
+|---|---|---|
+| `renewal_reminder_30day` | 19 sends, last 10 Aug | none ever |
+| `renewal_reminder_14day` | 7 sends, last 20 Aug | none ever |
+| `renewal_reminder_7day` | none ever | none ever |
+| `renewal_reminder` (legacy/generic) | 34 sends, last 10 Aug | none ever |
+| `job_reminder_2day` (cron, unguarded) | 13 sends | 1 send |
+| `booking_confirmation` | 217 | 71 |
 
-## Verification
+Two things follow: Dublin Gas has never produced a single renewal-reminder message under any cadence, so its renewal scenarios have either never fired successfully or were only recently switched on — the 401 may be the first time this scenario ever reached the function. And nothing anywhere has ever sent a 7-day renewal, so that cadence's scenario is either absent or has never matched a customer.
 
-- Confirm the blocked flag is returned for both tenants and that each user's tenant mapping stays correct.
-- Confirm a blocked user renders as Blocked in the overview, and unaffected users in the same tenant and in the other tenant render as Active.
-- Click Unblock and confirm the row flips to Active without a page reload, the ban is cleared in the database, and sign-in with the correct password succeeds.
-- Run the existing test suite (auth/lockout helpers included).
+## Reconciliation checklist to work through in Make
 
-One constraint on live verification: triggering a real lockout bans a real account for an hour and fires admin lockout alerts. I will reproduce end to end using a single scratch/test login only, and check the other tenant's users read-only rather than locking anyone real.
+For each tenant (K&N Gas, Dublin Gas), for each of the six externally-called functions:
+
+```text
+get-tomorrows-jobs        header present?  y/n   last successful run
+get-upcoming-jobs         header present?  y/n   last successful run
+get-outstanding-invoices  header present?  y/n   last successful run
+renewal-reminder-30       header present?  y/n   last successful run
+renewal-reminder-14       header present?  y/n   last successful run
+renewal-reminder-7        header present?  y/n   last successful run
+```
+
+For each: add `x-webhook-secret` with your existing secret value, remove any `Authorization: Bearer <anon key>` header (harmless but misleading), then run the scenario once manually and confirm a 200 rather than waiting for its schedule.
+
+## Follow-up I can do here on request
+
+- Re-check `message_log` after your sweep to confirm each cadence produced sends for both tenants.
+- Confirm whether a 7-day renewal cadence should exist for either tenant at all, since it has never sent anything.
+- Watch the live edge HTTP logs while you manually fire a scenario, to read the exact status and rejection reason as it happens.
