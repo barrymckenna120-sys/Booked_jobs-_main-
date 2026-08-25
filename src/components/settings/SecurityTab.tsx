@@ -194,25 +194,77 @@ const SecurityTab = () => {
         </Card>
       )}
 
-      {/* Danger Zone */}
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <CardTitle className="text-base text-destructive flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4" /> Danger Zone
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>These actions are destructive and cannot be undone.</AlertDescription>
-          </Alert>
-          <Button variant="destructive" size="sm" onClick={() => {
-            toast({ title: "Not implemented", description: "Test data deletion is not yet available." });
-          }}>
-            Delete All Test Data
-          </Button>
-          <p className="text-xs text-muted-foreground mt-2">Removes all jobs, customers and quotes marked as test data</p>
-        </CardContent>
-      </Card>
+      {/* Danger Zone — admin only */}
+      {isAdmin && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base text-destructive flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" /> Danger Zone
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>These actions are destructive and cannot be undone.</AlertDescription>
+            </Alert>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!org || !org.is_test}
+              onClick={() => { setConfirmName(""); setResetOpen(true); }}
+            >
+              Delete All Test Data
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              {!orgReady || !org
+                ? "Checking this account…"
+                : org.is_test
+                  ? "Permanently deletes every job, customer, quote, invoice, payment, certificate, message and media file for this test account. Your login, team, settings and price list are kept."
+                  : "Only available on test accounts. This is a live account, so data deletion is disabled."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog open={resetOpen} onOpenChange={(o) => { setResetOpen(o); if (!o) setConfirmName(""); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Delete all test data?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This permanently deletes all jobs, customers, quotes, invoices, payments,
+                  certificates, parts requests, messages, notifications and media belonging to{" "}
+                  <strong>{org?.name}</strong>. It cannot be undone.
+                </p>
+                <p>
+                  Your account, logins, team members, settings, branding and price list are kept.
+                </p>
+                <p>
+                  Type <strong>{org?.name}</strong> to confirm.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={confirmName}
+            onChange={(e) => setConfirmName(e.target.value)}
+            placeholder={org?.name ?? ""}
+            autoComplete="off"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={resetting || confirmName.trim() !== (org?.name ?? "").trim()}
+              onClick={(e) => { e.preventDefault(); handleResetTestData(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {resetting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Delete everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 };
