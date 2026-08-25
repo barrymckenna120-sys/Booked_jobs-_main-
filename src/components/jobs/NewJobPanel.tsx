@@ -275,8 +275,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       return;
     }
 
-    const key = last9Digits(cleanPhone);
-    const matches = key ? (rows ?? []).filter((c) => last9Digits(c.phone) === key) : [];
+    // `samePhone` compares full E.164, so a number sharing its last 9 digits
+    // under a different country code is not flagged as a duplicate.
+    const matches = (rows ?? []).filter((c) => samePhone(c.phone, cleanPhone));
+
 
     // Warn, but never hard-block: the user can confirm with "Create anyway".
     if (matches.length > 0) {
