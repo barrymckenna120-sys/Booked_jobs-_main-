@@ -84,13 +84,15 @@ export function useNotifications(surface?: "engineer") {
 
   const refreshUnreadCount = useCallback(async () => {
     if (!user) return;
-    const { count } = await supabase
+    let q = supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
       .eq("recipient_user_id", user.id)
       .eq("is_read", false);
+    if (roleScope) q = q.eq("role", roleScope);
+    const { count } = await q;
     setUnreadCount(count || 0);
-  }, [user]);
+  }, [user, roleScope]);
 
   const refreshUnreadCountRef = useRef(refreshUnreadCount);
   useEffect(() => {
@@ -100,16 +102,17 @@ export function useNotifications(surface?: "engineer") {
   // Fetch existing notifications
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
+    let q = supabase
       .from("notifications")
       .select("*")
-      .eq("recipient_user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .eq("recipient_user_id", user.id);
+    if (roleScope) q = q.eq("role", roleScope);
+    const { data } = await q.order("created_at", { ascending: false }).limit(50);
     setNotifications((data as AppNotification[]) || []);
     console.log("[useNotifications] initial fetch", { userId: user.id, rows: (data ?? []).length, unread: (data ?? []).filter((n: any) => !n.is_read).length });
     setLoading(false);
-  }, [user]);
+  }, [user, roleScope]);
+
 
   useEffect(() => {
     if (!user) return;
