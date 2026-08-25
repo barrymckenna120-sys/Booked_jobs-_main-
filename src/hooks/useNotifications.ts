@@ -173,8 +173,11 @@ export function useNotifications(surface?: "engineer") {
         },
         (payload) => {
           const n = payload.new as AppNotification;
+          // Engineer App ignores office-scoped alerts (e.g. SumUp payment_failed).
+          if (roleScope && n.role !== roleScope) return;
           console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
           setNotifications((prev) => [n, ...prev]);
+
           if (!n.is_read) setUnreadCount((c) => c + 1);
           // Reconcile against the server (ref, so this handler isn't re-subscribed)
           refreshUnreadCountRef.current?.();
