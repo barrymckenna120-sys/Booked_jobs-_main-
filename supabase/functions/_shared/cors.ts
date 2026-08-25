@@ -27,6 +27,8 @@ export const corsHeaders: Record<string, string> = {
     // Omitting it makes the browser block the POST after a 200 preflight.
     "x-org-impersonation-token",
     "x-make-secret",
+    // Alias accepted by the guarded functions' isMachineCaller() check.
+    "x-webhook-secret",
     "x-supabase-client-platform",
     "x-supabase-client-platform-version",
     "x-supabase-client-runtime",
