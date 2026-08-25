@@ -144,12 +144,13 @@ const Auth = () => {
       setIsBlocked(false);
       try { localStorage.removeItem(prevBlockedKey(email)); } catch { /* ignore */ }
 
+      const requestedNext = safeNextPath(new URLSearchParams(window.location.search).get("next"));
       let redirectPath = "/dashboard";
       const userId = signInData?.user?.id;
       if (userId) {
         redirectPath = await resolveLandingPath(userId);
       }
-      navigate(redirectPath);
+      navigate(requestedNext ?? redirectPath);
 
     } catch (error: any) {
       const isNetworkError =
