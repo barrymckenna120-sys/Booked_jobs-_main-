@@ -67,11 +67,13 @@ export function useNotifications(surface?: "engineer" | "office") {
   // Office bell: everything except engineer-scoped rows (users who are both get
   // an engineer copy of each job event, which otherwise doubles the badge and
   // pushes office alerts such as quote_accepted out of the 50-row window).
+  // `any` internally: re-parsing the query builder generics here trips
+  // TS2589 (excessively deep instantiation) on the supabase-js types.
   const applyRoleScope = useCallback(
-    // deliberately untyped-generic: same filter shape for the count and list queries
-    <T extends { eq: (c: string, v: string) => T; not: (c: string, o: string, v: string) => T }>(q: T): T => {
-      if (surface === "engineer") return q.eq("role", "engineer");
-      if (surface === "office") return q.not("role", "eq", "engineer");
+    <T>(q: T): T => {
+      const b = q as any;
+      if (surface === "engineer") return b.eq("role", "engineer") as T;
+      if (surface === "office") return b.not("role", "eq", "engineer") as T;
       return q;
     },
     [surface]
