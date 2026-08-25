@@ -38,7 +38,8 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
     title: "SumUp (Deposits & Payments)",
     fields: [
       { type: "sumup", key: "merchant_code", label: "SumUp Merchant Code", placeholder: "MBBMEYG7", help: "From this tenant's own SumUp account. Required — there is deliberately no shared fallback, so a blank value means SumUp checkouts fail for this tenant rather than routing into another tenant's account." },
-      { type: "sumup", key: "api_key_secret", label: "SumUp API Key Secret Name", secret: true, placeholder: "SUMUP_API_KEY_KN_GAS", help: "Name of the backend secret holding this tenant's raw SumUp API key (not the key value itself). The secret must be added separately in Backend → Secrets." },
+      { type: "sumup", key: "api_key_secret", label: "SumUp API Key Secret Name", secret: true, placeholder: "SUMUP_API_KEY_ACME_TEST", help: "Name of the backend secret holding this tenant's raw SumUp API key (not the key value itself). The secret must be added separately in Backend → Secrets." },
+      { type: "sumup", key: "environment", label: "SumUp Environment", placeholder: "test or live", help: "Which SumUp account the saved merchant code and secret belong to. Sandbox and live accounts have different merchant codes, so keep a separate secret for each and switch both together." },
     ],
   },
   {
