@@ -1,30 +1,38 @@
-# Plan: Fix `reset-auth-block` organisation guard
+# Verification plan: reset-auth-block tenant isolation
 
 ## Goal
-Replace the invalid/pseudocode organisation check in `supabase/functions/reset-auth-block/index.ts` with complete, valid TypeScript adapted from the working `unblock-user` implementation.
+Produce the five requested raw verification items for `reset-auth-block` without code changes:
 
-## Scope
-- Change only `supabase/functions/reset-auth-block/index.ts`.
-- Do not touch `TeamManagement.tsx` or any other file.
-- Preserve the existing role gate, auth ban update, and engineers update logic.
+1. Full file read-back
+2. Deploy confirmation or explicit no-deploy statement
+3. Live cross-tenant test
+4. Live same-tenant test
+5. Notification-log check
 
-## Implementation
-1. Use the existing `unblock-user` pattern as the reference:
-   - Resolve caller organisation from `profiles.user_id`, falling back to `engineers.auth_user_id`.
-   - Resolve target organisation from `profiles.user_id`, falling back to `engineers.auth_user_id`.
-   - Allow `superadmin` to bypass the organisation comparison.
-   - Return the full 403 JSON response when organisations are missing or different.
-2. Insert the complete guard before the ban-clearing update runs in `reset-auth-block`.
-3. Ensure there are no placeholder variables, pseudocode responses, or comment-only logic.
+## Known inputs
+- Cross-tenant caller: `officeapp@bookedjobs.ie`
+- Cross-tenant target: `btestjuly2025@gmail.com` in Dublin Gas
+- State-changing same-tenant unblock test: approved
+- Same-tenant admin/blocked target pair: not provided yet
 
-## Verification
-Run the available type/build check after editing and report:
-- The exact command used.
-- PASS or FAIL.
-- Relevant output if it fails.
+## Steps
+1. Re-run a raw full-file read-back of `supabase/functions/reset-auth-block/index.ts` and return the complete output.
+2. Retrieve deploy evidence for `reset-auth-block` from the available command/tool history if available. If no exact deploy command/output can be recovered, return exactly that it has not been verified from terminal output rather than claiming deployment.
+3. Use a real authenticated session for `officeapp@bookedjobs.ie` and call `reset-auth-block` targeting `btestjuly2025@gmail.com`.
+   - Return the exact HTTP status code and full JSON body.
+   - Expected result: `403` with `{ "error": "Cross-tenant action not permitted" }`.
+4. For the same-tenant unblock test:
+   - First identify or receive a same-organisation admin and blocked test user pair.
+   - If a suitable blocked test user is not already present, stop and ask for a target rather than unblocking an arbitrary real user.
+   - Call `reset-auth-block` from the same-tenant admin session targeting the same-tenant blocked test user.
+   - Return the exact HTTP status code and full JSON body.
+   - Verify with a direct read query that `auth.users.banned_until` is cleared for that target user and return the exact query/result.
+5. Query `message_log` and `whatsapp_messages` for rows created during the test window around steps 3 and 4.
+   - Return the exact query text and exact result.
+   - Expected result: zero rows attributable to either unblock action.
 
-## Final response format
-Return only:
-- Existing `unblock-user` code snippet used as reference.
-- New `reset-auth-block` adapted TypeScript snippet.
-- Verification command and PASS/FAIL result.
+## Safety constraints
+- No source-code edits.
+- No schema or data writes except the explicitly approved same-tenant unblock action.
+- Do not perform the same-tenant unblock until a safe same-tenant admin/blocked test-user pair is identified.
+- Do not expose secret tokens, session JSON, service-role keys, or connection strings in the raw output.
