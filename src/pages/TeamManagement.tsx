@@ -164,14 +164,14 @@ const TeamManagement = () => {
       // Pull all profiles in this org and surface any that aren't already an engineer
       const { data: profs } = await (supabase as any)
         .from("profiles")
-        .select("id, display_name, created_at")
+        .select("id, user_id, display_name, created_at")
         .eq("organisation_id", orgId);
 
       const existingAuthIds = new Set(
         combined.map((m) => m.auth_user_id).filter(Boolean) as string[]
       );
       const extras: TeamMember[] = ((profs as any[]) || [])
-        .filter((p) => p.id && !existingAuthIds.has(p.id))
+        .filter((p) => p.user_id && !existingAuthIds.has(p.user_id))
         .map((p) => ({
           id: `profile-${p.id}`,
           name: p.display_name || "Owner",
@@ -182,7 +182,7 @@ const TeamManagement = () => {
           blocked_reason: null,
           is_available: true,
           created_at: p.created_at,
-          auth_user_id: p.id,
+          auth_user_id: p.user_id,
           rgi_number: null,
         }));
       combined = [...combined, ...extras];
