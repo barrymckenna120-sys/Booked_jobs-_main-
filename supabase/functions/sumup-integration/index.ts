@@ -17,6 +17,7 @@
  * A client-supplied organisation_id is honoured only for superadmins.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { canManageTenantIntegration } from "../_shared/integrationRoles.ts";
 
 const ALLOWED_ORIGINS = [
   "https://kngasservices.bookedjobs.ie",
@@ -49,8 +50,6 @@ function getCorsHeaders(req: Request) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SECRET_NAME_RE = /^[A-Z][A-Z0-9_]{2,120}$/;
 const MERCHANT_CODE_RE = /^[A-Z0-9]{4,20}$/;
-const ALLOWED_ROLES = ["admin", "superadmin", "office"];
-
 type SumUpEnvironment = "test" | "live";
 const ENVIRONMENTS: SumUpEnvironment[] = ["test", "live"];
 
@@ -93,21 +92,25 @@ Deno.serve(async (req) => {
     const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !caller) return json({ error: "Unauthorized" }, 401);
 
-    const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: caller.id });
-    if (!ALLOWED_ROLES.includes(String(callerRole))) {
-      return json({ error: "Insufficient permissions" }, 403);
-    }
-
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("role, organisation_id")
-      .eq("user_id", caller.id)
-      .maybeSingle();
+    const [{ data: callerRole }, { data: callerProfile }] = await Promise.all([
+      supabaseUser.rpc("get_user_role", { _user_id: caller.id }),
+      supabaseAdmin
+        .from("profiles")
+        .select("role, organisation_id")
+        .eq("user_id", caller.id)
+        .maybeSingle(),
+    ]);
+
+    const profileRole = String((callerProfile as any)?.role ?? "");
+    const rpcRole = String(callerRole ?? "");
+    if (!canManageTenantIntegration(rpcRole, profileRole)) {
+      return json({ error: "Insufficient permissions" }, 403);
+    }
 
     const { data: callerEng } = await supabaseAdmin
       .from("engineers")
@@ -116,7 +119,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const isSuperadmin =
-      callerRole === "superadmin" || (callerProfile as any)?.role === "superadmin";
+      rpcRole === "superadmin" || profileRole === "superadmin";
 
     const callerOrgId: string | null =
       (callerEng as any)?.organisation_id ?? (callerProfile as any)?.organisation_id ?? null;
