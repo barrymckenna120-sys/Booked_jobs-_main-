@@ -112,19 +112,35 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
               </span>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="shrink-0"
-            disabled={downloading === j.id}
-            onClick={() => handleDownload(j)}
-          >
-            {downloading === j.id ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Copy customer receipt"
+              disabled={copying === j.id}
+              onClick={() => handleCopy(j)}
+            >
+              {copying === j.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Download receipt"
+              disabled={downloading === j.id}
+              onClick={() => handleDownload(j)}
+            >
+              {downloading === j.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+
         </div>
       ))}
       <div className="pt-3 border-t border-border flex justify-between items-center">
