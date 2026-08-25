@@ -1,44 +1,86 @@
-# Fix: "Delete All Test Data" in Settings → Data & Security
+# Plan: Anon DELETE behavioural proof for 7 tables
 
-## Root cause
+## Read-only findings already confirmed
 
-The button was never wired to anything. In `src/components/settings/SecurityTab.tsx` the click handler only shows a toast reading "Test data deletion is not yet available." There is no backend function, no deletion logic, and no confirmation dialog. Nothing is broken in RLS or the database — the feature simply does not exist.
+### DELETE policies query
 
-There is also no way to tell test data apart from real data: no `is_test`, `is_demo`, or similar column exists on any table.
+```sql
+SELECT tablename, policyname, permissive, roles, qual
+FROM pg_policies
+WHERE schemaname='public'
+  AND cmd='DELETE'
+  AND tablename IN ('customers','job_media','job_messages','job_payments','message_log','notifications','whatsapp_messages')
+ORDER BY tablename;
+```
 
-## Decisions made (no flag exists, so this is an account reset)
+Raw result:
 
-- **Scope:** wipe all operational data belonging to the caller's own organisation — jobs, customers, quotes, invoices, payments, certificates, media, messages, notifications, parts requests, activity and audit rows.
-- **Kept:** the organisation itself, all user logins, team/engineer records, business settings, branding, price lists, products, categories, boiler brands and integrations. The account stays usable, just empty.
-- **Never touched:** any row belonging to another organisation.
-- **Permission:** organisation admin or superadmin only. Office and engineer roles get 403.
-- **Confirmation:** a dialog listing exactly what will be deleted, requiring the user to type their organisation name before the destructive button enables.
+```text
+customers           customers_delete           PERMISSIVE  {authenticated}  (organisation_id = get_my_org_id())
+job_media           job_media_delete           PERMISSIVE  {authenticated}  (organisation_id = get_my_org_id())
+job_messages        job_messages_delete        PERMISSIVE  {authenticated}  (organisation_id = get_my_org_id())
+message_log         message_log_delete         PERMISSIVE  {authenticated}  (organisation_id = get_my_org_id())
+notifications       notifications_delete       PERMISSIVE  {authenticated}  ((organisation_id = get_my_org_id()) AND ((recipient_user_id = auth.uid()) OR (get_user_role(auth.uid()) = ANY (ARRAY['admin'::text, 'owner'::text, 'office'::text]))))
+whatsapp_messages   whatsapp_messages_delete   PERMISSIVE  {authenticated}  (organisation_id = get_my_org_id())
+```
 
-## What will be built
+Notable: `job_payments` returned no DELETE policy row.
 
-1. **New backend function `reset-org-data`**
-   - Requires a signed-in caller; resolves the caller's role and organisation the same way the existing `reset-auth-block` guard does (engineers row first, then profiles).
-   - Rejects anything that is not admin/superadmin with 403.
-   - Non-superadmins may only target their own organisation; superadmins may pass an explicit organisation id.
-   - Deletes in child-to-parent order so no orphans and no foreign-key failures are left behind, with every statement filtered by organisation.
-   - Handles `ON DELETE RESTRICT` links (notably job payments) by deleting the dependent rows before their parent.
-   - Returns a per-table deleted-row count so the UI can report a real result.
-2. **Confirmation dialog + wiring in `SecurityTab.tsx`**
-   - Replaces the stub handler with a destructive confirmation dialog (organisation-name typed confirmation).
-   - Calls the new function, shows a loading state, then a success toast with the row counts or an error toast with the real backend message.
-   - On success, reloads the app so every cached list shows the clean state.
-3. **Copy update** so the helper text describes an account data reset rather than "rows marked as test data".
+### RLS flags query
 
-## Technical notes
+```sql
+SELECT c.relname AS tablename,
+       c.relrowsecurity AS rls_enabled,
+       c.relforcerowsecurity AS force_rls
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN ('customers','job_media','job_messages','job_payments','message_log','notifications','whatsapp_messages')
+ORDER BY c.relname;
+```
 
-- Deletion order: job payments and checkout attempts → invoice line items → invoices → quote line items → quotes → job media, job messages, job tags, service call tags, certificates, hazard notifications → parts request comments → parts requests → transactions → service calls → customer activity, customer call notes → customers → message log, whatsapp messages, conversations, notifications, audit and tenant activity rows.
-- Every delete is scoped by `organisation_id`, or by a parent id already filtered to that organisation where the child table has no `organisation_id` column.
-- The function uses the service role internally, so the tenant guard in code is the only thing preventing cross-tenant deletion; it is checked before any delete runs.
-- Storage objects for deleted job media are removed by path prefix where the bucket layout allows it; any that cannot be resolved are reported in the response rather than silently skipped.
-- Nothing in booking, payment or quote business logic changes — only deletion.
+Raw result:
 
-## Verification
+```text
+customers           rls_enabled=true  force_rls=false
+job_media           rls_enabled=true  force_rls=false
+job_messages        rls_enabled=true  force_rls=false
+job_payments        rls_enabled=true  force_rls=false
+message_log         rls_enabled=true  force_rls=false
+notifications       rls_enabled=true  force_rls=false
+whatsapp_messages   rls_enabled=true  force_rls=false
+```
 
-- Confirm the dialog will not enable until the organisation name matches.
-- Run the reset on a test organisation, then verify counts for that organisation are zero and another organisation's counts are unchanged.
-- Confirm the account can still sign in and that settings, team and branding survive.
+### Stale comment check
+
+`src/hooks/useUserRole.ts` currently says:
+
+```text
+Returns the current user's role by checking if their auth ID
+is linked to an engineer record. Falls back to "admin".
+```
+
+The implementation falls back to `setRole("engineer")` when no engineer row exists. I am comfortable updating this as a 1-line doc fix only; no functional change is needed.
+
+## Controlled behavioural test to run after approval
+
+Because this step intentionally creates and deletes throwaway database rows, it needs approval before execution.
+
+1. Read minimal required columns and foreign keys for the 7 target tables and dependency tables.
+2. Create throwaway Cavan Gas test rows only, using normal backend/admin database access, labelled so they are easy to identify.
+3. For each target table, call the public REST API directly with:
+   - anon public API key
+   - no bearer token
+   - no authenticated session
+   - DELETE targeting exactly the throwaway row
+4. Paste the raw HTTP status and response body for each of the 7 DELETE attempts.
+5. If any anon DELETE succeeds, stop immediately and report without cleanup or further investigation.
+6. If none succeeds, clean up the throwaway rows using normal backend/admin database access.
+7. Confirm cleanup with read-back queries for each throwaway row.
+
+## Out of scope
+
+- No code changes.
+- No GRANT or REVOKE.
+- No policy changes.
+- No broad data reset.
