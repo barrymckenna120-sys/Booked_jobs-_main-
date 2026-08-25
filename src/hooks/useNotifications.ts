@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { playDoubleBeep, playSoftChime, playEngineerMessageAlert } from "@/utils/audio";
 import { debugLog } from "@/utils/debugLog";
+import { shouldShowOnSurface, surfaceRoleScope } from "@/lib/notificationSurface";
 
 export type NotificationType =
   | "new_job"
@@ -62,7 +63,7 @@ function vibrateHighPriority() {
  * banner, toast or unread count. Omitted (Office App) = no scoping.
  */
 export function useNotifications(surface?: "engineer") {
-  const roleScope = surface === "engineer" ? "engineer" : null;
+  const roleScope = surfaceRoleScope(surface);
 
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -174,7 +175,7 @@ export function useNotifications(surface?: "engineer") {
         (payload) => {
           const n = payload.new as AppNotification;
           // Engineer App ignores office-scoped alerts (e.g. SumUp payment_failed).
-          if (roleScope && n.role !== roleScope) return;
+          if (!shouldShowOnSurface(n.role, surface)) return;
           console.log("[useNotifications] realtime insert", n.notification_type, n.id, "recipient:", n.recipient_user_id);
           setNotifications((prev) => [n, ...prev]);
 
