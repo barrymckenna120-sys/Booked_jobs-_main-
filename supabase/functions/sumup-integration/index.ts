@@ -17,6 +17,7 @@
  * A client-supplied organisation_id is honoured only for superadmins.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { canManageTenantIntegration } from "../_shared/integrationRoles.ts";
 
 const ALLOWED_ORIGINS = [
   "https://kngasservices.bookedjobs.ie",
@@ -49,8 +50,6 @@ function getCorsHeaders(req: Request) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SECRET_NAME_RE = /^[A-Z][A-Z0-9_]{2,120}$/;
 const MERCHANT_CODE_RE = /^[A-Z0-9]{4,20}$/;
-const ALLOWED_ROLES = ["admin", "superadmin", "office", "owner", "owner_manager"];
-
 type SumUpEnvironment = "test" | "live";
 const ENVIRONMENTS: SumUpEnvironment[] = ["test", "live"];
 
@@ -109,7 +108,7 @@ Deno.serve(async (req) => {
 
     const profileRole = String((callerProfile as any)?.role ?? "");
     const rpcRole = String(callerRole ?? "");
-    if (!ALLOWED_ROLES.includes(rpcRole) && !ALLOWED_ROLES.includes(profileRole)) {
+    if (!canManageTenantIntegration(rpcRole, profileRole)) {
       return json({ error: "Insufficient permissions" }, 403);
     }
 
