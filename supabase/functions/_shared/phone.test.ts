@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { last9Digits, normalisePhoneE164, samePhone, toE164Digits } from "./phone.ts";
+import { last9Digits, normalisePhoneE164, phoneMatchKey, samePhone, toE164Digits } from "./phone.ts";
 
 Deno.test("last9Digits normalises every stored/inbound variant to one key", () => {
   const expected = "871234567";
