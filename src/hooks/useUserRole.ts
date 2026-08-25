@@ -9,7 +9,9 @@ export type AppRole = "admin" | "office" | "engineer";
 
 /**
  * Returns the current user's role by checking if their auth ID
- * is linked to an engineer record. Falls back to "admin".
+ * is linked to an engineer record. A signed-in user with no engineer row
+ * falls back to "engineer" (not "admin"); the "admin" initial state below
+ * only applies before resolution completes, while `loading` is true.
  */
 export const useUserRole = (user: User | null) => {
   const [role, setRole] = useState<AppRole>("admin");
