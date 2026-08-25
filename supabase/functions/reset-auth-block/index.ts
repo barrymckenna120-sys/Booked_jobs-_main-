@@ -100,6 +100,52 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Cross-tenant guard: superadmins may act platform-wide, everyone else is
+    // restricted to users inside their own organisation.
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, organisation_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+
+    const isSuperadmin =
+      callerRole === "superadmin" || (callerProfile as any)?.role === "superadmin";
+
+    if (!isSuperadmin) {
+      let callerOrgId: string | null = (callerProfile as any)?.organisation_id ?? null;
+      if (!callerOrgId) {
+        const { data: callerEng } = await supabaseAdmin
+          .from("engineers")
+          .select("organisation_id")
+          .eq("auth_user_id", caller.id)
+          .maybeSingle();
+        callerOrgId = (callerEng as any)?.organisation_id ?? null;
+      }
+
+      const { data: targetProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", targetUser.id)
+        .maybeSingle();
+      let targetOrgId: string | null = (targetProfile as any)?.organisation_id ?? null;
+      if (!targetOrgId) {
+        const { data: targetEng } = await supabaseAdmin
+          .from("engineers")
+          .select("organisation_id")
+          .eq("auth_user_id", targetUser.id)
+          .maybeSingle();
+        targetOrgId = (targetEng as any)?.organisation_id ?? null;
+      }
+
+      if (!callerOrgId || !targetOrgId || callerOrgId !== targetOrgId) {
+        return new Response(
+          JSON.stringify({ error: "Cross-tenant action not permitted" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+
     // Clear ban and confirm email — treat "already clear" as success.
     let clearedAuthBan = true;
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
