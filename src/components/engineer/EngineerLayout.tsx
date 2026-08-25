@@ -38,7 +38,7 @@ const EngineerLayout = () => {
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
-  } = useNotifications();
+  } = useNotifications("engineer");
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS)
