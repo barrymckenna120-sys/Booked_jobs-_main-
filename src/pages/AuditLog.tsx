@@ -32,6 +32,7 @@ const ACTION_CONFIG: Record<string, { label: string; icon: string; group: string
   job_arrived:       { label: "Engineer Arrived",   icon: "📍", group: "Jobs" },
   job_completed:     { label: "Job Completed",      icon: "✅", group: "Jobs" },
   job_cancelled:     { label: "Job Cancelled",      icon: "✕",  group: "Jobs" },
+  job_confirmed:     { label: "Job Confirmed",      icon: "👍", group: "Jobs" },
   job_rescheduled:   { label: "Job Rescheduled",    icon: "📅", group: "Jobs" },
   additional_work:   { label: "Additional Work",    icon: "⚠",  group: "Jobs" },
   quote_created:     { label: "Quote Created",      icon: "🧾", group: "Quotes" },
@@ -69,12 +70,14 @@ const ROLE_STYLES: Record<string, string> = {
   admin: "bg-purple-100 text-purple-700",
   office: "bg-blue-100 text-blue-700",
   engineer: "bg-green-100 text-green-700",
+  customer: "bg-slate-100 text-slate-700",
 };
 
 const ROLE_ICONS: Record<string, string> = {
   admin: "👑",
   office: "🏢",
   engineer: "👷",
+  customer: "💬",
 };
 
 interface AuditEntry {
