@@ -21,13 +21,17 @@ type ReceiptJob = {
 
 interface Props {
   customerId: string;
+  customerName?: string;
   onCountReady?: (count: number) => void;
 }
 
-const PaymentHistory = ({ customerId, onCountReady }: Props) => {
+const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
   const [jobs, setJobs] = useState<ReceiptJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [copying, setCopying] = useState<string | null>(null);
+  const { toast } = useToast();
+
 
   useEffect(() => {
     const fetchReceipts = async () => {
