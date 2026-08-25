@@ -1,19 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, ShieldAlert, Unlock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useOrgId } from "@/hooks/useOrgId";
 
 const SecurityTab = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { isAdmin } = useUserRole(user);
+  const { orgId, ready: orgReady } = useOrgId();
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -22,6 +35,75 @@ const SecurityTab = () => {
   // Clear Auth Block state
   const [blockEmail, setBlockEmail] = useState("");
   const [clearing, setClearing] = useState(false);
+
+  // Test data reset state
+  const [org, setOrg] = useState<{ id: string; name: string; is_test: boolean } | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  useEffect(() => {
+    if (!orgReady || !orgId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("organisations")
+        .select("id, name, is_test")
+        .eq("id", orgId)
+        .maybeSingle();
+      if (!cancelled && data) {
+        setOrg({
+          id: (data as any).id,
+          name: (data as any).name ?? "",
+          is_test: (data as any).is_test === true,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orgId, orgReady]);
+
+  const handleResetTestData = async () => {
+    if (!org) return;
+    setResetting(true);
+    try {
+      const { data, error } = await invokeFunction("reset-org-data", { body: {} });
+      let message: string | null = null;
+      if (error) {
+        const ctx: any = (error as any).context;
+        try {
+          const body = await (ctx?.json?.() ?? ctx?.response?.json?.());
+          message = body?.error ?? null;
+        } catch {
+          message = null;
+        }
+        throw new Error(message || error.message || "Reset failed");
+      }
+      if ((data as any)?.error) throw new Error((data as any).error);
+
+      const total = (data as any)?.total_deleted ?? 0;
+      const unresolved = ((data as any)?.unresolved ?? []) as unknown[];
+      toast({
+        title: "Test data deleted",
+        description:
+          `${total} record${total === 1 ? "" : "s"} removed from ${org.name}.` +
+          (unresolved.length
+            ? ` ${unresolved.length} media file${unresolved.length === 1 ? "" : "s"} could not be removed from storage.`
+            : ""),
+      });
+      setResetOpen(false);
+      setConfirmName("");
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err: any) {
+      toast({
+        title: "Failed to delete test data",
+        description: err?.message ?? "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
 
   const handleChangePassword = async () => {
     if (newPw !== confirmPw) {
