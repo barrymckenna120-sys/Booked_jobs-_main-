@@ -49,13 +49,24 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
     fetchReceipts();
   }, [customerId]);
 
+  // iOS/PWA-safe external open: window.open is blocked in standalone mode.
+  const openExternalUrl = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const handleDownload = async (job: ReceiptJob) => {
     setDownloading(job.id);
-    const openFallback = () => window.open(`/receipt-view/${job.id}`, "_blank");
+    const openFallback = () => openExternalUrl(`/receipt-view/${job.id}`);
     try {
       if (job.receipt_pdf_url) {
         const signed = await resolveReceiptUrl(job.access_token);
-        if (signed) window.open(signed, "_blank");
+        if (signed) openExternalUrl(signed);
         else openFallback();
         setDownloading(null);
         return;
@@ -65,16 +76,25 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
       });
       if (!error && data?.pdf_url) {
         const signed = await resolveReceiptUrl(job.access_token);
-        if (signed) window.open(signed, "_blank");
+        if (signed) openExternalUrl(signed);
         else openFallback();
       } else {
+        toast({
+          title: "Couldn't open receipt",
+          description: "The receipt PDF isn't available yet. Showing the on-screen receipt instead.",
+        });
         openFallback();
       }
     } catch {
+      toast({
+        title: "Couldn't open receipt",
+        description: "Showing the on-screen receipt instead.",
+      });
       openFallback();
     }
     setDownloading(null);
   };
+
 
   const handleCopy = async (job: ReceiptJob) => {
     const text = buildReceiptText({ ...job, customerName });
@@ -117,7 +137,15 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Receipt className="w-4 h-4 text-primary shrink-0" />
-              <span className="font-bold text-sm">{j.receipt_number}</span>
+              <button
+                type="button"
+                onClick={() => handleDownload(j)}
+                disabled={downloading === j.id}
+                aria-label={`Open receipt ${j.receipt_number}`}
+                className="font-bold text-sm text-primary underline underline-offset-2 hover:opacity-80 disabled:opacity-60 min-h-[44px] -my-2 py-2 text-left"
+              >
+                {j.receipt_number}
+              </button>
               <Badge variant="secondary" className="text-xs">
                 {formatMethod(j.payment_method)}
               </Badge>
