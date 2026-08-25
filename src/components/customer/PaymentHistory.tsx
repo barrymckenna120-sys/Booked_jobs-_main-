@@ -49,13 +49,24 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
     fetchReceipts();
   }, [customerId]);
 
+  // iOS/PWA-safe external open: window.open is blocked in standalone mode.
+  const openExternalUrl = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const handleDownload = async (job: ReceiptJob) => {
     setDownloading(job.id);
-    const openFallback = () => window.open(`/receipt-view/${job.id}`, "_blank");
+    const openFallback = () => openExternalUrl(`/receipt-view/${job.id}`);
     try {
       if (job.receipt_pdf_url) {
         const signed = await resolveReceiptUrl(job.access_token);
-        if (signed) window.open(signed, "_blank");
+        if (signed) openExternalUrl(signed);
         else openFallback();
         setDownloading(null);
         return;
@@ -65,16 +76,25 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
       });
       if (!error && data?.pdf_url) {
         const signed = await resolveReceiptUrl(job.access_token);
-        if (signed) window.open(signed, "_blank");
+        if (signed) openExternalUrl(signed);
         else openFallback();
       } else {
+        toast({
+          title: "Couldn't open receipt",
+          description: "The receipt PDF isn't available yet. Showing the on-screen receipt instead.",
+        });
         openFallback();
       }
     } catch {
+      toast({
+        title: "Couldn't open receipt",
+        description: "Showing the on-screen receipt instead.",
+      });
       openFallback();
     }
     setDownloading(null);
   };
+
 
   const handleCopy = async (job: ReceiptJob) => {
     const text = buildReceiptText({ ...job, customerName });
