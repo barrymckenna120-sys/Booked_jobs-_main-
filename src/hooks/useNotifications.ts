@@ -55,7 +55,15 @@ function vibrateHighPriority() {
     }
 }
 
-export function useNotifications() {
+/**
+ * `surface` scopes which notifications this bell shows.
+ * "engineer" (Engineer App) shows only `role = 'engineer'` rows, so office-only
+ * alerts such as SumUp `payment_failed` never surface on an engineer's bell,
+ * banner, toast or unread count. Omitted (Office App) = no scoping.
+ */
+export function useNotifications(surface?: "engineer") {
+  const roleScope = surface === "engineer" ? "engineer" : null;
+
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
