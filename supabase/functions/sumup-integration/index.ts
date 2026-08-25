@@ -51,9 +51,21 @@ const SECRET_NAME_RE = /^[A-Z][A-Z0-9_]{2,120}$/;
 const MERCHANT_CODE_RE = /^[A-Z0-9]{4,20}$/;
 const ALLOWED_ROLES = ["admin", "superadmin", "office"];
 
+type SumUpEnvironment = "test" | "live";
+const ENVIRONMENTS: SumUpEnvironment[] = ["test", "live"];
+
+interface SumUpEnvEntry {
+  merchant_code?: string;
+  api_key_secret?: string;
+}
+
 interface SumUpConfig {
   merchant_code?: string;
   api_key_secret?: string;
+  /** Active environment label for the top-level pair the resolver reads. */
+  environment?: SumUpEnvironment;
+  /** Per-environment archive so test and live pairs stay separate. */
+  environments?: Partial<Record<SumUpEnvironment, SumUpEnvEntry>>;
   [k: string]: unknown;
 }
 
@@ -140,13 +152,37 @@ Deno.serve(async (req) => {
       return data as { id: string; config: SumUpConfig | null } | null;
     };
 
+    /**
+     * Shape returned to the client. Secret NAMES only — never a key value.
+     * `environments` lets the UI keep the tenant's test and live pairs apart
+     * without ever needing to read another tenant's row.
+     */
     const describe = (config: SumUpConfig | null) => {
       const merchantCode = typeof config?.merchant_code === "string" ? config.merchant_code.trim() : "";
       const secretName = typeof config?.api_key_secret === "string" ? config.api_key_secret.trim() : "";
       const secretPresent = secretName ? Boolean((Deno.env.get(secretName) ?? "").trim()) : false;
+      const environment: SumUpEnvironment =
+        config?.environment === "live" ? "live" : "test";
+
+      const environments: Partial<Record<SumUpEnvironment, SumUpEnvEntry>> = {};
+      for (const env of ENVIRONMENTS) {
+        const entry = (config?.environments as Record<string, SumUpEnvEntry> | undefined)?.[env];
+        const code = typeof entry?.merchant_code === "string" ? entry.merchant_code.trim() : "";
+        const secret = typeof entry?.api_key_secret === "string" ? entry.api_key_secret.trim() : "";
+        if (code || secret) environments[env] = { merchant_code: code, api_key_secret: secret };
+      }
+      // Back-fill the active environment from the top-level pair for rows saved
+      // before environments were tracked.
+      if (!environments[environment] && (merchantCode || secretName)) {
+        environments[environment] = { merchant_code: merchantCode, api_key_secret: secretName };
+      }
+
       return {
+        provider: "sumup",
         merchant_code: merchantCode,
         api_key_secret: secretName,
+        environment,
+        environments,
         secret_present: secretPresent,
         configured: Boolean(merchantCode && secretPresent),
       };
@@ -160,6 +196,12 @@ Deno.serve(async (req) => {
     if (action === "save") {
       const merchantCode = String(body.merchant_code ?? "").trim().toUpperCase();
       const secretName = String(body.api_key_secret ?? "").trim();
+      const rawEnv = String(body.environment ?? "test").trim().toLowerCase();
+
+      if (!ENVIRONMENTS.includes(rawEnv as SumUpEnvironment)) {
+        return json({ error: "Environment must be either test or live.", field: "environment" }, 400);
+      }
+      const environment = rawEnv as SumUpEnvironment;
 
       if (!MERCHANT_CODE_RE.test(merchantCode)) {
         return json({
@@ -170,7 +212,7 @@ Deno.serve(async (req) => {
       if (!SECRET_NAME_RE.test(secretName)) {
         return json({
           error:
-            "API Key Secret Name must be an uppercase secret name (letters, digits, underscores), e.g. SUMUP_API_KEY_DUBLIN_GAS. Never paste the key itself.",
+            "API Key Secret Name must be an uppercase secret name (letters, digits, underscores), e.g. SUMUP_API_KEY_ACME_TEST. Never paste the key itself.",
           field: "api_key_secret",
         }, 400);
       }
@@ -182,10 +224,22 @@ Deno.serve(async (req) => {
       }
 
       const row = await loadRow();
+      const existing = (row?.config as SumUpConfig) ?? {};
+      const existingEnvs =
+        (existing.environments as Record<string, SumUpEnvEntry> | undefined) ?? {};
+
       const merged: SumUpConfig = {
-        ...((row?.config as SumUpConfig) ?? {}),
+        ...existing,
+        // Active pair — this is what _shared/sumupCredentials.ts reads.
         merchant_code: merchantCode,
         api_key_secret: secretName,
+        environment,
+        // Keep the other environment's pair intact so switching back is lossless
+        // and a test secret can never be silently promoted to live.
+        environments: {
+          ...existingEnvs,
+          [environment]: { merchant_code: merchantCode, api_key_secret: secretName },
+        },
       };
 
       if (row?.id) {
@@ -269,8 +323,9 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         status: "connected",
-        message: `Connected to SumUp${liveMerchant ? ` (merchant ${liveMerchant})` : ""}.`,
+        message: `Connected to SumUp${liveMerchant ? ` (merchant ${liveMerchant})` : ""} in ${state.environment} mode.`,
         merchant_code: liveMerchant || state.merchant_code,
+        environment: state.environment,
         account_name: profile?.merchant_profile?.company_name ?? null,
         currency: profile?.merchant_profile?.default_currency ?? null,
       });
@@ -286,8 +341,11 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         organisation_id: targetOrgId,
+        provider: "sumup",
         merchant_code: "",
         api_key_secret: "",
+        environment: "test",
+        environments: {},
         secret_present: false,
         configured: false,
       });
