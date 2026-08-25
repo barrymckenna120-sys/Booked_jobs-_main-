@@ -51,9 +51,21 @@ const SECRET_NAME_RE = /^[A-Z][A-Z0-9_]{2,120}$/;
 const MERCHANT_CODE_RE = /^[A-Z0-9]{4,20}$/;
 const ALLOWED_ROLES = ["admin", "superadmin", "office"];
 
+type SumUpEnvironment = "test" | "live";
+const ENVIRONMENTS: SumUpEnvironment[] = ["test", "live"];
+
+interface SumUpEnvEntry {
+  merchant_code?: string;
+  api_key_secret?: string;
+}
+
 interface SumUpConfig {
   merchant_code?: string;
   api_key_secret?: string;
+  /** Active environment label for the top-level pair the resolver reads. */
+  environment?: SumUpEnvironment;
+  /** Per-environment archive so test and live pairs stay separate. */
+  environments?: Partial<Record<SumUpEnvironment, SumUpEnvEntry>>;
   [k: string]: unknown;
 }
 
