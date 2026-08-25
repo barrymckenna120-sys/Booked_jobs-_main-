@@ -1861,6 +1861,7 @@ export type Database = {
           industry: string | null
           is_archived: boolean
           is_blocked: boolean
+          is_test: boolean
           job_reference_prefix: string
           name: string
           owner_name: string | null
@@ -1889,6 +1890,7 @@ export type Database = {
           industry?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          is_test?: boolean
           job_reference_prefix: string
           name: string
           owner_name?: string | null
@@ -1917,6 +1919,7 @@ export type Database = {
           industry?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          is_test?: boolean
           job_reference_prefix?: string
           name?: string
           owner_name?: string | null
@@ -3411,6 +3414,7 @@ export type Database = {
         Args: { _secret: string }
         Returns: undefined
       }
+      count_org_data: { Args: { _org_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -3476,6 +3480,7 @@ export type Database = {
         Args: { _job_id: string }
         Returns: undefined
       }
+      reset_org_data: { Args: { _org_id: string }; Returns: Json }
       respond_to_quote: {
         Args: {
           p_accepted: boolean
