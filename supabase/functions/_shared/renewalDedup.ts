@@ -55,10 +55,10 @@ export function alreadyReminded(
   kind: ReminderKind,
 ): boolean {
   const custCol = CUSTOMER_REMINDER_COLUMN[kind];
-  if (custCol && (customer as Record<string, unknown>)[custCol] === true) return true;
+  if (custCol && (customer as unknown as Record<string, unknown>)[custCol] === true) return true;
 
   const jobCol = JOB_REMINDER_COLUMN[kind];
-  if (jobCol && latestJob && (latestJob as Record<string, unknown>)[jobCol] === true) return true;
+  if (jobCol && latestJob && (latestJob as unknown as Record<string, unknown>)[jobCol] === true) return true;
 
   return false;
 }
