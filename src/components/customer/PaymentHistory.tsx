@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Receipt, Loader2 } from "lucide-react";
+import { Download, Receipt, Loader2, Copy } from "lucide-react";
 import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
+import { buildReceiptText, copyTextToClipboard } from "@/lib/receiptText";
+import { useToast } from "@/hooks/use-toast";
 
 type ReceiptJob = {
   id: string;
