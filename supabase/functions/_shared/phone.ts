@@ -7,9 +7,9 @@
  *  - inbound webhooks (Tally, Telnyx, Make) send anything: 0872…, 00353…,
  *    "+353 87 123 4567", with spaces/dashes/parens.
  *
- * `last9Digits` is the format-agnostic matching key: compare the last 9
- * significant digits within a single organisation. Prefer it over string
- * equality for ANY inbound-number → customer lookup.
+ * `samePhone` is the ONLY safe way to decide that two numbers are the same
+ * line. It compares full E.164 including the country code — see
+ * `phoneMatchKey`. Do NOT compare numbers with `last9Digits`.
  */
 
 /** Normalise an Irish number to E.164 with a leading `+`. Returns "" if unusable. */
@@ -23,9 +23,16 @@ export function normalisePhoneE164(raw: unknown): string {
 }
 
 /**
- * Last-9-digit matching key, tolerant of legacy/formatted inputs.
- * Returns "" when there are fewer than 9 digits, so callers can treat an
- * empty key as "not matchable" rather than accidentally matching each other.
+ * COARSE NARROWING HINT ONLY — never an equality test.
+ *
+ * Returns the last 9 significant digits. This deliberately IGNORES the country
+ * code, so numbers from different countries collide: `+212656802656` and
+ * `+353656802656` both yield "656802656". A real collision of exactly that
+ * shape existed in production data, where it made an inbound WhatsApp CANCEL
+ * from a Moroccan handset indistinguishable from an Irish customer.
+ *
+ * Use it only to cheaply narrow a DB candidate set, then confirm every
+ * candidate with `samePhone`. Returns "" when there are fewer than 9 digits.
  */
 export function last9Digits(raw: unknown): string {
   if (!raw || typeof raw !== "string") return "";
@@ -33,12 +40,36 @@ export function last9Digits(raw: unknown): string {
   return digits.length >= 9 ? digits.slice(-9) : "";
 }
 
-/** True when two numbers refer to the same line, ignoring formatting. */
+/**
+ * Canonical identity key for a phone number: full E.164 digits, country code
+ * included. Returns "" when the input cannot be a phone number, so an
+ * unmatchable value never accidentally matches another.
+ *
+ * A bare 9-digit local fragment with no prefix ("871234567") is assumed Irish
+ * and resolved to "353871234567", matching how legacy rows were stored.
+ */
+export function phoneMatchKey(raw: unknown): string {
+  let key: string;
+  try {
+    key = toE164Digits(raw);
+  } catch {
+    return "";
+  }
+  // Bare Irish local fragment (9 significant digits, no country code).
+  if (key.length === 9) key = "353" + key;
+  return key;
+}
+
+/**
+ * True when two numbers refer to the same line, ignoring formatting but
+ * REQUIRING the country code to agree.
+ */
 export function samePhone(a: unknown, b: unknown): boolean {
-  const ka = last9Digits(a);
-  const kb = last9Digits(b);
+  const ka = phoneMatchKey(a);
+  const kb = phoneMatchKey(b);
   return ka !== "" && ka === kb;
 }
+
 
 /**
  * Digits-only E.164 for outbound messaging APIs (360Messenger wants NO `+`).

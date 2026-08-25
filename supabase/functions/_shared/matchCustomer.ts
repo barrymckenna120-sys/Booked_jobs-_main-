@@ -15,7 +15,7 @@
  * Phone normalisation is NOT duplicated here: it comes from `_shared/phone.ts`.
  */
 
-import { last9Digits, normalisePhoneE164 } from "./phone.ts";
+import { last9Digits, normalisePhoneE164, samePhone } from "./phone.ts";
 
 export interface MatchCustomerResult {
   matched: boolean;
@@ -72,7 +72,9 @@ export async function matchCustomer(
     }
   }
 
-  // 2. Last-9-digit fallback.
+  // 2. Format-agnostic fallback. `last9Digits` only decides whether a lookup is
+  //    worth doing; `samePhone` is the authoritative comparison, so a number
+  //    sharing its last 9 digits under a DIFFERENT country code never matches.
   if (key) {
     const { data } = await supabase
       .from("customers")
@@ -80,8 +82,9 @@ export async function matchCustomer(
       .eq("organisation_id", organisationId);
 
     const rows = ((data ?? []) as CustomerRow[]).filter(
-      (r) => last9Digits(r.phone) === key,
+      (r) => samePhone(r.phone, normalised || phone),
     );
+
     if (rows.length > 0) {
       const winner = rows.slice().sort(byMostRecentlyActive)[0];
       return { matched: true, customerId: winner.id, customer: winner };

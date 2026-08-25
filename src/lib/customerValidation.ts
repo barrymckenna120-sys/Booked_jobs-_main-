@@ -47,10 +47,12 @@ export const validateLandline = (raw: string): string | null => {
 };
 
 /**
- * Last-9-digit matching key, for comparing an inbound/typed number against
- * stored numbers regardless of format ("0894436301", "+353894436301",
- * "089 443 6301" all → "894436301"). Returns "" when there are fewer than 9
- * digits, so an unmatchable value never accidentally matches another.
+ * COARSE NARROWING HINT ONLY — never an equality test.
+ *
+ * Returns the last 9 significant digits, deliberately ignoring the country
+ * code, so numbers from different countries collide ("+212656802656" and
+ * "+353656802656" both → "656802656"). Use it to narrow a candidate set, then
+ * confirm with `samePhone`.
  *
  * Deliberate frontend twin of `last9Digits` in
  * `supabase/functions/_shared/phone.ts` — Edge Function modules cannot be
@@ -61,6 +63,45 @@ export const last9Digits = (raw: string | null | undefined): string => {
   const digits = raw.replace(/\D/g, "");
   return digits.length >= 9 ? digits.slice(-9) : "";
 };
+
+/**
+ * Canonical identity key: full E.164 digits, country code included. Returns ""
+ * when unusable. A bare 9-digit local fragment is assumed Irish.
+ *
+ * Frontend twin of `phoneMatchKey` in `supabase/functions/_shared/phone.ts`.
+ */
+export const phoneMatchKey = (raw: string | null | undefined): string => {
+  const s = String(raw ?? "").trim();
+  const digits = s.replace(/\D/g, "");
+  if (!digits) return "";
+
+  let candidate: string;
+  if (s.startsWith("+")) candidate = digits;
+  else if (digits.startsWith("00")) candidate = digits.slice(2);
+  else if (digits.startsWith("0")) candidate = "353" + digits.slice(1);
+  else candidate = digits;
+
+  if (!/^[1-9]\d{7,14}$/.test(candidate)) return "";
+  // Bare Irish local fragment (9 significant digits, no country code).
+  if (candidate.length === 9) candidate = "353" + candidate;
+  return candidate;
+};
+
+/**
+ * True when two numbers refer to the same line, ignoring formatting but
+ * REQUIRING the country code to agree.
+ *
+ * Frontend twin of `samePhone` in `supabase/functions/_shared/phone.ts`.
+ */
+export const samePhone = (
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean => {
+  const ka = phoneMatchKey(a);
+  const kb = phoneMatchKey(b);
+  return ka !== "" && ka === kb;
+};
+
 
 
 

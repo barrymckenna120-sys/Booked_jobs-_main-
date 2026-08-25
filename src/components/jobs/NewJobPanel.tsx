@@ -25,7 +25,7 @@ import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { classifySendResult, type SendResult } from "@/lib/sendResult";
 import {
   validateRequired, validatePhone, validateEircode, validateLandline,
-  formatEircode, formatPhoneInternational, last9Digits, RED_BORDER, type CustomerFieldErrors,
+  formatEircode, formatPhoneInternational, samePhone, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
@@ -275,8 +275,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       return;
     }
 
-    const key = last9Digits(cleanPhone);
-    const matches = key ? (rows ?? []).filter((c) => last9Digits(c.phone) === key) : [];
+    // `samePhone` compares full E.164, so a number sharing its last 9 digits
+    // under a different country code is not flagged as a duplicate.
+    const matches = (rows ?? []).filter((c) => samePhone(c.phone, cleanPhone));
+
 
     // Warn, but never hard-block: the user can confirm with "Create anyway".
     if (matches.length > 0) {

@@ -168,18 +168,21 @@ Deno.test("resolveInboundSender returns EVERY record sharing the number, newest 
   assertEquals(d.orgs.length, 1);
 });
 
-Deno.test("resolveInboundSender matches regardless of stored format, incl. landline", () => {
+Deno.test("resolveInboundSender matches regardless of formatting, but NOT across country codes", () => {
   const d = resolveInboundSender(
     "00353892109224",
     [
       cust({ id: "a", phone: "089 210 9224" }),
       cust({ id: "b", phone: null, landline_phone: "+353892109224" }),
       cust({ id: "z", phone: "+353871234567" }),
+      // Same last 9 digits, different country — must NOT be pulled in.
+      cust({ id: "morocco", phone: "+212892109224" }),
     ],
     samePhone,
   );
   assertEquals(d.action === "resolved" && d.customers.map((c) => c.id).sort(), ["a", "b"]);
 });
+
 
 Deno.test("resolveInboundSender groups multi-tenant matches, logging to the newest org", () => {
   const d = resolveInboundSender(
@@ -241,4 +244,53 @@ Deno.test("two shared-number records with upcoming jobs escalate rather than act
   assertEquals(chosen.action, "act");
   if (chosen.action !== "act") return;
   assertEquals(resolveReplyTarget(chosen.jobs, TODAY).action, "escalate");
+});
+
+// ------------------------------------------------- cross-country collision
+//
+// End-to-end version of the production hazard: a Moroccan test handset and an
+// Irish customer shared their last 9 digits. Before the fix, a CANCEL from the
+// Moroccan number resolved to the Irish record and — because that record held
+// the only eligible job — `pickActingOrg` returned "act", cancelling a real
+// customer's booking and WhatsApping them the cancellation.
+
+Deno.test("REGRESSION: a +212 sender never reaches the same-last-9 +353 customer", () => {
+  const d = resolveInboundSender(
+    "212656802656",
+    [cust({ id: "sean", phone: "+353656802656" })],
+    samePhone,
+  );
+  assertEquals(d.action, "drop");
+  assertEquals(d.action === "drop" && d.reason, "no_match");
+});
+
+Deno.test("REGRESSION: a +212 CANCEL cannot cancel the Irish customer's only eligible job", () => {
+  const today = "2026-08-25";
+  const irishCustomer = cust({ id: "sean", organisation_id: "org-kn", phone: "+353656802656" });
+  const moroccanTester = cust({ id: "tester", organisation_id: "org-kn", phone: "+212656802656" });
+
+  // Only the Irish customer has an upcoming reminded job.
+  const irishJob = {
+    id: "job-real",
+    status: "Booked",
+    scheduled_date: "2026-08-27",
+    organisation_id: "org-kn",
+    reminder_2day_sent: true,
+  };
+
+  // The sender resolves to the tester alone — the Irish record is not a match,
+  // so its job is never fed into the acting decision.
+  const sender = resolveInboundSender("212656802656", [irishCustomer, moroccanTester], samePhone);
+  assertEquals(sender.action, "resolved");
+  assertEquals(sender.action === "resolved" && sender.customers.map((c) => c.id), ["tester"]);
+
+  // The tester has no jobs, so nothing is acted on.
+  assertEquals(pickActingOrg([], today).action, "drop");
+
+  // Sanity check the guard is not vacuous: the Irish customer's own reply DOES act.
+  const ownReply = resolveInboundSender("+353656802656", [irishCustomer, moroccanTester], samePhone);
+  assertEquals(ownReply.action === "resolved" && ownReply.customers.map((c) => c.id), ["sean"]);
+  const acting = pickActingOrg([irishJob], today);
+  assertEquals(acting.action, "act");
+  assertEquals(acting.action === "act" && acting.jobs[0].id, "job-real");
 });

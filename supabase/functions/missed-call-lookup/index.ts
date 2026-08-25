@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { last9Digits, normalisePhoneE164 } from "../_shared/phone.ts";
+import { last9Digits, normalisePhoneE164, samePhone } from "../_shared/phone.ts";
 import { buildRebookTallyUrl, mintShortLink } from "../_shared/rebookLink.ts";
 import { logMessage } from "../_shared/logMessage.ts";
 
@@ -172,7 +172,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Match the caller against this org's customers via last9Digits.
+    // 3. Match the caller against this org's customers. `samePhone` compares
+    //    full E.164, so a same-last-9 number from another country is not a match.
     const { data: candidates, error: custErr } = await supabase
       .from("customers")
       .select(
@@ -182,7 +183,8 @@ Deno.serve(async (req) => {
       .eq("is_archived", false);
     if (custErr) throw custErr;
 
-    const customer = (candidates ?? []).find((c) => last9Digits(c.phone) === key) ?? null;
+    const customer = (candidates ?? []).find((c) => samePhone(c.phone, phone)) ?? null;
+
 
     // 4. Same-day dedup: by customer_id when matched, otherwise by phone so an
     //    unknown caller ringing repeatedly gets at most one follow-up per day.

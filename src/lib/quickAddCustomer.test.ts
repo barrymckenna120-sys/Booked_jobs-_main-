@@ -8,6 +8,7 @@ import {
   formatEircode,
   formatPhoneInternational,
   last9Digits,
+  samePhone,
 } from "./customerValidation";
 
 
@@ -60,11 +61,10 @@ describe("quick-add customer normalisation", () => {
  * list query, and duplicates warn instead of hard-blocking.
  */
 describe("quick-add duplicate check", () => {
-  // Mirrors the matching in StepCustomer.handleNext.
-  const findMatches = (typed: string, rows: Array<{ id: string; name: string; phone: string | null }>) => {
-    const key = last9Digits(formatPhoneInternational(typed));
-    return key ? rows.filter((r) => last9Digits(r.phone) === key) : [];
-  };
+  // Mirrors the matching in StepCustomer.handleNext: `last9Digits` no longer
+  // decides equality — `samePhone` does, so country codes must agree.
+  const findMatches = (typed: string, rows: Array<{ id: string; name: string; phone: string | null }>) =>
+    rows.filter((r) => samePhone(r.phone, formatPhoneInternational(typed)));
 
   const rows = [
     { id: "a", name: "Aisling Power", phone: "+353892109224" },
@@ -75,10 +75,23 @@ describe("quick-add duplicate check", () => {
   ];
 
   it("matches the same line across every stored format", () => {
+    const forms = ["+353894436301", "0894436301", "089 443 6301", "(089) 443-6301"];
+    for (const a of forms) {
+      for (const b of forms) expect(samePhone(a, b)).toBe(true);
+    }
+  });
+
+  it("REGRESSION: does not flag a same-last-9 number from another country", () => {
+    expect(samePhone("+212656802656", "+353656802656")).toBe(false);
+    const withMoroccan = [...rows, { id: "m", name: "Test Handset", phone: "+212892109224" }];
+    expect(findMatches("0892109224", withMoroccan).map((m) => m.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("keeps last9Digits as a narrowing hint that deliberately collides", () => {
     expect(last9Digits("+353894436301")).toBe("894436301");
-    expect(last9Digits("0894436301")).toBe("894436301");
     expect(last9Digits("089 443 6301")).toBe("894436301");
-    expect(last9Digits("(089) 443-6301")).toBe("894436301");
+    // Same key across countries — which is exactly why it must not gate equality.
+    expect(last9Digits("+212656802656")).toBe(last9Digits("+353656802656"));
   });
 
   it("returns an empty key for unmatchable input so blanks never match each other", () => {
@@ -86,8 +99,11 @@ describe("quick-add duplicate check", () => {
     expect(last9Digits("12345")).toBe("");
     expect(last9Digits(null)).toBe("");
     expect(last9Digits(undefined)).toBe("");
+    expect(samePhone(null, null)).toBe(false);
+    expect(samePhone("", "")).toBe(false);
     expect(findMatches("12345", rows)).toHaveLength(0);
   });
+
 
   it("returns EVERY match instead of erroring on multiple rows", () => {
     const matches = findMatches("0892109224", rows);
