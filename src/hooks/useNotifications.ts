@@ -208,7 +208,7 @@ export function useNotifications(surface?: "engineer") {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, roleScope]);
 
   // Keep ref in sync so the realtime handler always sees the latest preference
   useEffect(() => {
