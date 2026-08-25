@@ -137,7 +137,15 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Receipt className="w-4 h-4 text-primary shrink-0" />
-              <span className="font-bold text-sm">{j.receipt_number}</span>
+              <button
+                type="button"
+                onClick={() => handleDownload(j)}
+                disabled={downloading === j.id}
+                aria-label={`Open receipt ${j.receipt_number}`}
+                className="font-bold text-sm text-primary underline underline-offset-2 hover:opacity-80 disabled:opacity-60 min-h-[44px] -my-2 py-2 text-left"
+              >
+                {j.receipt_number}
+              </button>
               <Badge variant="secondary" className="text-xs">
                 {formatMethod(j.payment_method)}
               </Badge>
