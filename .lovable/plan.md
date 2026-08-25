@@ -21,6 +21,20 @@ Read-only metadata and source review across:
 6. **Payments** — SumUp checkout creation, webhook signature verification, dedup layers, `job_payments` append-only design, server-side amount derivation, per-tenant credential resolution.
 7. **Secrets** — env var usage across functions; verify nothing is logged, echoed, or returned.
 
+### Edge-function classification (done before any probe)
+
+Every function is first assigned one of four classes, and that class defines its expected trust boundary:
+
+| Class | Expected behaviour |
+| --- | --- |
+| Authenticated | Must reject an unauthenticated request with 401/403 |
+| Internal (cron, service-role, machine-called) | Must reject an unauthenticated request with 401/403 |
+| Public / token-protected | May return 200, but must fail safely on a missing or invalid token and must expose no tenant or customer data |
+| Webhook / provider-facing | Must validate signature or shared secret; must not act on unsigned or replayed input |
+
+The classification, its justification, and the expected status are recorded in the edge-function matrix before probing. A 200 is only a finding when the response body or resulting behaviour exceeds that class's boundary.
+
+
 Also run the Supabase database linter and record its output as corroborating evidence.
 
 ## Phase 2 — Read-only live probes
