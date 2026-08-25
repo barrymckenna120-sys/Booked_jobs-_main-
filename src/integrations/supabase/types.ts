@@ -1861,6 +1861,7 @@ export type Database = {
           industry: string | null
           is_archived: boolean
           is_blocked: boolean
+          is_test: boolean
           job_reference_prefix: string
           name: string
           owner_name: string | null
@@ -1889,6 +1890,7 @@ export type Database = {
           industry?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          is_test?: boolean
           job_reference_prefix: string
           name: string
           owner_name?: string | null
@@ -1917,6 +1919,7 @@ export type Database = {
           industry?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          is_test?: boolean
           job_reference_prefix?: string
           name?: string
           owner_name?: string | null
