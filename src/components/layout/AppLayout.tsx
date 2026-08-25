@@ -76,7 +76,7 @@ const AppLayoutInner = () => {
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
-  } = useNotifications();
+  } = useNotifications("office");
   const unreadMessages = useUnreadMessages();
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],

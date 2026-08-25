@@ -12,7 +12,15 @@ describe("notification surface scoping", () => {
     expect(shouldShowOnSurface("engineer", "engineer")).toBe(true);
   });
 
-  it("shows everything on the Office App (no scoping)", () => {
+  it("keeps office alerts on the Office App and drops engineer-scoped copies", () => {
+    expect(shouldShowOnSurface("office", "office")).toBe(true);
+    expect(shouldShowOnSurface("admin", "office")).toBe(true);
+    // quote_accepted rows are written with role 'office'
+    expect(shouldShowOnSurface(null, "office")).toBe(true);
+    expect(shouldShowOnSurface("engineer", "office")).toBe(false);
+  });
+
+  it("shows everything when no surface is given", () => {
     expect(shouldShowOnSurface("office", undefined)).toBe(true);
     expect(shouldShowOnSurface("engineer", undefined)).toBe(true);
     expect(surfaceRoleScope(undefined)).toBeNull();
