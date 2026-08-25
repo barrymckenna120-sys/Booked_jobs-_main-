@@ -323,8 +323,9 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         status: "connected",
-        message: `Connected to SumUp${liveMerchant ? ` (merchant ${liveMerchant})` : ""}.`,
+        message: `Connected to SumUp${liveMerchant ? ` (merchant ${liveMerchant})` : ""} in ${state.environment} mode.`,
         merchant_code: liveMerchant || state.merchant_code,
+        environment: state.environment,
         account_name: profile?.merchant_profile?.company_name ?? null,
         currency: profile?.merchant_profile?.default_currency ?? null,
       });
@@ -340,8 +341,11 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         organisation_id: targetOrgId,
+        provider: "sumup",
         merchant_code: "",
         api_key_secret: "",
+        environment: "test",
+        environments: {},
         secret_present: false,
         configured: false,
       });
