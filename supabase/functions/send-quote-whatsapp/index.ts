@@ -226,10 +226,25 @@ YES ${refNumber}`;
     }
 
     if (result.success) {
-      await fetch(`${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}`, {
+      // Never re-open an already-actioned quote. Resending the WhatsApp used to
+      // PATCH status back to "Sent", which wiped the Accepted state — the public
+      // page then offered Approve again, and respond_to_quote rejected it with
+      // already_actioned (access_token_used_at set), so no office notification
+      // and no payment link were produced on that second tap.
+      await fetch(
+        `${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&access_token_used_at=is.null&status=not.in.(Accepted,accepted,Paid,paid,converted,Converted,Rejected,rejected)`,
+        {
+          method: "PATCH",
+          headers: dbHeaders,
+          body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
+        }
+      );
+      // sent_at is still stamped for accepted quotes (audit trail) without
+      // touching their status.
+      await fetch(`${supabaseUrl}/rest/v1/quotes?id=eq.${quote_id}&access_token_used_at=not.is.null`, {
         method: "PATCH",
         headers: dbHeaders,
-        body: JSON.stringify({ status: "Sent", sent_at: new Date().toISOString() }),
+        body: JSON.stringify({ sent_at: new Date().toISOString() }),
       });
 
       // Log customer activity
