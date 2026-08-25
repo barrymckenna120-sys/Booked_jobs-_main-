@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Receipt, Loader2 } from "lucide-react";
+import { Download, Receipt, Loader2, Copy } from "lucide-react";
 import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
+import { buildReceiptText, copyTextToClipboard } from "@/lib/receiptText";
+import { useToast } from "@/hooks/use-toast";
 
 type ReceiptJob = {
   id: string;
@@ -19,13 +21,17 @@ type ReceiptJob = {
 
 interface Props {
   customerId: string;
+  customerName?: string;
   onCountReady?: (count: number) => void;
 }
 
-const PaymentHistory = ({ customerId, onCountReady }: Props) => {
+const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
   const [jobs, setJobs] = useState<ReceiptJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [copying, setCopying] = useState<string | null>(null);
+  const { toast } = useToast();
+
 
   useEffect(() => {
     const fetchReceipts = async () => {
@@ -70,6 +76,24 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
     setDownloading(null);
   };
 
+  const handleCopy = async (job: ReceiptJob) => {
+    const text = buildReceiptText({ ...job, customerName });
+    if (!text) {
+      toast({ title: "No receipt to copy", description: "This payment has no receipt yet.", variant: "destructive" });
+      return;
+    }
+    setCopying(job.id);
+    const ok = await copyTextToClipboard(text);
+    setCopying(null);
+    toast(
+      ok
+        ? { title: "Receipt copied", description: `${job.receipt_number} copied to clipboard.` }
+        : { title: "Couldn't copy", description: "Clipboard access was blocked. Try again or download the receipt.", variant: "destructive" },
+    );
+  };
+
+
+
   const formatDate = (val: string | null) =>
     val ? new Date(val).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
@@ -106,19 +130,35 @@ const PaymentHistory = ({ customerId, onCountReady }: Props) => {
               </span>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="shrink-0"
-            disabled={downloading === j.id}
-            onClick={() => handleDownload(j)}
-          >
-            {downloading === j.id ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Copy customer receipt"
+              disabled={copying === j.id}
+              onClick={() => handleCopy(j)}
+            >
+              {copying === j.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Download receipt"
+              disabled={downloading === j.id}
+              onClick={() => handleDownload(j)}
+            >
+              {downloading === j.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+
         </div>
       ))}
       <div className="pt-3 border-t border-border flex justify-between items-center">

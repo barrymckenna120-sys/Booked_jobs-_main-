@@ -870,7 +870,7 @@ const CustomerDetail = () => {
             />
 
             <CollapsibleSection title="Payments & Activity" count={sectionCounts.payments}>
-              <PaymentHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
+              <PaymentHistory customerId={id} customerName={form.name || ""} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
             </CollapsibleSection>
 
             <CollapsibleSection title="Quotes" count={sectionCounts.quotes}>
