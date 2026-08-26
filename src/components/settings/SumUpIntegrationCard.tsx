@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invokeFunction } from "@/lib/invokeFunction";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,22 @@ const SumUpIntegrationCard = () => {
   const [disconnecting, setDisconnecting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [errors, setErrors] = useState<SumUpFormErrors>({});
+  // Environment flips are superadmin-only (enforced server-side too); everyone
+  // else sees the current mode as a read-only badge.
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setIsSuperadmin((profile as { role?: string } | null)?.role === "superadmin");
+    })();
+  }, []);
 
   const applyState = useCallback((s: SumUpState) => {
     const env = normaliseEnvironment(s.environment);
