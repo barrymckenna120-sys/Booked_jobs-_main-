@@ -86,6 +86,10 @@ const Renewals = () => {
   const initialTab: TabKey = filterParam === "due-soon" ? "due_soon" : filterParam === "overdue" ? "overdue" : "overdue";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+  // In-flight sends, keyed by customer id. Prevents a double-tap from firing
+  // two real WhatsApp messages (see BJ duplicate-reminder fix).
+  const [sendingIds, setSendingIds] = useState<Record<string, boolean>>({});
+
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [bookCustomer, setBookCustomer] = useState<Customer | null>(null);
   const [sendAllOpen, setSendAllOpen] = useState(false);
@@ -275,6 +279,11 @@ const Renewals = () => {
   };
 
   const handleSendReminder = async (customer: Customer) => {
+    // Re-entrancy guard: a second tap while the first send is in flight must
+    // not reach the edge function at all.
+    if (sendingIds[customer.id]) return;
+    setSendingIds((p) => ({ ...p, [customer.id]: true }));
+
     const firstName = customer.name.split(" ")[0];
     const renewalDate = customer.next_service_due
       ? new Date(customer.next_service_due).toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })
@@ -294,12 +303,33 @@ const Renewals = () => {
       if (data && !data.success) throw new Error(data.error || "Send failed");
 
       markAsContacted(customer.id, customer.name);
+
+      // The server suppressed a duplicate — tell the truth rather than
+      // claiming a message went out.
+      if (data?.skipped) {
+        toast({
+          title: `Already reminded ${customer.name}`,
+          description: data.reason === "customer_opted_out"
+            ? "This customer has opted out of reminders."
+            : "A reminder was already sent recently — no duplicate message was sent.",
+          duration: 4000,
+        });
+        return;
+      }
+
       toast({ title: `✅ Reminder sent to ${customer.name}`, duration: 2500 });
     } catch (err: any) {
       console.error("Send renewal reminder failed:", err);
       toast({ title: `❌ Failed to send to ${customer.name}`, description: err.message, variant: "destructive", duration: 4000 });
+    } finally {
+      setSendingIds((p) => {
+        const next = { ...p };
+        delete next[customer.id];
+        return next;
+      });
     }
   };
+
 
   const confirmArchive = (customerId: string, customerName: string, archive: boolean) => {
     setArchiveConfirm({ id: customerId, name: customerName, archive });
@@ -573,10 +603,12 @@ const Renewals = () => {
                       size="sm"
                       className="w-full text-xs gap-1 h-11 sm:h-9 font-bold"
                       variant="default"
+                      disabled={!!sendingIds[c.id]}
                       onClick={() => handleSendReminder(c)}
                     >
-                      <Send className="w-3.5 h-3.5" /> Remind
+                      <Send className="w-3.5 h-3.5" /> {sendingIds[c.id] ? "Sending…" : "Remind"}
                     </Button>
+
                     {c.last_reminder_sent && (
                       <span className="text-[10px] text-muted-foreground text-center">
                         Sent {new Date(c.last_reminder_sent).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}, {new Date(c.last_reminder_sent).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false })}

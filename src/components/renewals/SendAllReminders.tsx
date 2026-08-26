@@ -57,6 +57,9 @@ export function SendAllRemindersSheet({
   const [sentIds, setSentIds] = useState<string[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
+  // Blocks a double-tap on "Send" from firing two real WhatsApp messages.
+  const [sending, setSending] = useState(false);
+
 
   const [testMode, setTestMode] = useState(false);
 
@@ -69,7 +72,8 @@ export function SendAllRemindersSheet({
     customers.length > 0 ? (sentIds.length / customers.length) * 100 : 0;
 
   const sendCurrent = async () => {
-    if (!current) return;
+    if (!current || sending) return;
+    setSending(true);
     const firstName = current.name.split(" ")[0];
     const renewalDate = new Date(current.nextDue).toLocaleDateString("en-IE", {
       day: "numeric",
@@ -101,8 +105,11 @@ export function SendAllRemindersSheet({
       // Still mark as sent in UI to not block the queue, but log error
       setSentIds((p) => [...p, current.id]);
       if (!started) setStarted(true);
+    } finally {
+      setSending(false);
     }
   };
+
 
   const skipCurrent = () => {
     if (!current) return;
@@ -114,9 +121,11 @@ export function SendAllRemindersSheet({
       setSentIds([]);
       setSkipped([]);
       setStarted(false);
+      setSending(false);
     }
     onOpenChange(v);
   };
+
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
@@ -214,14 +223,18 @@ export function SendAllRemindersSheet({
 
               <Button
                 onClick={sendCurrent}
+                disabled={sending}
                 className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold py-6 text-lg"
                 size="lg"
               >
                 <Send className="w-5 h-5 mr-2" />
-                {sentIds.length === 0
+                {sending
+                  ? "Sending…"
+                  : sentIds.length === 0
                   ? `Send to ${current?.name.split(" ")[0]}`
                   : `Next → ${current?.name.split(" ")[0]}`}
               </Button>
+
 
               {current && (
                 <Button
