@@ -13,6 +13,7 @@ import { invokeFunction } from "@/lib/invokeFunction";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
+import { gateJobPayment } from "@/lib/paymentPreWriteGate";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -291,7 +292,15 @@ export const useEngineerJobs = () => {
     }
     // Shared timestamp: the job row, the ledger row and completed_at must agree.
     const paidAtIso = new Date().toISOString();
-    const jobForPayment = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
+    let jobForPayment: any = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
+    if (paymentMethod) {
+      // Authoritative pre-write gate (BJ-next-D): the in-memory job can be stale
+      // if another surface just recorded a payment. Re-read, refuse a settled
+      // job, and do the cumulative math off the fresh row.
+      const gate = await gateJobPayment(supabase, jobId);
+      jobForPayment = { ...(jobForPayment || {}), id: jobId, ...gate.row };
+    }
+
     // Pure decision layer: what this payment writes, whether it completes the
     // job, the ledger row, and whether a receipt goes out. See
     // src/lib/engineerPaymentPlan.ts.

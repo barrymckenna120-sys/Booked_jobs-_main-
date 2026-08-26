@@ -19,6 +19,7 @@ import PaymentSheet from "./PaymentSheet";
 import JobServiceHistory from "./JobServiceHistory";
 import JobNotesSection from "./JobNotesSection";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import { isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
 import EngineerJobMessages from "@/components/messages/EngineerJobMessages";
 import StatusBadge from "./job-card/StatusBadge";
 import InfoPills, { resolveDepositPill } from "./job-card/InfoPills";
@@ -69,6 +70,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [pendingCompletionData, setPendingCompletionData] = useState<{ data: any; jobTagDate: string | null } | null>(null);
   /** Inline failure message for the payment sheets — keeps the sheet open. */
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  /** Pre-write gate found the job already settled — show the fully-paid state. */
+  const [paymentForcedFullyPaid, setPaymentForcedFullyPaid] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
 
@@ -430,9 +433,11 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); setPaymentError(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); setPaymentError(null); setPaymentForcedFullyPaid(false); }}
           onCompleteOnly={() => {
             setShowCompletionPayment(false);
+            setPaymentForcedFullyPaid(false);
             // Already fully paid — write completion fields only, never payment fields.
             onUpdate(job.id, {
               status: "Completed",
@@ -451,6 +456,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
                 confirmedRevenue: confirmedAmount,
               }, { jobTagDate: pendingCompletionData.jobTagDate });
             } catch (e: any) {
+              // Authoritative gate: job was settled elsewhere while this sheet was open.
+              if (isJobAlreadyPaidError(e)) { setPaymentForcedFullyPaid(true); return; }
               setPaymentError(e?.message || "Couldn't record the payment — please try again");
               return; // sheet stays open, entered amount + method preserved
             }
@@ -463,7 +470,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowStandalonePayment(false); setPaymentError(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowStandalonePayment(false); setPaymentError(null); setPaymentForcedFullyPaid(false); }}
           errorMessage={paymentError}
           onDone={async (method: string, confirmedAmount: number) => {
             setPaymentError(null);
@@ -473,6 +481,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
                 confirmedRevenue: confirmedAmount,
               });
             } catch (e: any) {
+              if (isJobAlreadyPaidError(e)) { setPaymentForcedFullyPaid(true); return; }
               setPaymentError(e?.message || "Couldn't record the payment — please try again");
               return; // sheet stays open, entered amount + method preserved
             }
@@ -480,6 +489,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           }}
         />
       )}
+
       <MessageOfficeModal
         open={showMessageOffice}
         onOpenChange={setShowMessageOffice}

@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { LucideIcon } from "lucide-react";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
+import { addToQueue } from "@/hooks/useRetryQueue";
+import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -88,6 +90,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
   const [showPayment, setShowPayment] = useState(false);
+  // Set when the pre-write gate finds the job already settled (stale local copy).
+  const [paymentForcedFullyPaid, setPaymentForcedFullyPaid] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
   const [completeJobTagDate, setCompleteJobTagDate] = useState<string | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -207,12 +211,23 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // Always include confirmedRevenue so updateJob writes it to service_calls.revenue
     const patchWithRevenue = { ...completeData, paymentMethod: method, confirmedRevenue: confirmedAmount };
 
+    // Stale-state guard: if the authoritative gate says the job is already
+    // settled, reopen the sheet in its fully-paid state instead of writing.
+    const handleGateFailure = (err: unknown) => {
+      if (!isJobAlreadyPaidError(err)) return false;
+      setPaymentForcedFullyPaid(true);
+      setShowPayment(true);
+      toast({ title: "Already paid", description: "This job was settled elsewhere — nothing left to collect." });
+      return true;
+    };
+
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
         await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Invoice creation + navigation is now handled inside updateJob
       } catch (err) {
+        if (handleGateFailure(err)) { setInvoiceLoading(false); return; }
         console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Failed to complete job", variant: "destructive" });
       }
@@ -222,12 +237,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Navigation to receipt screen is handled by updateJob on completion
       } catch (err) {
+        if (handleGateFailure(err)) return;
         console.error("handlePaymentDone cash/card flow error:", err);
         toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
       }
     }
     setCompleteData(null);
     setCompleteJobTagDate(null);
+
   };
 
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
@@ -278,11 +295,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     let ledgerRow: EngineerLedgerRow | null = null;
     if (paymentMethod) {
       dbPatch.payment_collected_by = user?.id || null;
+      // Authoritative pre-write gate (BJ-next-D): refuse a payment on a job that
+      // another surface already settled, and use the fresh row for the math.
+      const gate = await gateJobPayment(supabase, job.id);
       const plan = buildEngineerPaymentPlan({
         patch,
         paymentMethod,
         confirmedRevenue,
-        job,
+        job: { ...job, ...gate.row },
+
         jobId: job.id,
         paidAt,
         recordedBy: profileIdRef.current,
@@ -1193,7 +1214,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowPayment(false); setCompleteData(null); setCompleteJobTagDate(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowPayment(false); setPaymentForcedFullyPaid(false); setCompleteData(null); setCompleteJobTagDate(null); }}
           onCompleteOnly={async () => {
             if (!completeData) return;
             setShowPayment(false);
