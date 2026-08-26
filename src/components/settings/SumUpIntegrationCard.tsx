@@ -265,16 +265,30 @@ const SumUpIntegrationCard = () => {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Environment</Label>
-                <Select value={environment} onValueChange={handleEnvironmentChange}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="test">Test (sandbox)</SelectItem>
-                    <SelectItem value="live">Live</SelectItem>
-                  </SelectContent>
-                </Select>
+                {isSuperadmin ? (
+                  <Select value={environment} onValueChange={handleEnvironmentChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="test">Test (sandbox)</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex h-10 items-center px-3 rounded-md border border-input bg-muted/40">
+                    <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
+                      {environment === "live" ? "Live" : "Test (sandbox)"}
+                    </Badge>
+                  </div>
+                )}
                 {errors.environment
                   ? <p className="text-xs text-destructive">{errors.environment}</p>
-                  : <p className="text-xs text-muted-foreground">Test and Live keep separate merchant codes and secrets.</p>}
+                  : (
+                    <p className="text-xs text-muted-foreground">
+                      {isSuperadmin
+                        ? "Test and Live keep separate merchant codes and secrets."
+                        : "Only a Booked Jobs administrator can switch environments."}
+                    </p>
+                  )}
               </div>
             </div>
 
