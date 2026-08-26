@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { paidJobsInPeriod, collectedAmount, revenueDate } from "@/lib/financeMetrics";
+import { outstandingBalanceAmount } from "@/lib/outstandingBalances";
 
 
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
@@ -53,7 +54,10 @@ type LedgerJob = {
   assigned_engineer: string | null;
   payment_method: string | null;
   payment_status: string | null;
+  /** Money received in this period — the cash-basis sale figure. */
   revenue: number | null;
+  /** Full job/invoice value, independent of what has been collected. */
+  job_total: number | null;
   balance_due: number | null;
   deposit_paid: boolean;
   deposit_amount: number | null;
@@ -76,6 +80,10 @@ const badgeConfig: Record<PaymentBadge, { label: string; bg: string; color: stri
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
+
+/** Still owed on a ledger row: 0 once the job is settled in full. */
+const rowOutstanding = (row: LedgerJob): number =>
+  row.payment_status === "paid" ? 0 : outstandingBalanceAmount(row);
 
 const SalesLedger = () => {
   const { user } = useAuth();
@@ -147,6 +155,7 @@ const SalesLedger = () => {
               payment_method: r.payment_method,
               payment_status: r.payment_status,
               revenue: collectedAmount(r),
+              job_total: r.revenue,
               balance_due: r.balance_due,
               deposit_paid: r.deposit_paid,
               deposit_amount: r.deposit_amount,
@@ -179,6 +188,8 @@ const SalesLedger = () => {
     let totalInc = 0;
     let totalNet = 0;
     let totalVat = 0;
+    let totalJob = 0;
+    let totalOutstanding = 0;
     for (const row of filtered) {
       const rev = row.revenue || 0;
       const net = Math.round((rev / 1.135) * 100) / 100;
@@ -186,16 +197,20 @@ const SalesLedger = () => {
       totalInc += rev;
       totalNet += net;
       totalVat += vat;
+      totalJob += row.job_total ?? rev;
+      totalOutstanding += rowOutstanding(row);
     }
     return {
       inc: Math.round(totalInc * 100) / 100,
       net: Math.round(totalNet * 100) / 100,
       vat: Math.round(totalVat * 100) / 100,
+      job: Math.round(totalJob * 100) / 100,
+      outstanding: Math.round(totalOutstanding * 100) / 100,
     };
   }, [filtered]);
 
   const buildCsvContent = (rows: LedgerJob[]) => {
-    const headers = ["Receipt No", "Invoice No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Status", "Total inc VAT", "Net", "VAT"];
+    const headers = ["Receipt No", "Invoice No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Status", "Job Total", "Received inc VAT", "Net", "VAT", "Outstanding"];
     let totalInc = 0, totalNet = 0, totalVat = 0;
     const csvRows = rows.map((r) => {
       const rev = r.revenue || 0;
@@ -209,10 +224,14 @@ const SalesLedger = () => {
         revenueDate(r as any) ? format(revenueDate(r as any)!, "dd/MM/yy") : "",
         r.customer_name, r.job_type, r.assigned_engineer || "",
         r.payment_method || "", badgeConfig[badge].label,
+        (r.job_total ?? rev).toFixed(2),
         rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
+        rowOutstanding(r).toFixed(2),
       ];
     });
-    csvRows.push(["", "", "", "", "", "", "", "TOTALS", totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2)]);
+    const totalOutstanding = rows.reduce((s, r) => s + rowOutstanding(r), 0);
+    const totalJob = rows.reduce((s, r) => s + (r.job_total ?? r.revenue ?? 0), 0);
+    csvRows.push(["", "", "", "", "", "", "", "TOTALS", totalJob.toFixed(2), totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2), totalOutstanding.toFixed(2)]);
     return [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
   };
 
@@ -258,7 +277,7 @@ const SalesLedger = () => {
       completed_at: r.completed_at,
       job_type: r.job_type, assigned_engineer: r.assigned_engineer,
       payment_method: r.payment_method, payment_status: r.payment_status,
-      revenue: collectedAmount(r), balance_due: r.balance_due,
+      revenue: collectedAmount(r), job_total: r.revenue, balance_due: r.balance_due,
       deposit_paid: r.deposit_paid, deposit_amount: r.deposit_amount,
       customer_name: r.customers?.name || "Unknown",
       invoice_number: r.invoice_number,
@@ -432,9 +451,11 @@ const SalesLedger = () => {
                     <TableHead className="font-extrabold">Job Type</TableHead>
                     <TableHead className="font-extrabold">Engineer</TableHead>
                     <TableHead className="font-extrabold">Payment</TableHead>
-                    <TableHead className="font-extrabold text-right">Total inc VAT</TableHead>
+                    <TableHead className="font-extrabold text-right">Job Total</TableHead>
+                    <TableHead className="font-extrabold text-right">Received inc VAT</TableHead>
                     <TableHead className="font-extrabold text-right">Net</TableHead>
                     <TableHead className="font-extrabold text-right">VAT (13.5%)</TableHead>
+                    <TableHead className="font-extrabold text-right">Outstanding</TableHead>
                     <TableHead className="font-extrabold text-center">Status</TableHead>
                     <TableHead className="font-extrabold text-center w-[80px]">Receipt</TableHead>
                   </TableRow>
@@ -461,9 +482,18 @@ const SalesLedger = () => {
                         <TableCell>{row.job_type}</TableCell>
                         <TableCell>{row.assigned_engineer || "—"}</TableCell>
                         <TableCell className="capitalize">{row.payment_method || "—"}</TableCell>
+                        <TableCell className="text-right font-semibold">{eur(row.job_total ?? rev)}</TableCell>
                         <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
                         <TableCell className="text-right">{eur(net)}</TableCell>
                         <TableCell className="text-right">{eur(vat)}</TableCell>
+                        <TableCell
+                          className="text-right font-bold"
+                          style={{ color: rowOutstanding(row) > 0 ? "#D97706" : undefined }}
+                        >
+                          <span className={rowOutstanding(row) > 0 ? undefined : "text-muted-foreground"}>
+                            {eur(rowOutstanding(row))}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center">
                           <span
                             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold"
@@ -493,9 +523,11 @@ const SalesLedger = () => {
                 <TableFooter>
                   <TableRow className="bg-muted/50 font-extrabold">
                     <TableCell colSpan={7} className="text-right">TOTALS</TableCell>
+                    <TableCell className="text-right">{eur(totals.job)}</TableCell>
                     <TableCell className="text-right">{eur(totals.inc)}</TableCell>
                     <TableCell className="text-right">{eur(totals.net)}</TableCell>
                     <TableCell className="text-right">{eur(totals.vat)}</TableCell>
+                    <TableCell className="text-right">{eur(totals.outstanding)}</TableCell>
                     <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>
