@@ -432,9 +432,11 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); setPaymentError(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowCompletionPayment(false); setPendingCompletionData(null); setPaymentError(null); setPaymentForcedFullyPaid(false); }}
           onCompleteOnly={() => {
             setShowCompletionPayment(false);
+            setPaymentForcedFullyPaid(false);
             // Already fully paid — write completion fields only, never payment fields.
             onUpdate(job.id, {
               status: "Completed",
@@ -453,6 +455,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
                 confirmedRevenue: confirmedAmount,
               }, { jobTagDate: pendingCompletionData.jobTagDate });
             } catch (e: any) {
+              // Authoritative gate: job was settled elsewhere while this sheet was open.
+              if (isJobAlreadyPaidError(e)) { setPaymentForcedFullyPaid(true); return; }
               setPaymentError(e?.message || "Couldn't record the payment — please try again");
               return; // sheet stays open, entered amount + method preserved
             }
@@ -465,7 +469,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowStandalonePayment(false); setPaymentError(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowStandalonePayment(false); setPaymentError(null); setPaymentForcedFullyPaid(false); }}
           errorMessage={paymentError}
           onDone={async (method: string, confirmedAmount: number) => {
             setPaymentError(null);
@@ -475,6 +480,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
                 confirmedRevenue: confirmedAmount,
               });
             } catch (e: any) {
+              if (isJobAlreadyPaidError(e)) { setPaymentForcedFullyPaid(true); return; }
               setPaymentError(e?.message || "Couldn't record the payment — please try again");
               return; // sheet stays open, entered amount + method preserved
             }
@@ -482,6 +488,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           }}
         />
       )}
+
       <MessageOfficeModal
         open={showMessageOffice}
         onOpenChange={setShowMessageOffice}
