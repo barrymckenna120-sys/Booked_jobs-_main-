@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
   const key = last9Digits(from);
   const { data: candidateCustomers } = await supabase
     .from("customers")
-    .select("id, organisation_id, name, phone, landline_phone, created_at")
+    .select("id, user_id, organisation_id, name, phone, landline_phone, created_at")
     .or(`phone.ilike.%${key},landline_phone.ilike.%${key}`)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -120,17 +120,43 @@ Deno.serve(async (req: Request) => {
   }
 
 
-  await supabase.from("whatsapp_messages").insert({
-    organisation_id: inboundOrgId,
-    customer_id: customer?.id ?? null,
-    message_body: messageText,
-    message_type: "Inbound Reply",
-    sent_by: "customer",
-    status: "Received",
-    customer_reply: messageText,
-    reply_received_at: createdAt,
-    sent_at: createdAt,
-  });
+  // whatsapp_messages.user_id is NOT NULL. Omitting it made every inbound
+  // insert fail silently (supabase-js returns the error, it was never checked),
+  // so replies never appeared in WhatsApp History for ANY tenant. Resolve an
+  // owning user from the customer record, falling back to the org owner.
+  let inboundUserId: string | null = (customer as any)?.user_id ?? null;
+  if (!inboundUserId) {
+    const { data: org } = await supabase
+      .from("organisations")
+      .select("owner_user_id")
+      .eq("id", inboundOrgId)
+      .maybeSingle();
+    inboundUserId = (org as any)?.owner_user_id ?? null;
+  }
+
+  if (inboundUserId) {
+    const { error: waInsertErr } = await supabase.from("whatsapp_messages").insert({
+      user_id: inboundUserId,
+      organisation_id: inboundOrgId,
+      customer_id: customer?.id ?? null,
+      message_body: messageText,
+      message_type: "Inbound Reply",
+      sent_by: "customer",
+      status: "Received",
+      direction: "inbound",
+      phone_number: from || null,
+      customer_reply: messageText,
+      reply_received_at: createdAt,
+      sent_at: createdAt,
+    });
+    if (waInsertErr) {
+      console.error("Failed to insert whatsapp_messages inbound row:", waInsertErr.message);
+    }
+  } else {
+    console.error(
+      `Cannot record inbound whatsapp_messages row for org ${inboundOrgId}: no customer.user_id and no organisations.owner_user_id`,
+    );
+  }
 
   // Mirror inbound to message_log so it appears in Chat Inbox History
   try {
