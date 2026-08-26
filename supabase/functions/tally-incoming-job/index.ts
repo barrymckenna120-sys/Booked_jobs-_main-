@@ -232,15 +232,44 @@ Deno.serve(async (req) => {
       MAX_SHORT_LEN,
     );
 
+    const receivedAt = new Date().toISOString();
+
+    // Audit trail: every submission records its id, arrival time, and outcome.
+    const logSubmission = async (
+      outcome: "created" | "duplicate" | "failed",
+      extra: Record<string, unknown> = {},
+    ) => {
+      try {
+        await supabase.from("debug_logs").insert({
+          organisation_id: orgData.id,
+          event: "tally_submission",
+          payload: {
+            tally_submission_id: submissionId,
+            received_at: receivedAt,
+            outcome,
+            created_job: outcome === "created",
+            rejected_as_duplicate: outcome === "duplicate",
+            ...extra,
+          },
+        });
+      } catch (logErr) {
+        console.error("[tally-incoming-job] audit log failed", logErr);
+      }
+    };
+
     if (submissionId) {
       const { data: existingJob } = await supabase
         .from("service_calls")
-        .select("id, customer_id")
+        .select("id, customer_id, job_reference")
         .eq("tally_submission_id", submissionId)
         .eq("organisation_id", orgData.id)
         .maybeSingle();
       if (existingJob) {
         console.log("[tally-incoming-job] duplicate submission:", submissionId);
+        await logSubmission("duplicate", {
+          job_id: existingJob.id,
+          job_reference: (existingJob as { job_reference?: string }).job_reference ?? null,
+        });
         return new Response(
           JSON.stringify({
             success: true,
@@ -255,6 +284,7 @@ Deno.serve(async (req) => {
         );
       }
     }
+
 
     // Upsert customer (match by phone)
     let customerId: string;
