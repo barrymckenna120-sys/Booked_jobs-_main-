@@ -16,6 +16,7 @@ import {
 } from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationMessage.ts";
+import { buildPaymentAlert } from "../_shared/paymentAlertMessage.ts";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { normalisePhone } from "../_shared/whatsapp.ts";
