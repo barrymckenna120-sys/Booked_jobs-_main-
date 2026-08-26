@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOutstandingBalanceJob, outstandingBalanceAmount } from "./outstandingBalances";
+import { amountPaidOnJob, isOutstandingBalanceJob, outstandingBalanceAmount } from "./outstandingBalances";
 
 describe("isOutstandingBalanceJob", () => {
   it("includes a card deposit on a job that has never been invoiced", () => {
@@ -161,5 +161,56 @@ describe("outstandingBalanceAmount", () => {
 
   it("parses string numerics from postgres numeric columns", () => {
     expect(outstandingBalanceAmount({ balance_due: "861.50" })).toBe(861.5);
+  });
+});
+
+describe("amountPaidOnJob", () => {
+  it("returns 0 when nothing has been paid (full amount stays outstanding)", () => {
+    const job = { revenue: 307.5, balance_due: 307.5, deposit_required: true, deposit_paid: false, deposit_amount: 153.75, payment_status: "unpaid" };
+    expect(amountPaidOnJob(job)).toBe(0);
+    expect(outstandingBalanceAmount(job)).toBe(307.5);
+    expect(isOutstandingBalanceJob(job)).toBe(true);
+  });
+
+  it("DG-444: 50% deposit paid leaves the other 50% outstanding", () => {
+    const job = { revenue: 307.5, balance_due: 153.75, deposit_required: true, deposit_paid: true, deposit_amount: 153.75, payment_status: "partial", status: "incoming" };
+    expect(amountPaidOnJob(job)).toBe(153.75);
+    expect(outstandingBalanceAmount(job)).toBe(153.75);
+    expect(isOutstandingBalanceJob(job)).toBe(true);
+  });
+
+  it("reduces the outstanding amount after each further part payment", () => {
+    // second €100 taken on the DG-444 shape: balance falls, paid rises
+    const job = { revenue: 307.5, balance_due: 53.75, deposit_paid: true, deposit_amount: 153.75, payment_status: "partial" };
+    expect(amountPaidOnJob(job)).toBe(253.75);
+    expect(outstandingBalanceAmount(job)).toBe(53.75);
+    expect(isOutstandingBalanceJob(job)).toBe(true);
+  });
+
+  it("settles to zero outstanding and drops off the report when paid in full", () => {
+    const job = { revenue: 307.5, balance_due: 0, deposit_paid: true, deposit_amount: 153.75, payment_status: "paid" };
+    expect(amountPaidOnJob(job)).toBe(307.5);
+    expect(isOutstandingBalanceJob(job)).toBe(false);
+  });
+
+  it("recalculates after a refund/adjustment that reopens a balance", () => {
+    const job = { revenue: 307.5, balance_due: 307.5, deposit_paid: true, deposit_amount: 153.75, payment_status: "unpaid", invoiced_at: "2026-08-26T10:00:00Z" };
+    expect(amountPaidOnJob(job)).toBe(0);
+    expect(outstandingBalanceAmount(job)).toBe(307.5);
+    expect(isOutstandingBalanceJob(job)).toBe(true);
+  });
+
+  it("is payment-method agnostic", () => {
+    for (const method of ["card", "cash", "bank_transfer", "invoice"]) {
+      const job = { revenue: 200, balance_due: 50, deposit_paid: true, deposit_amount: 150, payment_status: "partial", payment_method: method };
+      expect(amountPaidOnJob(job)).toBe(150);
+      expect(outstandingBalanceAmount(job)).toBe(50);
+      expect(isOutstandingBalanceJob(job)).toBe(true);
+    }
+  });
+
+  it("never exceeds the job total and falls back to the deposit for legacy rows", () => {
+    expect(amountPaidOnJob({ revenue: 100, balance_due: -50, deposit_paid: true, deposit_amount: 40 })).toBe(40);
+    expect(amountPaidOnJob({ revenue: null, balance_due: null, deposit_paid: true, deposit_amount: 75 })).toBe(75);
   });
 });

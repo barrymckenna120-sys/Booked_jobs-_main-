@@ -56,3 +56,36 @@ export function outstandingBalanceAmount(job: {
   if (stored > 0) return stored;
   return Math.max(0, num(job.revenue) - num(job.deposit_amount));
 }
+
+/**
+ * Total money actually received against a job.
+ *
+ * Derived from the job total minus the outstanding balance, so it stays correct
+ * after several part payments (deposit_amount only ever describes the first
+ * deposit). Falls back to the collected deposit for legacy rows with no
+ * revenue/balance figures. Never negative, never above the job total.
+ */
+export function amountPaidOnJob(job: {
+  revenue?: number | string | null;
+  balance_due?: number | string | null;
+  deposit_amount?: number | string | null;
+  deposit_paid?: boolean | null;
+  payment_status?: string | null;
+}): number {
+  const revenue = num(job.revenue);
+  const deposit = job.deposit_paid === true ? num(job.deposit_amount) : 0;
+
+  if ((job.payment_status || "").toLowerCase() === "paid") {
+    return revenue > 0 ? revenue : deposit;
+  }
+
+  if (revenue > 0) {
+    const balance = num(job.balance_due);
+    // A zero/absent balance on an unsettled job is a legacy row — fall back to
+    // the deposit rather than claiming the whole job total was collected.
+    if (balance > 0) return Math.min(revenue, Math.max(0, revenue - balance));
+    return Math.min(revenue, deposit);
+  }
+
+  return deposit;
+}

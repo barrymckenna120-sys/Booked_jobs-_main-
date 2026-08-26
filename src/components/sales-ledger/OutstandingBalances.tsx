@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isOutstandingBalanceJob, outstandingBalanceAmount } from "@/lib/outstandingBalances";
+import { amountPaidOnJob, isOutstandingBalanceJob, outstandingBalanceAmount } from "@/lib/outstandingBalances";
 import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -152,9 +152,9 @@ const OutstandingBalances = () => {
   const totals = jobs.reduce(
     (acc, j) => {
       acc.total += j.revenue || 0;
-      // Only count deposits that were actually collected — a requested-but-unpaid
-      // deposit must not inflate the "Deposit Paid" total.
-      if (j.deposit_paid === true) acc.deposit += j.deposit_amount || 0;
+      // Money actually received so far — a requested-but-unpaid deposit must not
+      // inflate this, and repeat part payments must all be counted.
+      acc.deposit += amountPaidOnJob(j);
       acc.balance += outstandingBalanceAmount(j);
       return acc;
     },
@@ -203,7 +203,7 @@ const OutstandingBalances = () => {
               const rev = job.revenue || 0;
               const bal = outstandingBalanceAmount(job);
               const depositDue = resolvePaymentSheetState(job).case === "D";
-              const dep = job.deposit_paid === true ? job.deposit_amount || 0 : 0;
+              const dep = amountPaidOnJob(job);
 
               const isSending = sendingId === job.id;
               const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
@@ -238,11 +238,12 @@ const OutstandingBalances = () => {
                     <span className="text-xl font-bold font-mono" style={{ color: "#D97706" }}>{eur(bal)}</span>
                     <span className="text-xs text-muted-foreground">of {eur(rev)}</span>
                   </div>
-                  <div className="text-[11px] font-semibold mb-3" style={{ color: "#92400E" }}>
+                  <div className="text-[11px] font-semibold" style={{ color: "#92400E" }}>
                     {depositDue
                       ? `Deposit ${eur(job.deposit_amount || 0)} due`
                       : `Balance ${eur(bal)} due`}
                   </div>
+                  <div className="text-[11px] text-muted-foreground mb-3">Paid so far {eur(dep)}</div>
 
 
                   <div className="flex gap-2">
@@ -300,7 +301,7 @@ const OutstandingBalances = () => {
                   <TableHead className="font-extrabold">Job Type</TableHead>
                   <TableHead className="font-extrabold">Engineer</TableHead>
                   <TableHead className="font-extrabold text-right">Job Total</TableHead>
-                  <TableHead className="font-extrabold text-right">Deposit Paid</TableHead>
+                  <TableHead className="font-extrabold text-right">Paid</TableHead>
                   <TableHead className="font-extrabold text-right">Balance Due</TableHead>
                   <TableHead className="font-extrabold text-center">Outstanding</TableHead>
                   <TableHead className="font-extrabold text-center">Status</TableHead>
@@ -312,7 +313,7 @@ const OutstandingBalances = () => {
                   const rev = job.revenue || 0;
                   const bal = outstandingBalanceAmount(job);
                   const depositDue = resolvePaymentSheetState(job).case === "D";
-                  const dep = job.deposit_paid === true ? job.deposit_amount || 0 : 0;
+                  const dep = amountPaidOnJob(job);
 
                   const isSending = sendingId === job.id;
                   const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
