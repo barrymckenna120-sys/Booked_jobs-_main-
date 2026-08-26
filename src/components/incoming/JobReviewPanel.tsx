@@ -38,6 +38,9 @@ type Job = {
   owner_or_tenant: string | null;
   access_notes: string | null;
   job_reference?: string | null;
+  /** Set at job creation: 'new' when the customer did not previously exist. */
+  customer_status_at_booking?: CustomerStatusAtBooking | null;
+
 };
 
 type Customer = {
