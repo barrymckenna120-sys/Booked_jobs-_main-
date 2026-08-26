@@ -200,10 +200,12 @@ Deno.serve(async (req) => {
         message_type: "renewal_reminder",
         channel: "whatsapp",
         direction: "outbound",
+        recipient_phone: cleanPhone,
         content: message,
         status: "pending",
         related_type: "renewal",
         sent_by: "system",
+
         sent_at: new Date().toISOString(),
       })
       .select("id")
