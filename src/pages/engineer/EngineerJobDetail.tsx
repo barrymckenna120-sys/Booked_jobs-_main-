@@ -1214,7 +1214,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowPayment(false); setCompleteData(null); setCompleteJobTagDate(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowPayment(false); setPaymentForcedFullyPaid(false); setCompleteData(null); setCompleteJobTagDate(null); }}
           onCompleteOnly={async () => {
             if (!completeData) return;
             setShowPayment(false);
