@@ -1,6 +1,8 @@
 import { Camera, Archive, Clock } from "lucide-react";
 import { IncomingStatusPill, BoilerWorkingPill, TimeBlockLabel } from "./IncomingPills";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import type { CustomerStatusAtBooking } from "@/types/service-calls";
 
 type IncomingJob = {
   id: string;
@@ -19,6 +21,9 @@ type IncomingJob = {
   created_at: string;
   confirmed?: boolean | null;
   confirmed_at?: string | null;
+  /** Set at job creation: 'new' when the customer did not previously exist. */
+  customer_status_at_booking?: CustomerStatusAtBooking | null;
+
   customers: {
     id: string;
     name: string;
