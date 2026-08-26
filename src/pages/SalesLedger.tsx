@@ -83,7 +83,15 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 
 /** Still owed on a ledger row: 0 once the job is settled in full. */
 const rowOutstanding = (row: LedgerJob): number =>
-  row.payment_status === "paid" ? 0 : outstandingBalanceAmount(row);
+  row.payment_status === "paid"
+    ? 0
+    : // `row.revenue` holds the amount received, so pass the real job total for
+      // the legacy fallback inside the helper.
+      outstandingBalanceAmount({
+        balance_due: row.balance_due,
+        revenue: row.job_total,
+        deposit_amount: row.deposit_amount,
+      });
 
 const SalesLedger = () => {
   const { user } = useAuth();
