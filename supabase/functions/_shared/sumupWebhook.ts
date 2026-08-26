@@ -664,6 +664,9 @@ export async function handleSumUpWebhook(
       jobReference: job.job_reference ?? null,
       amount,
       fullyPaid,
+      // Same source as the customer part-payment confirmation below: the
+      // balance_due the job write just applied.
+      outstanding: Number(patch.balance_due ?? 0),
       checkoutId,
       status,
     });
