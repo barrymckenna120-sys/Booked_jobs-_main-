@@ -768,6 +768,50 @@ Deno.test("never overwrites a known job total", async () => {
   assertEquals(h.updates[0].patch.payment_status, "partial");
 });
 
+Deno.test("first deposit on a quote-created job with stale zero balance stays partial", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      revenue: 20,
+      balance_due: 0,
+      payment_status: "unpaid",
+      deposit_paid: false,
+      deposit_required: true,
+      job_reference: "DG-437",
+    } as Partial<SumUpWebhookJob>),
+    view: { ok: true, status: "PAID", amount: 5, checkoutReference: JOB_ID },
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.balance_due, 15);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.receipts.length, 0);
+  assertEquals(h.payments[0].paymentType, "deposit");
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 0);
+});
+
+Deno.test("first deposit ignores an unpaid quote balance that was pre-discounted by the requested deposit", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      revenue: 20,
+      balance_due: 15,
+      payment_status: "unpaid",
+      deposit_paid: false,
+      deposit_required: true,
+    } as Partial<SumUpWebhookJob>),
+    view: { ok: true, status: "PAID", amount: 5, checkoutReference: JOB_ID },
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.balance_due, 15);
+  assertEquals(h.receipts.length, 0);
+  assertEquals(h.payments[0].paymentType, "deposit");
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 0);
+});
+
 // ---------------------------------------------------------------------------
 // BJ-0044 — declined checkouts used to be completely silent: no event row, no
 // job write, no alert. The office now gets told, and nothing else changes.

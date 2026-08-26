@@ -485,7 +485,15 @@ export async function handleSumUpWebhook(
   // Money already collected on this job, inferred from the outstanding balance.
   // Without this a €250 balance on a €500 job (deposit already paid) looks like
   // a fresh part payment and leaves €250 wrongly outstanding.
-  const collectedToDate = revenue > 0 && job.balance_due != null
+  // Only trust that inference when the job state says money was actually paid.
+  // Quote-created jobs may carry a stale/pre-discounted balance_due before the
+  // first deposit webhook lands; treating that as prior collection marks a real
+  // deposit as full settlement.
+  const statusBeforePayment = (job.payment_status ?? "").toLowerCase();
+  const hasPriorCollectionSignal = job.deposit_paid === true ||
+    statusBeforePayment === "partial" ||
+    statusBeforePayment === "paid";
+  const collectedToDate = hasPriorCollectionSignal && revenue > 0 && job.balance_due != null
     ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
     : 0;
   const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
