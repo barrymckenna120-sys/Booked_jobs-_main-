@@ -12,6 +12,7 @@ type ReceiptJob = {
   receipt_number: string;
   scheduled_date: string | null;
   revenue: number | null;
+  amount_paid?: number | null;
   payment_method: string | null;
   paid_at: string | null;
   assigned_engineer: string | null;
@@ -42,6 +43,24 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
         .not("receipt_number", "is", null)
         .order("paid_at", { ascending: false, nullsFirst: false });
       const result = (data || []) as ReceiptJob[];
+      const jobIds = result.map((job) => job.id);
+      if (jobIds.length > 0) {
+        const { data: paymentRows } = await supabase
+          .from("job_payments")
+          .select("service_call_id, amount")
+          .in("service_call_id", jobIds)
+          .gt("amount", 0)
+          .order("paid_at", { ascending: false })
+          .order("created_at", { ascending: false });
+
+        const latestByJob = new Map<string, number>();
+        (paymentRows || []).forEach((row: any) => {
+          if (!latestByJob.has(row.service_call_id)) latestByJob.set(row.service_call_id, Number(row.amount));
+        });
+        result.forEach((job) => {
+          if (latestByJob.has(job.id)) job.amount_paid = latestByJob.get(job.id) ?? null;
+        });
+      }
       setJobs(result);
       onCountReady?.(result.length);
       setLoading(false);
@@ -125,7 +144,7 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
   if (loading) return null;
   if (jobs.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">No payment history yet.</p>;
 
-  const total = jobs.reduce((sum, j) => sum + (j.revenue || 0), 0);
+  const total = jobs.reduce((sum, j) => sum + (j.amount_paid ?? j.revenue ?? 0), 0);
 
   return (
     <div className="space-y-3">
@@ -154,7 +173,7 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
               <span>{formatDate(j.scheduled_date)}</span>
               {j.assigned_engineer && <span>{j.assigned_engineer}</span>}
               <span className="font-semibold text-foreground">
-                €{(j.revenue || 0).toFixed(2)}
+                €{(j.amount_paid ?? j.revenue ?? 0).toFixed(2)}
               </span>
             </div>
           </div>
