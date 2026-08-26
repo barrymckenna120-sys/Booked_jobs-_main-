@@ -19,6 +19,7 @@ import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationM
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { normalisePhone } from "../_shared/whatsapp.ts";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 const JOB_COLUMNS =
   "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at, job_reference";
@@ -491,6 +492,27 @@ Deno.serve(async (req) => {
       }
 
       const branding = await getOrgBrandingClient(supabase, e.organisationId);
+
+      // Proof of THIS part payment. Null when the tenant has no public domain
+      // configured — the message then simply omits the line.
+      let receiptUrl: string | null = null;
+      try {
+        const { data: jobRow } = await supabase
+          .from("service_calls")
+          .select("access_token")
+          .eq("id", e.serviceCallId)
+          .maybeSingle();
+        if (jobRow?.access_token) {
+          receiptUrl = await getTenantPublicUrl(
+            supabaseUrl,
+            e.organisationId,
+            `/receipt/${jobRow.access_token}`,
+          );
+        }
+      } catch (_e) {
+        receiptUrl = null;
+      }
+
       const message = buildDepositConfirmationMessage({
         customerName: customer.name,
         jobReference: e.jobReference,
@@ -498,6 +520,7 @@ Deno.serve(async (req) => {
         balanceRemaining: e.balanceRemaining,
         businessName: branding.name,
         footer: branding.footer,
+        receiptUrl,
       });
 
       const keyResolution = await fetchWhatsappApiKeyWithClient(supabase as any, e.organisationId);
