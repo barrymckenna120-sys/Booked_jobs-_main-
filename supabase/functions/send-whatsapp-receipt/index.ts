@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { job_id } = await req.json();
+    const { job_id, payment_amount } = await req.json();
 
     if (!job_id) {
       return new Response(JSON.stringify({ error: "job_id is required" }), {
@@ -104,7 +105,24 @@ Deno.serve(async (req) => {
     const refPrefix = String(settings?.cert_prefix ?? "").trim();
     const shortId = job.id.slice(0, 6).toUpperCase();
     const jobRef = job.job_reference || (refPrefix ? `${refPrefix}-${shortId}` : `Job ${shortId}`);
-    const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
+    const { data: latestPayment } = await supabase
+      .from("job_payments")
+      .select("amount")
+      .eq("service_call_id", job_id)
+      .gt("amount", 0)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const amount = formatReceiptAmount(
+      resolveReceiptAmount({
+        paymentAmount: payment_amount,
+        ledgerAmount: latestPayment?.amount,
+        revenue: job.revenue,
+      }),
+      "N/A",
+    );
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "invoice" ? "Invoice" : "Cash";
     const receiptNum = job.receipt_number || "";
 

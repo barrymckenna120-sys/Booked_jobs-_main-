@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
           ...headers,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ job_id: e.serviceCallId }),
+        body: JSON.stringify({ job_id: e.serviceCallId, payment_amount: e.amount }),
       });
       const text = await res.text();
       if (!res.ok) {

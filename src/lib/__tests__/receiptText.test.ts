@@ -44,4 +44,20 @@ describe("buildReceiptText", () => {
     });
     expect(text).toBe("Receipt KN-1\nAmount: €0.00");
   });
+
+  it("shows the actual charged amount for a deposit receipt, not the full job total", () => {
+    const text = buildReceiptText({
+      receipt_number: "DG-2026-0140",
+      scheduled_date: "2026-08-25",
+      paid_at: "2026-08-25T10:00:00Z",
+      revenue: 20,
+      amount_paid: 5,
+      payment_method: "card",
+      assigned_engineer: "Barry",
+      customerName: "Scratch Customer",
+    });
+
+    expect(text).toContain("Amount: €5.00");
+    expect(text).not.toContain("Amount: €20.00");
+  });
 });

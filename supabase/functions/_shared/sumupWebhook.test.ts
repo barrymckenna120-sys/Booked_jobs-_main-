@@ -1004,6 +1004,25 @@ Deno.test("BJ-0059: a full payment sends the customer receipt exactly once", asy
   assertEquals(h.receipts[0].amount, 2000);
 });
 
+Deno.test("BJ-0059: receipt payload carries the verified charged amount, not the full job total", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      revenue: 20,
+      balance_due: 5,
+      payment_status: "partial",
+      deposit_paid: true,
+      job_reference: "DG-439",
+    }),
+    view: { ok: true, status: "PAID", amount: 5, checkoutReference: JOB_ID },
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.receipts.length, 1);
+  assertEquals(h.receipts[0].amount, 5);
+  assertEquals(h.receipts[0].amount === 20, false);
+});
+
 Deno.test("BJ-0059: a deposit-only payment never sends a receipt", async () => {
   const { h, result: p } = run({
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
