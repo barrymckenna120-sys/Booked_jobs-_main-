@@ -12,6 +12,7 @@ import { createJobInvoice } from "@/lib/createJobInvoice";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -317,10 +318,7 @@ export const useEngineerJobs = () => {
     }
 
     if (cancelReason) {
-      dbPatch.cancellation_reason = cancelReason;
-      dbPatch.cancellation_note = cancelNote || null;
-      dbPatch.cancelled_at = new Date().toISOString();
-      dbPatch.cancelled_by = user?.id || null;
+      Object.assign(dbPatch, buildManualCancelPatch(cancelReason, cancelNote, user?.id));
     }
 
     // Set completed_at and generate receipt/invoice number on completion

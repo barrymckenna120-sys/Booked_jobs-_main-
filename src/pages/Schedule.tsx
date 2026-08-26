@@ -16,6 +16,7 @@ import AssignJobModal from "@/components/schedule/AssignJobModal";
 import JobSlotDrawer from "@/components/schedule/JobSlotDrawer";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 
 const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
@@ -483,13 +484,9 @@ const Schedule = () => {
   const handleCancel = async (reason: string, note: string) => {
     const jobId = cancelModal.job?.id;
     if (!jobId) return;
-    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({
-      status: "Cancelled",
-      cancellation_reason: reason,
-      cancellation_note: note || null,
-      cancelled_at: new Date().toISOString(),
-      cancelled_by: user?.id || null,
-    } as any)).eq("id", jobId);
+    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(
+      buildManualCancelPatch(reason, note, user?.id) as any,
+    )).eq("id", jobId);
     if (!error) {
       logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: jobId, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
       supabase.functions.invoke('send-cancellation-notice', {
