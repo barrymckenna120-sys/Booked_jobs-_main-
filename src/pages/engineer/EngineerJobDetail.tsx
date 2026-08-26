@@ -279,11 +279,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     let ledgerRow: EngineerLedgerRow | null = null;
     if (paymentMethod) {
       dbPatch.payment_collected_by = user?.id || null;
+      // Authoritative pre-write gate (BJ-next-D): refuse a payment on a job that
+      // another surface already settled, and use the fresh row for the math.
+      const gate = await gateJobPayment(supabase, job.id);
       const plan = buildEngineerPaymentPlan({
         patch,
         paymentMethod,
         confirmedRevenue,
-        job,
+        job: { ...job, ...gate.row },
+
         jobId: job.id,
         paidAt,
         recordedBy: profileIdRef.current,
