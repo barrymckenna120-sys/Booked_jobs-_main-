@@ -99,40 +99,16 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMes
     const collected = state.jobTotal > 0 ? state.jobTotal : state.depositAmount;
     return (
       <EngineerSheet onClose={onClose}>
-        <div className="px-5 py-3 border-b border-border">
-          <div className="text-xl font-extrabold text-foreground flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-success" /> Payment Complete
-          </div>
-          <div className="text-[13px] text-muted-foreground mt-0.5">{customer?.name}</div>
-        </div>
-        <div className="px-5 pt-4 space-y-4">
-          <div className="rounded-xl border border-success/30 bg-success/10 p-4 space-y-1">
-            <div className="text-sm font-extrabold text-foreground">This job is fully paid</div>
-            <div className="text-[13px] text-muted-foreground">
-              No further payment can be collected here.
-            </div>
-            {collected > 0 && (
-              <div className="flex justify-between pt-2 text-sm">
-                <span className="text-muted-foreground">Amount already collected</span>
-                <span className="font-extrabold text-foreground">{euro(collected)}</span>
-              </div>
-            )}
-          </div>
-          {onCompleteOnly && (
-            <Button
-              className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
-              onClick={onCompleteOnly}
-            >
-              <CheckCircle2 className="w-5 h-5" /> Complete Job
-            </Button>
-          )}
-          <Button className="w-full h-12 text-base font-extrabold" variant="secondary" onClick={onClose}>
-            Close
-          </Button>
-        </div>
+        <JobFullyPaidPanel
+          customerName={customer?.name}
+          collected={collected}
+          onCompleteOnly={onCompleteOnly}
+          onClose={onClose}
+        />
       </EngineerSheet>
     );
   }
+
 
   return (
     <EngineerSheet onClose={onClose}>
