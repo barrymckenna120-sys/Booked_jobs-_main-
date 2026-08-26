@@ -13,6 +13,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle, MessageSquare } from "lucide-react";
 import MediaGallery from "@/components/media/MediaGallery";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import type { CustomerStatusAtBooking } from "@/types/service-calls";
+
 
 type Job = {
   id: string;
