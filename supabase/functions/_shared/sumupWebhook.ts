@@ -1,4 +1,6 @@
 import { buildPaymentPatch } from "./paymentUpdate.ts";
+import { shouldSendDepositConfirmation } from "./depositConfirmationMessage.ts";
+
 
 /**
  * SumUp payment-confirmation handling (pure, dependency-injected).
