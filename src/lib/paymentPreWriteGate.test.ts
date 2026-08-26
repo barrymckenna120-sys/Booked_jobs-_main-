@@ -16,9 +16,14 @@ const fakeClient = (row: any, error: any = null) => ({
 
 describe("paymentPreWriteGate", () => {
   it("blocks a fully paid job (Case B)", () => {
-    const row = { revenue: 120, balance_due: 0, payment_status: "paid" };
+    const row = { revenue: 120, balance_due: 0, payment_status: "paid", deposit_required: true, deposit_paid: true, deposit_amount: 120 };
     expect(() => assertCollectable(row)).toThrow(JobAlreadyPaidError);
   });
+
+  it("blocks a cash-settled job with no deposit (payment_status paid)", () => {
+    expect(() => assertCollectable({ revenue: 100, balance_due: 0, payment_status: "paid" })).toThrow(JobAlreadyPaidError);
+  });
+
 
   it("allows a job with an outstanding balance", () => {
     const row = { revenue: 120, balance_due: 60, payment_status: "partial", deposit_required: true, deposit_paid: true, deposit_amount: 60 };
