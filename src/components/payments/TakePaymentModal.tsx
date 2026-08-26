@@ -167,19 +167,28 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     setProcStep(0);
 
     try {
-      // Authoritative pre-write read. organisation_id is never taken from the
-      // caller's prop: the ledger insert runs as `authenticated` against
+      // Authoritative pre-write gate (BJ-next-D). organisation_id is never taken
+      // from the caller's prop: the ledger insert runs as `authenticated` against
       // job_payments_insert (WITH CHECK organisation_id = get_my_org_id()), and
       // revenue/balance_due/status must be the values as they are *before* this
-      // payment is applied.
-      const { data: scRow, error: scError } = await supabase
-        .from("service_calls")
-        .select("organisation_id, customer_id, status, revenue, balance_due")
-        .eq("id", job.id)
-        .single();
-      if (scError) throw scError;
-      if (!scRow) throw new Error("Job not found — payment not recorded.");
-      const orgId = (scRow as any).organisation_id as string;
+      // payment is applied. A settled job throws JobAlreadyPaidError.
+      let gate;
+      try {
+        gate = await gateJobPayment(supabase, job.id);
+      } catch (e) {
+        if (isJobAlreadyPaidError(e)) {
+          setGateBlocked(true);
+          setStep(1);
+          return;
+        }
+        throw e;
+      }
+      const scRow = gate.row as any;
+      const orgId = scRow.organisation_id as string;
+      // Classification comes from the fresh row, not the (possibly stale) prop.
+      const freshCase = gate.state.case;
+      const freshCollectingDeposit = freshCase === "D";
+      const freshHasDeposit = freshCase === "A" || freshCase === "D";
 
       // recorded_by / created_by, resolved once regardless of paid or partial.
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -231,10 +240,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       const paidAmount = parseFloat(amount) || 0;
       // Cumulative: everything already collected on this job, not just the
       // deposit. Read pre-write. See src/lib/priorCollected.ts.
-      const alreadyCollected = collectingDeposit
+      const alreadyCollected = freshCollectingDeposit
         ? 0
-        : priorCollected((scRow as any).revenue, (scRow as any).balance_due);
-      const paymentType = collectingDeposit ? "deposit" : hasDeposit && isDepositPaid ? "balance" : "full";
+        : priorCollected(scRow.revenue, scRow.balance_due);
+      const paymentType = freshCollectingDeposit ? "deposit" : freshHasDeposit ? "balance" : "full";
+
 
       const updatePayload: Record<string, any> = {
         receipt_number: receiptNum,
