@@ -228,6 +228,25 @@ export interface SumUpWebhookDeps {
     checkoutId: string;
   }) => Promise<void>;
 
+  /**
+   * BJ-0063 — customer confirmation for a PART payment (deposit / partial).
+   *
+   * The mirror image of sendReceipt: called only when this event does NOT settle
+   * the job and a balance is still outstanding, so the customer is told what
+   * they paid and what remains. The full receipt stays reserved for final
+   * settlement. Same rules as sendReceipt: runs last, a throw is swallowed.
+   */
+  sendDepositConfirmation?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    amount: number;
+    balanceRemaining: number;
+    checkoutId: string;
+  }) => Promise<void>;
+
+
 
   /** Injectable clock for tests. */
   now?: () => Date;
