@@ -10,6 +10,7 @@ import NotificationBanner from "@/components/notifications/NotificationBanner";
 import SoundPrompt from "@/components/notifications/SoundPrompt";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import { unlockAudio } from "@/utils/audio";
+import EnableSoundBanner from "@/components/EnableSoundBanner";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import { WifiOff, X } from "lucide-react";
@@ -172,6 +173,7 @@ const EngineerLayout = () => {
       <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
         <Outlet context={engineerJobs} />
       </div>
+      <EnableSoundBanner />
 
 
 

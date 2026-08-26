@@ -51,6 +51,17 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
+
+  const [showAuthLoader, setShowAuthLoader] = useState(false);
+  useEffect(() => {
+    if (!authLoading) {
+      setShowAuthLoader(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowAuthLoader(true), 300);
+    return () => clearTimeout(timer);
+  }, [authLoading]);
+
   const mountedRef = useRef(false);
 
   // Toast alert when a new incoming job notification arrives
@@ -147,7 +158,7 @@ const Dashboard = () => {
 
   const displayName = titleCase(profile?.display_name?.split("@")[0]?.split(" ")[0] || "there");
 
-  if (authLoading) {
+  if (showAuthLoader) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 

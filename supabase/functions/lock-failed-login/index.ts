@@ -131,6 +131,31 @@ Deno.serve(async (req) => {
       console.error("[lock-failed-login] notifyAdminWhatsApp threw:", e);
     }
 
+    // Send alert email via Resend
+    try {
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (resendApiKey) {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: "noreply@bookedjobs.ie",
+            to: "barrymckenna120@gmail.com",
+            subject: `⚠️ BookedJobs — Account Locked: ${email}`,
+            text: `A BookedJobs account has been locked due to 5 consecutive failed login attempts.\n\nEmail: ${email}\nTime: ${new Date().toISOString()}\n\nThe account has been banned for 24 hours automatically.\n\nLog in to /admin to review or unblock the account.`,
+          }),
+        });
+        console.log(`Alert email sent for locked account: ${email}`);
+      } else {
+        console.warn("RESEND_API_KEY not set; skipping alert email");
+      }
+    } catch (emailErr) {
+      console.error("Failed to send lock alert email:", emailErr);
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

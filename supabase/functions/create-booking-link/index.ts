@@ -8,6 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+<<<<<<< HEAD
 /**
  * This function mints short links on tenants' own public domains, so it must
  * not be callable by anonymous third parties. Two accepted callers:
@@ -31,6 +32,9 @@ function isAuthorised(req: Request): boolean {
 }
 
 
+=======
+// SHORT_BASE is resolved per-request from tenant_integrations (whatsapp.config.domain).
+>>>>>>> origin/main
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
 function genToken(len = 6): string {
@@ -81,6 +85,7 @@ Deno.serve(async (req) => {
       );
     }
 
+<<<<<<< HEAD
     if (!isValidAbsoluteHttpsUrl(full_url)) {
       return new Response(
         JSON.stringify({ error: "full_url must be a well-formed absolute https:// URL" }),
@@ -106,10 +111,51 @@ Deno.serve(async (req) => {
       );
     }
 
+=======
+>>>>>>> origin/main
     const supabase = createClient(
       SUPABASE_URL,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    const { data: tallyIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", organisation_id)
+      .eq("integration_type", "tally")
+      .maybeSingle();
+
+    const tallyBase = (tallyIntegration as any)?.config?.new_booking_url;
+    if (!tallyBase) {
+      console.warn(`Missing Tally new_booking_url for org ${organisation_id}`);
+      return new Response(
+        JSON.stringify({ error: "Tally new_booking_url not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Resolve tenant domain for short link base
+    const { data: waIntegration } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", organisation_id)
+      .eq("integration_type", "whatsapp")
+      .maybeSingle();
+
+    const tenantDomain = (waIntegration as any)?.config?.domain;
+    if (!tenantDomain) {
+      console.warn(`Missing whatsapp.config.domain for org ${organisation_id}`);
+      return new Response(
+        JSON.stringify({ error: "Tenant domain not configured for this organisation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const shortBase = `https://${tenantDomain}/b`;
+
+    const qIdx = String(full_url).indexOf("?");
+    const queryString = qIdx >= 0 ? String(full_url).slice(qIdx) : "";
+    const normalised_url = `${tallyBase}${queryString}`;
+
 
     let token = "";
     let inserted = false;
@@ -138,7 +184,11 @@ Deno.serve(async (req) => {
     const short_url = shortUrlTemplate.replace("__TOKEN__", token);
 
     return new Response(
+<<<<<<< HEAD
       JSON.stringify({ short_url, token }),
+=======
+      JSON.stringify({ short_url: `${shortBase}/${token}`, token }),
+>>>>>>> origin/main
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

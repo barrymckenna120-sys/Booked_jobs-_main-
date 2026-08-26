@@ -1,6 +1,5 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
-
-import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
+import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
@@ -12,6 +11,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
+import EnableSoundBanner from "@/components/EnableSoundBanner";
 import { Button } from "@/components/ui/button";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
@@ -63,6 +63,7 @@ const MOBILE_NAV = [
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
+  const { isSuperAdmin } = useAdminViewAs();
   const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   // Show "Switch to Engineer View" for office/admin users (owners/managers)
   const canSwitchToEngineer = !isEngineer;
@@ -116,7 +117,7 @@ const AppLayoutInner = () => {
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
+          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
             {canSwitchToEngineer && (
               <button
@@ -171,6 +172,19 @@ const AppLayoutInner = () => {
               )}
             </button>
           ))}
+          {isSuperAdmin && (
+            <button
+              onClick={() => guardedNavigate("/admin")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                isActive("/admin")
+                  ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Shield className="w-5 h-5 shrink-0" />
+              <span className="flex-1 text-left">Admin</span>
+            </button>
+          )}
         </nav>
         <div className="px-3 py-3 border-t border-border">
           <button
@@ -186,7 +200,7 @@ const AppLayoutInner = () => {
       {/* ═══════════ MOBILE TOP BAR ═══════════ */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <img src={bookedJobsLogo} alt="BookedJobs" className="h-8" />
+          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
         </div>
         <div className="flex items-center gap-1.5">
           {canSwitchToEngineer && (
@@ -236,6 +250,7 @@ const AppLayoutInner = () => {
         
         <Outlet />
       </main>
+      <EnableSoundBanner />
 
       {/* ═══════════ MOBILE BOTTOM NAV — 5 tabs, fixed ═══════════ */}
       <nav

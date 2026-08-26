@@ -133,6 +133,32 @@ export default function TenantDetail() {
 
   const [sendingReset, setSendingReset] = useState(false);
 
+  // Template Configuration form (structured editor over tenant_integrations.config)
+  const [templateForm, setTemplateForm] = useState({
+    company_name: "",
+    domain: "",
+    template_prefix: "",
+    payment_link: "",
+    new_booking_url: "",
+    renewal_form_url: "",
+  });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  // WhatsApp Templates
+  type WaTemplate = {
+    id: string;
+    template_name: string;
+    category: string;
+    meta_status: string;
+    is_master: boolean;
+  };
+  const [waTemplates, setWaTemplates] = useState<WaTemplate[]>([]);
+  const [provisioning, setProvisioning] = useState(false);
+  const MASTER_ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
+
+
+
+
   // Access check
   useEffect(() => {
     let cancelled = false;
@@ -180,6 +206,9 @@ export default function TenantDetail() {
         .order("integration_type");
       setIntegrations(((ints as any[]) || []) as Integration[]);
 
+      await loadWaTemplates();
+
+
       const { data: settingsRow } = await supabase
         .from("settings")
         .select("business_name, business_email, business_phone, company_name, company_phone, owner_name")
@@ -220,6 +249,116 @@ export default function TenantDetail() {
     if (authChecked) loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authChecked, orgId]);
+
+  // Populate Template Configuration form when integrations load
+  useEffect(() => {
+    const byType = (t: string) =>
+      integrations.find((i) => i.integration_type === t)?.config ?? {};
+    const m360 = byType("360messenger") as any;
+    const wa = byType("whatsapp") as any;
+    const stripe = byType("stripe") as any;
+    const tally = byType("tally") as any;
+    setTemplateForm({
+      company_name: m360.company_name ?? "",
+      domain: wa.domain ?? "",
+      template_prefix: wa.template_prefix ?? "",
+      payment_link: stripe.payment_link ?? "",
+      new_booking_url: tally.new_booking_url ?? "",
+      renewal_form_url: tally.renewal_form_url ?? "",
+    });
+  }, [integrations]);
+
+  const saveTemplateConfig = async () => {
+    if (!orgId) return;
+    setSavingTemplate(true);
+    try {
+      const updates: Array<{ type: string; patch: Record<string, any> }> = [
+        { type: "360messenger", patch: { company_name: templateForm.company_name } },
+        {
+          type: "whatsapp",
+          patch: {
+            domain: templateForm.domain,
+            template_prefix: templateForm.template_prefix,
+          },
+        },
+        { type: "stripe", patch: { payment_link: templateForm.payment_link } },
+        {
+          type: "tally",
+          patch: {
+            new_booking_url: templateForm.new_booking_url,
+            renewal_form_url: templateForm.renewal_form_url,
+          },
+        },
+      ];
+
+      for (const u of updates) {
+        const existing = integrations.find((i) => i.integration_type === u.type);
+        if (existing) {
+          const mergedConfig = { ...(existing.config ?? {}), ...u.patch };
+          const { error } = await supabase
+            .from("tenant_integrations" as any)
+            .update({ config: mergedConfig })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("tenant_integrations" as any)
+            .insert({
+              organisation_id: orgId,
+              integration_type: u.type,
+              config: u.patch,
+              is_active: true,
+            });
+          if (error) throw error;
+        }
+      }
+      toast.success("Template configuration saved");
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save configuration");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const loadWaTemplates = async () => {
+    if (!orgId) return;
+    const { data } = await (supabase as any)
+      .from("whatsapp_templates")
+      .select("id, template_name, category, meta_status, is_master")
+      .eq("organisation_id", orgId)
+      .order("template_name");
+    setWaTemplates(((data as any[]) || []) as WaTemplate[]);
+  };
+
+  const provisionTemplates = async (reprovision = false) => {
+    if (!orgId) return;
+    const { company_name, domain, template_prefix } = templateForm;
+    if (!company_name.trim() || !domain.trim() || !template_prefix.trim()) {
+      toast.error("Fill Company Name, Domain, and Template Prefix first");
+      return;
+    }
+    setProvisioning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "provision-whatsapp-templates",
+        { body: { target_org_id: orgId } },
+      );
+      if (error) throw error;
+      if (data && (data as any).error) throw new Error((data as any).error);
+
+      const count = (data as any)?.count ?? 0;
+      toast.success(`${reprovision ? "Re-provisioned" : "Provisioned"} ${count} templates`);
+      await loadWaTemplates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to provision templates");
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
+
+
 
   const saveSettings = async () => {
     if (!orgId) return;
@@ -753,7 +892,126 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      {/* Template Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Template Configuration</CardTitle>
+            <Button size="sm" onClick={saveTemplateConfig} disabled={savingTemplate}>
+              {savingTemplate ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Save className="mr-1 h-3 w-3" />
+              )}
+              Save Configuration
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {[
+              { key: "company_name", label: "Company Name", source: "360messenger.company_name", placeholder: "K & N Gas Services" },
+              { key: "domain", label: "Domain", source: "whatsapp.domain", placeholder: "kngasservices.ie" },
+              { key: "template_prefix", label: "Template Prefix", source: "whatsapp.template_prefix", placeholder: "kn_gas" },
+              { key: "payment_link", label: "Stripe Payment Link", source: "stripe.payment_link", placeholder: "https://buy.stripe.com/..." },
+              { key: "new_booking_url", label: "Tally Booking Form URL", source: "tally.new_booking_url", placeholder: "https://book.example.com/" },
+              { key: "renewal_form_url", label: "Tally Renewal Form URL", source: "tally.renewal_form_url", placeholder: "https://rebook.example.com/" },
+            ].map((f) => {
+              const val = (templateForm as any)[f.key] as string;
+              const empty = !val || !val.trim();
+              return (
+                <div key={f.key}>
+                  <Label className="text-muted-foreground">{f.label}</Label>
+                  <Input
+                    value={val}
+                    placeholder={f.placeholder}
+                    onChange={(e) =>
+                      setTemplateForm({ ...templateForm, [f.key]: e.target.value })
+                    }
+                    className="mt-1"
+                  />
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground font-mono">{f.source}</span>
+                    {empty && (
+                      <span className="text-[11px] text-amber-600">Empty — will be saved as blank</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* WhatsApp Templates */}
+      {(() => {
+        const missing: string[] = [];
+        if (!templateForm.company_name.trim()) missing.push("Company Name");
+        if (!templateForm.domain.trim()) missing.push("Domain");
+        if (!templateForm.template_prefix.trim()) missing.push("Template Prefix");
+        const nonMaster = waTemplates.filter((t) => !t.is_master);
+        const hasProvisioned = nonMaster.length > 0;
+        const statusVariant = (s: string) => {
+          const v = (s || "").toLowerCase();
+          if (v === "approved") return "bg-green-100 text-green-800 border-green-200";
+          if (v === "rejected") return "bg-red-100 text-red-800 border-red-200";
+          return "bg-amber-100 text-amber-800 border-amber-200";
+        };
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>WhatsApp Templates</CardTitle>
+                <Button
+                  size="sm"
+                  onClick={() => provisionTemplates(hasProvisioned)}
+                  disabled={provisioning || missing.length > 0}
+                >
+                  {provisioning ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1 h-3 w-3" />
+                  )}
+                  {hasProvisioned ? "Re-provision Templates" : "Provision Templates"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {missing.length > 0 && (
+                <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Fill in {missing.join(", ")} in the Template Configuration card above before provisioning.
+                </div>
+              )}
+              {waTemplates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No templates provisioned yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {waTemplates.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-mono text-xs">{t.template_name}</div>
+                        <div className="text-[11px] text-muted-foreground">{t.category}</div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusVariant(t.meta_status)}`}
+                      >
+                        {t.meta_status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Actions */}
+
+
       <Card>
         <CardHeader>
           <CardTitle>Actions</CardTitle>

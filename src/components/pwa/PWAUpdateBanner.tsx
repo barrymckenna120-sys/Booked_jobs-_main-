@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { RefreshCw, X } from "lucide-react";
 import { shouldSkipServiceWorker } from "@/lib/isPreviewHost";
@@ -13,6 +14,7 @@ import { shouldSkipServiceWorker } from "@/lib/isPreviewHost";
  * only mounted outside dev/preview/iframe contexts.
  */
 const UpdateBanner = () => {
+  const { pathname } = useLocation();
   const [dismissed, setDismissed] = useState(false);
 
   const {
@@ -24,6 +26,7 @@ const UpdateBanner = () => {
     },
   });
 
+  if (pathname.startsWith("/auth")) return null;
   if (!needRefresh || dismissed) return null;
 
   const handleRefresh = () => {
@@ -45,6 +48,7 @@ const UpdateBanner = () => {
         >
           Update available — tap to refresh
         </button>
+
         <button
           onClick={handleRefresh}
           className="inline-flex items-center gap-1.5 rounded-md bg-primary-foreground/15 hover:bg-primary-foreground/25 px-3 py-1.5 font-medium transition-colors"
@@ -52,6 +56,7 @@ const UpdateBanner = () => {
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
         </button>
+
         <button
           onClick={handleDismiss}
           className="p-1 rounded-md hover:bg-primary-foreground/15 transition-colors"
@@ -71,13 +76,20 @@ export default function PWAUpdateBanner() {
   // precached shell can't keep serving old HTML in preview/dev.
   useEffect(() => {
     if (!skip || !("serviceWorker" in navigator)) return;
+
     navigator.serviceWorker.getRegistrations().then((regs) => {
       regs
-        .filter((r) => !r.scope.includes("firebase-cloud-messaging-push-scope"))
+        .filter(
+          (r) =>
+            !r.scope.includes(
+              "firebase-cloud-messaging-push-scope"
+            )
+        )
         .forEach((r) => r.unregister());
     });
   }, [skip]);
 
   if (skip) return null;
+
   return <UpdateBanner />;
 }

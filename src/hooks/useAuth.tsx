@@ -125,7 +125,21 @@ export const useAuth = (redirectTo = "/auth") => {
       }
     );
 
-    return () => subscription.unsubscribe();
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session) {
+            supabase.auth.signOut();
+          }
+        });
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("pageshow", handlePageShow);
+    };
   }, [navigate, redirectTo]);
 
   const signOut = async () => {

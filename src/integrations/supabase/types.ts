@@ -1646,6 +1646,33 @@ export type Database = {
         }
         Relationships: []
       }
+      login_attempts: {
+        Row: {
+          attempts: number
+          created_at: string
+          email: string
+          id: string
+          last_attempt_at: string
+          locked_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          email: string
+          id?: string
+          last_attempt_at?: string
+          locked_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          email?: string
+          id?: string
+          last_attempt_at?: string
+          locked_at?: string | null
+        }
+        Relationships: []
+      }
       message_log: {
         Row: {
           channel: string | null

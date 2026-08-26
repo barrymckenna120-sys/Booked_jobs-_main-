@@ -115,6 +115,7 @@ const TeamManagement = () => {
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
+  const [lockedEmails, setLockedEmails] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -228,6 +229,34 @@ const TeamManagement = () => {
     }
   }, [toast]);
 
+  const fetchLoginLockouts = useCallback(async (emails: string[]) => {
+    const cleaned = Array.from(
+      new Set(
+        emails
+          .filter((e): e is string => !!e)
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+    if (cleaned.length === 0) {
+      setLockedEmails(new Set());
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke("unblock-user", {
+      body: { emails: cleaned },
+    });
+
+    if (error) {
+      console.error("[TeamManagement] fetchLoginLockouts error:", error);
+      return;
+    }
+
+    const locked = ((data as any)?.locked_emails ?? []) as string[];
+    setLockedEmails(
+      new Set(locked.map((e) => e.toLowerCase()))
+    );
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -235,6 +264,11 @@ const TeamManagement = () => {
       fetchAuthUsers();
     }
   }, [user, fetchMembers, fetchAuthUsers]);
+
+  useEffect(() => {
+    fetchLoginLockouts(members.map((m) => m.email || "").filter(Boolean));
+  }, [members, fetchLoginLockouts]);
+
 
   // ── Actions ──────────────────────────────────────────────────────
   const handleInvite = async () => {
@@ -349,29 +383,44 @@ const TeamManagement = () => {
   const handleUnblock = async (id: string) => {
     const member = members.find((m) => m.id === id);
     const wasDeactivated = member?.status === "deactivated";
+    const emailLc = member?.email?.trim().toLowerCase() || undefined;
 
-    // Clear auth ban AND reset engineers.status server-side.
-    // engineers.status writes are restricted to admin/owner by RLS, so this
-    // must run via the edge function (service-role) so office/manager callers
-    // don't silently fail with a 409/permission error.
-    const { error } = await supabase.functions.invoke("unblock-user", {
-      body: {
-        userId: member?.auth_user_id ?? undefined,
-        engineerId: id,
-      },
-    });
-    if (error) {
-      console.error("[TeamManagement] unblock-user error:", error);
-      toast({
-        title: wasDeactivated ? "Failed to reactivate user" : "Failed to unblock user",
-        variant: "destructive",
+    // Clear auth ban, login_attempts lockout, and engineer status server-side.
+    // engineers.status writes are restricted by RLS, so this uses the edge
+    // function to perform the service-role update safely.
+    if (member?.auth_user_id || emailLc) {
+      const { error } = await supabase.functions.invoke("unblock-user", {
+        body: {
+          userId: member?.auth_user_id ?? undefined,
+          engineerId: id,
+          email: emailLc,
+        },
       });
-      return;
+
+      if (error) {
+        console.error("[TeamManagement] unblock-user error:", error);
+        toast({
+          title: wasDeactivated
+            ? "Failed to reactivate user"
+            : "Failed to unblock user",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     }
 
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
+    if (emailLc) {
+      setLockedEmails((prev) => {
+        const next = new Set(prev);
+        next.delete(emailLc);
+        return next;
+      });
+    }
+
     toast({
       title: wasDeactivated
         ? `${member?.name} has been reactivated`
@@ -563,7 +612,13 @@ const TeamManagement = () => {
     return new Date(authUser.banned_until) > new Date();
   };
 
-  const isEffectivelyBlocked = (m: TeamMember) => m.status === "blocked" || isAuthLocked(m);
+  const isLoginLocked = (member: TeamMember): boolean => {
+    const emailLc = member.email?.trim().toLowerCase();
+    return !!emailLc && lockedEmails.has(emailLc);
+  };
+
+  const isEffectivelyBlocked = (m: TeamMember) =>
+    m.status === "blocked" || isAuthLocked(m) || isLoginLocked(m);
 
   // ── Filter / search ─────────────────────────────────────────────
   const filtered = members.filter((m) => {
@@ -682,7 +737,8 @@ const TeamManagement = () => {
             {filtered.map((member) => {
               const role = ROLES[member.role] || ROLES.engineer;
               const authLockedOut = isAuthLocked(member);
-              const isBlocked = member.status === "blocked" || authLockedOut;
+              const loginLockedOut = isLoginLocked(member);
+              const isBlocked = member.status === "blocked" || authLockedOut || loginLockedOut;
 
               return (
                 <div
@@ -726,9 +782,13 @@ const TeamManagement = () => {
                         ✓ Login linked
                       </div>
                     )}
-                    {isBlocked && (member.blocked_reason || authLockedOut) && (
+                    {isBlocked && (member.blocked_reason || authLockedOut || loginLockedOut) && (
                       <div className="text-xs text-destructive font-medium mt-0.5">
-                        🚫 {authLockedOut && member.status !== "blocked" ? "Locked out (failed login attempts)" : `Blocked: ${member.blocked_reason || "No reason"}`}
+                        🚫 {member.status === "blocked"
+                          ? `Blocked: ${member.blocked_reason || "No reason"}`
+                          : loginLockedOut
+                            ? "Locked out (failed login attempts)"
+                            : "Locked out (auth ban)"}
                       </div>
                     )}
                   </div>

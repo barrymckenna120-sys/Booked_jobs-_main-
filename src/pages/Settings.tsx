@@ -4,9 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrgId } from "@/hooks/useOrgId";
+import { playDoubleBeep, playSoftChime, playEngineerMessageAlert, isAudioUnlocked, getAudioContextState, unlockAudioNow } from "@/utils/audio";
+import { useNotifications } from "@/hooks/useNotifications";
+import { toast as sonnerToast } from "sonner";
 import {
   Settings as SettingsIcon, MessageCircle, Bell, Shield,
-  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame,
+  Loader2, Users, ClipboardList, FileText, Plug, Receipt, Palette, Package, Flame, Volume2,
 } from "lucide-react";
 import Products from "@/pages/Products";
 import GeneralTab from "@/components/settings/GeneralTab";
@@ -50,6 +53,10 @@ const Settings = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
   const [saving, setSaving] = useState(false);
+  const [, forceTick] = useState(0);
+  const { soundEnabled, enableSound } = useNotifications();
+  const audioUnlocked = isAudioUnlocked();
+  const ctxState = getAudioContextState();
 
   const { orgId } = useOrgId();
 
@@ -106,7 +113,101 @@ const Settings = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-2xl font-extrabold text-foreground mb-6">Settings</h1>
+      <h1 className="text-2xl font-extrabold text-foreground mb-3">Settings</h1>
+
+      {/* Sound alerts status + diagnostics */}
+      <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30 space-y-3">
+        <div className="flex items-center gap-2">
+          <Volume2 className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Sound alerts</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div className="p-2 rounded-md bg-background border border-border">
+            <div className="text-muted-foreground">Sound alerts enabled</div>
+            <div className={`font-bold ${soundEnabled ? "text-green-600" : "text-red-600"}`}>
+              {soundEnabled === null ? "Loading…" : soundEnabled ? "Yes" : "No"}
+            </div>
+          </div>
+          <div className="p-2 rounded-md bg-background border border-border">
+            <div className="text-muted-foreground">Audio unlocked</div>
+            <div className={`font-bold ${audioUnlocked ? "text-green-600" : "text-amber-600"}`}>
+              {audioUnlocked ? "Yes" : "No — tap Enable"}
+            </div>
+          </div>
+          <div className="p-2 rounded-md bg-background border border-border">
+            <div className="text-muted-foreground">AudioContext state</div>
+            <div className={`font-bold ${ctxState === "running" ? "text-green-600" : "text-amber-600"}`}>
+              {ctxState}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await unlockAudioNow();
+              forceTick((t) => t + 1);
+              if (res.ok) sonnerToast.success("Audio unlocked");
+              else sonnerToast.error("Could not unlock audio", { description: `${res.reason} (state: ${res.state})` });
+            }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:opacity-90"
+          >
+            Enable sound alerts
+          </button>
+          <button
+            type="button"
+            onClick={() => enableSound(!soundEnabled)}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-muted"
+          >
+            {soundEnabled ? "Turn off sound alerts" : "Turn on sound alerts"}
+          </button>
+          <span className="text-xs text-muted-foreground mx-1">Test:</span>
+          <button
+            type="button"
+            onClick={async () => {
+              console.log("[test] Double beep button clicked");
+              const r = await playDoubleBeep();
+              forceTick((t) => t + 1);
+              if (!r.played) sonnerToast.warning("Sound blocked", { description: `${r.reason} (state: ${r.state})` });
+            }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-muted"
+          >
+            Double beep (jobs)
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              console.log("[test] Soft chime button clicked");
+              const r = await playSoftChime();
+              forceTick((t) => t + 1);
+              if (!r.played) sonnerToast.warning("Sound blocked", { description: `${r.reason} (state: ${r.state})` });
+            }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-muted"
+          >
+            Soft chime (completed)
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              console.log("[test] Message alert button clicked");
+              const r = await playEngineerMessageAlert();
+              forceTick((t) => t + 1);
+              if (!r.played) sonnerToast.warning("Sound blocked", { description: `${r.reason} (state: ${r.state})` });
+            }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-background hover:bg-muted"
+          >
+            Message alert
+          </button>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Sound only works while the app is open. For alerts when the app is
+          closed or backgrounded, enable push notifications on this device.
+        </p>
+      </div>
+
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar tabs (desktop) / Horizontal tabs (mobile) */}

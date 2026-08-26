@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       }
 
       const cfg = {
-        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url ?? "https://tally.so/r/RGJDy4",
+        tallyUrl: (tallyIntegration as any)?.config?.renewal_form_url,
         countryCode: String((messengerIntegration as any)?.config?.country_code ?? "353"),
       };
       orgConfigCache.set(orgId, cfg);
@@ -177,6 +177,14 @@ Deno.serve(async (req) => {
       const latest = latestJobMap.get(c.id);
       const orgId = (c as any).organisation_id;
       const { tallyUrl, countryCode } = await loadOrgConfig(orgId);
+
+      if (!tallyUrl) {
+        console.warn(`Missing Tally renewal_form_url for org ${orgId}`);
+        return new Response(
+          JSON.stringify({ error: "Tally renewal_form_url not configured for this organisation" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       let digits = (c.phone || "").replace(/\D/g, "");
       const ccLen = countryCode.length;

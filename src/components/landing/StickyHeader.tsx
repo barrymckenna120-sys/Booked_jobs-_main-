@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { supabase } from "@/integrations/supabase/client";
 
 export const StickyHeader = () => {
@@ -26,7 +25,7 @@ export const StickyHeader = () => {
       }`}
     >
       <div className="section-container py-2 flex items-center justify-between">
-        <img src={bookedjobsLogo} alt="BookedJobs" className="h-8 object-contain object-left" />
+        <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8 object-contain object-left" />
         <div className="flex items-center gap-3">
           {loggedIn ? (
             <Button size="sm" asChild>

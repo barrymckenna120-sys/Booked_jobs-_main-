@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { logAudit } from "@/lib/auditLog";
+import { logAudit from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildEngineerPaymentPlan, type EngineerLedgerRow } from "@/lib/engineerPaymentPlan";
 import { resolveDepositPill } from "@/components/engineer/job-card/InfoPills";
-import { addToQueue } from "@/hooks/useRetryQueue";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import PaymentSheet from "@/components/engineer/PaymentSheet";

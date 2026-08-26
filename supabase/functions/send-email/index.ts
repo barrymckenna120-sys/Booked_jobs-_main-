@@ -7,7 +7,11 @@ const corsHeaders = {
 const APP_URL = "https://plumb-on-call.lovable.app";
 
 const RESEND_FROM_NAME = Deno.env.get("RESEND_FROM_NAME") || "BookedJobs";
-const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@notify.kngasservices.bookedjobs.ie";
+// RESEND_FROM_EMAIL is resolved per-request from tenant_integrations
+// (integration_type='whatsapp', config.domain). The env var is still honored
+// as an explicit override when set.
+const RESEND_FROM_EMAIL_OVERRIDE = Deno.env.get("RESEND_FROM_EMAIL") || null;
+
 
 // ── Template: Welcome ─────────────────────────────────────
 function welcomeHtml(data: { name: string; email: string; role: string; loginUrl: string }): string {
@@ -389,6 +393,43 @@ Deno.serve(async (req) => {
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not configured");
     }
+
+    // Resolve tenant From address via caller's profile → tenant_integrations.whatsapp.config.domain
+    let RESEND_FROM_EMAIL: string | null = RESEND_FROM_EMAIL_OVERRIDE;
+    if (!RESEND_FROM_EMAIL) {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const callerUserId = (claimsData.claims as any).sub;
+      const { data: profile } = await adminClient
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", callerUserId)
+        .maybeSingle();
+      const orgId = (profile as any)?.organisation_id;
+      if (orgId) {
+        const { data: waIntegration } = await adminClient
+          .from("tenant_integrations")
+          .select("config")
+          .eq("organisation_id", orgId)
+          .eq("integration_type", "whatsapp")
+          .maybeSingle();
+        const tenantDomain = (waIntegration as any)?.config?.domain;
+        if (tenantDomain) {
+          RESEND_FROM_EMAIL = `noreply@notify.${tenantDomain}`;
+        }
+      }
+    }
+
+    if (!RESEND_FROM_EMAIL) {
+      console.warn("send-email: tenant domain not configured for caller");
+      return new Response(JSON.stringify({ error: "Tenant sender domain not configured" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     const { type, data } = await req.json();
 

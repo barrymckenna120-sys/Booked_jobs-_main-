@@ -111,6 +111,92 @@ async function ensureRunning(c: AudioContext): Promise<void> {
  *  resumes the AudioContext + plays a silent buffer (required on iOS). */
 let unlockHandlerAttached = false;
 
+export const AUDIO_UNLOCKED_KEY = "audio_unlocked";
+
+export function isAudioUnlocked(): boolean {
+  try {
+    return localStorage.getItem(AUDIO_UNLOCKED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function getAudioContextState(): string {
+  return ctx?.state ?? "no-ctx";
+}
+
+function markUnlocked() {
+  try { localStorage.setItem(AUDIO_UNLOCKED_KEY, "true"); } catch {}
+}
+
+/** Shared core: resume the AudioContext, play a silent unlock buffer and
+ *  prime HTMLAudio fallback elements. Safe to call multiple times. */
+async function performUnlock(): Promise<{ ok: boolean; reason?: string; state: string }> {
+  const c = getCtx();
+  if (!c) return { ok: false, reason: "no-audio-context", state: "no-ctx" };
+  try {
+    if (c.state === "suspended" || (c.state as string) === "interrupted") {
+      await c.resume();
+    }
+  } catch (err) {
+    console.warn("[audio] AudioContext.resume() failed:", err);
+  }
+  try {
+    const buf = c.createBuffer(1, 1, 22050);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(c.destination);
+    src.start(0);
+  } catch (err) {
+    console.warn("[audio] Silent unlock buffer failed:", err);
+  }
+  const html = getHtmlAudio();
+  if (html) {
+    await Promise.all(
+      [html.beep, html.chime, html.message].map(async (el) => {
+        try {
+          el.muted = true;
+          const p = el.play();
+          if (p && typeof p.then === "function") {
+            await p.then(() => {
+              el.pause();
+              el.currentTime = 0;
+              el.muted = false;
+            }).catch((err) => {
+              el.muted = false;
+              console.warn("[audio] HTMLAudio prime failed:", err);
+            });
+          } else {
+            el.pause();
+            el.currentTime = 0;
+            el.muted = false;
+          }
+        } catch (err) {
+          el.muted = false;
+          console.warn("[audio] HTMLAudio prime threw:", err);
+        }
+      })
+    );
+  }
+  const running = c.state === "running";
+  if (running) markUnlocked();
+  return {
+    ok: running,
+    reason: running ? undefined : `audio-context-${c.state}`,
+    state: c.state,
+  };
+}
+
+/** Explicit, button-driven unlock. Runs the unlock immediately inside the
+ *  user gesture so we don't have to wait for a follow-up tap. */
+export async function unlockAudioNow(): Promise<{ ok: boolean; reason?: string; state: string }> {
+  // Make sure the passive gesture-handler is also wired up for future taps.
+  unlockAudio();
+  const res = await performUnlock();
+  console.log("[audio] unlockAudioNow result:", res);
+  return res;
+}
+
 export function unlockAudio() {
   if (unlockHandlerAttached) return;
   unlockHandlerAttached = true;
@@ -118,46 +204,8 @@ export function unlockAudio() {
   // Persistent handler — re-runs on EVERY user gesture so iOS can re-unlock
   // after the AudioContext re-suspends (backgrounding, phone calls, PWA throttling).
   const handler = () => {
-    const c = getCtx();
-    if (!c) return;
-    const state = c.state as string;
-    if (state === "suspended" || state === "interrupted") {
-      c.resume().catch(() => {});
-    }
-    // Silent buffer to fully unlock audio on iOS Safari & Chrome
-    try {
-      const buf = c.createBuffer(1, 1, 22050);
-      const src = c.createBufferSource();
-      src.buffer = buf;
-      src.connect(c.destination);
-      src.start(0);
-    } catch {
-      // ignore
-    }
-    // Prime HTMLAudio fallback elements so .play() works later without gesture
-    const html = getHtmlAudio();
-    if (html) {
-      [html.beep, html.chime, html.message].forEach((el) => {
-        try {
-          el.muted = true;
-          const p = el.play();
-          if (p && typeof p.then === "function") {
-            p.then(() => {
-              el.pause();
-              el.currentTime = 0;
-              el.muted = false;
-            }).catch(() => { el.muted = false; });
-          } else {
-            el.pause();
-            el.currentTime = 0;
-            el.muted = false;
-          }
-        } catch {
-          el.muted = false;
-        }
-      });
-    }
-
+    // Fire-and-forget; performUnlock handles its own errors and logging.
+    performUnlock().catch((err) => console.warn("[audio] performUnlock threw:", err));
   };
 
   document.addEventListener("pointerdown", handler, { capture: true, passive: true });
@@ -165,15 +213,31 @@ export function unlockAudio() {
   document.addEventListener("click", handler, { capture: true });
 }
 
+export interface PlayResult { played: boolean; reason?: string; state: string; }
+
+async function tryResumeRunning(c: AudioContext): Promise<void> {
+  const state = c.state as string;
+  if (state === "suspended" || state === "interrupted") {
+    try {
+      await c.resume();
+    } catch (err) {
+      console.warn("[audio] resume failed inside play:", err);
+    }
+  }
+}
+
 /** 880Hz square double-beep for high-priority notifications */
-export async function playDoubleBeep() {
-  // Synchronous HTMLAudio fallback first — guaranteed to fire if primed.
+export async function playDoubleBeep(): Promise<PlayResult> {
+  console.log("[audio] playDoubleBeep() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.beep);
   try {
     const c = getCtx();
-    if (!c) return;
-    await ensureRunning(c);
-    if (c.state !== "running") return;
+    if (!c) return { played: false, reason: "no-audio-context", state: "no-ctx" };
+    await tryResumeRunning(c);
+    if (c.state !== "running") {
+      console.warn("[audio] playDoubleBeep: context not running:", c.state);
+      return { played: false, reason: `audio-context-${c.state}`, state: c.state };
+    }
     [0, 0.15].forEach((delay) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -184,19 +248,25 @@ export async function playDoubleBeep() {
       osc.start(c.currentTime + delay);
       osc.stop(c.currentTime + delay + 0.1);
     });
+    return { played: true, state: c.state };
   } catch (err) {
-    console.warn("Audio play failed:", err);
+    console.error("[audio] playDoubleBeep failed:", err);
+    return { played: false, reason: String((err as any)?.message ?? err), state: ctx?.state ?? "no-ctx" };
   }
 }
 
 /** 440Hz sine soft chime for completed notifications */
-export async function playSoftChime() {
+export async function playSoftChime(): Promise<PlayResult> {
+  console.log("[audio] playSoftChime() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.chime);
   try {
     const c = getCtx();
-    if (!c) return;
-    await ensureRunning(c);
-    if (c.state !== "running") return;
+    if (!c) return { played: false, reason: "no-audio-context", state: "no-ctx" };
+    await tryResumeRunning(c);
+    if (c.state !== "running") {
+      console.warn("[audio] playSoftChime: context not running:", c.state);
+      return { played: false, reason: `audio-context-${c.state}`, state: c.state };
+    }
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = "sine";
@@ -206,19 +276,23 @@ export async function playSoftChime() {
     osc.connect(gain).connect(c.destination);
     osc.start();
     osc.stop(c.currentTime + 0.5);
+    return { played: true, state: c.state };
   } catch (err) {
-    console.warn("Audio play failed:", err);
+    console.error("[audio] playSoftChime failed:", err);
+    return { played: false, reason: String((err as any)?.message ?? err), state: ctx?.state ?? "no-ctx" };
   }
 }
 
 /** 880Hz sine double-beep for message alerts */
-export async function playMessageBeep() {
+export async function playMessageBeep(): Promise<PlayResult> {
   playHtml(getHtmlAudio()?.message);
   try {
     const c = getCtx();
-    if (!c) return;
-    await ensureRunning(c);
-    if (c.state !== "running") return;
+    if (!c) return { played: false, reason: "no-audio-context", state: "no-ctx" };
+    await tryResumeRunning(c);
+    if (c.state !== "running") {
+      return { played: false, reason: `audio-context-${c.state}`, state: c.state };
+    }
     [0, 0.23].forEach((delay) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -229,32 +303,41 @@ export async function playMessageBeep() {
       osc.start(c.currentTime + delay);
       osc.stop(c.currentTime + delay + 0.15);
     });
+    return { played: true, state: c.state };
   } catch (err) {
-    console.warn("Audio play failed:", err);
+    console.error("[audio] playMessageBeep failed:", err);
+    return { played: false, reason: String((err as any)?.message ?? err), state: ctx?.state ?? "no-ctx" };
   }
 }
 
 /** 1200Hz triangle triple-chirp for engineer message alerts — distinct from job notifications */
-export async function playEngineerMessageAlert() {
+export async function playEngineerMessageAlert(): Promise<PlayResult> {
+  console.log("[audio] playEngineerMessageAlert() called. ctx state:", ctx?.state ?? "no-ctx");
   playHtml(getHtmlAudio()?.message);
   try {
     const c = getCtx();
     debugLog("Audio state at play:", c?.state ?? "no-ctx");
-    if (!c) return;
-    await ensureRunning(c);
-    if (c.state !== "running") return;
+    if (!c) return { played: false, reason: "no-audio-context", state: "no-ctx" };
+    await tryResumeRunning(c);
+    if (c.state !== "running") {
+      console.warn("[audio] playEngineerMessageAlert: context not running:", c.state);
+      return { played: false, reason: `audio-context-${c.state}`, state: c.state };
+    }
     [0, 0.12, 0.24].forEach((delay, i) => {
       const osc = c.createOscillator();
       const gain = c.createGain();
       osc.type = "triangle";
-      osc.frequency.value = 1200 + i * 100; // ascending: 1200, 1300, 1400
+      osc.frequency.value = 1200 + i * 100;
       gain.gain.value = 0.2;
       osc.connect(gain).connect(c.destination);
       osc.start(c.currentTime + delay);
       osc.stop(c.currentTime + delay + 0.08);
     });
+    return { played: true, state: c.state };
   } catch (err) {
-    console.warn("Audio play failed:", err);
+    console.error("[audio] playEngineerMessageAlert failed:", err);
+    return { played: false, reason: String((err as any)?.message ?? err), state: ctx?.state ?? "no-ctx" };
   }
 }
+
 
