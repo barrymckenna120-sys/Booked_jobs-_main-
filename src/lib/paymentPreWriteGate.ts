@@ -62,12 +62,21 @@ export async function fetchJobPaymentState(
   return data as FreshJobPaymentRow;
 }
 
-/** Pure: Case B is a hard stop; every other case passes through. */
+/**
+ * Pure: a settled job is a hard stop; every other case passes through.
+ *
+ * Two ways a job is settled:
+ *  - the shared classifier says Case B (deposit collected, nothing owing), or
+ *  - `payment_status = 'paid'`, which is authoritative on its own. The classifier
+ *    only reaches Case B when a deposit was paid, so a straight cash/card
+ *    settlement (no deposit) lands in Case C and must be caught here.
+ */
 export function assertCollectable(row: FreshJobPaymentRow): PaymentGateResult {
   const state = resolvePaymentSheetState(row);
-  if (state.case === "B") throw new JobAlreadyPaidError(state);
+  if (state.case === "B" || row.payment_status === "paid") throw new JobAlreadyPaidError(state);
   return { row, state };
 }
+
 
 /**
  * Re-read + gate. Call immediately before any job_payments insert triggered
