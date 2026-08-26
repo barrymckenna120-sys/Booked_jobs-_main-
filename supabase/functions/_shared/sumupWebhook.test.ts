@@ -1271,3 +1271,33 @@ Deno.test("balance payment that settles the job sends receipt, not a part confir
   assertEquals(h.depositConfirmations.length, 0);
   assertEquals(h.receipts.length, 1);
 });
+
+// The office alert must state the balance that was actually written to the job,
+// and carry the checkout id so the alert is traceable and de-duplicable.
+Deno.test("office alert carries the checkout id and the post-payment outstanding balance", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 2000, balance_due: 2000, job_reference: "DG-443" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(h.notifications.length, 1);
+  assertEquals(h.notifications[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.notifications[0].fullyPaid, false);
+  assertEquals(h.notifications[0].outstanding, 1500);
+  // Never a figure of its own: it is exactly the balance_due the job write applied.
+  assertEquals(h.notifications[0].outstanding, Number(h.updates[0].patch.balance_due));
+});
+
+Deno.test("office alert for a settling balance payment reports nothing outstanding", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 500, deposit_paid: true, payment_status: "partial" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "paid");
+  assertEquals(h.notifications.length, 1);
+  assertEquals(h.notifications[0].fullyPaid, true);
+  assertEquals(h.notifications[0].outstanding, 0);
+  assertEquals(h.notifications[0].checkoutId, CHECKOUT_ID);
+});
