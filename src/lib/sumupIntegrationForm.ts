@@ -37,7 +37,8 @@ export function isSumUpEnvironment(value: unknown): value is SumUpEnvironment {
 }
 
 export function normaliseEnvironment(value: unknown): SumUpEnvironment {
-  return isSumUpEnvironment(value) ? value : "test";
+  // Absent/unknown means live — sandbox/test is explicit opt-in only.
+  return value === "test" || value === "sandbox" ? "test" : "live";
 }
 
 export function validateSumUpForm(values: SumUpFormValues): SumUpFormErrors {
