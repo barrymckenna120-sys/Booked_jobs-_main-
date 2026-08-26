@@ -4,6 +4,12 @@ import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_share
 import { businessToday, parseInboundIntent, pickActingOrg, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
 import { logCustomerAudit } from "../_shared/auditLog.ts";
 import { last9Digits, samePhone } from "../_shared/phone.ts";
+import {
+  buildCancelUpdate,
+  cancelAuditDetail,
+  reversesConfirmation,
+  WHATSAPP_CANCEL_REASON,
+} from "../_shared/cancelUpdate.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -297,7 +303,7 @@ Deno.serve(async (req: Request) => {
       // org-choice rules live in the pure resolvers so they are unit-tested.
       const { data: jobs } = await supabase
         .from("service_calls")
-        .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent, customer_id")
+        .select("id, status, scheduled_date, time_block, organisation_id, reminder_2day_sent, customer_id, confirmed")
         .in("customer_id", senderCustomerIds)
         .eq("reminder_2day_sent", true)
         .order("scheduled_date", { ascending: true });
@@ -403,13 +409,14 @@ Deno.serve(async (req: Request) => {
           metadata: { intent: "confirm", customer_id: jobOwnerId, service_call_id: job.id },
         });
       } else {
+        // A customer may always cancel, even after CONFIRM — but the cancel
+        // clears the confirmation flag (no "Confirmed" badge on a cancelled
+        // job) and always raises an office follow-up so an accidental "cancel"
+        // text gets a call back rather than slipping through silently.
+        const wasConfirmed = reversesConfirmation(job as any);
         await supabase
           .from("service_calls")
-          .update({
-            status: "Cancelled",
-            cancellation_reason: "Customer cancelled via WhatsApp",
-            cancelled_at: new Date().toISOString(),
-          })
+          .update(buildCancelUpdate(job as any, jobOwnerName))
           .eq("id", job.id);
         await sendReply(
           `Thanks ${jobOwnerName}, your appointment has been cancelled. To rebook please call us${callUs}. ${branding.footer || branding.name}`,
@@ -417,22 +424,31 @@ Deno.serve(async (req: Request) => {
         );
         await notifyStaff(
           "Job cancelled by customer",
-          `${jobOwnerName} cancelled their appointment by WhatsApp reply.`,
+          wasConfirmed
+            ? `${jobOwnerName} confirmed and then cancelled by WhatsApp reply — please call to check it wasn't sent by mistake.`
+            : `${jobOwnerName} cancelled their appointment by WhatsApp reply — please call to check it wasn't sent by mistake.`,
           job.id,
-          { customer_id: jobOwnerId, intent, service_call_id: job.id },
+          { customer_id: jobOwnerId, intent, service_call_id: job.id, reversed_confirmation: wasConfirmed },
         );
-        await logActivity("WhatsApp received — Appointment Cancelled", job.id, jobOwnerId);
+        await logActivity(
+          wasConfirmed
+            ? "WhatsApp received — Appointment Cancelled (after confirming)"
+            : "WhatsApp received — Appointment Cancelled",
+          job.id,
+          jobOwnerId,
+        );
         await logCustomerAudit(supabase, {
           action_type: "job_cancelled",
           entity_id: job.id,
-          detail: `Cancelled: Customer cancelled via WhatsApp`,
+          detail: cancelAuditDetail(job as any),
           organisation_id: actingOrgId,
           customer_name: jobOwnerName,
           metadata: {
             intent: "cancel",
-            reason: "Customer cancelled via WhatsApp",
+            reason: WHATSAPP_CANCEL_REASON,
             customer_id: jobOwnerId,
             service_call_id: job.id,
+            reversed_confirmation: wasConfirmed,
           },
         });
       }
