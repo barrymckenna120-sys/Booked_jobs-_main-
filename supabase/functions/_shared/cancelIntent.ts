@@ -107,6 +107,8 @@ export function businessToday(now: Date = new Date()): string {
  */
 export type InboundCustomer = {
   id: string;
+  /** Owning app user — required when writing whatsapp_messages (NOT NULL). */
+  user_id?: string | null;
   organisation_id?: string | null;
   name?: string | null;
   phone?: string | null;
