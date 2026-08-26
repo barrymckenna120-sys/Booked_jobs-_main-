@@ -40,12 +40,12 @@ const METHODS = [
 
 const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
 
-const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMessage }: Props) => {
+const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMessage, forceFullyPaid }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
 
   const state = resolvePaymentSheetState(job);
-  const isFullyPaid = state.case === "B";
+  const isFullyPaid = forceFullyPaid === true || state.case === "B";
 
   useEffect(() => {
     if (isFullyPaid) {
