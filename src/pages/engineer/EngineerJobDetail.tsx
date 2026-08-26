@@ -209,12 +209,23 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // Always include confirmedRevenue so updateJob writes it to service_calls.revenue
     const patchWithRevenue = { ...completeData, paymentMethod: method, confirmedRevenue: confirmedAmount };
 
+    // Stale-state guard: if the authoritative gate says the job is already
+    // settled, reopen the sheet in its fully-paid state instead of writing.
+    const handleGateFailure = (err: unknown) => {
+      if (!isJobAlreadyPaidError(err)) return false;
+      setPaymentForcedFullyPaid(true);
+      setShowPayment(true);
+      toast({ title: "Already paid", description: "This job was settled elsewhere — nothing left to collect." });
+      return true;
+    };
+
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
         await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Invoice creation + navigation is now handled inside updateJob
       } catch (err) {
+        if (handleGateFailure(err)) { setInvoiceLoading(false); return; }
         console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Failed to complete job", variant: "destructive" });
       }
@@ -224,12 +235,14 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Navigation to receipt screen is handled by updateJob on completion
       } catch (err) {
+        if (handleGateFailure(err)) return;
         console.error("handlePaymentDone cash/card flow error:", err);
         toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
       }
     }
     setCompleteData(null);
     setCompleteJobTagDate(null);
+
   };
 
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
