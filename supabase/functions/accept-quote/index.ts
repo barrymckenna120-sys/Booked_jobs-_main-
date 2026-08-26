@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { sendDepositLink } from "../_shared/depositLink.ts";
+import { decideAlreadyActionedRecovery } from "../_shared/quoteApprovalRecovery.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +71,19 @@ serve(async (req) => {
       try {
         const parsed = JSON.parse(rpcBody);
         if (parsed && parsed.success === false) {
+          if (parsed.error === "already_actioned") {
+            const recovery = await recoverAlreadyActionedQuote(
+              supabaseUrl,
+              headers,
+              quoteId,
+            );
+            const statusCode = recovery.success ? 200 : 400;
+            return new Response(
+              JSON.stringify(recovery),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: statusCode },
+            );
+          }
+
           console.error("respond_to_quote rejected:", parsed.error);
           return new Response(
             JSON.stringify({ success: false, error: parsed.error || "rejected" }),
@@ -137,6 +151,90 @@ serve(async (req) => {
     );
   }
 });
+
+async function recoverAlreadyActionedQuote(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  quoteId: string,
+) {
+  console.warn("respond_to_quote rejected as already_actioned; checking deposit recovery path:", quoteId);
+
+  const updatedRes = await fetch(
+    `${supabaseUrl}/rest/v1/quotes?id=eq.${quoteId}&select=converted_job_id,user_id,quote_number,total_amount,deposit,deposit_amount,customer_id,payment_link,customers(name,phone,opted_out)`,
+    { headers },
+  );
+  const updatedQuotes = await updatedRes.json();
+  const updatedQuote = Array.isArray(updatedQuotes) ? updatedQuotes[0] : null;
+
+  const serviceCallId = updatedQuote?.converted_job_id ?? null;
+  let job: any = null;
+
+  if (serviceCallId) {
+    const jobRes = await fetch(
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${serviceCallId}&select=organisation_id,deposit_paid,payment_status&limit=1`,
+      { headers },
+    );
+    const jobRows = await jobRes.json();
+    job = Array.isArray(jobRows) ? jobRows[0] : null;
+  }
+
+  const depositAmount = Number(updatedQuote?.deposit || updatedQuote?.deposit_amount || 0);
+  const decision = decideAlreadyActionedRecovery({
+    convertedJobId: serviceCallId,
+    depositAmount,
+    job,
+  });
+
+  if (decision.action === "accept_without_resend") {
+    return {
+      success: true,
+      status: decision.status,
+      quote_id: quoteId,
+      job_id: serviceCallId,
+    };
+  }
+
+  if (decision.action !== "resend_deposit_link" || !updatedQuote || !job?.organisation_id) {
+    return {
+      success: false,
+      error: "already_actioned",
+      status: decision.status,
+      quote_id: quoteId,
+      job_id: serviceCallId,
+    };
+  }
+
+  const customerName = updatedQuote.customers?.name || "Customer";
+  const depositResult = await sendDepositLink({
+    supabaseUrl,
+    headers,
+    service_call_id: serviceCallId,
+    deposit_amount: depositAmount,
+    customer_id: updatedQuote.customer_id || null,
+    organisation_id: job.organisation_id,
+    customerName,
+    customerPhone: updatedQuote.customers?.phone ?? null,
+    customerOptedOut: updatedQuote.customers?.opted_out === true,
+  });
+
+  if (!depositResult.ok) {
+    return {
+      success: false,
+      error: depositResult.error || "deposit_link_failed",
+      status: "deposit_link_failed",
+      quote_id: quoteId,
+      job_id: serviceCallId,
+    };
+  }
+
+  return {
+    success: true,
+    status: depositResult.reused ? "deposit_link_already_pending" : "deposit_link_sent",
+    quote_id: quoteId,
+    job_id: serviceCallId,
+    payment_link: depositResult.paymentLink,
+  };
+}
 
 async function sendWhatsAppAlert(
   supabaseUrl: string,

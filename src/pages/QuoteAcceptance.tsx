@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, CheckCircle2, Star, Shield, Wrench, Download } from "lucide-react";
+import { isQuoteApprovalAccepted } from "@/lib/quoteApprovalResult";
 
 type LineItem = { description: string; qty: number; unit_price: number; line_total: number };
 
@@ -166,11 +167,7 @@ const QuoteAcceptance = () => {
         }
       );
       const result = await response.json();
-      // already_actioned = this quote was approved earlier (the job, office
-      // notification and payment link were created then). Show the accepted
-      // state instead of a generic failure, and do NOT re-trigger the payment
-      // link — approval stays single-shot.
-      if (result.success || result.error === "already_actioned") {
+      if (isQuoteApprovalAccepted(result)) {
         setAccepted(true);
       } else {
         setApproveError(true);
