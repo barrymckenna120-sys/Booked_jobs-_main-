@@ -441,7 +441,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         try {
           const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
-          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
+          const amountVal = confirmedRevenue ?? safeDbPatch.revenue ?? job.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
           await supabase.from("customer_activity").insert({
             organisation_id: job.organisation_id,
@@ -455,7 +455,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           console.error("Failed to log payment activity:", e);
         }
         // Fire-and-forget: send WhatsApp payment-received confirmation
-        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
+        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id, payment_amount: confirmedRevenue } }).catch(() => {});
       }
 
 

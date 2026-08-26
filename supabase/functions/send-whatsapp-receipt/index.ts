@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
               "Authorization": `Bearer ${supabaseKey}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ job_id }),
+            body: JSON.stringify({ job_id, payment_amount }),
           }
         );
         const pdfData = await pdfRes.json();
