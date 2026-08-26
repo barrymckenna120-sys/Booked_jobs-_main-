@@ -3,6 +3,7 @@ export type ReceiptTextInput = {
   scheduled_date: string | null;
   paid_at: string | null;
   revenue: number | null;
+  amount_paid?: number | null;
   payment_method: string | null;
   assigned_engineer: string | null;
   customerName?: string | null;
@@ -45,7 +46,8 @@ export function buildReceiptText(job: ReceiptTextInput): string | null {
 
   if (job.assigned_engineer) lines.push(`Engineer: ${job.assigned_engineer}`);
 
-  lines.push(`Amount: €${(job.revenue || 0).toFixed(2)}`);
+  const amount = job.amount_paid ?? job.revenue ?? 0;
+  lines.push(`Amount: €${amount.toFixed(2)}`);
 
   return lines.join("\n");
 }

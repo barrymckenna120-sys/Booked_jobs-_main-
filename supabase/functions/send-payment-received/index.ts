@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
+import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 
 
 const corsHeaders = {
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { service_call_id } = await req.json();
+    const { service_call_id, payment_amount } = await req.json();
     if (!service_call_id) return json({ error: "service_call_id is required" }, 400);
 
     // 1. Fetch job + customer
@@ -137,7 +138,23 @@ Deno.serve(async (req) => {
       scheduledDate = `${dd}/${mm}/${yyyy}`;
     }
 
-    const amountPaid = `€${Number(job.revenue || 0).toFixed(2)}`;
+    const { data: latestPayment } = await supabase
+      .from("job_payments")
+      .select("amount")
+      .eq("service_call_id", service_call_id)
+      .gt("amount", 0)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const amountPaid = formatReceiptAmount(
+      resolveReceiptAmount({
+        paymentAmount: payment_amount,
+        ledgerAmount: latestPayment?.amount,
+        revenue: job.revenue,
+      }),
+    );
 
     const jobRef =
       job.job_reference ||

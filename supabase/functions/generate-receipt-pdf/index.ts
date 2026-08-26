@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { job_id } = await req.json();
+    const { job_id, payment_amount } = await req.json();
     if (!job_id) {
       return new Response(JSON.stringify({ error: "job_id is required" }), {
         status: 400,
@@ -78,7 +79,23 @@ Deno.serve(async (req) => {
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
     const receiptNum = job.receipt_number || "—";
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
-    const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "€0.00";
+    const { data: latestPayment } = await supabase
+      .from("job_payments")
+      .select("amount")
+      .eq("service_call_id", job_id)
+      .gt("amount", 0)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const amount = formatReceiptAmount(
+      resolveReceiptAmount({
+        paymentAmount: payment_amount,
+        ledgerAmount: latestPayment?.amount,
+        revenue: job.revenue,
+      }),
+    );
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "cash" ? "Cash" : "Invoice";
     
     const customerName = customer?.name || "Customer";

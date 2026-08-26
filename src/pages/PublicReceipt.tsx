@@ -72,7 +72,8 @@ const PublicReceipt = () => {
 
   const paymentLabel =
     data.payment_method === "cash" ? "Cash" : data.payment_method === "card" ? "Card" : "Invoice";
-  const amount = data.revenue ? `€${Number(data.revenue).toFixed(2)}` : "—";
+  const amountSource = data.amount_paid ?? data.revenue;
+  const amount = amountSource ? `€${Number(amountSource).toFixed(2)}` : "—";
   const serviceDate = data.scheduled_date || data.completed_at;
 
   // Boiler Details rows (empty rows are omitted entirely)
