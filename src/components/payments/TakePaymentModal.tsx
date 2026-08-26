@@ -95,6 +95,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   useEffect(() => {
     if (open) {
       setStep(1);
+      setGateBlocked(false);
       setMethod(null);
       setAmount(defaultAmount);
       setAmountError("");
