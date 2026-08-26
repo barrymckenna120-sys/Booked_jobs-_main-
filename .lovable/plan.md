@@ -39,3 +39,7 @@ Not in this ticket: EngineerOutstandingBalances refetch/`payment_status` passthr
 - Manual scratch-job check (no real customer): pay via the deposit-pill surface, then immediately run Confirm Job Total before any refresh — must show the fully-paid state, with no second `job_payments` row.
 
 Reported back: pasted test output, per-file diffs, and the scratch-job result.
+
+## Pre-existing build error to fix first
+
+`src/pages/engineer/EngineerJobDetail.tsx` calls `addToQueue` (lines 353-390) without importing it, so the app currently fails to typecheck. One-line fix as the first step of this ticket: `import { addToQueue } from "@/hooks/useRetryQueue";` (it is a module-level export there, no hook needed).
