@@ -1,14 +1,11 @@
-# Plan: quote-followup-day3 status filter
+Deploy quote-followup-day3 as-is
 
-## Current state
-`supabase/functions/quote-followup-day3/index.ts` already uses `.in("status", ["sent", "Sent", "viewed"])` at lines 94-98. The `.eq("status", "sent")` filter described in the request is not present in the current file.
+Goal
+Deploy the quote-followup-day3 Edge Function in its current state and confirm the deployment succeeded with its timestamp.
 
-## What this plan will do
-1. Confirm no other file changes are needed (the requested single-line change is already in place).
-2. Deploy `quote-followup-day3` so the current code is live.
-3. Capture and return the deployment log.
+What will happen
+1. Deploy supabase/functions/quote-followup-day3/index.ts using the deployment tool.
+2. Fetch the edge-function deployment log for quote-followup-day3.
+3. Return the log output, including the deployment success status and timestamp.
 
-## Scope
-- Touch only `supabase/functions/quote-followup-day3/index.ts` for deployment.
-- Do not modify `quote-followup-day6` or any other file.
-- Do not change message wording or any other filter (`approved`, `follow_up_day3_sent`, `sent_at` range).
+No code changes are required; the function will be deployed exactly as it currently exists in the codebase.
