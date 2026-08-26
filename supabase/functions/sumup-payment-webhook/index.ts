@@ -20,6 +20,7 @@ import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { normalisePhone } from "../_shared/whatsapp.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { buildPartialPaymentRecordPath } from "../_shared/partialPaymentRecord.ts";
 
 const JOB_COLUMNS =
   "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at, job_reference";
@@ -493,8 +494,9 @@ Deno.serve(async (req) => {
 
       const branding = await getOrgBrandingClient(supabase, e.organisationId);
 
-      // Proof of THIS part payment. Null when the tenant has no public domain
-      // configured — the message then simply omits the line.
+      // Proof of THIS part payment. Generate the PDF with the verified webhook
+      // amount before exposing its public redirect; resolve-document-link
+      // intentionally returns 404 until receipt_pdf_url exists.
       let receiptUrl: string | null = null;
       try {
         const { data: jobRow } = await supabase
@@ -502,14 +504,45 @@ Deno.serve(async (req) => {
           .select("access_token")
           .eq("id", e.serviceCallId)
           .maybeSingle();
+
+        let pdfReady = false;
         if (jobRow?.access_token) {
+          const pdfRes = await fetch(`${supabaseUrl}/functions/v1/generate-receipt-pdf`, {
+            method: "POST",
+            headers: {
+              ...headers,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ job_id: e.serviceCallId, payment_amount: e.amount }),
+          });
+          const pdfText = await pdfRes.text();
+          if (pdfRes.ok) {
+            try {
+              pdfReady = Boolean(JSON.parse(pdfText)?.pdf_url);
+            } catch (_e) {
+              pdfReady = false;
+            }
+          }
+          if (!pdfReady) {
+            console.error(
+              `sumup-payment-webhook: part-payment PDF generation failed for job ${e.serviceCallId}: HTTP ${pdfRes.status} ${pdfText.slice(0, 300)}`,
+            );
+          }
+        }
+
+        const receiptPath = buildPartialPaymentRecordPath({
+          accessToken: jobRow?.access_token,
+          pdfReady,
+        });
+        if (receiptPath) {
           receiptUrl = await getTenantPublicUrl(
             supabaseUrl,
             e.organisationId,
-            `/receipt/${jobRow.access_token}`,
+            receiptPath,
           );
         }
       } catch (_e) {
+        console.error("sumup-payment-webhook: part-payment record preparation failed", _e);
         receiptUrl = null;
       }
 
