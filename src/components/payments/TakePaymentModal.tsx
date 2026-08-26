@@ -80,6 +80,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   const [amount, setAmount] = useState(defaultAmount);
   const [amountError, setAmountError] = useState("");
   const [settings, setSettings] = useState<any>(null);
+  /** Pre-write gate refused: the job is already settled (local copy was stale). */
+  const [gateBlocked, setGateBlocked] = useState(false);
   const hasPhone = !!customer.phone?.trim();
 
   // Processing step state
