@@ -2,7 +2,217 @@
 // To take ownership, delete this banner line; the plugin then leaves the file alone.
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
+// src/lib/mcp/index.ts
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.28.0";
+
+// src/lib/mcp/tools/search-customers.ts
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z } from "npm:zod@^3.25.76";
+
+// src/lib/mcp/supabase.ts
+import { createClient } from "npm:@supabase/supabase-js@2.97.0";
+function runtimeEnv(name) {
+  const runtime = globalThis;
+  return runtime.Deno?.env?.get?.(name) ?? runtime.process?.env?.[name];
+}
+function configuredEnv(names) {
+  for (const name of names) {
+    const value = runtimeEnv(name)?.trim();
+    if (value) return value;
+  }
+  return void 0;
+}
+function supabaseProjectUrl() {
+  const url = configuredEnv(["SUPABASE_URL", "VITE_SUPABASE_URL"]);
+  if (!url) throw new Error("SUPABASE_URL (or VITE_SUPABASE_URL) is required");
+  return url;
+}
+function supabasePublishableKey() {
+  const direct = configuredEnv([
+    "SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_PUBLISHABLE_KEY"
+  ]);
+  if (direct) return direct;
+  const keyset = runtimeEnv("SUPABASE_PUBLISHABLE_KEYS");
+  if (keyset) {
+    try {
+      const parsed = JSON.parse(keyset);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const keys = parsed;
+        const key = [keys.default, ...Object.values(keys)].find((v) => typeof v === "string" && v.trim().startsWith("sb_publishable_"))?.trim();
+        if (key) return key;
+      }
+    } catch {
+    }
+  }
+  const legacy = configuredEnv(["SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY"]);
+  if (legacy) return legacy;
+  throw new Error("SUPABASE_PUBLISHABLE_KEY, SUPABASE_PUBLISHABLE_KEYS, or SUPABASE_ANON_KEY is required");
+}
+function supabaseForUser(ctx) {
+  const token = ctx.getToken();
+  if (!token) throw new Error("supabaseForUser requires a verified OAuth token");
+  return createClient(supabaseProjectUrl(), supabasePublishableKey(), {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+
+// src/lib/mcp/tools/search-customers.ts
+var search_customers_default = defineTool({
+  name: "search_customers",
+  title: "Search customers",
+  description: "Search the signed-in user's customers by name, phone, email, address or eircode. Returns contact details, boiler info and next service due date.",
+  inputSchema: {
+    query: z.string().trim().min(2).describe("Name, phone, email, address or eircode fragment."),
+    limit: z.number().int().min(1).max(25).optional().describe("Maximum rows to return (default 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ query, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser(ctx);
+    const digits = query.replace(/\D/g, "");
+    const like = `%${query}%`;
+    const filters = [
+      `name.ilike.${like}`,
+      `email.ilike.${like}`,
+      `address.ilike.${like}`,
+      `eircode.ilike.${like}`
+    ];
+    if (digits.length >= 4) filters.push(`phone.ilike.%${digits.slice(-9)}%`);
+    const { data, error } = await supabase.from("customers").select("id, name, phone, email, address, eircode, area_code, boiler_make_model, last_service_date, next_service_due, service_status, opted_out").or(filters.join(",")).order("name", { ascending: true }).limit(limit ?? 10);
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = data ?? [];
+    return {
+      content: [
+        {
+          type: "text",
+          text: rows.length ? JSON.stringify(rows, null, 2) : `No customers matched "${query}".`
+        }
+      ],
+      structuredContent: { count: rows.length, customers: rows }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-jobs.ts
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z2 } from "npm:zod@^3.25.76";
+var list_jobs_default = defineTool2({
+  name: "list_jobs",
+  title: "List jobs",
+  description: "List the signed-in user's jobs (service calls), optionally filtered by status, engineer or scheduled date range. Newest scheduled first.",
+  inputSchema: {
+    status: z2.string().trim().min(1).optional().describe('Job status, e.g. "Scheduled", "Completed", "Cancelled".'),
+    engineer: z2.string().trim().min(1).optional().describe("Assigned engineer name (partial match)."),
+    from: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Earliest scheduled date (YYYY-MM-DD)."),
+    to: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Latest scheduled date (YYYY-MM-DD)."),
+    limit: z2.number().int().min(1).max(50).optional().describe("Maximum rows to return (default 20).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ status, engineer, from, to, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser(ctx);
+    let query = supabase.from("service_calls").select("id, job_type, status, scheduled_date, time_block, assigned_engineer, revenue, notes, customer_id, created_at");
+    if (status) query = query.eq("status", status);
+    if (engineer) query = query.ilike("assigned_engineer", `%${engineer}%`);
+    if (from) query = query.gte("scheduled_date", from);
+    if (to) query = query.lte("scheduled_date", to);
+    const { data, error } = await query.order("scheduled_date", { ascending: false, nullsFirst: false }).limit(limit ?? 20);
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = data ?? [];
+    return {
+      content: [
+        { type: "text", text: rows.length ? JSON.stringify(rows, null, 2) : "No jobs matched those filters." }
+      ],
+      structuredContent: { count: rows.length, jobs: rows }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-job.ts
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z3 } from "npm:zod@^3.25.76";
+var get_job_default = defineTool3({
+  name: "get_job",
+  title: "Get job details",
+  description: "Fetch one job (service call) by its id, including the linked customer's contact and boiler details.",
+  inputSchema: {
+    job_id: z3.string().uuid().describe("The job id (uuid) from list_jobs.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ job_id }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser(ctx);
+    const { data: job, error } = await supabase.from("service_calls").select("*").eq("id", job_id).maybeSingle();
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    if (!job) {
+      return { content: [{ type: "text", text: "No job found with that id." }], isError: true };
+    }
+    let customer = null;
+    if (job.customer_id) {
+      const { data } = await supabase.from("customers").select("id, name, phone, email, address, eircode, boiler_make_model, boiler_type, under_warranty, access_notes").eq("id", job.customer_id).maybeSingle();
+      customer = data ?? null;
+    }
+    const payload = { job, customer };
+    return {
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      structuredContent: payload
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-quotes.ts
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z4 } from "npm:zod@^3.25.76";
+var list_quotes_default = defineTool4({
+  name: "list_quotes",
+  title: "List quotes",
+  description: "List the signed-in user's quotes with totals and status (Draft, Sent, Accepted, Paid, Expired). Newest first.",
+  inputSchema: {
+    status: z4.string().trim().min(1).optional().describe('Quote status, e.g. "Sent" or "Accepted".'),
+    limit: z4.number().int().min(1).max(50).optional().describe("Maximum rows to return (default 20).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ status, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser(ctx);
+    let query = supabase.from("quotes").select("id, job_id, customer_id, description, parts_cost, labour_cost, callout_cost, total_amount, status, sent_at, accepted_at, paid_at, created_at");
+    if (status) query = query.eq("status", status);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(limit ?? 20);
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = data ?? [];
+    return {
+      content: [
+        { type: "text", text: rows.length ? JSON.stringify(rows, null, 2) : "No quotes matched those filters." }
+      ],
+      structuredContent: { count: rows.length, quotes: rows }
+    };
+  }
+});
+
+// src/lib/mcp/index.ts
+var projectRef = "ktkfuquqxbrmuqrmbmdj";
+var mcp_default = defineMcp({
+  name: "karls-gas-boilers-service-dev-app-24-02-2026",
+  title: "karls gas boilers service  dev app 24/02/2026",
+  version: "0.1.0",
+  instructions: "Read-only tools for this gas boiler service business. Use `search_customers` to find a customer, `list_jobs` to browse scheduled or completed jobs, `get_job` for full job plus customer detail, and `list_quotes` for quote totals and status. All data is scoped to the signed-in user's organisation.",
+  auth: auth.oauth.issuer({
+    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    acceptedAudiences: "authenticated"
+  }),
+  tools: [search_customers_default, list_jobs_default, get_job_default, list_quotes_default]
+});
+
 // lovable-mcp-supabase-entry.ts
-import mcp from "npm:C:\\Users\\Betaas\\Desktop\\Booked_jobs-_main-\\src\\lib\\mcp\\index.ts";
 import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.28.0/stacks/supabase";
-Deno.serve(createSupabaseHandler(mcp, { functionName: "mcp" }));
+Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));
