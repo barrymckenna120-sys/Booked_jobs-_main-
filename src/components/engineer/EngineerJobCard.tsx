@@ -69,6 +69,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [pendingCompletionData, setPendingCompletionData] = useState<{ data: any; jobTagDate: string | null } | null>(null);
   /** Inline failure message for the payment sheets — keeps the sheet open. */
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  /** Pre-write gate found the job already settled — show the fully-paid state. */
+  const [paymentForcedFullyPaid, setPaymentForcedFullyPaid] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
 
