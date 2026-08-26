@@ -44,6 +44,8 @@ Not in this ticket: EngineerOutstandingBalances refetch/`payment_status` passthr
 
 Reported back: pasted test output, per-file diffs, and the scratch-job result.
 
-## Pre-existing build error to fix first
+## Separate ticket, ships on its own: BJ-next-D0 import fix
 
-`src/pages/engineer/EngineerJobDetail.tsx` calls `addToQueue` (lines 353-390) without importing it, so the app currently fails to typecheck. One-line fix as the first step of this ticket: `import { addToQueue } from "@/hooks/useRetryQueue";` (it is a module-level export there, no hook needed).
+Confirmed broken now, not dev-only: `npx tsgo --noEmit -p tsconfig.app.json` reports 4 x TS2304 `Cannot find name 'addToQueue'` in `src/pages/engineer/EngineerJobDetail.tsx` (lines 353, 361, 369, 390). Vite/esbuild does not fail on it, so the app still loads, but the offline retry-queue branch of that file throws a `ReferenceError` at runtime whenever a job or payment write fails.
+
+Fix is one line — `import { addToQueue } from "@/hooks/useRetryQueue";` (module-level export, no hook needed). It ships as its own commit/ticket and is explicitly NOT folded into BJ-next-D.
