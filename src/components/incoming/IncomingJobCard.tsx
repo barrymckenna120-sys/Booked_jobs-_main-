@@ -88,7 +88,7 @@ const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-extrabold flex items-center gap-1.5">
             {job.customers?.name ?? "Unknown customer"}
-            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} size="sm" />
+            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} status={(job as any).status} size="sm" />
           </div>
           <div className="text-xs text-muted-foreground truncate">📍 {job.customers?.address ?? "No address"}</div>
         </div>

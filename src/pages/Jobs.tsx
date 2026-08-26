@@ -323,7 +323,7 @@ const Jobs = () => {
             <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${borderClass}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
-                <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} size="sm" className="ml-1.5 align-middle" />
+                <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} status={j.status} size="sm" className="ml-1.5 align-middle" />
                 <NewCustomerBadge status={j.customer_status_at_booking} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
@@ -478,7 +478,7 @@ const Jobs = () => {
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground font-mono">{(j as any).job_reference || `KN-${j.id.slice(0, 4).toUpperCase()}`}</span>
-          <JobConfirmedBadge confirmed={(j as any).confirmed} confirmedAt={(j as any).confirmed_at} size="sm" />
+          <JobConfirmedBadge confirmed={(j as any).confirmed} confirmedAt={(j as any).confirmed_at} status={(j as any).status} size="sm" />
           {j.source === "Quote" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
           ) : j.source === "Tally Form" ? (

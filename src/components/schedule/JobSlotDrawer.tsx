@@ -77,7 +77,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <span className="font-mono text-muted-foreground text-sm">{jobRef}</span>
-            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} />
+            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} status={(job as any).status} />
           </SheetTitle>
         </SheetHeader>
 
