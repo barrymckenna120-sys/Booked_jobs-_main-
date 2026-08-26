@@ -408,7 +408,6 @@ const TeamManagement = () => {
         return;
       }
     }
-    }
 
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
