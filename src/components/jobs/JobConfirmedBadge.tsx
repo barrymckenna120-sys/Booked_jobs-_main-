@@ -3,6 +3,8 @@ import { CheckCircle2 } from "lucide-react";
 type Props = {
   confirmed?: boolean | null;
   confirmedAt?: string | null;
+  /** Job status; a cancelled job never shows the confirmed badge. */
+  status?: string | null;
   /** sm = icon-only pill for dense grids, md = icon + label. */
   size?: "sm" | "md";
   className?: string;
@@ -13,8 +15,10 @@ type Props = {
  * so screens stay quiet by default. Uses the same cyan pair as the renewal
  * "Confirmed" stage so confirmation looks identical everywhere in the app.
  */
-const JobConfirmedBadge = ({ confirmed, confirmedAt, size = "md", className = "" }: Props) => {
+const JobConfirmedBadge = ({ confirmed, confirmedAt, status, size = "md", className = "" }: Props) => {
   if (!confirmed) return null;
+  // A cancelled job must never read as confirmed, even if the flag is still set.
+  if (String(status ?? "").trim().toLowerCase() === "cancelled") return null;
 
   let title = "Appointment confirmed by customer";
   if (confirmedAt) {
