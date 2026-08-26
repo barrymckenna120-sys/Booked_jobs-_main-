@@ -11,6 +11,7 @@
  *   status     — current config + whether the referenced secret resolves
  *   save       — upsert merchant_code / api_key_secret (merge, never replace)
  *   test       — read-only GET https://api.sumup.com/v0.1/me (no payment)
+ *   whoami     — superadmin-only: resolve the merchant a named secret belongs to
  *   disconnect — delete the tenant's sumup row
  *
  * Isolation: the target organisation is always derived from the caller's JWT.
