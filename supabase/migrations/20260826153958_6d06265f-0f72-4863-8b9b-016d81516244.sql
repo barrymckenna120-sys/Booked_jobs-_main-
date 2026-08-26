@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.generate_job_reference() FROM PUBLIC, anon, authenticated;
