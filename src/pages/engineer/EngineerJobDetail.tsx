@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { LucideIcon } from "lucide-react";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { addToQueue } from "@/hooks/useRetryQueue";
+import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
