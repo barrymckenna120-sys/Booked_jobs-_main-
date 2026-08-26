@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePaymentSheetState, LABEL_JOB_TOTAL } from "@/lib/paymentSheetAmount";
+import JobFullyPaidPanel from "@/components/payments/JobFullyPaidPanel";
 
 interface Props {
   job: any;
@@ -16,7 +17,13 @@ interface Props {
   onCompleteOnly?: () => void;
   /** Failure message shown inline; sheet stays open with entered data intact. */
   errorMessage?: string | null;
+  /**
+   * Set when the authoritative pre-write re-read found the job already settled
+   * (BJ-next-D) — the in-memory job was stale, so force the fully-paid state.
+   */
+  forceFullyPaid?: boolean;
 }
+
 
 
 const DEFAULT_PRICES: Record<string, string> = {
