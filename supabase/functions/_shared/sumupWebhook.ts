@@ -1,4 +1,6 @@
 import { buildPaymentPatch } from "./paymentUpdate.ts";
+import { shouldSendDepositConfirmation } from "./depositConfirmationMessage.ts";
+
 
 /**
  * SumUp payment-confirmation handling (pure, dependency-injected).
@@ -227,6 +229,25 @@ export interface SumUpWebhookDeps {
     amount: number;
     checkoutId: string;
   }) => Promise<void>;
+
+  /**
+   * BJ-0063 — customer confirmation for a PART payment (deposit / partial).
+   *
+   * The mirror image of sendReceipt: called only when this event does NOT settle
+   * the job and a balance is still outstanding, so the customer is told what
+   * they paid and what remains. The full receipt stays reserved for final
+   * settlement. Same rules as sendReceipt: runs last, a throw is swallowed.
+   */
+  sendDepositConfirmation?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    amount: number;
+    balanceRemaining: number;
+    checkoutId: string;
+  }) => Promise<void>;
+
 
 
   /** Injectable clock for tests. */
@@ -664,7 +685,34 @@ export async function handleSumUpWebhook(
     }
   }
 
-
+  // BJ-0063 — part payment confirmation to the customer, deposits/partials only.
+  // Same swallow-and-log contract as the receipt above: the money is already
+  // recorded, so a failed send must not change the outcome or trigger a retry.
+  if (deps.sendDepositConfirmation) {
+    const balanceRemaining = Number(patch.balance_due ?? 0);
+    if (
+      shouldSendDepositConfirmation({ amountPaid: amount, balanceRemaining, fullyPaid })
+    ) {
+      try {
+        await deps.sendDepositConfirmation({
+          organisationId: job.organisation_id,
+          serviceCallId: job.id,
+          customerId: job.customer_id ?? null,
+          jobReference: job.job_reference ?? null,
+          amount,
+          balanceRemaining,
+          checkoutId,
+        });
+      } catch (_e) {
+        log(
+          "error",
+          `sumup-webhook: deposit confirmation send failed for job ${job.id}: ${
+            (_e as Error)?.message ?? String(_e)
+          }`,
+        );
+      }
+    }
+  }
 
 
   log("info", `sumup-webhook: job ${job.id} → ${fullyPaid ? "paid" : "partial"} (€${amount})`);

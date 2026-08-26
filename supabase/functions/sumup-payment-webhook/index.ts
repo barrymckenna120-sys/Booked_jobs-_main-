@@ -15,6 +15,10 @@ import {
   type SumUpCheckoutView,
 } from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
+import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationMessage.ts";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
+import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
+import { normalisePhone } from "../_shared/whatsapp.ts";
 
 const JOB_COLUMNS =
   "id, organisation_id, customer_id, revenue, balance_due, deposit_paid, payment_status, paid_at, job_reference";
@@ -455,6 +459,86 @@ Deno.serve(async (req) => {
       }
       console.log(
         `sumup-payment-webhook: receipt sent for job ${e.serviceCallId} checkout ${e.checkoutId}: ${text.slice(0, 200)}`,
+      );
+    },
+
+    /**
+     * BJ-0063 — part-payment confirmation to the customer.
+     *
+     * Only reached for a payment that leaves a balance (the shared handler
+     * gates this); the full receipt is still reserved for final settlement.
+     * Every failure is logged and swallowed — the money is already recorded.
+     */
+    sendDepositConfirmation: async (e) => {
+      if (!e.organisationId) return;
+
+      const { data: customer, error: custErr } = await supabase
+        .from("customers")
+        .select("name, phone, opted_out")
+        .eq("id", e.customerId ?? "")
+        .maybeSingle();
+      if (custErr) {
+        console.error("sumup-payment-webhook: customer read failed", custErr.message);
+        return;
+      }
+      if (!customer?.phone) {
+        console.log(`sumup-payment-webhook: part-payment confirmation skipped (no phone) job ${e.serviceCallId}`);
+        return;
+      }
+      if (customer.opted_out === true) {
+        console.log(`sumup-payment-webhook: part-payment confirmation skipped (opted out) job ${e.serviceCallId}`);
+        return;
+      }
+
+      const branding = await getOrgBrandingClient(supabase, e.organisationId);
+      const message = buildDepositConfirmationMessage({
+        customerName: customer.name,
+        jobReference: e.jobReference,
+        amountPaid: e.amount,
+        balanceRemaining: e.balanceRemaining,
+        businessName: branding.name,
+        footer: branding.footer,
+      });
+
+      const keyResolution = await fetchWhatsappApiKeyWithClient(supabase as any, e.organisationId);
+      if (!keyResolution.apiKey) {
+        console.error(
+          "sumup-payment-webhook: part-payment confirmation has no WhatsApp key:",
+          keyResolution.detail || keyResolution.resolution,
+        );
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("phonenumber", normalisePhone(customer.phone));
+      formData.append("text", message);
+
+      const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${keyResolution.apiKey}` },
+        body: formData,
+      });
+      const resultText = await res.text();
+      let ok = res.ok;
+      try { ok = res.ok && JSON.parse(resultText)?.success !== false; } catch { /* keep res.ok */ }
+
+      await supabase.from("message_log").insert({
+        organisation_id: e.organisationId,
+        customer_id: e.customerId,
+        message_type: "part_payment_received",
+        channel: "whatsapp",
+        direction: "outbound",
+        content: message,
+        status: ok ? "sent" : "failed",
+        related_id: e.serviceCallId,
+        related_type: "service_call",
+        sent_by: "system",
+        error_message: ok ? null : `360Messenger HTTP ${res.status}: ${resultText.slice(0, 400)}`,
+        sent_at: new Date().toISOString(),
+      });
+
+      console.log(
+        `sumup-payment-webhook: part-payment confirmation ${ok ? "sent" : "failed"} for job ${e.serviceCallId}`,
       );
     },
 
