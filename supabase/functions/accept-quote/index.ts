@@ -217,11 +217,11 @@ async function recoverAlreadyActionedQuote(
     customerOptedOut: updatedQuote.customers?.opted_out === true,
   });
 
-  if (!depositResult.ok) {
+  if (!depositResult.ok || (depositResult.skipped && depositResult.skipped !== "checkout_already_pending") || (!depositResult.sent && !depositResult.reused)) {
     return {
       success: false,
       error: depositResult.error || "deposit_link_failed",
-      status: "deposit_link_failed",
+      status: depositResult.skipped || "deposit_link_failed",
       quote_id: quoteId,
       job_id: serviceCallId,
     };
