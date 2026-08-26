@@ -10,8 +10,10 @@ export function extractRefDigits(input: string): string | null {
   return digits.length > 0 ? digits : null;
 }
 
-const normalizeDigits = (value: string): string => {
-  const normalized = value.replace(/^0+/, "");
+const normalizeDigits = (value: string): string | null => {
+  const digits = extractRefDigits(value);
+  if (!digits) return null;
+  const normalized = digits.replace(/^0+/, "");
   return normalized || "0";
 };
 
@@ -21,6 +23,7 @@ const normalizeDigits = (value: string): string => {
 export function matchesJobRef(jobReference: string | null | undefined, searchDigits: string): boolean {
   if (!jobReference) return false;
   const refDigits = extractRefDigits(jobReference);
-  if (!refDigits) return false;
-  return normalizeDigits(refDigits) === normalizeDigits(searchDigits);
+  const queryDigits = normalizeDigits(searchDigits);
+  if (!refDigits || !queryDigits) return false;
+  return normalizeDigits(refDigits) === queryDigits;
 }
