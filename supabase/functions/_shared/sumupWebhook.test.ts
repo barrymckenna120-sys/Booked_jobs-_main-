@@ -31,7 +31,13 @@ interface Harness {
   updates: Array<{ jobId: string; patch: Record<string, unknown> }>;
   activities: number;
   messages: number;
-  notifications: Array<{ jobReference: string | null; amount: number; fullyPaid: boolean }>;
+  notifications: Array<{
+    jobReference: string | null;
+    amount: number;
+    fullyPaid: boolean;
+    outstanding: number;
+    checkoutId: string;
+  }>;
   fetches: number;
   discoveries: number;
   loadedById: string[];
@@ -170,7 +176,13 @@ function run(opts: {
       return Promise.resolve();
     },
     notifyOffice: (e) => {
-      h.notifications.push({ jobReference: e.jobReference, amount: e.amount, fullyPaid: e.fullyPaid });
+      h.notifications.push({
+        jobReference: e.jobReference,
+        amount: e.amount,
+        fullyPaid: e.fullyPaid,
+        outstanding: e.outstanding,
+        checkoutId: e.checkoutId,
+      });
       return Promise.resolve();
     },
     claimEvent: () => {
