@@ -17,6 +17,7 @@ import {
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationMessage.ts";
 import { buildPaymentAlert } from "../_shared/paymentAlertMessage.ts";
+import { resolveAlertRecipients } from "../_shared/alertRecipients.ts";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { normalisePhone } from "../_shared/whatsapp.ts";
@@ -629,22 +630,34 @@ Deno.serve(async (req) => {
           return;
         }
 
+        // All active profiles for the org — the tiering (office/admin, then
+        // ops-flagged, then superadmin) happens in resolveAlertRecipients so an
+        // org without an office user still gets its payment alerts.
         const { data: staff, error } = await supabase
           .from("profiles")
-          .select("user_id, role")
+          .select("user_id, role, is_active, receives_ops_notifications")
           .eq("organisation_id", e.organisationId)
-          .eq("is_active", true)
-          .in("role", ["office", "admin"]);
+          .eq("is_active", true);
 
         if (error) {
           console.error("sumup-payment-webhook: staff lookup failed", error.message);
           return;
         }
 
-        const recipients = (staff ?? [])
-          .map((r: { user_id: string | null }) => r.user_id)
-          .filter((id): id is string => !!id);
-        if (recipients.length === 0) return;
+        const { recipients, tier } = resolveAlertRecipients(staff ?? []);
+        if (recipients.length === 0) {
+          // Never silent: an org with nobody to alert is a configuration problem
+          // that used to look like a lost notification.
+          console.error(
+            `PAYMENT_ALERT_NO_RECIPIENTS kind=payment_collected job_id=${e.serviceCallId} checkout_id=${e.checkoutId} org=${e.organisationId}`,
+          );
+          return;
+        }
+        if (tier !== "office") {
+          console.log(
+            `sumup-payment-webhook: no office/admin for org ${e.organisationId} — payment alert routed to ${tier}`,
+          );
+        }
 
         let customerName: string | null = null;
         if (e.customerId) {
@@ -724,22 +737,34 @@ Deno.serve(async (req) => {
           return;
         }
 
+        // All active profiles for the org — the tiering (office/admin, then
+        // ops-flagged, then superadmin) happens in resolveAlertRecipients so an
+        // org without an office user still gets its payment alerts.
         const { data: staff, error } = await supabase
           .from("profiles")
-          .select("user_id, role")
+          .select("user_id, role, is_active, receives_ops_notifications")
           .eq("organisation_id", e.organisationId)
-          .eq("is_active", true)
-          .in("role", ["office", "admin"]);
+          .eq("is_active", true);
 
         if (error) {
           console.error("sumup-payment-webhook: staff lookup failed", error.message);
           return;
         }
 
-        const recipients = (staff ?? [])
-          .map((r: { user_id: string | null }) => r.user_id)
-          .filter((id): id is string => !!id);
-        if (recipients.length === 0) return;
+        const { recipients, tier } = resolveAlertRecipients(staff ?? []);
+        if (recipients.length === 0) {
+          // Never silent: an org with nobody to alert is a configuration problem
+          // that used to look like a lost notification.
+          console.error(
+            `PAYMENT_ALERT_NO_RECIPIENTS kind=payment_failed job_id=${e.serviceCallId} checkout_id=${e.checkoutId} org=${e.organisationId}`,
+          );
+          return;
+        }
+        if (tier !== "office") {
+          console.log(
+            `sumup-payment-webhook: no office/admin for org ${e.organisationId} — payment alert routed to ${tier}`,
+          );
+        }
 
         const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
 
