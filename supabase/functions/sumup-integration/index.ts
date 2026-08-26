@@ -236,6 +236,21 @@ Deno.serve(async (req) => {
 
       const row = await loadRow();
       const existing = (row?.config as SumUpConfig) ?? {};
+
+      // Flipping live <-> test is superadmin-only: it decides whether real
+      // cards are charged, so tenant admins cannot switch it themselves.
+      const storedEnvRaw = typeof existing.environment === "string"
+        ? existing.environment.trim().toLowerCase()
+        : "live";
+      const storedEnv = storedEnvRaw === "sandbox" ? "test" : storedEnvRaw;
+      const storedEnvironment: SumUpEnvironment = storedEnv === "test" ? "test" : "live";
+      if (environment !== storedEnvironment && !isSuperadmin) {
+        return json({
+          error: "Only a Booked Jobs administrator can switch the SumUp environment.",
+          field: "environment",
+        }, 403);
+      }
+
       const existingEnvs =
         (existing.environments as Record<string, SumUpEnvEntry> | undefined) ?? {};
 
@@ -399,7 +414,7 @@ Deno.serve(async (req) => {
         provider: "sumup",
         merchant_code: "",
         api_key_secret: "",
-        environment: "test",
+        environment: "live",
         environments: {},
         secret_present: false,
         configured: false,
