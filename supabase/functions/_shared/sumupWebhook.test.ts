@@ -284,14 +284,18 @@ Deno.test("a part-paid job with paid_at already stamped can still be settled in 
 Deno.test("office is notified once per confirmed payment, with the job reference", async () => {
   const full = run({ jobRow: job({ job_reference: "KN-465" }) });
   await full.result;
-  assertEquals(full.h.notifications, [{ jobReference: "KN-465", amount: 2000, fullyPaid: true }]);
+  assertEquals(full.h.notifications, [
+    { jobReference: "KN-465", amount: 2000, fullyPaid: true, outstanding: 0, checkoutId: CHECKOUT_ID },
+  ]);
 
   const deposit = run({
     jobRow: job({ job_reference: "KN-465" }),
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
   });
   await deposit.result;
-  assertEquals(deposit.h.notifications, [{ jobReference: "KN-465", amount: 1000, fullyPaid: false }]);
+  assertEquals(deposit.h.notifications, [
+    { jobReference: "KN-465", amount: 1000, fullyPaid: false, outstanding: 1000, checkoutId: CHECKOUT_ID },
+  ]);
 });
 
 Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
@@ -474,7 +478,9 @@ Deno.test("balance payment on a deposit-paid job settles it (50/50 split, matchi
   assertEquals(h.updates[0].patch.revenue, undefined);
   assertEquals(h.activities, 1);
   assertEquals(h.messages, 1);
-  assertEquals(h.notifications, [{ jobReference: null, amount: 500, fullyPaid: true }]);
+  assertEquals(h.notifications, [
+    { jobReference: null, amount: 500, fullyPaid: true, outstanding: 0, checkoutId: CHECKOUT_ID },
+  ]);
 });
 
 // A partial second payment stays partial, with cumulative arithmetic.
