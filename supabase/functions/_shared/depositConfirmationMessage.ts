@@ -17,6 +17,11 @@ export interface DepositConfirmationInput {
   balanceRemaining: number;
   businessName?: string | null;
   footer?: string | null;
+  /**
+   * Optional public payment-record link (proof of this part payment).
+   * Omitted when the tenant has no public domain configured.
+   */
+  receiptUrl?: string | null;
 }
 
 export const formatEuro = (value: number): string =>
@@ -58,6 +63,11 @@ export function buildDepositConfirmationMessage(input: DepositConfirmationInput)
     "",
     "This is a part payment, so your job is not fully paid yet — the balance above is still due. Your full receipt follows once the job is settled in full.",
   );
+
+  const receiptUrl = (input.receiptUrl || "").trim();
+  if (receiptUrl) {
+    lines.push("", `Payment record: ${receiptUrl}`);
+  }
 
   const footer = (input.footer || business || "").trim();
   if (footer) {

@@ -52,6 +52,33 @@ Deno.test("message states both amount paid and remaining balance", () => {
   assert(msg.includes("Dublin Gas | 5 Main Street"));
   // The full receipt is reserved for final settlement — no receipt link here.
   assertEquals(msg.includes("receipt here"), false);
+  assertEquals(msg.includes("Payment record:"), false);
+});
+
+Deno.test("includes a payment-record link when one is supplied", () => {
+  const msg = buildDepositConfirmationMessage({
+    customerName: "ZZ SCRATCH",
+    jobReference: "DG-900",
+    amountPaid: 5,
+    balanceRemaining: 5,
+    receiptUrl: "https://dublin-gas.bookedjobs.ie/receipt/abc-123",
+  });
+  assert(msg.includes("Payment record: https://dublin-gas.bookedjobs.ie/receipt/abc-123"));
+  // Still clearly a part payment, not a settled receipt.
+  assert(msg.includes("still due"));
+});
+
+Deno.test("omits the payment-record line for blank/missing urls", () => {
+  for (const url of [null, undefined, "", "   "]) {
+    const msg = buildDepositConfirmationMessage({
+      customerName: "A",
+      jobReference: "DG-1",
+      amountPaid: 5,
+      balanceRemaining: 5,
+      receiptUrl: url,
+    });
+    assertEquals(msg.includes("Payment record"), false);
+  }
 });
 
 Deno.test("message copes with missing name, ref and footer", () => {
