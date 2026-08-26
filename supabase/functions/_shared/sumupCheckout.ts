@@ -302,18 +302,17 @@ export async function createSumUpDepositCheckout(
       attemptNumber = 1;
     }
   }
-  const checkoutReference = `${serviceCallId}::${attemptNumber}`;
+  let checkoutReference = `${serviceCallId}::${attemptNumber}`;
 
-  let res: Response;
-  try {
-    res = await doFetch(SUMUP_CHECKOUTS_URL, {
+  const post = (reference: string) =>
+    doFetch(SUMUP_CHECKOUTS_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        checkout_reference: checkoutReference,
+        checkout_reference: reference,
         amount: roundedAmount,
         currency: "EUR",
         merchant_code: merchantCode,
@@ -322,13 +321,35 @@ export async function createSumUpDepositCheckout(
         // Per-checkout webhook subscription — omitted only if not configured.
         ...(args.returnUrl ? { return_url: args.returnUrl } : {}),
       }),
-
     });
+
+  let res: Response;
+  try {
+    res = await post(checkoutReference);
   } catch (_e) {
     return { ok: false, error: `sumup_request_failed: ${(_e as Error).message}` };
   }
 
-  const text = await res.text();
+  let text = await res.text();
+
+  // SumUp remembers references forever, while our attempt counter can restart
+  // (e.g. attempt rows pruned). A 409 DUPLICATED_CHECKOUT is therefore a
+  // reference collision, not a real duplicate payment: retry once with a
+  // collision-proof reference so the customer still gets a link.
+  if (res.status === 409 && text.includes("DUPLICATED_CHECKOUT")) {
+    const retryReference = `${serviceCallId}::${attemptNumber}-${Date.now()}`;
+    console.warn(
+      `sumup-checkout: reference ${checkoutReference} already exists at SumUp — retrying as ${retryReference}`,
+    );
+    try {
+      res = await post(retryReference);
+      checkoutReference = retryReference;
+      text = await res.text();
+    } catch (_e) {
+      return { ok: false, error: `sumup_request_failed: ${(_e as Error).message}` };
+    }
+  }
+
   let data: any;
   try {
     data = JSON.parse(text);
