@@ -132,6 +132,7 @@ import PartTrackingEditSheet from "@/components/parts/PartTrackingEditSheet";
 import PartCommentsThread from "@/components/parts/PartCommentsThread";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SlidersHorizontal } from "lucide-react";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 
 
 
@@ -515,13 +516,9 @@ const JobDetail = () => {
     if (!job) return;
     const { error } = await supabase
       .from("service_calls")
-      .update(sanitizeServiceCallUpdatePayload({
-        status: "Cancelled",
-        cancellation_reason: reason,
-        cancellation_note: note || null,
-        cancelled_at: new Date().toISOString(),
-        cancelled_by: user?.id || null,
-      } as any))
+      .update(sanitizeServiceCallUpdatePayload(
+        buildManualCancelPatch(reason, note, user?.id) as any,
+      ))
       .eq("id", job.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });

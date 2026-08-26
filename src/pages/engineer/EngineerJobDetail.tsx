@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { LucideIcon } from "lucide-react";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -294,10 +295,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
 
     if (cancelReason) {
-      dbPatch.cancellation_reason = cancelReason;
-      dbPatch.cancellation_note = cancelNote || null;
-      dbPatch.cancelled_at = new Date().toISOString();
-      dbPatch.cancelled_by = user?.id || null;
+      Object.assign(dbPatch, buildManualCancelPatch(cancelReason, cancelNote, user?.id));
     }
 
     // Set completed_at and generate receipt number on completion
