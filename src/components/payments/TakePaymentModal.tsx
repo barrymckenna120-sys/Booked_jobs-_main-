@@ -409,8 +409,19 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="sm:max-w-[440px] rounded-2xl p-0 overflow-hidden">
+        {/* Fully paid — either from the local copy or from the pre-write gate. */}
+        {(gateBlocked || isFullyPaid) && step === 1 && (
+          <div className="pb-5">
+            <DialogHeader className="sr-only"><DialogTitle>Payment Complete</DialogTitle></DialogHeader>
+            <JobFullyPaidPanel
+              customerName={customer.name}
+              collected={jobTotal > 0 ? jobTotal : depositAmount}
+              onClose={handleClose}
+            />
+          </div>
+        )}
         {/* Step 1: Payment Details */}
-        {step === 1 && (
+        {step === 1 && !gateBlocked && !isFullyPaid && (
           <div className="p-6 space-y-5">
             <DialogHeader>
               <DialogTitle className="text-lg font-extrabold text-[hsl(222,47%,11%)]">
