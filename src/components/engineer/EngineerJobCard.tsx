@@ -19,6 +19,7 @@ import PaymentSheet from "./PaymentSheet";
 import JobServiceHistory from "./JobServiceHistory";
 import JobNotesSection from "./JobNotesSection";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
+import { isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
 import EngineerJobMessages from "@/components/messages/EngineerJobMessages";
 import StatusBadge from "./job-card/StatusBadge";
 import InfoPills, { resolveDepositPill } from "./job-card/InfoPills";
