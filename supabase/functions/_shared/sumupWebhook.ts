@@ -206,6 +206,12 @@ export interface SumUpWebhookDeps {
     jobReference: string | null;
     amount: number;
     fullyPaid: boolean;
+    /**
+     * Outstanding balance AFTER this payment, taken from the patch that was just
+     * written to the job — never recalculated, so the alert cannot disagree with
+     * the job or the ledger.
+     */
+    outstanding: number;
     /** SumUp's own checkout id and uppercased status, for attempt write-back. */
     checkoutId: string;
     status: string;
