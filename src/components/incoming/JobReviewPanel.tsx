@@ -235,13 +235,15 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full sm:max-w-[560px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            {customer.name}
+          <SheetTitle className="flex items-center gap-2 flex-wrap">
+            <span className="truncate max-w-full">{customer.name}</span>
+            <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
             <span className="text-xs font-normal text-muted-foreground">· {relativeTime(job.created_at)}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
               {job.source || "Manual"}
             </span>
           </SheetTitle>
+
         </SheetHeader>
 
         <div className="space-y-5 mt-4">
