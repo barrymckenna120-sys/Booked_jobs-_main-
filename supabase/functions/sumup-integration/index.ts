@@ -11,6 +11,7 @@
  *   status     — current config + whether the referenced secret resolves
  *   save       — upsert merchant_code / api_key_secret (merge, never replace)
  *   test       — read-only GET https://api.sumup.com/v0.1/me (no payment)
+ *   whoami     — superadmin-only: resolve the merchant a named secret belongs to
  *   disconnect — delete the tenant's sumup row
  *
  * Isolation: the target organisation is always derived from the caller's JWT.
@@ -329,6 +330,50 @@ Deno.serve(async (req) => {
         message: `Connected to SumUp${liveMerchant ? ` (merchant ${liveMerchant})` : ""} in ${state.environment} mode.`,
         merchant_code: liveMerchant || state.merchant_code,
         environment: state.environment,
+        account_name: profile?.merchant_profile?.company_name ?? null,
+        currency: profile?.merchant_profile?.default_currency ?? null,
+      });
+    }
+
+    if (action === "whoami") {
+      // Superadmin-only diagnostic: resolve which SumUp merchant a named
+      // backend secret belongs to. Read-only GET /v0.1/me — no payment is
+      // created and the key value is never returned.
+      if (!isSuperadmin) {
+        return json({ error: "Insufficient permissions" }, 403);
+      }
+      const probeSecret = String(body.api_key_secret ?? "").trim();
+      if (!SECRET_NAME_RE.test(probeSecret)) {
+        return json({ error: "api_key_secret must be an uppercase secret name.", field: "api_key_secret" }, 400);
+      }
+      const probeKey = (Deno.env.get(probeSecret) ?? "").trim();
+      if (!probeKey) {
+        return json({ ok: false, status: "error", message: `No backend secret named ${probeSecret} is set.` });
+      }
+      const res = await fetch("https://api.sumup.com/v0.1/me", {
+        headers: { Authorization: `Bearer ${probeKey}`, Accept: "application/json" },
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error(`sumup whoami failed [${res.status}]: ${text}`);
+        return json({
+          ok: false,
+          status: "error",
+          message: res.status === 401
+            ? "SumUp rejected the API key (401)."
+            : `SumUp returned ${res.status}.`,
+        });
+      }
+      let profile: any = {};
+      try {
+        profile = JSON.parse(text);
+      } catch (_e) {
+        profile = {};
+      }
+      return json({
+        ok: true,
+        status: "connected",
+        merchant_code: String(profile?.merchant_profile?.merchant_code ?? "").trim().toUpperCase() || null,
         account_name: profile?.merchant_profile?.company_name ?? null,
         currency: profile?.merchant_profile?.default_currency ?? null,
       });
