@@ -4,6 +4,12 @@ import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_share
 import { businessToday, parseInboundIntent, pickActingOrg, resolveInboundSender, resolveReplyTarget } from "../_shared/cancelIntent.ts";
 import { logCustomerAudit } from "../_shared/auditLog.ts";
 import { last9Digits, samePhone } from "../_shared/phone.ts";
+import {
+  buildCancelUpdate,
+  cancelAuditDetail,
+  reversesConfirmation,
+  WHATSAPP_CANCEL_REASON,
+} from "../_shared/cancelUpdate.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
