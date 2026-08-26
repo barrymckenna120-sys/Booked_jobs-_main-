@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
+import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
+import JobFullyPaidPanel from "@/components/payments/JobFullyPaidPanel";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { priorCollected } from "@/lib/priorCollected";
 import { invokeFunction } from "@/lib/invokeFunction";
