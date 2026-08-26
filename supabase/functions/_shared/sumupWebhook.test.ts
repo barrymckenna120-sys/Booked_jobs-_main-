@@ -44,6 +44,13 @@ interface Harness {
     amount: number | null;
   }>;
   receipts: Array<{ serviceCallId: string; amount: number; checkoutId: string }>;
+  /** BJ-0063 part-payment confirmations sent to the customer. */
+  depositConfirmations: Array<{
+    serviceCallId: string;
+    amount: number;
+    balanceRemaining: number;
+    checkoutId: string;
+  }>;
   /** payment_failed timeline entries only; `activities` stays payment_received. */
   failureActivities: Array<{
     organisationId: string | null;
@@ -85,6 +92,8 @@ function run(opts: {
   activityLog?: Error;
   /** Error = the receipt send throws; must never change the outcome. */
   receiptSend?: Error;
+  /** Error = the part-payment confirmation throws; must never change the outcome. */
+  depositConfirmationSend?: Error;
   /** false = a re-delivery whose event claim is rejected. */
   claimOk?: boolean;
   /** Error = the ledger insert throws; must never change the outcome. */
@@ -103,6 +112,7 @@ function run(opts: {
     failureAlerts: [],
     failureActivities: [],
     receipts: [],
+    depositConfirmations: [],
     payments: [],
   };
 
@@ -185,6 +195,16 @@ function run(opts: {
     sendReceipt: (e) => {
       h.receipts.push({ serviceCallId: e.serviceCallId, amount: e.amount, checkoutId: e.checkoutId });
       if (opts.receiptSend) return Promise.reject(opts.receiptSend);
+      return Promise.resolve();
+    },
+    sendDepositConfirmation: (e) => {
+      h.depositConfirmations.push({
+        serviceCallId: e.serviceCallId,
+        amount: e.amount,
+        balanceRemaining: e.balanceRemaining,
+        checkoutId: e.checkoutId,
+      });
+      if (opts.depositConfirmationSend) return Promise.reject(opts.depositConfirmationSend);
       return Promise.resolve();
     },
     notifyPaymentFailed: (e) => {
@@ -1189,4 +1209,53 @@ Deno.test("ledger: a failing insert (unique violation or otherwise) never change
   assertEquals(brokenResult.status, 200);
   assertEquals(broken.h.activities, 1);
   assertEquals(broken.h.notifications.length, 1);
+});
+
+
+// ── BJ-0063: part-payment confirmation to the customer ──────────────────────
+Deno.test("deposit payment sends a part-payment confirmation with paid + remaining", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 1000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(h.depositConfirmations, [
+    { serviceCallId: JOB_ID, amount: 500, balanceRemaining: 500, checkoutId: CHECKOUT_ID },
+  ]);
+  // Full receipt stays reserved for final settlement.
+  assertEquals(h.receipts.length, 0);
+});
+
+Deno.test("full payment sends the receipt and no part-payment confirmation", async () => {
+  const { h } = run({});
+  await run({}).result;
+  const settled = run({});
+  await settled.result;
+  assertEquals(settled.h.receipts.length, 1);
+  assertEquals(settled.h.depositConfirmations.length, 0);
+  assertEquals(h.depositConfirmations.length, 0);
+});
+
+Deno.test("part-payment confirmation failure never changes the outcome", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 1000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+    depositConfirmationSend: new Error("360messenger down"),
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(r.status, 200);
+  assertEquals(h.depositConfirmations.length, 1);
+});
+
+Deno.test("balance payment that settles the job sends receipt, not a part confirmation", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 500, deposit_paid: true, payment_status: "partial" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "paid");
+  assertEquals(h.depositConfirmations.length, 0);
+  assertEquals(h.receipts.length, 1);
 });
