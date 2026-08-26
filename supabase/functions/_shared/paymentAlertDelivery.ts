@@ -12,7 +12,7 @@
  * make SumUp retry).
  */
 import { buildPaymentAlert } from "./paymentAlertMessage.ts";
-import { resolveAlertRecipients } from "./alertRecipients.ts";
+import { type AlertProfileRow, resolveAlertRecipients } from "./alertRecipients.ts";
 
 /** Minimal shape of the parts of the Supabase client these functions touch. */
 // deno-lint-ignore no-explicit-any
@@ -53,14 +53,14 @@ interface Args<E> {
 async function loadActiveStaff(
   supabase: AlertDbClient,
   organisationId: string,
-): Promise<{ staff: unknown[] } | { error: string }> {
+): Promise<{ staff: AlertProfileRow[] } | { error: string }> {
   const { data, error } = await supabase
     .from("profiles")
     .select("user_id, role, is_active, receives_ops_notifications")
     .eq("organisation_id", organisationId)
     .eq("is_active", true);
   if (error) return { error: error.message };
-  return { staff: data ?? [] };
+  return { staff: (data ?? []) as AlertProfileRow[] };
 }
 
 async function loadCustomerName(
