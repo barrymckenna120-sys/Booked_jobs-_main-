@@ -451,5 +451,7 @@ Deno.test("handler failure path still delivers the failed alert via the ops tier
 
   assertEquals(db.inserts.length, 1);
   assertEquals(db.inserts[0].rows[0].notification_type, "payment_failed");
-  assertEquals(out.outcome, "failed");
+  // A terminal decline stays "not_paid" — the alert is a side effect only.
+  assertEquals(out.outcome, "not_paid");
+
 });
