@@ -316,7 +316,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       // Generate receipt PDF so it's ready for WhatsApp. Routed through
       // invokeFunction so a stale session is refreshed and retried once, and a
       // real failure is visible instead of vanishing silently.
-      invokeFunction("generate-receipt-pdf", { body: { job_id: job.id }, signOutOnRefreshFailure: false })
+      invokeFunction("generate-receipt-pdf", { body: { job_id: job.id, payment_amount: paidAmount }, signOutOnRefreshFailure: false })
         .then(({ error }) => {
           if (error) throw error;
         })
@@ -331,7 +331,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
       // Send WhatsApp payment-received confirmation
       if (updatePayload.payment_status === "paid") {
-        invokeFunction("send-payment-received", { body: { service_call_id: job.id }, signOutOnRefreshFailure: false })
+        invokeFunction("send-payment-received", { body: { service_call_id: job.id, payment_amount: paidAmount }, signOutOnRefreshFailure: false })
           .then(({ error }) => {
             if (error) throw error;
           })
@@ -363,8 +363,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     if (!job?.id || whatsappSending || whatsappSent) return;
     setWhatsappSending(true);
     try {
+      const paidAmount = Number.parseFloat(amount);
+      const body = Number.isFinite(paidAmount) && paidAmount > 0
+        ? { job_id: job.id, payment_amount: paidAmount }
+        : { job_id: job.id };
       const { data, error } = await invokeFunction<any>("send-whatsapp-receipt", {
-        body: { job_id: job.id },
+        body,
         signOutOnRefreshFailure: false,
       });
       if (error) throw error;

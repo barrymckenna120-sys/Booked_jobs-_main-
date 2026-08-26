@@ -422,7 +422,7 @@ export const useEngineerJobs = () => {
         try {
           const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
-          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
+          const amountVal = confirmedRevenue ?? safeDbPatch.revenue ?? theJob?.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
           await supabase.from("customer_activity").insert({
             organisation_id: theJob?.organisation_id,
@@ -464,7 +464,7 @@ export const useEngineerJobs = () => {
       // full payment even when the job is not marked Completed yet. Skipped
       // offline — Edge Function calls cannot be queued.
       if (paymentPlan.fireReceipt && isOnline) {
-        invokeFunction("generate-receipt-pdf", { body: { job_id: jobId }, signOutOnRefreshFailure: false })
+        invokeFunction("generate-receipt-pdf", { body: { job_id: jobId, payment_amount: confirmedRevenue }, signOutOnRefreshFailure: false })
           .then(({ error: pdfError }) => { if (pdfError) throw pdfError; })
           .catch((err) => {
             console.error("generate-receipt-pdf error:", err);
@@ -474,7 +474,7 @@ export const useEngineerJobs = () => {
               variant: "destructive",
             });
           });
-        invokeFunction("send-whatsapp-receipt", { body: { job_id: jobId }, signOutOnRefreshFailure: false })
+        invokeFunction("send-whatsapp-receipt", { body: { job_id: jobId, payment_amount: confirmedRevenue }, signOutOnRefreshFailure: false })
           .then(({ error: waError }) => { if (waError) throw waError; })
           .catch((err) => {
             console.error("[WhatsApp] Receipt send failed:", err);
@@ -664,7 +664,7 @@ export const useEngineerJobs = () => {
           // the failure vanishing into console.warn (see KN-494).
           try {
             const { error: receiptError } = await invokeFunction('send-whatsapp-receipt', {
-              body: { job_id: jobId },
+              body: { job_id: jobId, payment_amount: confirmedRevenue },
               signOutOnRefreshFailure: false,
             });
             if (receiptError) throw receiptError;

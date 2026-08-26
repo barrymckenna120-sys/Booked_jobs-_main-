@@ -51,8 +51,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If PDF already exists, return it
-    if (job.receipt_pdf_url) {
+    // If PDF already exists, return it unless the caller provides the exact
+    // payment amount for a newly-recorded charge. In that case regenerate so a
+    // deposit/balance receipt cannot reuse an older full-total PDF.
+    if (job.receipt_pdf_url && payment_amount === undefined) {
       return new Response(JSON.stringify({ pdf_url: job.receipt_pdf_url }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
