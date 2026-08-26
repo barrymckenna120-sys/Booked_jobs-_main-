@@ -126,3 +126,104 @@ Deno.test("rest loader returns null when no row exists", async () => {
   );
   assertEquals(await loader(ORG_B), null);
 });
+
+// ---- BJ-next-E: sandbox mode resolution ----
+
+const LIVE_CONFIG = {
+  merchant_code: "LIVE_MERCH",
+  api_key_secret: "ORG_LIVE_KEY",
+  environment: "live",
+  environments: {
+    live: { merchant_code: "LIVE_MERCH", api_key_secret: "ORG_LIVE_KEY" },
+    test: { merchant_code: "TEST_MERCH", api_key_secret: "ORG_TEST_KEY" },
+  },
+};
+
+Deno.test("sandbox mode ON with complete config uses sandbox credentials", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => ({ ...LIVE_CONFIG, environment: "test" }),
+    getEnv: (n) =>
+      n === "ORG_TEST_KEY" ? "sup_sk_TEST" : n === "ORG_LIVE_KEY" ? "sup_sk_LIVE" : undefined,
+  });
+  assertEquals(res.ok, true);
+  assertEquals(res.environment, "test");
+  assertEquals(res.credentials, { apiKey: "sup_sk_TEST", merchantCode: "TEST_MERCH" });
+});
+
+Deno.test("'sandbox' label is accepted as an alias of test mode", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => ({ ...LIVE_CONFIG, environment: "sandbox" }),
+    getEnv: (n) => (n === "ORG_TEST_KEY" ? "sup_sk_TEST" : undefined),
+  });
+  assertEquals(res.ok, true);
+  assertEquals(res.credentials?.merchantCode, "TEST_MERCH");
+});
+
+Deno.test("sandbox mode ON with missing entry hard-fails, never falls back to live", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => ({
+      merchant_code: "LIVE_MERCH",
+      api_key_secret: "ORG_LIVE_KEY",
+      environment: "test",
+      // no environments archive at all
+    }),
+    getEnv: () => "sup_sk_LIVE",
+  });
+  assertEquals(res.ok, false);
+  assertEquals(res.error, "sumup_sandbox_config_incomplete");
+  assertEquals(res.credentials, undefined);
+});
+
+Deno.test("sandbox mode ON with incomplete entry (secret unset) hard-fails", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => ({
+      ...LIVE_CONFIG,
+      environment: "test",
+      environments: { test: { merchant_code: "TEST_MERCH", api_key_secret: "UNSET_SECRET" } },
+    }),
+    getEnv: (n) => (n === "ORG_LIVE_KEY" ? "sup_sk_LIVE" : undefined),
+  });
+  assertEquals(res.ok, false);
+  assertEquals(res.error, "sumup_sandbox_config_incomplete");
+  assertEquals(res.credentials, undefined);
+});
+
+Deno.test("sandbox mode ON with entry missing merchant code hard-fails", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => ({
+      ...LIVE_CONFIG,
+      environment: "test",
+      environments: { test: { api_key_secret: "ORG_TEST_KEY" } },
+    }),
+    getEnv: (n) => (n === "ORG_TEST_KEY" ? "sup_sk_TEST" : undefined),
+  });
+  assertEquals(res.ok, false);
+  assertEquals(res.error, "sumup_sandbox_config_incomplete");
+});
+
+Deno.test("sandbox mode OFF (live) uses live pair, unchanged from today", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => LIVE_CONFIG,
+    getEnv: (n) => (n === "ORG_LIVE_KEY" ? "sup_sk_LIVE" : undefined),
+  });
+  assertEquals(res.ok, true);
+  assertEquals(res.environment, "live");
+  assertEquals(res.credentials, { apiKey: "sup_sk_LIVE", merchantCode: "LIVE_MERCH" });
+});
+
+Deno.test("absent environment defaults to live (sandbox is opt-in only)", async () => {
+  const res = await resolveSumUpCredentials({
+    organisationId: ORG_A,
+    loadConfig: async () => ({ merchant_code: "MERCH_A", api_key_secret: "ORG_A_SUMUP_KEY" }),
+    getEnv: (n) => (n === "ORG_A_SUMUP_KEY" ? "sup_sk_from_env" : undefined),
+  });
+  assertEquals(res.ok, true);
+  assertEquals(res.environment, "live");
+  assertEquals(res.credentials?.merchantCode, "MERCH_A");
+});

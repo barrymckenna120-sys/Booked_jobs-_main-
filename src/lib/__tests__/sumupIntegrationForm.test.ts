@@ -40,13 +40,15 @@ describe("validateSumUpForm", () => {
 });
 
 describe("normaliseEnvironment", () => {
-  it("defaults unknown values to test", () => {
-    expect(normaliseEnvironment(undefined)).toBe("test");
-    expect(normaliseEnvironment("prod")).toBe("test");
+  it("defaults unknown/absent values to live (sandbox is opt-in only)", () => {
+    expect(normaliseEnvironment(undefined)).toBe("live");
+    expect(normaliseEnvironment("prod")).toBe("live");
   });
 
-  it("passes through known values", () => {
+  it("passes through known values and treats 'sandbox' as test", () => {
     expect(normaliseEnvironment("live")).toBe("live");
+    expect(normaliseEnvironment("test")).toBe("test");
+    expect(normaliseEnvironment("sandbox")).toBe("test");
   });
 });
 

@@ -165,8 +165,13 @@ Deno.serve(async (req) => {
       const merchantCode = typeof config?.merchant_code === "string" ? config.merchant_code.trim() : "";
       const secretName = typeof config?.api_key_secret === "string" ? config.api_key_secret.trim() : "";
       const secretPresent = secretName ? Boolean((Deno.env.get(secretName) ?? "").trim()) : false;
+      // Absent/unknown labels default to live — sandbox is explicit opt-in.
+      // "sandbox" is accepted as an alias of "test".
+      const rawEnvironment = typeof config?.environment === "string"
+        ? config.environment.trim().toLowerCase()
+        : "";
       const environment: SumUpEnvironment =
-        config?.environment === "live" ? "live" : "test";
+        rawEnvironment === "test" || rawEnvironment === "sandbox" ? "test" : "live";
 
       const environments: Partial<Record<SumUpEnvironment, SumUpEnvEntry>> = {};
       for (const env of ENVIRONMENTS) {
@@ -200,12 +205,14 @@ Deno.serve(async (req) => {
     if (action === "save") {
       const merchantCode = String(body.merchant_code ?? "").trim().toUpperCase();
       const secretName = String(body.api_key_secret ?? "").trim();
-      const rawEnv = String(body.environment ?? "test").trim().toLowerCase();
+      // Default live — sandbox/test mode is explicit opt-in only.
+      const rawEnv = String(body.environment ?? "live").trim().toLowerCase();
+      const normalisedEnv = rawEnv === "sandbox" ? "test" : rawEnv;
 
-      if (!ENVIRONMENTS.includes(rawEnv as SumUpEnvironment)) {
+      if (!ENVIRONMENTS.includes(normalisedEnv as SumUpEnvironment)) {
         return json({ error: "Environment must be either test or live.", field: "environment" }, 400);
       }
-      const environment = rawEnv as SumUpEnvironment;
+      const environment = normalisedEnv as SumUpEnvironment;
 
       if (!MERCHANT_CODE_RE.test(merchantCode)) {
         return json({
@@ -229,6 +236,21 @@ Deno.serve(async (req) => {
 
       const row = await loadRow();
       const existing = (row?.config as SumUpConfig) ?? {};
+
+      // Flipping live <-> test is superadmin-only: it decides whether real
+      // cards are charged, so tenant admins cannot switch it themselves.
+      const storedEnvRaw = typeof existing.environment === "string"
+        ? existing.environment.trim().toLowerCase()
+        : "live";
+      const storedEnv = storedEnvRaw === "sandbox" ? "test" : storedEnvRaw;
+      const storedEnvironment: SumUpEnvironment = storedEnv === "test" ? "test" : "live";
+      if (environment !== storedEnvironment && !isSuperadmin) {
+        return json({
+          error: "Only a Booked Jobs administrator can switch the SumUp environment.",
+          field: "environment",
+        }, 403);
+      }
+
       const existingEnvs =
         (existing.environments as Record<string, SumUpEnvEntry> | undefined) ?? {};
 
@@ -392,7 +414,7 @@ Deno.serve(async (req) => {
         provider: "sumup",
         merchant_code: "",
         api_key_secret: "",
-        environment: "test",
+        environment: "live",
         environments: {},
         secret_present: false,
         configured: false,

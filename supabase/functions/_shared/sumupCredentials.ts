@@ -13,7 +13,18 @@
  *     merchant_code: "MBBMEYG7",
  *     api_key: "sup_sk_...",          // either inline...
  *     api_key_secret: "SUMUP_API_KEY" // ...or the name of an env secret
+ *     environment: "live" | "test",   // active mode; absent means "live"
+ *     environments: {                 // per-mode credential archive
+ *       live: { merchant_code, api_key_secret },
+ *       test: { merchant_code, api_key_secret },
+ *     }
  *   }
+ *
+ * Mode safety (BJ-next-E): when `environment` is anything other than "live",
+ * credentials are resolved ONLY from `environments[environment]`. An
+ * incomplete sandbox/test entry is a hard failure — the resolver NEVER falls
+ * back to the live pair, so a half-configured sandbox mode cannot silently
+ * charge a real card.
  */
 
 export interface SumUpCredentials {
@@ -24,6 +35,8 @@ export interface SumUpCredentials {
 export interface SumUpCredentialsResult {
   ok: boolean;
   credentials?: SumUpCredentials;
+  /** The mode the credentials were resolved for ("live" when unspecified). */
+  environment?: string;
   /** Machine-readable reason; safe to log (never contains the key itself). */
   error?: string;
 }
@@ -36,9 +49,25 @@ export interface ResolveSumUpArgs {
   getEnv?: (name: string) => string | undefined;
 }
 
+interface EnvPair {
+  merchantCode: string;
+  inlineKey: string;
+  secretName: string;
+}
+
+function readPair(source: unknown): EnvPair {
+  const cfg = (source && typeof source === "object" ? source : {}) as Record<string, unknown>;
+  return {
+    merchantCode: typeof cfg.merchant_code === "string" ? cfg.merchant_code.trim() : "",
+    inlineKey: typeof cfg.api_key === "string" ? cfg.api_key.trim() : "",
+    secretName: typeof cfg.api_key_secret === "string" ? cfg.api_key_secret.trim() : "",
+  };
+}
+
 /**
  * Resolves the SumUp credentials for one organisation.
- * Never throws and never falls back to project-wide credentials.
+ * Never throws and never falls back to project-wide credentials — and in
+ * sandbox/test mode never falls back to that org's live pair either.
  */
 export async function resolveSumUpCredentials(
   args: ResolveSumUpArgs,
@@ -61,22 +90,44 @@ export async function resolveSumUpCredentials(
     return { ok: false, error: "no_sumup_config_for_organisation" };
   }
 
-  const merchantCode = typeof config.merchant_code === "string" ? config.merchant_code.trim() : "";
+  const rawEnv = typeof config.environment === "string"
+    ? config.environment.trim().toLowerCase()
+    : "";
+  // Absent or unknown labels default to live (sandbox is always explicit
+  // opt-in); "sandbox" is accepted as an alias of "test".
+  const environment = rawEnv === "test" || rawEnv === "sandbox" ? "test" : "live";
 
-  const inlineKey = typeof config.api_key === "string" ? config.api_key.trim() : "";
-  const secretName =
-    typeof config.api_key_secret === "string" ? config.api_key_secret.trim() : "";
-  const envKey = secretName ? (getEnv(secretName) ?? "").trim() : "";
-  const apiKey = inlineKey || envKey;
+  let pair: EnvPair;
+  if (environment === "live") {
+    pair = readPair(config);
+  } else {
+    const envs = config.environments;
+    const entry =
+      envs && typeof envs === "object"
+        ? (envs as Record<string, unknown>)[environment] ??
+          (envs as Record<string, unknown>)["sandbox"]
+        : undefined;
+    pair = readPair(entry);
+    // Hard fail on ANY incompleteness — never read the live pair here.
+    if (!pair.merchantCode || (!pair.inlineKey && !pair.secretName)) {
+      return { ok: false, environment, error: "sumup_sandbox_config_incomplete" };
+    }
+  }
 
-  if (!merchantCode) {
-    return { ok: false, error: "sumup_config_missing_merchant_code" };
+  const envKey = pair.secretName ? (getEnv(pair.secretName) ?? "").trim() : "";
+  const apiKey = pair.inlineKey || envKey;
+
+  if (!pair.merchantCode) {
+    return { ok: false, environment, error: "sumup_config_missing_merchant_code" };
   }
   if (!apiKey) {
-    return { ok: false, error: "sumup_config_missing_api_key" };
+    const error = environment === "live"
+      ? "sumup_config_missing_api_key"
+      : "sumup_sandbox_config_incomplete";
+    return { ok: false, environment, error };
   }
 
-  return { ok: true, credentials: { apiKey, merchantCode } };
+  return { ok: true, environment, credentials: { apiKey, merchantCode: pair.merchantCode } };
 }
 
 /**
