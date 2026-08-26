@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminViewingOrgId, SUPER_ADMIN_EMAIL } from "@/hooks/useAdminViewAs";
+import { resolveEffectiveOrgId } from "@/lib/resolveEffectiveOrgId";
 
 /**
  * Resolves the current user's organisation_id from the profiles table.
@@ -21,18 +22,9 @@ export function useOrgId() {
           if (!cancelled) setReady(true);
           return;
         }
-        // Super-admin "View as Tenant" override
-        const override = getAdminViewingOrgId();
-        if (override && session.user.email?.toLowerCase() === SUPER_ADMIN_EMAIL) {
-          if (!cancelled) {
-            setOrgId(override);
-            setReady(true);
-          }
-          return;
-        }
         const profileFetch = supabase
           .from("profiles")
-          .select("organisation_id")
+          .select("organisation_id, role")
           .eq("user_id", session.user.id)
           .maybeSingle();
 
@@ -51,7 +43,13 @@ export function useOrgId() {
         }
         const { data: profile } = result;
         if (!cancelled) {
-          setOrgId((profile as any)?.organisation_id ?? null);
+          setOrgId(resolveEffectiveOrgId({
+            profileOrgId: (profile as any)?.organisation_id ?? null,
+            profileRole: (profile as any)?.role ?? null,
+            sessionEmail: session.user.email ?? null,
+            viewingOrgId: getAdminViewingOrgId(),
+            legacySuperAdminEmail: SUPER_ADMIN_EMAIL,
+          }));
           setReady(true);
         }
       } catch (e) {
