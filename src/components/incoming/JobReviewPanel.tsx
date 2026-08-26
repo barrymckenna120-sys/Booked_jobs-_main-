@@ -13,6 +13,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, AlertTriangle, MessageSquare } from "lucide-react";
 import MediaGallery from "@/components/media/MediaGallery";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import type { CustomerStatusAtBooking } from "@/types/service-calls";
+
 
 type Job = {
   id: string;
@@ -38,6 +41,9 @@ type Job = {
   owner_or_tenant: string | null;
   access_notes: string | null;
   job_reference?: string | null;
+  /** Set at job creation: 'new' when the customer did not previously exist. */
+  customer_status_at_booking?: CustomerStatusAtBooking | null;
+
 };
 
 type Customer = {
@@ -229,13 +235,15 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full sm:max-w-[560px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            {customer.name}
+          <SheetTitle className="flex items-center gap-2 flex-wrap">
+            <span className="truncate max-w-full">{customer.name}</span>
+            <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
             <span className="text-xs font-normal text-muted-foreground">· {relativeTime(job.created_at)}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
               {job.source || "Manual"}
             </span>
           </SheetTitle>
+
         </SheetHeader>
 
         <div className="space-y-5 mt-4">

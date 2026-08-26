@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import IncomingJobCard from "@/components/incoming/IncomingJobCard";
 import JobReviewPanel from "@/components/incoming/JobReviewPanel";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import type { CustomerStatusAtBooking } from "@/types/service-calls";
 
 type IncomingJob = {
   id: string;
@@ -31,6 +32,9 @@ type IncomingJob = {
   area_code: string | null;
   owner_or_tenant: string | null;
   access_notes: string | null;
+  /** Set at job creation: 'new' when the customer did not previously exist. */
+  customer_status_at_booking?: CustomerStatusAtBooking | null;
+
   customers: {
     id: string;
     name: string;

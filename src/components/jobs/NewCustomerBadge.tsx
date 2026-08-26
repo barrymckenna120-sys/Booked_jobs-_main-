@@ -1,8 +1,13 @@
 import { UserPlus } from "lucide-react";
+import { isCustomerStatusAtBooking, type CustomerStatusAtBooking } from "@/types/service-calls";
 
 type Props = {
-  /** service_calls.customer_status_at_booking — only 'new' renders the badge. */
-  status?: string | null;
+  /**
+   * service_calls.customer_status_at_booking — only 'new' renders the badge.
+   * Accepts a raw DB string so loosely-typed callers keep compiling; the value
+   * is narrowed to CustomerStatusAtBooking before it is used.
+   */
+  status?: CustomerStatusAtBooking | string | null;
   size?: "sm" | "md";
   className?: string;
 };
@@ -12,7 +17,9 @@ type Props = {
  * customer that did not previously exist (customer_status_at_booking === 'new').
  */
 const NewCustomerBadge = ({ status, size = "md", className = "" }: Props) => {
-  if (status !== "new") return null;
+  const narrowed = isCustomerStatusAtBooking(status) ? status : null;
+  if (narrowed !== "new") return null;
+
   const text = size === "sm" ? "text-[9px] px-1.5 py-0" : "text-[10px] px-1.5 py-0.5";
   return (
     <span
