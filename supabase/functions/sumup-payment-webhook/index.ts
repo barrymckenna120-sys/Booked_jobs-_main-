@@ -16,8 +16,6 @@ import {
 } from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationMessage.ts";
-import { buildPaymentAlert } from "../_shared/paymentAlertMessage.ts";
-import { resolveAlertRecipients } from "../_shared/alertRecipients.ts";
 import {
   deliverPaymentAlert,
   deliverPaymentFailedAlert,
