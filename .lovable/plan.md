@@ -21,11 +21,15 @@ Shared gate helper (new, pure + one query): `src/lib/paymentPreWriteGate.ts`
 - On Case B: throw `JobAlreadyPaidError` — no `service_calls` update, no `job_payments` insert, no retry-queue entry.
 - Not Case B: pass the fresh row into `buildEngineerPaymentPlan` as `job` (merged over the in-memory job so unrelated fields survive) so `priorCollected` uses fresh `revenue`/`balance_due`. `engineerPaymentPlan.ts` itself is unchanged.
 
+Shared fully-paid panel (extraction, no new copy): `src/components/payments/JobFullyPaidPanel.tsx`
+- Lift the existing Case B markup out of `PaymentSheet.tsx:91-128` verbatim (heading, "This job is fully paid", "No further payment can be collected here", "Amount already collected" row, optional Complete Job button, dismiss button) into one presentational component taking `collected`, `customerName`, `onCompleteOnly?`, `onClose`.
+- `PaymentSheet` renders it inside `EngineerSheet`; `TakePaymentModal` renders the same component inside its `DialogContent`. One implementation, two shells — no parallel copy of the copy or layout.
+
 `src/pages/engineer/EngineerJobDetail.tsx` and `src/components/engineer/EngineerJobCard.tsx`
-- Catch `JobAlreadyPaidError` in the payment handlers, keep `PaymentSheet` open, and pass a new `forceFullyPaid` prop so it renders its existing Case B panel (`PaymentSheet.tsx:91-128`). No new copy, no new UI state.
+- Catch `JobAlreadyPaidError` in the payment handlers, keep `PaymentSheet` open, and pass a new `forceFullyPaid` prop so it renders that same panel. No new copy, no new UI state.
 
 `src/components/payments/TakePaymentModal.tsx` (surfaces 2 and 4)
-- Move the existing pre-write read to the gate helper and make it authoritative: on Case B, stop before any write and show the same fully-paid message (toast path replaced by returning to step 1 with the settled state), instead of only using the read for maths.
+- Move the existing pre-write read to the gate helper and make it authoritative: on Case B, stop before any write and render `JobFullyPaidPanel` (replacing today's toast-and-return), instead of only using the read for maths.
 - Keep the existing receipt-number check untouched.
 
 Not in this ticket: EngineerOutstandingBalances refetch/`payment_status` passthrough (Fix 2), any DB constraint or trigger against over-collection (Fix 3), `job_payments` schema changes.
@@ -40,6 +44,8 @@ Not in this ticket: EngineerOutstandingBalances refetch/`payment_status` passthr
 
 Reported back: pasted test output, per-file diffs, and the scratch-job result.
 
-## Pre-existing build error to fix first
+## Separate ticket, ships on its own: BJ-next-D0 import fix
 
-`src/pages/engineer/EngineerJobDetail.tsx` calls `addToQueue` (lines 353-390) without importing it, so the app currently fails to typecheck. One-line fix as the first step of this ticket: `import { addToQueue } from "@/hooks/useRetryQueue";` (it is a module-level export there, no hook needed).
+Confirmed broken now, not dev-only: `npx tsgo --noEmit -p tsconfig.app.json` reports 4 x TS2304 `Cannot find name 'addToQueue'` in `src/pages/engineer/EngineerJobDetail.tsx` (lines 353, 361, 369, 390). Vite/esbuild does not fail on it, so the app still loads, but the offline retry-queue branch of that file throws a `ReferenceError` at runtime whenever a job or payment write fails.
+
+Fix is one line — `import { addToQueue } from "@/hooks/useRetryQueue";` (module-level export, no hook needed). It ships as its own commit/ticket and is explicitly NOT folded into BJ-next-D.
