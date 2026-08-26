@@ -16,8 +16,11 @@ import {
 } from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationMessage.ts";
-import { buildPaymentAlert } from "../_shared/paymentAlertMessage.ts";
-import { resolveAlertRecipients } from "../_shared/alertRecipients.ts";
+import {
+  deliverPaymentAlert,
+  deliverPaymentFailedAlert,
+} from "../_shared/paymentAlertDelivery.ts";
+
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { normalisePhone } from "../_shared/whatsapp.ts";
@@ -600,225 +603,15 @@ Deno.serve(async (req) => {
       );
     },
 
-    // Office/admin users of the owning org get a bell notification, matching the
+    // Office/admin users of the owning org get a bell notification. The whole
+    // delivery path (dedupe read, tiered recipients, insert) lives in
+    // _shared/paymentAlertDelivery.ts so it can be tested against a fake client.
+    notifyOffice: (e) => deliverPaymentAlert({ supabase, event: e, recordAttemptStatus }),
 
-    // recipient rule used by the quote-accepted alert.
-    notifyOffice: async (e) => {
-      try {
-        if (!e.organisationId) return;
+    // A declined/expired/cancelled checkout: same recipients, flagged as a
+    // failure so the link can be reissued.
+    notifyPaymentFailed: (e) => deliverPaymentFailedAlert({ supabase, event: e, recordAttemptStatus }),
 
-        // Own idempotency layer, keyed on the CHECKOUT — same pattern as
-        // notifyPaymentFailed below. The upstream event claim is the primary
-        // guard, but it deliberately lets a delivery through on an unknown DB
-        // error rather than risk dropping a real payment; without this read that
-        // fallback can double-alert the office. A second, genuinely different
-        // checkout on the same job is a separate payment and still alerts.
-        const { data: existing, error: dupErr } = await supabase
-          .from("notifications")
-          .select("id")
-          .eq("job_id", e.serviceCallId)
-          .eq("notification_type", "payment_collected")
-          .eq("metadata->>checkout_id", e.checkoutId)
-          .limit(1);
-        if (dupErr) {
-          console.error("sumup-payment-webhook: payment-alert dedupe read failed", dupErr.message);
-          return;
-        }
-        if ((existing ?? []).length > 0) {
-          console.log(`sumup-payment-webhook: payment alert already sent for checkout ${e.checkoutId}`);
-          await recordAttemptStatus(e.checkoutId, e.status);
-          return;
-        }
-
-        // All active profiles for the org — the tiering (office/admin, then
-        // ops-flagged, then superadmin) happens in resolveAlertRecipients so an
-        // org without an office user still gets its payment alerts.
-        const { data: staff, error } = await supabase
-          .from("profiles")
-          .select("user_id, role, is_active, receives_ops_notifications")
-          .eq("organisation_id", e.organisationId)
-          .eq("is_active", true);
-
-        if (error) {
-          console.error("sumup-payment-webhook: staff lookup failed", error.message);
-          return;
-        }
-
-        const { recipients, tier } = resolveAlertRecipients(staff ?? []);
-        if (recipients.length === 0) {
-          // Never silent: an org with nobody to alert is a configuration problem
-          // that used to look like a lost notification.
-          console.error(
-            `PAYMENT_ALERT_NO_RECIPIENTS kind=payment_collected job_id=${e.serviceCallId} checkout_id=${e.checkoutId} org=${e.organisationId}`,
-          );
-          return;
-        }
-        if (tier !== "office") {
-          console.log(
-            `sumup-payment-webhook: no office/admin for org ${e.organisationId} — payment alert routed to ${tier}`,
-          );
-        }
-
-        let customerName: string | null = null;
-        if (e.customerId) {
-          const { data: cust } = await supabase
-            .from("customers")
-            .select("name")
-            .eq("id", e.customerId)
-            .maybeSingle();
-          customerName = cust?.name ?? null;
-        }
-
-        const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
-        const alert = buildPaymentAlert({
-          amount: e.amount,
-          fullyPaid: e.fullyPaid,
-          jobReference: e.jobReference,
-          fallbackReference: e.serviceCallId.slice(0, 8),
-          customerName,
-          outstanding: e.outstanding,
-        });
-
-        await supabase.from("notifications").insert(
-          recipients.map((userId) => ({
-            recipient_user_id: userId,
-            organisation_id: e.organisationId,
-            job_id: e.serviceCallId,
-            notification_type: "payment_collected",
-            role: "office",
-            title: alert.title,
-            body: alert.body,
-            // checkout_id makes each alert traceable to the exact card attempt
-            // and is what the dedupe read above matches on.
-            metadata: {
-              source: "sumup",
-              amount: e.amount,
-              fully_paid: e.fullyPaid,
-              outstanding: e.outstanding,
-              checkout_id: e.checkoutId,
-              job_ref: ref,
-            },
-          })),
-        );
-
-        await recordAttemptStatus(e.checkoutId, e.status);
-
-
-      } catch (_e) {
-        console.error("sumup-payment-webhook: notification insert failed", _e);
-      }
-    },
-
-    // A declined/expired/cancelled checkout: same office/admin recipients as a
-    // confirmed payment, but flagged as a failure so the link can be reissued.
-    notifyPaymentFailed: async (e) => {
-      try {
-        if (!e.organisationId) return;
-
-        // Terminal status is final for this checkout — record it even if the
-        // alert itself is deduped away below.
-        await recordAttemptStatus(e.checkoutId, e.status);
-
-        // SumUp delivers the same failure event more than once. One alert per
-        // checkout only; if the dedupe read fails we skip rather than duplicate.
-        const { data: existing, error: dupErr } = await supabase
-          .from("notifications")
-          .select("id")
-          .eq("job_id", e.serviceCallId)
-          .eq("notification_type", "payment_failed")
-          .eq("metadata->>checkout_id", e.checkoutId)
-          .limit(1);
-        if (dupErr) {
-          console.error("sumup-payment-webhook: failure-alert dedupe read failed", dupErr.message);
-          return;
-        }
-        if ((existing ?? []).length > 0) {
-          console.log(`sumup-payment-webhook: failure alert already sent for checkout ${e.checkoutId}`);
-          return;
-        }
-
-        // All active profiles for the org — the tiering (office/admin, then
-        // ops-flagged, then superadmin) happens in resolveAlertRecipients so an
-        // org without an office user still gets its payment alerts.
-        const { data: staff, error } = await supabase
-          .from("profiles")
-          .select("user_id, role, is_active, receives_ops_notifications")
-          .eq("organisation_id", e.organisationId)
-          .eq("is_active", true);
-
-        if (error) {
-          console.error("sumup-payment-webhook: staff lookup failed", error.message);
-          return;
-        }
-
-        const { recipients, tier } = resolveAlertRecipients(staff ?? []);
-        if (recipients.length === 0) {
-          // Never silent: an org with nobody to alert is a configuration problem
-          // that used to look like a lost notification.
-          console.error(
-            `PAYMENT_ALERT_NO_RECIPIENTS kind=payment_failed job_id=${e.serviceCallId} checkout_id=${e.checkoutId} org=${e.organisationId}`,
-          );
-          return;
-        }
-        if (tier !== "office") {
-          console.log(
-            `sumup-payment-webhook: no office/admin for org ${e.organisationId} — payment alert routed to ${tier}`,
-          );
-        }
-
-        const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
-
-        let customerName: string | null = null;
-        if (e.customerId) {
-          const { data: cust } = await supabase
-            .from("customers")
-            .select("name")
-            .eq("id", e.customerId)
-            .maybeSingle();
-          customerName = cust?.name ?? null;
-        }
-
-        const amountText = e.amount && e.amount > 0 ? `€${e.amount.toFixed(2)} ` : "";
-        const reason = e.status === "EXPIRED"
-          ? "the payment link expired"
-          : e.status === "CANCELLED" || e.status === "CANCELED"
-          ? "the customer cancelled the payment"
-          : "the card payment was declined";
-
-        const { error: insErr } = await supabase.from("notifications").insert(
-          recipients.map((userId) => ({
-            recipient_user_id: userId,
-            organisation_id: e.organisationId,
-            job_id: e.serviceCallId,
-            role: "office",
-            notification_type: "payment_failed",
-            title: `Payment failed — ${ref}`,
-            body: `${amountText}card payment on ${ref}${customerName ? ` for ${customerName}` : ""} did not go through — ${reason}. That payment link no longer works; send a new one.`,
-            metadata: {
-              source: "sumup",
-              checkout_id: e.checkoutId,
-              status: e.status,
-              amount: e.amount,
-            },
-          })),
-        );
-
-        // SumUp delivers the same failure twice within ~100ms, so the read above
-        // can't win the race — the unique index is the real guard. A 23505 here
-        // means the other delivery already alerted, which is the correct outcome.
-        if (insErr) {
-          if (insErr.code === "23505") {
-            console.log(`sumup-payment-webhook: failure alert already sent for checkout ${e.checkoutId} (raced)`);
-          } else {
-            console.error("sumup-payment-webhook: failure alert insert failed", insErr.message);
-          }
-          return;
-        }
-        console.log(`sumup-payment-webhook: failure alert sent for ${ref} (${e.status})`);
-      } catch (_e) {
-        console.error("sumup-payment-webhook: failure alert insert failed", _e);
-      }
-    },
 
     log: (level, message, detail) => {
       if (level === "error") console.error(message, detail ?? "");
