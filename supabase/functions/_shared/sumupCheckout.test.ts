@@ -450,3 +450,36 @@ Deno.test("findReusableCheckout returns null without a store or organisation", a
     null,
   );
 });
+
+Deno.test("retries with a unique reference when SumUp reports DUPLICATED_CHECKOUT", async () => {
+  const refs: string[] = [];
+  const fetchImpl = ((_url: string, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    refs.push(body.checkout_reference);
+    if (refs.length === 1) {
+      return Promise.resolve(
+        jsonResponse(
+          { error_code: "DUPLICATED_CHECKOUT", message: "already exists" },
+          409,
+        ),
+      );
+    }
+    return Promise.resolve(
+      jsonResponse({ id: "chk_retry", hosted_checkout_url: "https://checkout/retry" }),
+    );
+  }) as unknown as typeof fetch;
+
+  const result = await createSumUpDepositCheckout({
+    amount: 153.75,
+    serviceCallId: "job-dup",
+    apiKey: "k",
+    merchantCode: "m",
+    fetchImpl,
+  });
+
+  assertEquals(result.ok, true);
+  assertEquals(result.url, "https://checkout/retry");
+  assertEquals(refs.length, 2);
+  assertEquals(refs[0], "job-dup::1");
+  assertStringIncludes(refs[1], "job-dup::1-");
+});
