@@ -16,6 +16,7 @@ import {
 } from "../_shared/sumupWebhook.ts";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 import { buildDepositConfirmationMessage } from "../_shared/depositConfirmationMessage.ts";
+import { buildPaymentAlert } from "../_shared/paymentAlertMessage.ts";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { normalisePhone } from "../_shared/whatsapp.ts";
@@ -604,6 +605,30 @@ Deno.serve(async (req) => {
     notifyOffice: async (e) => {
       try {
         if (!e.organisationId) return;
+
+        // Own idempotency layer, keyed on the CHECKOUT — same pattern as
+        // notifyPaymentFailed below. The upstream event claim is the primary
+        // guard, but it deliberately lets a delivery through on an unknown DB
+        // error rather than risk dropping a real payment; without this read that
+        // fallback can double-alert the office. A second, genuinely different
+        // checkout on the same job is a separate payment and still alerts.
+        const { data: existing, error: dupErr } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("job_id", e.serviceCallId)
+          .eq("notification_type", "payment_collected")
+          .eq("metadata->>checkout_id", e.checkoutId)
+          .limit(1);
+        if (dupErr) {
+          console.error("sumup-payment-webhook: payment-alert dedupe read failed", dupErr.message);
+          return;
+        }
+        if ((existing ?? []).length > 0) {
+          console.log(`sumup-payment-webhook: payment alert already sent for checkout ${e.checkoutId}`);
+          await recordAttemptStatus(e.checkoutId, e.status);
+          return;
+        }
+
         const { data: staff, error } = await supabase
           .from("profiles")
           .select("user_id, role")
@@ -621,9 +646,6 @@ Deno.serve(async (req) => {
           .filter((id): id is string => !!id);
         if (recipients.length === 0) return;
 
-        const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
-        const kind = e.fullyPaid ? "Payment received" : "Deposit received";
-
         let customerName: string | null = null;
         if (e.customerId) {
           const { data: cust } = await supabase
@@ -634,6 +656,16 @@ Deno.serve(async (req) => {
           customerName = cust?.name ?? null;
         }
 
+        const ref = e.jobReference ?? e.serviceCallId.slice(0, 8);
+        const alert = buildPaymentAlert({
+          amount: e.amount,
+          fullyPaid: e.fullyPaid,
+          jobReference: e.jobReference,
+          fallbackReference: e.serviceCallId.slice(0, 8),
+          customerName,
+          outstanding: e.outstanding,
+        });
+
         await supabase.from("notifications").insert(
           recipients.map((userId) => ({
             recipient_user_id: userId,
@@ -641,9 +673,18 @@ Deno.serve(async (req) => {
             job_id: e.serviceCallId,
             notification_type: "payment_collected",
             role: "office",
-            title: `${kind} — ${ref}`,
-            body: `€${e.amount.toFixed(2)} paid by card (SumUp)${e.fullyPaid ? " — full payment" : " — deposit"} on ${ref}${customerName ? ` for ${customerName}` : ""}`,
-            metadata: { source: "sumup", amount: e.amount, fully_paid: e.fullyPaid },
+            title: alert.title,
+            body: alert.body,
+            // checkout_id makes each alert traceable to the exact card attempt
+            // and is what the dedupe read above matches on.
+            metadata: {
+              source: "sumup",
+              amount: e.amount,
+              fully_paid: e.fullyPaid,
+              outstanding: e.outstanding,
+              checkout_id: e.checkoutId,
+              job_ref: ref,
+            },
           })),
         );
 

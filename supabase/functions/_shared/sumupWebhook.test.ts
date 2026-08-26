@@ -31,7 +31,13 @@ interface Harness {
   updates: Array<{ jobId: string; patch: Record<string, unknown> }>;
   activities: number;
   messages: number;
-  notifications: Array<{ jobReference: string | null; amount: number; fullyPaid: boolean }>;
+  notifications: Array<{
+    jobReference: string | null;
+    amount: number;
+    fullyPaid: boolean;
+    outstanding: number;
+    checkoutId: string;
+  }>;
   fetches: number;
   discoveries: number;
   loadedById: string[];
@@ -170,7 +176,13 @@ function run(opts: {
       return Promise.resolve();
     },
     notifyOffice: (e) => {
-      h.notifications.push({ jobReference: e.jobReference, amount: e.amount, fullyPaid: e.fullyPaid });
+      h.notifications.push({
+        jobReference: e.jobReference,
+        amount: e.amount,
+        fullyPaid: e.fullyPaid,
+        outstanding: e.outstanding,
+        checkoutId: e.checkoutId,
+      });
       return Promise.resolve();
     },
     claimEvent: () => {
@@ -272,14 +284,18 @@ Deno.test("a part-paid job with paid_at already stamped can still be settled in 
 Deno.test("office is notified once per confirmed payment, with the job reference", async () => {
   const full = run({ jobRow: job({ job_reference: "KN-465" }) });
   await full.result;
-  assertEquals(full.h.notifications, [{ jobReference: "KN-465", amount: 2000, fullyPaid: true }]);
+  assertEquals(full.h.notifications, [
+    { jobReference: "KN-465", amount: 2000, fullyPaid: true, outstanding: 0, checkoutId: CHECKOUT_ID },
+  ]);
 
   const deposit = run({
     jobRow: job({ job_reference: "KN-465" }),
     view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
   });
   await deposit.result;
-  assertEquals(deposit.h.notifications, [{ jobReference: "KN-465", amount: 1000, fullyPaid: false }]);
+  assertEquals(deposit.h.notifications, [
+    { jobReference: "KN-465", amount: 1000, fullyPaid: false, outstanding: 1000, checkoutId: CHECKOUT_ID },
+  ]);
 });
 
 Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
@@ -462,7 +478,9 @@ Deno.test("balance payment on a deposit-paid job settles it (50/50 split, matchi
   assertEquals(h.updates[0].patch.revenue, undefined);
   assertEquals(h.activities, 1);
   assertEquals(h.messages, 1);
-  assertEquals(h.notifications, [{ jobReference: null, amount: 500, fullyPaid: true }]);
+  assertEquals(h.notifications, [
+    { jobReference: null, amount: 500, fullyPaid: true, outstanding: 0, checkoutId: CHECKOUT_ID },
+  ]);
 });
 
 // A partial second payment stays partial, with cumulative arithmetic.
@@ -1258,4 +1276,34 @@ Deno.test("balance payment that settles the job sends receipt, not a part confir
   assertEquals(r.outcome, "paid");
   assertEquals(h.depositConfirmations.length, 0);
   assertEquals(h.receipts.length, 1);
+});
+
+// The office alert must state the balance that was actually written to the job,
+// and carry the checkout id so the alert is traceable and de-duplicable.
+Deno.test("office alert carries the checkout id and the post-payment outstanding balance", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 2000, balance_due: 2000, job_reference: "DG-443" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(h.notifications.length, 1);
+  assertEquals(h.notifications[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.notifications[0].fullyPaid, false);
+  assertEquals(h.notifications[0].outstanding, 1500);
+  // Never a figure of its own: it is exactly the balance_due the job write applied.
+  assertEquals(h.notifications[0].outstanding, Number(h.updates[0].patch.balance_due));
+});
+
+Deno.test("office alert for a settling balance payment reports nothing outstanding", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 500, deposit_paid: true, payment_status: "partial" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "paid");
+  assertEquals(h.notifications.length, 1);
+  assertEquals(h.notifications[0].fullyPaid, true);
+  assertEquals(h.notifications[0].outstanding, 0);
+  assertEquals(h.notifications[0].checkoutId, CHECKOUT_ID);
 });
