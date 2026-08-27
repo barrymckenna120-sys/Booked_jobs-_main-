@@ -58,23 +58,16 @@ Deno.serve(async (req) => {
     }
     if (!run) return json({ error: "Import run not found" }, 404);
 
-    // Caller must belong to the run's org (superadmin / platform owner bypass).
-    const callerEmail = caller.email?.toLowerCase() ?? "";
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("role, organisation_id")
-      .eq("user_id", caller.id)
-      .maybeSingle();
-
-    const bypassOrgCheck =
-      PLATFORM_OWNER_EMAILS.includes(callerEmail) ||
-      (callerProfile as any)?.role === "superadmin";
-    const callerOrgId = (callerProfile as any)?.organisation_id ?? null;
+    // Target org comes from the stored import run, never the request body.
     const runOrgId = (run as any).organisation_id ?? null;
+    const blocked = crossTenantDenied(
+      caller,
+      runOrgId,
+      corsHeaders,
+      "notify-import-errors",
+    );
+    if (blocked) return blocked;
 
-    if (!bypassOrgCheck && (!callerOrgId || !runOrgId || callerOrgId !== runOrgId)) {
-      return json({ error: "Cross-tenant action not permitted" }, 403);
-    }
 
     const errorCount = Number((run as any).error_count ?? 0);
     if (errorCount <= 0) {
