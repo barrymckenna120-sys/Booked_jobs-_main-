@@ -24,12 +24,13 @@ serve(async (req) => {
     });
     if (isDenied(access)) return access.error;
 
-    if (!job_id || !customer_name || !customer_phone) {
+    if (!job_id) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields" }),
+        JSON.stringify({ success: false, error: "job_id is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
+
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
