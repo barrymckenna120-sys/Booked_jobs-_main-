@@ -3456,6 +3456,12 @@ export type Database = {
         Args: { _organisation_id: string; _phone: string }
         Returns: boolean
       }
+      job_alert_recipients: {
+        Args: { _exclude_actor?: boolean; _org: string }
+        Returns: {
+          auth_user_id: string
+        }[]
+      }
       mark_quote_viewed: { Args: { p_quote_id: string }; Returns: undefined }
       move_to_dlq: {
         Args: {
