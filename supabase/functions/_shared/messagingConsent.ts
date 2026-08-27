@@ -18,6 +18,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   type ConsentCustomerRow,
   type ConsentDecision,
+  type ConsentSkipReason,
   evaluateConsent,
 } from "./consentDecision.ts";
 
@@ -47,16 +48,19 @@ export async function requireCustomerMessagingConsent(opts: {
     decision = { allowed: false, reason: "customer_not_found" };
   }
 
-  if (!decision.allowed && opts.log !== false) {
-    console.warn(`${fnName}: consent gate blocked send — ${decision.reason}`);
+  if (decision.allowed) return decision;
+
+  const blocked = decision;
+  if (opts.log !== false) {
+    console.warn(`${fnName}: consent gate blocked send — ${blocked.reason}`);
     try {
       await supabase.from("edge_function_logs").insert({
         function_name: fnName,
-        error_message: `Send skipped: ${decision.reason}`,
+        error_message: `Send skipped: ${blocked.reason}`,
         payload: {
           organisation_id: orgId,
           customer_id: customerId,
-          reason: decision.reason,
+          reason: blocked.reason,
           skipped: true,
         },
       });
