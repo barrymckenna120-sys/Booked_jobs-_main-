@@ -63,6 +63,7 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
   const { user } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<any[]>([]);
+  const [jobRefMap, setJobRefMap] = useState<Record<string, string>>({});
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -95,6 +96,25 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
     if (data) {
       setActivities(data);
       onCountReady?.(data.length);
+
+      // A customer can have several jobs running at once — without the job
+      // reference a payment entry on one job reads as if it belonged to
+      // another (e.g. a paid deposit on DG-450 looking like DG-1000's).
+      const jobIds = [...new Set(data.map((a) => a.service_call_id).filter(Boolean))];
+      if (jobIds.length > 0) {
+        const { data: jobs } = await supabase
+          .from("service_calls")
+          .select("id, job_reference")
+          .in("id", jobIds as string[]);
+        const refs: Record<string, string> = {};
+        (jobs || []).forEach((j: any) => {
+          if (j.job_reference) refs[j.id] = j.job_reference;
+        });
+        setJobRefMap(refs);
+      } else {
+        setJobRefMap({});
+      }
+
       const ids = [...new Set(data.map((a) => a.created_by).filter(Boolean))];
       if (ids.length > 0) {
         const { data: profiles } = await supabase
@@ -187,8 +207,13 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
               return (
                 <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${pill.className}`}>{pill.label}</span>
+                      {a.service_call_id && jobRefMap[a.service_call_id] && (
+                        <span className="inline-block rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          {jobRefMap[a.service_call_id]}
+                        </span>
+                      )}
                     </div>
                     <p className="text-foreground text-[13px] mt-1">{a.event_label}</p>
                     {partDetail && <p className="text-[11px] text-muted-foreground mt-0.5">{partDetail}</p>}
