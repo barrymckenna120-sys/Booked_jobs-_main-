@@ -1,6 +1,8 @@
 import WhatsAppTab from "./WhatsAppTab";
 import QuickRepliesTab from "./QuickRepliesTab";
 import MessageStatusPanel from "./MessageStatusPanel";
+import WhatsAppSendLog from "./WhatsAppSendLog";
+
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
