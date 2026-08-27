@@ -24,6 +24,7 @@ export type NotificationType =
   | "no_show"
   | "completed"
   | "parts_needed"
+  | "parts_requested"
   | "parts_cancelled"
   | "parts_update"
   | "payment_collected"
@@ -60,6 +61,7 @@ const HIGH_PRIORITY_TYPES = new Set([
   "reassigned",
   "no_show",
   "new_video_uploaded",
+  "parts_requested",
 ]);
 
 // Vibration for high-priority notifications (double pulse)

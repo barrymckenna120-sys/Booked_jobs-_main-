@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle, Lock, PackageCheck } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle, Lock, PackageCheck, Cog } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
@@ -11,6 +11,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   no_show:           { icon: Ban,            color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Completed" },
   parts_needed:      { icon: Wrench,        color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_requested:   { icon: Cog,           color: "text-amber-500",   bg: "bg-amber-500/10",   label: "New Parts Request" },
   parts_cancelled:   { icon: XCircle,       color: "text-destructive", bg: "bg-destructive/10", label: "Part Cancelled" },
   parts_update:      { icon: PackageCheck,  color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Part Update" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
@@ -27,7 +28,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
 
 const AUTO_DISMISS_MS = 15000;
 const HIGH_PRIORITY_DISMISS_MS = 20000;
-const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "quote_accepted", "follow_up", "parts_needed"]);
+const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "quote_accepted", "follow_up", "parts_needed", "parts_requested"]);
 
 interface Props {
   notifications: AppNotification[];

@@ -44,3 +44,20 @@ describe("resolveNotificationTarget", () => {
     expect(resolveNotificationTarget({ notification_type: "new_job", job_id: null })).toBeNull();
   });
 });
+
+describe("parts_requested", () => {
+  it("deep-links office staff to the highlighted parts request", () => {
+    expect(
+      resolveNotificationTarget(
+        { notification_type: "parts_requested", job_id: "job-1", metadata: { parts_request_id: "pr-9" } },
+        "/jobs",
+      ),
+    ).toBe("/parts?highlight=pr-9");
+  });
+
+  it("falls back to the parts list when no id is present", () => {
+    expect(
+      resolveNotificationTarget({ notification_type: "parts_requested", job_id: "job-1" }, "/jobs"),
+    ).toBe("/parts");
+  });
+});
