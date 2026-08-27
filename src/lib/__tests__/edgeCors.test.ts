@@ -59,3 +59,22 @@ describe("edge function CORS helper", () => {
     }
   });
 });
+
+describe("CORS allowlist is tenant-agnostic (BJ-0089)", () => {
+  it("allows any bookedjobs.ie tenant subdomain without a code change", () => {
+    expect(isAllowedOrigin("https://cavan-gas.bookedjobs.ie")).toBe(true);
+    expect(isAllowedOrigin("https://brand-new-tenant.bookedjobs.ie")).toBe(true);
+    expect(isAllowedOrigin("https://bookedjobs.ie")).toBe(true);
+  });
+
+  it("rejects lookalike domains that merely contain the suffix", () => {
+    expect(isAllowedOrigin("https://bookedjobs.ie.evil.com")).toBe(false);
+    expect(isAllowedOrigin("https://notbookedjobs.ie")).toBe(false);
+    expect(isAllowedOrigin("https://evil.com/?x=bookedjobs.ie")).toBe(false);
+  });
+
+  it("requires https for non-local origins", () => {
+    expect(isAllowedOrigin("http://dublin-gas.bookedjobs.ie")).toBe(false);
+    expect(isAllowedOrigin("http://127.0.0.1:8080")).toBe(true);
+  });
+});
