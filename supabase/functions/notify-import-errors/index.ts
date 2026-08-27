@@ -12,25 +12,31 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 const MAX_LISTED_ROWS = 20;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const corsHeaders = getCorsHeaders(req);
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
-    if (userError || !caller) return json({ error: "Unauthorized" }, 401);
+    // Verified JWT -> trusted role/org loaded server-side. Tenant admins stay
+    // inside their own organisation; only platform admins cross tenants.
+    const caller = await requireAdminCaller(req, {
+      fnName: "notify-import-errors",
+      cors: corsHeaders,
+    });
+    if (isAdminDenied(caller)) return caller.error;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
 
     const body = await req.json().catch(() => ({}));
     const runId: string | undefined = body?.runId;
