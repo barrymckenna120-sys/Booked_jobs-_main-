@@ -13,6 +13,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolveCaller } from "./machineAuth.ts";
+import { strictMachineBinding } from "./machineOrg.ts";
 
 export type ResourceRef = {
   /** Table holding the resource, e.g. "service_calls", "quotes", "certificates". */
@@ -242,6 +243,14 @@ export async function requireBoundOrg(
     if (provided !== tenantSecret) {
       return deny(cors, 403, "Forbidden", fnName, "machine secret is not bound to the requested organisation");
     }
+  } else if (strictMachineBinding()) {
+    return deny(
+      cors,
+      403,
+      "Forbidden",
+      fnName,
+      "strict binding on: tenant has no per-tenant webhook_secret configured",
+    );
   } else if (provided) {
     console.warn(
       `${fnName}: machine caller used a global shared secret for org ${requested} — ` +
