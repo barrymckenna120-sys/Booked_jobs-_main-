@@ -118,8 +118,9 @@ Deno.serve(async (req) => {
           )
           .in(
             "email",
-            emails
+            scopedEmails
           )
+
           .not(
             "locked_at",
             "is",
