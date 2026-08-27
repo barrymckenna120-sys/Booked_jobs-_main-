@@ -6,7 +6,7 @@
 //     webhook secret).
 //   - The action is intentionally a maintenance sweep. A caller presenting a
 //     per-tenant secret is scoped to THAT tenant; only an internal
-//     service-role/cron caller may run the全 global sweep.
+//     service-role/cron caller may run the global sweep.
 //   - Naturally idempotent: it only moves rows whose expiry_date has passed and
 //     whose status is still sent/viewed, so repeat calls are no-ops.
 
