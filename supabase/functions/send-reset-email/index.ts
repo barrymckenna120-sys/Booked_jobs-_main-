@@ -1,18 +1,23 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
-// Tenant reset URL is resolved per-request from tenant_integrations.config.domain.
-
+/**
+ * Password-reset email.
+ *
+ * Deliberately unauthenticated (it runs pre-login) but hardened:
+ *  - CORS is restricted to BookedJobs tenant origins, not "*".
+ *  - The reset domain is resolved from the user's OWN organisation. There is no
+ *    fallback to another tenant's domain: sending a Dublin Gas user to a K&N
+ *    host is a cross-tenant leak, so an unresolved domain means "do not send".
+ *  - Responses never reveal whether the address exists.
+ */
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
