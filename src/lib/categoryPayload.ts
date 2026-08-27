@@ -47,7 +47,7 @@ export function buildCategoryInsert(
   orgId: string | null | undefined,
 ): CategoryPayloadResult {
   const base = buildCategoryUpdate(form);
-  if (!base.ok) return base;
+  if (!base.ok) return { ok: false, reason: base.reason };
   if (!orgId) return { ok: false, reason: "missing-org" };
   return { ok: true, payload: { ...base.payload, organisation_id: orgId } };
 }
