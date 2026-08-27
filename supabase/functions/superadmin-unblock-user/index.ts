@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
       performed.push("cleared auth ban");
     }
 
-    console.log(`superadmin-unblock-user: ${email} by ${caller.email} — ${performed.join(", ") || "no changes"}`);
+    console.log(`superadmin-unblock-user: ${email} by ${platformAdmin.email} — ${performed.join(", ") || "no changes"}`);
 
     return json({ success: true, performed, email });
   } catch (err) {
