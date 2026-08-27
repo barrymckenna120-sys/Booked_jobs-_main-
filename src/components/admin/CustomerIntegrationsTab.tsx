@@ -12,9 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { buildTenantConfigRows } from "@/lib/tenantIntegrationConfig";
+import { buildTenantConfigRows, detectClearedCredentials } from "@/lib/tenantIntegrationConfig";
 
 type Org = { id: string; name: string; slug: string };
 
@@ -83,6 +93,8 @@ export default function CustomerIntegrationsTab({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [initialValues, setInitialValues] = useState<Record<string, string>>({});
+  const [pendingClears, setPendingClears] = useState<string[] | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -102,6 +114,7 @@ export default function CustomerIntegrationsTab({
   useEffect(() => {
     if (!orgId) {
       setValues({});
+      setInitialValues({});
       return;
     }
     (async () => {
@@ -124,8 +137,23 @@ export default function CustomerIntegrationsTab({
         }
       }
       setValues(next);
+      setInitialValues(next);
     })();
   }, [orgId]);
+
+  const requestSave = () => {
+    if (!orgId) return;
+    const cleared = detectClearedCredentials(
+      SECTIONS.flatMap((s) => s.fields),
+      initialValues,
+      values
+    );
+    if (cleared.length > 0) {
+      setPendingClears(cleared);
+      return;
+    }
+    void handleSave();
+  };
 
   const handleSave = async () => {
     if (!orgId) return;
@@ -173,6 +201,7 @@ export default function CustomerIntegrationsTab({
         throw new Error(`Save did not persist: ${mismatch.label}`);
       }
 
+      setInitialValues({ ...values });
       toast.success("Integrations saved");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save");
@@ -268,13 +297,41 @@ export default function CustomerIntegrationsTab({
             ))}
 
             <div className="flex justify-end pt-2">
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={requestSave} disabled={saving}>
                 {saving ? "Saving…" : "Save Integrations"}
               </Button>
             </div>
           </>
         )}
       </CardContent>
+
+      <AlertDialog
+        open={pendingClears !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingClears(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear saved credentials?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to clear {pendingClears?.join(", ")}. This tenant's
+              related integrations will stop working until new values are saved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setPendingClears(null);
+                void handleSave();
+              }}
+            >
+              Clear credentials
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

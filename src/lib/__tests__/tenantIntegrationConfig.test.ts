@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { mergeIntegrationConfig, buildTenantConfigRows } from "../tenantIntegrationConfig";
+import {
+  mergeIntegrationConfig,
+  buildTenantConfigRows,
+  detectClearedCredentials,
+} from "../tenantIntegrationConfig";
 
 describe("mergeIntegrationConfig", () => {
   it("saves a changed existing value", () => {
@@ -69,5 +73,49 @@ describe("buildTenantConfigRows", () => {
     expect(rows).toEqual([
       { organisation_id: "org-2", integration_type: "make", config: {} },
     ]);
+  });
+});
+
+describe("detectClearedCredentials", () => {
+  const fields = [
+    { type: "sumup", key: "merchant_code", label: "SumUp Merchant Code" },
+    { type: "sumup", key: "api_key_secret", label: "SumUp API Key Secret Name", secret: true },
+    { type: "tally", key: "renewal_form_url", label: "Renewal/Warranty Form URL" },
+  ];
+
+  it("flags a cleared credential", () => {
+    const out = detectClearedCredentials(
+      fields,
+      { "sumup::merchant_code": "MBBMEYG7", "sumup::api_key_secret": "SUMUP_X" },
+      { "sumup::merchant_code": "", "sumup::api_key_secret": "SUMUP_X" }
+    );
+    expect(out).toEqual(["SumUp Merchant Code"]);
+  });
+
+  it("flags multiple cleared credentials", () => {
+    const out = detectClearedCredentials(
+      fields,
+      { "sumup::merchant_code": "M1", "sumup::api_key_secret": "S1" },
+      { "sumup::merchant_code": "", "sumup::api_key_secret": "  " }
+    );
+    expect(out).toHaveLength(2);
+  });
+
+  it("does not flag non-credential fields being cleared", () => {
+    const out = detectClearedCredentials(
+      fields,
+      { "tally::renewal_form_url": "https://tally.so/r/x" },
+      { "tally::renewal_form_url": "" }
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("does not flag credential changes or untouched fields", () => {
+    const out = detectClearedCredentials(
+      fields,
+      { "sumup::merchant_code": "M1", "sumup::api_key_secret": "S1" },
+      { "sumup::merchant_code": "M2", "sumup::api_key_secret": "S1" }
+    );
+    expect(out).toEqual([]);
   });
 });
