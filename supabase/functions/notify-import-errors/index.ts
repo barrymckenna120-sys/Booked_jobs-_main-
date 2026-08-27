@@ -2,46 +2,41 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildAdminEmailHtml,
   escapeHtml,
-  PLATFORM_OWNER_EMAILS,
   resolveOrgAdminEmails,
   sendAdminEmail,
 } from "../_shared/notifyOrgAdmins.ts";
+import { crossTenantDenied, isAdminDenied, requireAdminCaller } from "../_shared/adminAuth.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const MAX_LISTED_ROWS = 20;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const corsHeaders = getCorsHeaders(req);
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
-    if (userError || !caller) return json({ error: "Unauthorized" }, 401);
+    // Verified JWT -> trusted role/org loaded server-side. Tenant admins stay
+    // inside their own organisation; only platform admins cross tenants.
+    const caller = await requireAdminCaller(req, {
+      fnName: "notify-import-errors",
+      cors: corsHeaders,
+    });
+    if (isAdminDenied(caller)) return caller.error;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
 
     const body = await req.json().catch(() => ({}));
     const runId: string | undefined = body?.runId;
@@ -63,23 +58,16 @@ Deno.serve(async (req) => {
     }
     if (!run) return json({ error: "Import run not found" }, 404);
 
-    // Caller must belong to the run's org (superadmin / platform owner bypass).
-    const callerEmail = caller.email?.toLowerCase() ?? "";
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("role, organisation_id")
-      .eq("user_id", caller.id)
-      .maybeSingle();
-
-    const bypassOrgCheck =
-      PLATFORM_OWNER_EMAILS.includes(callerEmail) ||
-      (callerProfile as any)?.role === "superadmin";
-    const callerOrgId = (callerProfile as any)?.organisation_id ?? null;
+    // Target org comes from the stored import run, never the request body.
     const runOrgId = (run as any).organisation_id ?? null;
+    const blocked = crossTenantDenied(
+      caller,
+      runOrgId,
+      corsHeaders,
+      "notify-import-errors",
+    );
+    if (blocked) return blocked;
 
-    if (!bypassOrgCheck && (!callerOrgId || !runOrgId || callerOrgId !== runOrgId)) {
-      return json({ error: "Cross-tenant action not permitted" }, 403);
-    }
 
     const errorCount = Number((run as any).error_count ?? 0);
     if (errorCount <= 0) {
