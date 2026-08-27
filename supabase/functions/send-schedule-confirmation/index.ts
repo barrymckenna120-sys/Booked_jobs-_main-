@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipBody,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +30,14 @@ Deno.serve(async (req) => {
     const { service_call_id } = await req.json();
     if (!service_call_id) return json({ error: "service_call_id is required" }, 400);
 
+    // IDOR guard: authenticate the caller and prove they own this job.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-schedule-confirmation",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
+
     // 1. Fetch job
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
@@ -34,26 +47,19 @@ Deno.serve(async (req) => {
 
     if (jobErr || !job) return json({ error: "Job not found", detail: jobErr?.message }, 404);
 
-    // Customer
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("name, phone, opted_out")
-      .eq("id", job.customer_id)
-      .single();
-
-    if (!customer) return json({ error: "Customer not found" }, 404);
-
-    if (customer.opted_out) {
-      return json({ message: "Customer opted out" });
+    // Consent gate (single shared implementation).
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-schedule-confirmation",
+      orgId: access.orgId,
+      customerId: job.customer_id,
+    });
+    if (!consent.allowed) {
+      if (consent.reason === "customer_wrong_organisation") {
+        return json({ error: "Forbidden" }, 403);
+      }
+      return json(consentSkipBody(consent.reason));
     }
-
-    if (!customer.phone) {
-      console.warn("send-schedule-confirmation skipped: customer has no phone", {
-        service_call_id,
-        customer_id: job.customer_id,
-      });
-      return json({ success: true, skipped: true, reason: "no_phone" });
-    }
+    const customer = { name: consent.name ?? "", phone: consent.phone };
 
     // Engineer
     let engineerName = job.assigned_engineer || "TBC";
