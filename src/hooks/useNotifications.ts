@@ -80,6 +80,15 @@ function vibrateHighPriority() {
   }
 }
 
+/** Single source of truth for which sound a notification type plays. */
+async function playForNotificationType(type: string) {
+  if (type === "message") return playEngineerMessageAlert();
+  if (type === "completed") return playSoftChime();
+  return playDoubleBeep();
+}
+
+
+
 /**
  * `surface` scopes which notifications this bell shows.
  *
