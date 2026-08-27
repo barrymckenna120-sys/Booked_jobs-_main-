@@ -50,9 +50,15 @@ const Products = () => {
 
 
   const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id, name").order("name");
+      // Defence in depth alongside RLS — keeps the picker tenant-correct.
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("organisation_id", orgId!)
+        .order("name");
       return (data || []) as Category[];
     },
   });
@@ -60,9 +66,14 @@ const Products = () => {
   const categoryNames = categories.map((c) => c.name);
 
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data } = await supabase.from("products").select("*").order("name");
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("organisation_id", orgId!)
+        .order("name");
       return (data || []) as Product[];
     },
   });

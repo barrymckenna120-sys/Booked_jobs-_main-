@@ -2,6 +2,11 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgId } from "@/hooks/useOrgId";
+import {
+  buildCategoryInsert,
+  buildCategoryUpdate,
+} from "@/lib/categoryPayload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,17 +25,22 @@ type Category = {
 const CategoriesTab = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { orgId } = useOrgId();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
   const [saving, setSaving] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
+      // Defence in depth: RLS already scopes this, the filter keeps the list
+      // tenant-correct even if a policy regresses.
       const { data } = await supabase
         .from("categories")
         .select("*")
+        .eq("organisation_id", orgId!)
         .order("name");
       return (data || []) as Category[];
     },
@@ -49,22 +59,30 @@ const CategoriesTab = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast({ title: "Category name is required", variant: "destructive" });
-      return;
-    }
     setSaving(true);
-    const payload = {
-      name: form.name.trim(),
-      description: form.description.trim() || null,
-    };
 
     if (editing) {
-      const { error } = await supabase.from("categories").update(payload).eq("id", editing.id);
+      const built = buildCategoryUpdate(form);
+      if (built.ok === false) {
+        toast({ title: "Category name is required", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      const { error } = await supabase.from("categories").update(built.payload).eq("id", editing.id);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Category updated" });
     } else {
-      const { error } = await supabase.from("categories").insert(payload);
+      const built = buildCategoryInsert(form, orgId);
+      if (built.ok === false) {
+        toast(
+          built.reason === "missing-org"
+            ? { title: "Organisation not ready", description: "Please retry in a moment.", variant: "destructive" }
+            : { title: "Category name is required", variant: "destructive" }
+        );
+        setSaving(false);
+        return;
+      }
+      const { error } = await supabase.from("categories").insert(built.payload);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Category added" });
     }
@@ -72,6 +90,7 @@ const CategoriesTab = () => {
     setModalOpen(false);
     queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
+
 
   const handleDelete = async (c: Category) => {
     const { error } = await supabase.from("categories").delete().eq("id", c.id);
