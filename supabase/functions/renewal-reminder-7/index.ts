@@ -1,65 +1,37 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { filterDueCustomers } from "../_shared/renewalDedup.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 
 /**
- * Auth guard (audit finding #1) — this function used to be anonymously
- * invokable. Accepts exactly the credentials our real callers already send:
- *  - Make.com / internal machine callers: `x-webhook-secret` or `x-make-secret`
- *    === MAKE_WEBHOOK_SECRET, or `Authorization: Bearer <service role key>`.
- *  - Signed-in app users: a valid Supabase user JWT.
- * The anon/publishable key alone is rejected — that is the hole being closed.
+ * 7-day renewal reminder feed for ONE organisation.
+ *
+ * Auth (BJ-0089 Band 4): the shared gate only. Machine callers (Make.com)
+ * present their tenant's webhook secret, which both authenticates them and
+ * names the tenant; signed-in users are scoped to their own organisation.
+ * Any body-supplied organisation_id can never widen scope.
  */
-function bearerToken(req: Request): string {
-  const auth = req.headers.get("authorization") ?? "";
-  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-}
-
-function isMachineCaller(req: Request): boolean {
-  const expected = (Deno.env.get("MAKE_WEBHOOK_SECRET") ?? "").trim();
-  const provided = (req.headers.get("x-webhook-secret") ?? req.headers.get("x-make-secret") ?? "").trim();
-  if (expected && provided && provided === expected) return true;
-  const serviceRoleKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
-  const token = bearerToken(req);
-  return Boolean(serviceRoleKey && token && token === serviceRoleKey);
-}
-
-async function authoriseRequest(req: Request): Promise<{ ok: boolean; reason?: string }> {
-  if (isMachineCaller(req)) return { ok: true };
-  const token = bearerToken(req);
-  if (!token) return { ok: false, reason: "missing_credentials" };
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!supabaseUrl || !serviceKey) return { ok: false, reason: "auth_unavailable" };
-  try {
-    const authClient = createClient(supabaseUrl, serviceKey);
-    const { data, error } = await authClient.auth.getUser(token);
-    if (error || !data?.user?.id) return { ok: false, reason: "invalid_token" };
-    return { ok: true };
-  } catch (_e) {
-    return { ok: false, reason: `auth_check_failed: ${(_e as Error).message}` };
-  }
-}
-
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const auth = await authoriseRequest(req);
-  if (!auth.ok) {
-    console.warn(`renewal-reminder-7: unauthorized call (${auth.reason})`);
-    return new Response(JSON.stringify({ error: "Unauthorized", reason: auth.reason }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  const url = new URL(req.url);
+  const reqBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const requestedOrgId =
+    (reqBody as { organisation_id?: string })?.organisation_id ??
+    url.searchParams.get("organisation_id");
+
+  const access = await requireBoundOrg(req, {
+    fnName: "renewal-reminder-7",
+    cors: corsHeaders,
+    requestedOrgId,
+  });
+  if (isDenied(access)) return access.error;
+  const orgId = access.orgId;
+
 
   try {
     const supabase = createClient(
