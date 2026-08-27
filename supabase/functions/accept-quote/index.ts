@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { sendDepositLink } from "../_shared/depositLink.ts";
 import { decideAlreadyActionedRecovery } from "../_shared/quoteApprovalRecovery.ts";
+import { classifyDepositStage } from "../_shared/quoteApprovalStages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -346,6 +347,64 @@ async function sendWhatsAppAlert(
   }
 }
 
+/**
+ * Confirms the office bell notification for this acceptance exists.
+ *
+ * respond_to_quote writes them transactionally, so this is normally a read-only
+ * verification. If none exist (older acceptance, or the loop found no office
+ * recipients) exactly one row is inserted for the quote owner — the existence
+ * check is what keeps the bell free of duplicates on repeat clicks.
+ */
+async function ensureOfficeNotification(
+  supabaseUrl: string,
+  headers: Record<string, string>,
+  quoteId: string,
+  quote: any,
+  quoteRef: string,
+  customerName: string,
+): Promise<{ ok: boolean; count: number; error?: string }> {
+  try {
+    const existingRes = await fetch(
+      `${supabaseUrl}/rest/v1/notifications?notification_type=eq.quote_accepted` +
+        `&metadata->>quote_id=eq.${quoteId}&select=id`,
+      { headers },
+    );
+    const existing = await existingRes.json();
+    const count = Array.isArray(existing) ? existing.length : 0;
+    if (count > 0) return { ok: true, count };
+
+    if (!quote.user_id) return { ok: false, count: 0, error: "no_notification_recipient" };
+
+    const total = Number(quote.total_amount || 0).toFixed(2);
+    const insRes = await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+      method: "POST",
+      headers: { ...headers, Prefer: "return=representation" },
+      body: JSON.stringify({
+        recipient_user_id: quote.user_id,
+        notification_type: "quote_accepted",
+        title: "New Incoming Job",
+        body: `Quote ${quoteRef} accepted by ${customerName}. New incoming job ready to schedule. Total: €${total}`,
+        job_id: quote.converted_job_id ?? null,
+        role: "office",
+        organisation_id: quote.organisation_id ?? null,
+        metadata: {
+          quote_id: quoteId,
+          quote_ref: quoteRef,
+          customer_name: customerName,
+          total_amount: quote.total_amount,
+        },
+      }),
+    });
+    if (!insRes.ok) {
+      const detail = await insRes.text();
+      return { ok: false, count: 0, error: `notification_insert_failed: ${detail.substring(0, 200)}` };
+    }
+    return { ok: true, count: 1 };
+  } catch (e) {
+    return { ok: false, count: 0, error: (e as Error).message };
+  }
+}
+
 async function sendDepositPaymentWhatsApp(
   supabaseUrl: string,
   headers: Record<string, string>,
@@ -355,7 +414,7 @@ async function sendDepositPaymentWhatsApp(
   const serviceCallId = quote.converted_job_id;
   if (!serviceCallId) {
     console.log("No converted_job_id — skipping deposit WhatsApp");
-    return;
+    return { ok: false, skipped: "no_service_call", error: "no_converted_job" };
   }
 
   // Resolve organisation FIRST — SumUp credentials are per-tenant and a
@@ -369,10 +428,10 @@ async function sendDepositPaymentWhatsApp(
 
   if (!orgId) {
     console.log("No organisation_id on service_call — skipping deposit WhatsApp");
-    return;
+    return { ok: false, skipped: "no_organisation", error: "no_organisation" };
   }
 
-  await sendDepositLink({
+  return await sendDepositLink({
     supabaseUrl,
     headers,
     service_call_id: serviceCallId,
