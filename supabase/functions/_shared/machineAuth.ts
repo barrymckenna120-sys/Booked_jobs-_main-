@@ -108,8 +108,11 @@ export async function isServiceRoleToken(token: string): Promise<boolean> {
 
 export async function isMachineCaller(req: Request): Promise<boolean> {
   if (hasSharedSecret(req)) return true;
+  // A per-tenant webhook secret is a first-class machine credential.
+  if (await tenantSecretOrg(req)) return true;
   return await isServiceRoleToken(bearerToken(req));
 }
+
 
 /**
  * Machine callers only (cron / Make.com). Signed-in user JWTs are rejected.
