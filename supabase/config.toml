@@ -103,9 +103,6 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
   [functions.send-renewal-reminder]
     verify_jwt = false
 
-  [functions.get-hazard-pdf]
-    verify_jwt = false
-
   [functions.generate-gas-install-pdf]
     verify_jwt = false
 
