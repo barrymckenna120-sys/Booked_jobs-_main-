@@ -48,7 +48,9 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Resolve tenant domain via the user's profile → tenant_integrations.whatsapp.config.domain
+    // Resolve the reset host from the user's OWN organisation:
+    // organisations.public_domain is authoritative, with the tenant's WhatsApp
+    // integration domain as a same-tenant secondary. Never another tenant's host.
     const { data: usersList, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
     if (listUsersError) {
       console.error("listUsers failed:", listUsersError.message);
@@ -58,6 +60,7 @@ Deno.serve(async (req) => {
     );
 
     let tenantDomain: string | null = null;
+    let orgName = "BookedJobs";
     if (matchedUser) {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
@@ -66,26 +69,37 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const orgId = (profile as any)?.organisation_id;
       if (orgId) {
-        const { data: waIntegration } = await supabaseAdmin
-          .from("tenant_integrations")
-          .select("config")
-          .eq("organisation_id", orgId)
-          .eq("integration_type", "whatsapp")
+        const { data: org } = await supabaseAdmin
+          .from("organisations")
+          .select("name, public_domain")
+          .eq("id", orgId)
           .maybeSingle();
-        tenantDomain = (waIntegration as any)?.config?.domain || null;
+        tenantDomain = String((org as any)?.public_domain ?? "").trim() || null;
+        orgName = String((org as any)?.name ?? "").trim() || orgName;
+
+        if (!tenantDomain) {
+          const { data: waIntegration } = await supabaseAdmin
+            .from("tenant_integrations")
+            .select("config")
+            .eq("organisation_id", orgId)
+            .eq("integration_type", "whatsapp")
+            .maybeSingle();
+          tenantDomain = String((waIntegration as any)?.config?.domain ?? "").trim() || null;
+        }
       }
     }
 
     if (!tenantDomain) {
-      tenantDomain = "kngasservices.bookedjobs.ie";
-      console.warn(`send-reset-email: using fallback domain ${tenantDomain} for ${email}`);
-    }
-
-    if (tenantDomain !== "kngasservices.bookedjobs.ie") {
-      console.warn(`send-reset-email: resolved non-K&N domain ${tenantDomain} for ${email} — multi-tenant fallback may need review`);
+      // No same-tenant host: skip the send rather than point the user at another
+      // tenant's domain. The response stays generic so addresses aren't enumerable.
+      console.warn("send-reset-email: no tenant domain resolved — send skipped");
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const redirectUrl = `https://${tenantDomain}/reset-password`;
+
 
 
     // Generate a recovery link WITHOUT sending an email (bypasses auth-email-hook)
