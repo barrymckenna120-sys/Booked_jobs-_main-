@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { buildApproveToast } from "@/lib/quoteApproveMessage";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ const QuoteDetail = () => {
   const queryClient = useQueryClient();
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [approving, setApproving] = useState(false);
   const { setConnectionError, clearConnectionError } = useWhatsAppConnection();
 
   const { data: quote, isLoading } = useQuery({
@@ -463,8 +465,9 @@ const QuoteDetail = () => {
           Resend WhatsApp
         </Button>
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
-          <Button onClick={() => respondToQuote(true)}>
-            <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
+          <Button onClick={() => respondToQuote(true)} disabled={approving}>
+            {approving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+            {approving ? "Approving…" : "Mark Accepted"}
           </Button>
         )}
 
