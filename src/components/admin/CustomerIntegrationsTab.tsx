@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { buildTenantConfigRows } from "@/lib/tenantIntegrationConfig";
 
 type Org = { id: string; name: string; slug: string };
 
