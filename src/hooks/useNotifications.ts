@@ -479,34 +479,42 @@ export function useNotifications(
             n.notification_type
           );
 
-          let result:
-            | {
-                played?: boolean;
-                reason?: string;
-                state?: string;
-              }
-            | undefined;
+          debugLog(
+            "Sound trigger fired, soundEnabled:",
+            soundEnabledRef.current,
+            "type:",
+            n.notification_type
+          );
 
-          if (
-            n.notification_type === "message"
-          ) {
-            debugLog(
-              "Sound trigger fired, soundEnabled:",
-              soundEnabledRef.current,
-              "type:",
+          // Realtime rows are alerted here, so bump the catch-up marker to
+          // stop the next fetch double-alerting the same notification.
+          if (userId) {
+            try {
+              const key = alertMarkerKey(
+                userId,
+                surface
+              );
+              const prev =
+                localStorage.getItem(key);
+              if (
+                !prev ||
+                n.created_at > prev
+              ) {
+                localStorage.setItem(
+                  key,
+                  n.created_at
+                );
+              }
+            } catch {
+              // storage unavailable — live sound still plays
+            }
+          }
+
+          const result =
+            await playForNotificationType(
               n.notification_type
             );
 
-            result =
-              await playEngineerMessageAlert();
-          } else if (
-            n.notification_type ===
-            "completed"
-          ) {
-            result = await playSoftChime();
-          } else {
-            result = await playDoubleBeep();
-          }
 
           if (!result?.played) {
             console.warn(
