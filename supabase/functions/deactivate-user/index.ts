@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         .update({
           is_active: false,
           deactivated_at: new Date().toISOString(),
-          deactivated_by: caller.id,
+          deactivated_by: caller.userId,
         } as any)
         .eq("user_id", engineer.auth_user_id);
 
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         rows: [
           ["User deactivated", engineer.name ?? "—"],
           ["Organisation", (org as any)?.name ?? "Unknown organisation"],
-          ["Deactivated by", caller.email ?? caller.id],
+          ["Deactivated by", caller.email ?? caller.userId],
           [
             "When",
             new Date().toLocaleString("en-IE", { timeZone: "Europe/Dublin" }),
