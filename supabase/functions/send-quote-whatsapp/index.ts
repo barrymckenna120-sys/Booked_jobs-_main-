@@ -25,7 +25,6 @@ serve(async (req) => {
     const {
       quote_id,
       customer_name,
-      mobile_number,
       job_description,
       quote_amount,
       parts_cost,
