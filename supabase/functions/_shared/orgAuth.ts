@@ -12,7 +12,7 @@
 // Fails closed: if either organisation cannot be established, access is denied.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolveCaller } from "./machineAuth.ts";
+import { bearerToken, hasSharedSecret, isServiceRoleToken, resolveCaller } from "./machineAuth.ts";
 import { strictMachineBinding } from "./machineOrg.ts";
 
 export type ResourceRef = {
@@ -138,6 +138,9 @@ export async function requireResourceOrgAccess(
     if (!allowMachine) {
       return deny(cors, 401, "Unauthorized", fnName, "machine callers not permitted");
     }
+    // A global shared secret is not proof of tenancy — bind it to this row's org.
+    const bound = await machineBoundToOrg(req, resourceOrgId, fnName);
+    if (!bound.ok) return deny(cors, 403, "Forbidden", fnName, bound.detail);
     return { orgId: resourceOrgId, kind: "machine" };
   }
 
@@ -262,4 +265,74 @@ export async function requireBoundOrg(
   }
 
   return { orgId: requested, kind: "machine" };
+}
+
+/**
+ * Per-tenant binding for machine callers acting on a specific resource.
+ *
+ * A global shared secret proves "some trusted system called us", NOT "this
+ * system may act for tenant X". Where the tenant has its own webhook_secret
+ * configured, the presented secret must be THAT tenant's secret.
+ *
+ * Service-role callers (pg_cron, Edge Function -> Edge Function) are internal
+ * and stay trusted for any organisation.
+ */
+export async function machineBoundToOrg(
+  req: Request,
+  orgId: string,
+  fnName: string,
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  if (await isServiceRoleToken(bearerToken(req))) return { ok: true };
+
+  const provided = (
+    req.headers.get("x-webhook-secret") ??
+    req.headers.get("x-make-secret") ??
+    ""
+  ).trim();
+
+  const { data: integration } = await serviceClient()
+    .from("tenant_integrations")
+    .select("config")
+    .eq("organisation_id", orgId)
+    .eq("integration_type", "make")
+    .maybeSingle();
+  const tenantSecret = String(
+    ((integration?.config as Record<string, unknown> | null)?.webhook_secret ?? "") as string,
+  ).trim();
+
+  if (tenantSecret) {
+    return provided === tenantSecret
+      ? { ok: true }
+      : { ok: false, detail: `machine secret is not bound to organisation ${orgId}` };
+  }
+
+  if (strictMachineBinding()) {
+    return {
+      ok: false,
+      detail: `strict binding on: organisation ${orgId} has no per-tenant webhook_secret`,
+    };
+  }
+
+  if (provided || hasSharedSecret(req)) {
+    console.warn(
+      `${fnName}: machine caller used a global shared secret for org ${orgId} — ` +
+        `no per-tenant webhook_secret configured (tighten by adding one).`,
+    );
+  }
+  return { ok: true };
+}
+
+/**
+ * Authenticate a signed-in app user. Machine credentials and the anon key are
+ * both rejected. Use for browser-only endpoints that have no resource id.
+ */
+export async function requireAuthenticatedUser(
+  req: Request,
+  opts: { fnName: string; cors: Record<string, string> },
+): Promise<{ error: Response } | { userId: string }> {
+  const caller = await resolveCaller(req);
+  if (!caller || caller.kind !== "user") {
+    return deny(opts.cors, 401, "Unauthorized", opts.fnName, "a signed-in user is required");
+  }
+  return { userId: caller.userId };
 }
