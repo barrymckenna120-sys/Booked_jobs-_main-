@@ -26,6 +26,8 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
   const [isPreset, setIsPreset] = useState(false);
   const [sending, setSending] = useState(false);
   const [engineerName, setEngineerName] = useState("Engineer");
+  const unreadFromOffice = useUnreadMessages("engineer", jobId);
+
 
   useEffect(() => {
     if (!user) return;
