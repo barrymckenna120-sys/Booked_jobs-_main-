@@ -206,25 +206,100 @@ export function useNotifications(
         })
         .limit(50);
 
-      setNotifications(
-        (data as AppNotification[]) || []
-      );
+      const rows =
+        (data as AppNotification[]) || [];
+
+      setNotifications(rows);
 
       console.log(
-        "[useNotifications] initial fetch",
+        "[useNotifications] fetch",
         {
           userId: user.id,
-          rows: (data ?? []).length,
-          unread: (data ?? []).filter(
-            (n: any) => !n.is_read
+          rows: rows.length,
+          unread: rows.filter(
+            (n) => !n.is_read
           ).length,
         }
       );
 
+      // Catch-up alert: rows that landed while realtime was asleep
+      // (backgrounded PWA) would otherwise update the bell silently.
+      const key = alertMarkerKey(
+        user.id,
+        surface
+      );
+
+      let marker: string | null = null;
+      try {
+        marker = localStorage.getItem(key);
+      } catch {
+        marker = null;
+      }
+
+      const missed = selectCatchUpAlerts(
+        rows,
+        marker
+      );
+
+      const advanced = nextAlertMarker(
+        rows,
+        marker
+      );
+
+      try {
+        if (advanced) {
+          localStorage.setItem(
+            key,
+            advanced
+          );
+        }
+      } catch {
+        // storage unavailable — alerting still works for live events
+      }
+
+      if (
+        missed.length > 0 &&
+        soundEnabledRef.current
+      ) {
+        const newest = missed[0];
+
+        if (
+          HIGH_PRIORITY_TYPES.has(
+            newest.notification_type
+          )
+        ) {
+          vibrateHighPriority();
+        }
+
+        const result =
+          await playForNotificationType(
+            newest.notification_type
+          );
+
+        console.log(
+          "[notif] catch-up alert",
+          {
+            type: newest.notification_type,
+            missed: missed.length,
+            played: result?.played,
+            reason: result?.reason,
+          }
+        );
+      }
+
       setLoading(false);
     },
-    [user, applyRoleScope]
+    [user, applyRoleScope, surface]
   );
+
+  const fetchNotificationsRef = useRef(
+    fetchNotifications
+  );
+
+  useEffect(() => {
+    fetchNotificationsRef.current =
+      fetchNotifications;
+  }, [fetchNotifications]);
 
   useEffect(() => {
     if (!user) return;
@@ -236,6 +311,39 @@ export function useNotifications(
     fetchNotifications,
     refreshUnreadCount,
   ]);
+
+  // Re-check on foreground: iOS suspends the realtime socket when the PWA is
+  // backgrounded, so returning to the app is the only chance to alert.
+  useEffect(() => {
+    if (!user) return;
+
+    const onForeground = () => {
+      if (document.visibilityState !== "visible") return;
+      fetchNotificationsRef.current?.();
+      refreshUnreadCountRef.current?.();
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      onForeground
+    );
+    window.addEventListener(
+      "focus",
+      onForeground
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        onForeground
+      );
+      window.removeEventListener(
+        "focus",
+        onForeground
+      );
+    };
+  }, [user]);
+
 
   // Fetch sound preference
   useEffect(() => {
