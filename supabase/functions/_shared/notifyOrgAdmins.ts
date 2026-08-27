@@ -39,7 +39,7 @@ export async function resolveOrgAdminEmails(
   const emails = new Set<string>();
   const userIds = new Set<string>();
 
-  for (const e of PLATFORM_OWNER_EMAILS) emails.add(e.toLowerCase());
+  for (const e of platformOwnerAlertEmails()) emails.add(e);
 
   // --- profiles: superadmins anywhere ---
   const { data: superadmins, error: sadErr } = await supabaseAdmin
