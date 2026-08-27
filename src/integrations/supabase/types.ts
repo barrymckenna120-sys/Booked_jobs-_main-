@@ -3424,7 +3424,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
-      expire_overdue_quotes: { Args: never; Returns: undefined }
+      expire_overdue_quotes: {
+        Args: { p_organisation_id?: string }
+        Returns: number
+      }
       generate_invoice_number: { Args: never; Returns: string }
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }

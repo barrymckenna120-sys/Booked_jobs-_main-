@@ -1,39 +1,56 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Marks overdue quotes as expired.
+//
+// BJ-0089 Band 4:
+//   - Was anonymously invokable with wildcard CORS. Now machine-only, via the
+//     shared gate (service-role key, cron shared secret, or a per-tenant
+//     webhook secret).
+//   - The action is intentionally a maintenance sweep. A caller presenting a
+//     per-tenant secret is scoped to THAT tenant; only an internal
+//     service-role/cron caller may run the global sweep.
+//   - Naturally idempotent: it only moves rows whose expiry_date has passed and
+//     whose status is still sent/viewed, so repeat calls are no-ops.
 
-serve(async (req) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  };
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { requireMachineCaller, tenantSecretOrg } from "../_shared/machineAuth.ts";
 
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const unauthorised = await requireMachineCaller(req, corsHeaders, "expire-quotes");
+  if (unauthorised) return unauthorised;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceKey) {
+    return json({ success: false, error: "server_not_configured" }, 500);
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/expire_overdue_quotes`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${supabaseKey}`,
-        "apikey": supabaseKey,
-        "Content-Type": "application/json",
-      },
-      body: "{}",
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const body = await res.text();
+    // Per-tenant callers only ever expire their own quotes.
+    const scopedOrgId = await tenantSecretOrg(req);
 
-    return new Response(JSON.stringify({ success: res.ok }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const { data, error } = await supabase.rpc("expire_overdue_quotes", {
+      p_organisation_id: scopedOrgId,
     });
+    if (error) return json({ success: false, error: error.message }, 500);
+
+    return json({ success: true, expired: data ?? 0, organisation_id: scopedOrgId ?? "all" });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return json(
+      { success: false, error: error instanceof Error ? error.message : String(error) },
+      500,
+    );
   }
 });

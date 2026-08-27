@@ -4,21 +4,17 @@ import {
   JOB_REMINDER_COLUMN,
   type ReminderKind,
 } from "../_shared/renewalDedup.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -26,15 +22,21 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const reminder_type = body?.reminder_type as ReminderKind;
-    const organisation_id = body?.organisation_id;
+    const claimedOrgId = typeof body?.organisation_id === "string" ? body.organisation_id : null;
     let customer_id: string | null =
       typeof body?.customer_id === "string" && body.customer_id ? body.customer_id : null;
     const job_id: string | null =
       typeof body?.job_id === "string" && body.job_id ? body.job_id : null;
 
-    if (!organisation_id || typeof organisation_id !== "string") {
-      return json({ error: "organisation_id is required and must be a string" }, 400);
-    }
+    // Caller is authenticated and bound to exactly one organisation server-side.
+    // The body organisation_id is a request, never an authorisation.
+    const access = await requireBoundOrg(req, {
+      fnName: "mark-reminder-sent",
+      cors: corsHeaders,
+      requestedOrgId: claimedOrgId,
+    });
+    if (isDenied(access)) return access.error;
+    const organisation_id = access.orgId;
 
     if (!(reminder_type in CUSTOMER_REMINDER_COLUMN)) {
       return json(
