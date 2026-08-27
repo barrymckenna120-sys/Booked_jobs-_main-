@@ -94,24 +94,21 @@ const QuoteDetail = () => {
 
   const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
+    if (accepted && approving) return; // guard double-tap: one approval only
     try {
       if (accepted) {
         // Route staff acceptance through the same edge function as the public
-        // approval page so the deposit payment link + WhatsApp are sent here too.
-        // (accept-quote calls respond_to_quote internally and sends the office alert.)
+        // approval page so the whole sequence runs in order and reports which
+        // stage failed: approval -> office bell -> deposit link -> WhatsApp.
+        setApproving(true);
         const { data, error } = await supabase.functions.invoke("accept-quote", {
           body: { quote_id: id, access_token: quote?.access_token },
         });
-        if (error || (data && data.success === false)) {
-          toast({
-            title: "Error",
-            description: (data && data.error) || error?.message || "Failed to accept quote",
-            variant: "destructive",
-          });
-          return;
-        }
-        toast({ title: "Quote accepted — job created ✅" });
+        const toastPayload = buildApproveToast(data ?? null, error?.message ?? null);
+        toast(toastPayload as any);
+        // Refresh either way — the job may exist even when a later stage failed.
         queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+        queryClient.invalidateQueries({ queryKey: ["quote-converted-job"] });
         return;
       }
 
@@ -128,8 +125,11 @@ const QuoteDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      if (accepted) setApproving(false);
     }
   };
+
 
 
 
