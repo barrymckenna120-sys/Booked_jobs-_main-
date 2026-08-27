@@ -27,7 +27,8 @@ export const isJobAlreadyPaidError = (e: unknown): e is JobAlreadyPaidError =>
 
 /** Same shape TakePaymentModal already read, extended to what the classifier needs. */
 export const PAYMENT_STATE_COLUMNS =
-  "organisation_id, customer_id, status, revenue, balance_due, payment_status, deposit_paid, deposit_required, deposit_amount";
+  "organisation_id, customer_id, status, revenue, balance_due, payment_status, deposit_paid, deposit_required, deposit_amount, receipt_number";
+
 
 export type FreshJobPaymentRow = {
   organisation_id?: string | null;
@@ -39,7 +40,9 @@ export type FreshJobPaymentRow = {
   deposit_paid?: boolean | null;
   deposit_required?: boolean | null;
   deposit_amount?: number | null;
+  receipt_number?: string | null;
 };
+
 
 export type PaymentGateResult = {
   /** The job as it stands in the database PRE-WRITE — authoritative. */

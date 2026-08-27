@@ -354,15 +354,9 @@ export const useEngineerJobs = () => {
           }
         }
         if (orgId) {
-          const { data: settingsRow } = await supabase
-            .from("settings")
-            .select("cert_prefix")
-            .eq("organisation_id", orgId)
-            .maybeSingle();
-          const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
-          const yr = new Date().getFullYear();
-          const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
-          dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
+          const { mintReceiptNumber } = await import("@/lib/receiptNumber");
+          const minted = await mintReceiptNumber(orgId);
+          if (minted) dbPatch.receipt_number = minted;
           // A standalone Take Payment may already have minted a receipt (and a
           // PDF) on this job. Clearing the stored URL forces send-whatsapp-receipt
           // to regenerate rather than resend the stale document.
@@ -370,6 +364,24 @@ export const useEngineerJobs = () => {
         }
       } catch {}
     }
+
+    // Standalone Take Payment (no status change): the receipt PDF and WhatsApp
+    // message go out here too, so the job must carry a receipt reference —
+    // otherwise Sales Report / Payment History show a blank receipt. Never
+    // overwrites a reference the job already has.
+    if (paymentPlan.fireReceipt && !dbPatch.receipt_number && !jobForPayment?.receipt_number) {
+      try {
+        const orgId =
+          (jobForPayment as any)?.organisation_id ??
+          ([...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId) as any)?.organisation_id;
+        const { mintReceiptNumber } = await import("@/lib/receiptNumber");
+        const minted = await mintReceiptNumber(orgId);
+        if (minted) dbPatch.receipt_number = minted;
+      } catch (e) {
+        console.error("[useEngineerJobs] receipt number mint failed", e);
+      }
+    }
+
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
