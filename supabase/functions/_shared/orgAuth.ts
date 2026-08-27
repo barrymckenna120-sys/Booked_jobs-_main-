@@ -165,7 +165,7 @@ export async function requireResourceOrgAccess(
  */
 export async function requireCallerOrg(
   req: Request,
-  opts: { fnName: string; cors: Record<string, string> },
+  opts: { fnName: string; cors: Record<string, string>; roles?: string[] },
 ): Promise<OrgAccessResult> {
   const caller = await resolveCaller(req);
   if (!caller) return deny(opts.cors, 401, "Unauthorized", opts.fnName, "no valid credentials");
@@ -174,6 +174,9 @@ export async function requireCallerOrg(
   }
   const { orgId, role } = await getUserOrg(caller.userId);
   if (!orgId) return deny(opts.cors, 403, "Forbidden", opts.fnName, "caller has no organisation");
+  if (opts.roles && !opts.roles.includes(String(role ?? ""))) {
+    return deny(opts.cors, 403, "Forbidden", opts.fnName, `role ${role ?? "none"} is not permitted`);
+  }
   return { orgId, kind: "user", userId: caller.userId, role };
 }
 

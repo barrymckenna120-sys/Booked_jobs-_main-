@@ -102,18 +102,13 @@ Deno.serve(async (req) => {
     });
     if (isDenied(access)) return access.error;
 
-    const { data: targetProfile } = await admin
-      .from("profiles")
-      .select("user_id, organisation_id")
-      .eq("email", email.toLowerCase())
-      .maybeSingle();
     const { data: targetEngineer } = await admin
       .from("engineers")
       .select("id, organisation_id")
       .eq("email", email.toLowerCase())
       .maybeSingle();
 
-    const targetOrgId = (targetProfile as { organisation_id?: string } | null)?.organisation_id ??
+    const targetOrgId =
       (targetEngineer as { organisation_id?: string } | null)?.organisation_id ?? null;
 
     if (!targetOrgId) {
