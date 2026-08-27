@@ -66,24 +66,27 @@ export function errorResponse(message: string, status = 400): Response {
 // unknown origins get no CORS grant. Server-to-server callers (cron, Make.com)
 // send no Origin header and are unaffected.
 
-const ALLOWED_ORIGINS = [
-  "https://kngasservices.bookedjobs.ie",
-  "https://dublin-gas.bookedjobs.ie",
-];
-
+// Tenant-agnostic: every tenant is served from <tenant>.bookedjobs.ie, so the
+// rule is the suffix, not a per-tenant list. Adding a tenant must never require
+// an Edge Function code change (and no tenant hostname is hardcoded here).
 export function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
-  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  let url: URL;
   try {
-    const hostname = new URL(origin).hostname;
-    return (
-      hostname === "localhost" ||
-      hostname.endsWith(".lovableproject.com") ||
-      hostname.endsWith(".lovable.app")
-    );
+    url = new URL(origin);
   } catch {
     return false;
   }
+  const hostname = url.hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") return true;
+  // Production requires https for every non-local origin.
+  if (url.protocol !== "https:") return false;
+  return (
+    hostname === "bookedjobs.ie" ||
+    hostname.endsWith(".bookedjobs.ie") ||
+    hostname.endsWith(".lovableproject.com") ||
+    hostname.endsWith(".lovable.app")
+  );
 }
 
 export function getCorsHeaders(req: Request): Record<string, string> {
