@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { buildTenantConfigRows } from "@/lib/tenantIntegrationConfig";
 
 type Org = { id: string; name: string; slug: string };
 
@@ -146,23 +147,32 @@ export default function CustomerIntegrationsTab({
         .select("integration_type, config")
         .eq("organisation_id", orgId);
 
-      const rows = Object.entries(byType).map(([integration_type, patch]) => {
-        const prev = (existing as any[])?.find((r) => r.integration_type === integration_type)?.config ?? {};
-        const cleaned = Object.fromEntries(
-          Object.entries(patch).filter(([, v]) => v !== "" && v != null)
-        );
-        return {
-          organisation_id: orgId,
-          integration_type,
-          config: { ...prev, ...cleaned },
-        };
-      });
+      // Submitted fields always win: cleared fields are removed, unsubmitted keys preserved.
+      const rows = buildTenantConfigRows(orgId, byType, existing as any[]);
 
       const { error } = await supabase
         .from("tenant_integrations" as any)
         .upsert(rows, { onConflict: "organisation_id,integration_type" });
 
       if (error) throw error;
+
+      // Confirm the database reflects the submitted state before reporting success.
+      const { data: saved, error: verifyError } = await supabase
+        .from("tenant_integrations" as any)
+        .select("integration_type, config")
+        .eq("organisation_id", orgId);
+      if (verifyError) throw verifyError;
+
+      const mismatch = SECTIONS.flatMap((s) => s.fields).find((f) => {
+        const row = (saved as any[])?.find((r) => r.integration_type === f.type);
+        const stored = row?.config?.[f.key];
+        const expected = (values[fieldId(f)] ?? "").trim();
+        return (stored == null ? "" : String(stored)) !== expected;
+      });
+      if (mismatch) {
+        throw new Error(`Save did not persist: ${mismatch.label}`);
+      }
+
       toast.success("Integrations saved");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save");
