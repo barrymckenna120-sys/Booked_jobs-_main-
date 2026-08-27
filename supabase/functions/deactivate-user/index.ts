@@ -57,14 +57,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Cross-tenant guard: fail closed on null on either side.
+    // Cross-tenant guard: target org derived from the engineer row server-side.
+    // Fails closed on null on either side; platform admins may cross tenants.
     const targetOrgId = (engineer as any).organisation_id ?? null;
-    if (!bypassOrgCheck && (!callerOrgId || !targetOrgId || callerOrgId !== targetOrgId)) {
-      return new Response(
-        JSON.stringify({ error: "Cross-tenant action not permitted" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const blocked = crossTenantDenied(caller, targetOrgId, corsHeaders, "deactivate-user");
+    if (blocked) return blocked;
+
 
     // Guard: active jobs assigned. Uses TitleCase to match service_calls.status.
     const { data: activeJobs, error: activeJobsError } = await supabaseAdmin
