@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 
 const corsHeaders = {
@@ -74,6 +75,15 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const { service_call_id, payment_amount } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation owning this row
+    // before acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-payment-received",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
     if (!service_call_id) return json({ error: "service_call_id is required" }, 400);
 
     // 1. Fetch job + customer

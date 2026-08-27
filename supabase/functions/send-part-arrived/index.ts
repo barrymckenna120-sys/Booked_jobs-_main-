@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,15 @@ serve(async (req) => {
 
   try {
     const { job_id, customer_name, customer_phone, follow_up_detail, message: customMessage } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation owning this row
+    // before acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-part-arrived",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: job_id },
+    });
+    if (isDenied(access)) return access.error;
 
     if (!job_id || !customer_name || !customer_phone) {
       return new Response(
