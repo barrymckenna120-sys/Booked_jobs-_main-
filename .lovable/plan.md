@@ -1,37 +1,42 @@
-# Follow-up answers (confirm-only) + probe plan
+# Probe run — first results, blockers, and the approved fix batch
 
-## 1. create-booking-link merge conflicts (BJ-0083)
-Fixed in this batch. A repo-wide search for conflict markers in `supabase/functions/` returns nothing — no unresolved markers remain in source. `create-booking-link` now imports `_shared/orgAuth.ts` and resolves org via `requireBoundOrg`.
+## Confirmed now (read-only)
 
-## 2. Cleanup status (BJ-0088)
-- `tmp-mcl-probe` — REMOVED (directory gone).
-- `whatsapp-webhook-test` — NOT STARTED. Still present, and `config.toml` has `verify_jwt = false` for it.
-- `send-whatsapp-booking-confirmation` stub — NOT STARTED. Still present.
-- `mcp` — NOT STARTED. Still present.
+### webhook_secret status — all three live tenants: MISSING
+Queried `tenant_integrations` where `integration_type = 'make'`:
 
-## 3. Job-list functions — org binding strength
-Not bare trust. `requireBoundOrg` does, for machine callers: (a) require an explicit `organisation_id`, (b) verify it exists in `organisations`, (c) look up that tenant's `tenant_integrations(make).config.webhook_secret` and require the caller's `x-webhook-secret` / `x-make-secret` to equal **that tenant's** secret — a mismatch is 403.
+| Tenant | `make` row | `webhook_secret` |
+|---|---|---|
+| K&N Gas Services | exists | not present (length 0) |
+| Dublin Gas | exists | not present (length 0) |
+| Cavan Gas | exists | not present (length 0) |
 
-The caveat: if a tenant has **no** `webhook_secret` configured, the function accepts a global shared secret and only logs a warning. For those tenants only, the risk is the same class as the Tally webhooks (BJ-0094) — claimed-org trust past a shared secret. It is not equivalent to `get-business-insights`, which now derives org server-side from the caller's profile with no client input. Closing action: set a per-tenant `webhook_secret` for every live tenant, then flip the no-secret branch from warn to deny.
+So today **every** live tenant hits the warn-and-accept branch of `requireBoundOrg`. The per-tenant binding exists in code but binds nothing in practice — the job-list functions are currently bare trust-once-past-the-shared-secret, i.e. the same risk class as the Tally webhooks (BJ-0094). `requireBoundOrg` cannot be marked GREEN.
 
-## 4. Systemic IDOR (BJ-0089) — the 8 not in the guarded 11
-The four `generate-*-pdf` functions (plus cert2/cert3/gas-install/hazard) are `verify_jwt = false` and take a job/quote id, with **no** org guard, **no** signed token, and no caller check. There is no protecting mechanism — the only mitigation is that the artefact they write lands in a private bucket where reads need a signed URL from `resolve-document-link`. Generation itself is an unauthenticated cross-tenant read of job/customer/engineer PII returned in the response. Treat as still-open RED, not "deliberately ungated".
+### generate-accountant-export precondition
+`settings.accountant_email` is empty for Cavan Gas, set for Dublin Gas and K&N — so Cavan is a valid skip-path probe target.
 
-`send-quote-whatsapp`, `send-schedule-confirmation`, `quote-accepted-alert`, `review-request` — missed in this batch, not deliberately deferred. All four take a resource id and none import `orgAuth`.
+### Probe 2c — unauthenticated get-upcoming-jobs: PASS
+`POST /get-upcoming-jobs` with no `Authorization`/`apikey` and a K&N `organisation_id` in the body returns **401** `{"error":"Unauthorized","reason":"missing_credentials"}`.
 
-## 5. send-invoice-whatsapp (BJ-0090)
-Fallback NOT removed. `index.ts` still ends the key chain with `Deno.env.get("THREESIXTY_API_KEY")`. `send-warranty-whatsapp` and `_shared/notifyAdmin.ts` also still read the shared key. The five functions named in the batch (job-reminder-2day, send-schedule-confirmation, send-renewal-reminder, send-payment-link, send-quote-whatsapp) are clean.
+## Blocker on the remaining probes
+The preview session available to me is Barry's superadmin account, and `requireBoundOrg` deliberately lets `role = 'superadmin'` cross orgs. Probing 1, 2a, 2b, 3, 4 with that session would produce a false PASS or a meaningless PASS. Those probes need non-superadmin sessions minted for a Dublin Gas office user and a K&N user, plus a K&N scratch account for probe 3 — and minting sessions plus creating the scratch account are writes, so they belong in the approved run below rather than in plan mode.
 
-## 6. Live cross-tenant probes
-Not run yet — these need approval because two of them have side effects on live tenants (`send-push-notification` would deliver a real push if the guard fails; `generate-accountant-export` can send mail). Proposed probe set, all against Dublin Gas + K&N with scratch data only:
+## Approved run (step 1 — probes, no code changes)
+1. Mint a non-superadmin Dublin Gas office session and a non-superadmin K&N session; confirm each `profiles.organisation_id` and `role` before probing.
+2. Create (or identify) a K&N **scratch** engineer/staff account with no real FCM device token for probe 3. No real staff member is targeted.
+3. Run:
+   - `get-business-insights` — Dublin Gas session; assert zero K&N job/customer rows and that revenue totals reconcile to Dublin Gas rows only (cross-check against a direct SQL sum for Dublin Gas).
+   - `get-upcoming-jobs` — Dublin Gas session claiming K&N `organisation_id` (expect 403); machine call with K&N's secret claiming Dublin Gas org (expect 403 — note: with no per-tenant `webhook_secret` set this will currently NOT deny, which is itself the finding to record); unauthenticated (already PASS, 401).
+   - `send-push-notification` — Dublin Gas session targeting the K&N scratch user id; expect 403 and assert the edge function logs show no FCM dispatch for that call.
+   - `generate-accountant-export` — Cavan Gas; assert (a) no email sent, (b) **a log row exists recording the skip** (`edge_function_logs` / function logs with the org id and reason). If the skip is silent with no log, record that as a separate finding, not a pass.
 
-1. `get-business-insights` — authenticated Dublin Gas session, assert no K&N job/customer rows and no K&N revenue in the response.
-2. `get-upcoming-jobs` — three calls: Dublin Gas session claiming K&N `organisation_id` (expect 403), machine call with K&N secret claiming Dublin Gas org (expect 403), fully unauthenticated (expect 401).
-3. `send-push-notification` — Dublin Gas session targeting a K&N user id (expect 403, and confirm no FCM send in logs).
-4. `generate-accountant-export` — Cavan Gas (test tenant, no `accountant_email`), assert skip/log and no fallback recipient.
-
-## Next fix batch (for approval separately)
-BJ-0089 remainder: `orgAuth` guards on the 4 PDF generators + the 4 send functions; BJ-0088 removal of `whatsapp-webhook-test`, `send-whatsapp-booking-confirmation` stub, `mcp`; BJ-0090 remove the remaining shared-key fallbacks; BJ-0094 per-tenant `webhook_secret` then fail-closed.
+## Step 2 — fixes (only after probe results are reported and approved)
+- **BJ-0094 / requireBoundOrg:** generate and store a distinct `webhook_secret` in `tenant_integrations(make).config` for K&N, Dublin Gas, and Cavan Gas (one isolated DB write step), then flip the no-secret branch in `_shared/orgAuth.ts` from `console.warn` to `deny(403)`. Deploy after Make scenarios carry the per-tenant secret.
+- **BJ-0090 — scope now 7 functions, receipt confirmed.** `send-warranty-whatsapp` is added: it still ends its key chain on the shared `THREESIXTY_API_KEY` (`index.ts` ~line 411), separate from the already-fixed `renewal_form_url` issue. Also still on the shared key and to be tracked: `send-invoice-whatsapp` (~line 177) and `_shared/notifyAdmin.ts`.
+- **BJ-0089 remainder:** `orgAuth` guards on the 4 `generate-*-pdf` functions and on `send-quote-whatsapp`, `send-schedule-confirmation`, `quote-accepted-alert`, `review-request`.
+- **BJ-0088 remainder:** remove `whatsapp-webhook-test`, the `send-whatsapp-booking-confirmation` stub, and `mcp`.
+- **generate-accountant-export:** add an explicit skip log if the probe shows the skip is silent.
 
 ## Tracker
-Yes — mark these rows AMBER, pending confirmation, rather than done. The batch is real but unverified until the four probes above pass.
+All functions in the last batch stay AMBER — pending confirmation. `requireBoundOrg` stays AMBER regardless of probe outcome until per-tenant secrets exist and the branch denies.
