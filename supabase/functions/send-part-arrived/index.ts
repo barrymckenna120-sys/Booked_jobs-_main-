@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -150,7 +154,7 @@ serve(async (req) => {
       } catch { /* best-effort */ }
     }
 
-    const firstName = customer_name.split(" ")[0];
+    const firstName = String(recipientName).split(" ")[0];
     const baseMessage = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.`;
     const message = messageFooter ? `${baseMessage}\n\n${messageFooter}` : baseMessage;
 
@@ -176,7 +180,7 @@ serve(async (req) => {
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const cleanNumber = customer_phone.replace(/^\+/, "");
+    const cleanNumber = recipientPhone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
@@ -202,7 +206,7 @@ serve(async (req) => {
       body: JSON.stringify({
         function_name: "send-part-arrived",
         error_message: `360Messenger HTTP ${response.status}: ${result.success ? "success" : "failed"}`,
-        payload: { api_response: result, sent_to: customer_phone, job_id, http_status: response.status },
+        payload: { api_response: result, sent_to: recipientPhone, job_id, http_status: response.status },
       }),
     });
 
