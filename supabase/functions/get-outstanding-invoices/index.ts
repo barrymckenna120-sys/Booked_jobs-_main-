@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,12 +76,15 @@ Deno.serve(async (req) => {
       // no body / invalid JSON
     }
 
-    if (!organisation_id) {
-      return new Response(
-        JSON.stringify({ error: "organisation_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Bind the caller (user JWT or machine credential) to a single tenant.
+    // A body-supplied organisation_id can never widen access.
+    const access = await requireBoundOrg(req, {
+      fnName: "get-outstanding-invoices",
+      cors: corsHeaders,
+      requestedOrgId: organisation_id ?? null,
+    });
+    if (isDenied(access)) return access.error;
+    organisation_id = access.orgId;
 
     const now = new Date();
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
