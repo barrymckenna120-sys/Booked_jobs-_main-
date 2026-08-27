@@ -5,7 +5,7 @@ import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
 import { evaluateOptOut } from "../_shared/optOut.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { requireMachineOrUser } from "../_shared/machineAuth.ts";
+import { requireMachineOrUser, resolveCaller } from "../_shared/machineAuth.ts";
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -20,6 +20,18 @@ serve(async (req) => {
   // or a signed-in app user pressing "send" in the warranty screen.
   const denied = await requireMachineOrUser(req, corsHeaders, "send-warranty-whatsapp");
   if (denied) return denied;
+
+  // Which identity called? Machine callers (pg_cron / warranty-auto-send) are
+  // trusted org-wide; a signed-in user is scoped to their own organisation
+  // below so a tenant cannot target another tenant's customer or an arbitrary
+  // phone number using that tenant's WhatsApp credentials.
+  const caller = await resolveCaller(req);
+  if (!caller) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
 
   try {
@@ -81,10 +93,10 @@ serve(async (req) => {
         "353" + digits;
     }
 
-    const messengerPhone =
+    let messengerPhone =
       digits;
 
-    const tallyPhone =
+    let tallyPhone =
       "0" + digits.slice(3);
 
     // Resolve org + Tally form URL +
@@ -182,6 +194,53 @@ serve(async (req) => {
           },
         }
       );
+    }
+
+    // Tenant scoping for user-initiated sends: the signed-in user must belong
+    // to the customer's organisation, and the recipient number always comes
+    // from the stored customer record (never from the request body).
+    if (caller.kind === "user") {
+      const profRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?user_id=eq.${caller.userId}&select=organisation_id&limit=1`,
+        { headers: sbHeaders }
+      );
+      const profRows = await profRes.json();
+      const callerOrgId = Array.isArray(profRows)
+        ? profRows[0]?.organisation_id ?? null
+        : null;
+
+      if (!callerOrgId || callerOrgId !== orgId) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const storedDigits = String(custRow?.phone ?? "").replace(/\D/g, "");
+      let normalised = storedDigits;
+      if (storedDigits.startsWith("353") && storedDigits.length === 12) {
+        // already international
+      } else if (storedDigits.startsWith("0") && storedDigits.length === 10) {
+        normalised = "353" + storedDigits.slice(1);
+      } else if (storedDigits.length === 9) {
+        normalised = "353" + storedDigits;
+      }
+
+      if (!normalised) {
+        return new Response(
+          JSON.stringify({ error: "Customer has no phone number on file" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      messengerPhone = normalised;
+      tallyPhone = "0" + normalised.slice(3);
     }
 
     const logClient =
