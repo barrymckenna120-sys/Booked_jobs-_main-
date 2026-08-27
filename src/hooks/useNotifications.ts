@@ -14,6 +14,11 @@ import {
 } from "@/utils/audio";
 import { debugLog } from "@/utils/debugLog";
 import { shouldShowOnSurface } from "@/lib/notificationSurface";
+import {
+  alertMarkerKey,
+  nextAlertMarker,
+  selectCatchUpAlerts,
+} from "@/lib/notificationAlerts";
 import { toast } from "sonner";
 
 export type NotificationType =
