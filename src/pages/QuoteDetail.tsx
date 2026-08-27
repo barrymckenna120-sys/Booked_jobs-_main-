@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { buildApproveToast } from "@/lib/quoteApproveMessage";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ const QuoteDetail = () => {
   const queryClient = useQueryClient();
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [approving, setApproving] = useState(false);
   const { setConnectionError, clearConnectionError } = useWhatsAppConnection();
 
   const { data: quote, isLoading } = useQuery({
@@ -94,24 +96,21 @@ const QuoteDetail = () => {
 
   const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
+    if (accepted && approving) return; // guard double-tap: one approval only
     try {
       if (accepted) {
         // Route staff acceptance through the same edge function as the public
-        // approval page so the deposit payment link + WhatsApp are sent here too.
-        // (accept-quote calls respond_to_quote internally and sends the office alert.)
+        // approval page so the whole sequence runs in order and reports which
+        // stage failed: approval -> office bell -> deposit link -> WhatsApp.
+        setApproving(true);
         const { data, error } = await supabase.functions.invoke("accept-quote", {
           body: { quote_id: id, access_token: quote?.access_token },
         });
-        if (error || (data && data.success === false)) {
-          toast({
-            title: "Error",
-            description: (data && data.error) || error?.message || "Failed to accept quote",
-            variant: "destructive",
-          });
-          return;
-        }
-        toast({ title: "Quote accepted — job created ✅" });
+        const toastPayload = buildApproveToast(data ?? null, error?.message ?? null);
+        toast(toastPayload as any);
+        // Refresh either way — the job may exist even when a later stage failed.
         queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+        queryClient.invalidateQueries({ queryKey: ["quote-converted-job"] });
         return;
       }
 
@@ -128,8 +127,11 @@ const QuoteDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      if (accepted) setApproving(false);
     }
   };
+
 
 
 
@@ -463,8 +465,9 @@ const QuoteDetail = () => {
           Resend WhatsApp
         </Button>
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
-          <Button onClick={() => respondToQuote(true)}>
-            <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
+          <Button onClick={() => respondToQuote(true)} disabled={approving}>
+            {approving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+            {approving ? "Approving…" : "Mark Accepted"}
           </Button>
         )}
 
