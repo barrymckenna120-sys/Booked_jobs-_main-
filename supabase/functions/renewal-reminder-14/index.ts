@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
     // Get most recent service_call per customer for payment_status and reminder flag
     const { data: recentJobs, error: recentErr } = await supabase
       .from("service_calls")
-      .eq("organisation_id", organisation_id)
       .select("id, customer_id, payment_status, reminder_14day_sent, reminder_30day_sent")
+      .eq("organisation_id", organisation_id)
       .in("customer_id", customerIds)
       .order("created_at", { ascending: false });
 
