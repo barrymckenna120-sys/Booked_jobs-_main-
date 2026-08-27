@@ -4,90 +4,35 @@ import {
   resolveOrgAdminEmails,
   sendAdminEmail,
 } from "../_shared/notifyOrgAdmins.ts";
-
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { crossTenantDenied, isAdminDenied, requireAdminCaller } from "../_shared/adminAuth.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // Very long ban duration = de-facto sign-in block. Reversible via unblock-user.
 const DEACTIVATE_BAN_DURATION = "876000h"; // ~100 years
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-
-    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
-    if (userError || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Authorisation: verified JWT -> trusted role loaded server-side.
+    // Tenant admins keep own-organisation authority; only platform admins
+    // (superadmin role, or the single centrally configured owner override)
+    // may act across tenants. No email allowlist lives in this function.
+    const caller = await requireAdminCaller(req, {
+      fnName: "deactivate-user",
+      cors: corsHeaders,
+    });
+    if (isAdminDenied(caller)) return caller.error;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Authorisation: mirror unblock-user exactly.
-    const callerEmail = caller.email?.toLowerCase() ?? "";
-    const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
-    let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail);
-    let bypassOrgCheck = PLATFORM_OWNER_EMAILS.includes(callerEmail);
-    let callerOrgId: string | null = null;
-
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("role, organisation_id")
-      .eq("user_id", caller.id)
-      .maybeSingle();
-    if ((callerProfile as any)?.role === "superadmin") {
-      isAuthorized = true;
-      bypassOrgCheck = true;
-    }
-    callerOrgId = (callerProfile as any)?.organisation_id ?? null;
-
-    if (!isAuthorized) {
-      const { data: callerRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: caller.id });
-      isAuthorized = ["admin", "office", "owner", "manager"].includes(callerRole ?? "");
-    }
-
-    if (!isAuthorized) {
-      const { data: ownedOrg } = await supabaseAdmin
-        .from("organisations")
-        .select("id")
-        .eq("owner_user_id", caller.id)
-        .maybeSingle();
-      isAuthorized = !!ownedOrg;
-    }
-
-    if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const body = await req.json().catch(() => ({}));
     const engineerId: string | undefined = body?.engineerId;
@@ -112,14 +57,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Cross-tenant guard: fail closed on null on either side.
+    // Cross-tenant guard: target org derived from the engineer row server-side.
+    // Fails closed on null on either side; platform admins may cross tenants.
     const targetOrgId = (engineer as any).organisation_id ?? null;
-    if (!bypassOrgCheck && (!callerOrgId || !targetOrgId || callerOrgId !== targetOrgId)) {
-      return new Response(
-        JSON.stringify({ error: "Cross-tenant action not permitted" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const blocked = crossTenantDenied(caller, targetOrgId, corsHeaders, "deactivate-user");
+    if (blocked) return blocked;
+
 
     // Guard: active jobs assigned. Uses TitleCase to match service_calls.status.
     const { data: activeJobs, error: activeJobsError } = await supabaseAdmin
@@ -203,7 +146,7 @@ Deno.serve(async (req) => {
         .update({
           is_active: false,
           deactivated_at: new Date().toISOString(),
-          deactivated_by: caller.id,
+          deactivated_by: caller.userId,
         } as any)
         .eq("user_id", engineer.auth_user_id);
 
@@ -236,7 +179,7 @@ Deno.serve(async (req) => {
         rows: [
           ["User deactivated", engineer.name ?? "—"],
           ["Organisation", (org as any)?.name ?? "Unknown organisation"],
-          ["Deactivated by", caller.email ?? caller.id],
+          ["Deactivated by", caller.email ?? caller.userId],
           [
             "When",
             new Date().toLocaleString("en-IE", { timeZone: "Europe/Dublin" }),

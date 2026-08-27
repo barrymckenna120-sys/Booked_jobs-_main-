@@ -1,196 +1,36 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods":
-    "GET, POST, OPTIONS",
-};
-
-function json(
-  body: unknown,
-  status = 200
-) {
-  return new Response(
-    JSON.stringify(body),
-    {
-      status,
-      headers: {
-        ...corsHeaders,
-        "Content-Type":
-          "application/json",
-      },
-    }
-  );
-}
+import { crossTenantDenied, isAdminDenied, requireAdminCaller } from "../_shared/adminAuth.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: corsHeaders,
+  const corsHeaders = getCorsHeaders(req);
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader =
-      req.headers.get(
-        "Authorization"
-      );
+    // Authorisation: verified JWT -> trusted role loaded server-side.
+    // Tenant admins may unblock only inside their own organisation; crossing
+    // tenants requires platform authority (superadmin role or the single
+    // centrally configured platform-owner override). No email list here.
+    const caller = await requireAdminCaller(req, {
+      fnName: "unblock-user",
+      cors: corsHeaders,
+    });
+    if (isAdminDenied(caller)) return caller.error;
 
-    if (
-      !authHeader?.startsWith(
-        "Bearer "
-      )
-    ) {
-      return json(
-        { error: "Unauthorized" },
-        401
-      );
-    }
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-    const token =
-      authHeader.replace(
-        /^Bearer\s+/i,
-        ""
-      );
-
-    const supabaseUrl =
-      Deno.env.get(
-        "SUPABASE_URL"
-      )!;
-
-    const supabaseUser =
-      createClient(
-        supabaseUrl,
-        Deno.env.get(
-          "SUPABASE_ANON_KEY"
-        )!
-      );
-
-    const {
-      data: { user: caller },
-      error: userError,
-    } =
-      await supabaseUser.auth.getUser(
-        token
-      );
-
-    if (
-      userError ||
-      !caller
-    ) {
-      return json(
-        { error: "Unauthorized" },
-        401
-      );
-    }
-
-    const supabaseAdmin =
-      createClient(
-        supabaseUrl,
-        Deno.env.get(
-          "SUPABASE_SERVICE_ROLE_KEY"
-        )!
-      );
-
-    const callerEmail =
-      caller.email
-        ?.toLowerCase() ?? "";
-
-    const PLATFORM_OWNER_EMAILS = [
-      "barrymckenna120@gmail.com",
-    ];
-
-    let isAuthorized =
-      PLATFORM_OWNER_EMAILS.includes(
-        callerEmail
-      );
-
-    let bypassOrgCheck =
-      PLATFORM_OWNER_EMAILS.includes(
-        callerEmail
-      );
-
-    let callerOrgId:
-      | string
-      | null = null;
-
-    const {
-      data: callerProfile,
-    } =
-      await supabaseAdmin
-        .from("profiles")
-        .select(
-          "role, organisation_id"
-        )
-        .eq(
-          "user_id",
-          caller.id
-        )
-        .maybeSingle();
-
-    if (
-      (callerProfile as any)
-        ?.role === "superadmin"
-    ) {
-      isAuthorized = true;
-      bypassOrgCheck = true;
-    }
-
-    callerOrgId =
-      (callerProfile as any)
-        ?.organisation_id ??
-      null;
-
-    if (!isAuthorized) {
-      const {
-        data: callerRole,
-      } =
-        await supabaseAdmin.rpc(
-          "get_user_role",
-          {
-            _user_id: caller.id,
-          }
-        );
-
-      isAuthorized = [
-        "admin",
-        "office",
-        "owner",
-        "manager",
-        "superadmin",
-      ].includes(
-        callerRole ?? ""
-      );
-    }
-
-    if (!isAuthorized) {
-      const {
-        data: ownedOrg,
-      } =
-        await supabaseAdmin
-          .from("organisations")
-          .select("id")
-          .eq(
-            "owner_user_id",
-            caller.id
-          )
-          .maybeSingle();
-
-      isAuthorized =
-        !!ownedOrg;
-    }
-
-    if (!isAuthorized) {
-      return json(
-        {
-          error:
-            "Insufficient permissions",
-        },
-        403
-      );
-    }
 
     const body =
       await req
@@ -227,6 +67,46 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Tenant admins may only probe lockouts for engineers in their own org.
+      let scopedEmails = emails;
+      if (!caller.platformAdmin) {
+        if (!caller.orgId) {
+          return json(
+            { error: "Cross-tenant action not permitted" },
+            403
+          );
+        }
+        const { data: orgEngineers } =
+          await supabaseAdmin
+            .from("engineers")
+            .select("email")
+            .eq(
+              "organisation_id",
+              caller.orgId
+            );
+        const ownOrgEmails = new Set(
+          (orgEngineers ?? [])
+            .map((e) =>
+              (e.email ?? "")
+                .trim()
+                .toLowerCase()
+            )
+            .filter(Boolean)
+        );
+        scopedEmails = emails.filter((e) =>
+          ownOrgEmails.has(e)
+        );
+        if (
+          scopedEmails.length === 0
+        ) {
+          return json({
+            locked_emails: [],
+            rows: [],
+          });
+        }
+      }
+
+
       const {
         data,
         error,
@@ -238,8 +118,9 @@ Deno.serve(async (req) => {
           )
           .in(
             "email",
-            emails
+            scopedEmails
           )
+
           .not(
             "locked_at",
             "is",
@@ -399,23 +280,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (
-      !bypassOrgCheck &&
-      (
-        !callerOrgId ||
-        !targetOrgId ||
-        callerOrgId !==
-          targetOrgId
-      )
-    ) {
-      return json(
-        {
-          error:
-            "Cross-tenant action not permitted",
-        },
-        403
-      );
-    }
+    // targetOrgId is always derived server-side above (engineer row / profile /
+    // auth email lookup) — a body-supplied organisation cannot widen scope.
+    const blocked = crossTenantDenied(
+      caller,
+      targetOrgId,
+      corsHeaders,
+      "unblock-user",
+    );
+    if (blocked) return blocked;
+
 
     const performed: string[] =
       [];
