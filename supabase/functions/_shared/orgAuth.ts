@@ -308,11 +308,15 @@ export async function machineBoundToOrg(
 ): Promise<{ ok: true } | { ok: false; detail: string }> {
   if (await isServiceRoleToken(bearerToken(req))) return { ok: true };
 
-  const provided = (
-    req.headers.get("x-webhook-secret") ??
-    req.headers.get("x-make-secret") ??
-    ""
-  ).trim();
+  const secretOrg = await tenantSecretOrg(req);
+  if (secretOrg) {
+    return secretOrg === orgId
+      ? { ok: true }
+      : { ok: false, detail: `machine secret belongs to organisation ${secretOrg}, not ${orgId}` };
+  }
+
+  const provided = providedSecret(req);
+
 
   const { data: integration } = await serviceClient()
     .from("tenant_integrations")
