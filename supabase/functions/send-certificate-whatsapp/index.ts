@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
       });
     }
+
+    // IDOR guard: prove the caller belongs to the organisation that owns this
+    // record before loading it or acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-certificate-whatsapp",
+      cors: corsHeaders,
+      resource: { table: "certificates", id: certificate_id },
+    });
+    if (isDenied(access)) return access.error;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
