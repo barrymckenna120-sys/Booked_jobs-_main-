@@ -104,6 +104,7 @@ export default function CustomerIntegrationsTab({
   useEffect(() => {
     if (!orgId) {
       setValues({});
+      setInitialValues({});
       return;
     }
     (async () => {
@@ -126,8 +127,23 @@ export default function CustomerIntegrationsTab({
         }
       }
       setValues(next);
+      setInitialValues(next);
     })();
   }, [orgId]);
+
+  const requestSave = () => {
+    if (!orgId) return;
+    const cleared = detectClearedCredentials(
+      SECTIONS.flatMap((s) => s.fields),
+      initialValues,
+      values
+    );
+    if (cleared.length > 0) {
+      setPendingClears(cleared);
+      return;
+    }
+    void handleSave();
+  };
 
   const handleSave = async () => {
     if (!orgId) return;
