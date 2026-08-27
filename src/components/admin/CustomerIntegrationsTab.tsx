@@ -83,6 +83,8 @@ export default function CustomerIntegrationsTab({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [initialValues, setInitialValues] = useState<Record<string, string>>({});
+  const [pendingClears, setPendingClears] = useState<string[] | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
