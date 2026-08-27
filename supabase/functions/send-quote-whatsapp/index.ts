@@ -614,7 +614,7 @@ YES ${refNumber}`;
               api_response:
                 result,
               sent_to:
-                mobile_number,
+                recipientNumber,
               quote_id,
             },
           }),
@@ -680,7 +680,7 @@ YES ${refNumber}`;
               title:
                 "⚠️ WhatsApp Send Failed",
               body:
-                `Failed to send WhatsApp to ${customer_name} (${mobile_number}). Please contact them manually. Error: ${errorDetail.substring(
+                `Failed to send WhatsApp to ${recipientName} (${recipientNumber}). Please contact them manually. Error: ${errorDetail.substring(
                   0,
                   200
                 )}`,
@@ -688,9 +688,9 @@ YES ${refNumber}`;
                 "office",
               metadata: {
                 quote_id,
-                customer_name,
+                customer_name: recipientName,
                 phone:
-                  mobile_number,
+                  recipientNumber,
                 error:
                   errorDetail.substring(
                     0,
