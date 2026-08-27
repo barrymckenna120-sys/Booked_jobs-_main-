@@ -17,7 +17,9 @@ serve(async (req) => {
   }
 
   try {
-    const { job_id, customer_name, customer_phone, follow_up_detail, message: customMessage } = await req.json();
+    // NOTE: customer_phone is deliberately NOT read from the body — the recipient
+    // is always the DB-stored number resolved by the consent gate below.
+    const { job_id, customer_name, follow_up_detail, message: customMessage } = await req.json();
 
     // IDOR guard: prove the caller belongs to the organisation owning this row
     // before acting with that tenant's credentials.
@@ -238,7 +240,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, customer_name }),
+      JSON.stringify({ success: true, customer_name: recipientName }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
