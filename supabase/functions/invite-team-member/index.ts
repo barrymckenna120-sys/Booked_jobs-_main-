@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: { display_name: name, role, organisation_id },
+        user_metadata: { display_name: name, role, organisation_id: resolvedOrgId },
       });
 
       if (createError) {
@@ -293,11 +293,25 @@ Deno.serve(async (req) => {
       console.error("Failed to clear old auth link:", clearError);
     }
 
-    // Link the auth user to the engineer record
-    const { error: updateError } = await supabaseAdmin
+    // Link the auth user to the engineer record — scoped to the caller's tenant
+    // so an engineer row in another organisation can never be claimed.
+    const { data: linkedEngineer, error: updateError } = await supabaseAdmin
       .from("engineers")
       .update({ auth_user_id: authUserId, user_id: authUserId, email: email })
-      .eq("id", engineer_id);
+      .eq("id", engineer_id)
+      .eq("organisation_id", resolvedOrgId)
+      .select("id")
+      .maybeSingle();
+
+    if (!updateError && !linkedEngineer) {
+      console.warn(
+        `invite-team-member: engineer ${engineer_id} is not in org ${resolvedOrgId} — refusing to link`,
+      );
+      return new Response(JSON.stringify({ error: "Engineer not found for this organisation." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (updateError) {
       console.error("Engineer update failed:", updateError);
