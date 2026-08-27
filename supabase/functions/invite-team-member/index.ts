@@ -76,19 +76,29 @@ Deno.serve(async (req) => {
     );
 
     // Resolve tenant domain from tenant_integrations (whatsapp.config.domain).
-    // Derive organisation_id from request body, falling back to caller's profile.
-    let resolvedOrgId: string | null = organisation_id || null;
-    if (!resolvedOrgId) {
-      const { data: callerProfileOrg } = await supabaseAdmin
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", caller.id)
-        .maybeSingle();
-      resolvedOrgId = (callerProfileOrg as any)?.organisation_id || null;
+    // Tenant ownership: the organisation ALWAYS comes from the caller's own
+    // profile. A body-supplied organisation_id is ignored unless the caller is a
+    // superadmin, so an admin of tenant A can never invite into tenant B.
+    const { data: callerProfileOrg } = await supabaseAdmin
+      .from("profiles")
+      .select("organisation_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    const callerOrgId = (callerProfileOrg as any)?.organisation_id || null;
+    const isSuperadmin = rpcRole === "superadmin" || profileRole === "superadmin";
+
+    if (organisation_id && callerOrgId && organisation_id !== callerOrgId && !isSuperadmin) {
+      console.warn(
+        `invite-team-member: ignoring cross-tenant organisation_id ${organisation_id} from caller ${caller.id}`,
+      );
     }
 
+    const resolvedOrgId: string | null = isSuperadmin
+      ? (organisation_id || callerOrgId)
+      : callerOrgId;
+
     if (!resolvedOrgId) {
-      console.warn("invite-team-member: could not resolve organisation_id for tenant domain lookup");
+      console.warn("invite-team-member: could not resolve organisation_id for caller");
       return new Response(JSON.stringify({ error: "organisation_id not resolvable for this caller" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
