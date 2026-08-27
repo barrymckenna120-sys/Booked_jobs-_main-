@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normalisePhoneE164 } from "../_shared/phone.ts";
 
@@ -71,12 +72,30 @@ Deno.serve(async (req) => {
       email,
       preferred_date,
       preferred_time,
-      organisation_id,
+      organisation_id: claimedOrganisationId,
       source,
       tally_submission_id,
       eventId,
       id: bodyId,
     } = body ?? {};
+
+    // Bind the caller to one tenant server-side; the body organisation_id is a
+    // hint only and is verified (or overridden) by the resolved identity.
+    const bound = await bindMachineOrganisation(req, {
+      fnName: "tally-boiler-rebook",
+      integrationTypes: ["tally"],
+      identifier: {
+        keys: ["form_id", "renewal_form_id", "rebook_form_id", "tally_form_id"],
+        value: (body as any)?.formId ?? (body as any)?.form_id ?? null,
+      },
+      claimedOrgId: typeof claimedOrganisationId === "string" ? claimedOrganisationId : null,
+      cors: corsHeaders,
+    });
+    if (!bound.ok) {
+      await logInvocation(supabase, body, null, "org_binding_failed");
+      return bound.response;
+    }
+    const organisation_id = bound.orgId;
 
     if (!phone || !organisation_id) {
       await logInvocation(supabase, body, organisation_id ?? null, "bad_request_missing_fields");
