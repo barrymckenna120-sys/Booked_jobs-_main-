@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   // Machine callers only (pg_cron service-role bearer / shared webhook secret).
-  const denied = requireMachineCaller(req, corsHeaders, "warranty-auto-send");
+  const denied = await requireMachineCaller(req, corsHeaders, "warranty-auto-send");
   if (denied) return denied;
 
 

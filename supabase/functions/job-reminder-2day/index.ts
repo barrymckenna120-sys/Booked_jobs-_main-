@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   }
 
   // Machine callers only (pg_cron service-role bearer / shared webhook secret).
-  const denied = requireMachineCaller(req, corsHeaders, "job-reminder-2day");
+  const denied = await requireMachineCaller(req, corsHeaders, "job-reminder-2day");
   if (denied) return denied;
 
 
