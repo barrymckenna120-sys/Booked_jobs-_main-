@@ -26,17 +26,9 @@ Not touched: `create-booking-link`, `renewal-reminder-30`, `renewal-reminder-14`
 1. Apply the one-line field change (plus the skip detail string).
 2. Deploy `send-warranty-whatsapp`.
 3. Live test A — Cavan Gas scratch customer `e43c42f0-0b0e-43d0-8e5b-b4c427f4fb42`, `message_type: "warranty_day14"`. Expect the same skip JSON at 200; paste the verbatim response plus the `edge_function_logs` row.
-4. Live test B — K&N, to prove the link resolves to `rebook.kngasservices.ie`.
-5. Report both responses and the exact outbound message body.
+4. Live test B — real outbound send for K&N scratch customer `ZZ Scratch CancelConfirm Test` (`7380540d-…`, `+212656802656`), `message_type: "warranty_day14"`. Approved as a controlled scratch handset.
+5. Report, verbatim: response A, response B, the exact outbound message body and link, and the `edge_function_logs` + `message_log` rows both tests created — explicitly confirming the link is `rebook.kngasservices.ie` and not `book.kngasservices.ie`.
 
-## One decision needed for step 4
-
-The only K&N scratch customer is `ZZ Scratch CancelConfirm Test` (`7380540d-…`, phone `+212656802656`). A pass through the K&N path is a **real outbound WhatsApp send** to that number — the function has no dry-run mode. Two options:
-
-- **Send to that scratch number** — genuine end-to-end proof, one test message lands on that handset.
-- **Prove the URL without sending** — deploy, then reconstruct the exact message body from the deployed code and the live K&N config, and show the `edge_function_logs` / `message_log` evidence from a Cavan-style skip only. No outbound message, slightly weaker proof of the send path.
-
-I will not send to a K&N number until you pick.
 
 ## Risk
 
