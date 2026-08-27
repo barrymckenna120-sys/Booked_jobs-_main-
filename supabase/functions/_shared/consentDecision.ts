@@ -68,15 +68,3 @@ export function skipMessage(reason: ConsentSkipReason): string {
   }
 }
 
-function serviceClient() {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
-}
-
-/**
- * Load the customer server-side (scoped to `orgId`) and decide whether an
- * outbound customer message is permitted. Lookup failures fail closed.
- */
