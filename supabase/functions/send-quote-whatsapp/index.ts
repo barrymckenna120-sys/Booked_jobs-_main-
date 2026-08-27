@@ -304,7 +304,7 @@ serve(async (req) => {
     }
 
     const firstName =
-      customer_name.split(" ")[0];
+      String(recipientName).split(" ")[0];
 
     const refNumber =
       quote_number ||
