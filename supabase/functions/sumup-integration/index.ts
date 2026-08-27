@@ -401,7 +401,55 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "checkout") {
+      // Superadmin-only read-only diagnostic: fetch the RAW SumUp checkout
+      // record (status, transactions, decline reasons) for a checkout that
+      // belongs to this organisation. Creates nothing, changes nothing.
+      if (!isSuperadmin) {
+        return json({ error: "Insufficient permissions" }, 403);
+      }
+      const checkoutId = String(body.checkout_id ?? "").trim();
+      if (!UUID_RE.test(checkoutId)) {
+        return json({ error: "checkout_id must be a UUID.", field: "checkout_id" }, 400);
+      }
+
+      const { data: attempt } = await supabaseAdmin
+        .from("payment_checkout_attempts")
+        .select("id, service_call_id, organisation_id, checkout_id, checkout_reference, status, created_at, updated_at")
+        .eq("checkout_id", checkoutId)
+        .maybeSingle();
+
+      if (!attempt || (attempt as any).organisation_id !== targetOrgId) {
+        return json({ error: "not_found" }, 404);
+      }
+
+      const row = await loadRow();
+      const state = describe(row?.config ?? null);
+      const apiKey = state.api_key_secret ? (Deno.env.get(state.api_key_secret) ?? "").trim() : "";
+      if (!apiKey) {
+        return json({ ok: false, status: "error", message: "No usable API key secret for this organisation." });
+      }
+
+      const res = await fetch(`https://api.sumup.com/v0.1/checkouts/${checkoutId}`, {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      });
+      const text = await res.text();
+      let raw: unknown;
+      try { raw = JSON.parse(text); } catch (_e) { raw = text.slice(0, 2000); }
+
+      return json({
+        ok: res.ok,
+        http_status: res.status,
+        environment: state.environment,
+        merchant_code: state.merchant_code,
+        api_key_secret: state.api_key_secret,
+        attempt,
+        sumup: raw,
+      });
+    }
+
     if (action === "disconnect") {
+
       const { error } = await supabaseAdmin
         .from("tenant_integrations")
         .delete()
