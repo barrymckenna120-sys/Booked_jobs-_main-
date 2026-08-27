@@ -216,9 +216,15 @@ export async function requireBoundOrg(
     return { orgId: effective, kind: "user", userId: caller.userId, role };
   }
 
-  const requested = (opts.requestedOrgId ?? "").trim();
+  // A per-tenant secret names its own tenant, so a machine caller presenting one
+  // does not need to be trusted on a body-supplied organisation_id at all.
+  const secretOrg = await tenantSecretOrg(req);
+  const requested = (opts.requestedOrgId ?? "").trim() || (secretOrg ?? "");
   if (!requested) {
     return deny(cors, 400, "organisation_id is required", fnName, "machine caller did not name an organisation");
+  }
+  if (secretOrg && secretOrg !== requested) {
+    return deny(cors, 403, "Forbidden", fnName, "machine secret belongs to a different organisation");
   }
 
   const supabase = serviceClient();
@@ -229,12 +235,10 @@ export async function requireBoundOrg(
     .maybeSingle();
   if (!org?.id) return deny(cors, 404, "not_found", fnName, "unknown organisation_id");
 
+  if (secretOrg === requested) return { orgId: requested, kind: "machine" };
+
   // Per-tenant secret binding when the tenant has one configured.
-  const provided = (
-    req.headers.get("x-webhook-secret") ??
-    req.headers.get("x-make-secret") ??
-    ""
-  ).trim();
+  const provided = providedSecret(req);
   const { data: integration } = await supabase
     .from("tenant_integrations")
     .select("config")
@@ -244,6 +248,7 @@ export async function requireBoundOrg(
   const tenantSecret = String(
     ((integration?.config as Record<string, unknown> | null)?.webhook_secret ?? "") as string,
   ).trim();
+
 
   if (tenantSecret) {
     if (provided !== tenantSecret) {
