@@ -40,7 +40,9 @@ export type FreshJobPaymentRow = {
   deposit_paid?: boolean | null;
   deposit_required?: boolean | null;
   deposit_amount?: number | null;
+  receipt_number?: string | null;
 };
+
 
 export type PaymentGateResult = {
   /** The job as it stands in the database PRE-WRITE — authoritative. */
