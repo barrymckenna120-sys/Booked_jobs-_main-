@@ -336,3 +336,6 @@ export async function requireAuthenticatedUser(
   }
   return { userId: caller.userId };
 }
+
+// Re-exported from the pure module so Edge Functions keep a single import site.
+export { assertSameOrganisation } from "./sameOrg.ts";

@@ -1,18 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isDenied, requireCallerOrg } from "../_shared/orgAuth.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "null",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 function buildHtml(orgName: string, actionLink: string): string {
   const safeOrg = orgName || "your team";
@@ -62,8 +51,16 @@ function buildHtml(orgName: string, actionLink: string): string {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -77,7 +74,7 @@ Deno.serve(async (req) => {
       return json({ error: "Server misconfigured: missing RESEND_API_KEY" }, 500);
     }
 
-    let body: { email?: string; org_name?: string };
+    let body: { email?: string };
     try {
       body = await req.json();
     } catch {
@@ -85,7 +82,6 @@ Deno.serve(async (req) => {
     }
 
     const email = (body.email || "").trim();
-    const orgName = (body.org_name || "").trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json({ error: "Valid email is required" }, 400);
     }
@@ -122,14 +118,27 @@ Deno.serve(async (req) => {
       return json({ error: "Forbidden" }, 403);
     }
 
+    // Branding and login host come from the TARGET member's organisation, never
+    // from the request body — a caller cannot rebrand the email or aim the login
+    // link at a host of their choosing.
+    const { data: targetOrg } = await admin
+      .from("organisations")
+      .select("name, public_domain")
+      .eq("id", targetOrgId)
+      .maybeSingle();
+
+    const orgName = String((targetOrg as any)?.name ?? "").trim();
+    const publicDomain = String((targetOrg as any)?.public_domain ?? "").trim();
+
     const { data, error } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email,
+      ...(publicDomain ? { options: { redirectTo: `https://${publicDomain}/` } } : {}),
     });
 
     if (error) {
       console.error("generateLink error:", error.message);
-      return json({ error: error.message }, 500);
+      return json({ error: "Failed to generate magic link" }, 500);
     }
 
     const actionLink = (data as any)?.properties?.action_link;
@@ -139,6 +148,7 @@ Deno.serve(async (req) => {
     }
 
     const html = buildHtml(orgName, actionLink);
+
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",

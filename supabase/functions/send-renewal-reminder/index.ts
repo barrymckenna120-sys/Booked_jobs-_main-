@@ -1,23 +1,31 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { evaluateOptOut } from "../_shared/optOut.ts";
 import { last9Digits, toE164Digits } from "../_shared/phone.ts";
 import {
   cooldownWindowStart,
   isDuplicateRenewalSend,
 } from "../_shared/renewalSendGuard.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipBody,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
-
-
-
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
+/**
+ * Renewal reminder (WhatsApp).
+ *
+ * Order enforced here: authenticate the caller -> derive the customer's
+ * organisation server-side -> prove the caller belongs to that organisation ->
+ * consent gate (opted_out, DB-stored recipient) -> per-tenant credentials ->
+ * duplicate guard -> send.
+ *
+ * The recipient number is ALWAYS the customer's stored number. A body-supplied
+ * `phone` is only used as a hint for the duplicate-guard lookup and is never
+ * messaged.
+ */
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -28,53 +36,59 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("Request received:", JSON.stringify(body));
-    const { customer_id, phone, first_name, renewal_date } = body;
+    const { customer_id, first_name, renewal_date } = body;
     const force = body?.force === true;
 
-
-    if (!customer_id || !phone || !first_name || !renewal_date) {
-      console.log("Missing required fields:", { customer_id, phone, first_name, renewal_date });
+    if (!customer_id || !first_name || !renewal_date) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields: customer_id, phone, first_name, renewal_date" }),
+        JSON.stringify({ success: false, error: "Missing required fields: customer_id, first_name, renewal_date" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Resolve organisation + branding (and enforce the opt-out guard)
-    const { data: custOrg } = await supabase
-      .from("customers")
-      .select("organisation_id, opted_out, phone")
-      .eq("id", customer_id)
-      .maybeSingle();
+    // Gate: authenticated user of the customer's own tenant, or a machine caller
+    // bound to that tenant. The organisation is the customer row's own org — a
+    // body-supplied organisation_id is never read.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-renewal-reminder",
+      cors: corsHeaders,
+      resource: { table: "customers", id: customer_id },
+    });
+    if (isDenied(access)) return access.error;
+    const orgId = access.orgId;
 
-    // Renewal reminders are marketing-style outreach — never message an
-    // opted-out customer, even if a caller passes a phone number directly.
-    const optOut = evaluateOptOut(custOrg as any);
-    if (optOut.skip && optOut.reason === "customer_opted_out") {
-      console.log("Skipping renewal reminder — customer opted out:", customer_id);
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "customer_opted_out" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Consent gate: opted-out customers are never messaged, and the recipient
+    // number comes from the DB row only.
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-renewal-reminder",
+      orgId,
+      customerId: customer_id,
+    });
+    if (!consent.allowed) {
+      if (consent.reason === "customer_wrong_organisation") {
+        return new Response(JSON.stringify({ success: false, error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(consentSkipBody(consent.reason)), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const orgId = custOrg?.organisation_id;
-
-    // Normalise the recipient number up front — the duplicate guard keys off
-    // the phone, not just the customer row. An unusable number is a 400, not a
-    // 500, and must never reach the messaging API.
+    // Normalise the DB-stored recipient. An unusable number is a 400, not a 500,
+    // and must never reach the messaging API.
     let cleanPhone: string;
     try {
-      cleanPhone = toE164Digits(phone);
+      cleanPhone = toE164Digits(consent.phone);
     } catch (_e) {
       return new Response(
-        JSON.stringify({ success: false, error: `Unrecognised phone format: ${phone}` }),
+        JSON.stringify({ success: false, error: "Stored phone number is not a recognised format" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const phoneTail = last9Digits(phone);
-    console.log("Phone formatted:", cleanPhone, "(original:", phone, ")");
+    const phoneTail = last9Digits(consent.phone);
+
 
 
     // Duplicate guard (authoritative, server-side). Two separate bugs feed it:

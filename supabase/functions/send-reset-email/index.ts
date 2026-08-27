@@ -1,18 +1,23 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
-// Tenant reset URL is resolved per-request from tenant_integrations.config.domain.
-
+/**
+ * Password-reset email.
+ *
+ * Deliberately unauthenticated (it runs pre-login) but hardened:
+ *  - CORS is restricted to BookedJobs tenant origins, not "*".
+ *  - The reset domain is resolved from the user's OWN organisation. There is no
+ *    fallback to another tenant's domain: sending a Dublin Gas user to a K&N
+ *    host is a cross-tenant leak, so an unresolved domain means "do not send".
+ *  - Responses never reveal whether the address exists.
+ */
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -43,7 +48,9 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Resolve tenant domain via the user's profile → tenant_integrations.whatsapp.config.domain
+    // Resolve the reset host from the user's OWN organisation:
+    // organisations.public_domain is authoritative, with the tenant's WhatsApp
+    // integration domain as a same-tenant secondary. Never another tenant's host.
     const { data: usersList, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
     if (listUsersError) {
       console.error("listUsers failed:", listUsersError.message);
@@ -53,6 +60,7 @@ Deno.serve(async (req) => {
     );
 
     let tenantDomain: string | null = null;
+    let orgName = "BookedJobs";
     if (matchedUser) {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
@@ -61,26 +69,37 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const orgId = (profile as any)?.organisation_id;
       if (orgId) {
-        const { data: waIntegration } = await supabaseAdmin
-          .from("tenant_integrations")
-          .select("config")
-          .eq("organisation_id", orgId)
-          .eq("integration_type", "whatsapp")
+        const { data: org } = await supabaseAdmin
+          .from("organisations")
+          .select("name, public_domain")
+          .eq("id", orgId)
           .maybeSingle();
-        tenantDomain = (waIntegration as any)?.config?.domain || null;
+        tenantDomain = String((org as any)?.public_domain ?? "").trim() || null;
+        orgName = String((org as any)?.name ?? "").trim() || orgName;
+
+        if (!tenantDomain) {
+          const { data: waIntegration } = await supabaseAdmin
+            .from("tenant_integrations")
+            .select("config")
+            .eq("organisation_id", orgId)
+            .eq("integration_type", "whatsapp")
+            .maybeSingle();
+          tenantDomain = String((waIntegration as any)?.config?.domain ?? "").trim() || null;
+        }
       }
     }
 
     if (!tenantDomain) {
-      tenantDomain = "kngasservices.bookedjobs.ie";
-      console.warn(`send-reset-email: using fallback domain ${tenantDomain} for ${email}`);
-    }
-
-    if (tenantDomain !== "kngasservices.bookedjobs.ie") {
-      console.warn(`send-reset-email: resolved non-K&N domain ${tenantDomain} for ${email} — multi-tenant fallback may need review`);
+      // No same-tenant host: skip the send rather than point the user at another
+      // tenant's domain. The response stays generic so addresses aren't enumerable.
+      console.warn("send-reset-email: no tenant domain resolved — send skipped");
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const redirectUrl = `https://${tenantDomain}/reset-password`;
+
 
 
     // Generate a recovery link WITHOUT sending an email (bypasses auth-email-hook)
@@ -120,7 +139,7 @@ Deno.serve(async (req) => {
 <a href="${actionLink}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1d4ed8);color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:15px 36px;border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">Reset Password</a>
 <p style="font-size:13px;color:#9ca3af;line-height:1.6;margin-top:28px;">If you didn't request this, you can safely ignore this email — your password will remain unchanged.</p>
 </div></div>
-<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs · Karl's Gas</p></div>
+<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs · ${orgName}</p></div>
 </div></body></html>`;
 
     const resendRes = await fetch("https://api.resend.com/emails", {
