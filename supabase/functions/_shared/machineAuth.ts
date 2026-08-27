@@ -131,3 +131,31 @@ export async function requireMachineOrUser(
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+/**
+ * Same accepted callers as requireMachineOrUser, but tells the caller WHICH
+ * identity was presented so a function can apply user-only tenant scoping.
+ * Returns null when the request is unauthorised (caller must return 401).
+ */
+export async function resolveCaller(
+  req: Request,
+): Promise<{ kind: "machine" } | { kind: "user"; userId: string } | null> {
+  if (await isMachineCaller(req)) return { kind: "machine" };
+
+  const token = bearerToken(req);
+  if (!token) return null;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceKey) return null;
+
+  try {
+    const authClient = createClient(supabaseUrl, serviceKey);
+    const { data, error } = await authClient.auth.getUser(token);
+    if (!error && data?.user?.id) return { kind: "user", userId: data.user.id };
+  } catch (_e) {
+    return null;
+  }
+  return null;
+}
+
