@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertSameOrganisation } from "./sameOrg";
+import { assertSameOrganisation } from "../../../supabase/functions/_shared/sameOrg";
 
 const A = "8c37827f-ce2c-4507-a821-a5e807d89856";
 const B = "f1950683-e8b9-41cf-8972-2aa59516850d";
