@@ -63,6 +63,7 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
   const { user } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<any[]>([]);
+  const [jobRefMap, setJobRefMap] = useState<Record<string, string>>({});
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
