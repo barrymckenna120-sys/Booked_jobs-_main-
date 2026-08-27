@@ -1,64 +1,43 @@
-# Edge Function Guard Rollout (post-audit remediation)
+# Renewal/Warranty Form URL — admin label fix + Cavan end-to-end proof
 
-Batched by caller type. Each batch applies one consistent guard pattern, is deployed and live-verified before the next batch starts. No behaviour changes for legitimate callers.
+Parts 0, 2 and 3 are answered/already done (see chat). What remains is a label correction in the admin panel and the Cavan verification pass.
 
-## Guard patterns
+## Part 1 — Relabel, don't add
 
-Four patterns, reused across all batches (all already exist in the codebase — no new invention):
+`src/components/admin/CustomerIntegrationsTab.tsx` line 28 already holds the field:
 
-1. **Machine-secret gate** — require a shared secret header (as `trigger-outstanding-reminder`, `log-message`, `handle-whatsapp-opt-out` already do). Used for pg_cron and Make.com callers.
-2. **Webhook-signature gate** — provider secret/HMAC compare (as `tally-incoming-job`, `sumup-payment-webhook`, `whatsapp-inbound` already do).
-3. **User-JWT gate** — `Authorization` header + `auth.getUser()`, 401 on failure, org resolved server-side via `get_my_org_id()` (as `cancel-job-notify` and `generate-accountant-export` already do). Used for UI-invoked functions.
-4. **Tenant-ID hardening** — stop trusting `organisation_id` from the request body; derive it from the authenticated caller or from the validated resource. Applied wherever the audit flagged a body-sourced tenant ID.
+```ts
+{ type: "tally", key: "renewal_form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." }
+```
 
-## Batch 1 — pg_cron callers (5 functions)
+That is the same `renewal_form_url` key the warranty function reads. Adding a second input for it would give two boxes writing one value, with whichever renders last winning on save.
 
-`job-reminder-2day`, `quote-followup-day3`, `quote-followup-day6`, `send-deposit-reminder`, `warranty-auto-send`
+Change: label becomes **"Renewal/Warranty Form URL"**, plus a `help` string (the section already renders `help` text for the SumUp fields) saying this link is used for both rebooking and warranty reminders, and that a blank value makes warranty sends skip rather than fall back.
 
-All five are invoked by `cron.job` with a service-role bearer token. Add the machine-secret gate accepting either the service-role bearer or the machine secret; reject anything else with 401. Cron commands are not modified (they already send the bearer).
+Copied-from: nothing new is created — this is the existing `new_booking_url` / `renewal_form_url` field pair in the `SECTIONS` "Booking & Rebooking" block, reused as-is.
 
-Verify: run each function once via authorized call and confirm a 200 with the same body as today, then confirm an unauthenticated call returns 401. Row counts are currently 0 for all five selection windows, so no outbound messages will fire during verification.
+Also aligned for consistency: `src/components/settings/IntegrationsTab.tsx` line 158 labels the same key "Renewal Booking URL" on the tenant-facing Settings screen. Same label and help text applied there so the two screens don't disagree about one field.
 
-## Batch 2 — Make.com / external webhook callers (15 functions)
+No schema change. `renewal_form_url` is a key inside `tenant_integrations.config` (jsonb), not a column — no migration needed, and none is proposed.
 
-`renewal-reminder-30`, `renewal-reminder-14`, `renewal-reminder-7`, `get-tomorrows-jobs`, `get-upcoming-jobs`, `get-upcoming-service-calls`, `get-service-reminders`, `get-outstanding-invoices`, `mark-reminder-sent`, `mark-invoice-reminder-sent`, `log-message`, `handle-whatsapp-opt-out`, `missed-call-lookup`, `create-booking-link`, `get-template-status`
+## Part 3 — Confirming, not changing
 
-Add or complete the machine-secret gate on the ones missing it, and apply tenant-ID hardening to every one that currently reads `organisation_id` from the body: the org must come from the machine caller's own bound tenant record or from the validated resource ID, never from a caller-supplied field.
+`supabase/functions/send-warranty-whatsapp/index.ts`:
+- Lines 257-279: reads `tenant_integrations(tally).config.renewal_form_url` for the org being processed. No hardcoded K&N URL anywhere in the file.
+- Lines 288-299: missing value logs `missing_renewal_form_url` and returns 200 `{ success: true, skipped: true }` — never throws.
+- `warranty-auto-send` calls this function once per customer and counts non-OK responses into `day14_failed` / `day28_failed` before continuing, so one tenant's missing URL cannot stop other tenants in the same run.
 
-Because these are called by live Make.com scenarios, this batch is staged: the gate accepts the secret **or** logs-and-allows for one observation window, so any scenario still sending no secret is identified from logs before enforcement flips on. Enforcement flip is a separate approval step.
+Nothing to change here. If verification contradicts any of the above, I stop and report instead of patching around it.
 
-Webhook-signature batch (`tally-incoming-job`, `tally-boiler-rebook`, `sumup-payment-webhook`, `whatsapp-inbound`, `auth-email-hook`) already has signature gates — only the body-sourced `organisation_id` reads in the two Tally functions are hardened here.
+## Part 4 — Verification
 
-## Batch 3 — UI-invoked functions (largest batch)
+1. Show the diff of the label change (admin tab + settings tab).
+2. K&N read-back: already correct at `https://rebook.kngasservices.ie/`. No write to K&N. Re-run the SQL read after the label change to prove the relabelled field still points at the same populated key.
+3. **Cavan set (data write — its own step):** set Cavan Gas's Renewal/Warranty Form URL through the relabelled admin field in the live UI, then SQL read-back to confirm it saved to `config.renewal_form_url` on Cavan's `tally` row and that no other tenant row changed.
+4. **Cavan send:** trigger `send-warranty-whatsapp` for the Cavan scratch customer `e43c42f0-0b0e-43d0-8e5b-b4c427f4fb42`, `message_type: "warranty_day14"`. This is a real outbound WhatsApp to that scratch record's number — approving this plan approves that one send. Report the verbatim response, the exact message body, and the `message_log` row, confirming the link is Cavan's test value and contains no `kngasservices.ie`.
+5. **Cavan blank:** clear the field via the admin UI, re-trigger the same call, confirm the 200 `skipped: true` / `missing_renewal_form_url` response and the `edge_function_logs` row — proving skip, not fallback.
+6. **Hygiene:** leave Cavan blank afterwards, matching its current state (both Tally URLs empty), so the test leaves no residue. Stated explicitly in the final report.
 
-All functions whose only confirmed caller is `src/`. Add the user-JWT gate plus server-side org resolution. Split into three deploy waves so a regression is easy to attribute:
+## Risk
 
-- **3a Comms/customer-facing:** `send-booking-confirmation`, `send-cancellation-notice`, `send-renewal-reminder`, `send-warranty-whatsapp`, `send-area-bulk-whatsapp`, `send-part-arrived`, `send-quote-whatsapp`, `accept-quote`*, `send-certificate-whatsapp`, `send-hazard-whatsapp`, `send-extrawork-payment-link`, `send-push-notification`, `trigger-review-request`
-- **3b Documents/PDF:** `generate-quote-pdf`, `generate-cert2-pdf`, `generate-cert3-pdf`, `generate-certificate-pdf`, `generate-gas-install-pdf`, `generate-hazard-pdf`, `resolve-document-link`*
-- **3c Auth/email surfaces:** `send-magic-link`, `send-reset-email`, `lock-failed-login`, `check-lockout-status`, `track-failed-login`, `notify-failed-login`
-
-\* `accept-quote` and `resolve-document-link` are reached by unauthenticated customers on public routes and must keep a public path — they get resource-token validation and tenant scoping instead of a JWT gate.
-
-Already-gated UI functions (`cancel-job-notify`, `generate-accountant-export`, `send-payment-received`, `send-payment-link`, `send-deposit-link`, `send-block-notification`, `sumup-integration`, admin/team functions) are untouched, except tenant-ID hardening where the audit flagged a body-sourced org on a superadmin-gated path — those stay as-is since the superadmin check already bounds them.
-
-## Batch 4 — Unknown-caller functions: guard now, delete after watch period
-
-`send-invoice-whatsapp`, `send-outstanding-invoice-reminders`, `send-schedule-confirmation`, `send-upcoming-reminders`, `send-reschedule-notification`, `send-whatsapp-booking-confirmation`, `quote-accepted-alert`, `review-request`, `expire-quotes`, `get-hazard-pdf`, `tally-webhook`, `mcp`, `tmp-mcl-probe`, `whatsapp-webhook-test`, `backfill-storage-paths`
-
-Two steps:
-
-1. **Guard + instrument now** — machine-secret gate (401 without it) plus an invocation log row on every request, authorized or not, recording caller IP class, origin, and whether a secret was presented.
-2. **Watch, then delete** — after the agreed watch period, review the invocation log. Anything with zero invocations is deleted, including its `config.toml` entry. Anything that did fire gets a documented caller and moves into the matching batch above. The delete pass is its own approval step with the log evidence attached.
-
-`tmp-mcl-probe` and `whatsapp-webhook-test` are named test/probe endpoints with no auth and no CORS — proposed for immediate deletion rather than a watch period, since a probe firing during the window proves nothing legitimate.
-
-## Cross-cutting
-
-- CORS: replace the `"*"` + wide allow-list header on every touched function with the shared dynamic-origin helper already used by `list-users`, `impersonate-org`, and `reset-org-data`.
-- `config.toml`: add explicit entries for functions currently missing one, matching the guard each receives.
-- BJ-SEC01 (`create-job-invoice`, `generate-receipt-pdf`, `send-whatsapp-receipt`) and BJ-SEC06 (`tmp-mcl-probe`, `whatsapp-webhook-test`, `backfill-storage-paths`) overlap this rollout; where a function appears in both, this plan defers to the existing ticket's guard so it is implemented once.
-- No database writes or migrations in this plan except the invocation-log table for Batch 4, which is its own isolated review-gated step.
-
-## Verification per batch
-
-Deploy, then for each function: one authorized live call confirming an unchanged 200 body, one unauthenticated call confirming 401. Any live outbound comms verification uses scratch jobs/test numbers only, never a real customer. Full test suite and typecheck run before each batch is considered done.
+Low. Part 1 is presentation-only — labels and help text, no key or save-path change. The only behavioural surface is the two Cavan writes in verification, both on a test tenant with a scratch customer, both reverted at the end.
