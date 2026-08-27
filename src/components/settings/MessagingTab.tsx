@@ -18,8 +18,12 @@ const MessagingTab = ({ settings, onSave, saving, onNavigateToTab }: Props) => {
         <p className="text-sm text-muted-foreground mb-4">
           Which customer messages are active right now, and what still needs setting up.
         </p>
-        <MessageStatusPanel onNavigateToTab={onNavigateToTab} />
+        <div className="space-y-4">
+          <WhatsAppSendLog />
+          <MessageStatusPanel onNavigateToTab={onNavigateToTab} />
+        </div>
       </div>
+
 
       <Separator />
 
