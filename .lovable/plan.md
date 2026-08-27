@@ -1,43 +1,58 @@
-# Renewal/Warranty Form URL — admin label fix + Cavan end-to-end proof
+# Categories tenant isolation
 
-Parts 0, 2 and 3 are answered/already done (see chat). What remains is a label correction in the admin panel and the Cavan verification pass.
+Close the cross-tenant authorisation hole on `categories`, then give each organisation its own copy of the eight shared category rows and retire the shared ones.
 
-## Part 1 — Relabel, don't add
+This touches RLS and tenant isolation, so it runs as the full process: audit evidence first (done), then each database change as its own independently revertible, review-gated step, verified with a SQL read-back against more than one tenant.
 
-`src/components/admin/CustomerIntegrationsTab.tsx` line 28 already holds the field:
+## What is wrong today
 
-```ts
-{ type: "tally", key: "renewal_form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." }
-```
+- `categories` UPDATE and DELETE policies check the caller's role only — they have no organisation scoping. Any admin, office, owner or manager user in any tenant can rename or delete any category row in the table, including another tenant's.
+- The UPDATE policy has no WITH CHECK, so such a user could also rewrite a row's `organisation_id` and hand it to a different tenant.
+- INSERT has no organisation check either; correct scoping relies entirely on the column default `get_my_org_id()`, which an explicit `organisation_id` in the request body overrides.
+- All eight existing rows have `organisation_id = NULL` and are read by every tenant through the SELECT policy's `organisation_id IS NULL` carve-out. Dublin Gas and K&N are both using the shared "Boilers" row.
 
-That is the same `renewal_form_url` key the warranty function reads. Adding a second input for it would give two boxes writing one value, with whichever renders last winning on save.
+The eight rows were created on 31 Mar 2026 and nothing has been added since, so no tenant has ever created its own category.
 
-Change: label becomes **"Renewal/Warranty Form URL"**, plus a `help` string (the section already renders `help` text for the SumUp fields) saying this link is used for both rebooking and warranty reminders, and that a blank value makes warranty sends skip rather than fall back.
+## Step 1 — Lock down the policies (migration)
 
-Copied-from: nothing new is created — this is the existing `new_booking_url` / `renewal_form_url` field pair in the `SECTIONS` "Booking & Rebooking" block, reused as-is.
+Replace the three write policies so every command is scoped to the caller's organisation, and keep the read carve-out for now so nothing breaks before the data moves.
 
-Also aligned for consistency: `src/components/settings/IntegrationsTab.tsx` line 158 labels the same key "Renewal Booking URL" on the tenant-facing Settings screen. Same label and help text applied there so the two screens don't disagree about one field.
+- INSERT: require `organisation_id = get_my_org_id()` in addition to the role check, so an explicit foreign org in the body is rejected rather than silently accepted.
+- UPDATE: require `organisation_id = get_my_org_id()` in USING, and add a WITH CHECK with the same condition so a row cannot be reassigned to another org.
+- DELETE: require `organisation_id = get_my_org_id()`, which also makes the shared NULL rows undeletable by any tenant.
+- SELECT: unchanged in this step.
 
-No schema change. `renewal_form_url` is a key inside `tenant_integrations.config` (jsonb), not a column — no migration needed, and none is proposed.
+Read-back: confirm the four policy definitions, and confirm a Dublin Gas session can still read the shared rows.
 
-## Part 3 — Confirming, not changing
+## Step 2 — Copy the categories to every organisation (data write)
 
-`supabase/functions/send-warranty-whatsapp/index.ts`:
-- Lines 257-279: reads `tenant_integrations(tally).config.renewal_form_url` for the org being processed. No hardcoded K&N URL anywhere in the file.
-- Lines 288-299: missing value logs `missing_renewal_form_url` and returns 200 `{ success: true, skipped: true }` — never throws.
-- `warranty-auto-send` calls this function once per customer and counts non-OK responses into `day14_failed` / `day28_failed` before continuing, so one tenant's missing URL cannot stop other tenants in the same run.
+Separate, idempotent data step. For each of the six organisations, insert a copy of each of the eight shared categories (name and description preserved), skipping any name that organisation already has. Expected result: 48 org-owned rows, with the eight NULL rows still present and untouched.
 
-Nothing to change here. If verification contradicts any of the above, I stop and report instead of patching around it.
+Read-back: per-organisation row counts, and a check that no organisation is missing a name.
 
-## Part 4 — Verification
+Nothing needs repointing — `products.category` is free text matched by name, not a foreign key, so copied rows keep working for existing products with no further change.
 
-1. Show the diff of the label change (admin tab + settings tab).
-2. K&N read-back: already correct at `https://rebook.kngasservices.ie/`. No write to K&N. Re-run the SQL read after the label change to prove the relabelled field still points at the same populated key.
-3. **Cavan set (data write — its own step):** set Cavan Gas's Renewal/Warranty Form URL through the relabelled admin field in the live UI, then SQL read-back to confirm it saved to `config.renewal_form_url` on Cavan's `tally` row and that no other tenant row changed.
-4. **Cavan send:** trigger `send-warranty-whatsapp` for the Cavan scratch customer `e43c42f0-0b0e-43d0-8e5b-b4c427f4fb42`, `message_type: "warranty_day14"`. This is a real outbound WhatsApp to that scratch record's number — approving this plan approves that one send. Report the verbatim response, the exact message body, and the `message_log` row, confirming the link is Cavan's test value and contains no `kngasservices.ie`.
-5. **Cavan blank:** clear the field via the admin UI, re-trigger the same call, confirm the 200 `skipped: true` / `missing_renewal_form_url` response and the `edge_function_logs` row — proving skip, not fallback.
-6. **Hygiene:** leave Cavan blank afterwards, matching its current state (both Tally URLs empty), so the test leaves no residue. Stated explicitly in the final report.
+## Step 3 — Retire the shared rows (data write, then migration)
 
-## Risk
+Once step 2 reads back clean:
 
-Low. Part 1 is presentation-only — labels and help text, no key or save-path change. The only behavioural surface is the two Cavan writes in verification, both on a test tenant with a scratch customer, both reverted at the end.
+- Delete the eight `organisation_id IS NULL` rows.
+- Then drop the `organisation_id IS NULL` carve-out from the SELECT policy, leaving plain `organisation_id = get_my_org_id()`.
+
+Read-back: zero NULL rows remain, and each tenant still sees exactly its own eight categories.
+
+## Step 4 — Tidy the frontend
+
+`src/components/products/CategoriesTab.tsx` inserts `{ name, description }` and lets the column default supply the organisation. Set `organisation_id` explicitly from `useOrgId`, matching how the Products page already does it, and block the save with the existing "Organisation not ready" style guard when the org has not resolved yet. Also add an explicit `organisation_id` filter to the two category reads (`CategoriesTab.tsx` and `src/pages/Products.tsx`) as defence in depth, so a future policy regression cannot leak the list.
+
+## Verification
+
+- Category list renders unchanged for K&N and for Dublin Gas (2+ tenants, per process).
+- Creating a category from the UI produces a row carrying the correct `organisation_id`.
+- A tenant cannot update or delete a category belonging to another organisation.
+- Product category filter pills and the Add/Edit Product category dropdown still populate.
+- Regression test covering the tenant-scoping predicate, plus loading and empty states checked.
+
+## Not in scope
+
+The `products` findings from the earlier audit (defence-in-depth organisation filters on the product reads, and the 12 Dublin Gas quote line items pointing at K&N products) are held for a separate pass.
