@@ -437,6 +437,23 @@ Deno.serve(async (req) => {
       let raw: unknown;
       try { raw = JSON.parse(text); } catch (_e) { raw = text.slice(0, 2000); }
 
+      // Per-transaction detail carries the provider decline reason, which the
+      // checkout record does not include.
+      const txIds: string[] = Array.isArray((raw as any)?.transactions)
+        ? (raw as any).transactions.map((t: any) => String(t?.id ?? "")).filter(Boolean)
+        : [];
+      const transactionDetails: unknown[] = [];
+      for (const txId of txIds.slice(0, 5)) {
+        const txRes = await fetch(
+          `https://api.sumup.com/v0.1/me/transactions?id=${encodeURIComponent(txId)}`,
+          { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } },
+        );
+        const txText = await txRes.text();
+        let txBody: unknown;
+        try { txBody = JSON.parse(txText); } catch (_e) { txBody = txText.slice(0, 2000); }
+        transactionDetails.push({ transaction_id: txId, http_status: txRes.status, body: txBody });
+      }
+
       return json({
         ok: res.ok,
         http_status: res.status,
@@ -445,8 +462,10 @@ Deno.serve(async (req) => {
         api_key_secret: state.api_key_secret,
         attempt,
         sumup: raw,
+        transaction_details: transactionDetails,
       });
     }
+
 
     if (action === "disconnect") {
 
