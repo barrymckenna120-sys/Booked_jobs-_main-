@@ -12,6 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { buildTenantConfigRows, detectClearedCredentials } from "@/lib/tenantIntegrationConfig";
@@ -191,6 +201,7 @@ export default function CustomerIntegrationsTab({
         throw new Error(`Save did not persist: ${mismatch.label}`);
       }
 
+      setInitialValues({ ...values });
       toast.success("Integrations saved");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save");
@@ -286,13 +297,41 @@ export default function CustomerIntegrationsTab({
             ))}
 
             <div className="flex justify-end pt-2">
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={requestSave} disabled={saving}>
                 {saving ? "Saving…" : "Save Integrations"}
               </Button>
             </div>
           </>
         )}
       </CardContent>
+
+      <AlertDialog
+        open={pendingClears !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingClears(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear saved credentials?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to clear {pendingClears?.join(", ")}. This tenant's
+              related integrations will stop working until new values are saved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setPendingClears(null);
+                void handleSave();
+              }}
+            >
+              Clear credentials
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
