@@ -332,20 +332,30 @@ YES ${refNumber}`;
     }
 
     // Domain regression guard.
-    // Block any hyphenated *-*.bookedjobs.ie subdomain from going out.
-    // Live tenant subdomains are single-token.
-    // If tripped, log to debug_logs and abort.
+    // Block any bookedjobs.ie link whose host is NOT the tenant's
+    // configured public_domain (hyphens are legitimate, e.g.
+    // dublin-gas.bookedjobs.ie). If tripped, log and abort.
+    const tenantHost = (
+      acceptUrl ||
+      quotePdfUrl ||
+      ""
+    ).replace(
+      /^https?:\/\/([^/]+).*$/,
+      "$1"
+    );
+
     const badDomainMatch =
       message.match(
-        /https?:\/\/([a-z0-9-]+)\.bookedjobs\.ie/i
+        /https?:\/\/([a-z0-9-]+\.bookedjobs\.ie)/i
       );
 
     if (
       badDomainMatch &&
-      badDomainMatch[1].includes(
-        "-"
-      )
+      tenantHost &&
+      badDomainMatch[1].toLowerCase() !==
+        tenantHost.toLowerCase()
     ) {
+
       await fetch(
         `${supabaseUrl}/rest/v1/debug_logs`,
         {
