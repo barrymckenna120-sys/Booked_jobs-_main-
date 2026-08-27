@@ -2,6 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -446,10 +449,22 @@ Deno.serve(async (req) => {
 
     let whatsappSent = false;
 
-    if (apiKey && cust.phone) {
+    // Consent gate for the customer-facing WhatsApp step. The invoice itself is
+    // still created/stored; only the outbound message is suppressed.
+    const invoiceConsent = await requireCustomerMessagingConsent({
+      fnName: "create-job-invoice",
+      orgId: access.orgId,
+      customerId: job.customer_id,
+    });
+    if (!invoiceConsent.allowed) {
+      whatsappFailReason = `skipped_${invoiceConsent.reason}`;
+      console.log(`create-job-invoice: WhatsApp skipped — ${invoiceConsent.reason}`);
+    }
+
+    if (apiKey && invoiceConsent.allowed) {
       let cleanNumber: string;
       try {
-        cleanNumber = normalisePhone(cust.phone);
+        cleanNumber = normalisePhone(invoiceConsent.allowed ? invoiceConsent.phone : "");
       } catch (phoneErr) {
         const msg = (phoneErr as Error).message;
         console.error("create-job-invoice: phone normalise failed:", msg);
@@ -533,7 +548,7 @@ Deno.serve(async (req) => {
             await sb.from("edge_function_logs").insert({
               function_name: "create-job-invoice",
               error_message: `WhatsApp send failed. HTTP ${response.status}`,
-              payload: { api_response: result, sent_to: cust.phone, invoice_id: invoice.id },
+              payload: { api_response: result, sent_to: invoiceConsent.allowed ? invoiceConsent.phone : null, invoice_id: invoice.id },
             });
           }
         } catch (waErr) {
