@@ -1,52 +1,37 @@
-# Fix: cleared fields silently keep their old value (Admin → Customer Integrations)
+# Follow-up answers (confirm-only) + probe plan
 
-Blanking a field in **Admin → Customer Integrations** and saving shows "Integrations saved" but the old value stays in the database. Confirmed cause: the save handler drops every empty value before merging, so a cleared field is indistinguishable from an untouched one.
+## 1. create-booking-link merge conflicts (BJ-0083)
+Fixed in this batch. A repo-wide search for conflict markers in `supabase/functions/` returns nothing — no unresolved markers remain in source. `create-booking-link` now imports `_shared/orgAuth.ts` and resolves org via `requireBoundOrg`.
 
-Scope is this one handler. The Stripe key-name split and the dead `company_name`/`company_phone` fields I flagged in the audit stay open as separate items.
+## 2. Cleanup status (BJ-0088)
+- `tmp-mcl-probe` — REMOVED (directory gone).
+- `whatsapp-webhook-test` — NOT STARTED. Still present, and `config.toml` has `verify_jwt = false` for it.
+- `send-whatsapp-booking-confirmation` stub — NOT STARTED. Still present.
+- `mcp` — NOT STARTED. Still present.
 
-## What changes for the user
+## 3. Job-list functions — org binding strength
+Not bare trust. `requireBoundOrg` does, for machine callers: (a) require an explicit `organisation_id`, (b) verify it exists in `organisations`, (c) look up that tenant's `tenant_integrations(make).config.webhook_secret` and require the caller's `x-webhook-secret` / `x-make-secret` to equal **that tenant's** secret — a mismatch is 403.
 
-- Clearing a field and saving now **removes that setting** from the tenant. The backend then treats it as never configured — e.g. a blank Renewal/Warranty Form URL makes warranty sends skip for that tenant instead of using a stale URL.
-- Clearing a **credential** field asks for confirmation first, naming the tenant and the fields, because it stops payments or WhatsApp for that tenant immediately. Credential fields: SumUp Merchant Code, SumUp API Key Secret Name, 360Messenger Secret Name.
-- Fields left untouched are unaffected, and any config keys this screen doesn't show are preserved exactly as before.
-- The success toast reports what actually happened, so a save that changed nothing can't look like a save that changed something.
+The caveat: if a tenant has **no** `webhook_secret` configured, the function accepts a global shared secret and only logs a warning. For those tenants only, the risk is the same class as the Tally webhooks (BJ-0094) — claimed-org trust past a shared secret. It is not equivalent to `get-business-insights`, which now derives org server-side from the caller's profile with no client input. Closing action: set a per-tenant `webhook_secret` for every live tenant, then flip the no-secret branch from warn to deny.
 
-## How it works
+## 4. Systemic IDOR (BJ-0089) — the 8 not in the guarded 11
+The four `generate-*-pdf` functions (plus cert2/cert3/gas-install/hazard) are `verify_jwt = false` and take a job/quote id, with **no** org guard, **no** signed token, and no caller check. There is no protecting mechanism — the only mitigation is that the artefact they write lands in a private bucket where reads need a signed URL from `resolve-document-link`. Generation itself is an unauthenticated cross-tenant read of job/customer/engineer PII returned in the response. Treat as still-open RED, not "deliberately ungated".
 
-**New pure helper — `src/lib/tenantIntegrationConfig.ts`**
+`send-quote-whatsapp`, `send-schedule-confirmation`, `quote-accepted-alert`, `review-request` — missed in this batch, not deliberately deferred. All four take a resource id and none import `orgAuth`.
 
-`buildTenantConfigRows(sections, values, existingByType)` returns, per integration type:
+## 5. send-invoice-whatsapp (BJ-0090)
+Fallback NOT removed. `index.ts` still ends the key chain with `Deno.env.get("THREESIXTY_API_KEY")`. `send-warranty-whatsapp` and `_shared/notifyAdmin.ts` also still read the shared key. The five functions named in the batch (job-reminder-2day, send-schedule-confirmation, send-renewal-reminder, send-payment-link, send-quote-whatsapp) are clean.
 
-- the merged config, where a trimmed non-empty value is written and an empty value causes `delete` of that key (rather than being filtered out of the patch),
-- untouched keys from the existing config carried through unchanged,
-- a summary of `{ updated: string[]; cleared: string[] }` for the confirmation step and the toast.
+## 6. Live cross-tenant probes
+Not run yet — these need approval because two of them have side effects on live tenants (`send-push-notification` would deliver a real push if the guard fails; `generate-accountant-export` can send mail). Proposed probe set, all against Dublin Gas + K&N with scratch data only:
 
-Values are trimmed on the way in, matching what the tenant-facing Integrations tab already does. A config that ends up empty is left as `{}` on the existing row — no row deletion, so `is_active` and row identity are untouched.
+1. `get-business-insights` — authenticated Dublin Gas session, assert no K&N job/customer rows and no K&N revenue in the response.
+2. `get-upcoming-jobs` — three calls: Dublin Gas session claiming K&N `organisation_id` (expect 403), machine call with K&N secret claiming Dublin Gas org (expect 403), fully unauthenticated (expect 401).
+3. `send-push-notification` — Dublin Gas session targeting a K&N user id (expect 403, and confirm no FCM send in logs).
+4. `generate-accountant-export` — Cavan Gas (test tenant, no `accountant_email`), assert skip/log and no fallback recipient.
 
-**`src/components/admin/CustomerIntegrationsTab.tsx`**
+## Next fix batch (for approval separately)
+BJ-0089 remainder: `orgAuth` guards on the 4 PDF generators + the 4 send functions; BJ-0088 removal of `whatsapp-webhook-test`, `send-whatsapp-booking-confirmation` stub, `mcp`; BJ-0090 remove the remaining shared-key fallbacks; BJ-0094 per-tenant `webhook_secret` then fail-closed.
 
-- `handleSave` calls the helper instead of the inline `cleaned` filter, then upserts the same way it does today (`onConflict: "organisation_id,integration_type"`).
-- If the summary's `cleared` list contains any credential key, show an AlertDialog naming the tenant and the specific fields; proceed only on confirm.
-- After a successful save, re-read the tenant's config so the form reflects the database rather than local state.
-- Toast wording driven by the summary: `Integrations saved`, `Saved — 2 settings cleared`, or `No changes to save`.
-
-**Tests — `src/lib/__tests__/tenantIntegrationConfig.test.ts`**
-
-Regression test for the reported bug plus the boundaries:
-
-- blanking a field removes the key from the merged config (the bug — fails before the change),
-- a whitespace-only value counts as cleared,
-- unrelated keys not shown on this screen survive the merge (`environments`, `country_code`, `templates`, `review_webhook_secret` all exist in live data),
-- an untouched field keeps its value and is not listed as updated,
-- the summary lists cleared credential keys so the confirmation can trigger,
-- clearing every field of a type yields `{}` rather than a dropped row.
-
-## Verification
-
-- Full unit suite green, typecheck clean.
-- Live check against **Cavan Gas** (the test tenant): clear its `tally.new_booking_url`, save, confirm via a database read that the key is gone; then re-enter it and confirm it comes back. No live tenant config touched.
-- Confirm the credential confirmation dialog appears when clearing a SumUp field, and that cancelling it writes nothing.
-
-## Risk
-
-Medium — it writes tenant config that payment and WhatsApp routing read. The clearing path is new behaviour, so the merge logic is a pure, unit-tested function and the destructive case is gated behind confirmation. Verification uses Cavan Gas only.
+## Tracker
+Yes — mark these rows AMBER, pending confirmation, rather than done. The batch is real but unverified until the four probes above pass.
