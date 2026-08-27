@@ -1,3 +1,4 @@
+import { getCorsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { AUTH_EVENT_HEADER, mintAuthEventToken } from "../_shared/authEvent.ts";
 
@@ -36,28 +37,23 @@ async function callAuthEventFunction(
   }
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
+// Pre-auth endpoint, but still origin-restricted to the tenant domains/preview
+// so it cannot be driven from arbitrary sites.
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
   });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: getCorsHeaders(req) });
   }
 
   try {
     const { email, reset } = await req.json().catch(() => ({}));
     if (!email || typeof email !== "string") {
-      return json({ error: "email required" }, 400);
+      return json(req, { error: "email required" }, 400);
     }
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -73,7 +69,7 @@ Deno.serve(async (req) => {
         .from("login_attempts")
         .delete()
         .eq("email", normalizedEmail);
-      return json({ reset: true });
+      return json(req, { reset: true });
     }
 
     // Increment attempts (upsert on email)
@@ -98,7 +94,7 @@ Deno.serve(async (req) => {
 
     if (upsertError) {
       console.error("upsert error", upsertError);
-      return json({ error: "failed to record attempt" }, 500);
+      return json(req, { error: "failed to record attempt" }, 500);
     }
 
     if (newAttempts < 5) {
@@ -111,7 +107,7 @@ Deno.serve(async (req) => {
           attempts: newAttempts,
         }),
       );
-      return json({ locked: false, attempts: newAttempts });
+      return json(req, { locked: false, attempts: newAttempts });
     }
 
     // LOCK
@@ -137,9 +133,9 @@ Deno.serve(async (req) => {
       }),
     );
 
-    return json({ locked: true, attempts: newAttempts });
+    return json(req, { locked: true, attempts: newAttempts });
   } catch (e) {
     console.error("track-failed-login error", e);
-    return json({ error: (e as Error).message }, 500);
+    return json(req, { error: (e as Error).message }, 500);
   }
 });
