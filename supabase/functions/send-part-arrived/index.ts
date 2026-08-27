@@ -57,6 +57,19 @@ serve(async (req) => {
       );
     }
 
+    // Consent gate: opted_out is authoritative, and the recipient number always
+    // comes from the DB row — never from the request body.
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-part-arrived",
+      orgId,
+      customerId: jobRow?.customer_id,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const recipientPhone = consent.phone;
+    const recipientName = consent.name || customer_name || "there";
+
+
+
     // Resolve per-tenant 360Messenger credentials.
     // Accepts either integration row type, and either a declared secret name
     // (api_key_secret -> env var) or a literal api_key stored in config.
