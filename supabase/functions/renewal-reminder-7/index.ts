@@ -63,6 +63,7 @@ Deno.serve(async (req) => {
     const { data: bookedJobs, error: jobErr } = await supabase
       .from("service_calls")
       .select("customer_id")
+      .eq("organisation_id", orgId)
       .in("customer_id", customerIds)
       .in("status", ["Pending", "pending", "Booked", "booked", "Confirmed", "confirmed", "Scheduled"]);
 
