@@ -92,11 +92,11 @@ serve(async (req) => {
         }
       } catch { /* non-json response, treat as success */ }
 
-      console.log("respond_to_quote succeeded for:", quoteId);
+      console.log("[accept-quote] stage=quote_approval result=ok quote:", quoteId);
 
-      // Get updated quote info for WhatsApp alert
+      // Get updated quote info for the office alert + deposit link
       const updatedRes = await fetch(
-        `${supabaseUrl}/rest/v1/quotes?id=eq.${quoteId}&select=converted_job_id,user_id,quote_number,total_amount,deposit,deposit_amount,customer_id,payment_link,customers(name,phone,opted_out)`,
+        `${supabaseUrl}/rest/v1/quotes?id=eq.${quoteId}&select=converted_job_id,user_id,quote_number,total_amount,deposit,deposit_amount,customer_id,payment_link,organisation_id,customers(name,phone,opted_out)`,
         { headers }
       );
       const updatedQuotes = await updatedRes.json();
@@ -106,36 +106,86 @@ serve(async (req) => {
         const quoteRef = updatedQuote.quote_number || `Q-${quoteId.slice(0, 4).toUpperCase()}`;
         const customerName = updatedQuote.customers?.name || "Customer";
         const totalAmount = Number(updatedQuote.total_amount || 0).toFixed(2);
-        const depositAmount = Number(updatedQuote.deposit || updatedQuote.deposit_amount || 0).toFixed(2);
+        const depositAmountStr = Number(updatedQuote.deposit || updatedQuote.deposit_amount || 0).toFixed(2);
 
-        await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote.user_id, customerName, quoteRef, totalAmount, depositAmount);
+        // ── STAGE 2: office bell notification ──
+        // respond_to_quote inserts the office notification rows in the same
+        // transaction as the approval. Verify they landed before anything goes
+        // out to the customer, and self-heal (once) if they somehow didn't.
+        const notification = await ensureOfficeNotification(
+          supabaseUrl, headers, quoteId, updatedQuote, quoteRef, customerName,
+        );
+        if (!notification.ok) {
+          console.error("[accept-quote] stage=office_notification result=failed", notification.error);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              approved: true,
+              stage: "office_notification",
+              status: "office_notification_failed",
+              error: notification.error || "office_notification_failed",
+              quote_ref: quoteRef,
+              quote_id: quoteId,
+              job_id: updatedQuote.converted_job_id,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+          );
+        }
+        console.log("[accept-quote] stage=office_notification result=ok count:", notification.count);
 
-        // Deposit link + WhatsApp runs in the background, but must survive the
-        // response — otherwise the isolate shuts down mid-Stripe call.
-        const depositTask = sendDepositPaymentWhatsApp(
+        // Internal office WhatsApp heads-up. Never gates the customer send.
+        await sendWhatsAppAlert(supabaseUrl, headers, updatedQuote.user_id, customerName, quoteRef, totalAmount, depositAmountStr);
+
+        // ── STAGE 3 + 4: deposit payment link, then the customer WhatsApp ──
+        // Awaited on purpose: the caller must be told which stage failed, and
+        // a customer must never receive a message we cannot account for.
+        const depositResult = await sendDepositPaymentWhatsApp(
           supabaseUrl, headers, updatedQuote, customerName
-        )
-          .then(() => console.log("Deposit WhatsApp task finished for quote:", quoteId))
-          .catch((e) => console.error("Deposit WhatsApp send failed:", e));
+        );
+        const outcome = classifyDepositStage(depositResult);
+        console.log(
+          `[accept-quote] stage=deposit_link/whatsapp_send result=${outcome.success ? "ok" : "failed"} status=${outcome.status}`,
+          { quote_id: quoteId, job_id: updatedQuote.converted_job_id },
+        );
 
-        const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
-        if (typeof waitUntil === "function") {
-          waitUntil.call((globalThis as any).EdgeRuntime, depositTask);
-        } else {
-          await depositTask;
+        if (!outcome.success) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              approved: true,
+              stage: outcome.stage,
+              status: outcome.status,
+              error: outcome.error,
+              quote_ref: quoteRef,
+              quote_id: quoteId,
+              job_id: updatedQuote.converted_job_id,
+              payment_link: depositResult?.paymentLink ?? null,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+          );
         }
 
-
         return new Response(
-          JSON.stringify({ success: true, quote_ref: quoteRef, quote_id: quoteId, job_id: updatedQuote.converted_job_id }),
+          JSON.stringify({
+            success: true,
+            approved: true,
+            status: outcome.status,
+            quote_ref: quoteRef,
+            quote_id: quoteId,
+            job_id: updatedQuote.converted_job_id,
+            payment_link: depositResult?.paymentLink ?? null,
+            whatsapp_sent: depositResult?.sent === true,
+            notification_count: notification.count,
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, approved: true, status: "approved_no_quote_row" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+
     }
 
     // Legacy phone-number fallback removed — no callers exist.
