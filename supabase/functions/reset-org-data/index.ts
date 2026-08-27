@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { canResetOrgData, isSuperadminRole } from "../_shared/resetRoles.ts";
+
 
 const ALLOWED_ORIGINS = [
   "https://kngasservices.bookedjobs.ie",
@@ -60,13 +62,13 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    // Same role resolution order as reset-auth-block: engineers row, then profiles.
+    // Role resolution: get_user_role() prefers the engineers row (so tenant
+    // owners come back as "owner") and only falls back to profiles. Both
+    // sources must be read BEFORE the gate, otherwise an owner — or a
+    // superadmin whose engineers row says otherwise — is wrongly refused.
     const { data: callerRole } = await supabaseUser.rpc("get_user_role", {
       _user_id: caller.id,
     });
-    if (callerRole !== "admin" && callerRole !== "superadmin") {
-      return json({ error: "Insufficient permissions" }, 403);
-    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -79,19 +81,25 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .maybeSingle();
 
+    const profileRole = (callerProfile as any)?.role ?? null;
+
+    if (!canResetOrgData(callerRole as string | null, profileRole)) {
+      return json({ error: "Insufficient permissions" }, 403);
+    }
+
     const { data: callerEng } = await supabaseAdmin
       .from("engineers")
       .select("organisation_id, name")
       .eq("auth_user_id", caller.id)
       .maybeSingle();
 
-    const isSuperadmin =
-      callerRole === "superadmin" || (callerProfile as any)?.role === "superadmin";
+    const isSuperadmin = isSuperadminRole(callerRole as string | null, profileRole);
 
     const callerOrgId: string | null =
       (callerEng as any)?.organisation_id ??
       (callerProfile as any)?.organisation_id ??
       null;
+
 
     let body: Record<string, unknown> = {};
     try {
