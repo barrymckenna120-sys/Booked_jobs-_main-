@@ -96,6 +96,25 @@ const CustomerActivityTimeline = ({ customerId, onCountReady, collapsed = false 
     if (data) {
       setActivities(data);
       onCountReady?.(data.length);
+
+      // A customer can have several jobs running at once — without the job
+      // reference a payment entry on one job reads as if it belonged to
+      // another (e.g. a paid deposit on DG-450 looking like DG-1000's).
+      const jobIds = [...new Set(data.map((a) => a.service_call_id).filter(Boolean))];
+      if (jobIds.length > 0) {
+        const { data: jobs } = await supabase
+          .from("service_calls")
+          .select("id, job_reference")
+          .in("id", jobIds as string[]);
+        const refs: Record<string, string> = {};
+        (jobs || []).forEach((j: any) => {
+          if (j.job_reference) refs[j.id] = j.job_reference;
+        });
+        setJobRefMap(refs);
+      } else {
+        setJobRefMap({});
+      }
+
       const ids = [...new Set(data.map((a) => a.created_by).filter(Boolean))];
       if (ids.length > 0) {
         const { data: profiles } = await supabase
