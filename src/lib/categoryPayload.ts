@@ -29,10 +29,14 @@ export type CategoryPayloadResult =
   | { ok: true; payload: CategoryInsert }
   | { ok: false; reason: "missing-name" | "missing-org" };
 
+export type CategoryUpdateResult =
+  | { ok: true; payload: CategoryUpdate }
+  | { ok: false; reason: "missing-name" };
+
 /** Shared field normalisation for both insert and update. */
 export function buildCategoryUpdate(
   form: CategoryFormValues,
-): { ok: true; payload: CategoryUpdate } | { ok: false; reason: "missing-name" } {
+): CategoryUpdateResult {
   const name = form.name.trim();
   if (!name) return { ok: false, reason: "missing-name" };
   return {
@@ -47,7 +51,8 @@ export function buildCategoryInsert(
   orgId: string | null | undefined,
 ): CategoryPayloadResult {
   const base = buildCategoryUpdate(form);
-  if (!base.ok) return { ok: false, reason: base.reason };
+  if (base.ok === false) return { ok: false, reason: base.reason };
   if (!orgId) return { ok: false, reason: "missing-org" };
   return { ok: true, payload: { ...base.payload, organisation_id: orgId } };
 }
+
