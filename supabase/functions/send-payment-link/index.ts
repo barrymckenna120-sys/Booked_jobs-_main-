@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolveSumUpCredentials } from "../_shared/sumupCredentials.ts";
 import { buildSumUpReturnUrl, createSumUpDepositCheckout } from "../_shared/sumupCheckout.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,11 +85,16 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "not_found" }, 404);
     }
 
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("name, phone")
-      .eq("id", job.customer_id)
-      .single();
+    // Mandatory consent gate: opted_out customers are never messaged, the
+    // customer must belong to this organisation, and the recipient number comes
+    // from the DB row (never the request body).
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-payment-link",
+      orgId: callerOrgId,
+      customerId: job.customer_id,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const customer = { name: consent.name ?? "", phone: consent.phone };
 
     if (!customer?.phone) {
       console.log("send-payment-link 400: customer has no phone", { customer_id: job.customer_id });

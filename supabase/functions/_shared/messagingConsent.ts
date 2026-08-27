@@ -20,10 +20,20 @@ import {
   type ConsentDecision,
   type ConsentSkipReason,
   evaluateConsent,
+  skipMessage,
 } from "./consentDecision.ts";
 
 export type { ConsentCustomerRow, ConsentSkipReason, ConsentDecision } from "./consentDecision.ts";
 export { evaluateConsent } from "./consentDecision.ts";
+
+/** Deno-only service client — kept here so consentDecision.ts stays pure. */
+function serviceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
 
 export async function requireCustomerMessagingConsent(opts: {
   fnName: string;

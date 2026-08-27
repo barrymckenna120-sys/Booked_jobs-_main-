@@ -4,6 +4,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -394,21 +395,14 @@ const QuoteDetail = () => {
             if (!id) return;
             setGeneratingPdf(true);
             try {
-              const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-              const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-              const url = `https://${projectId}.supabase.co/functions/v1/generate-quote-pdf`;
-              const res = await fetch(url, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${anonKey}`,
-                  "apikey": anonKey,
-                },
-                body: JSON.stringify({ quote_id: id }),
-              });
-              const result = await res.json();
-              if (!res.ok || !result.success) {
-                toast({ title: "PDF generation failed. Please try again.", description: result?.error, variant: "destructive" });
+              // Must carry the signed-in session: generate-quote-pdf is tenant-guarded
+              // and rejects the anon key.
+              const { data: result, error: pdfError } = await invokeFunction<any>(
+                "generate-quote-pdf",
+                { body: { quote_id: id } },
+              );
+              if (pdfError || !result?.success) {
+                toast({ title: "PDF generation failed. Please try again.", description: pdfError?.message ?? result?.error, variant: "destructive" });
               } else {
                 await supabase.from("quotes").update({ pdf_url: result.pdf_url } as any).eq("id", id);
                 toast({ title: "PDF regenerated — opening preview" });

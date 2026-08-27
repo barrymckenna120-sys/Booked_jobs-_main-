@@ -83,7 +83,9 @@ export async function sendDepositLink(
     let customerPhone: string | null = args.customerPhone ?? null;
     let customerOptedOut = args.customerOptedOut === true;
 
-    if (customerId && (!customerPhone || !customerName)) {
+    // The opt-out flag must come from the DB unless the caller explicitly
+    // supplied it — pre-reading name+phone must not silently skip the check.
+    if (customerId && (!customerPhone || !customerName || args.customerOptedOut == null)) {
       const custRes = await fetch(
         `${supabaseUrl}/rest/v1/customers?id=eq.${customerId}&select=name,phone,opted_out&limit=1`,
         { headers },

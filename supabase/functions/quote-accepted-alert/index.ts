@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
       });
     }
+
+    // IDOR guard (BJ-0089): this internal office alert used to be anonymously
+    // invokable with any quote_id. Prove the caller owns the quote first.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "quote-accepted-alert",
+      cors: corsHeaders,
+      resource: { table: "quotes", id: quote_id },
+    });
+    if (isDenied(access)) return access.error;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

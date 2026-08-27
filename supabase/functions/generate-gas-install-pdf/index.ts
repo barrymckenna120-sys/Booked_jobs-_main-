@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,16 @@ Deno.serve(async (req) => {
 
   try {
     const { certificate_id } = await req.json();
+    // IDOR guard (BJ-0089): authenticate the caller and prove they belong to the
+    // organisation that owns this row BEFORE reading customer PII or writing a
+    // PDF under that tenant's storage prefix. Tenant is always derived from the
+    // resource row server-side — never from the request body.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "generate-gas-install-pdf",
+      cors: corsHeaders,
+      resource: { table: "certificates", id: certificate_id },
+    });
+    if (isDenied(access)) return access.error;
     if (!certificate_id) {
       return new Response(JSON.stringify({ error: "certificate_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
