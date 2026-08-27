@@ -273,10 +273,10 @@ serve(async (req) => {
           : null;
 
       if (
-        cfg?.new_booking_url
+        cfg?.renewal_form_url
       ) {
         tallyFormBase =
-          cfg.new_booking_url;
+          cfg.renewal_form_url;
       }
     } catch (
       _lookupErr
@@ -288,7 +288,7 @@ serve(async (req) => {
     if (!tallyFormBase) {
       await logSkip(
         "missing_renewal_form_url",
-        "tenant_integrations(tally).config.new_booking_url is not set for this organisation"
+        "tenant_integrations(tally).config.renewal_form_url is not set for this organisation"
       );
 
       return new Response(
