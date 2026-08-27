@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useOrgId } from "@/hooks/useOrgId";
@@ -267,19 +268,12 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
         // Generate PDF first (best-effort — do not block WhatsApp send on failure)
         let pdfUrl: string | undefined;
         try {
-          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-          const pdfRes = await fetch(`https://${projectId}.supabase.co/functions/v1/generate-quote-pdf`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${anonKey}`,
-              "apikey": anonKey,
-            },
-            body: JSON.stringify({ quote_id: savedQuoteId }),
+          // Tenant-guarded function: send the user session, not the anon key.
+          const { data: pdfResult } = await invokeFunction<any>("generate-quote-pdf", {
+            body: { quote_id: savedQuoteId },
+            signOutOnRefreshFailure: false,
           });
-          const pdfResult = await pdfRes.json().catch(() => ({}));
-          if (pdfRes.ok && pdfResult?.success && pdfResult?.pdf_url) {
+          if (pdfResult?.success && pdfResult?.pdf_url) {
             pdfUrl = pdfResult.pdf_url;
             await supabase.from("quotes").update({ pdf_url: pdfUrl } as any).eq("id", savedQuoteId);
           }
