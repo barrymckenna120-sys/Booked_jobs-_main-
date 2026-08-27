@@ -191,3 +191,72 @@ export function machineOrgDenial(
     { status: r.status, headers: { ...cors, "Content-Type": "application/json" } },
   );
 }
+
+/**
+ * Is strict machine→tenant binding enforced?
+ *
+ * Every live tenant must have its own integration secret (or a resolvable
+ * integration identifier) before this is switched on; until then unresolved
+ * machine callers keep working but are logged loudly. Flip
+ * `STRICT_MACHINE_ORG_BINDING=true` to make unresolved callers fail closed.
+ */
+export function strictMachineBinding(): boolean {
+  return String(Deno.env.get("STRICT_MACHINE_ORG_BINDING") ?? "").trim().toLowerCase() === "true";
+}
+
+/**
+ * Resolve the tenant for a machine caller, tolerating the transition period.
+ *
+ * - Resolved deterministically -> { orgId, via, strict: true }
+ * - Tenant claim mismatch / ambiguity / unauthenticated -> denial Response
+ * - Unresolvable AND strict mode off -> falls back to the (verified-to-exist)
+ *   claimed organisation and records `via: "unbound_claim"` so the residual risk
+ *   is visible in logs and responses.
+ */
+export async function bindMachineOrganisation(
+  req: Request,
+  opts: {
+    fnName: string;
+    integrationTypes: string[];
+    identifier?: IntegrationIdentifier;
+    claimedOrgId?: string | null;
+    cors: Record<string, string>;
+  },
+): Promise<
+  | { ok: true; orgId: string; via: string }
+  | { ok: false; response: Response }
+> {
+  const resolved = await resolveMachineOrganisation(req, opts);
+  if (resolved.ok) return { ok: true, orgId: resolved.orgId, via: resolved.via };
+
+  const recoverable = resolved.reason === "unresolved_organisation";
+  const claimed = String(opts.claimedOrgId ?? "").trim();
+
+  if (!recoverable || strictMachineBinding() || !claimed) {
+    return { ok: false, response: machineOrgDenial(resolved, opts.cors) };
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { data: org } = await supabase
+    .from("organisations")
+    .select("id")
+    .eq("id", claimed)
+    .maybeSingle();
+  if (!org?.id) {
+    return {
+      ok: false,
+      response: machineOrgDenial({ ok: false, status: 404, reason: "unknown_organisation" }, opts.cors),
+    };
+  }
+
+  console.warn(
+    `${opts.fnName}: accepting body-supplied organisation_id ${claimed} — no per-tenant ` +
+      `integration secret/identifier configured. Provision one and set ` +
+      `STRICT_MACHINE_ORG_BINDING=true to close this.`,
+  );
+  return { ok: true, orgId: claimed, via: "unbound_claim" };
+}
