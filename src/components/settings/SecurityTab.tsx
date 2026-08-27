@@ -64,9 +64,23 @@ const SecurityTab = () => {
 
   const handleResetTestData = async () => {
     if (!org) return;
+    if (resetting) return;
+    if (!org.is_test) {
+      toast({
+        title: "Not a test account",
+        description: "Data deletion is only available on test accounts.",
+        variant: "destructive",
+      });
+      return;
+    }
     setResetting(true);
     try {
-      const { data, error } = await invokeFunction("reset-org-data", { body: {} });
+      // Send the org shown in the dialog. The backend still ignores this for
+      // non-superadmins and re-checks is_test, so this can only narrow scope.
+      const { data, error } = await invokeFunction("reset-org-data", {
+        body: { organisation_id: org.id },
+      });
+
       let message: string | null = null;
       if (error) {
         const ctx: any = (error as any).context;
