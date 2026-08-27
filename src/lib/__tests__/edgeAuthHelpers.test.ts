@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluateConsent } from "../../../supabase/functions/_shared/messagingConsent";
-import { matchIntegrations } from "../../../supabase/functions/_shared/machineOrg";
+import { evaluateConsent } from "../../../supabase/functions/_shared/consentDecision";
+import { matchIntegrations } from "../../../supabase/functions/_shared/integrationMatch";
 import {
   decidePlatformAdmin,
   parseOwnerAllowlist,
-} from "../../../supabase/functions/_shared/platformAdmin";
+} from "../../../supabase/functions/_shared/platformAdminDecision";
 
 const ORG_A = "org-a";
 const ORG_B = "org-b";

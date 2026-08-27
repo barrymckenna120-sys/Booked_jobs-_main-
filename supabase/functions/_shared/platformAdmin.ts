@@ -15,6 +15,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { bearerToken } from "./machineAuth.ts";
+import { decidePlatformAdmin, parseOwnerAllowlist } from "./platformAdminDecision.ts";
 
 export type PlatformAdmin = {
   userId: string;
@@ -31,25 +32,10 @@ export function isPlatformAdminDenied(r: PlatformAdminResult): r is { error: Res
 }
 
 /** Parse the single controlled platform-owner allowlist. Pure/unit-testable. */
-export function parseOwnerAllowlist(raw: string | null | undefined): string[] {
-  return String(raw ?? "")
-    .split(/[,\s;]+/)
-    .map((e) => e.trim().toLowerCase())
-    .filter((e) => e.includes("@"));
-}
-
-/** Pure decision: is this verified identity a platform admin? */
-export function decidePlatformAdmin(
-  identity: { email?: string | null; role?: string | null },
-  ownerAllowlist: string[],
-): { allowed: boolean; via?: "role" | "platform_owner_env" } {
-  if ((identity.role ?? "") === "superadmin") return { allowed: true, via: "role" };
-  const email = String(identity.email ?? "").trim().toLowerCase();
-  if (email && ownerAllowlist.includes(email)) {
-    return { allowed: true, via: "platform_owner_env" };
-  }
-  return { allowed: false };
-}
+export {
+  decidePlatformAdmin,
+  parseOwnerAllowlist,
+} from "./platformAdminDecision.ts";
 
 function serviceClient() {
   return createClient(
