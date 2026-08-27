@@ -115,11 +115,12 @@ function isAuthorisedInbound(
     ).trim();
 
   if (!expected) {
-    console.warn(
-      "whatsapp-inbound: WHATSAPP_INBOUND_SECRET not set — webhook is still open"
+    // Fail CLOSED: a missing required security env var must not disable the guard.
+    console.error(
+      "whatsapp-inbound: WHATSAPP_INBOUND_SECRET is not configured — rejecting request"
     );
 
-    return true;
+    return false;
   }
 
   const provided =
