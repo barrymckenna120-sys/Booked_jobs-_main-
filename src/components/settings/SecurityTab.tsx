@@ -118,6 +118,7 @@ const SecurityTab = () => {
         variant: "destructive",
       });
     } finally {
+      resettingRef.current = false;
       setResetting(false);
     }
   };
