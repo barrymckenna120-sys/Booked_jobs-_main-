@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Send, MessageCircle } from "lucide-react";
 import JobMessageThread from "./JobMessageThread";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+
 
 const PRESETS = [
   "On my way",
@@ -24,6 +26,8 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
   const [isPreset, setIsPreset] = useState(false);
   const [sending, setSending] = useState(false);
   const [engineerName, setEngineerName] = useState("Engineer");
+  const unreadFromOffice = useUnreadMessages("engineer", jobId);
+
 
   useEffect(() => {
     if (!user) return;
@@ -76,7 +80,13 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
       <div className="flex items-center gap-2 pb-2 border-b" style={{ borderColor: "#eaecf0" }}>
         <MessageCircle className="w-4 h-4" style={{ color: "#4A86E8" }} />
         <span className="text-[15px] font-bold" style={{ color: "#1a1a2e" }}>Messages</span>
+        {unreadFromOffice > 0 && (
+          <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[11px] font-bold flex items-center justify-center">
+            {unreadFromOffice > 99 ? "99+" : unreadFromOffice}
+          </span>
+        )}
       </div>
+
 
       <JobMessageThread jobId={jobId} perspective="engineer" />
 
