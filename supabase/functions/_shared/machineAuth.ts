@@ -99,7 +99,7 @@ export async function requireMachineOrUser(
   corsHeaders: Record<string, string>,
   fnName: string,
 ): Promise<Response | null> {
-  if (isMachineCaller(req)) return null;
+  if (await isMachineCaller(req)) return null;
 
   const token = bearerToken(req);
   let reason = "missing_credentials";
