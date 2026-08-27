@@ -59,3 +59,41 @@ export function jsonResponse(
 export function errorResponse(message: string, status = 400): Response {
   return jsonResponse({ error: message }, { status });
 }
+
+// --- Dynamic-origin CORS ----------------------------------------------------
+// Same allow-list logic as list-users / impersonate-org / reset-org-data.
+// Browser callers from a known app origin get that exact origin echoed back;
+// unknown origins get no CORS grant. Server-to-server callers (cron, Make.com)
+// send no Origin header and are unaffected.
+
+const ALLOWED_ORIGINS = [
+  "https://kngasservices.bookedjobs.ie",
+  "https://dublin-gas.bookedjobs.ie",
+];
+
+export function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const hostname = new URL(origin).hostname;
+    return (
+      hostname === "localhost" ||
+      hostname.endsWith(".lovableproject.com") ||
+      hostname.endsWith(".lovable.app")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin");
+  return {
+    "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? (origin as string) : "",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": corsHeaders["Access-Control-Allow-Headers"],
+    "Access-Control-Allow-Credentials": "true",
+    Vary: "Origin",
+  };
+}
+
