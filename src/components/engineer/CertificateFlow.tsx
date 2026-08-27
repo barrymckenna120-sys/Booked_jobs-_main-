@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRetryQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Checks", "Readings", "Customer", "Engineer"];
@@ -141,6 +143,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engineerName, engineerRgi, onClose }) => {
   const { toast } = useToast();
+  const { addToQueue } = useRetryQueue();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -165,14 +168,26 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
     customerMobile: customer?.phone || "",
     customerAddress: customer?.address || "",
     eircode: customer?.eircode || "",
+    gprn: customer?.gprn || "",
+
     applianceType: job?.boiler_type || customer?.boiler_type || "",
-    boilerBrand: job?.boiler_brand || "",
-    boilerModel: customer?.boiler_make_model || "",
+    boilerBrand: job?.boiler_brand || customer?.boiler_brand || "",
+    boilerModel: customer?.boiler_model || customer?.boiler_make_model || "",
     flueType: "",
     pipework: "",
     engineerName: engineerName || "",
     date: new Date().toISOString().split("T")[0],
   });
+
+  // Defensive: if customer loads after first render, adopt its GPRN — only while
+  // the field is still empty, so it can never clobber a value the engineer typed.
+  useEffect(() => {
+    if (customer?.gprn) {
+      setDetails((d) => (d.gprn ? d : { ...d, gprn: customer.gprn }));
+    }
+  }, [customer?.gprn]);
+
+
 
   // Step 2 — Checks
   type CheckResult = { status: "pass" | "fail" | null; note: string };
@@ -261,12 +276,28 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
 
     setSaving(false);
     if (error) {
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("Certificate insert failed, queuing for retry:", error.message);
+      addToQueue({ table: "certificates", operation: "insert", payload: {
+        organisation_id: job.organisation_id,
+        job_id: job.id,
+        customer_id: customer.id,
+        cert_number: cn,
+        checks,
+        notes: { details, work_carried_out: readings.work_carried_out },
+        readings: { co_ppm: readings.co_ppm, co2_pct: readings.co2_pct, ratio: readings.ratio, combustion_co: readings.combustion_co, combustion_ratio: readings.combustion_ratio, inlet_pressure: readings.inlet_pressure, working_pressure: readings.working_pressure },
+        customer_sig_url: customerSig,
+        engineer_sig_url: engSigUrl,
+      }});
+      toast({ title: "No connection", description: "Certificate saved and will sync automatically when back online", variant: "destructive" });
     } else {
       setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
       setCertId(newCertId);
       setStep(5);
+
+      // Write GPRN back to the customer record if they don't have one yet.
+      // Awaited so the value is on the row before the PDF is rendered.
+      await backfillCustomerGprn(customer?.id, details.gprn);
 
       // Trigger PDF generation
       if (newCertId) {
@@ -396,6 +427,7 @@ const CertificateFlow: React.FC<CertificateFlowProps> = ({ job, customer, engine
               ["customerMobile", "Customer Mobile"],
               ["customerAddress", "Address"],
               ["eircode", "Eircode"],
+              ["gprn", "GPRN"],
               ["applianceType", "Appliance Type"],
               ["boilerBrand", "Boiler Brand"],
               ["boilerModel", "Boiler Make / Model"],

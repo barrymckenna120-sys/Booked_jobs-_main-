@@ -14,6 +14,10 @@ import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import { formatWhatsApp } from "@/lib/whatsappLink";
+
 
 const PAGE_SIZE = 15;
 
@@ -43,6 +47,9 @@ type Job = {
   follow_up_detail?: string | null;
   follow_up_resolved?: boolean;
   job_reference?: string | null;
+  confirmed?: boolean | null;
+  confirmed_at?: string | null;
+  customer_status_at_booking?: string | null;
 };
 
 const Jobs = () => {
@@ -60,6 +67,7 @@ const Jobs = () => {
   const [search, setSearch] = useState("");
   const [refSearch, setRefSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [customerStatusFilter, setCustomerStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState(searchParams.get("payment") || "all");
   const [page, setPage] = useState(0);
   const [completedPage, setCompletedPage] = useState(0);
@@ -88,44 +96,74 @@ const Jobs = () => {
 
   const fetchJobs = async () => {
     setLoading(true);
-    const { data: jobsData } = await supabase
-      .from("service_calls")
-      .select("*")
-      .order("scheduled_date", { ascending: false });
+    const CACHE_KEY = "bookedjobs_jobs_cache";
+    const isAdminViewing = !!localStorage.getItem("adminViewingOrgId");
 
-    if (jobsData) {
-      const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
-      const { data: customers } = await supabase
-        .from("customers")
-        .select("id, name, phone, address, eircode")
-        .in("id", customerIds);
-      const cMap: Record<string, any> = {};
-      (customers || []).forEach(c => { cMap[c.id] = c; });
-      setCustomersMap(cMap);
-
-      // Fetch all quotes to build lookup maps
-      const { data: allQuotes } = await supabase
-        .from("quotes")
-        .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
-        .neq("status", "Draft")
-        .order("created_at", { ascending: false });
-
-      if (allQuotes) {
-        // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
-        const jqMap: Record<string, string> = {};
-        const quotesWithJobs = jobsData.filter(j => j.has_quote);
-        for (const job of quotesWithJobs) {
-          const match = allQuotes.find(q => q.converted_job_id === job.id)
-            || allQuotes.find(q => q.job_id === job.id)
-            || allQuotes.find(q => q.customer_id === job.customer_id);
-          if (match) jqMap[job.id] = match.id;
+    // Only read cache for regular users. Admins viewing another org must
+    // wait for a fresh fetch to avoid showing the previous tenant's data.
+    if (!isAdminViewing) {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setJobs(parsed.jobs || []);
+          setCustomersMap(parsed.customersMap || {});
+          setLoading(false);
         }
-        setJobQuotesMap(jqMap);
-      }
-
-      setJobs(jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[]);
+      } catch (e) {}
     }
-    setLoading(false);
+
+    try {
+      const { data: jobsData } = await supabase
+        .from("service_calls")
+        .select("*")
+        .order("scheduled_date", { ascending: false });
+
+      if (jobsData) {
+        const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
+        const { data: customers } = await supabase
+          .from("customers")
+          .select("id, name, phone, address, eircode")
+          .in("id", customerIds);
+        const cMap: Record<string, any> = {};
+        (customers || []).forEach(c => { cMap[c.id] = c; });
+        setCustomersMap(cMap);
+
+        // Fetch all quotes to build lookup maps
+        const { data: allQuotes } = await supabase
+          .from("quotes")
+          .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
+          .neq("status", "Draft")
+          .order("created_at", { ascending: false });
+
+        if (allQuotes) {
+          // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
+          const jqMap: Record<string, string> = {};
+          const quotesWithJobs = jobsData.filter(j => j.has_quote);
+          for (const job of quotesWithJobs) {
+            const match = allQuotes.find(q => q.converted_job_id === job.id)
+              || allQuotes.find(q => q.job_id === job.id)
+              || allQuotes.find(q => q.customer_id === job.customer_id);
+            if (match) jqMap[job.id] = match.id;
+          }
+          setJobQuotesMap(jqMap);
+        }
+
+        const jobs = jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[];
+        setJobs(jobs);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            jobs,
+            customersMap: cMap,
+            cachedAt: new Date().toISOString()
+          }));
+        } catch (e) {}
+      }
+    } catch (error) {
+      setTimeout(() => fetchJobs(), 5000);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleSort = (col: typeof sortCol) => {
@@ -167,7 +205,12 @@ const Jobs = () => {
       const matchPayment = paymentFilter === "all" || (paymentFilter === "unpaid" ? !j.payment_method : j.payment_method === paymentFilter);
       const refDigits = refSearch ? extractRefDigits(refSearch) : null;
       const matchRef = !refSearch || (refDigits ? matchesJobRef(j.job_reference, refDigits) : false);
-      return matchStatus && matchType && matchSearch && matchPayment && matchRef;
+      const matchCustomerStatus =
+        customerStatusFilter === "all" ||
+        (customerStatusFilter === "new"
+          ? j.customer_status_at_booking === "new"
+          : j.customer_status_at_booking !== "new");
+      return matchStatus && matchType && matchSearch && matchPayment && matchRef && matchCustomerStatus;
     });
 
   const applySorting = (list: Job[], overrideDir?: "asc" | "desc") => {
@@ -280,6 +323,8 @@ const Jobs = () => {
             <TableRow key={j.id} className={`cursor-pointer hover:bg-primary-light ${borderClass}`} onClick={() => navigate(`/jobs/${j.id}`)}>
               <TableCell>
                 <span className="font-semibold">{j.customer_name}</span>
+                <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} status={j.status} size="sm" className="ml-1.5 align-middle" />
+                <NewCustomerBadge status={j.customer_status_at_booking} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
                   <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
@@ -364,13 +409,8 @@ const Jobs = () => {
     return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
   };
 
-  const formatWhatsApp = (phone: string | undefined) => {
-    if (!phone) return '';
-    const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('0')) return '353' + digits.slice(1);
-    if (digits.startsWith('353')) return digits;
-    return '353' + digits;
-  };
+  // formatWhatsApp lives in src/lib/whatsappLink.ts (shared with Declined Payments)
+
 
   const getJobBorderClass = (j: Job) => {
     if (IN_PROGRESS_STATUSES.includes(j.status)) return "border-l-4 border-l-warning";
@@ -388,7 +428,10 @@ const Jobs = () => {
       {/* Row 1: Customer + Status */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-foreground truncate">{j.customer_name}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="font-bold text-foreground truncate">{j.customer_name}</p>
+            <NewCustomerBadge status={j.customer_status_at_booking} size="sm" />
+          </div>
           {j.customer_address && (
             <p className="text-xs text-muted-foreground truncate">{j.customer_address}</p>
           )}
@@ -435,6 +478,7 @@ const Jobs = () => {
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground font-mono">{(j as any).job_reference || `KN-${j.id.slice(0, 4).toUpperCase()}`}</span>
+          <JobConfirmedBadge confirmed={(j as any).confirmed} confirmedAt={(j as any).confirmed_at} status={(j as any).status} size="sm" />
           {j.source === "Quote" ? (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">Quote</span>
           ) : j.source === "Tally Form" ? (
@@ -545,6 +589,14 @@ const Jobs = () => {
             <SelectItem value="cash">Cash</SelectItem>
             <SelectItem value="card">Card</SelectItem>
             <SelectItem value="invoice">Invoice</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={customerStatusFilter} onValueChange={setCustomerStatusFilter}>
+          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            <SelectItem value="all">All Customers</SelectItem>
+            <SelectItem value="new">New Customers</SelectItem>
+            <SelectItem value="existing">Existing Customers</SelectItem>
           </SelectContent>
         </Select>
       </div>

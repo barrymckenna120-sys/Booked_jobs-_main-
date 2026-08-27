@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -142,7 +142,6 @@ export type Database = {
           header_text_color: string
           id: string
           organisation_id: string
-          organisation_id_ref: string | null
           primary_color: string
           secondary_color: string
           section_label_color: string
@@ -160,7 +159,6 @@ export type Database = {
           header_text_color?: string
           id?: string
           organisation_id: string
-          organisation_id_ref?: string | null
           primary_color?: string
           secondary_color?: string
           section_label_color?: string
@@ -178,7 +176,6 @@ export type Database = {
           header_text_color?: string
           id?: string
           organisation_id?: string
-          organisation_id_ref?: string | null
           primary_color?: string
           secondary_color?: string
           section_label_color?: string
@@ -187,15 +184,7 @@ export type Database = {
           table_row_color?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "brand_settings_organisation_id_ref_fkey"
-            columns: ["organisation_id_ref"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       categories: {
         Row: {
@@ -203,23 +192,35 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          organisation_id: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
           name: string
+          organisation_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
           name?: string
+          organisation_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cert2_certificates: {
         Row: {
+          access_token: string
           address_premises: string | null
           adequate_ventilation: boolean | null
           appliance_location_correct: boolean | null
@@ -261,6 +262,7 @@ export type Database = {
           work_carried_out: string | null
         }
         Insert: {
+          access_token?: string
           address_premises?: string | null
           adequate_ventilation?: boolean | null
           appliance_location_correct?: boolean | null
@@ -302,6 +304,7 @@ export type Database = {
           work_carried_out?: string | null
         }
         Update: {
+          access_token?: string
           address_premises?: string | null
           adequate_ventilation?: boolean | null
           appliance_location_correct?: boolean | null
@@ -368,6 +371,7 @@ export type Database = {
       }
       certificates: {
         Row: {
+          access_token: string
           cert_number: string | null
           checks: Json | null
           created_at: string | null
@@ -382,6 +386,7 @@ export type Database = {
           readings: Json | null
         }
         Insert: {
+          access_token?: string
           cert_number?: string | null
           checks?: Json | null
           created_at?: string | null
@@ -396,6 +401,7 @@ export type Database = {
           readings?: Json | null
         }
         Update: {
+          access_token?: string
           cert_number?: string | null
           checks?: Json | null
           created_at?: string | null
@@ -607,6 +613,7 @@ export type Database = {
           boiler_age: number | null
           boiler_brand: string | null
           boiler_installation_date: string | null
+          boiler_location: string | null
           boiler_make_model: string | null
           boiler_model: string | null
           boiler_type: string | null
@@ -618,10 +625,12 @@ export type Database = {
           eircode: string
           email: string | null
           engineer_notes: string | null
+          gprn: string | null
           id: string
           is_archived: boolean
           job_tag: string | null
           job_tag_date: string | null
+          landline_phone: string | null
           last_message_sent_at: string | null
           last_message_type: string | null
           last_reminder_response: string | null
@@ -636,6 +645,7 @@ export type Database = {
           organisation_id: string
           owner_or_tenant: string | null
           phone: string
+          reminder_14_days_sent: boolean
           reminder_30_days_sent: boolean | null
           reminder_7_days_sent: boolean | null
           reminders_consent: boolean | null
@@ -647,6 +657,7 @@ export type Database = {
           under_warranty: boolean | null
           updated_at: string
           user_id: string
+          warranty_expiry_date: string | null
           warranty_reminder_log: Json | null
           warranty_years: number | null
           whatsapp_opt_in: boolean
@@ -664,6 +675,7 @@ export type Database = {
           boiler_age?: number | null
           boiler_brand?: string | null
           boiler_installation_date?: string | null
+          boiler_location?: string | null
           boiler_make_model?: string | null
           boiler_model?: string | null
           boiler_type?: string | null
@@ -675,10 +687,12 @@ export type Database = {
           eircode: string
           email?: string | null
           engineer_notes?: string | null
+          gprn?: string | null
           id?: string
           is_archived?: boolean
           job_tag?: string | null
           job_tag_date?: string | null
+          landline_phone?: string | null
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
@@ -693,6 +707,7 @@ export type Database = {
           organisation_id: string
           owner_or_tenant?: string | null
           phone: string
+          reminder_14_days_sent?: boolean
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
           reminders_consent?: boolean | null
@@ -704,6 +719,7 @@ export type Database = {
           under_warranty?: boolean | null
           updated_at?: string
           user_id: string
+          warranty_expiry_date?: string | null
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
           whatsapp_opt_in?: boolean
@@ -721,6 +737,7 @@ export type Database = {
           boiler_age?: number | null
           boiler_brand?: string | null
           boiler_installation_date?: string | null
+          boiler_location?: string | null
           boiler_make_model?: string | null
           boiler_model?: string | null
           boiler_type?: string | null
@@ -732,10 +749,12 @@ export type Database = {
           eircode?: string
           email?: string | null
           engineer_notes?: string | null
+          gprn?: string | null
           id?: string
           is_archived?: boolean
           job_tag?: string | null
           job_tag_date?: string | null
+          landline_phone?: string | null
           last_message_sent_at?: string | null
           last_message_type?: string | null
           last_reminder_response?: string | null
@@ -750,6 +769,7 @@ export type Database = {
           organisation_id?: string
           owner_or_tenant?: string | null
           phone?: string
+          reminder_14_days_sent?: boolean
           reminder_30_days_sent?: boolean | null
           reminder_7_days_sent?: boolean | null
           reminders_consent?: boolean | null
@@ -761,6 +781,7 @@ export type Database = {
           under_warranty?: boolean | null
           updated_at?: string
           user_id?: string
+          warranty_expiry_date?: string | null
           warranty_reminder_log?: Json | null
           warranty_years?: number | null
           whatsapp_opt_in?: boolean
@@ -786,6 +807,7 @@ export type Database = {
           event: string
           id: string
           job_id: string | null
+          organisation_id: string
           payload: Json | null
           stack: string | null
         }
@@ -795,6 +817,7 @@ export type Database = {
           event: string
           id?: string
           job_id?: string | null
+          organisation_id?: string
           payload?: Json | null
           stack?: string | null
         }
@@ -804,6 +827,7 @@ export type Database = {
           event?: string
           id?: string
           job_id?: string | null
+          organisation_id?: string
           payload?: Json | null
           stack?: string | null
         }
@@ -1072,6 +1096,7 @@ export type Database = {
       }
       hazard_notifications: {
         Row: {
+          access_token: string
           appliance: string | null
           appliance_notes: string | null
           created_at: string | null
@@ -1098,6 +1123,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          access_token?: string
           appliance?: string | null
           appliance_notes?: string | null
           created_at?: string | null
@@ -1124,6 +1150,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          access_token?: string
           appliance?: string | null
           appliance_notes?: string | null
           created_at?: string | null
@@ -1166,6 +1193,53 @@ export type Database = {
           },
           {
             foreignKeyName: "hazard_notifications_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_runs: {
+        Row: {
+          created_at: string
+          created_count: number
+          error_count: number
+          filename: string
+          id: string
+          imported_by: string
+          organisation_id: string
+          row_details: Json
+          total_rows: number
+          updated_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_count?: number
+          error_count?: number
+          filename: string
+          id?: string
+          imported_by: string
+          organisation_id: string
+          row_details?: Json
+          total_rows?: number
+          updated_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_count?: number
+          error_count?: number
+          filename?: string
+          id?: string
+          imported_by?: string
+          organisation_id?: string
+          row_details?: Json
+          total_rows?: number
+          updated_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_runs_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -1216,6 +1290,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          access_token: string
           balance_due: number | null
           created_at: string
           customer_id: string
@@ -1224,6 +1299,7 @@ export type Database = {
           invoice_number: string | null
           job_id: string | null
           organisation_id: string
+          paid_at: string | null
           pdf_url: string | null
           quote_id: string | null
           sent_at: string | null
@@ -1234,6 +1310,7 @@ export type Database = {
           vat_enabled: boolean | null
         }
         Insert: {
+          access_token?: string
           balance_due?: number | null
           created_at?: string
           customer_id: string
@@ -1242,6 +1319,7 @@ export type Database = {
           invoice_number?: string | null
           job_id?: string | null
           organisation_id: string
+          paid_at?: string | null
           pdf_url?: string | null
           quote_id?: string | null
           sent_at?: string | null
@@ -1252,6 +1330,7 @@ export type Database = {
           vat_enabled?: boolean | null
         }
         Update: {
+          access_token?: string
           balance_due?: number | null
           created_at?: string
           customer_id?: string
@@ -1260,6 +1339,7 @@ export type Database = {
           invoice_number?: string | null
           job_id?: string | null
           organisation_id?: string
+          paid_at?: string | null
           pdf_url?: string | null
           quote_id?: string | null
           sent_at?: string | null
@@ -1424,26 +1504,120 @@ export type Database = {
           },
         ]
       }
+      job_payments: {
+        Row: {
+          amount: number
+          checkout_id: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          metadata: Json | null
+          method: string
+          note: string | null
+          organisation_id: string
+          paid_at: string
+          payment_type: string
+          recorded_by: string | null
+          reverses_payment_id: string | null
+          service_call_id: string
+          source: string
+        }
+        Insert: {
+          amount: number
+          checkout_id?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          metadata?: Json | null
+          method: string
+          note?: string | null
+          organisation_id: string
+          paid_at: string
+          payment_type: string
+          recorded_by?: string | null
+          reverses_payment_id?: string | null
+          service_call_id: string
+          source: string
+        }
+        Update: {
+          amount?: number
+          checkout_id?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          metadata?: Json | null
+          method?: string
+          note?: string | null
+          organisation_id?: string
+          paid_at?: string
+          payment_type?: string
+          recorded_by?: string | null
+          reverses_payment_id?: string | null
+          service_call_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_reverses_payment_id_fkey"
+            columns: ["reverses_payment_id"]
+            isOneToOne: false
+            referencedRelation: "job_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_tags: {
         Row: {
           colour: string
           created_at: string
           id: string
           name: string
+          organisation_id: string | null
         }
         Insert: {
           colour: string
           created_at?: string
           id?: string
           name: string
+          organisation_id?: string | null
         }
         Update: {
           colour?: string
           created_at?: string
           id?: string
           name?: string
+          organisation_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_tags_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       login_attempts: {
         Row: {
@@ -1482,8 +1656,8 @@ export type Database = {
           error_message: string | null
           id: string
           message_type: string | null
-          organisation_id: string | null
-          organisation_id_ref: string | null
+          organisation_id: string
+          recipient_phone: string | null
           related_id: string | null
           related_type: string | null
           sent_at: string | null
@@ -1499,8 +1673,8 @@ export type Database = {
           error_message?: string | null
           id?: string
           message_type?: string | null
-          organisation_id?: string | null
-          organisation_id_ref?: string | null
+          organisation_id: string
+          recipient_phone?: string | null
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -1516,8 +1690,8 @@ export type Database = {
           error_message?: string | null
           id?: string
           message_type?: string | null
-          organisation_id?: string | null
-          organisation_id_ref?: string | null
+          organisation_id?: string
+          recipient_phone?: string | null
           related_id?: string | null
           related_type?: string | null
           sent_at?: string | null
@@ -1532,13 +1706,6 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "message_log_organisation_id_ref_fkey"
-            columns: ["organisation_id_ref"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
         ]
       }
       notifications: {
@@ -1551,6 +1718,7 @@ export type Database = {
           metadata: Json | null
           notification_type: string
           organisation_id: string | null
+          read_at: string | null
           recipient_user_id: string
           role: string | null
           title: string
@@ -1564,6 +1732,7 @@ export type Database = {
           metadata?: Json | null
           notification_type: string
           organisation_id?: string | null
+          read_at?: string | null
           recipient_user_id: string
           role?: string | null
           title: string
@@ -1577,6 +1746,7 @@ export type Database = {
           metadata?: Json | null
           notification_type?: string
           organisation_id?: string | null
+          read_at?: string | null
           recipient_user_id?: string
           role?: string | null
           title?: string
@@ -1691,11 +1861,14 @@ export type Database = {
           industry: string | null
           is_archived: boolean
           is_blocked: boolean
+          is_test: boolean
+          job_reference_prefix: string
           name: string
           owner_name: string | null
           owner_phone: string | null
           owner_user_id: string | null
           prompt_template: string | null
+          public_domain: string | null
           slug: string
           stripe_customer_id: string | null
           subscription_status: string
@@ -1717,11 +1890,14 @@ export type Database = {
           industry?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          is_test?: boolean
+          job_reference_prefix: string
           name: string
           owner_name?: string | null
           owner_phone?: string | null
           owner_user_id?: string | null
           prompt_template?: string | null
+          public_domain?: string | null
           slug: string
           stripe_customer_id?: string | null
           subscription_status?: string
@@ -1743,54 +1919,338 @@ export type Database = {
           industry?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          is_test?: boolean
+          job_reference_prefix?: string
           name?: string
           owner_name?: string | null
           owner_phone?: string | null
           owner_user_id?: string | null
           prompt_template?: string | null
+          public_domain?: string | null
           slug?: string
           stripe_customer_id?: string | null
           subscription_status?: string
         }
         Relationships: []
       }
+      parts_request_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          author_role: string | null
+          body: string
+          created_at: string
+          id: string
+          organisation_id: string
+          parts_request_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          parts_request_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          parts_request_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_request_comments_parts_request_id_fkey"
+            columns: ["parts_request_id"]
+            isOneToOne: false
+            referencedRelation: "parts_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parts_requests: {
+        Row: {
+          actual_cost: number | null
+          assigned_engineer_id: string | null
+          assigned_to: string | null
+          boiler_brand_model: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cost_currency: string
+          created_at: string
+          created_by: string | null
+          customer_address: string | null
+          customer_eircode: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_notified_at: string | null
+          customer_notified_by: string | null
+          customer_notified_method: string | null
+          customer_phone: string | null
+          description: string
+          engineer_id: string | null
+          expected_delivery_date: string | null
+          id: string
+          logged_by: string | null
+          logged_by_name: string | null
+          notes: string | null
+          ordered_at: string | null
+          organisation_id: string
+          photo_url: string | null
+          priority: string
+          quantity: number
+          quote_reference: string | null
+          quoted_cost: number | null
+          ready_at: string | null
+          service_call_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          assigned_engineer_id?: string | null
+          assigned_to?: string | null
+          boiler_brand_model?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cost_currency?: string
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_eircode?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_notified_at?: string | null
+          customer_notified_by?: string | null
+          customer_notified_method?: string | null
+          customer_phone?: string | null
+          description: string
+          engineer_id?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          logged_by?: string | null
+          logged_by_name?: string | null
+          notes?: string | null
+          ordered_at?: string | null
+          organisation_id: string
+          photo_url?: string | null
+          priority?: string
+          quantity?: number
+          quote_reference?: string | null
+          quoted_cost?: number | null
+          ready_at?: string | null
+          service_call_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_cost?: number | null
+          assigned_engineer_id?: string | null
+          assigned_to?: string | null
+          boiler_brand_model?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cost_currency?: string
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_eircode?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_notified_at?: string | null
+          customer_notified_by?: string | null
+          customer_notified_method?: string | null
+          customer_phone?: string | null
+          description?: string
+          engineer_id?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          logged_by?: string | null
+          logged_by_name?: string | null
+          notes?: string | null
+          ordered_at?: string | null
+          organisation_id?: string
+          photo_url?: string | null
+          priority?: string
+          quantity?: number
+          quote_reference?: string | null
+          quoted_cost?: number | null
+          ready_at?: string | null
+          service_call_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_requests_assigned_engineer_id_fkey"
+            columns: ["assigned_engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "parts_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "parts_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "parts_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "parts_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_requests_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_checkout_attempts: {
+        Row: {
+          checkout_id: string
+          checkout_reference: string
+          created_at: string
+          id: string
+          organisation_id: string
+          service_call_id: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          checkout_id: string
+          checkout_reference: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          service_call_id: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checkout_id?: string
+          checkout_reference?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          service_call_id?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_checkout_attempts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean | null
           category: string | null
+          cost_price: number | null
           created_at: string | null
           description: string | null
           id: string
           name: string
+          organisation_id: string
           unit_price: number
         }
         Insert: {
           active?: boolean | null
           category?: string | null
+          cost_price?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
           name: string
+          organisation_id: string
           unit_price?: number
         }
         Update: {
           active?: boolean | null
           category?: string | null
+          cost_price?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
           name?: string
+          organisation_id?: string
           unit_price?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           display_name: string | null
           id: string
+          is_active: boolean
           onboarding_complete: boolean | null
-          organisation_id: string | null
+          organisation_id: string
+          receives_ops_notifications: boolean
           role: string | null
           sound_alerts_enabled: boolean | null
           updated_at: string
@@ -1798,10 +2258,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           display_name?: string | null
           id?: string
+          is_active?: boolean
           onboarding_complete?: boolean | null
-          organisation_id?: string | null
+          organisation_id: string
+          receives_ops_notifications?: boolean
           role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
@@ -1809,10 +2273,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           display_name?: string | null
           id?: string
+          is_active?: boolean
           onboarding_complete?: boolean | null
-          organisation_id?: string | null
+          organisation_id?: string
+          receives_ops_notifications?: boolean
           role?: string | null
           sound_alerts_enabled?: boolean | null
           updated_at?: string
@@ -1854,6 +2322,7 @@ export type Database = {
       }
       quote_line_items: {
         Row: {
+          cost_price: number | null
           created_at: string | null
           description: string
           id: string
@@ -1865,6 +2334,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          cost_price?: number | null
           created_at?: string | null
           description: string
           id?: string
@@ -1876,6 +2346,7 @@ export type Database = {
           unit_price?: number
         }
         Update: {
+          cost_price?: number | null
           created_at?: string | null
           description?: string
           id?: string
@@ -1906,6 +2377,8 @@ export type Database = {
       quotes: {
         Row: {
           accepted_at: string | null
+          access_token: string
+          access_token_used_at: string | null
           approved: boolean | null
           approved_at: string | null
           balance_due: number | null
@@ -1947,10 +2420,13 @@ export type Database = {
           updated_at: string
           user_id: string
           vat_enabled: boolean | null
+          vat_rate: number
           viewed_at: string | null
         }
         Insert: {
           accepted_at?: string | null
+          access_token?: string
+          access_token_used_at?: string | null
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
@@ -1992,10 +2468,13 @@ export type Database = {
           updated_at?: string
           user_id: string
           vat_enabled?: boolean | null
+          vat_rate?: number
           viewed_at?: string | null
         }
         Update: {
           accepted_at?: string | null
+          access_token?: string
+          access_token_used_at?: string | null
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
@@ -2037,6 +2516,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vat_enabled?: boolean | null
+          vat_rate?: number
           viewed_at?: string | null
         }
         Relationships: [
@@ -2119,6 +2599,7 @@ export type Database = {
       service_calls: {
         Row: {
           access_notes: string | null
+          access_token: string
           area_code: string | null
           assigned_engineer: string | null
           assigned_engineer_id: string | null
@@ -2140,7 +2621,9 @@ export type Database = {
           confirmed_at: string | null
           conversation_id: string | null
           created_at: string
+          customer_facing_notes: string | null
           customer_id: string
+          customer_status_at_booking: string | null
           deposit_amount: number | null
           deposit_paid: boolean
           deposit_required: boolean
@@ -2208,6 +2691,7 @@ export type Database = {
         }
         Insert: {
           access_notes?: string | null
+          access_token?: string
           area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
@@ -2229,7 +2713,9 @@ export type Database = {
           confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
+          customer_facing_notes?: string | null
           customer_id: string
+          customer_status_at_booking?: string | null
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
@@ -2297,6 +2783,7 @@ export type Database = {
         }
         Update: {
           access_notes?: string | null
+          access_token?: string
           area_code?: string | null
           assigned_engineer?: string | null
           assigned_engineer_id?: string | null
@@ -2318,7 +2805,9 @@ export type Database = {
           confirmed_at?: string | null
           conversation_id?: string | null
           created_at?: string
+          customer_facing_notes?: string | null
           customer_id?: string
+          customer_status_at_booking?: string | null
           deposit_amount?: number | null
           deposit_paid?: boolean
           deposit_required?: boolean
@@ -2448,6 +2937,7 @@ export type Database = {
           payment_reminder_days_2: number | null
           payment_reminders_enabled: boolean | null
           payment_terms: string | null
+          receipt_show_boiler_details: boolean
           receipts_counter: number
           reminder_message_template: string | null
           renewal_reminder_days_1: number | null
@@ -2496,12 +2986,13 @@ export type Database = {
           message_footer?: string | null
           next_invoice_number?: number | null
           opening_hours?: Json | null
-          organisation_id?: string
+          organisation_id: string
           owner_name?: string | null
           payment_reminder_days_1?: number | null
           payment_reminder_days_2?: number | null
           payment_reminders_enabled?: boolean | null
           payment_terms?: string | null
+          receipt_show_boiler_details?: boolean
           receipts_counter?: number
           reminder_message_template?: string | null
           renewal_reminder_days_1?: number | null
@@ -2556,6 +3047,7 @@ export type Database = {
           payment_reminder_days_2?: number | null
           payment_reminders_enabled?: boolean | null
           payment_terms?: string | null
+          receipt_show_boiler_details?: boolean
           receipts_counter?: number
           reminder_message_template?: string | null
           renewal_reminder_days_1?: number | null
@@ -2584,6 +3076,48 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: true
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sumup_webhook_events: {
+        Row: {
+          checkout_id: string
+          created_at: string
+          event_type: string | null
+          id: string
+          organisation_id: string | null
+          service_call_id: string | null
+        }
+        Insert: {
+          checkout_id: string
+          created_at?: string
+          event_type?: string | null
+          id?: string
+          organisation_id?: string | null
+          service_call_id?: string | null
+        }
+        Update: {
+          checkout_id?: string
+          created_at?: string
+          event_type?: string | null
+          id?: string
+          organisation_id?: string | null
+          service_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sumup_webhook_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sumup_webhook_events_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
         ]
@@ -2685,6 +3219,63 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          organisation_id: string
+          paid_at: string | null
+          payment_type: string | null
+          service_call_id: string | null
+          status: string | null
+          sumup_checkout_id: string | null
+          sumup_transaction_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          organisation_id: string
+          paid_at?: string | null
+          payment_type?: string | null
+          service_call_id?: string | null
+          status?: string | null
+          sumup_checkout_id?: string | null
+          sumup_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          organisation_id?: string
+          paid_at?: string | null
+          payment_type?: string | null
+          service_call_id?: string | null
+          status?: string | null
+          sumup_checkout_id?: string | null
+          sumup_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           created_at: string | null
@@ -2695,7 +3286,7 @@ export type Database = {
           linked_quote_id: string | null
           message_body: string
           message_type: string
-          organisation_id: string | null
+          organisation_id: string
           phone_number: string | null
           raw_payload: Json | null
           reply_received_at: string | null
@@ -2713,7 +3304,7 @@ export type Database = {
           linked_quote_id?: string | null
           message_body: string
           message_type: string
-          organisation_id?: string | null
+          organisation_id: string
           phone_number?: string | null
           raw_payload?: Json | null
           reply_received_at?: string | null
@@ -2731,7 +3322,7 @@ export type Database = {
           linked_quote_id?: string | null
           message_body?: string
           message_type?: string
-          organisation_id?: string | null
+          organisation_id?: string
           phone_number?: string | null
           raw_payload?: Json | null
           reply_received_at?: string | null
@@ -2819,6 +3410,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_impersonation_hmac: {
+        Args: { _secret: string }
+        Returns: undefined
+      }
+      count_org_data: { Args: { _org_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -2842,11 +3438,24 @@ export type Database = {
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_my_org_id: { Args: never; Returns: string }
+      get_org_profile_directory: {
+        Args: never
+        Returns: {
+          display_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       get_quote_by_number: { Args: { p_quote_number: string }; Returns: Json }
+      get_quote_by_token: { Args: { p_token: string }; Returns: Json }
       get_quote_public: { Args: { p_quote_id: string }; Returns: Json }
       get_receipt_public: { Args: { p_receipt_number: string }; Returns: Json }
       get_user_organisation_id: { Args: { _user_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
+      is_ignored_number: {
+        Args: { _organisation_id: string; _phone: string }
+        Returns: boolean
+      }
       mark_quote_viewed: { Args: { p_quote_id: string }; Returns: undefined }
       move_to_dlq: {
         Args: {
@@ -2858,6 +3467,7 @@ export type Database = {
         Returns: number
       }
       next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
+      purge_old_read_notifications: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -2866,10 +3476,20 @@ export type Database = {
           read_ct: number
         }[]
       }
-      respond_to_quote: {
-        Args: { p_accepted: boolean; p_quote_id: string }
+      recompute_job_parts_status: {
+        Args: { _job_id: string }
         Returns: undefined
       }
+      reset_org_data: { Args: { _org_id: string }; Returns: Json }
+      respond_to_quote: {
+        Args: {
+          p_accepted: boolean
+          p_access_token: string
+          p_quote_id: string
+        }
+        Returns: Json
+      }
+      verify_impersonation_token: { Args: { _token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

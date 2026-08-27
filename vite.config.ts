@@ -3,34 +3,49 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
   },
+
   plugins: [
     react(),
+    mcpPlugin(),
     mode === "development" && componentTagger(),
+
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       filename: "sw.js",
       strategies: "generateSW",
       injectRegister: null,
-      devOptions: { enabled: false },
+      devOptions: {
+        enabled: false,
+      },
+
       workbox: {
         cacheId: "bookedjobs-v1",
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallback: "/offline.html",
+
+        navigateFallback: "/index.html",
+
+        navigateFallbackAllowlist: [
+          /^\/(?!rest|functions|~oauth|storage|realtime|sw\.js|firebase-messaging-sw\.js|assets|icons|manifest\.json|offline\.html|robots\.txt|placeholder\.svg).*/,
+        ],
+
         navigateFallbackDenylist: [
           /^\/rest/,
           /^\/functions/,
-          /^\/\~oauth/,
+          /^\/~oauth/,
+          /^\/storage/,
+          /^\/realtime/,
           /^\/$/,
           /^\/auth/,
           /^\/engineer/,
@@ -45,48 +60,64 @@ export default defineConfig(({ mode }) => ({
           /^\/pdf/,
           /^\/b/,
         ],
+
         runtimeCaching: [
           {
             urlPattern: ({ request, url }: { request: Request; url: URL }) => {
               if (request.mode !== "navigate") return false;
-              if (/^\/(reset-password|reset-admin|auth|~oauth|quote|pdf|b)/.test(url.pathname)) return false;
-              return true;
+
+              const denied = [
+                /^\/rest/,
+                /^\/functions/,
+                /^\/~oauth/,
+                /^\/storage/,
+                /^\/realtime/,
+                /^\/$/,
+                /^\/auth/,
+                /^\/engineer/,
+                /^\/dashboard/,
+                /^\/admin/,
+                /^\/jobs/,
+                /^\/customers/,
+                /^\/certificates/,
+                /^\/reset-password/,
+                /^\/reset-admin/,
+                /^\/quote/,
+                /^\/pdf/,
+                /^\/b/,
+              ];
+
+              return !denied.some((re) => re.test(url.pathname));
             },
+
             handler: "NetworkFirst",
+
             options: {
               cacheName: "html",
-              networkTimeoutSeconds: 8,
-            },
-          },
-          {
-            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/service_calls/,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "supabase-service-calls",
-              expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest\/v1\/engineers/,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "supabase-engineers",
-              expiration: { maxEntries: 20, maxAgeSeconds: 86400 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/ktkfuquqxbrmuqrmbmdj\.supabase\.co\/rest/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api",
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              networkTimeoutSeconds: 15,
             },
           },
         ],
       },
     }),
   ].filter(Boolean),
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          charts: ["recharts"],
+          spreadsheet: ["xlsx-js-style"],
+          firebase: [
+            "firebase/app",
+            "firebase/analytics",
+            "firebase/messaging",
+          ],
+        },
+      },
+    },
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

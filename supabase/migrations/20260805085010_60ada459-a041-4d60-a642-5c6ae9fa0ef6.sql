@@ -1,0 +1,1 @@
+delete from public.customers where id = '840e1824-8fae-4dd9-8b58-fb51f5e2a0a5';

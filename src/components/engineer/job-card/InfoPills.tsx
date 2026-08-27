@@ -1,5 +1,6 @@
-import { Wrench, Flame, CreditCard, Hourglass, CalendarDays } from "lucide-react";
+import { Wrench, Flame, CreditCard, Hourglass, CalendarDays, UserPlus } from "lucide-react";
 import { format, isValid, parseISO } from "date-fns";
+import { resolvePaymentSheetState, type PaymentSheetJob } from "@/lib/paymentSheetAmount";
 
 const TIME_LABELS: Record<string, string> = {
   "9–11": "9am–11am",
@@ -11,8 +12,13 @@ interface InfoPillsProps {
   timeBlock: string | null;
   jobType: string;
   boilerBrand?: string | null;
-  depositPaid?: boolean;
+  /** Job payment fields — classified by the shared resolvePaymentSheetState helper. */
+  paymentJob?: PaymentSheetJob | null;
   scheduledDate?: string | null;
+  /** service_calls.customer_status_at_booking — only 'new' renders a pill. */
+  customerStatusAtBooking?: string | null;
+  /** Optional action shown when a deposit or balance is due. */
+  onTakePayment?: () => void;
 }
 
 const formatScheduledDate = (scheduledDate?: string | null) => {
@@ -28,30 +34,98 @@ const formatScheduledDate = (scheduledDate?: string | null) => {
   return isValid(parsedDate) ? format(parsedDate, "EEE d MMM") : normalizedDate;
 };
 
-const InfoPills = ({ timeBlock, jobType, boilerBrand, depositPaid, scheduledDate }: InfoPillsProps) => {
+export const euro = (n: number) => `€${n.toFixed(2)}`;
+
+export type DepositPill = {
+  /** null = no pill for this job (Cases B and C). */
+  pill: { tone: "success" | "warning"; label: string } | null;
+  /** Low-emphasis line beneath the pills, or null when nothing is outstanding. */
+  balanceLine: string | null;
+};
+
+/**
+ * The card's deposit pill is a thin presentation mapping over the shared
+ * payment classifier — no parallel rules of its own.
+ *   Case D -> "Deposit €X due"   (warning)
+ *   Case A -> "Deposit €X paid"  (success) + "Balance due €Y"
+ *   Case B / C -> nothing
+ */
+export function resolveDepositPill(job?: PaymentSheetJob | null): DepositPill {
+  const payment = resolvePaymentSheetState(job);
+
+  if (payment.case === "D") {
+    return { pill: { tone: "warning", label: `Deposit ${euro(payment.depositAmount)} due` }, balanceLine: null };
+  }
+  if (payment.case === "A") {
+    return {
+      pill: { tone: "success", label: `Deposit ${euro(payment.depositAmount)} paid` },
+      balanceLine: payment.balanceDue > 0 ? `Balance due ${euro(payment.balanceDue)}` : null,
+    };
+  }
+  return { pill: null, balanceLine: null };
+}
+
+const InfoPills = ({ timeBlock, jobType, boilerBrand, paymentJob, scheduledDate, customerStatusAtBooking, onTakePayment }: InfoPillsProps) => {
   const timeLabel = TIME_LABELS[timeBlock || ""] || timeBlock || "—";
   const formattedDate = formatScheduledDate(scheduledDate);
+  const { pill, balanceLine } = resolveDepositPill(paymentJob);
 
   return (
-    <div className="flex flex-wrap gap-2 mb-3">
-      <span className="bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 text-xs font-bold text-primary flex items-center gap-1">
-        <CalendarDays className="w-3 h-3" /> {formattedDate ? `${formattedDate} · ${timeLabel}` : timeLabel}
-      </span>
-      <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
-        <Wrench className="w-3 h-3 text-muted-foreground" /> {jobType}
-      </span>
-      {boilerBrand && (
-        <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
-          <Flame className="w-3 h-3 text-muted-foreground" /> {boilerBrand}
+    <div className="mb-3">
+      <div className="flex flex-wrap gap-2">
+        <span className="bg-primary/10 border border-primary/20 rounded-full px-2.5 py-0.5 text-xs font-bold text-primary flex items-center gap-1">
+          <CalendarDays className="w-3 h-3" /> {formattedDate ? `${formattedDate} · ${timeLabel}` : timeLabel}
         </span>
+        <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
+          <Wrench className="w-3 h-3 text-muted-foreground" /> {jobType}
+        </span>
+        {customerStatusAtBooking === "new" && (
+          <span className="bg-emerald-500/15 border border-emerald-500/25 rounded-full px-2.5 py-0.5 text-xs font-bold text-emerald-600 flex items-center gap-1">
+            <UserPlus className="w-3 h-3" /> New Customer
+          </span>
+        )}
+
+        {boilerBrand && (
+          <span className="bg-secondary border border-border rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground flex items-center gap-1">
+            <Flame className="w-3 h-3 text-muted-foreground" /> {boilerBrand}
+          </span>
+        )}
+        {pill && (
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border border-border flex items-center gap-1 ${
+              pill.tone === "success" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+            }`}
+          >
+            {pill.tone === "success" ? <CreditCard className="w-3 h-3" /> : <Hourglass className="w-3 h-3" />}
+            {pill.label}
+          </span>
+        )}
+      </div>
+      {balanceLine && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground">{balanceLine}</span>
+          {onTakePayment && (
+            <button
+              type="button"
+              onClick={onTakePayment}
+              className="text-[11px] font-bold text-primary hover:underline underline-offset-2"
+            >
+              Take Payment
+            </button>
+          )}
+        </div>
       )}
-      <span
-        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border border-border flex items-center gap-1 ${
-          depositPaid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-        }`}
-      >
-        {depositPaid ? <><CreditCard className="w-3 h-3" /> Paid</> : <><Hourglass className="w-3 h-3" /> Pending</>}
-      </span>
+      {!balanceLine && pill && onTakePayment && (
+        <div className="mt-1.5">
+          <button
+            type="button"
+            onClick={onTakePayment}
+            className="text-[11px] font-bold text-primary hover:underline underline-offset-2"
+          >
+            Take Payment
+          </button>
+        </div>
+      )}
     </div>
   );
 };

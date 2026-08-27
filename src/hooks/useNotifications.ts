@@ -1,4 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -8,6 +13,7 @@ import {
   isAudioUnlocked,
 } from "@/utils/audio";
 import { debugLog } from "@/utils/debugLog";
+import { shouldShowOnSurface } from "@/lib/notificationSurface";
 import { toast } from "sonner";
 
 export type NotificationType =
@@ -18,7 +24,10 @@ export type NotificationType =
   | "no_show"
   | "completed"
   | "parts_needed"
+  | "parts_cancelled"
+  | "parts_update"
   | "payment_collected"
+  | "payment_failed"
   | "en_route"
   | "on_site"
   | "in_progress"
@@ -45,7 +54,13 @@ type ProfileSoundPreference = {
   sound_alerts_enabled: boolean | null;
 };
 
-const HIGH_PRIORITY_TYPES = new Set(["new_job", "cancelled", "reassigned", "no_show", "new_video_uploaded"]);
+const HIGH_PRIORITY_TYPES = new Set([
+  "new_job",
+  "cancelled",
+  "reassigned",
+  "no_show",
+  "new_video_uploaded",
+]);
 
 // Vibration for high-priority notifications (double pulse)
 function vibrateHighPriority() {
@@ -53,49 +68,165 @@ function vibrateHighPriority() {
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200]);
     }
-    } catch {
-      return;
-    }
+  } catch {
+    return;
+  }
 }
 
-export function useNotifications() {
-  const { user } = useAuth();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState<boolean | null>(true);
-  const soundEnabledRef = useRef<boolean | null>(true);
-  const [soundPromptShown, setSoundPromptShown] = useState(false);
-  // initialLoadDone guard removed — Realtime INSERT only fires for rows
-  // created after subscribe, so the 1s suppression skipped real alerts.
-  const [bannerNotifications, setBannerNotifications] = useState<AppNotification[]>([]);
-  const dismissBanner = useCallback((id: string) => {
-    setBannerNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+/**
+ * `surface` scopes which notifications this bell shows.
+ *
+ * "engineer" (Engineer App) shows only `role = 'engineer'` rows, so office-only
+ * alerts such as SumUp `payment_failed` never surface on an engineer's bell,
+ * banner, toast or unread count.
+ *
+ * "office" excludes engineer-scoped rows so users who are both office and
+ * engineer do not get duplicate notifications.
+ */
+export function useNotifications(
+  surface?: "engineer" | "office"
+) {
+  // Engineer bell: engineer-scoped rows only.
+  // Office bell: everything except engineer-scoped rows.
+  //
+  // `any` internally: re-parsing the query builder generics here trips
+  // TS2589 (excessively deep instantiation) on the supabase-js types.
+  const applyRoleScope = useCallback(
+    <T,>(q: T): T => {
+      const b = q as any;
 
-  // Audio unlock is now handled globally in AppLayout via unlockAudio()
+      if (surface === "engineer") {
+        return b.eq("role", "engineer") as T;
+      }
+
+      if (surface === "office") {
+        return b.not("role", "eq", "engineer") as T;
+      }
+
+      return q;
+    },
+    [surface]
+  );
+
+  const { user } = useAuth();
+
+  const [notifications, setNotifications] =
+    useState<AppNotification[]>([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const [soundEnabled, setSoundEnabled] =
+    useState<boolean | null>(true);
+
+  const soundEnabledRef =
+    useRef<boolean | null>(true);
+
+  const [soundPromptShown, setSoundPromptShown] =
+    useState(false);
+
+  const [bannerNotifications, setBannerNotifications] =
+    useState<AppNotification[]>([]);
+
+  const dismissBanner = useCallback(
+    (id: string) => {
+      setBannerNotifications((prev) =>
+        prev.filter((n) => n.id !== id)
+      );
+    },
+    []
+  );
+
+  // Audio unlock is handled globally in AppLayout via unlockAudio()
+
+  // Server-side unread count — not limited by the 50-row drawer fetch.
+  const [unreadCount, setUnreadCount] =
+    useState(0);
+
+  const refreshUnreadCount = useCallback(
+    async () => {
+      if (!user) return;
+
+      const q = applyRoleScope(
+        supabase
+          .from("notifications")
+          .select("id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("recipient_user_id", user.id)
+          .eq("is_read", false)
+      );
+
+      const { count } = await q;
+
+      setUnreadCount(count || 0);
+    },
+    [user, applyRoleScope]
+  );
+
+  const refreshUnreadCountRef =
+    useRef(refreshUnreadCount);
+
+  useEffect(() => {
+    refreshUnreadCountRef.current =
+      refreshUnreadCount;
+  }, [refreshUnreadCount]);
 
   // Fetch existing notifications
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("recipient_user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setNotifications((data as AppNotification[]) || []);
-    setLoading(false);
-  }, [user]);
+  const fetchNotifications = useCallback(
+    async () => {
+      if (!user) return;
+
+      const q = applyRoleScope(
+        supabase
+          .from("notifications")
+          .select("*")
+          .eq("recipient_user_id", user.id)
+      );
+
+      const { data } = await q
+        .order("created_at", {
+          ascending: false,
+        })
+        .limit(50);
+
+      setNotifications(
+        (data as AppNotification[]) || []
+      );
+
+      console.log(
+        "[useNotifications] initial fetch",
+        {
+          userId: user.id,
+          rows: (data ?? []).length,
+          unread: (data ?? []).filter(
+            (n: any) => !n.is_read
+          ).length,
+        }
+      );
+
+      setLoading(false);
+    },
+    [user, applyRoleScope]
+  );
 
   useEffect(() => {
     if (!user) return;
+
     fetchNotifications();
-  }, [user, fetchNotifications]);
+    refreshUnreadCount();
+  }, [
+    user,
+    fetchNotifications,
+    refreshUnreadCount,
+  ]);
 
   // Fetch sound preference
   useEffect(() => {
     if (!user) return;
+
     let cancelled = false;
+
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
@@ -103,10 +234,15 @@ export function useNotifications() {
       .single()
       .then(({ data }) => {
         if (cancelled) return;
+
         if (data) {
-          const val = (data as ProfileSoundPreference).sound_alerts_enabled;
+          const val =
+            (data as ProfileSoundPreference)
+              .sound_alerts_enabled;
+
           if (val === null) {
-            // Default to enabled so notification sounds play out of the box.
+            // Default to enabled so notification sounds
+            // play out of the box.
             setSoundEnabled(true);
           } else {
             setSoundEnabled(val);
@@ -116,79 +252,161 @@ export function useNotifications() {
           setSoundEnabled(true);
         }
       });
+
     return () => {
       cancelled = true;
     };
   }, [user]);
 
+  // Real-time subscription — supabase-js uses WebSocket
+  // under the hood and auto-reconnects.
+  //
+  // Depend on user?.id rather than the full user object so
+  // token-refresh events don't tear down and rebuild the subscription.
+  const userId = user?.id;
 
-
-  // Real-time subscription — supabase-js uses WebSocket under the hood
-  // but the channel API auto-reconnects which is fine for iOS WebKit
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const channel = supabase
-      .channel("notifications-realtime")
+      .channel(
+        `notifications-realtime-${userId}`
+      )
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `recipient_user_id=eq.${user.id}`,
+          filter: `recipient_user_id=eq.${userId}`,
         },
         async (payload) => {
-          const n = payload.new as AppNotification;
-          console.log("[notif] Realtime INSERT received:", {
-            id: n.id,
-            type: n.notification_type,
-            title: n.title,
-            soundEnabled: soundEnabledRef.current,
-            audioUnlocked: isAudioUnlocked(),
+          const n =
+            payload.new as AppNotification;
+
+          // Engineer App ignores office-scoped alerts.
+          if (
+            !shouldShowOnSurface(
+              n.role,
+              surface
+            )
+          ) {
+            return;
+          }
+
+          console.log(
+            "[notif] Realtime INSERT received:",
+            {
+              id: n.id,
+              type: n.notification_type,
+              title: n.title,
+              soundEnabled:
+                soundEnabledRef.current,
+              audioUnlocked:
+                isAudioUnlocked(),
+            }
+          );
+
+          // De-duplicate in case the initial fetch already
+          // captured this row.
+          setNotifications((prev) =>
+            prev.some((p) => p.id === n.id)
+              ? prev
+              : [n, ...prev]
+          );
+
+          if (!n.is_read) {
+            setUnreadCount((c) => c + 1);
+          }
+
+          // Reconcile against the server without forcing the
+          // realtime subscription to be recreated.
+          refreshUnreadCountRef.current?.();
+
+          setBannerNotifications((prev) =>
+            prev.some((p) => p.id === n.id)
+              ? prev
+              : [n, ...prev]
+          );
+
+          // Always provide a visible toast fallback.
+          // Useful when the browser/device blocks audio.
+          toast(n.title, {
+            description: n.body,
           });
 
-          // De-dupe in case the initial fetch already captured this row.
-          setNotifications((prev) =>
-            prev.some((p) => p.id === n.id) ? prev : [n, ...prev]
-          );
-          setBannerNotifications((prev) =>
-            prev.some((p) => p.id === n.id) ? prev : [n, ...prev]
-          );
-
-          // Always surface a visible toast as a fallback when the device
-          // can't (or won't) play sound — autoplay block, muted device, etc.
-          toast(n.title, { description: n.body });
-
-          if (HIGH_PRIORITY_TYPES.has(n.notification_type)) {
+          if (
+            HIGH_PRIORITY_TYPES.has(
+              n.notification_type
+            )
+          ) {
             vibrateHighPriority();
           }
 
           if (!soundEnabledRef.current) {
-            console.log("[notif] Sound NOT played — sound_alerts_enabled is false");
+            console.log(
+              "[notif] Sound NOT played — sound_alerts_enabled is false"
+            );
             return;
           }
 
-          console.log("[notif] About to call playNotificationSound for type:", n.notification_type);
-          let result;
-          if (n.notification_type === "message") {
-            debugLog("Sound trigger fired, soundEnabled:", soundEnabledRef.current, "type:", n.notification_type);
-            result = await playEngineerMessageAlert();
-          } else if (n.notification_type === "completed") {
+          console.log(
+            "[notif] About to call notification sound for type:",
+            n.notification_type
+          );
+
+          let result:
+            | {
+                played?: boolean;
+                reason?: string;
+                state?: string;
+              }
+            | undefined;
+
+          if (
+            n.notification_type === "message"
+          ) {
+            debugLog(
+              "Sound trigger fired, soundEnabled:",
+              soundEnabledRef.current,
+              "type:",
+              n.notification_type
+            );
+
+            result =
+              await playEngineerMessageAlert();
+          } else if (
+            n.notification_type ===
+            "completed"
+          ) {
             result = await playSoftChime();
           } else {
             result = await playDoubleBeep();
           }
 
           if (!result?.played) {
-            console.warn("[notif] Sound did not play. reason:", result?.reason, "ctx state:", result?.state);
-            // Visual fallback so the user still notices, even without sound.
-            toast.warning("Notification sound blocked", {
-              description:
-                result?.reason === "audio-context-suspended" || result?.reason === "audio-context-interrupted"
-                  ? "Tap anywhere to re-enable sound alerts."
-                  : `Reason: ${result?.reason ?? "unknown"}`,
-            });
+            console.warn(
+              "[notif] Sound did not play. reason:",
+              result?.reason,
+              "ctx state:",
+              result?.state
+            );
+
+            toast.warning(
+              "Notification sound blocked",
+              {
+                description:
+                  result?.reason ===
+                    "audio-context-suspended" ||
+                  result?.reason ===
+                    "audio-context-interrupted"
+                    ? "Tap anywhere to re-enable sound alerts."
+                    : `Reason: ${
+                        result?.reason ??
+                        "unknown"
+                      }`,
+              }
+            );
           }
         }
       )
@@ -197,49 +415,118 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [userId, surface]);
 
-  // Keep ref in sync so the realtime handler always sees the latest preference
+  // Keep ref in sync so the realtime handler
+  // always sees the latest preference.
   useEffect(() => {
-    soundEnabledRef.current = soundEnabled;
+    soundEnabledRef.current =
+      soundEnabled;
   }, [soundEnabled]);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const markAsRead = useCallback(
+    async (id: string) => {
+      setUnreadCount((c) =>
+        Math.max(0, c - 1)
+      );
 
-  const markAsRead = useCallback(async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
-  }, []);
+      await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", id);
 
-  const markAllRead = useCallback(async () => {
-    if (!user) return;
-    await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("recipient_user_id", user.id)
-      .eq("is_read", false);
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  }, [user]);
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === id
+            ? { ...n, is_read: true }
+            : n
+        )
+      );
 
-  const dismiss = useCallback(async (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    const { error } = await supabase.from("notifications").delete().eq("id", id);
-    if (error) {
-      console.error("Failed to delete notification:", error);
-      fetchNotifications();
-    }
-  }, [fetchNotifications]);
+      refreshUnreadCount();
+    },
+    [refreshUnreadCount]
+  );
+
+  const markAllRead = useCallback(
+    async () => {
+      if (!user) return;
+
+      setUnreadCount(0);
+
+      await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("recipient_user_id", user.id)
+        .eq("is_read", false);
+
+      setNotifications((prev) =>
+        prev.map((n) => ({
+          ...n,
+          is_read: true,
+        }))
+      );
+
+      refreshUnreadCount();
+    },
+    [user, refreshUnreadCount]
+  );
+
+  const dismiss = useCallback(
+    async (id: string) => {
+      let wasUnread = false;
+
+      setNotifications((prev) => {
+        wasUnread = prev.some(
+          (n) =>
+            n.id === id && !n.is_read
+        );
+
+        return prev.filter(
+          (n) => n.id !== id
+        );
+      });
+
+      if (wasUnread) {
+        setUnreadCount((c) =>
+          Math.max(0, c - 1)
+        );
+      }
+
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error(
+          "Failed to delete notification:",
+          error
+        );
+
+        fetchNotifications();
+      }
+
+      refreshUnreadCount();
+    },
+    [
+      fetchNotifications,
+      refreshUnreadCount,
+    ]
+  );
 
   const enableSound = useCallback(
     async (enabled: boolean) => {
       setSoundEnabled(enabled);
       setSoundPromptShown(false);
+
       if (user) {
         await supabase
           .from("profiles")
-          .update({ sound_alerts_enabled: enabled })
+          .update({
+            sound_alerts_enabled:
+              enabled,
+          })
           .eq("user_id", user.id);
       }
     },

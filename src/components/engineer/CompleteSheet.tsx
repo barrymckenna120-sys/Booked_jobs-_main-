@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+
 import { CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -28,9 +28,11 @@ interface Props {
   customer: any;
   onClose: () => void;
   onDone: (data: any, jobTagDate: string | null) => void;
+  /** View-state only: advance Today's Jobs look-ahead when Cancel is pressed. */
+  onAdvanceView?: () => void;
 }
 
-const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
+const CompleteSheet = ({ job, customer, onClose, onDone, onAdvanceView }: Props) => {
   const [workDone, setWorkDone] = useState("");
   const [userHasTyped, setUserHasTyped] = useState(false);
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
@@ -62,6 +64,11 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
   const [followUp, setFollowUp] = useState(false);
   const [followUpNote, setFollowUpNote] = useState("");
   const [officeNote, setOfficeNote] = useState("");
+  const [boilerMake, setBoilerMake] = useState<string>(customer?.boiler_brand ?? "");
+  const [boilerModel, setBoilerModel] = useState<string>(customer?.boiler_model ?? "");
+  const [warrantyExpiry, setWarrantyExpiry] = useState<string>(customer?.warranty_expiry_date ?? "");
+  // Per-visit only — always starts blank, never carried over from a previous job.
+  const [customerNotes, setCustomerNotes] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [jobTagDate, setJobTagDate] = useState<string | null>(null);
 
@@ -163,7 +170,67 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
               placeholder="Anything the office should know…"
               className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none"
             />
-            <Separator className="bg-border" />
+          </div>
+        </div>
+
+        {/* Boiler details — persist to the customer record */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Boiler details</Label>
+          <div className="rounded-md border border-input bg-background p-3 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cs-boiler-make" className="text-[11px] font-medium text-muted-foreground">Boiler make</Label>
+              <Input
+                id="cs-boiler-make"
+                value={boilerMake}
+                onChange={(e) => setBoilerMake(e.target.value)}
+                placeholder="e.g. Ideal, Worcester Bosch, Vaillant"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cs-boiler-model" className="text-[11px] font-medium text-muted-foreground">Boiler model</Label>
+              <Input
+                id="cs-boiler-model"
+                value={boilerModel}
+                onChange={(e) => setBoilerModel(e.target.value)}
+                placeholder="e.g. Logic Max Combi2 C30"
+              />
+
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cs-warranty-expiry" className="text-[11px] font-medium text-muted-foreground">Warranty expiry date (optional)</Label>
+              <input
+                id="cs-warranty-expiry"
+                type="date"
+                value={warrantyExpiry}
+                onChange={(e) => setWarrantyExpiry(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Customer-facing note — this job only */}
+        <div className="space-y-1.5">
+          <Label htmlFor="cs-customer-notes" className="text-xs font-bold uppercase tracking-wider text-primary">
+            Notes for customer receipt
+          </Label>
+          <div className="rounded-md border border-primary/40 bg-primary/5 overflow-hidden">
+            <Textarea
+              id="cs-customer-notes"
+              rows={3}
+              value={customerNotes}
+              onChange={(e) => setCustomerNotes(e.target.value)}
+              placeholder="e.g. Boiler running well — no further action needed before next service."
+              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Visible to the customer on their receipt — keep it plain and customer-friendly.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="rounded-md border border-input bg-background overflow-hidden">
             <div className="px-3 py-2.5 space-y-1.5">
               <span className="text-[11px] font-medium text-muted-foreground">Tag this job:</span>
               <div className="flex flex-wrap gap-2">
@@ -208,11 +275,14 @@ const CompleteSheet = ({ job, customer, onClose, onDone }: Props) => {
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
           disabled={!workDone.trim() || (showTagDatePicker && !jobTagDate)}
-          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, selectedTags, selectedJobType }, jobTagDate)}
+          onClick={() => onDone({ workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, selectedTags, selectedJobType }, jobTagDate)}
         >
           <CheckCircle2 className="w-5 h-5" /> Mark as Complete
         </Button>
-        <button onClick={onClose} className="w-full text-center text-muted-foreground text-sm font-semibold py-1">
+        <button
+          onClick={() => { onClose(); onAdvanceView?.(); }}
+          className="w-full text-center text-muted-foreground text-sm font-semibold py-1"
+        >
           Cancel
         </button>
       </div>

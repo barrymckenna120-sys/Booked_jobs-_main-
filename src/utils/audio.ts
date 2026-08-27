@@ -92,7 +92,18 @@ async function ensureRunning(c: AudioContext): Promise<void> {
   // phone calls / PWA throttling — handle both suspended and interrupted.
   const state = c.state as string;
   if (state === "suspended" || state === "interrupted") {
-    await c.resume().catch(() => {});
+    // Race resume() against a 500ms timeout so a stuck context doesn't
+    // block the caller — the HTMLAudio fallback (fired synchronously
+    // before ensureRunning) still plays regardless of WebAudio state.
+    try {
+      await Promise.race([
+        c.resume(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("resume-timeout")), 500)),
+      ]);
+    } catch {
+      // Swallow — WebAudio path will be skipped by the caller's state check;
+      // HTMLAudio fallback has already been triggered.
+    }
   }
 }
 

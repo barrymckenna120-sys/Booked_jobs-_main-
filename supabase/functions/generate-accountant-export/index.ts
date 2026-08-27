@@ -1,8 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  paidJobsInPeriod,
+  collectedAmount,
+  revenueDate,
+  type FinanceJob,
+} from "../_shared/financeMetrics.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function getMonthRange(monthStr?: string): { start: string; end: string; label: string; yyyy_mm: string } {
@@ -44,6 +52,41 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Authenticated-only: organisation_id and user_id are never accepted from the
+    // body, they are derived from the caller's JWT / get_my_org_id().
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+
+    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
+    if (userError || !caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: orgIdFromJwt, error: orgErr } = await supabaseUser.rpc("get_my_org_id");
+    if (orgErr || !orgIdFromJwt) {
+      return new Response(JSON.stringify({ error: "Forbidden: no organisation for caller" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const callerOrgId = orgIdFromJwt as string;
+    const callerUserId = caller.id;
+
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const { start, end, label, yyyy_mm } = getMonthRange(body.month);
 
@@ -55,16 +98,16 @@ Deno.serve(async (req) => {
     // Read accountant email from settings table
     let accountantEmail: string | null = null;
 
-    if (body.user_id) {
+    {
       const { data: settingsRow } = await supabase
         .from("settings")
         .select("accountant_email")
-        .eq("user_id", body.user_id)
+        .eq("user_id", callerUserId)
         .maybeSingle();
       accountantEmail = settingsRow?.accountant_email || null;
     }
 
-    if (!accountantEmail && body.organisation_id) {
+    if (!accountantEmail) {
       const { data: settingsRows } = await supabase
         .from("settings")
         .select("accountant_email")
@@ -84,35 +127,39 @@ Deno.serve(async (req) => {
       throw new Error("Accountant email not configured in settings. Go to Settings → Finance & Reporting to add it.");
     }
 
-    let query = supabase
+    // Sales ledger is a cash-basis report: it follows the payment, not the job
+    // status, using the same helpers as the Finance screen. Jobs can be paid
+    // before/without ever being marked Completed (e.g. SumUp checkouts), so
+    // fetch on paid_at OR completed_at and filter with isRevenueRecognised().
+    const query = supabase
       .from("service_calls")
-      .select("id, receipt_number, invoice_number, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, customers(name)")
-      .eq("status", "Completed")
-      .gte("completed_at", start)
-      .lte("completed_at", end)
-      .order("completed_at", { ascending: true });
+      .select("id, receipt_number, invoice_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, customers(name)")
+      .or(`and(paid_at.gte.${start},paid_at.lte.${end}),and(completed_at.gte.${start},completed_at.lte.${end})`)
+      .eq("organisation_id", callerOrgId);
 
-    if (body.organisation_id) {
-      query = query.eq("organisation_id", body.organisation_id);
-    }
 
     const { data: rows, error } = await query;
     if (error) throw error;
-    const jobs = rows || [];
+
+    const periodStart = new Date(start.length === 10 ? start + "T00:00:00" : start);
+    const periodEnd = new Date(end);
+    const jobs = paidJobsInPeriod((rows || []) as FinanceJob[], periodStart, periodEnd)
+      .sort((a, b) => (revenueDate(a)?.getTime() || 0) - (revenueDate(b)?.getTime() || 0));
 
     // Build row data
     let totalRev = 0, totalNet = 0, totalVat = 0;
     const mapped = jobs.map((r: any) => {
-      const rev = r.revenue || 0;
+      const rev = collectedAmount(r);
       const net = Math.round((rev / 1.135) * 100) / 100;
       const vat = Math.round((rev - net) * 100) / 100;
       totalRev += rev;
       totalNet += net;
       totalVat += vat;
+      const rowDate = revenueDate(r);
       return {
         receipt: r.receipt_number || "",
         invoice: r.invoice_number || "",
-        date: r.completed_at ? fmtDate(r.completed_at) : "",
+        date: rowDate ? fmtDate(rowDate.toISOString()) : "",
         customer: r.customers?.name || "Unknown",
         jobType: r.job_type,
         engineer: r.assigned_engineer || "",
@@ -121,6 +168,7 @@ Deno.serve(async (req) => {
         rev, net, vat,
       };
     });
+
     totalRev = Math.round(totalRev * 100) / 100;
     totalNet = Math.round(totalNet * 100) / 100;
     totalVat = Math.round(totalVat * 100) / 100;
@@ -192,16 +240,8 @@ Deno.serve(async (req) => {
       ? emailLocal.charAt(0).toUpperCase() + emailLocal.slice(1).toLowerCase()
       : "there";
 
-    // Resolve org branding for email copy
-    let orgId: string | null = body.organisation_id || null;
-    if (!orgId && body.user_id) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", body.user_id)
-        .maybeSingle();
-      orgId = prof?.organisation_id || null;
-    }
+    // Resolve org branding for email copy (org comes from the caller's JWT)
+    const orgId: string = callerOrgId;
 
     let companyName = "K & N Gas Services";
     let companyPhone = "087 3686252";

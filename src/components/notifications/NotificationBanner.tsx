@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Mail, Navigation, MapPinCheck, Play, Video, AlertTriangle, Lock, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   new_job:           { icon: Wrench,         color: "text-emerald-500", bg: "bg-emerald-500/10", label: "New Job" },
@@ -10,7 +11,10 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   no_show:           { icon: Ban,            color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Completed" },
   parts_needed:      { icon: Wrench,        color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
+  parts_cancelled:   { icon: XCircle,       color: "text-destructive", bg: "bg-destructive/10", label: "Part Cancelled" },
+  parts_update:      { icon: PackageCheck,  color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Part Update" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Payment" },
+  payment_failed:    { icon: XCircle,        color: "text-destructive", bg: "bg-destructive/10", label: "Payment Failed" },
   message:           { icon: Mail,           color: "text-blue-500",    bg: "bg-blue-500/10",    label: "Message" },
   en_route:          { icon: Navigation,     color: "text-blue-500",    bg: "bg-blue-500/10",    label: "En Route" },
   on_site:           { icon: MapPinCheck,    color: "text-emerald-500", bg: "bg-emerald-500/10", label: "On Site" },
@@ -18,6 +22,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
   new_video_uploaded:{ icon: Video,          color: "text-purple-500",  bg: "bg-purple-500/10",  label: "New Video" },
   quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", bg: "bg-emerald-500/10", label: "Quote Accepted" },
   follow_up:         { icon: AlertTriangle,  color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Follow-up" },
+  user_locked_out:   { icon: Lock,           color: "text-destructive", bg: "bg-destructive/10", label: "User Locked Out" },
 };
 
 const AUTO_DISMISS_MS = 15000;
@@ -63,9 +68,8 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
     try {
       onMarkRead(n.id);
       onDismiss(n.id);
-      if (n.job_id) {
-        navigate(`${jobPathPrefix}/${n.job_id}`);
-      }
+      const target = resolveNotificationTarget(n, jobPathPrefix);
+      if (target) navigate(target);
     } catch {}
   };
 

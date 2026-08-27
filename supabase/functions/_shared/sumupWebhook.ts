@@ -1,0 +1,735 @@
+import { buildPaymentPatch } from "./paymentUpdate.ts";
+import { shouldSendDepositConfirmation } from "./depositConfirmationMessage.ts";
+
+
+/**
+ * SumUp payment-confirmation handling (pure, dependency-injected).
+ *
+ * MONEY PATH. This is what tells the system a SumUp checkout was actually paid,
+ * which is what makes the payment appear on the finance/sales-ledger screens.
+ *
+ * Trust model — the callback body is a HINT ONLY. SumUp's checkout webhook is
+ * unsigned (there is no signature header; the payload is just
+ * {event_type, id}), and SumUp's docs name re-fetching the checkout from their
+ * API as THE verification method — not a backup layer. So:
+ *   1. The return_url we register per checkout carries an unguessable secret
+ *      (?s=... / x-webhook-secret), so the endpoint is not publicly callable.
+ *   2. The checkout is then re-fetched from SumUp with the OWNING ORG's own
+ *      credentials, and only the status/amount/reference SumUp returns are
+ *      trusted. A forged body therefore cannot mark anything paid.
+ *
+ * Every decided path answers 200 — SumUp retries on anything else (fixed
+ * schedule: 1 min, 5 min, 20 min, 2 hours; 4 attempts total), and a retry
+ * cannot change a decision we have already made. Only genuinely transient
+ * failures (SumUp unreachable, DB write failed) return a retryable status, and
+ * callers with a bad secret get 401 (never acknowledged).
+ *
+ * The owning organisation is resolved by matching the checkout id against
+ * service_calls.sumup_checkout_id (written when the checkout was created), so
+ * credentials are never guessed and one tenant can never confirm another's job.
+ */
+
+
+export type SumUpWebhookOutcome =
+  | "not_configured"
+  | "unauthorized"
+  | "bad_request"
+
+
+  | "missing_checkout_id"
+  | "no_matching_reference"
+  | "reference_mismatch"
+  | "credentials_unavailable"
+  | "verification_failed"
+  | "not_paid"
+  | "duplicate"
+  | "paid"
+  | "part_paid"
+  | "update_failed";
+
+export interface SumUpWebhookJob {
+  id: string;
+  organisation_id: string | null;
+  customer_id: string | null;
+  revenue: number | null;
+  balance_due: number | null;
+  deposit_paid: boolean | null;
+  payment_status: string | null;
+  paid_at: string | null;
+  job_reference?: string | null;
+}
+
+/** What SumUp's GET /v0.1/checkouts/{id} tells us — the authoritative view. */
+export interface SumUpCheckoutView {
+  ok: boolean;
+  status?: string;
+  amount?: number | null;
+  checkoutReference?: string | null;
+  /**
+   * Ledger metadata, taken from the successful transaction on the checkout.
+   * Identifiers only — the card block SumUp returns (last 4 digits, scheme) is
+   * deliberately NOT surfaced here and must never be stored.
+   */
+  paidAt?: string | null;
+  transactionId?: string | null;
+  transactionCode?: string | null;
+  currency?: string | null;
+  error?: string;
+}
+
+
+/**
+ * Result of the reference-discovery pass used when a checkout id matches no job
+ * (i.e. the checkout was created outside this system, so sumup_checkout_id was
+ * never written back). ok:false means TRANSIENT (SumUp unreachable / 5xx) and is
+ * retryable; ok:true with a null reference means "no account here owns this
+ * checkout" and is a decision, not a failure.
+ */
+export interface SumUpCheckoutDiscovery {
+  ok: boolean;
+  reference?: string | null;
+  /** Organisation whose credentials could read the checkout. */
+  organisationId?: string | null;
+  error?: string;
+}
+
+export interface SumUpWebhookDeps {
+  /** Secret configured for this endpoint; missing = misconfigured server. */
+  expectedSecret: string | null | undefined;
+  /** Secret presented by the caller (query param or header). */
+  presentedSecret: string | null | undefined;
+  /** Raw request body text. */
+  body: string;
+
+  /** Finds the job that owns this checkout id. */
+  loadJobByCheckoutId: (checkoutId: string) => Promise<SumUpWebhookJob | null>;
+  /** Fallback lookup by service_calls.id (SumUp's checkout_reference). */
+  loadJobById?: (jobId: string) => Promise<SumUpWebhookJob | null>;
+  /** Fallback: asks SumUp which reference this checkout carries, and whose it is. */
+  discoverCheckout?: (checkoutId: string) => Promise<SumUpCheckoutDiscovery>;
+  /** Re-reads the checkout from SumUp using the owning org's credentials. */
+  fetchCheckout: (checkoutId: string, organisationId: string) => Promise<SumUpCheckoutView>;
+  /** Applies the payment patch. Returns false on failure. */
+  updateJob: (jobId: string, patch: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * One timeline entry per confirmed payment, and one per terminal failure.
+   * `eventType` defaults to "payment_received" so the success path is unchanged;
+   * the failure path passes "payment_failed" plus the checkout id and status,
+   * which the implementation uses for its own idempotency guard.
+   */
+  logActivity?: (entry: {
+    organisationId: string | null;
+    customerId: string | null;
+    serviceCallId: string;
+    amount: number;
+    fullyPaid: boolean;
+    eventType?: "payment_received" | "payment_failed";
+    checkoutId?: string;
+    status?: string;
+  }) => Promise<void>;
+  /** One message_log entry per confirmed payment. */
+  logMessage?: (entry: {
+    organisationId: string | null;
+    customerId: string | null;
+    serviceCallId: string;
+    amount: number;
+    fullyPaid: boolean;
+  }) => Promise<void>;
+  /**
+   * Claims this delivery. Returns true the first time a checkout id is seen and
+   * false if it was already handled (unique violation on
+   * sumup_webhook_events.checkout_id). Called before any write.
+   */
+  claimEvent?: (entry: {
+    checkoutId: string;
+    eventType: string | null;
+    organisationId: string | null;
+    serviceCallId: string;
+  }) => Promise<boolean>;
+  /*
+   * There is deliberately NO second, per-job idempotency dependency here.
+   * A previous version blocked any event on a job that already had a claimed
+   * event under a different checkout id, which silently discarded genuine
+   * second payments (deposit then balance — commonly a 50/50 split, so a
+   * same-amount guard would not help either). The unique checkout_id claim is
+   * the only idempotency layer; see claimEvent above.
+   */
+
+  /**
+   * Appends one row to the job_payments ledger for this confirmed payment.
+   *
+   * Called only AFTER updateJob has succeeded, so a ledger row can never exist
+   * for a job write that failed. It is a side effect: a throw is swallowed and
+   * the outcome/status are unchanged — the money is already recorded on the job,
+   * and SumUp's re-delivery would be deduped by the claim anyway, so a failure
+   * must be loud in the logs rather than retried. The DB-level guarantee is the
+   * partial unique index on job_payments (checkout_id) WHERE source =
+   * 'sumup_webhook'.
+   *
+   * `paymentType` is the LEDGER classification and is intentionally different
+   * from the type handed to buildPaymentPatch ("full"/"balance", which only
+   * selects the arithmetic branch).
+   */
+  recordPayment?: (row: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    amount: number;
+    paymentType: "deposit" | "balance" | "full";
+    checkoutId: string;
+    paidAt: string;
+    metadata: Record<string, unknown>;
+  }) => Promise<void>;
+
+
+
+  /**
+   * One office alert per TERMINAL failure (declined / expired / cancelled
+   * checkout). Purely a side effect: it never changes the outcome or status, and
+   * a throw from it is swallowed, because a decline must not make SumUp retry.
+   */
+  notifyPaymentFailed?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    checkoutId: string;
+    status: string;
+    amount: number | null;
+  }) => Promise<void>;
+  /** One office notification per confirmed payment. */
+
+  notifyOffice?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    amount: number;
+    fullyPaid: boolean;
+    /**
+     * Outstanding balance AFTER this payment, taken from the patch that was just
+     * written to the job — never recalculated, so the alert cannot disagree with
+     * the job or the ledger.
+     */
+    outstanding: number;
+    /** SumUp's own checkout id and uppercased status, for attempt write-back. */
+    checkoutId: string;
+    status: string;
+  }) => Promise<void>;
+
+  /**
+   * BJ-0059 — customer receipt for a webhook-confirmed FULL payment.
+   *
+   * Only called when this event brings the job to fully paid; a deposit-only or
+   * partial payment never sends. Runs last, after the job write and every log /
+   * notification, and a throw is swallowed by the caller: the payment is already
+   * recorded, so a failed send must not change the outcome or make SumUp retry.
+   * The duplicate guard (receipt_sent, prior receipt message) lives in the
+   * implementation — the per-checkout guard is the sumup_webhook_events claim.
+   */
+  sendReceipt?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    amount: number;
+    checkoutId: string;
+  }) => Promise<void>;
+
+  /**
+   * BJ-0063 — customer confirmation for a PART payment (deposit / partial).
+   *
+   * The mirror image of sendReceipt: called only when this event does NOT settle
+   * the job and a balance is still outstanding, so the customer is told what
+   * they paid and what remains. The full receipt stays reserved for final
+   * settlement. Same rules as sendReceipt: runs last, a throw is swallowed.
+   */
+  sendDepositConfirmation?: (entry: {
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    jobReference: string | null;
+    amount: number;
+    balanceRemaining: number;
+    checkoutId: string;
+  }) => Promise<void>;
+
+
+
+  /** Injectable clock for tests. */
+  now?: () => Date;
+  log?: (level: "info" | "error", message: string, detail?: unknown) => void;
+}
+
+
+export interface SumUpWebhookResult {
+  outcome: SumUpWebhookOutcome;
+  /** HTTP status the endpoint should return. */
+  status: number;
+  jobId?: string;
+  amount?: number;
+  patch?: Record<string, unknown>;
+  error?: string;
+}
+
+const PAID_STATUSES = new Set(["PAID", "SUCCESSFUL", "SUCCEEDED"]);
+
+/**
+ * Statuses the customer cannot recover from on this checkout — the attempt is
+ * over and the link is dead, so the office needs telling. PENDING (and any
+ * unknown/empty status) is still in flight and stays silent.
+ */
+const TERMINAL_FAILURE_STATUSES = new Set(["FAILED", "EXPIRED", "CANCELLED", "CANCELED"]);
+
+/** Constant-time-ish comparison so the secret can't be probed byte by byte. */
+function secretsMatch(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * service_calls.id is a uuid, so anything else in checkout_reference cannot be
+ * one of our jobs. Checked before any DB lookup — a checkout created by another
+ * SumUp integration must never reach the database layer.
+ */
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/**
+ * checkout_reference comes in two shapes and BOTH are permanently supported —
+ * this is not a transitional shim, do not "clean it up":
+ *   - `<uuid>::<attempt>` — current format (BJ-0050a), attempt-numbered so a
+ *     resend gets a distinct reference.
+ *   - `<uuid>` — legacy raw service_calls.id. Checkouts created before BJ-0050a
+ *     still live in SumUp, and their webhooks can arrive late (expiry events,
+ *     retries, a customer paying an old link). Dropping this branch would
+ *     silently lose real payments.
+ */
+export function jobIdFromCheckoutReference(reference: string): string {
+  const trimmed = (reference ?? "").trim();
+  const sep = trimmed.indexOf("::");
+  return sep === -1 ? trimmed : trimmed.slice(0, sep);
+}
+
+
+
+
+/** Pulls a checkout id out of any of SumUp's event body shapes. */
+export function extractCheckoutId(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as Record<string, any>;
+  const candidates = [
+    b.id,
+    b.checkout_id,
+    b.resource_id,
+    b.payload?.id,
+    b.payload?.checkout_id,
+    b.data?.id,
+    b.object?.id,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+  return null;
+}
+
+export async function handleSumUpWebhook(
+  deps: SumUpWebhookDeps,
+): Promise<SumUpWebhookResult> {
+  const log = deps.log ?? (() => {});
+  const now = deps.now ?? (() => new Date());
+
+  const expected = (deps.expectedSecret ?? "").trim();
+  if (!expected) {
+    log("error", "sumup-webhook: SUMUP_WEBHOOK_SECRET not configured");
+    return { outcome: "not_configured", status: 500 };
+  }
+
+  const presented = (deps.presentedSecret ?? "").trim();
+  if (!presented || !secretsMatch(presented, expected)) {
+    log("error", "sumup-webhook: rejected callback with missing/invalid secret");
+    return { outcome: "unauthorized", status: 401 };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(deps.body);
+  } catch {
+    log("error", "sumup-webhook: unparseable body", deps.body.slice(0, 300));
+    // 200: a retry of the same malformed body cannot succeed.
+    return { outcome: "bad_request", status: 200, error: "invalid_json" };
+  }
+
+  const checkoutId = extractCheckoutId(parsed);
+  if (!checkoutId) {
+    log("error", "sumup-webhook: no checkout id in body", deps.body.slice(0, 300));
+    return { outcome: "missing_checkout_id", status: 200 };
+  }
+
+  let job = await deps.loadJobByCheckoutId(checkoutId);
+  // True when the job was found via checkout_reference rather than by stored id,
+  // so the id gets written back and any re-delivery matches directly.
+  let backfillCheckoutId = false;
+
+  if (!job && deps.discoverCheckout && deps.loadJobById) {
+    // The checkout was created outside this system (e.g. Make calls SumUp's API
+    // directly), so sumup_checkout_id was never stored. Ask SumUp which
+    // reference it carries — the reference IS service_calls.id.
+    const discovered = await deps.discoverCheckout(checkoutId);
+    if (!discovered.ok) {
+      log("error", `sumup-webhook: reference discovery failed for ${checkoutId}: ${discovered.error}`);
+      // Transient only — retry rather than lose a real payment.
+      return { outcome: "verification_failed", status: 502, error: discovered.error };
+    }
+
+    const rawReference = (discovered.reference ?? "").trim();
+    const reference = jobIdFromCheckoutReference(rawReference);
+    if (!reference || !isUuid(reference)) {
+      log(
+        "error",
+        `sumup-webhook: checkout ${checkoutId} has no usable checkout_reference (${rawReference || "empty"}) — ignoring`,
+      );
+      return { outcome: "no_matching_reference", status: 200 };
+    }
+
+    const candidate = await deps.loadJobById(reference);
+    if (!candidate) {
+      log("error", `sumup-webhook: checkout_reference ${rawReference} matches no service_call — ignoring`);
+      return { outcome: "no_matching_reference", status: 200 };
+    }
+
+
+    // The credentials that could read the checkout must belong to the same
+    // tenant as the job, or one tenant could confirm another's job.
+    if (
+      discovered.organisationId && candidate.organisation_id &&
+      discovered.organisationId !== candidate.organisation_id
+    ) {
+      log(
+        "error",
+        `sumup-webhook: checkout ${checkoutId} belongs to org ${discovered.organisationId} but reference ${reference} is org ${candidate.organisation_id} — refusing`,
+      );
+      return { outcome: "reference_mismatch", status: 200, jobId: candidate.id };
+    }
+
+    job = candidate;
+    backfillCheckoutId = true;
+    log("info", `sumup-webhook: matched checkout ${checkoutId} to job ${job.id} via checkout_reference`);
+  }
+
+  if (!job) {
+    // Loud, never silent — but 200 so SumUp stops retrying a reference we will
+    // never recognise (e.g. a checkout created outside this system).
+    log("error", `sumup-webhook: no service_call matches checkout ${checkoutId} — ignoring`);
+    return { outcome: "no_matching_reference", status: 200 };
+  }
+
+
+  if (!job.organisation_id) {
+    log("error", `sumup-webhook: job ${job.id} has no organisation_id — cannot verify`);
+    return { outcome: "credentials_unavailable", status: 200, jobId: job.id };
+  }
+
+  const view = await deps.fetchCheckout(checkoutId, job.organisation_id);
+  if (!view.ok) {
+    log("error", `sumup-webhook: verification failed for ${checkoutId}: ${view.error}`);
+    // Retryable — SumUp outage or credential problem, not a decision.
+    return { outcome: "verification_failed", status: 502, jobId: job.id, error: view.error };
+  }
+
+  // Both reference shapes accepted — see jobIdFromCheckoutReference.
+  if (view.checkoutReference && jobIdFromCheckoutReference(view.checkoutReference) !== job.id) {
+    log(
+      "error",
+      `sumup-webhook: checkout ${checkoutId} reference ${view.checkoutReference} does not match job ${job.id}`,
+    );
+    return { outcome: "reference_mismatch", status: 200, jobId: job.id };
+  }
+
+
+  const status = (view.status ?? "").toUpperCase();
+  if (!PAID_STATUSES.has(status)) {
+    log("info", `sumup-webhook: checkout ${checkoutId} status ${status || "unknown"} — no payment recorded`);
+
+    // A declined attempt used to be completely invisible: no event row, no job
+    // write, no alert. Nothing here changes the job or claims the event (the
+    // checkout id must stay claimable in case a real payment follows) — it only
+    // tells the office the attempt failed and the link is dead.
+    if (deps.notifyPaymentFailed && TERMINAL_FAILURE_STATUSES.has(status)) {
+      try {
+        await deps.notifyPaymentFailed({
+          organisationId: job.organisation_id,
+          serviceCallId: job.id,
+          customerId: job.customer_id ?? null,
+          jobReference: job.job_reference ?? null,
+          checkoutId,
+          status,
+          amount: view.amount ?? null,
+        });
+      } catch (_e) {
+        log("error", `sumup-webhook: failure alert failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
+      }
+    }
+
+    // Timeline entry for the same terminal failures. Customer-profile activity
+    // only — no job write, no event claim. Skipped without a customer because
+    // customer_activity.customer_id is NOT NULL. A throw is swallowed for the
+    // same reason as the alert above: a decline must not make SumUp retry.
+    if (
+      deps.logActivity &&
+      TERMINAL_FAILURE_STATUSES.has(status) &&
+      job.customer_id
+    ) {
+      const failedAmount = Number(view.amount ?? 0);
+      const failedRevenue = Number(job.revenue ?? 0);
+      try {
+        await deps.logActivity({
+          organisationId: job.organisation_id,
+          customerId: job.customer_id,
+          serviceCallId: job.id,
+          amount: failedAmount,
+          fullyPaid: failedRevenue > 0 ? failedAmount + 1e-9 >= failedRevenue : failedAmount > 0,
+          eventType: "payment_failed",
+          checkoutId,
+          status,
+        });
+      } catch (_e) {
+        log("error", `sumup-webhook: failure activity log failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`);
+      }
+    }
+
+
+    return { outcome: "not_paid", status: 200, jobId: job.id };
+  }
+
+  const amount = Number(view.amount ?? 0);
+  const revenue = Number(job.revenue ?? 0);
+  // Money already collected on this job, inferred from the outstanding balance.
+  // Without this a €250 balance on a €500 job (deposit already paid) looks like
+  // a fresh part payment and leaves €250 wrongly outstanding.
+  // Only trust that inference when the job state says money was actually paid.
+  // Quote-created jobs may carry a stale/pre-discounted balance_due before the
+  // first deposit webhook lands; treating that as prior collection marks a real
+  // deposit as full settlement.
+  const statusBeforePayment = (job.payment_status ?? "").toLowerCase();
+  const hasPriorCollectionSignal = job.deposit_paid === true ||
+    statusBeforePayment === "partial" ||
+    statusBeforePayment === "paid";
+  const collectedToDate = hasPriorCollectionSignal && revenue > 0 && job.balance_due != null
+    ? Math.max(0, Math.round((revenue - Number(job.balance_due)) * 100) / 100)
+    : 0;
+  const fullyPaid = revenue > 0 ? collectedToDate + amount + 1e-9 >= revenue : amount > 0;
+  // LEDGER classification for job_payments — distinct from the type handed to
+  // buildPaymentPatch below. Nothing already collected means this is the first
+  // money on the job (a deposit, or the whole thing); anything collected before
+  // makes this a balance payment.
+  const ledgerType: "deposit" | "balance" | "full" = collectedToDate > 0
+    ? "balance"
+    : fullyPaid
+    ? "full"
+    : "deposit";
+
+
+
+  // Idempotency, layer 1 — DUPLICATE DELIVERY of the same callback.
+  // SumUp retries delivery (1 min / 5 min / 20 min / 2 h), always for the same
+  // checkout id. sumup_webhook_events.checkout_id is UNIQUE, so the first
+  // delivery claims it and every re-delivery is a no-op BEFORE paid_at is
+  // stamped and BEFORE any notification is written. A genuinely separate second
+  // payment on the same job is a different checkout id, so it still processes.
+  if (deps.claimEvent) {
+    const claimed = await deps.claimEvent({
+      checkoutId,
+      eventType: (parsed as Record<string, any>)?.event_type ?? null,
+      organisationId: job.organisation_id,
+      serviceCallId: job.id,
+    });
+    if (!claimed) {
+      log("info", `sumup-webhook: checkout ${checkoutId} already processed — no-op`);
+      return { outcome: "duplicate", status: 200, jobId: job.id, amount };
+    }
+  }
+
+  // There is no layer 2. A prior claimed event under a DIFFERENT checkout id on
+  // the same job means a second real card charge (deposit then balance), so it
+  // must be applied — the cumulative collectedToDate above keeps the arithmetic
+  // right. Do not add a per-job or same-amount duplicate check here.
+
+
+
+
+
+  const patch: Record<string, unknown> = {
+    // Finance dates payments from paid_at; without it a deposit-only payment
+    // is invisible on Finance -> Sales.
+    paid_at: now().toISOString(),
+    payment_method: "card",
+    // Externally created checkouts (Make Scenario 5) never write a job total, which
+    // would leave the payment invisible to Finance. revenueMode "fill" treats the
+    // paid amount as the total in that case; a known total is never overwritten.
+    ...buildPaymentPatch({
+      // "balance"/"full" share the cumulative branch: balance_due is derived
+      // from revenue minus (collectedToDate + this payment), never overwritten
+      // from this payment alone.
+      type: fullyPaid ? "full" : "balance",
+      amount,
+      revenue,
+      collectedToDate,
+      currentBalanceDue: job.balance_due ?? null,
+      revenueMode: "fill",
+      markDepositPaid: true,
+    }),
+  };
+
+
+  // Externally created checkout: store its id so a re-delivery matches directly
+  // and hits the idempotency guard instead of discovering all over again.
+  if (backfillCheckoutId) {
+    patch.sumup_checkout_id = checkoutId;
+  }
+
+
+  const ok = await deps.updateJob(job.id, patch);
+  if (!ok) {
+    log("error", `sumup-webhook: failed to update job ${job.id}`);
+    return { outcome: "update_failed", status: 500, jobId: job.id, amount, patch };
+  }
+
+  // Append-only payment ledger. Runs only on a successful job write, and never
+  // changes the outcome: see recordPayment in the deps doc for why a failure is
+  // logged loudly instead of retried.
+  if (deps.recordPayment) {
+    try {
+      await deps.recordPayment({
+        organisationId: job.organisation_id,
+        serviceCallId: job.id,
+        customerId: job.customer_id ?? null,
+        amount,
+        paymentType: ledgerType,
+        checkoutId,
+        paidAt: view.paidAt ?? now().toISOString(),
+        metadata: {
+          source: "sumup",
+          checkout_status: status,
+          checkout_reference: view.checkoutReference ?? null,
+          transaction_id: view.transactionId ?? null,
+          transaction_code: view.transactionCode ?? null,
+          currency: view.currency ?? null,
+          fully_paid: fullyPaid,
+          collected_to_date_before: collectedToDate,
+          job_revenue_at_time: revenue,
+          backfilled_checkout_id: backfillCheckoutId,
+        },
+      });
+    } catch (_e) {
+      log(
+        "error",
+        `LEDGER_INSERT_FAILED sumup-webhook job_id=${job.id} checkout_id=${checkoutId} amount=${amount}`,
+        (_e as Error)?.message ?? String(_e),
+      );
+    }
+  }
+
+
+
+  if (deps.logActivity) {
+    await deps.logActivity({
+      organisationId: job.organisation_id,
+      customerId: job.customer_id,
+      serviceCallId: job.id,
+      amount,
+      fullyPaid,
+    });
+  }
+  if (deps.logMessage) {
+    await deps.logMessage({
+      organisationId: job.organisation_id,
+      customerId: job.customer_id,
+      serviceCallId: job.id,
+      amount,
+      fullyPaid,
+    });
+  }
+
+  if (deps.notifyOffice) {
+    await deps.notifyOffice({
+      organisationId: job.organisation_id,
+      serviceCallId: job.id,
+      customerId: job.customer_id ?? null,
+      jobReference: job.job_reference ?? null,
+      amount,
+      fullyPaid,
+      // Same source as the customer part-payment confirmation below: the
+      // balance_due the job write just applied.
+      outstanding: Number(patch.balance_due ?? 0),
+      checkoutId,
+      status,
+    });
+  }
+
+  // BJ-0059 — receipt to the customer, full payments only, strictly last.
+  // The payment is already committed at this point, so any failure here is
+  // logged and dropped: the outcome stays `paid` and SumUp is not asked to
+  // retry a payment we have recorded.
+  if (deps.sendReceipt && fullyPaid) {
+    try {
+      await deps.sendReceipt({
+        organisationId: job.organisation_id,
+        serviceCallId: job.id,
+        customerId: job.customer_id ?? null,
+        jobReference: job.job_reference ?? null,
+        amount,
+        checkoutId,
+      });
+    } catch (_e) {
+      log(
+        "error",
+        `sumup-webhook: receipt send failed for job ${job.id}: ${(_e as Error)?.message ?? String(_e)}`,
+      );
+    }
+  }
+
+  // BJ-0063 — part payment confirmation to the customer, deposits/partials only.
+  // Same swallow-and-log contract as the receipt above: the money is already
+  // recorded, so a failed send must not change the outcome or trigger a retry.
+  if (deps.sendDepositConfirmation) {
+    const balanceRemaining = Number(patch.balance_due ?? 0);
+    if (
+      shouldSendDepositConfirmation({ amountPaid: amount, balanceRemaining, fullyPaid })
+    ) {
+      try {
+        await deps.sendDepositConfirmation({
+          organisationId: job.organisation_id,
+          serviceCallId: job.id,
+          customerId: job.customer_id ?? null,
+          jobReference: job.job_reference ?? null,
+          amount,
+          balanceRemaining,
+          checkoutId,
+        });
+      } catch (_e) {
+        log(
+          "error",
+          `sumup-webhook: deposit confirmation send failed for job ${job.id}: ${
+            (_e as Error)?.message ?? String(_e)
+          }`,
+        );
+      }
+    }
+  }
+
+
+  log("info", `sumup-webhook: job ${job.id} → ${fullyPaid ? "paid" : "partial"} (€${amount})`);
+  return {
+    outcome: fullyPaid ? "paid" : "part_paid",
+    status: 200,
+    jobId: job.id,
+    amount,
+    patch,
+  };
+}

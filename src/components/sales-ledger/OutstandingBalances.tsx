@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { amountPaidOnJob, isOutstandingBalanceJob, outstandingBalanceAmount } from "@/lib/outstandingBalances";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +24,9 @@ type OutstandingJob = {
   assigned_engineer: string | null;
   revenue: number | null;
   deposit_amount: number | null;
+  deposit_required: boolean | null;
+  deposit_paid: boolean | null;
+  balance_due: number | null;
   customer_name: string;
   receipt_number: string | null;
   payment_status: string | null;
@@ -28,6 +34,7 @@ type OutstandingJob = {
   customer_phone: string | null;
   invoiced_at: string | null;
 };
+
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
 
@@ -54,7 +61,12 @@ const OutstandingBalances = () => {
       .eq("organisation_id", orgId)
       .neq("payment_status", "paid")
       .not("status", "eq", "Cancelled")
-      .or("invoiced_at.not.is.null,payment_method.eq.invoice")
+      .not("status", "eq", "archived")
+      // Include invoiced jobs, invoice-method jobs, any job where money has
+      // already been taken (e.g. a SumUp card deposit on a not-yet-invoiced job),
+      // and jobs where a deposit was requested but has not been paid yet.
+      .or("invoiced_at.not.is.null,payment_method.eq.invoice,deposit_paid.eq.true,and(deposit_required.eq.true,deposit_paid.eq.false)")
+
       .order("scheduled_date", { ascending: false })
       .then(({ data: rows, error }) => {
         if (error) {
@@ -65,7 +77,7 @@ const OutstandingBalances = () => {
         if (rows) {
           setJobs(
             rows
-              .filter((r: any) => (r.balance_due ?? 0) > 0)
+              .filter((r: any) => isOutstandingBalanceJob(r))
               .map((r: any) => ({
                 id: r.id,
                 job_reference: r.job_reference || null,
@@ -74,6 +86,10 @@ const OutstandingBalances = () => {
                 assigned_engineer: r.assigned_engineer,
                 revenue: r.revenue,
                 deposit_amount: r.deposit_amount,
+                deposit_required: r.deposit_required ?? null,
+                deposit_paid: r.deposit_paid ?? null,
+                balance_due: r.balance_due,
+
                 customer_name: r.customers?.name || "Unknown",
                 receipt_number: r.receipt_number,
                 payment_status: r.payment_status,
@@ -135,15 +151,16 @@ const OutstandingBalances = () => {
 
   const totals = jobs.reduce(
     (acc, j) => {
-      const rev = j.revenue || 0;
-      const dep = j.deposit_amount || 0;
-      acc.total += rev;
-      acc.deposit += dep;
-      acc.balance += rev - dep;
+      acc.total += j.revenue || 0;
+      // Money actually received so far — a requested-but-unpaid deposit must not
+      // inflate this, and repeat part payments must all be counted.
+      acc.deposit += amountPaidOnJob(j);
+      acc.balance += outstandingBalanceAmount(j);
       return acc;
     },
     { total: 0, deposit: 0, balance: 0 }
   );
+
 
   const jobRefStr = (job: any) => job?.job_reference || "KN-" + (job?.id || "").substring(0, 6).toUpperCase();
 
@@ -184,8 +201,10 @@ const OutstandingBalances = () => {
           <div className="space-y-3 p-3">
             {jobs.map((job) => {
               const rev = job.revenue || 0;
-              const dep = job.deposit_amount || 0;
-              const bal = rev - dep;
+              const bal = outstandingBalanceAmount(job);
+              const depositDue = resolvePaymentSheetState(job).case === "D";
+              const dep = amountPaidOnJob(job);
+
               const isSending = sendingId === job.id;
               const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
               const od = getOutstandingDays(job.invoiced_at);
@@ -215,10 +234,17 @@ const OutstandingBalances = () => {
                     {job.job_type} · {job.assigned_engineer || "Unassigned"}
                   </div>
 
-                  <div className="flex items-baseline gap-2 mb-3">
+                  <div className="flex items-baseline gap-2">
                     <span className="text-xl font-bold font-mono" style={{ color: "#D97706" }}>{eur(bal)}</span>
                     <span className="text-xs text-muted-foreground">of {eur(rev)}</span>
                   </div>
+                  <div className="text-[11px] font-semibold" style={{ color: "#92400E" }}>
+                    {depositDue
+                      ? `Deposit ${eur(job.deposit_amount || 0)} due`
+                      : `Balance ${eur(bal)} due`}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mb-3">Paid so far {eur(dep)}</div>
+
 
                   <div className="flex gap-2">
                     <Button
@@ -275,7 +301,7 @@ const OutstandingBalances = () => {
                   <TableHead className="font-extrabold">Job Type</TableHead>
                   <TableHead className="font-extrabold">Engineer</TableHead>
                   <TableHead className="font-extrabold text-right">Job Total</TableHead>
-                  <TableHead className="font-extrabold text-right">Deposit Paid</TableHead>
+                  <TableHead className="font-extrabold text-right">Paid</TableHead>
                   <TableHead className="font-extrabold text-right">Balance Due</TableHead>
                   <TableHead className="font-extrabold text-center">Outstanding</TableHead>
                   <TableHead className="font-extrabold text-center">Status</TableHead>
@@ -285,8 +311,10 @@ const OutstandingBalances = () => {
               <TableBody>
                 {jobs.map((job) => {
                   const rev = job.revenue || 0;
-                  const dep = job.deposit_amount || 0;
-                  const bal = rev - dep;
+                  const bal = outstandingBalanceAmount(job);
+                  const depositDue = resolvePaymentSheetState(job).case === "D";
+                  const dep = amountPaidOnJob(job);
+
                   const isSending = sendingId === job.id;
                   const reminderAlreadySent = job.reminder_14day_sent || sentReminders.has(job.id);
                   const od = getOutstandingDays(job.invoiced_at);
@@ -307,12 +335,21 @@ const OutstandingBalances = () => {
                       <TableCell>{job.job_type}</TableCell>
                       <TableCell>{job.assigned_engineer || "—"}</TableCell>
                       <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
-                      <TableCell className="text-right font-semibold" style={{ color: "#16A34A" }}>
-                        {eur(dep)}
+                      <TableCell
+                        className="text-right font-semibold"
+                        style={{ color: dep > 0 ? "#16A34A" : undefined }}
+                      >
+                        <span className={dep > 0 ? undefined : "text-muted-foreground"}>{eur(dep)}</span>
                       </TableCell>
                       <TableCell className="text-right font-bold" style={{ color: "#D97706" }}>
                         {eur(bal)}
+                        {depositDue && (
+                          <div className="text-[11px] font-semibold" style={{ color: "#92400E" }}>
+                            Deposit {eur(job.deposit_amount || 0)} due
+                          </div>
+                        )}
                       </TableCell>
+
                       <TableCell className="text-center">
                         <Badge className="rounded-full text-xs font-bold px-2.5 py-0.5" style={{ background: od.bg, color: od.color, border: `1px solid ${od.border}` }}>
                           {od.days}d
@@ -331,7 +368,7 @@ const OutstandingBalances = () => {
                             className="rounded-full text-xs font-bold px-2.5 py-0.5"
                             style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}
                           >
-                            Balance Pending
+                            {depositDue ? "Deposit Pending" : "Balance Pending"}
                           </Badge>
                         )}
                       </TableCell>
@@ -406,7 +443,7 @@ const OutstandingBalances = () => {
                 customer_name: reminderModalJob.customer_name,
                 receipt_number: reminderModalJob.receipt_number,
                 invoiced_at: reminderModalJob.invoiced_at,
-                balance_due: (reminderModalJob.revenue || 0) - (reminderModalJob.deposit_amount || 0),
+                balance_due: outstandingBalanceAmount(reminderModalJob),
                 customer_phone: reminderModalJob.customer_phone,
                 payment_status: reminderModalJob.payment_status,
               }

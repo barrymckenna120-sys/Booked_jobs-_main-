@@ -4,7 +4,8 @@ import { logMessage } from "../_shared/logMessage.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -44,19 +45,27 @@ Deno.serve(async (req) => {
 
     const waCfg = (waIntegration as any)?.config || {};
     const msgCfg = (msgIntegration as any)?.config || {};
-    const apiKey = waCfg.api_key;
+    // Resolve per-tenant key: declared secret name wins; never fall back to
+    // another tenant's key when a secret name is declared.
+    const apiKeySecretName = waCfg.api_key_secret as string | undefined;
+    const apiKey = apiKeySecretName
+      ? Deno.env.get(apiKeySecretName)
+      : (waCfg.api_key || Deno.env.get("THREESIXTY_API_KEY"));
 
     if (!apiKey) {
       try {
         await supabase.from("edge_function_logs").insert({
           function_name: "job-reminder-2day",
-          error_message: `No whatsapp tenant_integration api_key for org ${orgId} — skipping jobs`,
+          error_message: apiKeySecretName
+            ? `Secret ${apiKeySecretName} not set for org ${orgId} — skipping jobs`
+            : `No whatsapp tenant_integration api_key for org ${orgId} — skipping jobs`,
           payload: { organisation_id: orgId },
         });
       } catch (_e) { /* best-effort */ }
       orgIntegrationCache.set(orgId, null);
       return null;
     }
+
 
     const resolved = {
       companyName: msgCfg.company_name,
@@ -143,7 +152,8 @@ Deno.serve(async (req) => {
 
       const fullName = customer.name || "Customer";
       const firstName = fullName.split(" ")[0];
-      const engineerName = engineerMap.get(job.assigned_engineer_id) || job.assigned_engineer || "our engineer";
+      // Unassigned jobs must not produce "Your engineer will be our engineer."
+      const engineerName = engineerMap.get(job.assigned_engineer_id) || job.assigned_engineer || "";
 
       // Format date as DD/MM/YYYY
       const [year, month, day] = (job.scheduled_date as string).split("-");
@@ -174,15 +184,16 @@ Deno.serve(async (req) => {
       }
       const cleanNumber = digits;
 
+      const engineerLine = engineerName ? `\nYour engineer will be ${engineerName}.\n` : "";
+
       const message = `Hi ${firstName},
 
 This is a reminder from ${companyName} that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
-
-Your engineer will be ${engineerName}.
-
+${engineerLine}
 Please reply CONFIRM to confirm your appointment or CANCEL to cancel. Alternatively call us on ${companyPhone}.
 
 ${companyName} ☎ ${companyPhone}`;
+
 
       try {
         const formData = new FormData();

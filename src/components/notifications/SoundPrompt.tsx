@@ -8,6 +8,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import { playSoftChime } from "@/utils/audio";
 import { Volume2 } from "lucide-react";
 
 interface Props {
@@ -29,7 +30,7 @@ const SoundPrompt = ({ open, onEnable, onDismiss }: Props) => (
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel onClick={onDismiss}>No thanks</AlertDialogCancel>
-        <AlertDialogAction onClick={onEnable}>Enable sounds</AlertDialogAction>
+        <AlertDialogAction onClick={() => { playSoftChime(); onEnable(); }}>Enable sounds</AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>

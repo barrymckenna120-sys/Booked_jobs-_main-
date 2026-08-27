@@ -4,10 +4,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare, Phone, Mail } from "lucide-react";
+import { CheckCircle2, ArrowRightLeft, XCircle, MapPin, Wrench, MessageSquare, Phone, Mail, Camera } from "lucide-react";
+import MediaGallery from "@/components/media/MediaGallery";
 import { formatDateIE } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
 
 type Props = {
   open: boolean;
@@ -37,6 +40,20 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
     ? job.customer_access_notes
     : null;
 
+  // Payment wording comes from the shared classifier so the drawer agrees with
+  // the Job Detail badge and the engineer job card.
+  const payment = resolvePaymentSheetState(job);
+  const euro = (n: number) => `€${n.toFixed(2)}`;
+  const paymentTone = payment.case === "B" ? "success" : "warning";
+  const paymentLabel =
+    payment.case === "B"
+      ? "Paid"
+      : payment.case === "A"
+        ? `Deposit Paid — ${euro(payment.balanceDue)} due`
+        : payment.case === "D"
+          ? `Deposit ${euro(payment.depositAmount)} due`
+          : "Unpaid";
+
   const handleSendWhatsappConfirmation = async () => {
     setSendingWhatsapp(true);
     try {
@@ -60,6 +77,7 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <span className="font-mono text-muted-foreground text-sm">{jobRef}</span>
+            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} status={(job as any).status} />
           </SheetTitle>
         </SheetHeader>
 
@@ -110,6 +128,10 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
                 <span className="text-xs text-muted-foreground">Eircode</span>
                 <p className="font-semibold mt-0.5">{job.customer_eircode || "—"}</p>
               </div>
+              <div>
+                <span className="text-xs text-muted-foreground">GPRN</span>
+                <p className="font-semibold mt-0.5">{job.customer_gprn || "—"}</p>
+              </div>
             </div>
           </div>
 
@@ -157,8 +179,8 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Payment</span>
-              <p className={`font-semibold mt-0.5 ${job.deposit_paid ? "text-success" : "text-warning"}`}>
-                {job.deposit_paid ? "Paid" : "Unpaid"}
+              <p className={`font-semibold mt-0.5 ${paymentTone === "success" ? "text-success" : "text-warning"}`}>
+                {paymentLabel}
               </p>
             </div>
             <div>
@@ -169,6 +191,12 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
               <span className="text-xs text-muted-foreground">Boiler Model</span>
               <p className="font-semibold mt-0.5">{job.boiler_model || "—"}</p>
             </div>
+            {job.customer_boiler_location?.trim() && (
+              <div>
+                <span className="text-xs text-muted-foreground">Boiler Location</span>
+                <p className="font-semibold mt-0.5">{job.customer_boiler_location}</p>
+              </div>
+            )}
             {job.boiler_error_code && (
               <div>
                 <span className="text-xs text-muted-foreground">Error Code</span>
@@ -221,6 +249,19 @@ const JobSlotDrawer = ({ open, onOpenChange, job, onMarkComplete, onMoveSlot, on
               <div>
                 <span className="text-xs text-muted-foreground">Notes</span>
                 <p className="text-sm mt-1">{job.notes}</p>
+              </div>
+            </>
+          )}
+
+          {(job.media_count ?? 0) > 0 && (
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Photos &amp; Videos</span>
+                </div>
+                <MediaGallery jobId={job.id} showUpload={false} />
               </div>
             </>
           )}

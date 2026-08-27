@@ -4,24 +4,45 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { getFcmToken } from "@/lib/firebase";
 
-/** Auto-link engineer record to auth account on first login, then store FCM token */
+/** Auto-link engineer record to auth account on first login, then store FCM token.
+ * Runs at most once per browser session per auth user to prevent N-per-mount
+ * PATCH stampedes across the ~91 useAuth() call sites, and skips the auth_user_id
+ * link entirely when the email is ambiguous (multiple engineer rows share it) or
+ * when a previous PATCH failed (e.g. 409 unique-constraint conflict). */
+const linkAttempted = new Set<string>();
+
 const linkEngineerAndCaptureFcm = async (user: User) => {
   if (!user.email) return;
+  if (linkAttempted.has(user.id)) return;
+  linkAttempted.add(user.id);
   try {
-    // Step 1: auto-link auth_user_id if missing OR stale (doesn't match current auth user)
-    const { data: engineerByEmail } = await supabase
+    // Step 1: only auto-link auth_user_id when the email uniquely identifies
+    // one engineer row AND that row has no auth_user_id yet. If the email is
+    // shared by multiple rows, do nothing — a duplicate would trigger a 409
+    // against the UNIQUE(auth_user_id) constraint in a tight remount loop.
+    const { data: engineersByEmail } = await supabase
       .from("engineers")
       .select("id, auth_user_id")
       .eq("email", user.email)
-      .maybeSingle();
-    if (engineerByEmail && engineerByEmail.auth_user_id !== user.id) {
-      await supabase
-        .from("engineers")
-        .update({ auth_user_id: user.id } as any)
-        .eq("id", engineerByEmail.id);
+      .limit(2);
+
+    if (engineersByEmail && engineersByEmail.length === 1) {
+      const row = engineersByEmail[0];
+      if (row.auth_user_id === null) {
+        const { error: linkError } = await supabase
+          .from("engineers")
+          .update({ auth_user_id: user.id } as any)
+          .eq("id", row.id)
+          .is("auth_user_id", null);
+        if (linkError) {
+          // Don't retry on subsequent mounts — the guard above already blocks
+          // repeats, but log once so the failure is visible.
+          console.warn("[Auth] engineer auth_user_id link skipped:", linkError.message);
+        }
+      }
     }
 
-    // Step 2: capture FCM token for the engineer
+    // Step 2: capture FCM token for the engineer (only if a row is linked to this user)
     const { data: engineer } = await supabase
       .from("engineers")
       .select("id")
@@ -42,6 +63,33 @@ const linkEngineerAndCaptureFcm = async (user: User) => {
   }
 };
 
+
+// Public route prefixes that must NEVER trigger an auth redirect,
+// even when the visitor has no session. Keep in sync with public
+// routes declared in src/App.tsx.
+const PUBLIC_PATH_PREFIXES = [
+  "/certificates/",
+  "/certificate/",
+  "/cert/",
+  "/quote/",
+  "/pdf/",
+  "/invoice/",
+  "/receipt/",
+  "/hazard/",
+  "/r/",
+  "/b/",
+  "/reset-password",
+  "/privacy-policy",
+  "/terms-and-conditions",
+  "/data-processing-agreement",
+  "/offline",
+];
+
+const isPublicPath = (pathname: string) =>
+  PUBLIC_PATH_PREFIXES.some(
+    (p) => pathname === p || pathname === p.replace(/\/$/, "") || pathname.startsWith(p)
+  );
+
 export const useAuth = (redirectTo = "/auth") => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +105,7 @@ export const useAuth = (redirectTo = "/auth") => {
       if (session?.user) {
         linkEngineerAndCaptureFcm(session.user);
       }
-      if (!session?.user && redirectTo) {
+      if (!session?.user && redirectTo && !isPublicPath(window.location.pathname)) {
         navigate(redirectTo, { replace: true });
       }
     });
@@ -71,7 +119,7 @@ export const useAuth = (redirectTo = "/auth") => {
         }
         setUser(session?.user ?? null);
         setLoading(false);
-        if (!session?.user && redirectTo) {
+        if (!session?.user && redirectTo && !isPublicPath(window.location.pathname)) {
           navigate(redirectTo, { replace: true });
         }
       }

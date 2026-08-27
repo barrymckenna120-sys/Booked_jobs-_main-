@@ -1,0 +1,1 @@
+DELETE FROM public.booking_links WHERE token IN ('h7fYhy','d2kSTr');

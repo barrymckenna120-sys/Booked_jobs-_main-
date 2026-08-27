@@ -26,6 +26,7 @@ import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import BillingTab from "@/components/settings/BillingTab";
 import BoilerBrandsTab from "@/components/settings/BoilerBrandsTab";
 import FinanceTab from "@/components/settings/FinanceTab";
+import ReceiptsTab from "@/components/settings/ReceiptsTab";
 import JobTimeBlocksSection from "@/components/settings/JobTimeBlocksSection";
 import { Separator } from "@/components/ui/separator";
 
@@ -38,6 +39,7 @@ const TABS = [
   { key: "reminders", label: "Reminders", icon: Bell },
   { key: "quote_defaults", label: "Quote & Invoice Defaults", icon: FileText },
   { key: "finance", label: "Finance & Reporting", icon: Receipt },
+  { key: "receipts", label: "Receipts", icon: Receipt },
   { key: "integrations", label: "Integrations", icon: Plug },
   { key: "data_security", label: "Data & Security", icon: Shield },
   { key: "billing", label: "Billing", icon: Receipt },
@@ -256,10 +258,11 @@ const Settings = () => {
               </div>
             </div>
           )}
-          {activeTab === "messaging" && <MessagingTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "messaging" && <MessagingTab settings={settings} onSave={handleSave} saving={saving} onNavigateToTab={setActiveTab} />}
           {activeTab === "reminders" && <RemindersTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "quote_defaults" && <QuoteDefaultsTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "finance" && <FinanceTab settings={settings} onSave={handleSave} saving={saving} />}
+          {activeTab === "receipts" && <ReceiptsTab settings={settings} onSave={handleSave} saving={saving} />}
           {activeTab === "integrations" && <IntegrationsTab />}
           {activeTab === "data_security" && (
             <div className="space-y-8">

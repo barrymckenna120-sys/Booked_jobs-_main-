@@ -1,0 +1,1 @@
+UPDATE public.service_calls SET sumup_checkout_id = 'd1b89943-0344-422f-9a7d-88c1daf24efc', payment_link = 'https://checkout.sumup.com/pay/c-d1b89943-0344-422f-9a7d-88c1daf24efc' WHERE id = '9075cfc8-87a5-473c-910b-aa6bcf9450b0';

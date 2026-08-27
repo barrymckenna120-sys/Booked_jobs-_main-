@@ -2,7 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -46,7 +47,13 @@ Deno.serve(async (req) => {
       return json({ message: "Customer opted out" });
     }
 
-    if (!customer.phone) return json({ error: "Customer has no phone number" }, 400);
+    if (!customer.phone) {
+      console.warn("send-schedule-confirmation skipped: customer has no phone", {
+        service_call_id,
+        customer_id: job.customer_id,
+      });
+      return json({ success: true, skipped: true, reason: "no_phone" });
+    }
 
     // Engineer
     let engineerName = job.assigned_engineer || "TBC";
@@ -69,11 +76,15 @@ Deno.serve(async (req) => {
 
     const messengerSettings = (integration?.config as any) ?? {};
     const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
-    const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
-      ?? messengerSettings.api_key
-      ?? Deno.env.get("THREESIXTY_API_KEY")
-      ?? Deno.env.get("MESSENGER_API_KEY");
+    // Never fall back to another tenant's key: if this org declares a secret name,
+    // that secret is the only acceptable credential.
+    const apiKey = apiKeySecretName
+      ? Deno.env.get(apiKeySecretName)
+      : (messengerSettings.api_key
+        ?? Deno.env.get("THREESIXTY_API_KEY")
+        ?? Deno.env.get("MESSENGER_API_KEY"));
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
+
 
     // 2b. Branding from settings
     const { data: settingsRow } = await supabase

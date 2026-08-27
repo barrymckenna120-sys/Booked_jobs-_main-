@@ -62,16 +62,8 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
         const fullName = (jobInfo as any)?.customers?.name || "Customer";
         const invoiceNumber = (jobInfo as any)?.job_reference || "";
         const notifTitle = `New message – ${fullName} (${invoiceNumber})`;
-        await supabase.from("notifications").insert({
-          organisation_id: orgId!,
-          recipient_user_id: engineerAuthUserId,
-          notification_type: "message",
-          title: notifTitle,
-          body: message.trim(),
-          job_id: jobId,
-          role: "engineer",
-          metadata: { customer_name: fullName, job_reference: invoiceNumber },
-        } as any);
+        // notifications row is now inserted by the notify_on_job_message DB trigger.
+
 
         // Send FCM push notification
         supabase.functions.invoke("send-push-notification", {

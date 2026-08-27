@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidGprnFormat, GPRN_WARNING_MESSAGE } from "@/lib/validation/gprn";
+import { calcDepositAmount } from "@/lib/depositCalc";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +22,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
+import { classifySendResult, type SendResult } from "@/lib/sendResult";
+import {
+  validateRequired, validatePhone, validateEircode, validateLandline,
+  formatEircode, formatPhoneInternational, samePhone, RED_BORDER, type CustomerFieldErrors,
+} from "@/lib/customerValidation";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
+
+
 
 /* ── Types ─────────────────────────────────────────────── */
 interface NewJobPanelProps {
@@ -117,16 +128,24 @@ const BOILER_BRANDS = [
 ];
 
 const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; onNext: (c: any) => void }) => {
+  const { orgId } = useOrgId();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<any>(prefilledCustomer || null);
   const [isNew, setIsNew] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [landline, setLandline] = useState("");
   const [address, setAddress] = useState("");
   const [eircode, setEircode] = useState("");
+
   const [boiler, setBoiler] = useState("");
   const [boilerDropdownOpen, setBoilerDropdownOpen] = useState(false);
   const [boilerSearch, setBoilerSearch] = useState("");
+  const [errors, setErrors] = useState<CustomerFieldErrors>({});
+  const [duplicates, setDuplicates] = useState<Array<{ id: string; name: string; phone: string | null }>>([]);
+  const [dupeAcknowledged, setDupeAcknowledged] = useState(false);
+  const [dupeCheckError, setDupeCheckError] = useState<string | null>(null);
+  const [checkingDupe, setCheckingDupe] = useState(false);
 
   const { data: results = [] } = useQuery({
     queryKey: ["customer-search", search],
@@ -135,7 +154,7 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       const q = `%${search}%`;
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model, access_notes")
+        .select("id, name, phone, email, address, eircode, area_code, boiler_make_model, boiler_type, under_warranty, owner_or_tenant, boiler_brand, boiler_model, access_notes, gprn, boiler_location")
         .or(`name.ilike.${q},phone.ilike.${q},eircode.ilike.${q},address.ilike.${q}`)
         .limit(5);
       return data || [];
@@ -143,15 +162,133 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
     enabled: !selected && !isNew && search.length >= 2,
   });
 
-  const canProceed = selected ? true : isNew && name.trim() && phone.trim() && address.trim();
-
-  const handleNext = () => {
-    if (isNew) {
-      onNext({ id: "NEW", name, phone, address, eircode, boilerType: boiler, isNew: true });
-    } else {
-      onNext(selected);
-    }
+  const clearError = (field: string) => {
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
   };
+
+  const blurName = () => {
+    const trimmed = name.replace(/\s+/g, " ").trim();
+    if (trimmed !== name) setName(trimmed);
+    const err = validateRequired(trimmed);
+    setErrors((e) => ({ ...e, name: err || "" }));
+  };
+
+  const blurAddress = () => {
+    const err = validateRequired(address);
+    setErrors((e) => ({ ...e, address: err || "" }));
+  };
+
+  // formatPhoneInternational never throws and never rejects input — it blindly
+  // prepends +353, so validatePhone must gate it. Validate first, format after.
+  const clearDupeState = () => {
+    setDuplicates([]);
+    setDupeAcknowledged(false);
+    setDupeCheckError(null);
+  };
+
+  const blurPhone = () => {
+    const err = validatePhone(phone);
+    if (err) {
+      setErrors((e) => ({ ...e, phone: err }));
+      return;
+    }
+    setErrors((e) => ({ ...e, phone: "" }));
+    setPhone(formatPhoneInternational(phone));
+    clearDupeState();
+  };
+
+  const blurLandline = () => {
+    setErrors((e) => ({ ...e, landline: validateLandline(landline) || "" }));
+  };
+
+
+  const blurEircode = () => {
+    if (!eircode.trim()) { setErrors((e) => ({ ...e, eircode: "" })); return; }
+    const err = validateEircode(eircode);
+    if (err) {
+      setErrors((e) => ({ ...e, eircode: err }));
+      return;
+    }
+    setErrors((e) => ({ ...e, eircode: "" }));
+    setEircode(formatEircode(eircode));
+  };
+
+  const phoneValid = isNew ? validatePhone(phone) === null : true;
+
+  const canProceed = Boolean(
+    selected
+      ? true
+      : isNew && name.trim() && phoneValid && address.trim() && !checkingDupe
+  );
+
+  const handleNext = async (force = false) => {
+    if (!isNew) { onNext(selected); return; }
+
+    const cleanName = name.replace(/\s+/g, " ").trim();
+    const nextErrors: CustomerFieldErrors = {};
+    const nameErr = validateRequired(cleanName); if (nameErr) nextErrors.name = nameErr;
+    const phoneErr = validatePhone(phone); if (phoneErr) nextErrors.phone = phoneErr;
+    const addressErr = validateRequired(address); if (addressErr) nextErrors.address = addressErr;
+    if (eircode.trim()) {
+      const eircodeErr = validateEircode(eircode); if (eircodeErr) nextErrors.eircode = eircodeErr;
+    }
+    const landlineErr = validateLandline(landline); if (landlineErr) nextErrors.landline = landlineErr;
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    const cleanPhone = formatPhoneInternational(phone);
+    const cleanEircode = eircode.trim() ? formatEircode(eircode) : "";
+
+    const proceed = () => {
+      setName(cleanName);
+      setPhone(cleanPhone);
+      if (cleanEircode) setEircode(cleanEircode);
+      onNext({ id: "NEW", name: cleanName, phone: cleanPhone, landline: landline.trim(), address: address.trim(), eircode: cleanEircode, boilerType: boiler, isNew: true });
+    };
+
+    // Already warned about the matches and the user chose to continue.
+    if (force || dupeAcknowledged) { proceed(); return; }
+
+    // Org must be resolved, otherwise the filter becomes `eq.undefined` and 400s.
+    if (!orgId) {
+      setDupeCheckError("Still loading your organisation — try again in a moment");
+      return;
+    }
+
+    // Duplicate check. Matched by last-9 digits so 0894… and +353894… are the
+    // same line. A list query (never .maybeSingle()) because several customers
+    // legitimately share one household number — multiple rows must not throw.
+    setCheckingDupe(true);
+    setDupeCheckError(null);
+    setDuplicates([]);
+    const { data: rows, error: dupeErr } = await supabase
+      .from("customers")
+      .select("id, name, phone")
+      .eq("organisation_id", orgId)
+      .limit(5000);
+    setCheckingDupe(false);
+
+    // A real query failure (network, RLS, 400) still blocks.
+    if (dupeErr) {
+      setDupeCheckError("Couldn't check for duplicates — try again");
+      return;
+    }
+
+    // `samePhone` compares full E.164, so a number sharing its last 9 digits
+    // under a different country code is not flagged as a duplicate.
+    const matches = (rows ?? []).filter((c) => samePhone(c.phone, cleanPhone));
+
+
+    // Warn, but never hard-block: the user can confirm with "Create anyway".
+    if (matches.length > 0) {
+      setDuplicates(matches);
+      return;
+    }
+
+    proceed();
+  };
+
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -234,21 +371,104 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
           <div className="space-y-3">
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Full Name <span className="text-destructive">*</span></Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Niamh Lawlor" className="mt-1" />
+              <Input
+                value={name}
+                onChange={(e) => { setName(e.target.value); clearError("name"); }}
+                onBlur={blurName}
+                placeholder="e.g. Niamh Lawlor"
+                maxLength={100}
+                className={cn("mt-1", errors.name && RED_BORDER)}
+              />
+              {errors.name && <p className="text-xs mt-1 font-medium text-destructive">{errors.name}</p>}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Mobile Number <span className="text-destructive">*</span></Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+353 87 123 4567" className="mt-1" />
+              <Input
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); clearError("phone"); clearDupeState(); }}
+                onBlur={blurPhone}
+                placeholder="083 123 4567"
+                maxLength={30}
+                className={cn("mt-1", errors.phone && RED_BORDER)}
+              />
+              {errors.phone && <p className="text-xs mt-1 font-medium text-destructive">{errors.phone}</p>}
             </div>
             <div>
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Address <span className="text-destructive">*</span></Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="12 Green Park, Dublin 15" className="mt-1" />
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Landline (optional)</Label>
+              <Input
+                value={landline}
+                onChange={(e) => { setLandline(e.target.value); clearError("landline"); }}
+                onBlur={blurLandline}
+                placeholder="01 441 2618"
+                maxLength={30}
+                className={cn("mt-1", errors.landline && RED_BORDER)}
+              />
+              {errors.landline && <p className="text-xs mt-1 font-medium text-destructive">{errors.landline}</p>}
             </div>
+            <div>
+
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Address <span className="text-destructive">*</span></Label>
+              <Input
+                value={address}
+                onChange={(e) => { setAddress(e.target.value); clearError("address"); }}
+                onBlur={blurAddress}
+                placeholder="12 Green Park, Dublin 15"
+                maxLength={200}
+                className={cn("mt-1", errors.address && RED_BORDER)}
+              />
+              {errors.address && <p className="text-xs mt-1 font-medium text-destructive">{errors.address}</p>}
+            </div>
+            {duplicates.length > 0 && !dupeAcknowledged && (
+              <div className="bg-warning/10 border border-warning/30 rounded-xl px-3 py-2.5 text-[13px] text-warning space-y-2">
+                <div className="flex items-start gap-2 font-semibold">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>
+                    {duplicates.length === 1
+                      ? "1 existing customer already has this phone number:"
+                      : `${duplicates.length} existing customers already have this phone number:`}
+                  </span>
+                </div>
+                <ul className="pl-6 space-y-0.5 font-medium">
+                  {duplicates.map((d) => (
+                    <li key={d.id} className="truncate">{d.name || "Unnamed customer"} · {d.phone}</li>
+                  ))}
+                </ul>
+                <p className="pl-6 text-[12px] font-medium text-warning/80">
+                  Search for them above instead of creating a duplicate — or continue if this is a different person on the same number.
+                </p>
+                <div className="pl-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-[12px] font-bold"
+                    onClick={() => { setDupeAcknowledged(true); handleNext(true); }}
+                  >
+                    Create anyway
+                  </Button>
+                </div>
+              </div>
+            )}
+            {dupeCheckError && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-destructive flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{dupeCheckError}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Eircode</Label>
-                <Input value={eircode} onChange={(e) => setEircode(e.target.value.toUpperCase())} placeholder="D15A1B2" className="mt-1" />
+                <Input
+                  value={eircode}
+                  onChange={(e) => { setEircode(e.target.value.toUpperCase()); clearError("eircode"); }}
+                  onBlur={blurEircode}
+                  placeholder="D15 A1B2"
+                  maxLength={10}
+                  className={cn("mt-1", errors.eircode && RED_BORDER)}
+                />
+                {errors.eircode && <p className="text-xs mt-1 font-medium text-destructive">{errors.eircode}</p>}
               </div>
+
               <div className="relative">
                 <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Make</Label>
                 <div className="relative mt-1">
@@ -296,8 +516,10 @@ const StepCustomer = ({ prefilledCustomer, onNext }: { prefilledCustomer?: any; 
       </div>
 
       <div className="px-5 pt-4 pb-2 border-t border-border">
-        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed} onClick={handleNext}>
-          {canProceed ? `Continue with ${selected?.name || name} →` : "Select or add a customer"}
+        <Button className="w-full h-12 font-extrabold text-base" disabled={!canProceed || checkingDupe} onClick={() => handleNext()}>
+          {checkingDupe ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking…</>
+          ) : canProceed ? `Continue with ${selected?.name || name} →` : "Select or add a customer"}
         </Button>
       </div>
     </div>
@@ -324,6 +546,8 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
   const [areaCode, setAreaCode] = useState(prefilledCustomer?.area_code || "");
   const [ownerOrTenant, setOwnerOrTenant] = useState(prefilledCustomer?.owner_or_tenant || "");
   const [accessNotes, setAccessNotes] = useState(prefilledCustomer?.access_notes || "");
+  const [gprn, setGprn] = useState(prefilledCustomer?.gprn || "");
+  const [boilerLocation, setBoilerLocation] = useState(prefilledCustomer?.boiler_location || "");
   const isUrgent = jobType === "Emergency";
 
   const { data: brandSuggestions = [] } = useQuery({
@@ -383,7 +607,7 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
       return;
     }
     const combinedMakeModel = [boilerBrand.trim(), boilerModel.trim()].filter(Boolean).join(" ") || "";
-    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes });
+    onNext({ jobType, isUrgent, notes, boilerModel: combinedMakeModel, boilerBrand: boilerBrand.trim(), boilerModelField: boilerModel.trim(), email, jobIssue, extraDetails, boilerType, boilerErrorCode, areaCode, ownerOrTenant, accessNotes, gprn: gprn.trim(), boilerLocation: boilerLocation.trim() });
   };
 
   return (
@@ -505,6 +729,25 @@ const StepJob = ({ prefilledType, prefilledBoiler, prefilledCustomer, onNext, on
           <div>
             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Error Code</Label>
             <Input value={boilerErrorCode} onChange={(e) => setBoilerErrorCode(e.target.value)} placeholder="e.g. F28" className="mt-1" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">GPRN</Label>
+            <Input value={gprn} onChange={(e) => setGprn(e.target.value)} placeholder="e.g. 1234567" className="mt-1" />
+            {gprn.trim() && !isValidGprnFormat(gprn) && (
+              <p className="text-[11px] text-amber-600 mt-1">{GPRN_WARNING_MESSAGE}</p>
+            )}
+          </div>
+          <div>
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Boiler Location</Label>
+            <Input value={boilerLocation} onChange={(e) => setBoilerLocation(e.target.value)} placeholder="e.g. kitchen, attic, utility room" className="mt-1" list="new-job-boiler-location-suggestions" />
+            <datalist id="new-job-boiler-location-suggestions">
+              {BOILER_LOCATIONS.map((loc) => (
+                <option key={loc} value={loc} />
+              ))}
+            </datalist>
           </div>
         </div>
 
@@ -843,8 +1086,9 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 };
 
 /* ── STEP 4: Payment ───────────────────────────────────── */
-const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
-  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void;
+const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, orgId }: {
+  jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void; orgReady?: boolean; orgId?: string | null;
+
 }) => {
   const { user } = useAuth();
   const jt = JOB_TYPES.find((j) => j.id === jobData.job.jobType) || JOB_TYPES[0];
@@ -869,6 +1113,21 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
     enabled: !!user,
   });
 
+  // Tenant deposit percentage — organisation-scoped, resolved on Step 4 mount
+  const { data: depositSettings, isSuccess: depositSettingsLoaded } = useQuery({
+    queryKey: ["deposit-percentage", orgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("deposit_percentage")
+        .eq("organisation_id", orgId!)
+        .maybeSingle();
+      if (error) console.error("[StepPayment] deposit_percentage fetch error:", error);
+      return { depositPercentage: data?.deposit_percentage ?? null };
+    },
+    enabled: !!orgId,
+  });
+
   const getPrice = (jobType: string, prices: typeof defaultPrices) => {
     if (!prices) return 0;
     if (jobType === "Emergency") return prices.emergency;
@@ -886,6 +1145,8 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [payment, setPayment] = useState("unpaid");
   const [depositAmount, setDepositAmount] = useState("");
+  const [depositManuallySet, setDepositManuallySet] = useState(false);
+  const [depositError, setDepositError] = useState<string | null>(null);
   const [sendDepositLink, setSendDepositLink] = useState(true);
   const [sendWA, setSendWA] = useState(true);
 
@@ -897,6 +1158,49 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
       setPriceInitialized(true);
     }
   }, [defaultPrices, priceInitialized, jobData.job.jobType]);
+
+  const amountNum = parseFloat(amount) || 0;
+  const depositNum = parseFloat(depositAmount) || 0;
+
+  // Pre-fill deposit as the tenant's configured % of the job amount, unless
+  // the office user has manually edited the field. Waits for the settings
+  // fetch so the calculation never runs against not-yet-loaded data.
+  useEffect(() => {
+    if (payment !== "deposit") return;
+    if (depositManuallySet) return;
+    if (!depositSettingsLoaded) return;
+    setDepositAmount(calcDepositAmount(amountNum, depositSettings?.depositPercentage).toFixed(2));
+  }, [payment, depositManuallySet, depositSettingsLoaded, depositSettings?.depositPercentage, amountNum]);
+
+  // Fresh entry into deposit mode re-offers the calculated default
+  const handlePaymentChange = (next: string) => {
+    if (next !== payment && next !== "deposit") {
+      setDepositManuallySet(false);
+      setDepositError(null);
+    }
+    setPayment(next);
+  };
+
+  const handleCreateJob = () => {
+    if (payment === "deposit" && depositNum > amountNum) {
+      setDepositError("Deposit cannot exceed job amount");
+      return;
+    }
+    setDepositError(null);
+    onSubmit({
+      ...jobData,
+      payment: {
+        amount: amountNum,
+        status: payment,
+        depositAmount: payment === "deposit" ? depositNum : null,
+        // A deposit requested at creation is NOT yet paid — the full total stays
+        // outstanding until a payment event (SumUp webhook / Take Payment) lands.
+        balanceDue: payment === "deposit" ? amountNum || null : null,
+        sendDepositLink: payment === "deposit" ? sendDepositLink : false,
+      },
+      sendWhatsApp: sendWA,
+    });
+  };
 
   const eng = engineers.find((e: any) => e.id === jobData.schedule.engineerId);
   const tb = DEFAULT_TIME_BLOCKS.find((t) => t.id === jobData.schedule.timeBlock) || { label: jobData.schedule.timeBlock };
@@ -945,7 +1249,7 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
             {PAYMENT_OPTIONS.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setPayment(p.id)}
+                onClick={() => handlePaymentChange(p.id)}
                 className={`flex-1 p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all cursor-pointer ${
                   payment === p.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                 }`}
@@ -964,8 +1268,22 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Deposit Amount €</Label>
               <div className="relative mt-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-muted-foreground">€</span>
-                <Input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" className="pl-8" />
+                <Input
+                  type="number"
+                  min="0"
+                  value={depositAmount}
+                  onChange={(e) => {
+                    setDepositAmount(e.target.value);
+                    setDepositManuallySet(true);
+                    setDepositError(null);
+                  }}
+                  placeholder="0"
+                  className={cn("pl-8", depositError && "border-destructive focus-visible:ring-destructive")}
+                />
               </div>
+              {depositError && (
+                <p className="text-[11px] font-semibold text-destructive mt-1">{depositError}</p>
+              )}
             </div>
             <div>
               <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Balance Due €</Label>
@@ -974,10 +1292,11 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
                 <Input
                   type="number"
                   readOnly
-                  value={Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)).toFixed(2)}
+                  value={Math.max(0, parseFloat(amount) || 0).toFixed(2)}
                   className="pl-8 bg-muted/50 cursor-not-allowed"
                 />
               </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Full total stays outstanding — the deposit is deducted once it's paid.</p>
             </div>
             <div className={`rounded-xl border p-4 flex justify-between items-center transition-colors ${sendDepositLink ? "border-success/40" : "border-border"}`}>
               <div>
@@ -1003,10 +1322,16 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack }: {
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
-          onClick={() => onSubmit({ ...jobData, payment: { amount: parseFloat(amount) || 0, status: payment, depositAmount: payment === "deposit" ? (parseFloat(depositAmount) || 0) : null, balanceDue: payment === "deposit" ? Math.max(0, (parseFloat(amount) || 0) - (parseFloat(depositAmount) || 0)) : null, sendDepositLink: payment === "deposit" ? sendDepositLink : false }, sendWhatsApp: sendWA })}
+          disabled={!orgReady}
+          onClick={handleCreateJob}
         >
-          <CheckCircle2 className="w-5 h-5" /> Create Job
+          {orgReady ? (
+            <><CheckCircle2 className="w-5 h-5" /> Create Job</>
+          ) : (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Checking organisation…</>
+          )}
         </Button>
+
       </div>
     </div>
   );
@@ -1024,8 +1349,9 @@ const getFirstName = (fullName: string | undefined): string => {
 };
 
 /* ── SUCCESS SCREEN ────────────────────────────────────── */
-const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
+const SuccessScreen = ({ jobData, engineers, onClose, onNewJob, sendResults }: {
   jobData: any; engineers: any[]; onClose: () => void; onNewJob: () => void;
+  sendResults: { confirmation?: SendResult; deposit?: SendResult };
 }) => {
   const navigate = useNavigate();
   const eng = engineers.find((e: any) => e.id === jobData.schedule?.engineerId);
@@ -1035,6 +1361,15 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 
   const firstName = getFirstName(jobData.customer?.name);
   const waMsg = `Hi ${firstName}! Your ${jt?.label?.toLowerCase() || "job"} is booked.\n\nDate: ${dateStr}\nTime: ${tb?.label}\nEngineer: ${eng?.name}\n\nWe'll be in touch if anything changes!`;
+
+  const confirmation = sendResults?.confirmation;
+  const deposit = sendResults?.deposit;
+  const problems = [
+    confirmation && confirmation.status !== "sent"
+      ? { label: "Booking confirmation", result: confirmation }
+      : null,
+    deposit && deposit.status !== "sent" ? { label: "Deposit payment link", result: deposit } : null,
+  ].filter(Boolean) as { label: string; result: SendResult }[];
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 text-center">
@@ -1051,7 +1386,12 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         {[
           { Icon: CalendarDays, text: "Job appears in the schedule grid immediately" },
           { Icon: HardHat, text: `${eng?.name || "Engineer"} sees it on their app` },
-          ...(jobData.sendWhatsApp ? [{ Icon: MessageCircle, text: "Booking confirmation sent via WhatsApp ✔" }] : []),
+          ...(confirmation && confirmation.status === "sent"
+            ? [{ Icon: MessageCircle, text: "Booking confirmation sent via WhatsApp ✔" }]
+            : []),
+          ...(deposit && deposit.status === "sent"
+            ? [{ Icon: CreditCard, text: "Deposit payment link sent via WhatsApp ✔" }]
+            : []),
           { Icon: Bell, text: "Audit log updated" },
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-2.5 mb-2 last:mb-0">
@@ -1061,7 +1401,20 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
         ))}
       </div>
 
-      {jobData.sendWhatsApp && (
+      {problems.length > 0 && (
+        <div className="bg-muted/40 border border-border rounded-xl p-3 w-full mb-5 text-left">
+          {problems.map((p, i) => (
+            <div key={i} className="flex items-start gap-2 mb-1.5 last:mb-0">
+              <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="text-[12px] text-muted-foreground">
+                {p.label} {p.result.status === "skipped" ? "skipped" : "failed"} — {p.result.message}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {confirmation?.status === "sent" && (
         <div className="bg-success/5 border border-success/20 rounded-xl p-3 w-full mb-5 text-left">
           <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1.5 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp preview</div>
           <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed font-sans">{waMsg}</pre>
@@ -1079,11 +1432,12 @@ const SuccessScreen = ({ jobData, engineers, onClose, onNewJob }: {
 /* ── MAIN PANEL ────────────────────────────────────────── */
 const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock, prefilledEngineer, prefilledJobType }: NewJobPanelProps) => {
   const { user } = useAuth();
-  const { orgId } = useOrgId();
+  const { orgId, ready: orgReady } = useOrgId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(prefilledCustomer ? 1 : 0);
   const [done, setDone] = useState(false);
+  const [sendResults, setSendResults] = useState<{ confirmation?: SendResult; deposit?: SendResult }>({});
   const [saving, setSaving] = useState(false);
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
   const [jobData, setJobData] = useState<any>({
@@ -1125,7 +1479,22 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   };
 
   const handleSubmit = async (finalData: any) => {
-    if (!user) return;
+    if (!user) {
+      console.log("[NewJobPanel] submit blocked: no user");
+      toast({ title: "Session issue", description: "Session issue — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+    if (!orgReady) {
+      console.log("[NewJobPanel] submit blocked: org not ready");
+      toast({ title: "Still loading", description: "Checking your organisation — please try again in a moment.", variant: "destructive" });
+      return;
+    }
+    if (!orgId) {
+      console.log("[NewJobPanel] submit blocked: orgId null");
+      toast({ title: "Organisation not found", description: "Could not resolve your organisation — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -1143,6 +1512,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           organisation_id: orgId!,
           name: finalData.customer.name,
           phone: finalData.customer.phone,
+          landline_phone: finalData.customer.landline?.trim() || null,
+
           email: finalData.job?.email?.trim() || null,
           address: finalData.customer.address,
           eircode: finalData.customer.eircode || "",
@@ -1151,6 +1522,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           boiler_model: finalData.job?.boilerModelField || null,
           boiler_make_model: [finalData.job?.boilerBrand, finalData.job?.boilerModelField].filter(Boolean).join(" ") || finalData.customer.boilerType || null,
           boiler_type: finalData.job?.boilerType || null,
+          gprn: finalData.job?.gprn?.trim() || null,
+          boiler_location: finalData.job?.boilerLocation?.trim() || null,
           next_service_due: nextServiceDue.toISOString().split("T")[0],
           renewal_stage: "none",
           service_status: "active",
@@ -1168,7 +1541,11 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       }
 
       const eng = engineers.find((e: any) => e.id === finalData.schedule.engineerId);
-      const depositPaid = finalData.payment.status === "paid" || finalData.payment.status === "deposit";
+      // "Deposit Taken" only *requests* a deposit (a SumUp link is created/sent) — it is
+      // not proof of payment. deposit_paid is flipped by the SumUp webhook or an
+      // office/engineer-recorded payment. "Paid in Full" behaviour is unchanged.
+      const depositRequired = finalData.payment.status === "deposit";
+      const depositPaid = finalData.payment.status === "paid";
 
       console.log("[NewJobPanel] Inserting service_call", { customerId, jobType: finalData.job.jobType, date: finalData.schedule.date, engineer: eng?.name });
 
@@ -1185,11 +1562,15 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         assigned_engineer_id: finalData.schedule.engineerId,
         assigned_engineer: eng?.name || null,
         status: "Booked",
-        revenue: finalData.payment.amount || null,
-        deposit_paid: depositPaid,
-        deposit_amount: finalData.payment.status === "deposit" ? (finalData.payment.depositAmount || null) : null,
-        balance_due: finalData.payment.status === "deposit" ? (finalData.payment.balanceDue || null) : null,
+        ...buildPaymentPatch({
+          type: "booking_setup",
+          amount: finalData.payment.amount,
+          depositMode: depositPaid ? "paid" : depositRequired ? "deposit" : "none",
+          depositAmount: finalData.payment.depositAmount,
+          balanceDue: finalData.payment.balanceDue,
+        }),
         source: "Manual",
+        customer_status_at_booking: isNewCustomer ? "new" : "existing",
         incoming_status: "Accepted",
         email: finalData.job.email || null,
         job_issue: finalData.job.jobIssue || null,
@@ -1199,12 +1580,17 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         area_code: finalData.job.areaCode || null,
         owner_or_tenant: finalData.job.ownerOrTenant || null,
         access_notes: finalData.job.accessNotes || null,
-      } as any).select("id").single();
+      } as any).select("id, organisation_id, status").single();
       if (jobErr) {
-        console.error("[NewJobPanel] Job insert error:", jobErr);
+        console.error("[NewJobPanel] insert failed:", jobErr);
         throw jobErr;
       }
-      console.log("[NewJobPanel] Job created successfully:", newJob?.id);
+      console.log("[NewJobPanel] insert succeeded:", {
+        id: (newJob as any)?.id,
+        organisation_id: (newJob as any)?.organisation_id,
+        status: (newJob as any)?.status,
+      });
+
 
       // Sync job fields back to existing customer profile
       if (!isNewCustomer) {
@@ -1217,6 +1603,8 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         if (finalData.job?.areaCode?.trim()) custUpdate.area_code = finalData.job.areaCode.trim();
         if (finalData.job?.ownerOrTenant?.trim()) custUpdate.owner_or_tenant = finalData.job.ownerOrTenant.trim();
         if (finalData.job?.accessNotes?.trim()) custUpdate.access_notes = finalData.job.accessNotes.trim();
+        if (finalData.job?.gprn?.trim()) custUpdate.gprn = finalData.job.gprn.trim();
+        if (finalData.job?.boilerLocation?.trim()) custUpdate.boiler_location = finalData.job.boilerLocation.trim();
         if (Object.keys(custUpdate).length > 0) {
           await supabase.from("customers").update(custUpdate).eq("id", customerId);
         }
@@ -1262,16 +1650,59 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
       }
 
       // Send booking confirmation via WhatsApp Edge Function if toggle is ON
+      const outcomes: { confirmation?: SendResult; deposit?: SendResult } = {};
       if (finalData.sendWhatsApp && newJob?.id) {
+        let result: SendResult;
         try {
-          const { error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
+          const { data: waData, error: waErr } = await supabase.functions.invoke("send-booking-confirmation", {
             body: { service_call_id: newJob.id },
           });
-          if (waErr) console.error("[NewJobPanel] Booking confirmation WhatsApp error:", waErr);
+          result = classifySendResult(waErr, waData);
+          console.log("[NewJobPanel] Booking confirmation result:", result, waData, waErr);
         } catch (waEx) {
           console.error("[NewJobPanel] Booking confirmation WhatsApp exception:", waEx);
+          result = classifySendResult(waEx, null);
+        }
+        outcomes.confirmation = result;
+        if (result.status !== "sent") {
+          toast({
+            title: result.status === "skipped" ? "Booking confirmation not sent" : "Booking confirmation failed",
+            description: `The job was created, but the confirmation was ${result.status} — ${result.message}.`,
+            variant: result.status === "failed" ? "destructive" : "default",
+          });
         }
       }
+
+      // Send deposit payment link (SumUp + WhatsApp) if toggle is ON.
+      // Only ever for "Deposit Taken" with a real amount — the toggle value is
+      // already forced to false for other payment statuses.
+      if (
+        finalData.payment?.sendDepositLink &&
+        Number(finalData.payment?.depositAmount || 0) > 0 &&
+        newJob?.id
+      ) {
+        let result: SendResult;
+        try {
+          const { data: depRes, error: depErr } = await supabase.functions.invoke("send-deposit-link", {
+            body: { service_call_id: newJob.id },
+          });
+          result = classifySendResult(depErr, depRes);
+          console.log("[NewJobPanel] Deposit link result:", result, depRes, depErr);
+        } catch (depEx) {
+          console.error("[NewJobPanel] Deposit link exception:", depEx);
+          result = classifySendResult(depEx, null);
+        }
+        outcomes.deposit = result;
+        if (result.status !== "sent") {
+          toast({
+            title: "Deposit link not sent",
+            description: `The job was created, but the deposit payment link was ${result.status} — ${result.message}. You can send it from the job.`,
+            variant: result.status === "failed" ? "destructive" : "default",
+          });
+        }
+      }
+
+      setSendResults(outcomes);
 
       setJobData(finalData);
       setDone(true);
@@ -1289,6 +1720,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
   const handleNewJob = () => {
     setStep(0);
     setDone(false);
+    setSendResults({});
     setJobData({ customer: null, job: null, schedule: null, payment: null, sendWhatsApp: true });
   };
 
@@ -1320,7 +1752,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : done ? (
-            <SuccessScreen jobData={jobData} engineers={engineers} onClose={onClose} onNewJob={handleNewJob} />
+            <SuccessScreen jobData={jobData} engineers={engineers} onClose={onClose} onNewJob={handleNewJob} sendResults={sendResults} />
           ) : step === 0 ? (
             <StepCustomer prefilledCustomer={prefilledCustomer} onNext={handleCustomer} />
           ) : step === 1 ? (
@@ -1328,7 +1760,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
-            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} />
+            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} orgReady={orgReady} orgId={orgId} />
           )}
         </div>
       </SheetContent>

@@ -7,6 +7,8 @@ import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, Ale
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
+import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
+import { invokeFunction } from "@/lib/invokeFunction";
 
 
 const formatDate = (d: string) =>
@@ -44,6 +46,7 @@ const ServiceReceipt = () => {
   const [loading, setLoading] = useState(true);
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
+  const [latestPaymentAmount, setLatestPaymentAmount] = useState<number | null>(null);
 
   useEffect(() => {
     if (user && id) loadData();
@@ -94,15 +97,25 @@ const ServiceReceipt = () => {
       return;
     }
 
-    const [custRes, certRes] = await Promise.all([
+    const [custRes, certRes, paymentRes] = await Promise.all([
       supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
       supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+      supabase
+        .from("job_payments")
+        .select("amount")
+        .eq("service_call_id", id)
+        .gt("amount", 0)
+        .order("paid_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     setJob(jobRes.data);
     setCustomer(custRes.data);
     setSettings(settingsRes.data);
     setCertificate(certRes.data || null);
+    setLatestPaymentAmount(paymentRes.data?.amount ?? null);
     if (jobRes.data.receipt_sent) setWhatsappSent(true);
     setLoading(false);
   };
@@ -112,7 +125,8 @@ const ServiceReceipt = () => {
     const businessPhone = settings?.business_phone || "";
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
     const paymentMethodLabel = job.payment_method === "cash" ? "Cash" : job.payment_method === "card" ? "Card" : "Invoice";
-    const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : job.deposit_amount ? `€${Number(job.deposit_amount).toFixed(2)}` : "€120.00";
+    const amountSource = latestPaymentAmount ?? job.revenue ?? job.deposit_amount ?? 120;
+    const amount = `€${Number(amountSource).toFixed(2)}`;
     const nextDue = addMonths(serviceDate, 12);
 
     return {
@@ -138,8 +152,9 @@ const ServiceReceipt = () => {
     if (job.receipt_pdf_url) return job.receipt_pdf_url;
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
-        body: { job_id: job.id },
+      const { data, error } = await invokeFunction<any>("generate-receipt-pdf", {
+        body: latestPaymentAmount ? { job_id: job.id, payment_amount: latestPaymentAmount } : { job_id: job.id },
+        signOutOnRefreshFailure: false,
       });
       if (error || !data?.pdf_url) return null;
       // Update local state so we don't re-generate
@@ -151,9 +166,10 @@ const ServiceReceipt = () => {
   };
 
   const handleDownloadPdf = async () => {
-    const url = await generateReceiptPdf();
-    if (url) {
-      openExternalUrl(url);
+    const path = await generateReceiptPdf();
+    const signed = path ? await resolveReceiptUrl(job?.access_token) : null;
+    if (signed) {
+      openExternalUrl(signed);
     } else {
       toast({ title: "Could not generate receipt PDF", variant: "destructive" });
     }
@@ -167,8 +183,9 @@ const ServiceReceipt = () => {
     setWhatsappSending(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
-        body: { job_id: job.id },
+      const { data, error } = await invokeFunction<any>("send-whatsapp-receipt", {
+        body: latestPaymentAmount ? { job_id: job.id, payment_amount: latestPaymentAmount } : { job_id: job.id },
+        signOutOnRefreshFailure: false,
       });
 
       if (error) throw error;

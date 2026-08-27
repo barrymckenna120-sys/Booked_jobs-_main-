@@ -1,0 +1,1309 @@
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  extractCheckoutId,
+  jobIdFromCheckoutReference,
+  handleSumUpWebhook,
+  type SumUpCheckoutDiscovery,
+  type SumUpCheckoutView,
+  type SumUpWebhookJob,
+} from "./sumupWebhook.ts";
+
+
+const JOB_ID = "11111111-1111-1111-1111-111111111111";
+const ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
+const CHECKOUT_ID = "33824b20-af8a-45d6-9e9f-a10cc40ee94c";
+
+function job(overrides: Partial<SumUpWebhookJob> = {}): SumUpWebhookJob {
+  return {
+    id: JOB_ID,
+    organisation_id: ORG_ID,
+    customer_id: "cust-1",
+    revenue: 2000,
+    balance_due: 2000,
+    deposit_paid: false,
+    payment_status: "unpaid",
+    paid_at: null,
+    ...overrides,
+  };
+}
+
+interface Harness {
+  updates: Array<{ jobId: string; patch: Record<string, unknown> }>;
+  activities: number;
+  messages: number;
+  notifications: Array<{
+    jobReference: string | null;
+    amount: number;
+    fullyPaid: boolean;
+    outstanding: number;
+    checkoutId: string;
+  }>;
+  fetches: number;
+  discoveries: number;
+  loadedById: string[];
+  claims: number;
+  failureAlerts: Array<{
+    serviceCallId: string;
+    jobReference: string | null;
+    checkoutId: string;
+    status: string;
+    amount: number | null;
+  }>;
+  receipts: Array<{ serviceCallId: string; amount: number; checkoutId: string }>;
+  /** BJ-0063 part-payment confirmations sent to the customer. */
+  depositConfirmations: Array<{
+    serviceCallId: string;
+    amount: number;
+    balanceRemaining: number;
+    checkoutId: string;
+  }>;
+  /** payment_failed timeline entries only; `activities` stays payment_received. */
+  failureActivities: Array<{
+    organisationId: string | null;
+    customerId: string | null;
+    serviceCallId: string;
+    amount: number;
+    fullyPaid: boolean;
+    checkoutId?: string;
+    status?: string;
+  }>;
+  /** job_payments ledger rows appended for confirmed payments. */
+  payments: Array<{
+    organisationId: string | null;
+    serviceCallId: string;
+    customerId: string | null;
+    amount: number;
+    paymentType: string;
+    checkoutId: string;
+    paidAt: string;
+    metadata: Record<string, unknown>;
+  }>;
+}
+
+
+function run(opts: {
+  jobRow?: SumUpWebhookJob | null;
+  view?: SumUpCheckoutView;
+  body?: string;
+  presentedSecret?: string | null;
+  expectedSecret?: string | null;
+  updateOk?: boolean;
+  /** Result of the checkout_reference discovery pass (Make-created checkouts). */
+  discovery?: SumUpCheckoutDiscovery;
+  /** Job returned by the id (checkout_reference) lookup. */
+  jobById?: SumUpWebhookJob | null;
+  /** Error = the failure alert itself throws; must never change the outcome. */
+  failureAlert?: Error;
+  /** Error = the failure timeline write throws; must never change the outcome. */
+  activityLog?: Error;
+  /** Error = the receipt send throws; must never change the outcome. */
+  receiptSend?: Error;
+  /** Error = the part-payment confirmation throws; must never change the outcome. */
+  depositConfirmationSend?: Error;
+  /** false = a re-delivery whose event claim is rejected. */
+  claimOk?: boolean;
+  /** Error = the ledger insert throws; must never change the outcome. */
+  ledgerInsert?: Error;
+}) {
+  const h: Harness = {
+
+    updates: [],
+    activities: 0,
+    messages: 0,
+    notifications: [],
+    fetches: 0,
+    discoveries: 0,
+    loadedById: [],
+    claims: 0,
+    failureAlerts: [],
+    failureActivities: [],
+    receipts: [],
+    depositConfirmations: [],
+    payments: [],
+  };
+
+
+  const result = handleSumUpWebhook({
+    expectedSecret: opts.expectedSecret === undefined ? "s3cret-token" : opts.expectedSecret,
+    presentedSecret: opts.presentedSecret === undefined ? "s3cret-token" : opts.presentedSecret,
+    body: opts.body ?? JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
+    loadJobByCheckoutId: () => Promise.resolve(opts.jobRow === undefined ? job() : opts.jobRow),
+    loadJobById: (jobId) => {
+      h.loadedById.push(jobId);
+      return Promise.resolve(opts.jobById ?? null);
+    },
+
+    discoverCheckout: () => {
+      h.discoveries++;
+      return Promise.resolve(
+        opts.discovery ?? { ok: true, reference: null, organisationId: null },
+      );
+    },
+    fetchCheckout: () => {
+      h.fetches++;
+      return Promise.resolve(
+        opts.view ?? {
+          ok: true,
+          status: "PAID",
+          amount: 2000,
+          checkoutReference: JOB_ID,
+        },
+      );
+    },
+    updateJob: (jobId, patch) => {
+      h.updates.push({ jobId, patch });
+      return Promise.resolve(opts.updateOk !== false);
+    },
+    logActivity: (e) => {
+      if (e.eventType === "payment_failed") {
+        h.failureActivities.push({
+          organisationId: e.organisationId,
+          customerId: e.customerId,
+          serviceCallId: e.serviceCallId,
+          amount: e.amount,
+          fullyPaid: e.fullyPaid,
+          checkoutId: e.checkoutId,
+          status: e.status,
+        });
+        if (opts.activityLog) return Promise.reject(opts.activityLog);
+        return Promise.resolve();
+      }
+      h.activities++;
+      return Promise.resolve();
+    },
+    logMessage: () => {
+      h.messages++;
+      return Promise.resolve();
+    },
+    notifyOffice: (e) => {
+      h.notifications.push({
+        jobReference: e.jobReference,
+        amount: e.amount,
+        fullyPaid: e.fullyPaid,
+        outstanding: e.outstanding,
+        checkoutId: e.checkoutId,
+      });
+      return Promise.resolve();
+    },
+    claimEvent: () => {
+      h.claims++;
+      return Promise.resolve(opts.claimOk !== false);
+    },
+    recordPayment: (row) => {
+      h.payments.push({
+        organisationId: row.organisationId,
+        serviceCallId: row.serviceCallId,
+        customerId: row.customerId,
+        amount: row.amount,
+        paymentType: row.paymentType,
+        checkoutId: row.checkoutId,
+        paidAt: row.paidAt,
+        metadata: row.metadata,
+      });
+      if (opts.ledgerInsert) return Promise.reject(opts.ledgerInsert);
+      return Promise.resolve();
+    },
+
+    sendReceipt: (e) => {
+      h.receipts.push({ serviceCallId: e.serviceCallId, amount: e.amount, checkoutId: e.checkoutId });
+      if (opts.receiptSend) return Promise.reject(opts.receiptSend);
+      return Promise.resolve();
+    },
+    sendDepositConfirmation: (e) => {
+      h.depositConfirmations.push({
+        serviceCallId: e.serviceCallId,
+        amount: e.amount,
+        balanceRemaining: e.balanceRemaining,
+        checkoutId: e.checkoutId,
+      });
+      if (opts.depositConfirmationSend) return Promise.reject(opts.depositConfirmationSend);
+      return Promise.resolve();
+    },
+    notifyPaymentFailed: (e) => {
+      h.failureAlerts.push({
+        serviceCallId: e.serviceCallId,
+        jobReference: e.jobReference,
+        checkoutId: e.checkoutId,
+        status: e.status,
+        amount: e.amount,
+      });
+      if (opts.failureAlert) return Promise.reject(opts.failureAlert);
+      return Promise.resolve();
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  return { h, result };
+}
+
+
+Deno.test("full payment marks the job paid, sets paid_at and zeroes the balance", async () => {
+  const { h, result: p } = run({});
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+});
+
+Deno.test("deposit payment sets partial + deposit_paid and stamps paid_at", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.updates[0].patch.balance_due, 1000);
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.activities, 1);
+});
+
+Deno.test("a part-paid job with paid_at already stamped can still be settled in full", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      payment_status: "partial",
+      deposit_paid: true,
+      balance_due: 1000,
+      paid_at: "2026-08-09T10:00:00.000Z",
+    }),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.notifications.length, 1);
+});
+
+Deno.test("office is notified once per confirmed payment, with the job reference", async () => {
+  const full = run({ jobRow: job({ job_reference: "KN-465" }) });
+  await full.result;
+  assertEquals(full.h.notifications, [
+    { jobReference: "KN-465", amount: 2000, fullyPaid: true, outstanding: 0, checkoutId: CHECKOUT_ID },
+  ]);
+
+  const deposit = run({
+    jobRow: job({ job_reference: "KN-465" }),
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  await deposit.result;
+  assertEquals(deposit.h.notifications, [
+    { jobReference: "KN-465", amount: 1000, fullyPaid: false, outstanding: 1000, checkoutId: CHECKOUT_ID },
+  ]);
+});
+
+Deno.test("no office notification on duplicate, unpaid or failed-update deliveries", async () => {
+  // duplicate = layer 1: the same checkout id re-delivered, claim rejected.
+  const dup = run({ jobRow: job({ payment_status: "paid", deposit_paid: true }), claimOk: false });
+  assertEquals((await dup.result).outcome, "duplicate");
+  assertEquals(dup.h.notifications.length, 0);
+
+  const unpaid = run({ view: { ok: true, status: "PENDING", amount: 2000, checkoutReference: JOB_ID } });
+  assertEquals((await unpaid.result).outcome, "not_paid");
+  assertEquals(unpaid.h.notifications.length, 0);
+
+  const failed = run({ updateOk: false });
+  assertEquals((await failed.result).outcome, "update_failed");
+  assertEquals(failed.h.notifications.length, 0);
+});
+
+Deno.test("payment notification never crosses tenants — only the owning org's office/admins", async () => {
+  // Confirmed live tenant ids.
+  const KN_ORG = ORG_ID; // 8c37827f-ce2c-4507-a821-a5e807d89856
+  const DUBLIN_ORG = "f1950683-e8b9-41cf-8972-2aa59516850d";
+  const CAVAN_ORG = "62d6c1c3-99cc-47fa-80ce-ea0e36f0d52b";
+
+  // Stands in for the edge function's recipient query: office/admin profiles
+  // scoped to one organisation_id.
+  const profiles = [
+    { user_id: "kn-office", role: "office", organisation_id: KN_ORG },
+    { user_id: "kn-admin", role: "admin", organisation_id: KN_ORG },
+    { user_id: "dublin-office", role: "office", organisation_id: DUBLIN_ORG },
+    { user_id: "dublin-admin", role: "admin", organisation_id: DUBLIN_ORG },
+    { user_id: "cavan-office", role: "office", organisation_id: CAVAN_ORG },
+    { user_id: "cavan-admin", role: "admin", organisation_id: CAVAN_ORG },
+  ];
+  const recipientsFor = (orgId: string) =>
+    profiles.filter((p) => p.organisation_id === orgId).map((p) => p.user_id);
+
+  const notifiedOrgs: string[] = [];
+  // Every row that would actually be inserted into notifications.
+  const rows: Array<{ recipient_user_id: string; organisation_id: string }> = [];
+
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: CHECKOUT_ID }),
+    loadJobByCheckoutId: () => Promise.resolve(job({ organisation_id: KN_ORG, job_reference: "KN-465" })),
+    fetchCheckout: () =>
+      Promise.resolve({ ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID }),
+    updateJob: () => Promise.resolve(true),
+    notifyOffice: (e) => {
+      notifiedOrgs.push(e.organisationId!);
+      for (const userId of recipientsFor(e.organisationId!)) {
+        rows.push({ recipient_user_id: userId, organisation_id: e.organisationId! });
+      }
+      return Promise.resolve();
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(notifiedOrgs, [KN_ORG]);
+  assertEquals(rows.map((r) => r.recipient_user_id), ["kn-office", "kn-admin"]);
+  // Not inserted for, and therefore not visible to, any other tenant.
+  assertEquals(rows.every((r) => r.organisation_id === KN_ORG), true);
+  for (const outsider of ["dublin-office", "dublin-admin", "cavan-office", "cavan-admin"]) {
+    assertEquals(rows.some((r) => r.recipient_user_id === outsider), false);
+  }
+  assertEquals(rows.filter((r) => r.organisation_id === DUBLIN_ORG).length, 0);
+  assertEquals(rows.filter((r) => r.organisation_id === CAVAN_ORG).length, 0);
+});
+
+Deno.test("re-delivered callback is claimed once — no paid_at stamp, no notification the second time", async () => {
+  const seen = new Set<string>();
+  const call = (jobRow: SumUpWebhookJob) => {
+    const updates: Array<Record<string, unknown>> = [];
+    const notifications: string[] = [];
+    const claims: string[] = [];
+    return handleSumUpWebhook({
+      expectedSecret: "s3cret-token",
+      presentedSecret: "s3cret-token",
+      body: JSON.stringify({ id: CHECKOUT_ID, event_type: "CHECKOUT_STATUS_CHANGED" }),
+      loadJobByCheckoutId: () => Promise.resolve(jobRow),
+      fetchCheckout: () =>
+        Promise.resolve({ ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID }),
+      claimEvent: (e) => {
+        claims.push(e.checkoutId);
+        if (seen.has(e.checkoutId)) return Promise.resolve(false);
+        seen.add(e.checkoutId);
+        return Promise.resolve(true);
+      },
+      updateJob: (_id, patch) => {
+        updates.push(patch);
+        return Promise.resolve(true);
+      },
+      notifyOffice: () => {
+        notifications.push("n");
+        return Promise.resolve();
+      },
+      now: () => new Date("2026-08-10T09:00:00.000Z"),
+    }).then((result) => ({ result, updates, notifications, claims }));
+  };
+
+  const first = await call(job());
+  assertEquals(first.result.outcome, "part_paid");
+  assertEquals(first.updates.length, 1);
+  assertEquals(first.updates[0].paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(first.notifications.length, 1);
+
+  // SumUp re-delivers the same checkout id. Job state deliberately left as-is,
+  // so only the claim can stop it.
+  const retry = await call(job());
+  assertEquals(retry.result.outcome, "duplicate");
+  assertEquals(retry.claims, [CHECKOUT_ID]);
+  assertEquals(retry.updates.length, 0);
+  assertEquals(retry.notifications.length, 0);
+});
+
+Deno.test("a different checkout id on the same job is still processed", async () => {
+  const claimed: string[] = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: "99999999-9999-9999-9999-999999999999" }),
+    loadJobByCheckoutId: () => Promise.resolve(job({ payment_status: "partial", deposit_paid: true, balance_due: 1000 })),
+    fetchCheckout: () => Promise.resolve({ ok: true, status: "PAID", amount: 2000, checkoutReference: JOB_ID }),
+    claimEvent: (e) => {
+      claimed.push(e.checkoutId);
+      return Promise.resolve(true);
+    },
+    updateJob: (_id, patch) => {
+      updates.push(patch);
+      return Promise.resolve(true);
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  assertEquals(result.outcome, "paid");
+  assertEquals(claimed, ["99999999-9999-9999-9999-999999999999"]);
+  assertEquals(updates.length, 1);
+});
+
+
+
+Deno.test("failed/expired checkout writes no payment state", async () => {
+  for (const status of ["FAILED", "EXPIRED", "PENDING"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 2000, checkoutReference: JOB_ID },
+    });
+    const result = await p;
+    assertEquals(result.outcome, "not_paid");
+    assertEquals(result.status, 200);
+    assertEquals(h.updates.length, 0);
+    assertEquals(h.activities, 0);
+  }
+});
+
+Deno.test("unknown checkout reference writes nothing and is reported, not silent", async () => {
+  const { h, result: p } = run({ jobRow: null });
+  const result = await p;
+  assertEquals(result.outcome, "no_matching_reference");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.fetches, 0);
+});
+
+// (a) 50/50 split — the money-loss regression. A second, different checkout for
+// the SAME amount as the deposit must settle the job, never be dropped.
+Deno.test("balance payment on a deposit-paid job settles it (50/50 split, matching amounts)", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  // The booked price is never rewritten from a payment amount.
+  assertEquals(h.updates[0].patch.revenue, undefined);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+  assertEquals(h.notifications, [
+    { jobReference: null, amount: 500, fullyPaid: true, outstanding: 0, checkoutId: CHECKOUT_ID },
+  ]);
+});
+
+// A partial second payment stays partial, with cumulative arithmetic.
+Deno.test("second partial payment reduces the balance cumulatively", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 700 }),
+    view: { ok: true, status: "PAID", amount: 300, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.balance_due, 400);
+});
+
+// (e) Overpayment clamps rather than going negative.
+Deno.test("overpayment clamps balance_due at 0 and marks the job paid", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 600, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+});
+
+// (c) One-shot full payment on a fresh job — unchanged behaviour.
+Deno.test("one-shot full payment on an untouched job is unchanged", async () => {
+  const { h, result: p } = run({ jobRow: job({ revenue: 2000, balance_due: 2000 }) });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.updates[0].patch.revenue, undefined);
+});
+
+// (a) The mis-stamp bug: deposit_paid was stamped by the New Job wizard with no
+// payment behind it. With no claimed event on record the payment must process.
+Deno.test("mis-stamped deposit_paid with no prior claimed event still processes the payment", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "unpaid", deposit_paid: true, balance_due: 2000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.paid_at, "2026-08-10T09:00:00.000Z");
+  assertEquals(h.updates[0].patch.balance_due, 1500);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+});
+
+// (b) Layer 1 is the ONLY idempotency layer: a true re-delivery of the same
+// checkout id is a no-op, and nothing is written.
+Deno.test("same checkout re-delivered is stopped by claimEvent", async () => {
+  const updates: Array<Record<string, unknown>> = [];
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: CHECKOUT_ID }),
+    loadJobByCheckoutId: () => Promise.resolve(job()),
+    fetchCheckout: () =>
+      Promise.resolve({ ok: true, status: "PAID", amount: 2000, checkoutReference: JOB_ID }),
+    claimEvent: () => Promise.resolve(false),
+    updateJob: (_id, patch) => {
+      updates.push(patch);
+      return Promise.resolve(true);
+    },
+    now: () => new Date("2026-08-10T09:00:00.000Z"),
+  });
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(updates.length, 0);
+});
+
+
+Deno.test("a deposit-paid job can still be settled in full later", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, balance_due: 1000 }),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+});
+
+Deno.test("missing or wrong secret is rejected before any lookup or SumUp call", async () => {
+  for (const presented of [null, "", "wrong-token", "s3cret-toke"]) {
+    const { h, result: p } = run({ presentedSecret: presented });
+    const result = await p;
+    assertEquals(result.outcome, "unauthorized");
+    assertEquals(result.status, 401);
+    assertEquals(h.fetches, 0);
+    assertEquals(h.updates.length, 0);
+  }
+});
+
+Deno.test("unconfigured server secret fails closed", async () => {
+  const { result: p } = run({ expectedSecret: "" });
+  const result = await p;
+  assertEquals(result.outcome, "not_configured");
+  assertEquals(result.status, 500);
+});
+
+Deno.test("forged body claiming payment is rejected by the SumUp re-fetch", async () => {
+  const { h, result: p } = run({
+    body: JSON.stringify({ id: CHECKOUT_ID, status: "PAID", amount: 999999 }),
+    view: { ok: true, status: "PENDING", amount: 0, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("reference belonging to another job is refused", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "PAID", amount: 2000, checkoutReference: "some-other-job" },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "reference_mismatch");
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("SumUp verification failure is retryable and writes nothing", async () => {
+  const { h, result: p } = run({ view: { ok: false, error: "sumup_http_503" } });
+  const result = await p;
+  assertEquals(result.outcome, "verification_failed");
+  assertEquals(result.status, 502);
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("unparseable body is acknowledged with 200, not retried", async () => {
+  const { result: p } = run({ body: "{not json" });
+  const badRequest = await p;
+  assertEquals(badRequest.outcome, "bad_request");
+  assertEquals(badRequest.status, 200);
+});
+
+Deno.test("missing checkout id is acknowledged with 200, not retried", async () => {
+  const { result: p } = run({ body: JSON.stringify({ event_type: "X" }) });
+  const missing = await p;
+  assertEquals(missing.outcome, "missing_checkout_id");
+  assertEquals(missing.status, 200);
+});
+
+Deno.test("extractCheckoutId handles SumUp's body shapes", () => {
+  assertEquals(extractCheckoutId({ id: "a" }), "a");
+  assertEquals(extractCheckoutId({ checkout_id: "b" }), "b");
+  assertEquals(extractCheckoutId({ payload: { id: "c" } }), "c");
+  assertEquals(extractCheckoutId({ resource_id: "d" }), "d");
+  assertEquals(extractCheckoutId({}), null);
+  assertEquals(extractCheckoutId(null), null);
+});
+
+Deno.test("every decided path answers 200 so SumUp does not retry (1m/5m/20m/2h)", async () => {
+  const cases = [
+    await run({ jobRow: null }).result,
+    await run({ view: { ok: true, status: "PAID", amount: 2000, checkoutReference: "other" } }).result,
+    await run({ view: { ok: true, status: "FAILED", amount: 0, checkoutReference: JOB_ID } }).result,
+    await run({ jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T08:00:00.000Z" }) }).result,
+    await run({ body: "{not json" }).result,
+    await run({ body: JSON.stringify({ event_type: "X" }) }).result,
+    await run({ jobRow: job({ organisation_id: null }) }).result,
+    await run({}).result,
+    await run({ view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID } }).result,
+  ];
+  for (const c of cases) {
+    assertEquals(c.status, 200, `expected 200 for outcome ${c.outcome}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// checkout_reference fallback — checkouts created outside this system (Make's
+// Scenario 5 calls SumUp directly, so sumup_checkout_id is never written back).
+// ---------------------------------------------------------------------------
+
+Deno.test("fallback: unknown checkout id is matched by checkout_reference and backfilled", async () => {
+  const { h, result: p } = run({
+    jobRow: null,
+    discovery: { ok: true, reference: JOB_ID, organisationId: ORG_ID },
+    jobById: job(),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.jobId, JOB_ID);
+  assertEquals(h.discoveries, 1);
+  assertEquals(h.loadedById, [JOB_ID]);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+  // The id is written back so a re-delivery matches directly and is a no-op.
+  assertEquals(h.updates[0].patch.sumup_checkout_id, CHECKOUT_ID);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+});
+
+Deno.test("fallback: a deposit-only Make checkout still records as partial", async () => {
+  const { h, result: p } = run({
+    jobRow: null,
+    discovery: { ok: true, reference: JOB_ID, organisationId: ORG_ID },
+    jobById: job(),
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.sumup_checkout_id, CHECKOUT_ID);
+});
+
+Deno.test("fallback: still verified against the owning org before any write", async () => {
+  const { h, result: p } = run({
+    jobRow: null,
+    discovery: { ok: true, reference: JOB_ID, organisationId: ORG_ID },
+    jobById: job(),
+    view: { ok: true, status: "FAILED", amount: 0, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(h.fetches, 1);
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("fallback: reference that matches no job writes nothing (200, logged)", async () => {
+  const { h, result: p } = run({
+    jobRow: null,
+    discovery: { ok: true, reference: "22222222-2222-2222-2222-222222222222", organisationId: ORG_ID },
+    jobById: null,
+  });
+  const result = await p;
+  assertEquals(result.outcome, "no_matching_reference");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.fetches, 0);
+});
+
+Deno.test("fallback: non-uuid / junk reference is refused before touching the database", async () => {
+  for (const reference of ["", "   ", "not-a-uuid", "ORDER-123", "'; drop table service_calls; --"]) {
+    const { h, result: p } = run({
+      jobRow: null,
+      discovery: { ok: true, reference, organisationId: ORG_ID },
+      jobById: job(),
+    });
+    const result = await p;
+    assertEquals(result.outcome, "no_matching_reference", `reference: ${reference}`);
+    assertEquals(result.status, 200);
+    assertEquals(h.loadedById.length, 0);
+    assertEquals(h.updates.length, 0);
+  }
+});
+
+Deno.test("fallback: cross-tenant reference is refused, never written", async () => {
+  const { h, result: p } = run({
+    jobRow: null,
+    discovery: { ok: true, reference: JOB_ID, organisationId: "99999999-9999-9999-9999-999999999999" },
+    jobById: job(),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "reference_mismatch");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.fetches, 0);
+});
+
+Deno.test("fallback: transient discovery failure is retryable and writes nothing", async () => {
+  const { h, result: p } = run({
+    jobRow: null,
+    discovery: { ok: false, error: "sumup_http_503" },
+    jobById: job(),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "verification_failed");
+  assertEquals(result.status, 502);
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("fallback: re-delivery after backfill matches directly and is a no-op", async () => {
+  // Second delivery of the SAME checkout: the id lookup now hits and the event
+  // claim is rejected (unique checkout_id), so nothing is written again.
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "paid", paid_at: "2026-08-10T09:00:00.000Z", deposit_paid: true }),
+    claimOk: false,
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(h.discoveries, 0);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.activities, 0);
+});
+
+Deno.test("fallback is optional — without the deps, behaviour is unchanged", async () => {
+  const result = await handleSumUpWebhook({
+    expectedSecret: "s3cret-token",
+    presentedSecret: "s3cret-token",
+    body: JSON.stringify({ id: CHECKOUT_ID }),
+    loadJobByCheckoutId: () => Promise.resolve(null),
+    fetchCheckout: () => Promise.resolve({ ok: true, status: "PAID", amount: 1 }),
+    updateJob: () => Promise.resolve(true),
+  });
+  assertEquals(result.outcome, "no_matching_reference");
+  assertEquals(result.status, 200);
+});
+
+Deno.test("writes revenue when the job has no total (Make-created checkout)", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: null, balance_due: null }),
+    view: { ok: true, status: "PAID", amount: 120 },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.updates[0].patch.revenue, 120);
+  assertEquals(h.updates[0].patch.payment_status, "paid");
+});
+
+Deno.test("never overwrites a known job total", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: 400, balance_due: 400 }),
+    view: { ok: true, status: "PAID", amount: 120 },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals("revenue" in h.updates[0].patch, false);
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+});
+
+Deno.test("first deposit on a quote-created job with stale zero balance stays partial", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      revenue: 20,
+      balance_due: 0,
+      payment_status: "unpaid",
+      deposit_paid: false,
+      deposit_required: true,
+      job_reference: "DG-437",
+    } as Partial<SumUpWebhookJob>),
+    view: { ok: true, status: "PAID", amount: 5, checkoutReference: JOB_ID },
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.balance_due, 15);
+  assertEquals(h.updates[0].patch.deposit_paid, true);
+  assertEquals(h.receipts.length, 0);
+  assertEquals(h.payments[0].paymentType, "deposit");
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 0);
+});
+
+Deno.test("first deposit ignores an unpaid quote balance that was pre-discounted by the requested deposit", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      revenue: 20,
+      balance_due: 15,
+      payment_status: "unpaid",
+      deposit_paid: false,
+      deposit_required: true,
+    } as Partial<SumUpWebhookJob>),
+    view: { ok: true, status: "PAID", amount: 5, checkoutReference: JOB_ID },
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.updates[0].patch.payment_status, "partial");
+  assertEquals(h.updates[0].patch.balance_due, 15);
+  assertEquals(h.receipts.length, 0);
+  assertEquals(h.payments[0].paymentType, "deposit");
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 0);
+});
+
+// ---------------------------------------------------------------------------
+// BJ-0044 — declined checkouts used to be completely silent: no event row, no
+// job write, no alert. The office now gets told, and nothing else changes.
+// ---------------------------------------------------------------------------
+
+Deno.test("a FAILED checkout alerts the office and writes nothing else", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ job_reference: "KN-480", revenue: 22, balance_due: 11 }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.failureAlerts, [{
+    serviceCallId: JOB_ID,
+    jobReference: "KN-480",
+    checkoutId: CHECKOUT_ID,
+    status: "FAILED",
+    amount: 11,
+  }]);
+  // The money path must stay untouched, and the checkout id must stay claimable.
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+  assertEquals(h.notifications.length, 0);
+});
+
+Deno.test("EXPIRED and CANCELLED also alert; PENDING and unknown statuses stay silent", async () => {
+  for (const status of ["EXPIRED", "CANCELLED", "CANCELED"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureAlerts.length, 1);
+    assertEquals(h.failureAlerts[0].status, status);
+  }
+
+  for (const status of ["PENDING", "", "SOMETHING_NEW"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureAlerts.length, 0);
+    assertEquals(h.updates.length, 0);
+  }
+});
+
+Deno.test("a throwing failure alert never changes the outcome and never writes", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+    failureAlert: new Error("notifications insert exploded"),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+});
+
+Deno.test("a paid checkout is unaffected by the failure path", async () => {
+  const { h, result: p } = run({ jobRow: job({ job_reference: "KN-465" }) });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.failureAlerts.length, 0);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.claims, 1);
+  assertEquals(h.notifications.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// BJ-0044 (timeline) — the same terminal failures also write ONE
+// customer_activity entry, so the decline is visible on the customer profile.
+// ---------------------------------------------------------------------------
+
+Deno.test("a FAILED checkout writes one payment_failed timeline entry", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ job_reference: "KN-480", revenue: 22, balance_due: 11 }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "not_paid");
+
+  assertEquals(h.failureActivities, [{
+    organisationId: ORG_ID,
+    customerId: "cust-1",
+    serviceCallId: JOB_ID,
+    amount: 11,
+    fullyPaid: false,
+    checkoutId: CHECKOUT_ID,
+    status: "FAILED",
+  }]);
+  // Still nothing on the money path.
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+  assertEquals(h.activities, 0);
+  assertEquals(h.messages, 0);
+});
+
+Deno.test("a failed full-amount attempt is not labelled a deposit", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: 11, balance_due: 11 }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "not_paid");
+  assertEquals(h.failureActivities.length, 1);
+  assertEquals(h.failureActivities[0].fullyPaid, true);
+});
+
+Deno.test("EXPIRED and CANCELLED log once each; non-terminal statuses log nothing", async () => {
+  for (const status of ["FAILED", "EXPIRED", "CANCELLED", "CANCELED"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureActivities.length, 1);
+    assertEquals(h.failureActivities[0].status, status);
+  }
+
+  for (const status of ["PENDING", "", "SOMETHING_NEW"]) {
+    const { h, result: p } = run({
+      view: { ok: true, status, amount: 11, checkoutReference: JOB_ID },
+    });
+    assertEquals((await p).outcome, "not_paid");
+    assertEquals(h.failureActivities.length, 0);
+  }
+});
+
+Deno.test("a failed checkout on a job with no customer writes no timeline entry", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ customer_id: null }),
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "not_paid");
+  assertEquals(h.failureActivities.length, 0);
+  // The office alert still fires — it does not need a customer row.
+  assertEquals(h.failureAlerts.length, 1);
+});
+
+Deno.test("a throwing failure timeline write never changes the outcome", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "FAILED", amount: 11, checkoutReference: JOB_ID },
+    activityLog: new Error("customer_activity insert exploded"),
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.updates.length, 0);
+  assertEquals(h.claims, 0);
+});
+
+Deno.test("a paid checkout logs payment_received only, never payment_failed", async () => {
+  const { h, result: p } = run({ jobRow: job({ job_reference: "KN-465" }) });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.activities, 1);
+  assertEquals(h.failureActivities.length, 0);
+});
+
+// --- BJ-0050a: both reference shapes are permanently supported ---
+
+Deno.test("jobIdFromCheckoutReference: attempt-numbered reference yields the job id", () => {
+  assertEquals(
+    jobIdFromCheckoutReference("11111111-1111-1111-1111-111111111111::3"),
+    "11111111-1111-1111-1111-111111111111",
+  );
+});
+
+Deno.test("jobIdFromCheckoutReference: legacy raw uuid passes through unchanged", () => {
+  assertEquals(
+    jobIdFromCheckoutReference("11111111-1111-1111-1111-111111111111"),
+    "11111111-1111-1111-1111-111111111111",
+  );
+});
+
+Deno.test("jobIdFromCheckoutReference: trims and tolerates junk", () => {
+  assertEquals(jobIdFromCheckoutReference("  abc::1  "), "abc");
+  assertEquals(jobIdFromCheckoutReference(""), "");
+});
+
+
+// BJ-0059 — receipt on a webhook-confirmed FULL payment.
+
+Deno.test("BJ-0059: a full payment sends the customer receipt exactly once", async () => {
+  const { h, result: p } = run({});
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.receipts.length, 1);
+  assertEquals(h.receipts[0].serviceCallId, JOB_ID);
+  assertEquals(h.receipts[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.receipts[0].amount, 2000);
+});
+
+Deno.test("BJ-0059: receipt payload carries the verified charged amount, not the full job total", async () => {
+  const { h, result: p } = run({
+    jobRow: job({
+      revenue: 20,
+      balance_due: 5,
+      payment_status: "partial",
+      deposit_paid: true,
+      job_reference: "DG-439",
+    }),
+    view: { ok: true, status: "PAID", amount: 5, checkoutReference: JOB_ID },
+  });
+
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(h.receipts.length, 1);
+  assertEquals(h.receipts[0].amount, 5);
+  assertEquals(h.receipts[0].amount === 20, false);
+});
+
+Deno.test("BJ-0059: a deposit-only payment never sends a receipt", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "PAID", amount: 1000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "part_paid");
+  assertEquals(h.receipts.length, 0);
+});
+
+Deno.test("BJ-0059: a re-delivery whose claim is rejected sends nothing", async () => {
+  const { h, result: p } = run({ claimOk: false });
+  const result = await p;
+  assertEquals(result.outcome, "duplicate");
+  assertEquals(h.receipts.length, 0);
+  assertEquals(h.updates.length, 0);
+});
+
+Deno.test("BJ-0059: a throwing receipt send leaves the outcome paid", async () => {
+  const { h, result: p } = run({ receiptSend: new Error("360 down") });
+  const result = await p;
+  assertEquals(result.outcome, "paid");
+  assertEquals(result.status, 200);
+  assertEquals(h.receipts.length, 1);
+  assertEquals(h.updates.length, 1);
+  assertEquals(h.activities, 1);
+  assertEquals(h.messages, 1);
+  assertEquals(h.notifications.length, 1);
+});
+
+Deno.test("BJ-0059: a not-paid checkout never sends a receipt", async () => {
+  const { h, result: p } = run({
+    view: { ok: true, status: "FAILED", amount: 2000, checkoutReference: JOB_ID },
+  });
+  const result = await p;
+  assertEquals(result.outcome, "not_paid");
+  assertEquals(h.receipts.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// job_payments ledger rows. payment_type here is the LEDGER classification and
+// is deliberately different from the type handed to buildPaymentPatch.
+// ---------------------------------------------------------------------------
+
+Deno.test("ledger: first partial payment on an untouched job is recorded as a deposit", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: 1000, balance_due: 1000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "part_paid");
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "deposit");
+  assertEquals(h.payments[0].amount, 500);
+  assertEquals(h.payments[0].serviceCallId, JOB_ID);
+  assertEquals(h.payments[0].organisationId, ORG_ID);
+  assertEquals(h.payments[0].customerId, "cust-1");
+  assertEquals(h.payments[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 0);
+  assertEquals(h.payments[0].metadata.fully_paid, false);
+  assertEquals(h.payments[0].metadata.job_revenue_at_time, 1000);
+});
+
+Deno.test("ledger: balance payment on a deposit-paid job is recorded as a balance (50/50 split)", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "balance");
+  assertEquals(h.payments[0].amount, 500);
+  assertEquals(h.payments[0].metadata.collected_to_date_before, 500);
+  assertEquals(h.payments[0].metadata.fully_paid, true);
+});
+
+Deno.test("ledger: one-shot full payment is recorded as full", async () => {
+  const { h, result: p } = run({ jobRow: job({ revenue: 2000, balance_due: 2000 }) });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "full");
+  assertEquals(h.payments[0].amount, 2000);
+});
+
+Deno.test("ledger: unpriced job (revenueMode fill) is recorded as full", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ revenue: null, balance_due: null, payment_status: null }),
+    view: { ok: true, status: "PAID", amount: 750, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.updates[0].patch.revenue, 750);
+  assertEquals(h.payments.length, 1);
+  assertEquals(h.payments[0].paymentType, "full");
+  assertEquals(h.payments[0].metadata.job_revenue_at_time, 0);
+});
+
+Deno.test("ledger: overpayment records the real amount while the job balance clamps at 0", async () => {
+  const { h, result: p } = run({
+    jobRow: job({ payment_status: "partial", deposit_paid: true, revenue: 1000, balance_due: 500 }),
+    view: { ok: true, status: "PAID", amount: 600, checkoutReference: JOB_ID },
+  });
+  assertEquals((await p).outcome, "paid");
+  assertEquals(h.updates[0].patch.balance_due, 0);
+  assertEquals(h.payments[0].paymentType, "balance");
+  assertEquals(h.payments[0].amount, 600);
+});
+
+Deno.test("ledger: paid_at prefers SumUp's transaction timestamp, falls back to webhook time", async () => {
+  const withTs = run({
+    view: {
+      ok: true,
+      status: "PAID",
+      amount: 2000,
+      checkoutReference: JOB_ID,
+      paidAt: "2026-08-09T18:30:00.000Z",
+      transactionId: "txn_1",
+      transactionCode: "TCODE1",
+      currency: "EUR",
+    },
+  });
+  await withTs.result;
+  assertEquals(withTs.h.payments[0].paidAt, "2026-08-09T18:30:00.000Z");
+  assertEquals(withTs.h.payments[0].metadata.transaction_id, "txn_1");
+  assertEquals(withTs.h.payments[0].metadata.transaction_code, "TCODE1");
+  assertEquals(withTs.h.payments[0].metadata.currency, "EUR");
+
+  const noTs = run({});
+  await noTs.result;
+  assertEquals(noTs.h.payments[0].paidAt, "2026-08-10T09:00:00.000Z");
+  assertEquals(noTs.h.payments[0].metadata.transaction_id, null);
+});
+
+Deno.test("ledger: no row is written when the job update fails", async () => {
+  const { h, result: p } = run({ updateOk: false });
+  assertEquals((await p).outcome, "update_failed");
+  assertEquals(h.payments.length, 0);
+});
+
+Deno.test("ledger: no row is written for a re-delivery (layer 1) or an unpaid checkout", async () => {
+  const dup = run({ claimOk: false });
+  assertEquals((await dup.result).outcome, "duplicate");
+  assertEquals(dup.h.payments.length, 0);
+
+  const unpaid = run({ view: { ok: true, status: "PENDING", amount: 2000, checkoutReference: JOB_ID } });
+  assertEquals((await unpaid.result).outcome, "not_paid");
+  assertEquals(unpaid.h.payments.length, 0);
+});
+
+Deno.test("ledger: a failing insert (unique violation or otherwise) never changes the response", async () => {
+  const dupIndex = Object.assign(new Error("duplicate key value violates unique constraint"), {
+    code: "23505",
+  });
+  const unique = run({ ledgerInsert: dupIndex });
+  const uniqueResult = await unique.result;
+  assertEquals(uniqueResult.outcome, "paid");
+  assertEquals(uniqueResult.status, 200);
+  assertEquals(unique.h.updates.length, 1);
+  assertEquals(unique.h.activities, 1);
+  assertEquals(unique.h.messages, 1);
+  assertEquals(unique.h.notifications.length, 1);
+
+  const broken = run({ ledgerInsert: new Error("connection reset") });
+  const brokenResult = await broken.result;
+  assertEquals(brokenResult.outcome, "paid");
+  assertEquals(brokenResult.status, 200);
+  assertEquals(broken.h.activities, 1);
+  assertEquals(broken.h.notifications.length, 1);
+});
+
+
+// ── BJ-0063: part-payment confirmation to the customer ──────────────────────
+Deno.test("deposit payment sends a part-payment confirmation with paid + remaining", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 1000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(h.depositConfirmations, [
+    { serviceCallId: JOB_ID, amount: 500, balanceRemaining: 500, checkoutId: CHECKOUT_ID },
+  ]);
+  // Full receipt stays reserved for final settlement.
+  assertEquals(h.receipts.length, 0);
+});
+
+Deno.test("full payment sends the receipt and no part-payment confirmation", async () => {
+  const { h } = run({});
+  await run({}).result;
+  const settled = run({});
+  await settled.result;
+  assertEquals(settled.h.receipts.length, 1);
+  assertEquals(settled.h.depositConfirmations.length, 0);
+  assertEquals(h.depositConfirmations.length, 0);
+});
+
+Deno.test("part-payment confirmation failure never changes the outcome", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 1000 }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+    depositConfirmationSend: new Error("360messenger down"),
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(r.status, 200);
+  assertEquals(h.depositConfirmations.length, 1);
+});
+
+Deno.test("balance payment that settles the job sends receipt, not a part confirmation", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 500, deposit_paid: true, payment_status: "partial" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "paid");
+  assertEquals(h.depositConfirmations.length, 0);
+  assertEquals(h.receipts.length, 1);
+});
+
+// The office alert must state the balance that was actually written to the job,
+// and carry the checkout id so the alert is traceable and de-duplicable.
+Deno.test("office alert carries the checkout id and the post-payment outstanding balance", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 2000, balance_due: 2000, job_reference: "DG-443" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "part_paid");
+  assertEquals(h.notifications.length, 1);
+  assertEquals(h.notifications[0].checkoutId, CHECKOUT_ID);
+  assertEquals(h.notifications[0].fullyPaid, false);
+  assertEquals(h.notifications[0].outstanding, 1500);
+  // Never a figure of its own: it is exactly the balance_due the job write applied.
+  assertEquals(h.notifications[0].outstanding, Number(h.updates[0].patch.balance_due));
+});
+
+Deno.test("office alert for a settling balance payment reports nothing outstanding", async () => {
+  const { h, result } = run({
+    jobRow: job({ revenue: 1000, balance_due: 500, deposit_paid: true, payment_status: "partial" }),
+    view: { ok: true, status: "PAID", amount: 500, checkoutReference: JOB_ID },
+  });
+  const r = await result;
+  assertEquals(r.outcome, "paid");
+  assertEquals(h.notifications.length, 1);
+  assertEquals(h.notifications[0].fullyPaid, true);
+  assertEquals(h.notifications[0].outstanding, 0);
+  assertEquals(h.notifications[0].checkoutId, CHECKOUT_ID);
+});

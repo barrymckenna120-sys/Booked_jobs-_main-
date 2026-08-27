@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -224,6 +225,7 @@ Deno.serve(async (req) => {
     fieldPair("Customer", customer?.name || "", margin + 2);
     fieldPair("Address", customer?.address || "", margin + 2);
     fieldPair("Eircode", customer?.eircode || "", margin + 2);
+    if (customer?.gprn) fieldPair("GPRN", customer.gprn, margin + 2);
     fieldPair("Contact", customer?.phone || "", margin + 2);
     const pLeftEnd = y;
     y = py;
@@ -349,11 +351,17 @@ Deno.serve(async (req) => {
     // ─── OUTPUT ───
     const pdfOutput = doc.output("arraybuffer");
     const pdfBytes = new Uint8Array(pdfOutput);
+    if (!hazard.organisation_id) {
+      return new Response(JSON.stringify({ error: "Hazard notification missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `${hazard.ref_number}.pdf`;
+    const storagePath = `${hazard.organisation_id}/${fileName}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from("certificates")
-      .upload(fileName, pdfBytes, { contentType: "application/pdf", upsert: true });
+      .upload(storagePath, pdfBytes, { contentType: "application/pdf", upsert: true });
 
     if (uploadError) {
       return new Response(JSON.stringify({ error: "Failed to upload PDF" }), {
@@ -361,12 +369,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: publicUrl } = supabaseAdmin.storage.from("certificates").getPublicUrl(fileName);
-    const pdfUrl = publicUrl.publicUrl;
+    await supabaseAdmin.from("hazard_notifications").update({ pdf_url: storagePath }).eq("id", hazard_id);
 
-    await supabaseAdmin.from("hazard_notifications").update({ pdf_url: pdfUrl }).eq("id", hazard_id);
-
-    return new Response(JSON.stringify({ pdf_url: pdfUrl }), {
+    return new Response(JSON.stringify({ pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Clock, CalendarDays, CheckCircle2, Hand, PartyPopper, LogOut, Briefcase } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, LogOut, Briefcase, Package } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -17,20 +17,6 @@ import { WifiOff, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
-
-
-const greeting = () => {
-  const h = new Date().getHours();
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-  return "Good Evening";
-};
-
-const formatDateHeading = (d: Date) => {
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${days[d.getDay()]} · ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-};
 
 
 const EngineerLayout = () => {
@@ -53,7 +39,7 @@ const EngineerLayout = () => {
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
-  } = useNotifications();
+  } = useNotifications("engineer");
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS)
@@ -93,9 +79,10 @@ const EngineerLayout = () => {
     };
   }, []);
 
+  // /engineer/parts lives inside the Completed section, so it keeps that tab lit.
   const currentTab = location.pathname.includes("/upcoming")
     ? "upcoming"
-    : location.pathname.includes("/completed")
+    : location.pathname.includes("/completed") || location.pathname.includes("/parts")
     ? "completed"
     : "today";
 
@@ -132,11 +119,8 @@ const EngineerLayout = () => {
   return (
     <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-7 relative overflow-hidden">
-        <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
-        <div className="absolute -bottom-14 right-12 w-36 h-36 rounded-full bg-white/[0.05] pointer-events-none" />
-
-        <div className="flex items-center justify-between mb-5">
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover" />
             <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
@@ -151,6 +135,13 @@ const EngineerLayout = () => {
                 <Briefcase className="w-4 h-4" /> Back to Office
               </button>
             )}
+            <button
+              onClick={() => navigate("/engineer/parts")}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+              title="Order Parts"
+            >
+              <Package className="w-4 h-4" /> Order Parts
+            </button>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
               onClick={async () => {
@@ -167,18 +158,6 @@ const EngineerLayout = () => {
             </button>
           </div>
         </div>
-
-        <div className="text-[13px] text-white/70 font-medium mb-1">{formatDateHeading(new Date())}</div>
-        <div className="text-[28px] font-extrabold text-white tracking-tight leading-tight mb-1.5 flex items-end gap-2">
-          {greeting()},<br />{engineerName?.split(" ")[0] || "Engineer"} <Hand className="w-7 h-7 text-white/80 mb-0.5" />
-        </div>
-        <div className="text-[13px] text-white/75 font-medium flex items-center gap-1.5">
-          {isEngineerNotLinked
-            ? <>⚠️ Account not linked — please contact your office</>
-            : todayActive.length > 0
-            ? `${todayActive.length} job${todayActive.length > 1 ? "s" : ""} remaining today`
-            : <><PartyPopper className="w-4 h-4" /> All jobs done for today!</>}
-        </div>
       </div>
 
 
@@ -190,8 +169,8 @@ const EngineerLayout = () => {
         </div>
       )}
 
-      {/* Page content */}
-      <div className="px-4 py-6 space-y-6">
+      {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
+      <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
         <Outlet context={engineerJobs} />
       </div>
       <EnableSoundBanner />
@@ -200,7 +179,7 @@ const EngineerLayout = () => {
 
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50" style={{ minHeight: 64 }}>
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50 pb-[env(safe-area-inset-bottom)]" style={{ minHeight: 64 }}>
         {navItems.map((item) => {
           const active = currentTab === item.key;
           return (
@@ -225,6 +204,7 @@ const EngineerLayout = () => {
         })}
       </div>
       <NotificationDrawer
+        surface="engineer"
         open={notifOpen}
         onOpenChange={setNotifOpen}
         notifications={notifications}
@@ -243,7 +223,7 @@ const EngineerLayout = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/engineer/job"
       />
-      <MessageAlertBanner />
+      <MessageAlertBanner jobPathPrefix="/engineer/job" />
       {user && (
         <OnboardingTour
           open={showTour}

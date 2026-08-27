@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import PageSeo from "@/components/seo/PageSeo";
 
 const DataProcessingAgreement = () => (
   <main className="min-h-screen bg-background">
+    <PageSeo
+      title="Data Processing Agreement — BookedJobs"
+      description="GDPR Data Processing Agreement between WebLiveView Ltd (BookedJobs) and subscribing plumbing and heating companies."
+      path="/data-processing-agreement"
+    />
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8">
         <ArrowLeft className="w-4 h-4" /> Back to Home

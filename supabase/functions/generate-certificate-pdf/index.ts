@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function escapeHtml(str: string | null | undefined): string {
@@ -162,6 +163,7 @@ function buildHtml(cert: any, customer: any, job: any, settings: any, engineer: 
       <div class="field"><span class="label">Customer</span><div class="value">${escapeHtml(customer?.name)}</div></div>
       <div class="field"><span class="label">Address</span><div class="value">${escapeHtml(customer?.address)}</div></div>
       <div class="field"><span class="label">Eircode</span><div class="value">${escapeHtml(customer?.eircode)}</div></div>
+      ${customer?.gprn ? `<div class="field"><span class="label">GPRN</span><div class="value">${escapeHtml(customer.gprn)}</div></div>` : ""}
       <div class="field"><span class="label">Contact</span><div class="value">${escapeHtml(customer?.phone)}</div></div>
     </div>
     <div>
@@ -410,6 +412,7 @@ Deno.serve(async (req) => {
     fieldPair("Customer", customer?.name || "", margin + 2);
     fieldPair("Address", customer?.address || "", margin + 2);
     fieldPair("Eircode", customer?.eircode || "", margin + 2);
+    if (customer?.gprn) fieldPair("GPRN", customer.gprn, margin + 2);
     fieldPair("Contact", customer?.phone || "", margin + 2);
     const pLeftEnd = y;
     y = py;
@@ -550,11 +553,17 @@ Deno.serve(async (req) => {
     const pdfOutput = doc.output("arraybuffer");
     const pdfBytes = new Uint8Array(pdfOutput);
 
-    // Upload to storage
+    // Upload to storage under <organisation_id>/<filename>.pdf
+    if (!cert.organisation_id) {
+      return new Response(JSON.stringify({ error: "Certificate missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `${cert.cert_number}.pdf`;
+    const storagePath = `${cert.organisation_id}/${fileName}`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from("certificates")
-      .upload(fileName, pdfBytes, {
+      .upload(storagePath, pdfBytes, {
         contentType: "application/pdf",
         upsert: true,
       });
@@ -567,20 +576,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get public URL
-    const { data: publicUrl } = supabaseAdmin.storage
-      .from("certificates")
-      .getPublicUrl(fileName);
-
-    const pdfUrl = publicUrl.publicUrl;
-
-    // Update certificate record
+    // Store the raw object path (bucket becomes private in Stage 2 — signed
+    // URLs are minted on demand by resolve-document-link).
     await supabaseAdmin
       .from("certificates")
-      .update({ pdf_url: pdfUrl })
+      .update({ pdf_url: storagePath })
       .eq("id", certificate_id);
 
-    return new Response(JSON.stringify({ pdf_url: pdfUrl }), {
+    return new Response(JSON.stringify({ pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

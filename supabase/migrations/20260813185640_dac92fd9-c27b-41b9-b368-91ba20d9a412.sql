@@ -1,0 +1,1 @@
+delete from public.message_log where id = '167a6166-99f8-4994-890d-b9a578a617ae';

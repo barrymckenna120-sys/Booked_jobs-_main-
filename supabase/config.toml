@@ -1,104 +1,161 @@
 project_id = "ktkfuquqxbrmuqrmbmdj"
 
 [functions]
-  [functions.auth-email-hook]
-    verify_jwt = false
-  [functions.list-users]
-    verify_jwt = false
-  [functions.lock-failed-login]
-    verify_jwt = false
-  [functions.renewal-reminder-14]
-    verify_jwt = false
-  [functions.renewal-reminder-30]
-    verify_jwt = false
-  [functions.renewal-reminder-7]
-    verify_jwt = false
-  [functions.send-email]
-    verify_jwt = false
-  [functions.send-quote-whatsapp]
-    verify_jwt = false
-  [functions.send-reset-email]
-    verify_jwt = false
-  [functions.tally-incoming-job]
-    verify_jwt = false
-  [functions.tally-webhook]
-    verify_jwt = false
-  [functions.unblock-user]
-    verify_jwt = false
-  [functions.get-tomorrows-jobs]
-    verify_jwt = false
-  [functions.reset-auth-block]
-    verify_jwt = false
-  [functions.generate-quote-pdf]
-    verify_jwt = false
-  [functions.send-certificate-whatsapp]
-    verify_jwt = false
-  [functions.send-part-arrived]
-    verify_jwt = false
-  [functions.get-upcoming-jobs]
-    verify_jwt = false
-  [functions.send-booking-confirmation]
-    verify_jwt = false
-  [functions.send-upcoming-reminders]
-    verify_jwt = false
-  [functions.create-sumup-checkout]
-    verify_jwt = false
-  [functions.get-service-reminders]
-    verify_jwt = false
-  [functions.mark-reminder-sent]
-    verify_jwt = false
-  [functions.get-outstanding-invoices]
-    verify_jwt = false
-  [functions.mark-invoice-reminder-sent]
-    verify_jwt = false
-  [functions.send-deposit-reminder]
-    verify_jwt = false
-  [functions.tally-boiler-rebook]
-    verify_jwt = false
-  [functions.stripe-boiler-payment-confirm]
-    verify_jwt = false
-  [functions.get-upcoming-service-calls]
-    verify_jwt = false
-  [functions.generate-accountant-export]
-    verify_jwt = false
-  [functions.send-warranty-whatsapp]
-    verify_jwt = false
-  [functions.warranty-auto-send]
-    verify_jwt = false
-  [functions.job-reminder-2day]
-    verify_jwt = false
-  [functions.send-renewal-reminder]
-    verify_jwt = false
-  [functions.get-hazard-pdf]
-    verify_jwt = false
-  [functions.generate-gas-install-pdf]
-    verify_jwt = false
-  [functions.log-message]
-    verify_jwt = false
-  [functions.cancel-job-notify]
-    verify_jwt = false
-  [functions.send-magic-link]
-    verify_jwt = false
-  [functions.send-block-notification]
-    verify_jwt = false
-  [functions.handle-whatsapp-opt-out]
-    verify_jwt = false
-  [functions.send-invoice-whatsapp]
-    verify_jwt = false
-  [functions.send-payment-received]
-    verify_jwt = false
-  [functions.send-schedule-confirmation]
-    verify_jwt = false
-  [functions.quote-followup-day3]
-    verify_jwt = false
-  [functions.quote-followup-day6]
-    verify_jwt = false
-  [functions.send-outstanding-invoice-reminders]
-    verify_jwt = false
-  [functions.whatsapp-webhook-test]
-    verify_jwt = false
-  [functions.whatsapp-inbound]
-    verify_jwt = false
-  [functions.superadmin-unblock-user]
+  [functions.notify-import-errors]
     verify_jwt = false
 
+  [functions.auth-email-hook]
+    verify_jwt = false
+
+  [functions.list-users]
+    verify_jwt = false
+
+  [functions.lock-failed-login]
+    verify_jwt = false
+
+  [functions.renewal-reminder-14]
+    verify_jwt = false
+
+  [functions.renewal-reminder-30]
+    verify_jwt = false
+
+  [functions.renewal-reminder-7]
+    verify_jwt = false
+
+  [functions.send-email]
+    verify_jwt = false
+
+  [functions.send-quote-whatsapp]
+    verify_jwt = false
+
+  [functions.send-reset-email]
+    verify_jwt = false
+
+  [functions.tally-incoming-job]
+    verify_jwt = false
+
+  [functions.tally-webhook]
+    verify_jwt = false
+
+  [functions.unblock-user]
+    verify_jwt = false
+
+  [functions.get-tomorrows-jobs]
+    verify_jwt = false
+
+  [functions.reset-auth-block]
+    verify_jwt = false
+
+  [functions.generate-quote-pdf]
+    verify_jwt = false
+
+  [functions.send-certificate-whatsapp]
+    verify_jwt = false
+
+  [functions.send-part-arrived]
+    verify_jwt = false
+
+  [functions.get-upcoming-jobs]
+    verify_jwt = false
+
+  [functions.send-booking-confirmation]
+    verify_jwt = false
+
+  [functions.send-upcoming-reminders]
+    verify_jwt = false
+
+  [functions.create-sumup-checkout]
+    verify_jwt = false
+
+  [functions.get-service-reminders]
+    verify_jwt = false
+
+  [functions.mark-reminder-sent]
+    verify_jwt = false
+
+  [functions.get-outstanding-invoices]
+    verify_jwt = false
+
+  [functions.mark-invoice-reminder-sent]
+    verify_jwt = false
+
+  [functions.send-deposit-reminder]
+    verify_jwt = false
+
+  [functions.tally-boiler-rebook]
+    verify_jwt = false
+
+  [functions.get-upcoming-service-calls]
+    verify_jwt = false
+
+  [functions.generate-accountant-export]
+    verify_jwt = true
+
+  [functions.send-warranty-whatsapp]
+    verify_jwt = false
+
+  [functions.warranty-auto-send]
+    verify_jwt = false
+
+  [functions.job-reminder-2day]
+    verify_jwt = false
+
+  [functions.send-renewal-reminder]
+    verify_jwt = false
+
+  [functions.get-hazard-pdf]
+    verify_jwt = false
+
+  [functions.generate-gas-install-pdf]
+    verify_jwt = false
+
+  [functions.log-message]
+    verify_jwt = false
+
+  [functions.cancel-job-notify]
+    verify_jwt = true
+
+  [functions.send-magic-link]
+    verify_jwt = false
+
+  [functions.send-block-notification]
+    verify_jwt = true
+
+  [functions.handle-whatsapp-opt-out]
+    verify_jwt = false
+
+  [functions.send-invoice-whatsapp]
+    verify_jwt = false
+
+  [functions.send-payment-received]
+    verify_jwt = false
+
+  [functions.send-schedule-confirmation]
+    verify_jwt = false
+
+  [functions.quote-followup-day3]
+    verify_jwt = false
+
+  [functions.quote-followup-day6]
+    verify_jwt = false
+
+  [functions.send-outstanding-invoice-reminders]
+    verify_jwt = false
+
+  [functions.whatsapp-webhook-test]
+    verify_jwt = false
+
+  [functions.whatsapp-inbound]
+    verify_jwt = false
+
+  [functions.resolve-document-link]
+    verify_jwt = false
+
+  [functions.send-deposit-link]
+    verify_jwt = true
+
+  [functions.send-payment-link]
+    verify_jwt = true
+
+  [functions.superadmin-unblock-user]
+    verify_jwt = false

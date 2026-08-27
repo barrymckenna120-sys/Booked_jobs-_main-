@@ -1,8 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -20,15 +22,11 @@ Deno.serve(async (req) => {
     const apiKeyCache = new Map<string, string | null>();
     const loadApiKey = async (orgId: string): Promise<string | null> => {
       if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId)!;
-      const { data: waCfg } = await supabase
-        .from("tenant_integrations")
-        .select("config")
-        .eq("organisation_id", orgId)
-        .eq("integration_type", "360messenger")
-        .maybeSingle();
-      const key = ((waCfg as any)?.config?.api_key as string) || null;
+      const wa = await fetchWhatsappApiKeyWithClient(supabase as any, orgId);
+      const key = wa.apiKey;
       apiKeyCache.set(orgId, key);
       return key;
+
     };
 
     // 4-5 days ago window
@@ -80,8 +78,24 @@ Deno.serve(async (req) => {
         .eq("organisation_id", orgId)
         .eq("integration_type", "360messenger")
         .maybeSingle();
-      const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
-      const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+      // Tenant branding — this org's own config only, no shared fallback (BJ-B2b).
+      const companyName = String((messengerConfig?.config as any)?.company_name ?? "").trim();
+      const companyPhone = String((messengerConfig?.config as any)?.company_phone ?? "").trim();
+      const missingConfig = !companyName
+        ? "company_name_not_configured"
+        : !companyPhone
+          ? "company_phone_not_configured"
+          : null;
+
+      if (missingConfig) {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "send-deposit-reminder",
+          error_message: `Skipped: ${missingConfig} for organisation`,
+          payload: { organisation_id: orgId, service_call_id: job.id, reason: missingConfig },
+        });
+        skipped++;
+        continue;
+      }
 
       const message = `Hi ${customer.name}, this is a reminder that your deposit payment is still outstanding for your booking with ${companyName}.\n\nPlease pay securely here: ${job.payment_link}\n\nIf you have any questions please reply to this message.\n\n${companyName} ☎ ${companyPhone}`;
 
@@ -92,6 +106,7 @@ Deno.serve(async (req) => {
 
       // Log to message_log (pending)
       const { data: logRows } = await supabase.from("message_log").insert({
+        organisation_id: orgId,
         channel: "whatsapp",
         message_type: "deposit_reminder",
         customer_id: job.customer_id,

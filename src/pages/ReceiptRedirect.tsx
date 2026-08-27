@@ -4,32 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const ReceiptRedirect = () => {
-  const { receiptNumber } = useParams<{ receiptNumber: string }>();
+  const { token } = useParams<{ token: string }>();
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!receiptNumber) return;
+    if (!token) return;
     (async () => {
-      const cleanNumber = decodeURIComponent(receiptNumber).replace(/\.pdf$/i, "");
-
-      const { data } = await supabase
-        .rpc("get_receipt_public", { p_receipt_number: cleanNumber })
-        .single();
-
-      const receiptPdfUrl = (data as any)?.receipt_pdf_url;
-      if (receiptPdfUrl) {
-        window.location.replace(receiptPdfUrl);
-      } else {
-        setError(true);
-      }
+      const { data, error: err } = await supabase.functions.invoke("resolve-document-link", {
+        body: { type: "receipt", token },
+      });
+      const signed = (data as any)?.signed_url;
+      if (err || !signed) { setError(true); return; }
+      window.location.replace(signed);
     })();
-  }, [receiptNumber]);
+  }, [token]);
 
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
       <div className="border border-border rounded-xl max-w-md w-full p-8 text-center">
-        <p className="text-lg font-bold text-foreground">Receipt Not Found</p>
-        <p className="text-sm text-muted-foreground mt-2">This receipt link is no longer valid or the PDF has not been generated yet.</p>
+        <p className="text-lg font-bold text-foreground">Link not found</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          This receipt link is no longer valid or the PDF has not been generated yet.
+        </p>
       </div>
     </div>
   );

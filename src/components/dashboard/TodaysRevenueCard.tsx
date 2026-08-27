@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, AlertCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format, startOfWeek, startOfMonth } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchFinanceJobs } from "@/lib/financeJobs";
+import {
+  paidJobsInPeriod,
+  completedJobsInPeriod,
+  collectedAmount,
+  isRevenueRecognised,
+} from "@/lib/financeMetrics";
 
 type PeriodMode = "today" | "week" | "month";
 
@@ -57,19 +64,23 @@ const TodaysRevenueCard = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["revenue-card", user?.id, start, end],
     queryFn: async () => {
-      const { data: rows } = await supabase
-        .from("service_calls")
-        .select("id, job_type, revenue, payment_method, status, customer_id, job_reference")
-        .gte("scheduled_date", start)
-        .lte("scheduled_date", end)
-        .eq("status", "Completed");
+      const jobs = await fetchFinanceJobs(start, end);
 
-      const jobs = rows || [];
+      const rangeStart = new Date(start + "T00:00:00");
+      const rangeEnd = new Date(end + "T23:59:59");
 
-      const unpaidJobs = jobs.filter((j) => !j.payment_method);
-      const customerIds = [...new Set(jobs.map((j) => j.customer_id))];
+      // Revenue basis: money actually taken in the period, whatever the job status.
+      const paid = paidJobsInPeriod(jobs, rangeStart, rangeEnd);
+      // Work delivered but not paid for — chase list.
+      const unpaidJobs = completedJobsInPeriod(jobs, rangeStart, rangeEnd).filter(
+        (j) => !isRevenueRecognised(j),
+      );
 
-      let customerMap: Record<string, string> = {};
+      const customerIds = [
+        ...new Set([...paid, ...unpaidJobs].map((j) => (j as any).customer_id).filter(Boolean)),
+      ] as string[];
+
+      const customerMap: Record<string, string> = {};
       if (customerIds.length > 0) {
         const { data: customers } = await supabase
           .from("customers")
@@ -81,32 +92,28 @@ const TodaysRevenueCard = () => {
       }
 
       const byType: Record<string, { count: number; total: number }> = {};
-      let unpaid = 0;
       let cardTotal = 0;
       let cashTotal = 0;
 
-      for (const j of jobs) {
+      for (const j of paid) {
+        const amount = collectedAmount(j);
         const type = j.job_type || "Other";
         if (!byType[type]) byType[type] = { count: 0, total: 0 };
         byType[type].count += 1;
-        byType[type].total += j.revenue || 0;
+        byType[type].total += amount;
 
-        if (!j.payment_method) {
-          unpaid += j.revenue || 0;
-        } else if (j.payment_method === "card") {
-          cardTotal += j.revenue || 0;
-        } else if (j.payment_method === "cash") {
-          cashTotal += j.revenue || 0;
-        }
+        if (j.payment_method === "card") cardTotal += amount;
+        else if (j.payment_method === "cash") cashTotal += amount;
       }
 
-      const grandTotal = Object.values(byType).reduce((s, v) => s + v.total, 0);
+      const grandTotal = paid.reduce((s, j) => s + collectedAmount(j), 0);
+      const unpaid = unpaidJobs.reduce((s, j) => s + Number(j.revenue || 0), 0);
 
-      const unpaidList: UnpaidJob[] = unpaidJobs.map((j) => ({
+      const unpaidList: UnpaidJob[] = unpaidJobs.map((j: any) => ({
         id: j.id,
         revenue: j.revenue,
         customer_name: customerMap[j.customer_id] || "Unknown",
-        job_ref: (j as any).job_reference || "KN-" + j.id.substring(0, 6).toUpperCase(),
+        job_ref: j.job_reference || "KN-" + String(j.id).substring(0, 6).toUpperCase(),
       }));
 
       return { byType, grandTotal, unpaid, cardTotal, cashTotal, unpaidList };
@@ -149,7 +156,7 @@ const TodaysRevenueCard = () => {
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : entries.length === 0 && !data?.unpaid ? (
-          <p className="text-xs text-muted-foreground/60 text-center py-3">No completed jobs</p>
+          <p className="text-xs text-muted-foreground/60 text-center py-3">No payments recorded</p>
         ) : (
           <>
             <div className="space-y-2.5 mb-3">
@@ -168,7 +175,7 @@ const TodaysRevenueCard = () => {
             <Separator className="my-3" />
 
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-bold text-foreground">Total</span>
+              <span className="text-sm font-bold text-foreground">Total Collected</span>
               <span className="text-lg font-extrabold" style={{ color: "#4A86E8" }}>
                 €{(data?.grandTotal || 0).toLocaleString()}
               </span>
@@ -217,15 +224,6 @@ const TodaysRevenueCard = () => {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {(data?.unpaid || 0) > 0 && (
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-base font-extrabold text-foreground">Net Total</span>
-                <span className="text-xl font-extrabold" style={{ color: "#4A86E8" }}>
-                  €{((data?.grandTotal || 0) - (data?.unpaid || 0)).toLocaleString()}
-                </span>
               </div>
             )}
 

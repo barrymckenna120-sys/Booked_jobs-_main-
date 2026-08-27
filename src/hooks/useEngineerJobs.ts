@@ -3,10 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { sanitizeServiceCallUpdatePayload, stripCallerRevenue, PaymentAmountError } from "@/lib/serviceCallUpdate";
+import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { buildEngineerPaymentPlan } from "@/lib/engineerPaymentPlan";
+
 import { createJobInvoice } from "@/lib/createJobInvoice";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
+import { gateJobPayment } from "@/lib/paymentPreWriteGate";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -59,6 +66,14 @@ export const useEngineerJobs = () => {
   const [fadingJobIds, setFadingJobIds] = useState<Set<string>>(new Set());
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
   const fadeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Resolved public.engineers.id for the signed-in auth user (NOT the auth uid).
+  // Used by debugLog so debug_logs.engineer_id references a real engineers row.
+  const engineerIdRef = useRef<string | null>(null);
+  // Resolved public.profiles.id for the signed-in user, cached at fetch time so
+  // write paths never need a network read for it (offline safety: the ledger
+  // row's recorded_by must be available with no connection).
+  const profileIdRef = useRef<string | null>(null);
+
 
   const fetchCustomers = useCallback(async (jobs: any[]) => {
     const ids = [...new Set(jobs.map((j) => j.customer_id))];
@@ -95,6 +110,19 @@ export const useEngineerJobs = () => {
     // Only show loading spinner on the very first fetch to avoid scroll resets
     if (!hasFetchedOnce.current) setLoading(true);
 
+    const CACHE_KEY = "bookedjobs_engineer_jobs_cache";
+
+    // Load from cache immediately so UI shows something on weak signal
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setTodayJobs(parsed.todayJobs || []);
+        setUpcomingJobs(parsed.upcomingJobs || []);
+        setCompletedJobs(parsed.completedJobs || []);
+      }
+    } catch (e) {}
+
     try {
       // First resolve the engineer record for this auth user
       const { data: engData } = await supabase
@@ -112,6 +140,20 @@ export const useEngineerJobs = () => {
       }
 
       const engineerId = engData?.id;
+      engineerIdRef.current = engineerId ?? null;
+
+      // Cache profiles.id once, while online, for later write paths.
+      try {
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profileRow?.id) profileIdRef.current = profileRow.id;
+      } catch (e) {
+        console.warn("[useEngineerJobs] profile id lookup failed", e);
+      }
+
 
       console.log("[DEBUG] Engineer lookup:", { auth_user_id: user.id, engineerId, engineerName: engData?.name });
       console.log("[DEBUG] Today query filters: scheduled_date =", todayISO(), "| status != Completed | engineer_id =", engineerId || "NOT FILTERED");
@@ -151,10 +193,22 @@ export const useEngineerJobs = () => {
       setTodayJobs(todayRes.data || []);
       setUpcomingJobs(upcomingRes.data || []);
       setCompletedJobs(completedRes.data || []);
+
+      // Update cache with fresh data
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          todayJobs: todayRes.data || [],
+          upcomingJobs: upcomingRes.data || [],
+          completedJobs: completedRes.data || [],
+          cachedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+
       await Promise.all([fetchCustomers(allJobs), fetchJobPhotos(allJobs)]);
       hasFetchedOnce.current = true;
     } catch (error) {
       console.error("[useEngineerJobs] fetchAll failed:", error);
+      setTimeout(() => fetchAll(), 5000);
     } finally {
       setLoading(false);
     }
@@ -167,7 +221,7 @@ export const useEngineerJobs = () => {
   const debugLog = async (event: string, payload?: Record<string, any>, stack?: string) => {
     try {
       await supabase.from('debug_logs').insert({
-        engineer_id: user?.id ?? null,
+        engineer_id: engineerIdRef.current,
         job_id: payload?.job_id ?? null,
         event,
         payload: payload ?? {},
@@ -185,8 +239,35 @@ export const useEngineerJobs = () => {
 
     // Offline-tolerant: attempt the write; on failure, queue for retry.
 
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, selectedJobType, confirmedRevenue, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Fail loudly before ANY write: a cash/card confirmation with no usable
+    // amount must never reach buildPaymentPatch (it would record nothing while
+    // still marking the job Completed).
+    if (paymentMethod && paymentMethod !== "invoice") {
+      const amt =
+        confirmedRevenue === undefined || confirmedRevenue === null
+          ? NaN
+          : Number(confirmedRevenue);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        console.error("[useEngineerJobs] payment confirmation with no amount", {
+          jobId,
+          paymentMethod,
+          confirmedRevenue,
+          patch,
+        });
+        throw new PaymentAmountError();
+      }
+    }
+
+    // Boiler details persist to the customer record — only what the engineer changed.
+    const jobForCustomer = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId);
+    const customerBoilerUpdate = buildBoilerCustomerUpdate(
+      { boilerMake, boilerModel, warrantyExpiry },
+      jobForCustomer?.customer_id ? customers[jobForCustomer.customer_id] : null
+    );
+
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -203,27 +284,50 @@ export const useEngineerJobs = () => {
     }
 
     const jobTagDate = options?.jobTagDate ?? null;
-    const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
+    const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload(stripCallerRevenue({ ...rest }));
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
+    // Customer-facing receipt note — per visit, this job only
+    if (customerNotes !== undefined) {
+      dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
+    }
+    // Shared timestamp: the job row, the ledger row and completed_at must agree.
+    const paidAtIso = new Date().toISOString();
+    let jobForPayment: any = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
     if (paymentMethod) {
-      dbPatch.payment_method = paymentMethod;
+      // Authoritative pre-write gate (BJ-next-D): the in-memory job can be stale
+      // if another surface just recorded a payment. Re-read, refuse a settled
+      // job, and do the cumulative math off the fresh row.
+      const gate = await gateJobPayment(supabase, jobId);
+      jobForPayment = { ...(jobForPayment || {}), id: jobId, ...gate.row };
+    }
+
+    // Pure decision layer: what this payment writes, whether it completes the
+    // job, the ledger row, and whether a receipt goes out. See
+    // src/lib/engineerPaymentPlan.ts.
+    const paymentPlan = buildEngineerPaymentPlan({
+      patch,
+      paymentMethod,
+      confirmedRevenue,
+      job: jobForPayment,
+      jobId,
+      paidAt: paidAtIso,
+      recordedBy: profileIdRef.current,
+      entry: patch.status ? "completion" : "standalone",
+    });
+
+    if (paymentMethod) {
+      Object.assign(dbPatch, paymentPlan.dbPatchAdditions);
       if (paymentMethod === "invoice") {
         // Invoice = unpaid, no paid_at. Auto-complete so it leaves the Active list.
-        dbPatch.payment_status = "unpaid";
         if (!dbPatch.status) dbPatch.status = "Completed";
         if (!patch.status) patch.status = "Completed";
       } else {
-        dbPatch.paid_at = new Date().toISOString();
         dbPatch.payment_collected_by = user?.id || null;
-        dbPatch.payment_status = "paid";
-        dbPatch.balance_due = 0;
       }
     }
+
     if (cancelReason) {
-      dbPatch.cancellation_reason = cancelReason;
-      dbPatch.cancellation_note = cancelNote || null;
-      dbPatch.cancelled_at = new Date().toISOString();
-      dbPatch.cancelled_by = user?.id || null;
+      Object.assign(dbPatch, buildManualCancelPatch(cancelReason, cancelNote, user?.id));
     }
 
     // Set completed_at and generate receipt/invoice number on completion
@@ -240,10 +344,7 @@ export const useEngineerJobs = () => {
         const orgId = (job as any)?.organisation_id;
         if (paymentMethod === "invoice") {
           dbPatch.invoiced_at = new Date().toISOString();
-          const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
-            ? Number(confirmedRevenue)
-            : Number((job as any)?.revenue || 0);
-          dbPatch.balance_due = revenueForInvoice;
+          // balance_due / payment_status / revenue already set by buildPaymentPatch above.
           try {
             const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
             const invNum = await nextInvoiceNumber(orgId);
@@ -262,6 +363,10 @@ export const useEngineerJobs = () => {
           const yr = new Date().getFullYear();
           const rand = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
           dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
+          // A standalone Take Payment may already have minted a receipt (and a
+          // PDF) on this job. Clearing the stored URL forces send-whatsapp-receipt
+          // to regenerate rather than resend the stale document.
+          dbPatch.receipt_pdf_url = null;
         }
       } catch {}
     }
@@ -270,18 +375,50 @@ export const useEngineerJobs = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
 
     if (error) {
-      addToQueue({
+      const jobUpdateQueueId = addToQueue({
         table: "service_calls",
         operation: "update",
         payload: safeDbPatch,
         filter: { column: "id", value: jobId },
       });
+      // Dependent: the ledger row is only replayed once the job update lands,
+      // and is dropped with it if that update is ever dropped. Divergence is
+      // therefore bounded to "job paid, ledger missing" — never the reverse.
+      if (paymentPlan.ledgerRow) {
+        addToQueue({
+          table: "job_payments",
+          operation: "insert",
+          payload: paymentPlan.ledgerRow,
+          dependsOnId: jobUpdateQueueId,
+        });
+      }
+      if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
+        addToQueue({
+          table: "customers",
+          operation: "update",
+          payload: customerBoilerUpdate,
+          filter: { column: "id", value: jobForCustomer.customer_id },
+        });
+      }
+
       toast({
         title: "No connection",
         description: "Update saved and will retry automatically",
         variant: "destructive",
       });
     } else {
+      // Persist boiler make / model / warranty expiry from the completion sheet to the customer
+      if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
+        try {
+          const { error: custErr } = await supabase
+            .from("customers")
+            .update(customerBoilerUpdate)
+            .eq("id", jobForCustomer.customer_id);
+          if (custErr) throw custErr;
+        } catch (custSyncErr) {
+          console.error("[useEngineerJobs] customer boiler details save failed:", custSyncErr);
+        }
+      }
       if (cancelReason) {
         supabase.functions.invoke('send-cancellation-notice', {
           body: { service_call_id: jobId },
@@ -291,9 +428,8 @@ export const useEngineerJobs = () => {
       if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
         try {
           const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
-          const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
-          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? theJob?.revenue ?? 0;
+          const amountVal = confirmedRevenue ?? safeDbPatch.revenue ?? theJob?.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
           await supabase.from("customer_activity").insert({
             organisation_id: theJob?.organisation_id,
@@ -301,81 +437,63 @@ export const useEngineerJobs = () => {
             service_call_id: jobId,
             event_type: "payment_received",
             event_label: `Payment received — €${amountStr} — ${methodLabel}`,
-            created_by: profile?.id || null,
+            created_by: profileIdRef.current,
           } as any);
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
       }
 
-      // In-app notifications for office on engineer-side events
-      try {
-        const theJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find(j => j.id === jobId);
-        const orgId = (theJob as any)?.organisation_id;
-        const customerName = (theJob as any)?.customers?.name || (theJob as any)?.customer_name || "Customer";
-        const jobRef = (theJob as any)?.job_reference || "";
-        if (orgId) {
-          const { data: settingsRow } = await supabase
-            .from("settings")
-            .select("user_id")
-            .eq("organisation_id", orgId)
-            .limit(1)
-            .maybeSingle();
-          const recipient = (settingsRow as any)?.user_id;
-          if (recipient) {
-            const baseRow = {
-              recipient_user_id: recipient,
-              organisation_id: orgId,
-              job_id: jobId,
-              role: "office",
-            };
-
-            // Status updates
-            const statusTypeMap: Record<string, { type: string; title: string }> = {
-              "En Route": { type: "en_route", title: "Engineer En Route" },
-              "On Site": { type: "on_site", title: "Engineer On Site" },
-              "In Progress": { type: "in_progress", title: "Job In Progress" },
-            };
-            const statusMapped = statusTypeMap[patch.status as string];
-            if (statusMapped) {
-              await supabase.from("notifications").insert({
-                ...baseRow,
-                notification_type: statusMapped.type,
-                title: statusMapped.title,
-                body: `${customerName}${jobRef ? ` (${jobRef})` : ""}`,
-                metadata: { service_call_id: jobId, status: patch.status },
-              } as any);
-            }
-
-            // Payment collected
-            if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
-              const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? (theJob as any)?.revenue ?? 0;
-              const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
-              const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
-              await supabase.from("notifications").insert({
-                ...baseRow,
-                notification_type: "payment_collected",
-                title: "Payment Collected",
-                body: `${customerName} — €${amountStr} (${methodLabel})`,
-                metadata: { service_call_id: jobId, amount: amountVal, method: paymentMethod },
-              } as any);
-            }
-
-            // Follow-up flagged on completion
-            if (patch.status === "Completed" && followUp) {
-              await supabase.from("notifications").insert({
-                ...baseRow,
-                notification_type: "follow_up",
-                title: "Follow-up Required",
-                body: `${customerName}${jobRef ? ` (${jobRef})` : ""} — ${followUpNote || "Follow-up flagged by engineer"}`,
-                metadata: { service_call_id: jobId, follow_up_detail: followUpNote || null },
-              } as any);
-            }
+      // Append-only payment ledger. The payment is already recorded on the job,
+      // so a failure here is loud but non-blocking; a network failure is queued.
+      if (paymentPlan.ledgerRow) {
+        try {
+          const { error: ledgerError } = await supabase
+            .from("job_payments")
+            .insert(paymentPlan.ledgerRow as any);
+          if (ledgerError) throw ledgerError;
+        } catch (e: any) {
+          console.error("LEDGER_INSERT_FAILED job_payments:", e);
+          if (!isOnline) {
+            // No dependency needed — the job row already carries the payment.
+            addToQueue({ table: "job_payments", operation: "insert", payload: paymentPlan.ledgerRow });
+          } else {
+            toast({
+              title: "Payment recorded, but not added to the payment ledger",
+              description: e?.message || "Please let the office know so it can be reconciled.",
+              variant: "destructive",
+            });
           }
         }
-      } catch (notifyErr) {
-        console.error("[useEngineerJobs] office notification insert failed", notifyErr);
       }
+
+      // Standalone Take Payment (no status in the patch): a receipt goes out on
+      // full payment even when the job is not marked Completed yet. Skipped
+      // offline — Edge Function calls cannot be queued.
+      if (paymentPlan.fireReceipt && isOnline) {
+        invokeFunction("generate-receipt-pdf", { body: { job_id: jobId, payment_amount: confirmedRevenue }, signOutOnRefreshFailure: false })
+          .then(({ error: pdfError }) => { if (pdfError) throw pdfError; })
+          .catch((err) => {
+            console.error("generate-receipt-pdf error:", err);
+            toast({
+              title: "Receipt PDF not generated",
+              description: "Payment was recorded. Tap Download on the receipt screen to retry.",
+              variant: "destructive",
+            });
+          });
+        invokeFunction("send-whatsapp-receipt", { body: { job_id: jobId, payment_amount: confirmedRevenue }, signOutOnRefreshFailure: false })
+          .then(({ error: waError }) => { if (waError) throw waError; })
+          .catch((err) => {
+            console.error("[WhatsApp] Receipt send failed:", err);
+            toast({
+              title: "Payment recorded — receipt not sent",
+              description: "Tap Send via WhatsApp on the receipt screen to try again.",
+              variant: "destructive",
+            });
+          });
+      }
+
+
 
 
       const existingJob = [...todayJobs, ...upcomingJobs, ...completedJobs].find((j) => j.id === jobId) || { id: jobId };
@@ -433,13 +551,8 @@ export const useEngineerJobs = () => {
           }
 
           if (tagRows.length > 0) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("id")
-              .eq("user_id", user!.id)
-              .maybeSingle();
+            const profileId = profileIdRef.current;
 
-            const profileId = profile?.id || null;
 
             const inserts = tagRows
               .filter((row: any) => !existingIds.has(row.id))
@@ -553,11 +666,23 @@ export const useEngineerJobs = () => {
           navigate(`/invoice-view/${jobId}`);
         } else {
           toast({ title: "Job completed ✔" });
-          supabase.functions.invoke('send-whatsapp-receipt', {
-            body: { job_id: jobId }
-          }).catch((err) => {
-            console.warn('[WhatsApp] Receipt send failed:', err);
-          });
+          // Routed through invokeFunction: a stale session is refreshed and the
+          // call retried once. If it still fails the engineer sees it instead of
+          // the failure vanishing into console.warn (see KN-494).
+          try {
+            const { error: receiptError } = await invokeFunction('send-whatsapp-receipt', {
+              body: { job_id: jobId, payment_amount: confirmedRevenue },
+              signOutOnRefreshFailure: false,
+            });
+            if (receiptError) throw receiptError;
+          } catch (err) {
+            console.error('[WhatsApp] Receipt send failed:', err);
+            toast({
+              title: "Job completed — receipt not sent",
+              description: "Tap Send via WhatsApp on the receipt screen to try again.",
+              variant: "destructive",
+            });
+          }
           navigate(`/receipt-view/${jobId}`);
         }
       } else if (patch.status === "Cancelled") {
@@ -586,7 +711,16 @@ export const useEngineerJobs = () => {
   };
 
   // Derived today data
-  const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled"));
+  // A job settled in full leaves the active list even though its status is
+  // untouched — payment_status "paid" is the gate, so a €0 / never-charged job
+  // (which stays "unpaid") is unaffected.
+  const isFullyPaidUnfinished = (j: any) =>
+    j.status !== "Completed" && j.status !== "Cancelled" &&
+    Number(j.balance_due) <= 0 && j.payment_status === "paid";
+  const todayActive = sortByTime(todayJobs.filter((j) => j.status !== "Completed" && j.status !== "Cancelled" && !isFullyPaidUnfinished(j)));
+  // Paid but the Complete form still has to be filled in — surfaced under its
+  // own heading so it is never mistaken for a closed job.
+  const todayPaidNeedsCompletion = sortByTime(todayJobs.filter(isFullyPaidUnfinished));
   const todayCompleted = sortByTime(todayJobs.filter((j) => j.status === "Completed"));
   const todayCancelled = sortByTime(todayJobs.filter((j) => j.status === "Cancelled" && !hiddenJobIds.has(j.id)));
   const todayInProgress = todayJobs.filter((j) => ["En Route", "On Site", "In Progress"].includes(j.status));
@@ -641,7 +775,7 @@ export const useEngineerJobs = () => {
 
   return {
     user, authLoading, loading, engineerName, isEngineerNotLinked,
-    todayActive, todayCompleted, todayCancelled, todayInProgress,
+    todayActive, todayPaidNeedsCompletion, todayCompleted, todayCancelled, todayInProgress,
     upcomingJobs, completedJobs, customers, jobPhotos,
     updateJob, fetchAll, fadingJobIds, isOnline,
   };

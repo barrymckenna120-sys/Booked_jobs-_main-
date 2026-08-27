@@ -58,6 +58,13 @@ export const SERVICE_CALL_BASE_SELECT = [
   "tally_submission_id",
   "created_at",
   "updated_at",
-  "parts_status",
-  "parts_notes",
 ].join(", ");
+/**
+ * Values written to `service_calls.customer_status_at_booking` at job creation.
+ * Historic rows (before the field existed) are `null`.
+ */
+export type CustomerStatusAtBooking = "new" | "existing";
+
+/** Narrow a raw DB value to the union. */
+export const isCustomerStatusAtBooking = (v: unknown): v is CustomerStatusAtBooking =>
+  v === "new" || v === "existing";

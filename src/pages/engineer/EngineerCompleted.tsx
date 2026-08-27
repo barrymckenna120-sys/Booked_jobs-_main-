@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
+import PartsSectionTabs from "@/components/engineer/PartsSectionTabs";
 import type { EngineerJobsState } from "@/hooks/useEngineerJobs";
 
 const EngineerCompleted = () => {
@@ -10,6 +11,7 @@ const EngineerCompleted = () => {
 
   return (
     <>
+      <PartsSectionTabs />
       <div className="text-lg font-extrabold text-foreground">Completed Jobs</div>
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>

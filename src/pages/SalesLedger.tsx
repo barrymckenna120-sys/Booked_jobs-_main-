@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
+import { paidJobsInPeriod, collectedAmount, revenueDate } from "@/lib/financeMetrics";
+import { outstandingBalanceAmount } from "@/lib/outstandingBalances";
+
 
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,7 +54,10 @@ type LedgerJob = {
   assigned_engineer: string | null;
   payment_method: string | null;
   payment_status: string | null;
+  /** Money received in this period — the cash-basis sale figure. */
   revenue: number | null;
+  /** Full job/invoice value, independent of what has been collected. */
+  job_total: number | null;
   balance_due: number | null;
   deposit_paid: boolean;
   deposit_amount: number | null;
@@ -62,7 +68,7 @@ type LedgerJob = {
 type PaymentBadge = "paid" | "part_paid" | "unpaid";
 
 const getPaymentBadge = (row: LedgerJob): PaymentBadge => {
-  if (row.payment_status === "paid" || row.paid_at) return "paid";
+  if (row.payment_status === "paid") return "paid";
   if (row.deposit_paid && (row.balance_due ?? 0) > 0) return "part_paid";
   return "unpaid";
 };
@@ -74,6 +80,18 @@ const badgeConfig: Record<PaymentBadge, { label: string; bg: string; color: stri
 };
 
 const eur = (n: number) => `€${n.toFixed(2)}`;
+
+/** Still owed on a ledger row: 0 once the job is settled in full. */
+const rowOutstanding = (row: LedgerJob): number =>
+  row.payment_status === "paid"
+    ? 0
+    : // `row.revenue` holds the amount received, so pass the real job total for
+      // the legacy fallback inside the helper.
+      outstandingBalanceAmount({
+        balance_due: row.balance_due,
+        revenue: row.job_total,
+        deposit_amount: row.deposit_amount,
+      });
 
 const SalesLedger = () => {
   const { user } = useAuth();
@@ -116,13 +134,12 @@ const SalesLedger = () => {
 
     supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .select("id, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
       .eq("organisation_id", orgId)
-      .eq("status", "Completed")
-
-      .gte("completed_at", startStr)
-      .lte("completed_at", endStr + "T23:59:59")
-      .order("completed_at", { ascending: false })
+      .or(
+        `and(paid_at.gte.${startStr}T00:00:00,paid_at.lte.${endStr}T23:59:59),` +
+        `and(completed_at.gte.${startStr}T00:00:00,completed_at.lte.${endStr}T23:59:59)`,
+      )
       .then(({ data: rows, error }) => {
         if (error) {
           console.error("SalesLedger query failed:", error);
@@ -130,8 +147,13 @@ const SalesLedger = () => {
           return;
         }
         if (rows) {
+          // Cash basis, same helpers as Finance: the ledger lists money taken,
+          // whatever the job status (SumUp payments land on Pending jobs).
+          const paid = paidJobsInPeriod(rows as any, new Date(startStr + "T00:00:00"), new Date(endStr + "T23:59:59")).sort(
+            (a, b) => (revenueDate(b)?.getTime() || 0) - (revenueDate(a)?.getTime() || 0),
+          );
           setData(
-            rows.map((r: any) => ({
+            paid.map((r: any) => ({
               id: r.id,
               receipt_number: r.receipt_number,
               paid_at: r.paid_at,
@@ -140,7 +162,8 @@ const SalesLedger = () => {
               assigned_engineer: r.assigned_engineer,
               payment_method: r.payment_method,
               payment_status: r.payment_status,
-              revenue: r.revenue,
+              revenue: collectedAmount(r),
+              job_total: r.revenue,
               balance_due: r.balance_due,
               deposit_paid: r.deposit_paid,
               deposit_amount: r.deposit_amount,
@@ -151,6 +174,7 @@ const SalesLedger = () => {
         }
         setLoading(false);
       });
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, orgId, start.getTime(), end.getTime()]);
 
@@ -172,6 +196,8 @@ const SalesLedger = () => {
     let totalInc = 0;
     let totalNet = 0;
     let totalVat = 0;
+    let totalJob = 0;
+    let totalOutstanding = 0;
     for (const row of filtered) {
       const rev = row.revenue || 0;
       const net = Math.round((rev / 1.135) * 100) / 100;
@@ -179,16 +205,20 @@ const SalesLedger = () => {
       totalInc += rev;
       totalNet += net;
       totalVat += vat;
+      totalJob += row.job_total ?? rev;
+      totalOutstanding += rowOutstanding(row);
     }
     return {
       inc: Math.round(totalInc * 100) / 100,
       net: Math.round(totalNet * 100) / 100,
       vat: Math.round(totalVat * 100) / 100,
+      job: Math.round(totalJob * 100) / 100,
+      outstanding: Math.round(totalOutstanding * 100) / 100,
     };
   }, [filtered]);
 
   const buildCsvContent = (rows: LedgerJob[]) => {
-    const headers = ["Receipt No", "Invoice No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Status", "Total inc VAT", "Net", "VAT"];
+    const headers = ["Receipt No", "Invoice No", "Date", "Customer", "Job Type", "Engineer", "Payment Method", "Status", "Job Total", "Received inc VAT", "Net", "VAT", "Outstanding"];
     let totalInc = 0, totalNet = 0, totalVat = 0;
     const csvRows = rows.map((r) => {
       const rev = r.revenue || 0;
@@ -199,13 +229,17 @@ const SalesLedger = () => {
       return [
         r.receipt_number || "",
         r.invoice_number || "",
-        r.completed_at ? format(new Date(r.completed_at), "dd/MM/yy") : "",
+        revenueDate(r as any) ? format(revenueDate(r as any)!, "dd/MM/yy") : "",
         r.customer_name, r.job_type, r.assigned_engineer || "",
         r.payment_method || "", badgeConfig[badge].label,
+        (r.job_total ?? rev).toFixed(2),
         rev.toFixed(2), net.toFixed(2), vat.toFixed(2),
+        rowOutstanding(r).toFixed(2),
       ];
     });
-    csvRows.push(["", "", "", "", "", "", "", "TOTALS", totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2)]);
+    const totalOutstanding = rows.reduce((s, r) => s + rowOutstanding(r), 0);
+    const totalJob = rows.reduce((s, r) => s + (r.job_total ?? r.revenue ?? 0), 0);
+    csvRows.push(["", "", "", "", "", "", "", "TOTALS", totalJob.toFixed(2), totalInc.toFixed(2), totalNet.toFixed(2), totalVat.toFixed(2), totalOutstanding.toFixed(2)]);
     return [headers, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
   };
 
@@ -234,25 +268,29 @@ const SalesLedger = () => {
     const endStr = format(customEnd, "yyyy-MM-dd");
     const { data: rows } = await supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, completed_at, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .select("id, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
       .eq("organisation_id", orgId)
-      .eq("status", "Completed")
-
-      .gte("completed_at", startStr)
-      .lte("completed_at", endStr + "T23:59:59")
-      .order("completed_at", { ascending: false });
+      .or(
+        `and(paid_at.gte.${startStr}T00:00:00,paid_at.lte.${endStr}T23:59:59),` +
+        `and(completed_at.gte.${startStr}T00:00:00,completed_at.lte.${endStr}T23:59:59)`,
+      );
     setCustomExporting(false);
     if (!rows || rows.length === 0) return;
-    const mapped = rows.map((r: any) => ({
+    const paid = paidJobsInPeriod(rows as any, new Date(startStr + "T00:00:00"), new Date(endStr + "T23:59:59")).sort(
+      (a, b) => (revenueDate(b)?.getTime() || 0) - (revenueDate(a)?.getTime() || 0),
+    );
+    if (paid.length === 0) return;
+    const mapped = paid.map((r: any) => ({
       id: r.id, receipt_number: r.receipt_number, paid_at: r.paid_at,
       completed_at: r.completed_at,
       job_type: r.job_type, assigned_engineer: r.assigned_engineer,
       payment_method: r.payment_method, payment_status: r.payment_status,
-      revenue: r.revenue, balance_due: r.balance_due,
+      revenue: collectedAmount(r), job_total: r.revenue, balance_due: r.balance_due,
       deposit_paid: r.deposit_paid, deposit_amount: r.deposit_amount,
       customer_name: r.customers?.name || "Unknown",
       invoice_number: r.invoice_number,
     }));
+
     downloadCsv(buildCsvContent(mapped), `sales-ledger-${startStr}-to-${endStr}.csv`);
   };
 
@@ -421,9 +459,11 @@ const SalesLedger = () => {
                     <TableHead className="font-extrabold">Job Type</TableHead>
                     <TableHead className="font-extrabold">Engineer</TableHead>
                     <TableHead className="font-extrabold">Payment</TableHead>
-                    <TableHead className="font-extrabold text-right">Total inc VAT</TableHead>
+                    <TableHead className="font-extrabold text-right">Job Total</TableHead>
+                    <TableHead className="font-extrabold text-right">Received inc VAT</TableHead>
                     <TableHead className="font-extrabold text-right">Net</TableHead>
                     <TableHead className="font-extrabold text-right">VAT (13.5%)</TableHead>
+                    <TableHead className="font-extrabold text-right">Outstanding</TableHead>
                     <TableHead className="font-extrabold text-center">Status</TableHead>
                     <TableHead className="font-extrabold text-center w-[80px]">Receipt</TableHead>
                   </TableRow>
@@ -445,14 +485,23 @@ const SalesLedger = () => {
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-muted-foreground">{row.invoice_number || "—"}</TableCell>
-                        <TableCell>{row.completed_at ? format(new Date(row.completed_at), "dd/MM/yy") : "—"}</TableCell>
+                        <TableCell>{revenueDate(row as any) ? format(revenueDate(row as any)!, "dd/MM/yy") : "—"}</TableCell>
                         <TableCell className="font-semibold">{row.customer_name}</TableCell>
                         <TableCell>{row.job_type}</TableCell>
                         <TableCell>{row.assigned_engineer || "—"}</TableCell>
                         <TableCell className="capitalize">{row.payment_method || "—"}</TableCell>
+                        <TableCell className="text-right font-semibold">{eur(row.job_total ?? rev)}</TableCell>
                         <TableCell className="text-right font-bold">{eur(rev)}</TableCell>
                         <TableCell className="text-right">{eur(net)}</TableCell>
                         <TableCell className="text-right">{eur(vat)}</TableCell>
+                        <TableCell
+                          className="text-right font-bold"
+                          style={{ color: rowOutstanding(row) > 0 ? "#D97706" : undefined }}
+                        >
+                          <span className={rowOutstanding(row) > 0 ? undefined : "text-muted-foreground"}>
+                            {eur(rowOutstanding(row))}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center">
                           <span
                             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold"
@@ -482,9 +531,11 @@ const SalesLedger = () => {
                 <TableFooter>
                   <TableRow className="bg-muted/50 font-extrabold">
                     <TableCell colSpan={7} className="text-right">TOTALS</TableCell>
+                    <TableCell className="text-right">{eur(totals.job)}</TableCell>
                     <TableCell className="text-right">{eur(totals.inc)}</TableCell>
                     <TableCell className="text-right">{eur(totals.net)}</TableCell>
                     <TableCell className="text-right">{eur(totals.vat)}</TableCell>
+                    <TableCell className="text-right">{eur(totals.outstanding)}</TableCell>
                     <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>

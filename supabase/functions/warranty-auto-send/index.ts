@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function delay(ms: number) {
@@ -35,7 +36,7 @@ serve(async (req) => {
   try {
     // Process all active organisations
     const orgsResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/organisations?select=id&is_active=eq.true`,
+      `${SUPABASE_URL}/rest/v1/organisations?select=id&is_archived=eq.false`,
       { headers }
     );
     const organisations = await orgsResponse.json();

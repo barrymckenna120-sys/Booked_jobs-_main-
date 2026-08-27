@@ -26,10 +26,14 @@ type Props = {
   onUpload?: () => void;
 };
 
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+
 const isVideoItem = (m: MediaItem) =>
   m.file_type === "video" ||
-  m.file_type?.startsWith("video/") ||
-  (m.public_url && m.public_url.includes("cloudinary.com"));
+  !!m.file_type?.startsWith("video/") ||
+  !!(m.public_url && m.public_url.includes("/video/upload/")) ||
+  VIDEO_EXT_RE.test(m.public_url || "") ||
+  VIDEO_EXT_RE.test(m.file_name || "");
 
 const formatDuration = (seconds: number): string | null => {
   if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return null;
@@ -214,11 +218,11 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
                         <Play className="w-6 h-6 text-foreground fill-foreground ml-0.5" />
                       </div>
                     </div>
-                    {durations[m.id] && formatDuration(durations[m.id]) && (
+                    {formatDuration(durations[m.id]) ? (
                       <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
                         {formatDuration(durations[m.id])}
                       </span>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   <img

@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.guard_sumup_environment_flip() FROM PUBLIC, anon, authenticated;

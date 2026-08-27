@@ -1,12 +1,35 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
-};
+const ALLOWED_ORIGINS = [
+  "https://kngasservices.bookedjobs.ie",
+  "https://dublin-gas.bookedjobs.ie",
+];
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname.endsWith(".lovableproject.com") || hostname.endsWith(".lovable.app");
+  } catch {
+    return false;
+  }
+}
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin");
+  const allowOrigin = isAllowedOrigin(origin) ? origin! : "";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -36,7 +59,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: callerRole } = await supabaseUser.rpc("get_user_role", { _user_id: caller.id });
-    if (callerRole !== "admin") {
+    if (callerRole !== "admin" && callerRole !== "superadmin") {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -77,23 +100,103 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Clear ban and confirm email
+    // Cross-tenant guard: superadmins may act platform-wide, everyone else is
+    // restricted to users inside their own organisation.
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, organisation_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+
+    const isSuperadmin =
+      callerRole === "superadmin" || (callerProfile as any)?.role === "superadmin";
+
+    if (!isSuperadmin) {
+      let callerOrgId: string | null = (callerProfile as any)?.organisation_id ?? null;
+      if (!callerOrgId) {
+        const { data: callerEng } = await supabaseAdmin
+          .from("engineers")
+          .select("organisation_id")
+          .eq("auth_user_id", caller.id)
+          .maybeSingle();
+        callerOrgId = (callerEng as any)?.organisation_id ?? null;
+      }
+
+      const { data: targetProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", targetUser.id)
+        .maybeSingle();
+      let targetOrgId: string | null = (targetProfile as any)?.organisation_id ?? null;
+      if (!targetOrgId) {
+        const { data: targetEng } = await supabaseAdmin
+          .from("engineers")
+          .select("organisation_id")
+          .eq("auth_user_id", targetUser.id)
+          .maybeSingle();
+        targetOrgId = (targetEng as any)?.organisation_id ?? null;
+      }
+
+      if (!callerOrgId || !targetOrgId || callerOrgId !== targetOrgId) {
+        return new Response(
+          JSON.stringify({ error: "Cross-tenant action not permitted" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+
+    // Clear ban and confirm email — treat "already clear" as success.
+    let clearedAuthBan = true;
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
       ban_duration: "none",
       email_confirm: true,
     });
 
     if (updateError) {
-      console.error("update error:", updateError);
-      return new Response(JSON.stringify({ error: "Failed to clear auth block: " + updateError.message }), {
+      const msg = (updateError.message || "").toLowerCase();
+      const benign = msg.includes("not banned") || msg.includes("no ban") || msg.includes("nothing to update");
+      if (!benign) {
+        console.error("update error:", updateError);
+        return new Response(JSON.stringify({ error: "Failed to clear auth block: " + updateError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.warn(`Auth ban already clear for ${email}:`, updateError.message);
+      clearedAuthBan = false;
+    }
+
+    console.log(`Auth block cleared for ${email} (${targetUser.id})`);
+
+    // Reset any matching engineers row. Zero matches is NOT an error — the
+    // user may not have an engineers profile in this org.
+    const { data: engUpdated, error: engErr } = await supabaseAdmin
+      .from("engineers")
+      .update({
+        status: "active",
+        blocked_reason: null,
+        is_available: true,
+      })
+      .eq("auth_user_id", targetUser.id)
+      .select("id");
+
+    if (engErr) {
+      console.error("engineers status reset error:", engErr);
+      return new Response(JSON.stringify({ error: "Auth block cleared but failed to reset engineer status: " + engErr.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Auth block cleared for ${email} (${targetUser.id})`);
+    const clearedEngineerRow = Array.isArray(engUpdated) && engUpdated.length > 0;
 
-    return new Response(JSON.stringify({ success: true, userId: targetUser.id }), {
+    return new Response(JSON.stringify({
+      success: true,
+      userId: targetUser.id,
+      clearedAuthBan,
+      clearedEngineerRow,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

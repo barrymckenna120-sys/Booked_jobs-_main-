@@ -1,9 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -14,12 +18,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
-
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { job_id } = await req.json();
+    const { job_id, payment_amount } = await req.json();
 
     if (!job_id) {
       return new Response(JSON.stringify({ error: "job_id is required" }), {
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
     // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, receipt_pdf_url")
+      .select("id, job_reference, job_type, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, receipt_pdf_url, access_token")
       .eq("id", job_id)
       .single();
 
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
               "Authorization": `Bearer ${supabaseKey}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ job_id }),
+            body: JSON.stringify({ job_id, payment_amount }),
           }
         );
         const pdfData = await pdfRes.json();
@@ -83,22 +84,45 @@ Deno.serve(async (req) => {
     // Fetch business name from settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
-      .select("business_name, message_footer")
+      .select("business_name, message_footer, cert_prefix")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
-    // Fetch organisation slug for tenant-specific URL
-    const { data: orgRow } = await supabase
-      .from("organisations")
-      .select("slug")
-      .eq("id", job.organisation_id)
-      .maybeSingle();
-    const orgSlug = orgRow?.slug || "kngasservices";
+
+    // Resolve tenant public URL for the receipt keyed by access_token;
+    // null when the org has no public_domain configured — we still send
+    // the message, just omitting the receipt link line.
+    const tenantReceiptUrl = job.access_token
+      ? await getTenantPublicUrl(supabaseUrl, job.organisation_id, `/receipt/${job.access_token}`)
+      : null;
+    if (job.access_token && !tenantReceiptUrl) {
+      console.warn(`[send-whatsapp-receipt] organisation ${job.organisation_id} has no public_domain; omitting receipt link`);
+    }
 
     const businessName = settings?.business_name || "";
     const footer = settings?.message_footer || businessName;
-    const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
-    const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "N/A";
+    // BJ-B3b: tenant-neutral job-ref fallback — org's own cert_prefix, else a generic label.
+    const refPrefix = String(settings?.cert_prefix ?? "").trim();
+    const shortId = job.id.slice(0, 6).toUpperCase();
+    const jobRef = job.job_reference || (refPrefix ? `${refPrefix}-${shortId}` : `Job ${shortId}`);
+    const { data: latestPayment } = await supabase
+      .from("job_payments")
+      .select("amount")
+      .eq("service_call_id", job_id)
+      .gt("amount", 0)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const amount = formatReceiptAmount(
+      resolveReceiptAmount({
+        paymentAmount: payment_amount,
+        ledgerAmount: latestPayment?.amount,
+        revenue: job.revenue,
+      }),
+      "N/A",
+    );
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "invoice" ? "Invoice" : "Cash";
     const receiptNum = job.receipt_number || "";
 
@@ -108,12 +132,39 @@ Deno.serve(async (req) => {
       year: "numeric",
     });
 
-    const receiptLink = receiptNum ? `\n\n📄 View your receipt here: https://${orgSlug}.bookedjobs.ie/receipt/${encodeURIComponent(receiptNum)}` : (receiptPdfUrl ? `\n\n📄 Download your receipt: ${receiptPdfUrl}` : "");
+    const receiptLink = tenantReceiptUrl
+      ? `\n\n📄 View your receipt here: ${tenantReceiptUrl}`
+      : "";
 
     const message = `Hi ${customer.name}, thanks for your payment. Here's your receipt:\n\nJob Ref: ${jobRef}${receiptNum ? `\nReceipt: ${receiptNum}` : ""}\nService: ${job.job_type || "Boiler Service"}\nDate: ${date}\nAmount Paid: ${amount} (${paymentMethod})${receiptLink}\n\nThanks,\n${footer}`;
 
-    // Strip leading + from phone for 360 Messenger
-    const cleanNumber = customer.phone.replace(/^\+/, "");
+    // Wrap all WhatsApp send/config resolution in a local try/catch so that
+    // any failure logs to message_log and returns 200 with success:false —
+    // never a hard 5xx that a caller might treat as fatal.
+    let cleanNumber: string;
+    let messengerKey: string;
+    try {
+      cleanNumber = normalisePhone(customer.phone);
+      const wa = await getWhatsAppConfig(supabase, job.organisation_id);
+      messengerKey = wa.apiKey;
+    } catch (waErr) {
+      const msg = (waErr as Error).message;
+      console.error("send-whatsapp-receipt: pre-send failure:", msg);
+      await logWhatsAppFailure(supabase, {
+        organisation_id: job.organisation_id,
+        customer_id: job.customer_id,
+        message_type: "receipt",
+        content: message,
+        related_id: job_id,
+        related_type: "service_call",
+        sent_by: "system",
+        error_message: msg,
+      });
+      return new Response(JSON.stringify({ success: false, whatsapp_sent: false, reason: msg }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Build FormData — 360 Messenger does not accept JSON
     const formData = new FormData();
@@ -124,6 +175,7 @@ Deno.serve(async (req) => {
     const { data: logRows } = await supabase
       .from("message_log")
       .insert({
+        organisation_id: job.organisation_id,
         channel: "whatsapp",
         message_type: "receipt",
         customer_id: job.customer_id,
@@ -138,42 +190,52 @@ Deno.serve(async (req) => {
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    // Send via 360 Messenger
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${messengerKey}` },
-      body: formData,
-    });
-
-    const resultText = await response.text();
-    let result: Record<string, unknown>;
+    let sendResult: { success: boolean; error?: string; status?: number } = { success: false };
     try {
-      result = JSON.parse(resultText);
-    } catch (_e) {
-      result = { success: false };
+      const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${messengerKey}` },
+        body: formData,
+      });
+
+      const resultText = await response.text();
+      let result: Record<string, unknown>;
+      try {
+        result = JSON.parse(resultText);
+      } catch (_e) {
+        result = { success: false };
+      }
+
+      sendResult = {
+        success: !!(result as any).success,
+        error: (result as any).success ? undefined : `360Messenger HTTP ${response.status}: ${resultText.substring(0, 300)}`,
+        status: response.status,
+      };
+    } catch (waErr) {
+      const msg = (waErr as Error).message;
+      console.error("send-whatsapp-receipt: send fetch failed:", msg);
+      sendResult = { success: false, error: msg };
     }
 
     const sentAt = new Date().toISOString();
 
     // Update message_log with outcome
     if (logId) {
-      const updateBody = (result as any).success
+      const updateBody = sendResult.success
         ? { status: "sent", sent_at: sentAt }
-        : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
-
+        : { status: "failed", error_message: sendResult.error || "unknown" };
       await supabase.from("message_log").update(updateBody).eq("id", logId);
     }
 
-    // Log failure to edge_function_logs
-    if (!(result as any).success) {
+    if (!sendResult.success) {
       await supabase.from("edge_function_logs").insert({
         function_name: "send-whatsapp-receipt",
-        error_message: `360Messenger API failed. HTTP ${response.status}`,
+        error_message: `360Messenger send failed: ${sendResult.error}`,
         payload: { sent_to: cleanNumber, job_id },
       });
 
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp send failed" }), {
-        status: 502,
+      return new Response(JSON.stringify({ success: false, whatsapp_sent: false, reason: sendResult.error }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -205,7 +267,7 @@ Deno.serve(async (req) => {
       } catch { /* non-critical */ }
     }
 
-    return new Response(JSON.stringify({ success: true, customer_name: customer.name }), {
+    return new Response(JSON.stringify({ success: true, whatsapp_sent: true, customer_name: customer.name }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

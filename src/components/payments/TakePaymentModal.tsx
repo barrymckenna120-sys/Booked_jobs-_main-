@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { resolvePaymentSheetState } from "@/lib/paymentSheetAmount";
+import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
+import JobFullyPaidPanel from "@/components/payments/JobFullyPaidPanel";
+import { buildPaymentPatch } from "@/lib/paymentUpdate";
+import { priorCollected } from "@/lib/priorCollected";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -52,28 +58,30 @@ const addMonths = (d: string, months: number) => {
 const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: TakePaymentModalProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const hasDeposit = !!job.deposit_required && (job.deposit_amount ?? 0) > 0;
-  const jobTotal = job.revenue ?? 0;
-  const depositAmount = hasDeposit ? (job.deposit_amount ?? 0) : 0;
-  const isDepositPaid = !!job.deposit_paid;
-
-  // Determine what the engineer should collect right now
-  // 1. Deposit job, deposit already paid → collect balance due
-  // 2. Deposit job, deposit NOT paid → collect deposit first
-  // 3. No deposit → collect full revenue
-  const collectingDeposit = hasDeposit && !isDepositPaid;
-  const balanceDue = hasDeposit && isDepositPaid
-    ? (job.balance_due ?? (jobTotal - depositAmount))
-    : hasDeposit && !isDepositPaid
-      ? depositAmount
-      : jobTotal;
-  const defaultAmount = balanceDue > 0 ? String(balanceDue) : (job.revenue ? String(job.revenue) : "120");
+  // Single shared classifier (same helper the engineer PaymentSheet uses).
+  // Case D = deposit required, not yet paid → collect the deposit
+  // Case A = deposit paid, balance remains  → collect the balance
+  // Case B = nothing owing                  → block further collection
+  // Case C = no deposit                     → collect the full job total
+  const paymentState = resolvePaymentSheetState(job);
+  const isFullyPaid = paymentState.case === "B";
+  const hasDeposit = paymentState.case === "A" || paymentState.case === "D";
+  const jobTotal = paymentState.jobTotal;
+  const depositAmount = paymentState.depositAmount;
+  const isDepositPaid = paymentState.depositPaid;
+  const collectingDeposit = paymentState.case === "D";
+  const balanceDue = paymentState.amount ?? 0;
+  const defaultAmount = paymentState.amount !== undefined
+    ? String(paymentState.amount)
+    : (job.revenue ? String(job.revenue) : "120");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [method, setMethod] = useState<"card" | "cash" | "invoice" | null>(null);
   const [amount, setAmount] = useState(defaultAmount);
   const [amountError, setAmountError] = useState("");
   const [settings, setSettings] = useState<any>(null);
+  /** Pre-write gate refused: the job is already settled (local copy was stale). */
+  const [gateBlocked, setGateBlocked] = useState(false);
   const hasPhone = !!customer.phone?.trim();
 
   // Processing step state
@@ -87,6 +95,7 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   useEffect(() => {
     if (open) {
       setStep(1);
+      setGateBlocked(false);
       setMethod(null);
       setAmount(defaultAmount);
       setAmountError("");
@@ -111,6 +120,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   };
 
   const handleGenerate = async () => {
+    // Guard, not just hidden UI: never record a payment on a settled job.
+    if (isFullyPaid) {
+      toast({ title: "Already paid", description: "This job is fully paid — no further payment can be collected." });
+      return;
+    }
     if (!method || !validate()) return;
 
     // Invoice flow — save payment record, then navigate to invoice preview
@@ -124,12 +138,17 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         const invoiceNum = await nextInvoiceNumber(orgId);
         const updatePayload: Record<string, any> = {
           payment_method: "invoice",
-          payment_status: "unpaid",
           invoiced_at: new Date().toISOString(),
-          revenue: revenueAmt,
-          balance_due: revenueAmt,
           status: "Completed",
           completed_at: new Date().toISOString(),
+          ...buildPaymentPatch({
+            type: "invoice",
+            amount: revenueAmt,
+            revenue: Number(job.revenue || 0),
+            collectedToDate: hasDeposit && isDepositPaid ? Number(job.deposit_amount || 0) : 0,
+            revenueMode: "fill",
+          }),
+
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
         await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
@@ -153,10 +172,39 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
     setProcStep(0);
 
     try {
+      // Authoritative pre-write gate (BJ-next-D). organisation_id is never taken
+      // from the caller's prop: the ledger insert runs as `authenticated` against
+      // job_payments_insert (WITH CHECK organisation_id = get_my_org_id()), and
+      // revenue/balance_due/status must be the values as they are *before* this
+      // payment is applied. A settled job throws JobAlreadyPaidError.
+      let gate;
+      try {
+        gate = await gateJobPayment(supabase, job.id);
+      } catch (e) {
+        if (isJobAlreadyPaidError(e)) {
+          setGateBlocked(true);
+          setStep(1);
+          return;
+        }
+        throw e;
+      }
+      const scRow = gate.row as any;
+      const orgId = scRow.organisation_id as string;
+      // Classification comes from the fresh row, not the (possibly stale) prop.
+      const freshCase = gate.state.case;
+      const freshCollectingDeposit = freshCase === "D";
+      const freshHasDeposit = freshCase === "A" || freshCase === "D";
+
+      // recorded_by / created_by, resolved once regardless of paid or partial.
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: profile } = authUser
+        ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle()
+        : { data: null };
+
       const { data: settingsRow } = await supabase
         .from("settings")
         .select("cert_prefix")
-        .eq("organisation_id", (job as any).organisation_id)
+        .eq("organisation_id", orgId)
         .maybeSingle();
       const prefix = ((settingsRow as any)?.cert_prefix || "").trim() || "R";
       const yr = new Date().getFullYear();
@@ -192,54 +240,124 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
       setProcStep(1);
       setProcStep(2);
 
+      // One timestamp for the job row and the ledger row so they agree exactly.
+      const paidAtIso = new Date().toISOString();
+      const paidAmount = parseFloat(amount) || 0;
+      // Cumulative: everything already collected on this job, not just the
+      // deposit. Read pre-write. See src/lib/priorCollected.ts.
+      const alreadyCollected = freshCollectingDeposit
+        ? 0
+        : priorCollected(scRow.revenue, scRow.balance_due);
+      const paymentType = freshCollectingDeposit ? "deposit" : freshHasDeposit ? "balance" : "full";
+
+
       const updatePayload: Record<string, any> = {
         receipt_number: receiptNum,
         payment_method: method,
-        paid_at: new Date().toISOString(),
-        revenue: parseFloat(amount) || 0,
+        paid_at: paidAtIso,
+        ...buildPaymentPatch({
+          // Deposit collection stays partial; anything else settles the job.
+          type: paymentType,
+          amount: paidAmount,
+          revenue: Number((scRow as any).revenue || 0),
+          collectedToDate: alreadyCollected,
+        }),
+
       };
 
-      if (collectingDeposit) {
-        updatePayload.deposit_paid = true;
-        updatePayload.payment_status = "partial";
-      } else if (hasDeposit && isDepositPaid) {
-        updatePayload.payment_status = "paid";
-        updatePayload.balance_due = 0;
-      } else {
-        updatePayload.payment_status = "paid";
+      // BJ-0061a: settle-and-complete, but only where the work is known done.
+      // Three of the four entry points into this modal gate the button on
+      // In Progress / Completed; the engineer outstanding-balances ledger does
+      // not and can reach Booked jobs, which must not be auto-completed here.
+      const priorStatus = String((scRow as any).status || "").toLowerCase();
+      const workDone = priorStatus === "in progress" || priorStatus === "completed";
+      if (updatePayload.payment_status === "paid" && workDone) {
+        updatePayload.status = "Completed";
+        updatePayload.completed_at = paidAtIso;
       }
 
-      await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
+      const { error: updateError } = await supabase
+        .from("service_calls")
+        .update(sanitizeServiceCallUpdatePayload(updatePayload as any))
+        .eq("id", job.id);
+      // Nothing downstream may run on a failed write — no activity row, no
+      // ledger row, no PDF, no WhatsApp, no navigation to the receipt.
+      if (updateError) throw updateError;
+
+      // Append-only payment ledger. Payment is already recorded on the job, so
+      // a failure here is loud but non-blocking.
+      try {
+        const { error: ledgerError } = await supabase.from("job_payments").insert({
+          organisation_id: orgId,
+          service_call_id: job.id,
+          customer_id: (scRow as any).customer_id,
+          amount: paidAmount,
+          payment_type: paymentType,
+          method,
+          source: "office_modal",
+          checkout_id: null,
+          recorded_by: profile?.id || null,
+          paid_at: paidAtIso,
+          metadata: { receipt_number: receiptNum },
+        } as any);
+        if (ledgerError) throw ledgerError;
+      } catch (e: any) {
+        console.error("LEDGER_INSERT_FAILED job_payments:", e);
+        toast({
+          title: "Payment recorded, but not added to the payment ledger",
+          description: e?.message || "Please let the office know so it can be reconciled.",
+          variant: "destructive",
+        });
+      }
 
       // Log payment_received activity when fully paid
       if (updatePayload.payment_status === "paid") {
         try {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          const { data: profile } = authUser ? await supabase.from("profiles").select("id").eq("user_id", authUser.id).maybeSingle() : { data: null };
-          const { data: scRow } = await supabase.from("service_calls").select("organisation_id, customer_id").eq("id", job.id).single();
           const methodLabel = method === "cash" ? "Cash" : "Card";
-          const amountStr = Number(parseFloat(amount) || 0).toLocaleString("en-IE", { maximumFractionDigits: 0 });
-          if (scRow) {
-            await supabase.from("customer_activity").insert({
-              organisation_id: scRow.organisation_id,
-              customer_id: scRow.customer_id,
-              service_call_id: job.id,
-              event_type: "payment_received",
-              event_label: `Payment received — €${amountStr} — ${methodLabel}`,
-              created_by: profile?.id || null,
-            } as any);
-          }
+          const activityAmount = Number(paidAmount).toLocaleString("en-IE", { maximumFractionDigits: 0 });
+          await supabase.from("customer_activity").insert({
+            organisation_id: orgId,
+            customer_id: (scRow as any).customer_id,
+            service_call_id: job.id,
+            event_type: "payment_received",
+            event_label: `Payment received — €${activityAmount} — ${methodLabel}`,
+            created_by: profile?.id || null,
+          } as any);
         } catch (e) {
           console.error("Failed to log payment activity:", e);
         }
       }
 
-      // Fire-and-forget: generate receipt PDF so it's ready for WhatsApp
-      supabase.functions.invoke("generate-receipt-pdf", { body: { job_id: job.id } }).catch(() => {});
+      // Generate receipt PDF so it's ready for WhatsApp. Routed through
+      // invokeFunction so a stale session is refreshed and retried once, and a
+      // real failure is visible instead of vanishing silently.
+      invokeFunction("generate-receipt-pdf", { body: { job_id: job.id, payment_amount: paidAmount }, signOutOnRefreshFailure: false })
+        .then(({ error }) => {
+          if (error) throw error;
+        })
+        .catch((err) => {
+          console.error("generate-receipt-pdf error:", err);
+          toast({
+            title: "Receipt PDF not generated",
+            description: "Payment was recorded. Tap Download on the receipt screen to retry.",
+            variant: "destructive",
+          });
+        });
 
-      // Fire-and-forget: send WhatsApp payment-received confirmation
+      // Send WhatsApp payment-received confirmation
       if (updatePayload.payment_status === "paid") {
-        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
+        invokeFunction("send-payment-received", { body: { service_call_id: job.id, payment_amount: paidAmount }, signOutOnRefreshFailure: false })
+          .then(({ error }) => {
+            if (error) throw error;
+          })
+          .catch((err) => {
+            console.error("send-payment-received error:", err);
+            toast({
+              title: "Payment confirmation not sent",
+              description: "Payment was recorded, but the customer wasn't notified.",
+              variant: "destructive",
+            });
+          });
       }
 
       // Navigate to receipt preview screen
@@ -255,12 +373,18 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   };
 
 
+
   const handleWhatsApp = async () => {
     if (!job?.id || whatsappSending || whatsappSent) return;
     setWhatsappSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-receipt", {
-        body: { job_id: job.id },
+      const paidAmount = Number.parseFloat(amount);
+      const body = Number.isFinite(paidAmount) && paidAmount > 0
+        ? { job_id: job.id, payment_amount: paidAmount }
+        : { job_id: job.id };
+      const { data, error } = await invokeFunction<any>("send-whatsapp-receipt", {
+        body,
+        signOutOnRefreshFailure: false,
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "WhatsApp send failed");
@@ -286,8 +410,19 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="sm:max-w-[440px] rounded-2xl p-0 overflow-hidden">
+        {/* Fully paid — either from the local copy or from the pre-write gate. */}
+        {(gateBlocked || isFullyPaid) && step === 1 && (
+          <div className="pb-5">
+            <DialogHeader className="sr-only"><DialogTitle>Payment Complete</DialogTitle></DialogHeader>
+            <JobFullyPaidPanel
+              customerName={customer.name}
+              collected={jobTotal > 0 ? jobTotal : depositAmount}
+              onClose={handleClose}
+            />
+          </div>
+        )}
         {/* Step 1: Payment Details */}
-        {step === 1 && (
+        {step === 1 && !gateBlocked && !isFullyPaid && (
           <div className="p-6 space-y-5">
             <DialogHeader>
               <DialogTitle className="text-lg font-extrabold text-[hsl(222,47%,11%)]">
@@ -315,6 +450,34 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
               </div>
             </div>
 
+            {isFullyPaid ? (
+              <>
+                <div className="rounded-xl p-4 space-y-1.5 text-sm bg-[hsl(142,71%,45%)]/10 border border-[hsl(142,71%,45%)]/25">
+                  <div className="flex items-center gap-2 font-extrabold text-[hsl(142,71%,30%)]">
+                    <CheckCircle2 className="w-4 h-4" /> This job is fully paid
+                  </div>
+                  <p className="text-xs text-[hsl(220,9%,46%)] font-medium">
+                    No further payment can be collected for this job.
+                  </p>
+                  {(jobTotal > 0 || depositAmount > 0) && (
+                    <div className="flex justify-between pt-1.5">
+                      <span className="text-[hsl(220,9%,46%)]">Amount already collected</span>
+                      <span className="font-extrabold text-[hsl(222,47%,11%)]">
+                        €{(jobTotal > 0 ? jobTotal : depositAmount).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  className="w-full h-12 text-sm font-extrabold"
+                  onClick={onClose}
+                >
+                  Close
+                </Button>
+              </>
+            ) : (
+              <>
             {/* Deposit summary for deposit jobs */}
             {hasDeposit && (
               <div className="bg-[hsl(220,14%,96%)] rounded-xl p-4 space-y-2 text-sm">
@@ -385,7 +548,9 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
             {/* Amount */}
             <div>
-              <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">Amount</p>
+              <p className="text-xs font-bold text-[hsl(220,9%,46%)] uppercase tracking-wider mb-2">
+                {paymentState.case === "A" ? "Balance Due" : paymentState.case === "D" ? "Collect Deposit" : "Amount"}
+              </p>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-bold text-[hsl(222,47%,11%)]">€</span>
                 <Input
@@ -419,6 +584,8 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
             >
               {method === "invoice" ? "Send Payment Link" : "Generate & Send Receipt"}
             </Button>
+              </>
+            )}
           </div>
         )}
 

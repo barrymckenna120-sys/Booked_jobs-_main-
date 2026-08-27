@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { addToQueue } from "@/hooks/useRetryQueue";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, Mail, MapPinned } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageCircle, StickyNote, Camera, Loader2, Calendar, Wrench, Clock, Flame, CreditCard, Hourglass, AlertTriangle, FileText, Key, XCircle, CheckCircle2, Play, Plus, PhoneCall, Send, Eye, Package, PackageCheck, Mail, MapPinned, UserPlus, RotateCw, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { buildEngineerPaymentPlan, type EngineerLedgerRow } from "@/lib/engineerPaymentPlan";
+import { resolveDepositPill } from "@/components/engineer/job-card/InfoPills";
 import { createJobInvoice } from "@/lib/createJobInvoice";
 import CompleteSheet from "@/components/engineer/CompleteSheet";
 import PaymentSheet from "@/components/engineer/PaymentSheet";
@@ -17,11 +18,17 @@ import NoteSheet from "@/components/engineer/NoteSheet";
 import PhotoSheet from "@/components/engineer/PhotoSheet";
 import ExtraWorkSheet from "@/components/engineer/ExtraWorkSheet";
 import JobCertsTab from "@/components/engineer/JobCertsTab";
+import JobServiceHistory from "@/components/engineer/JobServiceHistory";
+import EngineerMediaGrid from "@/components/engineer/EngineerMediaGrid";
+import EngineerJobMessages from "@/components/messages/EngineerJobMessages";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { LucideIcon } from "lucide-react";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
+import { addToQueue } from "@/hooks/useRetryQueue";
+import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -31,6 +38,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   Cancelled:     { color: "text-destructive", bg: "bg-destructive/10", label: "Cancelled" },
   parts_needed:  { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
   parts_ordered: { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
+  // BJ-0078 — engineer-facing label; office keeps "Awaiting Booking".
+  parts_arrived: { color: "text-[#7C3AED]",   bg: "bg-[#F3E8FF]",      label: "Parts Ready to Fit" },
 };
 
 const TIME_LABELS: Record<string, string> = {
@@ -63,7 +72,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [callNotes, setCallNotes] = useState<any[]>([]);
   const [jobTags, setJobTags] = useState<{ name: string; colour: string }[]>([]);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
+  const [officeOwnerId, setOfficeOwnerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [showComplete, setShowComplete] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -79,14 +90,20 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [activeTab, setActiveTab] = useState<"details" | "certs">("details");
   const [showPayment, setShowPayment] = useState(false);
+  // Set when the pre-write gate finds the job already settled (stale local copy).
+  const [paymentForcedFullyPaid, setPaymentForcedFullyPaid] = useState(false);
   const [completeData, setCompleteData] = useState<any>(null);
   const [completeJobTagDate, setCompleteJobTagDate] = useState<string | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
+  const profileIdRef = useRef<string | null>(null);
+
 
   useEffect(() => {
-    if (user && id) fetchJob();
-  }, [user, id]);
+    if (authLoading) return;
+    if (!user || !id) { setLoading(false); return; }
+    fetchJob();
+  }, [user, id, authLoading]);
 
   useEffect(() => {
     if (!user) return;
@@ -95,39 +112,71 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       .select("name, rgi_number")
       .eq("auth_user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error: engErr }) => {
+        if (engErr) { console.error("[EngineerJobDetail] engineers fetch failed", engErr); return; }
         if (data) setEngineerInfo({ name: data.name, rgi_number: (data as any).rgi_number || null });
       });
   }, [user]);
 
+  // profiles.id cached while online so the job_payments row's recorded_by never
+  // needs a network read at write time (offline safety), mirroring useEngineerJobs.
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data, error: profErr }) => {
+        if (profErr) { console.warn("[EngineerJobDetail] profile id lookup failed", profErr); return; }
+        if (data?.id) profileIdRef.current = data.id;
+      });
+  }, [user]);
+
+
   const fetchJob = async () => {
     setLoading(true);
-    const { data: jobData } = await supabase
-      .from("service_calls")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    setError(null);
+    try {
+      const { data: jobData, error: jobError } = await supabase
+        .from("service_calls")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
 
-    if (!jobData) {
-      toast({ title: "Job not found", variant: "destructive" });
-      navigate("/engineer/today");
-      return;
+      if (jobError) { setError(jobError.message || "Couldn't load this job."); return; }
+
+      if (!jobData) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate("/engineer/today");
+        return;
+      }
+
+      setJob(jobData);
+
+      const [custRes, notesRes, certRes, tagsRes, orgRes] = await Promise.all([
+        supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
+        supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
+        supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+        supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
+        (jobData as any).organisation_id
+          ? supabase.from("organisations").select("owner_user_id").eq("id", (jobData as any).organisation_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null } as any),
+      ]);
+
+      const queryError = custRes.error || notesRes.error || certRes.error || tagsRes.error;
+      if (queryError) { setError(queryError.message || "Couldn't load this job."); return; }
+
+      if (custRes.data) setCustomer(custRes.data);
+      if (notesRes.data) setCallNotes(notesRes.data);
+      setCertificate(certRes.data || null);
+      setOfficeOwnerId((orgRes as any)?.data?.owner_user_id ?? (jobData as any).user_id ?? null);
+      setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong loading this job.");
+    } finally {
+      setLoading(false);
     }
-
-    setJob(jobData);
-
-    const [custRes, notesRes, certRes, tagsRes] = await Promise.all([
-      supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
-      supabase.from("customer_call_notes").select("*").eq("customer_id", jobData.customer_id).order("created_at", { ascending: false }),
-      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
-      supabase.from("service_call_tags").select("tag_id, job_tags(name, colour)").eq("service_call_id", id!),
-    ]);
-
-    if (custRes.data) setCustomer(custRes.data);
-    if (notesRes.data) setCallNotes(notesRes.data);
-    setCertificate(certRes.data || null);
-    setJobTags((tagsRes.data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name));
-    setLoading(false);
   };
 
   const handleSaveReply = async () => {
@@ -162,12 +211,23 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // Always include confirmedRevenue so updateJob writes it to service_calls.revenue
     const patchWithRevenue = { ...completeData, paymentMethod: method, confirmedRevenue: confirmedAmount };
 
+    // Stale-state guard: if the authoritative gate says the job is already
+    // settled, reopen the sheet in its fully-paid state instead of writing.
+    const handleGateFailure = (err: unknown) => {
+      if (!isJobAlreadyPaidError(err)) return false;
+      setPaymentForcedFullyPaid(true);
+      setShowPayment(true);
+      toast({ title: "Already paid", description: "This job was settled elsewhere — nothing left to collect." });
+      return true;
+    };
+
     if (method === "invoice") {
       setInvoiceLoading(true);
       try {
         await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Invoice creation + navigation is now handled inside updateJob
       } catch (err) {
+        if (handleGateFailure(err)) { setInvoiceLoading(false); return; }
         console.error("handlePaymentDone invoice flow error:", err);
         toast({ title: "Failed to complete job", variant: "destructive" });
       }
@@ -177,19 +237,34 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         await updateJob({ status: "Completed", ...patchWithRevenue }, { jobTagDate: completeJobTagDate });
         // Navigation to receipt screen is handled by updateJob on completion
       } catch (err) {
+        if (handleGateFailure(err)) return;
         console.error("handlePaymentDone cash/card flow error:", err);
         toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
       }
     }
     setCompleteData(null);
     setCompleteJobTagDate(null);
+
   };
 
   const updateJob = async (patch: Record<string, any>, options?: { jobTagDate?: string | null }): Promise<boolean> => {
     console.log("[updateJob:detail] called with patch.status:", patch.status, "paymentMethod:", patch.paymentMethod, "jobId:", job?.id);
     if (!job) { console.log("[updateJob:detail] early return: no job"); return false; }
-    const { workDone, parts, nextService, followUp, followUpNote, officeNote, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
+    const { workDone, parts, nextService, followUp, followUpNote, officeNote, boilerMake, boilerModel, warrantyExpiry, customerNotes, cancelReason, cancelNote, paymentMethod, selectedTags, confirmedRevenue, selectedJobType, ...rest } = patch;
     const completionSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
+
+    // Boiler details persist on the customer record — only send keys the engineer actually changed
+    // (clearing a pre-filled value is a real edit and is written as null).
+    const customerBoilerUpdate: Record<string, any> = {};
+    if (boilerMake !== undefined && (boilerMake || "") !== (customer?.boiler_brand || "")) {
+      customerBoilerUpdate.boiler_brand = (boilerMake || "").trim() || null;
+    }
+    if (boilerModel !== undefined && (boilerModel || "") !== (customer?.boiler_model || "")) {
+      customerBoilerUpdate.boiler_model = (boilerModel || "").trim() || null;
+    }
+    if (warrantyExpiry !== undefined && (warrantyExpiry || "") !== (customer?.warranty_expiry_date || "")) {
+      customerBoilerUpdate.warranty_expiry_date = (warrantyExpiry || "").trim() || null;
+    }
 
     let notesUpdate = rest.notes;
     if (workDone) {
@@ -209,33 +284,52 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     const jobTagDate = options?.jobTagDate ?? null;
     const dbPatch: Record<string, any> = sanitizeServiceCallUpdatePayload({ ...rest });
     if (notesUpdate !== undefined) dbPatch.notes = notesUpdate;
-    if (paymentMethod) {
-      dbPatch.payment_method = paymentMethod;
-      dbPatch.payment_collected_by = user?.id || null;
-      if (paymentMethod === "invoice") {
-        dbPatch.payment_status = "unpaid";
-      } else {
-        dbPatch.paid_at = new Date().toISOString();
-        dbPatch.payment_status = "paid";
-      }
+    // Customer-facing receipt note — per visit, this job only
+    if (customerNotes !== undefined) {
+      dbPatch.customer_facing_notes = (customerNotes || "").trim() || null;
     }
+    // Payment columns + ledger row come from the shared decision layer, so this
+    // screen, the standalone PaymentSheet and TakePaymentModal all agree on
+    // cumulative math and completion gating.
+    const paidAt = new Date().toISOString();
+    let ledgerRow: EngineerLedgerRow | null = null;
+    if (paymentMethod) {
+      dbPatch.payment_collected_by = user?.id || null;
+      // Authoritative pre-write gate (BJ-next-D): refuse a payment on a job that
+      // another surface already settled, and use the fresh row for the math.
+      const gate = await gateJobPayment(supabase, job.id);
+      const plan = buildEngineerPaymentPlan({
+        patch,
+        paymentMethod,
+        confirmedRevenue,
+        job: { ...job, ...gate.row },
+
+        jobId: job.id,
+        paidAt,
+        recordedBy: profileIdRef.current,
+        entry: "completion",
+      });
+      Object.assign(dbPatch, plan.dbPatchAdditions);
+      ledgerRow = plan.ledgerRow;
+    }
+
+
     if (cancelReason) {
-      dbPatch.cancellation_reason = cancelReason;
-      dbPatch.cancellation_note = cancelNote || null;
-      dbPatch.cancelled_at = new Date().toISOString();
-      dbPatch.cancelled_by = user?.id || null;
+      Object.assign(dbPatch, buildManualCancelPatch(cancelReason, cancelNote, user?.id));
     }
 
     // Set completed_at and generate receipt number on completion
     if (patch.status === "Completed") {
-      dbPatch.completed_at = new Date().toISOString();
+      dbPatch.completed_at = paidAt;
+      // A cached PDF from an earlier payment on this job would be re-sent as-is
+      // by send-whatsapp-receipt; drop it so the receipt regenerates from the
+      // settled figures.
+      dbPatch.receipt_pdf_url = null;
+
       if (paymentMethod === "invoice") {
         dbPatch.invoiced_at = new Date().toISOString();
         const orgId = (job as any).organisation_id;
-        const revenueForInvoice = (confirmedRevenue !== undefined && confirmedRevenue !== null)
-          ? Number(confirmedRevenue)
-          : Number((job as any).revenue || 0);
-        dbPatch.balance_due = revenueForInvoice;
+        // balance_due / payment_status / revenue already set by buildPaymentPatch above.
         try {
           const { nextInvoiceNumber } = await import("@/lib/nextInvoiceNumber");
           const invNum = await nextInvoiceNumber(orgId);
@@ -257,10 +351,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           dbPatch.receipt_number = `${prefix}-${yr}-${rand}`;
         } catch {}
       }
-      // Always write confirmed revenue on completion
-      if (confirmedRevenue !== undefined && confirmedRevenue !== null) {
-        dbPatch.revenue = confirmedRevenue;
-      }
+      // revenue (the booked job price) is intentionally NOT written here — a
+      // payment never rewrites the price. See _shared/paymentUpdate.ts.
+
     }
 
     // Save selected tags to job_tags column — always set on completion
@@ -278,32 +371,74 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
     if (error) {
       console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
-      addToQueue({
+      const jobItemId = addToQueue({
         table: "service_calls",
         operation: "update",
         payload: safeDbPatch,
         filter: { column: "id", value: job.id },
       });
+      // The ledger row must never land without the job write that justifies it.
+      if (ledgerRow) {
+        addToQueue({
+          table: "job_payments",
+          operation: "insert",
+          payload: ledgerRow as any,
+          dependsOnId: jobItemId,
+        });
+      }
+      if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
+        addToQueue({
+          table: "customers",
+          operation: "update",
+          payload: customerBoilerUpdate,
+          filter: { column: "id", value: job.customer_id },
+        });
+      }
       toast({
         title: "No connection",
-        description: "Job marked complete and will sync automatically",
+        description: "Update saved and will sync automatically when back online",
+        variant: "destructive",
       });
-      return true;
+      return false;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      // Append-only payment ledger. Never blocks the job: the job write is the
+      // source of truth and has already committed.
+      if (ledgerRow) {
+        const { error: ledgerErr } = await supabase.from("job_payments").insert(ledgerRow as any);
+        if (ledgerErr) {
+          console.error("[updateJob:detail] job_payments insert failed", ledgerErr);
+          addToQueue({ table: "job_payments", operation: "insert", payload: ledgerRow as any });
+          toast({
+            title: "Payment recorded",
+            description: "The payment record will finish syncing shortly.",
+          });
+        }
+      }
+
       if (cancelReason) {
         supabase.functions.invoke('cancel-job-notify', {
           body: {
             service_call_id: job.id,
             cancellation_reason: cancelReason,
-            organisation_id: (job as any).organisation_id,
           },
         }).catch((err) => console.error('cancel-job-notify failed:', err));
         supabase.functions.invoke('send-cancellation-notice', {
           body: { service_call_id: job.id },
         }).catch((err) => console.error('send-cancellation-notice failed:', err));
       }
+      // Persist boiler make / model / warranty expiry from the completion sheet to the customer
+      if (Object.keys(customerBoilerUpdate).length > 0 && job.customer_id) {
+        try {
+          const { error: custErr } = await supabase.from("customers").update(customerBoilerUpdate).eq("id", job.customer_id);
+          if (custErr) throw custErr;
+          console.log("[updateJob:detail] Customer boiler details saved:", Object.keys(customerBoilerUpdate));
+        } catch (custSyncErr) {
+          console.error("[updateJob:detail] Customer boiler details save failed:", custSyncErr);
+        }
+      }
       // Sync boiler details back to customer record
+
       if (safeDbPatch.boiler_brand !== undefined) {
         try {
           const customerUpdate: Record<string, any> = {};
@@ -324,7 +459,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         try {
           const { data: profile } = await supabase.from("profiles").select("id").eq("user_id", user!.id).maybeSingle();
           const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
-          const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
+          const amountVal = confirmedRevenue ?? safeDbPatch.revenue ?? job.revenue ?? 0;
           const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
           await supabase.from("customer_activity").insert({
             organisation_id: job.organisation_id,
@@ -338,70 +473,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           console.error("Failed to log payment activity:", e);
         }
         // Fire-and-forget: send WhatsApp payment-received confirmation
-        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id } }).catch(() => {});
+        supabase.functions.invoke("send-payment-received", { body: { service_call_id: job.id, payment_amount: confirmedRevenue } }).catch(() => {});
       }
 
-      // In-app notifications for office on engineer-side events
-      try {
-        const orgId = (job as any).organisation_id;
-        const customerName = (customer as any)?.name || "Customer";
-        const jobRef = (job as any).job_reference || "";
-        if (orgId) {
-          const { data: settingsRow } = await supabase
-            .from("settings")
-            .select("user_id")
-            .eq("organisation_id", orgId)
-            .limit(1)
-            .maybeSingle();
-          const recipient = (settingsRow as any)?.user_id;
-          if (recipient) {
-            const baseRow = {
-              recipient_user_id: recipient,
-              organisation_id: orgId,
-              job_id: job.id,
-              role: "office",
-            };
-            const statusTypeMap: Record<string, { type: string; title: string }> = {
-              "En Route": { type: "en_route", title: "Engineer En Route" },
-              "On Site": { type: "on_site", title: "Engineer On Site" },
-              "In Progress": { type: "in_progress", title: "Job In Progress" },
-            };
-            const statusMapped = statusTypeMap[patch.status as string];
-            if (statusMapped) {
-              await supabase.from("notifications").insert({
-                ...baseRow,
-                notification_type: statusMapped.type,
-                title: statusMapped.title,
-                body: `${customerName}${jobRef ? ` (${jobRef})` : ""}`,
-                metadata: { service_call_id: job.id, status: patch.status },
-              } as any);
-            }
-            if (safeDbPatch.payment_status === "paid" && paymentMethod && paymentMethod !== "invoice") {
-              const amountVal = safeDbPatch.revenue ?? confirmedRevenue ?? job.revenue ?? 0;
-              const amountStr = Number(amountVal).toLocaleString("en-IE", { maximumFractionDigits: 0 });
-              const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "card" ? "Card" : paymentMethod;
-              await supabase.from("notifications").insert({
-                ...baseRow,
-                notification_type: "payment_collected",
-                title: "Payment Collected",
-                body: `${customerName} — €${amountStr} (${methodLabel})`,
-                metadata: { service_call_id: job.id, amount: amountVal, method: paymentMethod },
-              } as any);
-            }
-            if (patch.status === "Completed" && followUp) {
-              await supabase.from("notifications").insert({
-                ...baseRow,
-                notification_type: "follow_up",
-                title: "Follow-up Required",
-                body: `${customerName}${jobRef ? ` (${jobRef})` : ""} — ${followUpNote || "Follow-up flagged by engineer"}`,
-                metadata: { service_call_id: job.id, follow_up_detail: followUpNote || null },
-              } as any);
-            }
-          }
-        }
-      } catch (notifyErr) {
-        console.error("[EngineerJobDetail] office notification insert failed", notifyErr);
-      }
 
       // Save selected tags on completion
 
@@ -582,7 +656,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (!job || !rescheduleDate) return;
     setActionLoading(true);
     const patch: Record<string, any> = { scheduled_date: rescheduleDate, time_block: rescheduleTime || null };
-    if (job.status === "parts_needed" || job.status === "parts_ordered") {
+    if (job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") {
       patch.status = "Scheduled";
     }
     const { error } = await supabase
@@ -600,11 +674,51 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
   };
 
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
+        <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
+        <button onClick={() => navigate("/engineer/today")} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="text-xl font-extrabold text-white">Job</div>
+      </div>
+      <div className="px-4 pt-4">{children}</div>
+    </div>
+  );
+
+
   if (authLoading || loading) {
     return (
       <div className="max-w-[430px] mx-auto min-h-screen bg-secondary flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Shell>
+        <div className="text-center py-12 bg-card rounded-2xl border border-border px-4 space-y-3">
+          <Key className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+          <div className="text-sm font-bold text-foreground">Your session has expired</div>
+          <p className="text-xs text-muted-foreground">Please log in again to view this job.</p>
+          <Button className="w-full h-11 font-bold" onClick={() => navigate("/auth")}>Log in again</Button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (error) {
+    return (
+      <Shell>
+        <div className="text-center py-12 bg-card rounded-2xl border border-border px-4 space-y-3">
+          <AlertTriangle className="w-10 h-10 text-destructive/60 mx-auto" />
+          <div className="text-sm font-bold text-foreground">Couldn't load this job</div>
+          <p className="text-xs text-muted-foreground break-words">{error}</p>
+          <Button variant="outline" className="w-full h-11 font-bold" onClick={() => fetchJob()}>Try again</Button>
+        </div>
+      </Shell>
     );
   }
 
@@ -643,6 +757,25 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             <div className="text-[13px] text-white/70 mt-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" /> {customer.address}
             </div>
+            {(job.customer_status_at_booking === "new" || job.source === "Renewal") && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                {job.customer_status_at_booking === "new" && (
+                  <span className="bg-emerald-500/20 border border-emerald-300/30 rounded-full px-2 py-0.5 text-[10px] font-bold text-emerald-50 flex items-center gap-1">
+                    <UserPlus className="w-3 h-3" /> New Customer
+                  </span>
+                )}
+                {job.source === "Renewal" && (
+                  <span
+                    className="bg-amber-400/20 border border-amber-200/30 rounded-full px-2 py-0.5 text-[10px] font-bold text-amber-50 flex items-center gap-1"
+                    title="Rebooking (Renewal)"
+                    aria-label="Rebooking (Renewal)"
+                  >
+                    <RotateCw className="w-3 h-3" /> Rebooking
+                  </span>
+                )}
+              </div>
+            )}
+
             {job.status === "Completed" && job.completed_at && (
               <div className="text-[13px] text-white/90 mt-1 font-semibold">
                 Completed {new Date(job.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} at {new Date(job.completed_at).toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
@@ -738,10 +871,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           <InfoTile label="Full Address" value={customer.address} Icon={MapPin} full />
           <InfoTile label="Area Code" value={customer.area_code} Icon={MapPinned} />
           <InfoTile label="Eircode" value={customer.eircode} Icon={MapPin} />
+          <InfoTile label="GPRN" value={customer.gprn} Icon={MapPinned} />
 
           {/* Boiler */}
           <InfoTile label="Boiler Brand" value={job.boiler_brand} Icon={Flame} />
           <InfoTile label="Boiler Model" value={customer.boiler_make_model} Icon={Flame} />
+          {customer.boiler_location?.trim() && <InfoTile label="Boiler Location" value={customer.boiler_location} Icon={MapPin} />}
           {job.boiler_type && <InfoTile label="Boiler Type" value={job.boiler_type} Icon={Flame} />}
           {job.boiler_error_code && <InfoTile label="Error Code" value={job.boiler_error_code} Icon={AlertTriangle} />}
           {job.boiler_working !== null && job.boiler_working !== undefined && (
@@ -749,12 +884,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           )}
 
           {/* Other */}
-          <InfoTile
-            label="Payment"
-            value={job.deposit_paid ? `Paid — €${job.deposit_amount || 0}` : `€${job.deposit_amount || 0} pending`}
-            Icon={job.deposit_paid ? CreditCard : Hourglass}
-            full
-          />
+          {/* Same shared classifier as the job card pill, so the two always agree. */}
+          {(() => {
+            const { pill, balanceLine } = resolveDepositPill(job);
+            if (!pill) return null;
+            return (
+              <InfoTile
+                label="Payment"
+                value={balanceLine ? `${pill.label} · ${balanceLine}` : pill.label}
+                Icon={pill.tone === "success" ? CreditCard : Hourglass}
+                full
+              />
+            );
+          })()}
           <InfoTile label="Last Service" value={customer.last_service_date ? new Date(customer.last_service_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" }) : null} Icon={Calendar} />
           <InfoTile label="Last Engineer" value={customer.last_service_engineer} Icon={Wrench} />
           {job.owner_or_tenant && <InfoTile label="Owner / Tenant" value={job.owner_or_tenant} Icon={Key} />}
@@ -812,6 +954,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
+        {/* Parts Ready to Fit banner (BJ-0078) */}
+        {job.status === "parts_arrived" && (
+          <div className="rounded-r-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: "#FAF5FF", borderLeft: "3px solid #7C3AED" }}>
+            <PackageCheck className="w-4 h-4 shrink-0" style={{ color: "#7C3AED" }} />
+            <div>
+              <div className="text-[13px] font-bold" style={{ color: "#7C3AED" }}>Parts Ready to Fit</div>
+              <div className="text-[11px] text-muted-foreground">Parts are in — book the return visit</div>
+            </div>
+          </div>
+        )}
+
+
+
         {/* Boiler issue */}
         {job.boiler_issue && (
           <div className="bg-warning/10 border-l-[3px] border-warning rounded-r-xl p-3">
@@ -819,6 +974,17 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
               <AlertTriangle className="w-3 h-3" /> Issue Reported
             </div>
             <div className="text-[13px] text-foreground leading-snug">{job.boiler_issue}</div>
+          </div>
+        )}
+
+        {/* Customer receipt note (read-only) — same field the Today card shows */}
+        {job.customer_facing_notes?.trim() && (
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Receipt className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wide text-primary">Notes for customer receipt</span>
+            </div>
+            <div className="text-[13px] text-foreground leading-snug whitespace-pre-wrap">{job.customer_facing_notes.trim()}</div>
           </div>
         )}
 
@@ -902,6 +1068,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             </Button>
           </div>
         </div>
+
+        {/* Service history, media and messages — same components as the Today card */}
+        <div>
+          <JobServiceHistory jobId={job.id} customerId={job.customer_id} />
+          <EngineerMediaGrid jobId={job.id} />
+          <EngineerJobMessages jobId={job.id} officeUserId={officeOwnerId || job.user_id} />
+        </div>
+
+
 
         {/* Cancellation details */}
         {job.status === "Cancelled" && job.cancellation_reason && (
@@ -1039,7 +1214,21 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         <PaymentSheet
           job={job}
           customer={customer}
-          onClose={() => { setShowPayment(false); setCompleteData(null); setCompleteJobTagDate(null); }}
+          forceFullyPaid={paymentForcedFullyPaid}
+          onClose={() => { setShowPayment(false); setPaymentForcedFullyPaid(false); setCompleteData(null); setCompleteJobTagDate(null); }}
+          onCompleteOnly={async () => {
+            if (!completeData) return;
+            setShowPayment(false);
+            // Already fully paid — completion fields only, no payment write.
+            try {
+              await updateJob({ status: "Completed", ...completeData }, { jobTagDate: completeJobTagDate });
+            } catch (err) {
+              console.error("onCompleteOnly flow error:", err);
+              toast({ title: "Failed to complete job", description: "Please try again.", variant: "destructive" });
+            }
+            setCompleteData(null);
+            setCompleteJobTagDate(null);
+          }}
           onDone={handlePaymentDone}
         />
       )}

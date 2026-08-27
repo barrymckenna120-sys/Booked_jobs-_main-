@@ -1,19 +1,67 @@
-// Patches global fetch to inject an `x-org-id` header on Supabase requests
-// whenever an admin has selected a tenant org to view.
-//
-// The selected org id is stored at module scope (and mirrored in localStorage
-// via useAdminViewAs) so it can be read synchronously from a fetch wrapper.
+// Patches global fetch to inject a signed impersonation token
+// (`x-org-impersonation-token`) on Supabase requests whenever a superadmin has
+// selected a tenant org to view. The token is minted by the `impersonate-org`
+// Edge Function and verified server-side by get_my_org_id().
 
 const STORAGE_KEY = "adminViewingOrgId";
+const TOKEN_KEY = "adminImpersonationToken";
+const TOKEN_EXP_KEY = "adminImpersonationTokenExp";
+const TOKEN_ORG_KEY = "adminImpersonationTokenOrg";
 
 let adminSelectedOrgId: string | null =
   typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
 
+let cachedToken: string | null =
+  typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+let cachedTokenExp: number =
+  typeof window !== "undefined"
+    ? Number(localStorage.getItem(TOKEN_EXP_KEY) || 0)
+    : 0;
+let cachedTokenOrg: string | null =
+  typeof window !== "undefined" ? localStorage.getItem(TOKEN_ORG_KEY) : null;
+
 export const setAdminSelectedOrgId = (orgId: string | null) => {
   adminSelectedOrgId = orgId;
+  if (!orgId) clearImpersonationToken();
 };
 
 export const getAdminSelectedOrgId = (): string | null => adminSelectedOrgId;
+
+export const setImpersonationToken = (
+  orgId: string,
+  token: string,
+  exp: number,
+) => {
+  cachedToken = token;
+  cachedTokenExp = exp;
+  cachedTokenOrg = orgId;
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_EXP_KEY, String(exp));
+    localStorage.setItem(TOKEN_ORG_KEY, orgId);
+  } catch {
+    /* ignore */
+  }
+};
+
+export const clearImpersonationToken = () => {
+  cachedToken = null;
+  cachedTokenExp = 0;
+  cachedTokenOrg = null;
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXP_KEY);
+    localStorage.removeItem(TOKEN_ORG_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
+export const getImpersonationTokenState = () => ({
+  token: cachedToken,
+  exp: cachedTokenExp,
+  org: cachedTokenOrg,
+});
 
 let installed = false;
 
@@ -34,8 +82,23 @@ export const installOrgHeaderInterceptor = () => {
           : input.url;
 
       if (adminSelectedOrgId && supabaseUrl && url.startsWith(supabaseUrl)) {
-        const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
-        headers.set("x-org-id", adminSelectedOrgId);
+        const headers = new Headers(
+          init?.headers || (input instanceof Request ? input.headers : undefined),
+        );
+
+        // Prefer signed token when we have a fresh one for the selected org.
+        const now = Math.floor(Date.now() / 1000);
+        if (
+          cachedToken &&
+          cachedTokenOrg === adminSelectedOrgId &&
+          cachedTokenExp - now > 30
+        ) {
+          headers.set("x-org-impersonation-token", cachedToken);
+        } else {
+          // LEGACY fallback: raw header. Removed in Turn 2 once verified.
+          headers.set("x-org-id", adminSelectedOrgId);
+        }
+
         return originalFetch(input, { ...(init || {}), headers });
       }
     } catch {

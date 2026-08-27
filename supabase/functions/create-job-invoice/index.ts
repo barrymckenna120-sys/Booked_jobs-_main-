@@ -1,10 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 interface BrandColors {
@@ -371,8 +373,13 @@ Deno.serve(async (req) => {
 
     // ── Upload PDF ──
     const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
+    if (!job.organisation_id) {
+      return new Response(JSON.stringify({ error: "Job missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `invoice-${invNum.replace(/\s/g, "")}.pdf`;
-    const storagePath = `${job.user_id}/${fileName}`;
+    const storagePath = `${job.organisation_id}/${fileName}`;
 
     const { error: uploadErr } = await sb.storage
       .from("quote-pdfs")
@@ -385,112 +392,170 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: urlData } = sb.storage.from("quote-pdfs").getPublicUrl(storagePath);
-    const pdfUrl = urlData.publicUrl;
-
-    // Update invoice with PDF URL
+    // Store raw object path — bucket flips private in Stage 2 and signed
+    // URLs are minted on demand by resolve-document-link.
+    const pdfUrl = storagePath;
     await sb.from("invoices").update({ pdf_url: pdfUrl }).eq("id", invoice.id);
 
     // ── Send WhatsApp ──
-    const apiKey = Deno.env.get("THREESIXTY_API_KEY");
+    let apiKey: string | null = null;
+    let whatsappFailed = false;
+    let whatsappFailReason: string | null = null;
+    try {
+      const wa = await getWhatsAppConfig(sb, job.organisation_id);
+      apiKey = wa.apiKey;
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.error("create-job-invoice: WhatsApp config unavailable:", msg);
+      whatsappFailed = true;
+      whatsappFailReason = msg;
+      await logWhatsAppFailure(sb, {
+        organisation_id: job.organisation_id,
+        customer_id: job.customer_id,
+        message_type: "invoice",
+        content: `invoice ${invNum} — config unavailable`,
+        related_id: invoice.id,
+        related_type: "invoice",
+        sent_by: job.user_id,
+        error_message: msg,
+      });
+    }
     const firstName = cust.name.split(" ")[0];
     let messageFooter = biz?.message_footer || biz?.business_name || "";
 
     const { data: invOrgRow } = await sb
       .from("organisations")
-      .select("slug")
+      .select("public_domain")
       .eq("id", job.organisation_id)
       .maybeSingle();
-    const invOrgSlug = (invOrgRow as any)?.slug || "";
-    const invoiceUrl = invOrgSlug
-      ? `https://${invOrgSlug}.bookedjobs.ie/invoice/${encodeURIComponent(invNum)}`
+    const invOrgDomain = (invOrgRow as any)?.public_domain || "";
+    const invoiceUrl = invOrgDomain && (invoice as any).access_token
+      ? `https://${invOrgDomain}/invoice/${(invoice as any).access_token}`
       : null;
     const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.${invoiceUrl ? `\n\n📄 View invoice:\n${invoiceUrl}` : ""}${messageFooter ? `\n\nThank you, ${messageFooter}` : ""}`;
 
     let whatsappSent = false;
 
     if (apiKey && cust.phone) {
-      const cleanNumber = cust.phone.replace(/^\+/, "").replace(/[^0-9]/g, "");
-
-      // Log pending message
-      const { data: logRows } = await sb.from("message_log").insert({
-        customer_id: job.customer_id,
-        organisation_id: job.organisation_id,
-        message_type: "invoice",
-        channel: "whatsapp",
-        direction: "outbound",
-        content: waMessage,
-        status: "pending",
-        related_id: invoice.id,
-        related_type: "invoice",
-        sent_by: job.user_id,
-        sent_at: new Date().toISOString(),
-      }).select("id");
-
-      const logId = logRows?.[0]?.id || null;
-
-      const formData = new FormData();
-      formData.append("phonenumber", cleanNumber);
-      formData.append("text", waMessage);
-
+      let cleanNumber: string;
       try {
-        const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}` },
-          body: formData,
+        cleanNumber = normalisePhone(cust.phone);
+      } catch (phoneErr) {
+        const msg = (phoneErr as Error).message;
+        console.error("create-job-invoice: phone normalise failed:", msg);
+        whatsappFailed = true;
+        whatsappFailReason = msg;
+        await logWhatsAppFailure(sb, {
+          organisation_id: job.organisation_id,
+          customer_id: job.customer_id,
+          message_type: "invoice",
+          content: waMessage,
+          related_id: invoice.id,
+          related_type: "invoice",
+          sent_by: job.user_id,
+          error_message: msg,
         });
+        cleanNumber = "";
+      }
 
-        const resultText = await response.text();
-        let result: any;
-        try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+      if (cleanNumber) {
+        // Log pending message
+        const { data: logRows } = await sb.from("message_log").insert({
+          customer_id: job.customer_id,
+          organisation_id: job.organisation_id,
+          message_type: "invoice",
+          channel: "whatsapp",
+          direction: "outbound",
+          content: waMessage,
+          status: "pending",
+          related_id: invoice.id,
+          related_type: "invoice",
+          sent_by: job.user_id,
+          sent_at: new Date().toISOString(),
+        }).select("id");
 
-        if (logId) {
-          const updateBody = result.success
-            ? { status: "sent" }
-            : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
-          await sb.from("message_log").update(updateBody).eq("id", logId);
-        }
+        const logId = logRows?.[0]?.id || null;
 
-        whatsappSent = !!result.success;
+        const formData = new FormData();
+        formData.append("phonenumber", cleanNumber);
+        formData.append("text", waMessage);
 
-        // Log customer activity on success
-        if (result.success) {
-          if (!job.organisation_id) {
-            console.error(`create-job-invoice: skipping customer_activity insert — job ${job_id} missing organisation_id`);
-          } else {
-            try {
-              await sb.from("customer_activity").insert({
-                organisation_id: job.organisation_id,
-                customer_id: job.customer_id,
-                service_call_id: job_id,
-                event_type: "whatsapp_sent",
-                event_label: "WhatsApp sent — Invoice",
-              });
-            } catch { /* non-critical */ }
-          }
-        }
-
-        if (!result.success) {
-          await sb.from("edge_function_logs").insert({
-            function_name: "create-job-invoice",
-            error_message: `WhatsApp send failed. HTTP ${response.status}`,
-            payload: { api_response: result, sent_to: cust.phone, invoice_id: invoice.id },
+        try {
+          const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${apiKey}` },
+            body: formData,
           });
-        }
-      } catch (waErr) {
-        console.error("WhatsApp send error:", waErr);
-        if (logId) {
-          await sb.from("message_log").update({ status: "failed", error_message: (waErr as Error).message }).eq("id", logId);
+
+          const resultText = await response.text();
+          let result: any;
+          try { result = JSON.parse(resultText); } catch { result = { success: false, raw: resultText }; }
+
+          if (logId) {
+            const updateBody = result.success
+              ? { status: "sent" }
+              : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
+            await sb.from("message_log").update(updateBody).eq("id", logId);
+          }
+
+          whatsappSent = !!result.success;
+
+          // Log customer activity on success
+          if (result.success) {
+            if (!job.organisation_id) {
+              console.error(`create-job-invoice: skipping customer_activity insert — job ${job_id} missing organisation_id`);
+            } else {
+              try {
+                await sb.from("customer_activity").insert({
+                  organisation_id: job.organisation_id,
+                  customer_id: job.customer_id,
+                  service_call_id: job_id,
+                  event_type: "whatsapp_sent",
+                  event_label: "WhatsApp sent — Invoice",
+                });
+              } catch { /* non-critical */ }
+            }
+          }
+
+          if (!result.success) {
+            whatsappFailed = true;
+            whatsappFailReason = `360Messenger HTTP ${response.status}`;
+            await sb.from("edge_function_logs").insert({
+              function_name: "create-job-invoice",
+              error_message: `WhatsApp send failed. HTTP ${response.status}`,
+              payload: { api_response: result, sent_to: cust.phone, invoice_id: invoice.id },
+            });
+          }
+        } catch (waErr) {
+          const msg = (waErr as Error).message;
+          console.error("WhatsApp send error:", waErr);
+          whatsappFailed = true;
+          whatsappFailReason = msg;
+          if (logId) {
+            await sb.from("message_log").update({ status: "failed", error_message: msg }).eq("id", logId);
+          } else {
+            await logWhatsAppFailure(sb, {
+              organisation_id: job.organisation_id,
+              customer_id: job.customer_id,
+              message_type: "invoice",
+              content: waMessage,
+              related_id: invoice.id,
+              related_type: "invoice",
+              sent_by: job.user_id,
+              error_message: msg,
+            });
+          }
         }
       }
     }
 
     return new Response(JSON.stringify({
-      success: true,
+      success: !whatsappFailed,
       invoice_id: invoice.id,
       invoice_number: invNum,
       pdf_url: pdfUrl,
       whatsapp_sent: whatsappSent,
+      whatsapp_error: whatsappFailReason,
       customer_name: cust.name,
       balance_due: balance,
     }), {

@@ -1,9 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 serve(async (req) => {
@@ -56,19 +59,17 @@ serve(async (req) => {
     const orgId = job.organisation_id;
     const cancellationReason = job.cancellation_reason || "No reason provided";
 
-    // WhatsApp api_key
-    const tiRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers: sbHeaders },
-    );
-    const tiRows = await tiRes.json();
-    const apiKey = Array.isArray(tiRows) ? tiRows[0]?.config?.api_key : null;
-    if (!apiKey) {
+    // WhatsApp api_key — shared resolver: handles api_key_secret and api_key,
+    // on either the 360messenger or whatsapp integration row.
+    const wa = await fetchWhatsappApiKey(SUPABASE_URL, SRK, orgId);
+    if (!wa.apiKey) {
       return new Response(
-        JSON.stringify({ error: "WhatsApp integration not configured" }),
+        JSON.stringify({ error: `WhatsApp not configured: ${wa.detail}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    const apiKey = wa.apiKey;
+
 
     const firstName = String(customer.name || "").trim().split(/\s+/)[0] || "there";
 

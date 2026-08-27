@@ -1,10 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { evaluateOptOut } from "../_shared/optOut.ts";
+
 
 serve(async (req) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 
   if (req.method === "OPTIONS") {
@@ -26,27 +30,22 @@ serve(async (req) => {
   const loadOrgConfig = async (orgId: string) => {
     if (orgCache.has(orgId)) return orgCache.get(orgId)!;
 
-    const { data: waIntegration } = await supabase
-      .from("tenant_integrations")
-      .select("config")
-      .eq("organisation_id", orgId)
-      .eq("integration_type", "360messenger")
-      .maybeSingle();
-
-    const apiKey = (waIntegration as any)?.config?.api_key;
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKeyWithClient(supabase as any, orgId);
+    const apiKey = wa.apiKey;
     if (!apiKey) {
       try {
         await supabase.from("edge_function_logs").insert({
           function_name: "send-upcoming-reminders",
-          error_message: `No whatsapp tenant_integration api_key for org ${orgId} — skipping`,
-          payload: { organisation_id: orgId },
+          error_message: `WhatsApp credential resolution failed for org ${orgId} — skipping: ${wa.detail}`,
+          payload: { organisation_id: orgId, resolution: wa.resolution, secret_name: wa.secretName },
         });
       } catch (_e) { /* best-effort */ }
       orgCache.set(orgId, null);
       return null;
     }
 
-    let messageFooter = "";
+
     const { data: settings } = await supabase
       .from("settings")
       .select("message_footer,business_name,company_name")
@@ -54,11 +53,24 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
     const s: any = settings;
-    messageFooter = s?.message_footer || s?.business_name || s?.company_name || "our team";
+    // No tenant-neutral fallback: an unsigned automated reminder is not sent.
+    const messageFooter = (s?.message_footer || s?.business_name || s?.company_name || "").trim();
+    if (!messageFooter) {
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "send-upcoming-reminders",
+          error_message: `Branding not configured for org ${orgId} — skipping reminders`,
+          payload: { organisation_id: orgId, reason: "message_footer_not_configured" },
+        });
+      } catch (_e) { /* best-effort */ }
+      orgCache.set(orgId, null);
+      return null;
+    }
 
     const cfg = { apiKey, messageFooter };
     orgCache.set(orgId, cfg);
     return cfg;
+
   };
 
   try {
@@ -80,7 +92,7 @@ serve(async (req) => {
         status,
         customer_id,
         organisation_id,
-        customers ( name, phone )
+        customers ( name, phone, opted_out )
       `)
       .eq("scheduled_date", targetStr)
       .not("status", "in", '("Cancelled","Completed","no_show")');
@@ -118,17 +130,25 @@ serve(async (req) => {
         continue;
       }
 
-      // Skip if no phone number
-      if (!customerPhone) {
+      // Opt-out guard: appointment reminders are automated outreach, so an
+      // opted-out customer (STOP reply or staff toggle) is never messaged.
+      const optOut = evaluateOptOut(job.customers);
+      if (optOut.skip) {
         skipped++;
-        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "No phone number" });
+        results.push({
+          job_id: job.id,
+          customer_name: customerName || "Unknown",
+          status: "skipped",
+          error: optOut.reason,
+        });
         continue;
       }
+
 
       const orgCfg = await loadOrgConfig(orgId);
       if (!orgCfg) {
         skipped++;
-        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "WhatsApp integration not configured" });
+        results.push({ job_id: job.id, customer_name: customerName || "Unknown", status: "skipped", error: "Branding or WhatsApp integration not configured" });
         continue;
       }
       const { apiKey, messageFooter } = orgCfg;

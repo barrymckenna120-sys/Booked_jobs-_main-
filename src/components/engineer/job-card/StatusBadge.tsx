@@ -9,7 +9,9 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
   no_show:        { color: "text-destructive", bg: "bg-destructive/10", label: "No Show" },
   parts_needed:   { color: "text-amber-500",   bg: "bg-amber-500/10",   label: "Parts Needed" },
   parts_ordered:  { color: "text-blue-600",    bg: "bg-blue-100",       label: "Parts Ordered" },
-  parts_arrived:  { color: "text-[#7C3AED]",   bg: "bg-[#F3E8FF]",      label: "Awaiting Booking" },
+  // BJ-0078 — engineer-facing copy only. Office surfaces keep "Awaiting Booking"
+  // (correct for the notify-customer/rebook flow that also writes this status).
+  parts_arrived:  { color: "text-[#7C3AED]",   bg: "bg-[#F3E8FF]",      label: "Parts Ready to Fit" },
 };
 
 export const getStatusConfig = (status: string) =>

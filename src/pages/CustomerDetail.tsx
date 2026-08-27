@@ -23,14 +23,18 @@ import CustomerHazardNotices from "@/components/customer/CustomerHazardNotices";
 import CustomerQuotes from "@/components/customer/CustomerQuotes";
 import PaymentHistory from "@/components/customer/PaymentHistory";
 import CustomerActivityTimeline from "@/components/customer/CustomerActivityTimeline";
+import CustomerPartsHistory from "@/components/parts/CustomerPartsHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
 import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
+import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
+
 import {
-  validateRequired, validatePhone, validateEircode, validateAreaCode,
+  validateRequired, validatePhone, validatePhoneLegacyShape, validateLandline, validateEircode, validateAreaCode,
   formatEircode, formatPhoneInternational, normalizeAreaCode, RED_BORDER, type CustomerFieldErrors,
 } from "@/lib/customerValidation";
+import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
 
 const formatDateForInput = (val: string | null) => val || "";
 
@@ -184,11 +188,19 @@ const CustomerDetail = () => {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
   };
 
+  // Legacy records may hold a landline in `phone` (pre-dates the mobile-only rule).
+  // Only enforce the strict mobile check when the user has actually edited the field.
+  const validatePhoneField = (val: string): string | null => {
+    const untouched = String(originalForm?.phone ?? "") === val;
+    return untouched ? validatePhoneLegacyShape(val) : validatePhone(val);
+  };
+
   const blurField = (field: string) => {
     const val = String(form[field] ?? "");
     let err: string | null = null;
     if (field === "name") err = validateRequired(val);
-    else if (field === "phone") err = validatePhone(val);
+    else if (field === "phone") err = validatePhoneField(val);
+    else if (field === "landline_phone") err = validateLandline(val);
     else if (field === "eircode") {
       err = validateEircode(val);
       if (!err) handleChange("eircode", formatEircode(val));
@@ -199,35 +211,51 @@ const CustomerDetail = () => {
   const validateAll = (): boolean => {
     const e: CustomerFieldErrors = {};
     const nameErr = validateRequired(String(form.name ?? "")); if (nameErr) e.name = nameErr;
-    const phoneErr = validatePhone(String(form.phone ?? "")); if (phoneErr) e.phone = phoneErr;
+    const phoneErr = validatePhoneField(String(form.phone ?? "")); if (phoneErr) e.phone = phoneErr;
     const eircodeErr = validateEircode(String(form.eircode ?? "")); if (eircodeErr) e.eircode = eircodeErr;
     const areaErr = validateAreaCode(String(form.area_code ?? "")); if (areaErr) e.area_code = areaErr;
+    const landlineErr = validateLandline(String(form.landline_phone ?? "")); if (landlineErr) e.landline_phone = landlineErr;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
+
   const handleSave = async () => {
     if (!validateAll()) return;
     setSaving(true);
-    const { id: _id, created_at, updated_at, user_id, ...updates } = form;
+    // Only send fields the user actually changed. Sending the whole fetched row
+    // could overwrite backend-updated values (e.g. opted_out flipped by an
+    // inbound WhatsApp "STOP") with stale local form state.
+    const updates = buildCustomerUpdatePayload(form, originalForm);
+    if (Object.keys(updates).length === 0) {
+      setSaving(false);
+      toast({ title: "No changes to save" });
+      return;
+    }
     // Clean phone & eircode
     if (updates.phone) updates.phone = formatPhoneInternational(updates.phone);
     if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
     if (updates.area_code) updates.area_code = normalizeAreaCode(updates.area_code);
     // Ensure required fields are never null
-    if (!updates.eircode && updates.eircode !== undefined) updates.eircode = "";
-    if (!updates.address && updates.address !== undefined) updates.address = "";
-    // Sync boiler_make_model from brand + model
-    const brand = (updates.boiler_brand || "").trim();
-    const model = (updates.boiler_model || "").trim();
-    updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+    if ("eircode" in updates && !updates.eircode) updates.eircode = "";
+    if ("address" in updates && !updates.address) updates.address = "";
+    // TEMP: keep boiler_make_model in sync until downstream consumers
+    // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
+    // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
+    // BoilerBrandsTab, IncomingJobCard, DataTab export,
+    // CertificateFlow.tsx, Cert2Flow.tsx,
+    // supabase/functions/generate-cert2-pdf/index.ts).
+    if ("boiler_brand" in updates || "boiler_model" in updates) {
+      const brand = (form.boiler_brand || "").trim();
+      const model = (form.boiler_model || "").trim();
+      updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+    }
     // Clean partial boiler_installation_date (incomplete dropdown selection)
-    if (updates.boiler_installation_date && updates.boiler_installation_date.startsWith("__partial__")) {
+    if (typeof updates.boiler_installation_date === "string" && updates.boiler_installation_date.startsWith("__partial__")) {
       updates.boiler_installation_date = null;
     }
-    // Debug log for boiler_installation_date
-    console.log("[CustomerDetail] boiler_installation_date being saved:", updates.boiler_installation_date);
     const { error } = await supabase.from("customers").update(updates).eq("id", id);
+
     setSaving(false);
     if (error) {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
@@ -384,10 +412,13 @@ const CustomerDetail = () => {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CustomerFormField label="Customer Name" id="name" value={form.name ?? ""} onChange={(v) => handleChange("name", v)} onBlur={() => blurField("name")} error={errors.name} required maxLength={100} />
             <CustomerFormField label="Mobile Number" id="phone" value={form.phone ?? ""} onChange={(v) => handleChange("phone", v)} onBlur={() => blurField("phone")} error={errors.phone} required maxLength={30} placeholder="083 123 4567" />
+            <CustomerFormField label="Landline (optional)" id="landline_phone" value={form.landline_phone ?? ""} onChange={(v) => handleChange("landline_phone", v)} onBlur={() => blurField("landline_phone")} error={errors.landline_phone} maxLength={30} placeholder="01 441 2618" />
+
             <PlainField label="Email" field="email" value={form.email} />
             <PlainField label="Address" field="address" value={form.address} />
             <CustomerFormField label="Eircode" id="eircode" value={form.eircode ?? ""} onChange={(v) => handleChange("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
-            <CustomerFormField label="Area Code" id="area_code" value={form.area_code ?? ""} onChange={(v) => handleChange("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="01" />
+            <CustomerFormField label="Area Code" id="area_code" value={form.area_code ?? ""} onChange={(v) => handleChange("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="e.g. D14" />
+            <CustomerFormField label="GPRN" id="gprn" value={form.gprn ?? ""} onChange={(v) => handleChange("gprn", v)} maxLength={30} placeholder="Gas Point Reference Number" />
             <div className="space-y-1.5">
               <Label htmlFor="owner_or_tenant" className="text-xs text-muted-foreground">Owner or Tenant</Label>
               <Select value={form.owner_or_tenant || ""} onValueChange={(v) => handleChange("owner_or_tenant", v)}>
@@ -437,7 +468,7 @@ const CustomerDetail = () => {
                   }}
                   onFocus={() => { setBrandDropdownOpen(true); setBrandQuery(form.boiler_brand ?? ""); }}
                   onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 200)}
-                  placeholder="e.g. Ideal, Worcester, Vaillant"
+                  placeholder="e.g. Ideal, Worcester Bosch, Vaillant"
                   className="pr-9"
                   autoComplete="off"
                 />
@@ -476,7 +507,7 @@ const CustomerDetail = () => {
                   }}
                   onFocus={() => { if ((form.boiler_brand ?? "").trim()) { setModelDropdownOpen(true); setModelQuery(form.boiler_model ?? ""); } }}
                   onBlur={() => setTimeout(() => setModelDropdownOpen(false), 200)}
-                  placeholder="e.g. Logic Heat 18"
+                  placeholder="e.g. Logic Max Combi2 C30"
                   className="pr-9"
                   autoComplete="off"
                 />
@@ -502,6 +533,21 @@ const CustomerDetail = () => {
                 ) : null;
               })()}
               <p className="text-[11px] text-muted-foreground">Start typing or click to see options</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="boiler_location" className="text-xs text-muted-foreground">Boiler Location</Label>
+              <Input
+                id="boiler_location"
+                list="customer-detail-boiler-location-suggestions"
+                value={form.boiler_location ?? ""}
+                onChange={(e) => handleChange("boiler_location", e.target.value)}
+                placeholder="e.g. Kitchen"
+              />
+              <datalist id="customer-detail-boiler-location-suggestions">
+                {BOILER_LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc} />
+                ))}
+              </datalist>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
@@ -824,7 +870,7 @@ const CustomerDetail = () => {
             />
 
             <CollapsibleSection title="Payments & Activity" count={sectionCounts.payments}>
-              <PaymentHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
+              <PaymentHistory customerId={id} customerName={form.name || ""} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, payments: n }))} />
             </CollapsibleSection>
 
             <CollapsibleSection title="Quotes" count={sectionCounts.quotes}>
@@ -833,6 +879,10 @@ const CustomerDetail = () => {
 
             <CollapsibleSection title="Service History & Certificates" count={(sectionCounts.serviceJobs ?? 0) + (sectionCounts.certs ?? 0)}>
               <ServiceHistory customerId={id} onCountsReady={(jobCount, certCount) => setSectionCounts(prev => ({ ...prev, serviceJobs: jobCount, certs: certCount }))} />
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Parts" count={sectionCounts.parts}>
+              <CustomerPartsHistory customerId={id} onCountReady={(n) => setSectionCounts(prev => ({ ...prev, parts: n }))} />
             </CollapsibleSection>
 
             {/* Hazard Notices — only renders when data exists */}

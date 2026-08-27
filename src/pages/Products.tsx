@@ -14,12 +14,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, Loader2, Package } from "lucide-react";
 import CategoriesTab from "@/components/products/CategoriesTab";
+import { useOrgId } from "@/hooks/useOrgId";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type Product = {
   id: string;
   name: string;
   description: string | null;
   unit_price: number;
+  cost_price: number | null;
   active: boolean;
   category: string | null;
   created_at: string;
@@ -33,13 +37,17 @@ type Category = {
 const Products = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { orgId } = useOrgId();
+  const { user } = useAuth();
+  const { canAccessOffice } = useUserRole(user);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", unit_price: "", active: true, category: "" });
+  const [form, setForm] = useState({ name: "", description: "", unit_price: "", cost_price: "", active: true, category: "" });
   const [saving, setSaving] = useState(false);
+
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
@@ -71,13 +79,20 @@ const Products = () => {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", description: "", unit_price: "", active: true, category: categoryNames[0] || "" });
+    setForm({ name: "", description: "", unit_price: "", cost_price: "", active: true, category: categoryNames[0] || "" });
     setModalOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing(p);
-    setForm({ name: p.name, description: p.description || "", unit_price: String(p.unit_price), active: p.active, category: p.category || "" });
+    setForm({
+      name: p.name,
+      description: p.description || "",
+      unit_price: String(p.unit_price),
+      cost_price: p.cost_price == null ? "" : String(p.cost_price),
+      active: p.active,
+      category: p.category || "",
+    });
     setModalOpen(true);
   };
 
@@ -94,13 +109,18 @@ const Products = () => {
       active: form.active,
       category: form.category || null,
     };
+    if (canAccessOffice) {
+      payload.cost_price = form.cost_price === "" ? null : parseFloat(form.cost_price);
+    }
+
 
     if (editing) {
       const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Product updated" });
     } else {
-      const { error } = await supabase.from("products").insert(payload);
+      if (!orgId) { toast({ title: "Organisation not ready", description: "Please retry in a moment.", variant: "destructive" }); setSaving(false); return; }
+      const { error } = await supabase.from("products").insert({ ...payload, organisation_id: orgId });
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       toast({ title: "Product added" });
     }
@@ -174,22 +194,49 @@ const Products = () => {
                       <th className="px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Description</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Category</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Price</th>
+                      {canAccessOffice && (
+                        <>
+                          <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Cost</th>
+                          <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Margin %</th>
+                          <th className="px-4 py-3 font-semibold text-muted-foreground text-right">GP €</th>
+                        </>
+                      )}
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Active</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((p) => (
+                    {filtered.map((p) => {
+                      const sale = Number(p.unit_price) || 0;
+                      const hasCost = p.cost_price !== null && p.cost_price !== undefined;
+                      const cost = hasCost ? Number(p.cost_price) : null;
+                      const gp = cost === null ? null : sale - cost;
+                      const margin = cost === null || sale <= 0 ? null : ((sale - cost) / sale) * 100;
+                      return (
                       <tr key={p.id} className={`border-b border-border last:border-0 ${!p.active ? "opacity-50" : ""}`}>
                         <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{p.description || "—"}</td>
                         <td className="px-4 py-3 hidden md:table-cell">
                           {p.category ? <Badge variant="secondary" className="text-xs">{p.category}</Badge> : <span className="text-muted-foreground">—</span>}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-foreground">€{Number(p.unit_price).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-foreground">€{sale.toFixed(2)}</td>
+                        {canAccessOffice && (
+                          <>
+                            <td className="px-4 py-3 text-right text-muted-foreground">
+                              {cost === null ? "—" : `€${cost.toFixed(2)}`}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-foreground">
+                              {margin === null ? "—" : `${margin.toFixed(1)}%`}
+                            </td>
+                            <td className="px-4 py-3 text-right text-foreground">
+                              {gp === null ? "—" : `€${gp.toFixed(2)}`}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-block w-2 h-2 rounded-full ${p.active ? "bg-success" : "bg-muted-foreground/30"}`} />
                         </td>
+
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
@@ -203,7 +250,9 @@ const Products = () => {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
+
                   </tbody>
                 </table>
               </div>
@@ -244,6 +293,18 @@ const Products = () => {
               <Label className="text-xs font-semibold">Unit Price € *</Label>
               <Input type="number" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} placeholder="0.00" />
             </div>
+            {canAccessOffice && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Cost Price €</Label>
+                <Input
+                  type="number"
+                  value={form.cost_price}
+                  onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                  placeholder="Optional"
+                />
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
               <Label className="text-sm">Active</Label>

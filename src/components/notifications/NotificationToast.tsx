@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Cog, Banknote, AlertTriangle } from "lucide-react";
+import { X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Cog, Banknote, AlertTriangle, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { AnimatePresence, motion } from "framer-motion";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   new_job:           { icon: Wrench,         color: "text-emerald-500", label: "New Job" },
@@ -11,7 +12,10 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   no_show:           { icon: Ban,            color: "text-destructive", label: "No Show" },
   completed:         { icon: CheckCircle2,   color: "text-emerald-500", label: "Completed" },
   parts_needed:      { icon: Cog,            color: "text-amber-500",   label: "Parts Needed" },
+  parts_cancelled:   { icon: XCircle,        color: "text-destructive", label: "Part Cancelled" },
+  parts_update:      { icon: PackageCheck,   color: "text-amber-500",   label: "Part Update" },
   payment_collected: { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
+  payment_failed:    { icon: XCircle,        color: "text-destructive", label: "Payment Failed" },
   quote_accepted:    { icon: CheckCircle2,   color: "text-emerald-500", label: "Quote Accepted" },
   follow_up:         { icon: AlertTriangle,  color: "text-amber-500",   label: "Follow-up" },
 };
@@ -49,9 +53,8 @@ const NotificationToast = ({ notification, onDismiss, onMarkRead, jobPathPrefix 
     setVisible(false);
     setTimeout(() => {
       onDismiss();
-      if (notification.job_id) {
-        navigate(`${jobPathPrefix}/${notification.job_id}`);
-      }
+      const target = resolveNotificationTarget(notification, jobPathPrefix);
+      if (target) navigate(target);
     }, 100);
   };
 

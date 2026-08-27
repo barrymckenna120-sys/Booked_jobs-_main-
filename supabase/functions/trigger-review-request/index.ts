@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -84,7 +85,20 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const reviewLink = settings?.google_review_url || "https://g.page/r/CV-tS_b3X22vEAE/review";
+    // No cross-tenant fallback: if this org has no review URL configured, skip.
+    const reviewLink = settings?.google_review_url?.trim() || null;
+
+    if (!reviewLink) {
+      await supabase.from("edge_function_logs").insert({
+        function_name: "trigger-review-request",
+        error_message: `No google_review_url configured for org ${orgId} — review request skipped`,
+        payload: { service_call_id, customer_id, organisation_id: orgId },
+      });
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "google_review_url_not_configured" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 4. POST to Make.com webhook — per-org lookup
     const { data: makeIntegration } = await supabase
@@ -125,6 +139,7 @@ Deno.serve(async (req) => {
 
     if (!webhookRes.ok) {
       const errBody = await webhookRes.text();
+
       await supabase.from("edge_function_logs").insert({
         function_name: "trigger-review-request",
         error_message: `Webhook failed: ${webhookRes.status} - ${errBody}`,

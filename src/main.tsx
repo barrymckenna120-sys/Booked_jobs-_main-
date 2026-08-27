@@ -1,9 +1,11 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
+import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
 import { installOrgHeaderInterceptor } from "./integrations/supabase/orgHeaderInterceptor";
+import { shouldSkipServiceWorker } from "./lib/isPreviewHost";
 
 installOrgHeaderInterceptor();
 
@@ -15,30 +17,18 @@ Sentry.init({
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>
-      <App />
+      <HelmetProvider>
+        <App />
+      </HelmetProvider>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );
 
-// Service worker registration — guarded against Lovable preview iframes/hosts
-const isInIframe = (() => {
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-})();
-const host = window.location.hostname;
-const isPreviewHost =
-  host.includes("id-preview--") ||
-  host.includes("preview--") ||
-  host.includes("lovableproject.com") ||
-  host.includes("lovableproject-dev.com") ||
-  host.includes("lovable.app");
-
+// Service worker registration — guarded against Lovable preview iframes/hosts.
+// NOTE: the published app lives on *.lovable.app, which is NOT a preview host.
 if ("serviceWorker" in navigator) {
-  if (isPreviewHost || isInIframe) {
-    // Unregister any SWs in preview/iframe contexts to avoid stale-shell issues
+  if (shouldSkipServiceWorker()) {
+    // Unregister any SWs in preview/iframe/dev contexts to avoid stale-shell issues
     navigator.serviceWorker.getRegistrations().then((regs) => {
       regs.forEach((r) => r.unregister());
     });
@@ -46,7 +36,7 @@ if ("serviceWorker" in navigator) {
     // Register Firebase messaging SW (background push).
     // App shell SW (/sw.js) is registered via useRegisterSW in PWAUpdateBanner
     // so we can surface an update prompt when a new version is detected.
-    navigator.serviceWorker.register("/firebase-messaging-sw.js").catch((err) => {
+    navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/firebase-cloud-messaging-push-scope" }).catch((err) => {
       console.warn("Firebase SW registration failed:", err);
     });
   }

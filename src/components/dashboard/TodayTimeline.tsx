@@ -64,8 +64,11 @@ const TodayTimeline = () => {
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-3xl font-bold text-[#4A86E8]">
-              <a href="/schedule">Full Schedule</a>
+            <h3
+              className="text-3xl font-bold text-[#4A86E8] cursor-pointer"
+              onClick={() => navigate("/schedule")}
+            >
+              Full Schedule
             </h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               {jobs.length} job{jobs.length !== 1 ? "s" : ""} · {completedCount} done · {activeCount} remaining

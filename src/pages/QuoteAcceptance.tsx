@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, CheckCircle2, Star, Shield, Wrench, Download } from "lucide-react";
+import { isQuoteApprovalAccepted } from "@/lib/quoteApprovalResult";
 
 type LineItem = { description: string; qty: number; unit_price: number; line_total: number };
 
@@ -30,7 +31,9 @@ const eur = (n: number) => `€${n.toFixed(2)}`;
 const BLUE = "#4A86E8";
 
 const QuoteAcceptance = () => {
-  const { quoteNumber } = useParams<{ quoteNumber: string }>();
+  // Route param renamed from :quoteNumber to :token — the URL now carries
+  // an unguessable access_token instead of a sequential quote_number.
+  const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<PublicQuoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -38,34 +41,40 @@ const QuoteAcceptance = () => {
   const [depositTapped, setDepositTapped] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [approveError, setApproveError] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
-  useEffect(() => { if (quoteNumber) fetchQuote(); }, [quoteNumber]);
+  useEffect(() => { if (token) fetchQuote(); }, [token]);
 
   const fetchQuote = async () => {
-    // Resolve quote_number to UUID first
-    const { data: lookup } = await supabase.rpc("get_quote_by_number", { p_quote_number: quoteNumber });
-    const quoteId = (lookup as any)?.quote_id;
-    if (!quoteId) { setLoading(false); return; }
+    try {
+      // Resolve access_token to quote UUID via the public RPC.
+      const { data: lookup } = await supabase.rpc("get_quote_by_token", { p_token: token as string });
+      const quoteId = (lookup as any)?.quote_id;
+      if (!quoteId) { return; }
 
-    const { data: result, error } = await supabase.rpc("get_quote_public", { p_quote_id: quoteId });
-    if (error || !result || !(result as any).quote) { setLoading(false); return; }
-    const publicData = result as unknown as PublicQuoteData;
-    setData(publicData);
-    setLoading(false);
-    const s = publicData.quote.status;
-    if (s === "Sent" || s === "sent") {
-      fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/mark_quote_viewed`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ p_quote_id: quoteId }),
-        }
-      ).catch(() => {});
+      const { data: result, error } = await supabase.rpc("get_quote_public", { p_quote_id: quoteId });
+      if (error || !result || !(result as any).quote) { return; }
+      const publicData = result as unknown as PublicQuoteData;
+      setData(publicData);
+      const s = publicData.quote.status;
+      if (s === "Sent" || s === "sent") {
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/mark_quote_viewed`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ p_quote_id: quoteId }),
+          }
+        ).catch(() => {});
+      }
+    } catch {
+      setFetchError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +91,16 @@ const QuoteAcceptance = () => {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <Loader2 className="w-8 h-8 animate-spin" style={{ color: BLUE }} />
+    </div>
+  );
+
+  /* ── Error loading quote ── */
+  if (fetchError) return (
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, maxWidth: 440, width: "100%", padding: "32px 24px", textAlign: "center" }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: "#111" }}>Something went wrong</p>
+        <p style={{ fontSize: 14, color: "#6b7280", marginTop: 8 }}>We couldn&apos;t load this quote — please try again.</p>
+      </div>
     </div>
   );
 
@@ -144,11 +163,11 @@ const QuoteAcceptance = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quote_id: quote.id }),
+          body: JSON.stringify({ quote_id: quote.id, access_token: token }),
         }
       );
       const result = await response.json();
-      if (result.success) {
+      if (isQuoteApprovalAccepted(result)) {
         setAccepted(true);
       } else {
         setApproveError(true);
@@ -403,7 +422,12 @@ const QuoteAcceptance = () => {
                 onClick={async () => {
                   setDownloadingPdf(true);
                   try {
-                    const response = await fetch(quote.pdf_url!);
+                    const { data: resolved } = await supabase.functions.invoke("resolve-document-link", {
+                      body: { type: "quote", token },
+                    });
+                    const signed = (resolved as any)?.signed_url;
+                    if (!signed) throw new Error("no signed url");
+                    const response = await fetch(signed);
                     if (!response.ok) throw new Error("Failed");
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -448,7 +472,12 @@ const QuoteAcceptance = () => {
               onClick={async () => {
                 setDownloadingPdf(true);
                 try {
-                  const response = await fetch(quote.pdf_url!);
+                  const { data: resolved } = await supabase.functions.invoke("resolve-document-link", {
+                    body: { type: "quote", token },
+                  });
+                  const signed = (resolved as any)?.signed_url;
+                  if (!signed) throw new Error("no signed url");
+                  const response = await fetch(signed);
                   if (!response.ok) throw new Error("Failed");
                   const blob = await response.blob();
                   const url = window.URL.createObjectURL(blob);

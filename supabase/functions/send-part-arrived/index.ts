@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 serve(async (req) => {
@@ -45,34 +46,90 @@ serve(async (req) => {
       );
     }
 
-    // Fetch WhatsApp api_key from tenant_integrations
+    // Resolve per-tenant 360Messenger credentials.
+    // Accepts either integration row type, and either a declared secret name
+    // (api_key_secret -> env var) or a literal api_key stored in config.
     const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
+      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=in.(360messenger,whatsapp)&select=integration_type,config`,
       { headers }
     );
     const tiRows = await tiRes.json();
-    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
+    const rows: any[] = Array.isArray(tiRows) ? tiRows : [];
+    const preferred = rows.find((r) => r.integration_type === "360messenger") || rows[0] || null;
+    const cfg = preferred?.config || {};
+
+    let apiKey: string | null = null;
+    let resolution = "none";
+    let secretName: string | undefined;
+
+    if (cfg.api_key_secret) {
+      secretName = String(cfg.api_key_secret);
+      apiKey = Deno.env.get(secretName) || null;
+      resolution = apiKey ? `secret:${secretName}` : `secret_missing:${secretName}`;
+    } else if (cfg.api_key) {
+      apiKey = String(cfg.api_key);
+      resolution = "literal_config";
+    } else {
+      // Fall back to a literal key on the other integration row, if present.
+      const other = rows.find((r) => r !== preferred);
+      if (other?.config?.api_key) {
+        apiKey = String(other.config.api_key);
+        resolution = `literal_config:${other.integration_type}`;
+      }
+    }
+
     if (!apiKey) {
+      const detail = rows.length === 0
+        ? "No 360messenger/whatsapp integration row for this organisation"
+        : secretName
+          ? `Secret "${secretName}" is not set for this organisation`
+          : "Integration row has no api_key or api_key_secret";
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            function_name: "send-part-arrived",
+            error_message: `WhatsApp credential resolution failed: ${detail}`,
+            payload: { organisation_id: orgId, job_id, resolution, secret_name: secretName ?? null },
+          }),
+        });
+      } catch { /* best-effort */ }
       return new Response(
-        JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }),
+        JSON.stringify({ success: false, error: `WhatsApp not configured: ${detail}` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
 
-    // Fetch message_footer from settings (by organisation_id) with org-aware fallbacks
-    let messageFooter = "our team";
+    // Fetch message_footer from settings (by organisation_id) with org-aware fallbacks.
+    // Office-initiated one-off send: degrade (omit footer) rather than block the send.
+    let messageFooter = "";
     const settingsRes = await fetch(
       `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer,business_name,company_name&limit=1`,
       { headers }
     );
     const settings = await settingsRes.json();
     if (Array.isArray(settings) && settings[0]) {
-      messageFooter = settings[0].message_footer || settings[0].business_name || settings[0].company_name || messageFooter;
+      messageFooter = (settings[0].message_footer || settings[0].business_name || settings[0].company_name || "").trim();
+    }
+    if (!messageFooter) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            function_name: "send-part-arrived",
+            error_message: `Branding not configured for org ${orgId} — sent without footer`,
+            payload: { organisation_id: orgId, job_id, reason: "message_footer_not_configured", degraded: true },
+          }),
+        });
+      } catch { /* best-effort */ }
     }
 
     const firstName = customer_name.split(" ")[0];
     const baseMessage = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.`;
-    const message = `${baseMessage}\n\n${messageFooter}`;
+    const message = messageFooter ? `${baseMessage}\n\n${messageFooter}` : baseMessage;
+
 
     // Log to message_log
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {

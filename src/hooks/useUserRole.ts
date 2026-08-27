@@ -1,3 +1,6 @@
+// NOTE: profiles.last_login (text column) exists but is unused/superseded by
+// auth.users.last_sign_in_at (surfaced via the list-users edge function). Do
+// not read or write profiles.last_login — it is not live data.
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -6,7 +9,9 @@ export type AppRole = "admin" | "office" | "engineer";
 
 /**
  * Returns the current user's role by checking if their auth ID
- * is linked to an engineer record. Falls back to "admin".
+ * is linked to an engineer record. A signed-in user with no engineer row
+ * falls back to "engineer" (not "admin"); the "admin" initial state below
+ * only applies before resolution completes, while `loading` is true.
  */
 export const useUserRole = (user: User | null) => {
   const [role, setRole] = useState<AppRole>("admin");

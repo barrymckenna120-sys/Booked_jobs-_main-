@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { generateImportTemplate } from "@/lib/generateTemplate";
+import { isValidGprnFormat, GPRN_WARNING_MESSAGE } from "@/lib/validation/gprn";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
@@ -9,27 +10,43 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
+import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
+import ImportRunHistory from "@/components/import/ImportRunHistory";
+import type { ImportRunRowDetail } from "@/components/import/importRunTypes";
 
-/** Map recognisable Excel header names (lower-cased, trimmed) → internal field */
+/** Normalise a header cell for alias comparison: trim, collapse internal
+ *  whitespace runs to a single space, lower-case. */
+const normalizeHeader = (val: any): string =>
+  String(val ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Map recognisable Excel header names (normalised) → internal field */
 const HEADER_TO_FIELD: Record<string, string> = {
   "customer name": "name",
+  "name": "name",
   "mobile number": "phone",
   "phone number": "phone",
   "phone": "phone",
   "email": "email",
   "address": "address",
   "eircode": "eircode",
-  "area code": "area_code",
-  "area": "area_code",
+  "gprn": "gprn",
+  "gprn no": "gprn",
+  "gprn number": "gprn",
+  "gas point reference number": "gprn",
   "access notes": "access_notes",
-  "boiler make / model": "boiler_make_model",
-  "boiler make/model": "boiler_make_model",
+  "boiler brand": "boiler_brand",
+  "boiler make": "boiler_brand",
+  "boiler model": "boiler_model",
   "boiler type": "boiler_type",
   "installation date": "boiler_installation_date",
   "under warranty": "under_warranty",
+  "warranty years": "warranty_years",
+  "warranty": "warranty_years",
+  "owner or tenant": "owner_or_tenant",
+  "owner/tenant": "owner_or_tenant",
   "last service date": "last_service_date",
   "last service engineer": "last_service_engineer",
   "engineer notes": "engineer_notes",
@@ -37,29 +54,65 @@ const HEADER_TO_FIELD: Record<string, string> = {
   "service status": "service_status",
   "assigned engineer": "assigned_engineer",
   "customer notes": "notes",
-  "notes": "notes",
+  "notes": "engineer_notes",
+  "note": "engineer_notes",
+  "comments": "engineer_notes",
+  "comment": "engineer_notes",
   "customer since": "customer_since",
 };
 
+/** Friendly display label for each internal field (used in mapping UI + error messages) */
+const FIELD_LABEL: Record<string, string> = {
+  name: "Customer Name",
+  phone: "Phone Number",
+  email: "Email",
+  address: "Address",
+  eircode: "Eircode",
+  gprn: "GPRN",
+  access_notes: "Access Notes",
+  boiler_brand: "Boiler Brand",
+  boiler_model: "Boiler Model",
+  boiler_type: "Boiler Type",
+  boiler_installation_date: "Installation Date",
+  under_warranty: "Under Warranty",
+  warranty_years: "Warranty Years",
+  owner_or_tenant: "Owner or Tenant",
+  last_service_date: "Last Service Date",
+  last_service_engineer: "Last Service Engineer",
+  engineer_notes: "Engineer Notes",
+  next_service_due: "Next Service Due",
+  service_status: "Service Status",
+  assigned_engineer: "Assigned Engineer",
+  notes: "Customer Notes",
+  customer_since: "Customer Since",
+};
+
+const REQUIRED_FIELDS = ["name", "phone", "address", "eircode"] as const;
+const ALL_FIELDS = Array.from(new Set(Object.values(HEADER_TO_FIELD)));
+const OPTIONAL_FIELDS = ALL_FIELDS.filter((f) => !REQUIRED_FIELDS.includes(f as any));
+const PAGE_SIZE = 10;
+
 /** Headers we look for to identify the header row */
-const KNOWN_HEADERS = ["customer name", "mobile number", "phone number", "address", "eircode"];
+const KNOWN_HEADERS = ["customer name", "name", "mobile number", "phone number", "phone", "address", "eircode"];
 
 /** Scan the first N rows to find the header row index and build a column map */
-function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<string, number> } | null {
+function detectHeaderRow(
+  allRows: any[][]
+): { headerIdx: number; colMap: Record<string, number>; rawHeaders: string[] } | null {
   const scanLimit = Math.min(10, allRows.length);
   for (let i = 0; i < scanLimit; i++) {
     const row = allRows[i];
     if (!row || row.length < 3) continue;
-    const lowered = row.map((c: any) => String(c ?? "").trim().toLowerCase());
+    const lowered = row.map((c: any) => normalizeHeader(c));
     const matchCount = KNOWN_HEADERS.filter((h) => lowered.includes(h)).length;
     if (matchCount >= 3) {
-      // Build column map from this row
       const colMap: Record<string, number> = {};
       for (let col = 0; col < lowered.length; col++) {
         const field = HEADER_TO_FIELD[lowered[col]];
         if (field && !(field in colMap)) colMap[field] = col;
       }
-      return { headerIdx: i, colMap };
+      const rawHeaders = row.map((c: any) => String(c ?? "").trim());
+      return { headerIdx: i, colMap, rawHeaders };
     }
   }
   return null;
@@ -67,7 +120,6 @@ function detectHeaderRow(allRows: any[][]): { headerIdx: number; colMap: Record<
 
 function parseDate(val: any): string | null {
   if (!val) return null;
-  // If SheetJS has already parsed this as a Date object, use it directly
   if (val instanceof Date) {
     const yyyy = val.getFullYear();
     const mm = String(val.getMonth() + 1).padStart(2, "0");
@@ -75,10 +127,8 @@ function parseDate(val: any): string | null {
     return `${yyyy}-${mm}-${dd}`;
   }
   const str = String(val).trim();
-  // DD/MM/YYYY
   const irish = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (irish) return `${irish[3]}-${irish[2].padStart(2, "0")}-${irish[1].padStart(2, "0")}`;
-  // YYYY-MM-DD (with optional time portion e.g. "2026-10-01 00:00:00")
   const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   return null;
@@ -88,13 +138,9 @@ function parseDate(val: any): string | null {
 function validateImportPhone(val: any): { valid: boolean; normalized: string | null; error?: string } {
   if (!val) return { valid: false, normalized: null, error: "Phone Number is required" };
   let str = String(val).trim().replace(/\s/g, "");
-  // Strip leading + for uniform processing
   if (str.startsWith("+")) str = str.slice(1);
-  // Strip leading 353 country code
   if (str.startsWith("353")) str = str.slice(3);
-  // Strip leading 0
   if (str.startsWith("0")) str = str.slice(1);
-  // Should now be 8-9 digits (Irish mobile without leading 0)
   if (!/^\d{7,9}$/.test(str)) {
     return { valid: false, normalized: null, error: "Invalid phone number format" };
   }
@@ -107,11 +153,24 @@ function cellStr(row: any[], idx: number): string {
   return String(v).trim();
 }
 
+type FieldErrors = Record<string, string>;
+
 type ParsedRow = {
   rowNum: number;
+  srcIndex: number;
   data: Record<string, any>;
   errors: string[];
+  fieldErrors: FieldErrors;
+  /** Non-blocking, informational per-field notes (row still imports). */
+  fieldWarnings: FieldErrors;
   isValid: boolean;
+};
+
+/** An existing customer that matches an incoming row's phone. */
+type ExistingMatch = {
+  id: string;
+  name: string | null;
+  address: string | null;
 };
 
 const ImportCustomers = () => {
@@ -127,12 +186,58 @@ const ImportCustomers = () => {
   const [validated, setValidated] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const [importResult, setImportResult] = useState<{
     imported: number;
     updated: number;
     skipped: number;
     failedRows: { name: string; reason: string }[];
   } | null>(null);
+
+  // Column mapping state
+  const [rawHeaders, setRawHeaders] = useState<string[]>([]);
+  const [autoColMap, setAutoColMap] = useState<Record<string, number>>({});
+  const [manualMap, setManualMap] = useState<Record<string, number>>({});
+  const [headerIdx, setHeaderIdx] = useState<number>(0);
+  const [dataRows, setDataRows] = useState<any[][]>([]);
+
+  // Session-only overrides keyed by srcIndex (index into dataRows), then by field key.
+  const [rowEdits, setRowEdits] = useState<Record<number, Record<string, string>>>({});
+  const [page, setPage] = useState(1);
+
+  // Row-level selection. Until the operator touches a checkbox, every ready row is
+  // treated as selected (selectionDirty === false), so the default is "import all ready".
+  const [selectedRowNums, setSelectedRowNums] = useState<Set<number>>(new Set());
+  const [selectionDirty, setSelectionDirty] = useState(false);
+
+  // Existing customers for this organisation, keyed by normalised phone. Populated by
+  // one batched lookup per file. A phone can map to MORE THAN ONE customer — real data
+  // contains shared numbers — so the value is a list, not a boolean.
+  const [existingByPhone, setExistingByPhone] = useState<Map<string, ExistingMatch[]> | null>(null);
+
+  const effectiveColMap = useMemo(
+    () => ({ ...autoColMap, ...manualMap }),
+    [autoColMap, manualMap]
+  );
+
+  const missingRequired = useMemo(
+    () => REQUIRED_FIELDS.filter((f) => !(f in effectiveColMap)),
+    [effectiveColMap]
+  );
+  const missingOptional = useMemo(
+    () => OPTIONAL_FIELDS.filter((f) => !(f in effectiveColMap)),
+    [effectiveColMap]
+  );
+
+  const resetMapping = () => {
+    setRawHeaders([]);
+    setAutoColMap({});
+    setManualMap({});
+    setHeaderIdx(0);
+    setDataRows([]);
+    setRowEdits({});
+    setPage(1);
+  };
 
   const handleFile = (f: File) => {
     if (!f.name.endsWith(".xlsx")) {
@@ -147,6 +252,7 @@ const ImportCustomers = () => {
     setParsedRows([]);
     setValidated(false);
     setImportResult(null);
+    resetMapping();
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -160,9 +266,11 @@ const ImportCustomers = () => {
     setParsedRows([]);
     setValidated(false);
     setImportResult(null);
+    resetMapping();
   };
 
-  const validateFile = async () => {
+  /** Step 1: read file, detect header, cache raw headers + data rows. No row validation yet. */
+  const readFile = async () => {
     if (!file) return;
     const data = await file.arrayBuffer();
     const wb = XLSX.read(new Uint8Array(data), { type: "array", cellDates: true });
@@ -170,58 +278,116 @@ const ImportCustomers = () => {
     const sheet = wb.Sheets[sheetName];
     const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    // Dynamically find the header row
     const detected = detectHeaderRow(allRows);
     if (!detected) {
-      toast({ title: "Header row not found", description: "Could not find a row with recognisable column headers (Customer Name, Address, Eircode, etc).", variant: "destructive" });
+      toast({
+        title: "Header row not found",
+        description:
+          "Could not find a row with recognisable column headers (Customer Name, Address, Eircode, etc).",
+        variant: "destructive",
+      });
       return;
     }
-    const { headerIdx, colMap } = detected;
+    setRawHeaders(detected.rawHeaders);
+    setAutoColMap(detected.colMap);
+    setManualMap({});
+    setHeaderIdx(detected.headerIdx);
+    setDataRows(allRows.slice(detected.headerIdx + 1));
+    setRowEdits({});
+    setPage(1);
+    setValidated(true);
+  };
 
-    // Helper to get a field value from a row using the dynamic column map
-    const field = (row: any[], key: string): string => {
-      const idx = colMap[key];
-      return idx !== undefined ? cellStr(row, idx) : "";
-    };
-    // Raw field accessor that preserves Date objects for date columns
-    const rawField = (row: any[], key: string): any => {
-      const idx = colMap[key];
-      if (idx === undefined) return undefined;
-      return row[idx];
-    };
+  /** Build a single ParsedRow from a raw row + column map + optional per-field overrides. */
+  const buildRow = useCallback(
+    (
+      row: any[],
+      srcIndex: number,
+      colMap: Record<string, number>,
+      overrides: Record<string, string> | undefined,
+      hdrIdx: number
+    ): ParsedRow | null => {
+      const hasCol = (key: string) => key in colMap;
 
-    // Data rows start immediately after the header row
-    const dataRows = allRows.slice(headerIdx + 1);
-    const results: ParsedRow[] = [];
+      // rawField returns the raw cell value (may be Date, number, string) unless overridden.
+      const rawField = (key: string): any => {
+        if (overrides && overrides[key] !== undefined) return overrides[key];
+        const idx = colMap[key];
+        if (idx === undefined) return undefined;
+        return row[idx];
+      };
+      // field returns trimmed string, honouring overrides.
+      const field = (key: string): string => {
+        if (overrides && overrides[key] !== undefined) return String(overrides[key] ?? "").trim();
+        const idx = colMap[key];
+        return idx !== undefined ? cellStr(row, idx) : "";
+      };
 
-    for (let i = 0; i < dataRows.length; i++) {
-      const row = dataRows[i];
-      const name = field(row, "name");
-      const phone = field(row, "phone");
-      const address = field(row, "address");
+      const name = field("name");
+      const phone = field("phone");
+      const address = field("address");
 
-      // Stop at empty rows
-      if (!name && !phone && !address) break;
+      const hasAnyOverride = overrides && Object.keys(overrides).length > 0;
+      // Skip only when the original row is empty AND user hasn't started editing it.
+      if (!name && !phone && !address && !hasAnyOverride) return null;
 
       const errors: string[] = [];
-      const eircode = field(row, "eircode");
-      const boilerType = field(row, "boiler_type");
-      const underWarranty = field(row, "under_warranty");
-      const serviceStatus = field(row, "service_status");
+      const fieldErrors: FieldErrors = {};
+      const fieldWarnings: FieldErrors = {};
 
-      if (!name) errors.push("Customer Name is required");
-      const phoneValidation = validateImportPhone(phone);
-      if (!phoneValidation.valid) {
-        errors.push(phoneValidation.error || "Phone Number is required");
+      const eircode = field("eircode");
+      const boilerType = field("boiler_type");
+      const underWarranty = field("under_warranty");
+      const serviceStatus = field("service_status");
+
+      // GPRN is optional. If present but not a plausible reference (roughly 7 digits,
+      // purely numeric), warn on the cell without blocking the row.
+      const gprn = field("gprn");
+      if (gprn && !isValidGprnFormat(gprn.replace(/\s/g, ""))) {
+        fieldWarnings.gprn = GPRN_WARNING_MESSAGE.replace("save", "import");
       }
-      if (!address) errors.push("Address is required");
-      if (!eircode) errors.push("Eircode is required");
-      if (boilerType && !["Gas", "Oil"].includes(boilerType)) errors.push("Boiler Type must be Gas or Oil");
-      if (underWarranty && !["Yes", "No"].includes(underWarranty)) errors.push("Under Warranty must be Yes or No");
-      if (serviceStatus && !["Overdue", "Due Soon", "Up to Date"].includes(serviceStatus))
-        errors.push("Status must be: Overdue, Due Soon, or Up to Date");
 
-      // Date validations
+      if (hasCol("name") && !name) {
+        const msg = "Customer Name is missing for this row";
+        errors.push(msg);
+        fieldErrors.name = "Required";
+      }
+
+      if (hasCol("phone")) {
+        if (!phone) {
+          errors.push("Phone is missing for this row");
+          fieldErrors.phone = "Required";
+        } else {
+          const phoneValidation = validateImportPhone(phone);
+          if (!phoneValidation.valid) {
+            errors.push(`Phone '${phone}' isn't a valid format`);
+            fieldErrors.phone = "Invalid phone format";
+          }
+        }
+      }
+
+      if (hasCol("address") && !address) {
+        errors.push("Address is missing for this row");
+        fieldErrors.address = "Required";
+      }
+      if (hasCol("eircode") && !eircode) {
+        errors.push("Eircode is missing for this row");
+        fieldErrors.eircode = "Required";
+      }
+
+      if (boilerType && !["Gas", "Oil"].includes(boilerType)) {
+        errors.push(`Boiler Type '${boilerType}' must be Gas or Oil`);
+        fieldErrors.boiler_type = "Must be Gas or Oil";
+      }
+      if (underWarranty && !["Yes", "No"].includes(underWarranty)) {
+        errors.push(`Under Warranty '${underWarranty}' must be Yes or No`);
+        fieldErrors.under_warranty = "Must be Yes or No";
+      }
+      if (serviceStatus && !["Overdue", "Due Soon", "Up to Date"].includes(serviceStatus)) {
+        errors.push(`Status '${serviceStatus}' must be: Overdue, Due Soon, or Up to Date`);
+        fieldErrors.service_status = "Must be Overdue, Due Soon, or Up to Date";
+      }
+
       const dateFieldKeys = [
         { key: "boiler_installation_date", label: "Installation Date" },
         { key: "last_service_date", label: "Last Service Date" },
@@ -229,48 +395,125 @@ const ImportCustomers = () => {
         { key: "customer_since", label: "Customer Since" },
       ];
       for (const df of dateFieldKeys) {
-        const rawVal = rawField(row, df.key);
-        // Skip if empty, already a Date object, or parseable
+        const rawVal = rawField(df.key);
         if (!rawVal) continue;
         if (rawVal instanceof Date) continue;
         if (!parseDate(rawVal)) {
-          errors.push(`${df.label} must be a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`);
+          errors.push(
+            `${df.label} '${String(rawVal)}' isn't a valid date (DD/MM/YYYY, YYYY-MM-DD, or Excel datetime)`
+          );
+          fieldErrors[df.key] = "Invalid date";
         }
       }
 
-      results.push({
-        rowNum: headerIdx + 2 + i, // 1-based Excel row number
+      const normalisedPhone = hasCol("phone")
+        ? (validateImportPhone(phone).normalized || phone)
+        : "";
+
+      return {
+        rowNum: hdrIdx + 2 + srcIndex,
+        srcIndex,
         data: {
           name,
-          phone: phoneValidation.normalized || phone,
-          email: field(row, "email"),
+          phone: normalisedPhone,
+          email: field("email"),
           address,
           eircode,
-          area_code: (() => { const ac = field(row, "area_code"); return ac ? ac.trim().replace(/^dublin\s+/i, "D").toUpperCase() : ac; })(),
-          access_notes: field(row, "access_notes"),
-          boiler_make_model: field(row, "boiler_make_model"),
+          gprn: gprn || null,
+          access_notes: field("access_notes"),
+          boiler_brand: field("boiler_brand"),
+          boiler_model: field("boiler_model"),
+          boiler_make_model:
+            [field("boiler_brand"), field("boiler_model")]
+              .filter(Boolean)
+              .join(" ") || null,
           boiler_type: boilerType || null,
-          boiler_installation_date: parseDate(rawField(row, "boiler_installation_date")),
+          boiler_installation_date: parseDate(rawField("boiler_installation_date")),
           under_warranty: underWarranty === "Yes" ? true : underWarranty === "No" ? false : null,
-          last_service_date: parseDate(rawField(row, "last_service_date")),
-          last_service_engineer: field(row, "last_service_engineer"),
-          engineer_notes: field(row, "engineer_notes"),
-          next_service_due: parseDate(rawField(row, "next_service_due")),
+          warranty_years: (() => {
+            const raw = field("warranty_years");
+            if (!raw) return null;
+            const n = parseInt(raw, 10);
+            return Number.isFinite(n) ? n : null;
+          })(),
+          owner_or_tenant: field("owner_or_tenant") || null,
+          last_service_date: parseDate(rawField("last_service_date")),
+          last_service_engineer: field("last_service_engineer"),
+          engineer_notes: field("engineer_notes"),
+          next_service_due: parseDate(rawField("next_service_due")),
           service_status: serviceStatus || "Up to Date",
-          assigned_engineer: field(row, "assigned_engineer"),
-          notes: field(row, "notes"),
-          customer_since: parseDate(rawField(row, "customer_since")),
+          assigned_engineer: field("assigned_engineer"),
+          notes: field("notes") || null,
+          customer_since: parseDate(rawField("customer_since")),
         },
         errors,
+        fieldErrors,
+        fieldWarnings,
         isValid: errors.length === 0,
-      });
-    }
+      };
+    },
+    []
+  );
 
+  /** Step 2: pure function of dataRows + effective colMap + rowEdits. Re-runs on remap. */
+  const runRowValidation = useCallback(() => {
+    if (!validated || dataRows.length === 0) {
+      setParsedRows([]);
+      return;
+    }
+    const results: ParsedRow[] = [];
+    for (let i = 0; i < dataRows.length; i++) {
+      const built = buildRow(dataRows[i], i, effectiveColMap, rowEdits[i], headerIdx);
+      if (!built) break; // stop at first empty row (same behaviour as before)
+      results.push(built);
+    }
     setParsedRows(results);
-    setValidated(true);
+  }, [validated, dataRows, effectiveColMap, headerIdx, rowEdits, buildRow]);
+
+  // Full re-validate whenever mapping/data changes. rowEdits are handled per-row below,
+  // but we include them so remaps still see current edits.
+  useEffect(() => {
+    runRowValidation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validated, dataRows, effectiveColMap, headerIdx]);
+
+  // Reset page and row selection whenever mapping or data changes: rows are
+  // re-validated, so a stale selection would point at the wrong rows.
+  useEffect(() => {
+    setPage(1);
+    setSelectedRowNums(new Set());
+    setSelectionDirty(false);
+  }, [dataRows, effectiveColMap]);
+
+  /** Re-validate a single row in place after an edit. */
+  const revalidateRow = useCallback(
+    (srcIndex: number, nextEdits: Record<string, string>) => {
+      const row = dataRows[srcIndex];
+      if (!row) return;
+      const built = buildRow(row, srcIndex, effectiveColMap, nextEdits, headerIdx);
+      if (!built) return;
+      setParsedRows((prev) => {
+        const idx = prev.findIndex((r) => r.srcIndex === srcIndex);
+        if (idx === -1) return prev;
+        const next = prev.slice();
+        next[idx] = built;
+        return next;
+      });
+    },
+    [dataRows, effectiveColMap, headerIdx, buildRow]
+  );
+
+  const updateEdit = (srcIndex: number, fieldKey: string, value: string) => {
+    setRowEdits((prev) => {
+      const rowMap = { ...(prev[srcIndex] || {}) };
+      rowMap[fieldKey] = value;
+      const next = { ...prev, [srcIndex]: rowMap };
+      // Re-validate on next tick so state has settled.
+      queueMicrotask(() => revalidateRow(srcIndex, rowMap));
+      return next;
+    });
   };
 
-  /** Strip null/empty optional fields so we don't send null values that may violate constraints */
   const cleanData = (raw: Record<string, any>): Record<string, any> => {
     const required = ["name", "phone", "address", "eircode"];
     const cleaned: Record<string, any> = {};
@@ -280,15 +523,20 @@ const ImportCustomers = () => {
       } else if (value !== null && value !== undefined && value !== "") {
         cleaned[key] = value;
       }
-      // skip null/empty optional fields entirely
     }
     return cleaned;
   };
 
   const handleImport = async () => {
     if (!user) return;
-    const validRows = parsedRows.filter((r) => r.isValid);
-    if (validRows.length === 0) return;
+    if (missingRequired.length > 0) return;
+    // Partition rather than filter: ambiguous-phone rows are never committed, but
+    // they must still be logged instead of vanishing from the audit trail.
+    // Ready rows are additionally narrowed to the operator's checkbox selection —
+    // deselected rows are neither written nor logged.
+    const validRows = decoratedRows.filter((r) => r.isValid && selectedSet.has(r.rowNum));
+    const ambiguousRows = decoratedRows.filter((r) => ambiguousRowNums.has(r.rowNum));
+    if (validRows.length === 0 && ambiguousRows.length === 0) return;
 
     setImporting(true);
     setImportProgress(0);
@@ -296,67 +544,450 @@ const ImportCustomers = () => {
     let updated = 0;
     let skipped = 0;
     const failedRows: { name: string; reason: string }[] = [];
+    // Audit trail for this commit — appended wherever a counter is incremented.
+    const rowDetails: ImportRunRowDetail[] = [];
+
+    // Logged up front: these rows never enter the commit loop, so no customer
+    // write can result from them.
+    for (const row of ambiguousRows) {
+      const count = (existingByPhone?.get(String(row.data.phone || "").trim()) || []).length;
+      const reason = `Phone matches ${count} existing customers — resolve the duplicates first`;
+      skipped++;
+      failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
+      rowDetails.push({
+        row_number: row.rowNum,
+        outcome: "skipped_ambiguous",
+        customer_id: null,
+        error_message: reason,
+      });
+    }
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
       try {
         const cleaned = cleanData(row.data);
 
-        // Check if customer with same phone exists
-        const { data: existing } = await supabase
+        // No single-row coercion: a shared phone legitimately returns several rows,
+        // and that case must never fall through to an insert.
+        const { data: existingRows, error: lookupError } = await supabase
           .from("customers")
           .select("id")
           .eq("phone", cleaned.phone)
-          .eq("user_id", user.id)
-          .maybeSingle();
+          .eq("organisation_id", orgId);
 
-        if (existing) {
+        if (lookupError) throw lookupError;
+
+        const matchCount = existingRows?.length || 0;
+
+        if (matchCount > 1) {
+          skipped++;
+          const reason = `Phone matches ${matchCount} existing customers — resolve the duplicates first`;
+          failedRows.push({
+            name: row.data.name || `Row ${row.rowNum}`,
+            reason,
+          });
+          rowDetails.push({
+            row_number: row.rowNum,
+            outcome: "skipped_ambiguous",
+            customer_id: null,
+            error_message: reason,
+          });
+          setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
+          continue;
+        }
+
+        if (matchCount === 1) {
           const { error } = await supabase
             .from("customers")
             .update(cleaned)
-            .eq("id", existing.id);
+            .eq("id", existingRows![0].id);
           if (error) throw error;
           updated++;
+          rowDetails.push({
+            row_number: row.rowNum,
+            outcome: "updated",
+            customer_id: existingRows![0].id,
+            error_message: null,
+          });
         } else {
           const nextServiceDue = new Date();
           nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
-          const { error } = await supabase
+          const { data: insertedRows, error } = await supabase
             .from("customers")
             .insert([{
               ...cleaned,
               user_id: user.id,
               organisation_id: orgId!,
+              boiler_type: cleaned.boiler_type || "Gas",
+              owner_or_tenant: cleaned.owner_or_tenant || "Owner",
+              warranty_years: cleaned.warranty_years ?? 10,
               next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
               renewal_stage: cleaned.renewal_stage || "none",
               service_status: cleaned.service_status || "active",
-            } as any]);
+            } as any])
+            .select("id");
           if (error) throw error;
           imported++;
+          rowDetails.push({
+            row_number: row.rowNum,
+            outcome: "created",
+            customer_id: insertedRows?.[0]?.id ?? null,
+            error_message: null,
+          });
         }
       } catch (err: any) {
         skipped++;
+        const reason = err.message || "Unknown error";
         failedRows.push({
           name: row.data.name || `Row ${row.rowNum}`,
-          reason: err.message || "Unknown error",
+          reason,
+        });
+        rowDetails.push({
+          row_number: row.rowNum,
+          outcome: "failed",
+          customer_id: null,
+          error_message: reason,
         });
       }
 
       setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
     }
 
+    // Audit log — written once, after every customer write. Purely additive: a
+    // failure here is surfaced but never affects the import that already happened.
+    if (orgId) {
+      const { data: runRow, error: logError } = await supabase
+        .from("import_runs")
+        .insert({
+          organisation_id: orgId,
+          filename: file?.name || "unknown.xlsx",
+          imported_by: user.id,
+          total_rows: validRows.length + ambiguousRows.length,
+          created_count: imported,
+          updated_count: updated,
+          error_count: skipped,
+          row_details: rowDetails as any,
+        })
+        .select("id")
+        .maybeSingle();
+      if (logError) {
+        toast({
+          title: "Import saved, audit log failed",
+          description: logError.message,
+          variant: "destructive",
+        });
+      } else {
+        setHistoryRefresh((n) => n + 1);
+
+        // Alert admins when rows failed. Best-effort: one call per run, never
+        // per row, and a failure here only logs — the import already happened.
+        if (skipped > 0 && runRow?.id) {
+          try {
+            await supabase.functions.invoke("notify-import-errors", {
+              body: { runId: runRow.id },
+            });
+          } catch (notifyErr) {
+            console.error("[import] error-alert email failed:", notifyErr);
+          }
+        }
+      }
+    }
+
+
     setImporting(false);
     setImportResult({ imported, updated, skipped, failedRows });
   };
 
-  const validCount = parsedRows.filter((r) => r.isValid).length;
-  const errorCount = parsedRows.filter((r) => !r.isValid).length;
-  const displayRows = parsedRows.slice(0, 20);
+
+  /**
+   * In-file duplicate phones. Rows are grouped on the already-normalised phone
+   * held in row.data.phone, so formatting differences in the source file can't
+   * hide a collision. Non-blocking: the row still imports, but the operator is
+   * told which other rows share the number and that the last one wins.
+   */
+  const dupPhoneNotes = useMemo(() => {
+    const byPhone = new Map<string, number[]>();
+    for (const r of parsedRows) {
+      const phone = String(r.data.phone || "").trim();
+      if (!phone) continue;
+      const list = byPhone.get(phone);
+      if (list) list.push(r.rowNum);
+      else byPhone.set(phone, [r.rowNum]);
+    }
+    const notes = new Map<number, string>();
+    for (const rowNums of byPhone.values()) {
+      if (rowNums.length < 2) continue;
+      for (const rowNum of rowNums) {
+        const others = rowNums.filter((n) => n !== rowNum);
+        notes.set(
+          rowNum,
+          `Duplicate phone in this file (row${others.length === 1 ? "" : "s"} ${others.join(", ")}) — only the last will be saved.`
+        );
+      }
+    }
+    return notes;
+  }, [parsedRows]);
+
+  // Unique normalised phones across all parsed rows — the lookup key set.
+  const phoneKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of parsedRows) {
+      const phone = String(r.data.phone || "").trim();
+      if (phone) s.add(phone);
+    }
+    return Array.from(s).sort();
+  }, [parsedRows]);
+
+  // Stable primitive so the lookup effect only re-runs when the phone set changes.
+  const phoneKeysSignature = phoneKeys.join("|");
+
+  /** One batched existing-customer lookup per file, scoped to this organisation. */
+  useEffect(() => {
+    if (!orgId || phoneKeys.length === 0) {
+      setExistingByPhone(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const found = new Map<string, ExistingMatch[]>();
+      const CHUNK = 200;
+      for (let i = 0; i < phoneKeys.length; i += CHUNK) {
+        const chunk = phoneKeys.slice(i, i + CHUNK);
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, name, address, phone")
+          .eq("organisation_id", orgId)
+          .in("phone", chunk);
+        if (cancelled) return;
+        if (error) {
+          setExistingByPhone(null);
+          return;
+        }
+        for (const row of data || []) {
+          if (!row.phone) continue;
+          const key = String(row.phone).trim();
+          const match: ExistingMatch = { id: row.id, name: row.name, address: row.address };
+          const list = found.get(key);
+          if (list) list.push(match);
+          else found.set(key, [match]);
+        }
+      }
+      if (!cancelled) setExistingByPhone(found);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, phoneKeysSignature]);
+
+  /** Existing customers sharing a row's phone, or null while the lookup is unresolved. */
+  const matchesForRow = useCallback(
+    (row: ParsedRow): ExistingMatch[] | null => {
+      if (!existingByPhone) return null;
+      const phone = String(row.data.phone || "").trim();
+      if (!phone) return null;
+      return existingByPhone.get(phone) || [];
+    },
+    [existingByPhone]
+  );
+
+  /**
+   * Per-row outcome. "ambiguous" means the phone matches several existing customers,
+   * so there is no safe row to update — the operator has to resolve the duplicates first.
+   */
+  const rowOutcome = useCallback(
+    (row: ParsedRow): "new" | "update" | "ambiguous" | "unknown" => {
+      const matches = matchesForRow(row);
+      if (!matches) return "unknown";
+      if (matches.length === 0) return "new";
+      return matches.length === 1 ? "update" : "ambiguous";
+    },
+    [matchesForRow]
+  );
+
+  /** Row numbers blocked because their phone matches more than one existing customer. */
+  const ambiguousRowNums = useMemo(() => {
+    const s = new Set<number>();
+    if (!existingByPhone) return s;
+    for (const r of parsedRows) {
+      const phone = String(r.data.phone || "").trim();
+      if (!phone) continue;
+      if ((existingByPhone.get(phone) || []).length > 1) s.add(r.rowNum);
+    }
+    return s;
+  }, [parsedRows, existingByPhone]);
+
+  // Decorate rows with the in-file duplicate note and the ambiguous-match error,
+  // without touching buildRow.
+  const decoratedRows = useMemo(
+    () =>
+      parsedRows.map((r) => {
+        const note = dupPhoneNotes.get(r.rowNum);
+        const ambiguous = ambiguousRowNums.has(r.rowNum);
+        if (!note && !ambiguous) return r;
+        let next: ParsedRow = r;
+        if (note) {
+          next = { ...next, fieldWarnings: { ...next.fieldWarnings, phone: note } };
+        }
+        if (ambiguous) {
+          const count = (existingByPhone?.get(String(r.data.phone || "").trim()) || []).length;
+          const message = `Phone matches ${count} existing customers — resolve the duplicates first`;
+          next = {
+            ...next,
+            errors: [...next.errors, message],
+            fieldErrors: { ...next.fieldErrors, phone: "Ambiguous match" },
+            isValid: false,
+          };
+        }
+        return next;
+      }),
+    [parsedRows, dupPhoneNotes, ambiguousRowNums, existingByPhone]
+  );
+
+  // Counts come from the decorated rows so ambiguous-match rows are counted as blocked.
+  const validCount = decoratedRows.filter((r) => r.isValid).length;
+  const errorCount = decoratedRows.filter((r) => !r.isValid).length;
+
+  // Effective selection: always intersected with the currently-ready rows, so a row
+  // that becomes blocked after an edit or remap drops out on its own. Untouched
+  // selection means "every ready row".
+  const selectedSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const r of decoratedRows) {
+      if (!r.isValid) continue;
+      if (!selectionDirty || selectedRowNums.has(r.rowNum)) s.add(r.rowNum);
+    }
+    return s;
+  }, [decoratedRows, selectedRowNums, selectionDirty]);
+  const selectedCount = selectedSet.size;
+
+  /** Toggle one ready row. First interaction freezes the current implicit selection. */
+  const toggleRow = (rowNum: number, checked: boolean) => {
+    setSelectedRowNums(() => {
+      const base = selectionDirty ? new Set(selectedRowNums) : new Set(selectedSet);
+      if (checked) base.add(rowNum);
+      else base.delete(rowNum);
+      return base;
+    });
+    setSelectionDirty(true);
+  };
+
+  /** Select or clear every ready row on the current page. */
+  const togglePage = (checked: boolean) => {
+    setSelectedRowNums(() => {
+      const base = selectionDirty ? new Set(selectedRowNums) : new Set(selectedSet);
+      for (const r of displayRows) {
+        if (!r.isValid) continue;
+        if (checked) base.add(r.rowNum);
+        else base.delete(r.rowNum);
+      }
+      return base;
+    });
+    setSelectionDirty(true);
+  };
+
+
+
+
+  const totalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
+  const pageStart = (clampedPage - 1) * PAGE_SIZE;
+  const displayRows = decoratedRows.slice(pageStart, pageStart + PAGE_SIZE);
+  const importBlocked = missingRequired.length > 0;
+
+  // For dropdowns: which raw-header indices are already assigned to some field
+  const assignedIndices = useMemo(() => {
+    const s = new Set<number>();
+    for (const idx of Object.values(effectiveColMap)) s.add(idx);
+    return s;
+  }, [effectiveColMap]);
+
+  const setFieldMapping = (fieldKey: string, value: string) => {
+    if (value === "") {
+      setManualMap((prev) => {
+        const next = { ...prev };
+        delete next[fieldKey];
+        return next;
+      });
+      return;
+    }
+    const idx = parseInt(value, 10);
+    if (!Number.isFinite(idx)) return;
+    setManualMap((prev) => ({ ...prev, [fieldKey]: idx }));
+  };
+
+  const MappingDropdown = ({ fieldKey }: { fieldKey: string }) => {
+    const currentIdx = effectiveColMap[fieldKey];
+    return (
+      <select
+        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+        value={currentIdx !== undefined ? String(currentIdx) : ""}
+        onChange={(e) => setFieldMapping(fieldKey, e.target.value)}
+      >
+        <option value="">— Leave blank —</option>
+        {rawHeaders.map((h, i) => {
+          if (!h) return null;
+          const takenByOther = assignedIndices.has(i) && effectiveColMap[fieldKey] !== i;
+          return (
+            <option key={i} value={String(i)} disabled={takenByOther}>
+              {h}
+              {takenByOther ? " (used)" : ""}
+            </option>
+          );
+        })}
+      </select>
+    );
+  };
+
+  /** Session-only editable cell for the preview table. */
+  const EditableCell = ({
+    row,
+    fieldKey,
+    display,
+  }: {
+    row: ParsedRow;
+    fieldKey: string;
+    display: string;
+  }) => {
+    const editValue = rowEdits[row.srcIndex]?.[fieldKey];
+    const shownValue = editValue !== undefined ? editValue : display;
+    const err = row.fieldErrors[fieldKey];
+    const warn = row.fieldWarnings?.[fieldKey];
+    const [local, setLocal] = useState(shownValue);
+
+    // Keep local in sync when upstream row changes (remap, page change).
+    useEffect(() => {
+      setLocal(shownValue);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shownValue]);
+
+    return (
+      <div className="space-y-1">
+        <input
+          type="text"
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          onBlur={() => {
+            if (local !== shownValue) updateEdit(row.srcIndex, fieldKey, local);
+          }}
+          className={`h-8 w-full rounded-md border bg-background px-2 text-xs ${
+            err
+              ? "border-destructive ring-1 ring-destructive/40"
+              : warn
+                ? "border-warning ring-1 ring-warning/40"
+                : "border-input"
+          }`}
+        />
+        {err && <p className="text-[10px] text-destructive">{err}</p>}
+        {!err && warn && <p className="text-[10px] text-warning">{warn}</p>}
+      </div>
+    );
+  };
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  // Import complete screen
   if (importResult) {
     return (
       <div className="min-h-screen bg-background">
@@ -392,7 +1023,6 @@ const ImportCustomers = () => {
             </CardContent>
           </Card>
 
-          {/* Failed rows detail */}
           {importResult.failedRows.length > 0 && (
             <Card>
               <CardContent className="pt-6 space-y-3">
@@ -416,8 +1046,17 @@ const ImportCustomers = () => {
     );
   }
 
+  // Blocked rows no longer gate the file: only an empty selection disables the commit.
+  const importLabel = importBlocked
+    ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
+    : selectedCount === 0
+    ? "Select at least one row"
+    : `Import ${selectedCount} customer${selectedCount === 1 ? "" : "s"}`;
+
+  const importDisabled = importBlocked || selectedCount === 0;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <header className="border-b border-border bg-card">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
@@ -484,96 +1123,309 @@ const ImportCustomers = () => {
 
         {/* Validate button */}
         {file && !validated && (
-          <Button onClick={validateFile} className="w-full">
+          <Button onClick={readFile} className="w-full">
             Validate File
           </Button>
         )}
 
-        {/* Validation results */}
+        {/* Column mapping + validation results */}
         {validated && (
           <>
-            {/* Summary banner */}
-            {errorCount === 0 && validCount > 0 && (
+            {/* Column Mapping Card */}
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Columns found in your file</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rawHeaders.filter(Boolean).map((h, i) => (
+                      <Badge key={i} variant="secondary" className="font-normal">{h}</Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">Recognised fields</h3>
+                  {Object.keys(effectiveColMap).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">None yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                      {Object.entries(effectiveColMap).map(([fieldKey, idx]) => (
+                        <div key={fieldKey} className="flex items-center gap-2">
+                          <span className="text-muted-foreground truncate">{rawHeaders[idx] || `Column ${idx + 1}`}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-medium">{FIELD_LABEL[fieldKey] || fieldKey}</span>
+                          {manualMap[fieldKey] !== undefined && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">manual</Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Missing required — blocking */}
+                {missingRequired.length > 0 && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-destructive">
+                          Import blocked: {missingRequired.length} required column
+                          {missingRequired.length === 1 ? "" : "s"} missing.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          We couldn't find a column for the field(s) below. Map them manually or fix your file's headers.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {missingRequired.map((f) => (
+                        <div key={f} className="flex items-center gap-2 text-xs">
+                          <span className="w-32 font-medium">{FIELD_LABEL[f]}</span>
+                          <MappingDropdown fieldKey={f} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing optional — non-blocking */}
+                {missingOptional.length > 0 && (
+                  <details className="rounded-lg border border-border bg-muted/30 p-3">
+                    <summary className="cursor-pointer text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4 text-muted-foreground" />
+                      <span>
+                        {missingOptional.length} optional field
+                        {missingOptional.length === 1 ? "" : "s"} not matched — will be left blank
+                      </span>
+                    </summary>
+                    <p className="text-xs text-muted-foreground mt-2 mb-3">
+                      These fields aren't required, but if your file has them under different header names you can map them manually.
+                    </p>
+                    <div className="space-y-2">
+                      {missingOptional.map((f) => (
+                        <div key={f} className="flex items-center gap-2 text-xs">
+                          <span className="w-40 truncate">{FIELD_LABEL[f] || f}</span>
+                          <MappingDropdown fieldKey={f} />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Summary banner — only when required columns are all mapped */}
+            {!importBlocked && errorCount === 0 && validCount > 0 && (
               <div className="flex items-center gap-2 bg-success/10 border border-success/30 text-success rounded-lg p-3">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="text-sm font-medium">{validCount} rows ready to import. No errors found.</span>
               </div>
             )}
-            {errorCount > 0 && validCount > 0 && (
+            {!importBlocked && errorCount > 0 && validCount > 0 && (
               <div className="flex items-center gap-2 bg-accent/10 border border-accent/30 text-accent-foreground rounded-lg p-3">
                 <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm font-medium">{validCount} rows ready · {errorCount} rows have errors (shown in red below)</span>
+                <span className="text-sm font-medium">
+                  {validCount} rows ready · {errorCount} rows have errors — edit the red cells below to fix.
+                </span>
               </div>
             )}
-            {validCount === 0 && (
+            {!importBlocked && validCount === 0 && parsedRows.length > 0 && (
               <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-3">
                 <XCircle className="w-5 h-5" />
-                <span className="text-sm font-medium">No rows can be imported. Fix errors and re-upload.</span>
+                <span className="text-sm font-medium">No rows can be imported. Fix the red cells below.</span>
               </div>
             )}
 
             {/* Preview table */}
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Row</TableHead>
-                        <TableHead>Customer Name</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead className="hidden md:table-cell">Address</TableHead>
-                        <TableHead className="hidden md:table-cell">Eircode</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Validation</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayRows.map((r) => (
-                        <TableRow
-                          key={r.rowNum}
-                          className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
-                        >
-                          <TableCell className="text-muted-foreground">{r.rowNum}</TableCell>
-                          <TableCell className="font-medium">{r.data.name}</TableCell>
-                          <TableCell>{r.data.phone}</TableCell>
-                          <TableCell className="hidden md:table-cell">{r.data.address}</TableCell>
-                          <TableCell className="hidden md:table-cell">{r.data.eircode}</TableCell>
-                          <TableCell>{r.data.service_status}</TableCell>
-                          <TableCell>
-                            {r.isValid ? (
-                              <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
-                            ) : (
-                              <Badge variant="destructive">✕ {r.errors[0]}</Badge>
-                            )}
-                          </TableCell>
+            {parsedRows.length > 0 && (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-10">
+                            {(() => {
+                              const pageReady = displayRows.filter((r) => r.isValid);
+                              const allChecked =
+                                pageReady.length > 0 && pageReady.every((r) => selectedSet.has(r.rowNum));
+                              return (
+                                <Checkbox
+                                  checked={allChecked}
+                                  disabled={pageReady.length === 0}
+                                  onCheckedChange={(v) => togglePage(v === true)}
+                                  aria-label="Select all ready rows on this page"
+                                />
+                              );
+                            })()}
+                          </TableHead>
+                          <TableHead className="w-14">Row</TableHead>
+                          <TableHead>Customer Name</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead className="hidden md:table-cell">Address</TableHead>
+                          <TableHead className="hidden md:table-cell">Eircode</TableHead>
+                          <TableHead className="hidden lg:table-cell">GPRN</TableHead>
+                          <TableHead className="hidden lg:table-cell">Engineer Notes</TableHead>
+                          <TableHead className="hidden lg:table-cell">Customer Notes</TableHead>
+                          <TableHead className="w-24">Status</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {parsedRows.length > 20 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    Showing first 20 of {parsedRows.length} rows
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {displayRows.map((r) => (
+                          <TableRow
+                            key={r.rowNum}
+                            className={!r.isValid ? "border-l-[3px] border-l-destructive bg-destructive/5" : "border-l-[3px] border-l-success"}
+                          >
+                            <TableCell className="align-top pt-3">
+                              <Checkbox
+                                checked={r.isValid && selectedSet.has(r.rowNum)}
+                                disabled={!r.isValid}
+                                onCheckedChange={(v) => toggleRow(r.rowNum, v === true)}
+                                aria-label={`Include row ${r.rowNum} in this import`}
+                                title={
+                                  r.isValid
+                                    ? undefined
+                                    : "This row can't be imported until its errors are fixed"
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground align-top pt-3">{r.rowNum}</TableCell>
+                            <TableCell className="min-w-[160px] align-top">
+                              <EditableCell row={r} fieldKey="name" display={r.data.name || ""} />
+                            </TableCell>
+                            <TableCell className="min-w-[140px] align-top">
+                              <EditableCell row={r} fieldKey="phone" display={r.data.phone || ""} />
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="address" display={r.data.address || ""} />
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell min-w-[120px] align-top">
+                              <EditableCell row={r} fieldKey="eircode" display={r.data.eircode || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[130px] align-top">
+                              <EditableCell row={r} fieldKey="gprn" display={r.data.gprn || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="engineer_notes" display={r.data.engineer_notes || ""} />
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell min-w-[180px] align-top">
+                              <EditableCell row={r} fieldKey="notes" display={r.data.notes || ""} />
+                            </TableCell>
+                            <TableCell className="align-top pt-3">
+                              <div className="flex flex-col items-start gap-1">
+                                {r.isValid ? (
+                                  <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
+                                ) : (
+                                  <Badge variant="destructive" title={r.errors.join(" · ")}>✕ Error</Badge>
+                                )}
+                                {(() => {
+                                  const outcome = rowOutcome(r);
+                                  if (outcome === "unknown") return null;
+                                  const matches = matchesForRow(r) || [];
+                                  const describe = (m: ExistingMatch) =>
+                                    [m.name || "Unnamed customer", m.address].filter(Boolean).join(", ");
+                                  if (outcome === "ambiguous") {
+                                    return (
+                                      <Badge
+                                        variant="destructive"
+                                        title={`Shared by: ${matches.map(describe).join(" · ")}`}
+                                      >
+                                        Conflict — {matches.length} customers share this phone
+                                      </Badge>
+                                    );
+                                  }
+                                  if (outcome === "update") {
+                                    return (
+                                      <Badge
+                                        variant="outline"
+                                        title={matches[0] ? `Will update ${describe(matches[0])}` : "This row will update an existing customer"}
+                                      >
+                                        Updates existing
+                                      </Badge>
+                                    );
+                                  }
+                                  return (
+                                    <Badge variant="secondary" title="No customer with this phone exists — this row will create a new one">
+                                      New
+                                    </Badge>
+                                  );
+                                })()}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
 
-            {/* Import button / progress */}
-            {importing ? (
+                  {/* Pagination */}
+                  {parsedRows.length > PAGE_SIZE && (
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-border text-xs text-muted-foreground">
+                      <span>
+                        Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, parsedRows.length)} of {parsedRows.length}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          disabled={clampedPage <= 1}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                        </Button>
+                        <span>Page {clampedPage} of {totalPages}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={clampedPage >= totalPages}
+                        >
+                          Next <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* In-progress bar (footer hides while importing) */}
+            {importing && (
               <div className="space-y-2">
                 <Progress value={importProgress} className="h-1.5" />
                 <p className="text-sm text-center text-muted-foreground">Importing... {importProgress}%</p>
               </div>
-            ) : (
-              <Button onClick={handleImport} disabled={validCount === 0} className="w-full">
-                Import {validCount} Customers
-              </Button>
             )}
           </>
         )}
+
+        {/* Read-only audit trail of past imports for this organisation */}
+        <div className="mt-8">
+          <ImportRunHistory orgId={orgId} refreshKey={historyRefresh} />
+        </div>
       </div>
+
+      {/* Sticky footer summary */}
+      {validated && parsedRows.length > 0 && !importing && (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-40">
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className="bg-success/10 text-success border border-success/30">
+                Selected: {selectedCount} of {validCount} ready
+              </Badge>
+              {errorCount > 0 && (
+                <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
+                  {errorCount} blocked — still needs fixing
+                </Badge>
+              )}
+            </div>
+            <Button onClick={handleImport} disabled={importDisabled}>
+              {importLabel}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

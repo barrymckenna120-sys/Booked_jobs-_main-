@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-make-secret, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -99,8 +100,24 @@ Deno.serve(async (req) => {
       .eq("integration_type", "360messenger")
       .maybeSingle();
 
-    const companyName = (messengerIntegration as any)?.config?.company_name ?? "K & N Gas Services";
-    const companyPhone = (messengerIntegration as any)?.config?.company_phone ?? "087 3686252";
+    // Tenant branding — this org's own config only, no shared fallback (BJ-B2b).
+    // A blank value skips the Make webhook entirely rather than pushing another
+    // tenant's business name/phone into the reminder scenario.
+    const companyName = String((messengerIntegration as any)?.config?.company_name ?? "").trim();
+    const companyPhone = String((messengerIntegration as any)?.config?.company_phone ?? "").trim();
+    const missingConfig = !companyName
+      ? "company_name_not_configured"
+      : !companyPhone
+        ? "company_phone_not_configured"
+        : null;
+
+    if (missingConfig) {
+      await logFailure(`Skipped: ${missingConfig} for organisation ${orgId}`);
+      return new Response(
+        JSON.stringify({ success: false, skipped: true, reason: missingConfig }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const makeSecret = Deno.env.get("MAKE_WEBHOOK_SECRET") || "";
 

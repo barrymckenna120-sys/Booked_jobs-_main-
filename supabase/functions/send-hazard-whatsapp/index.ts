@@ -1,8 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 serve(async (req) => {
@@ -29,7 +33,7 @@ serve(async (req) => {
 
     // Fetch hazard notification
     const hazardRes = await fetch(
-      `${supabaseUrl}/rest/v1/hazard_notifications?id=eq.${hazard_id}&select=id,ref_number,pdf_url,customer_id,job_id`,
+      `${supabaseUrl}/rest/v1/hazard_notifications?id=eq.${hazard_id}&select=id,ref_number,pdf_url,customer_id,job_id,organisation_id,access_token`,
       { headers }
     );
     const hazards = await hazardRes.json();
@@ -74,18 +78,15 @@ serve(async (req) => {
       });
     }
 
-    // Fetch WhatsApp api_key from tenant_integrations
-    const tiRes = await fetch(
-      `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-      { headers }
-    );
-    const tiRows = await tiRes.json();
-    const apiKey = (Array.isArray(tiRows) && tiRows[0]?.config?.api_key) || null;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp integration not configured for this organisation" }), {
+    // WhatsApp api_key via shared resolver (api_key_secret or api_key, either row type)
+    const wa = await fetchWhatsappApiKey(supabaseUrl, supabaseKey, orgId);
+    if (!wa.apiKey) {
+      return new Response(JSON.stringify({ success: false, error: `WhatsApp not configured: ${wa.detail}` }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
       });
     }
+    const apiKey = wa.apiKey;
+
 
     // Fetch engineer name
     let engineerName = "your engineer";
@@ -98,8 +99,9 @@ serve(async (req) => {
       if (Array.isArray(engs) && engs[0]?.name) engineerName = engs[0].name;
     }
 
-    // Fetch settings for message_footer (by organisation_id)
-    let messageFooter = "K&N Gas Services";
+    // Fetch settings for message_footer (by organisation_id). No shared
+    // fallback: a blank footer skips-and-logs (BJ-B2c).
+    let messageFooter = "";
     const settingsRes = await fetch(
       `${supabaseUrl}/rest/v1/settings?organisation_id=eq.${orgId}&select=message_footer&limit=1`,
       { headers }
@@ -108,19 +110,61 @@ serve(async (req) => {
     if (Array.isArray(settings) && settings[0]?.message_footer) {
       messageFooter = settings[0].message_footer;
     }
+    messageFooter = String(messageFooter).trim();
+
+    if (!messageFooter) {
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          function_name: "send-hazard-whatsapp",
+          error_message: "Skipped: message_footer_not_configured for organisation",
+          payload: {
+            organisation_id: orgId,
+            hazard_id: hazard.id,
+            reason: "message_footer_not_configured",
+          },
+        }),
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          skipped: true,
+          reason: "message_footer_not_configured",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
 
     const firstName = customer.name.split(" ")[0];
-    const pdfLink = hazard.ref_number
-      ? `https://ktkfuquqxbrmuqrmbmdj.supabase.co/storage/v1/object/public/certificates/${encodeURIComponent(hazard.ref_number)}.pdf`
-      : hazard.pdf_url;
 
-    const message = `Hi ${firstName}, please find attached your Gas Installation Notification of Hazard/Non-Conformance from ${engineerName}.\n\n📄 View Document:\n${pdfLink}\n\n${messageFooter}`;
+    // Public tenant link keyed by access_token (null if org has no public_domain)
+    const tenantHazardUrl = hazard.access_token
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/hazard/${hazard.access_token}`)
+      : null;
+    if (hazard.access_token && !tenantHazardUrl) {
+      console.warn(`[send-hazard-whatsapp] organisation ${orgId} has no public_domain; omitting hazard link`);
+    }
+
+    // Signed URL for the 360Messenger doc attachment (works when bucket is
+    // public or private).
+    const hazardObjectPath = extractStoragePath("certificates", hazard.pdf_url);
+    const signedDocUrl = hazardObjectPath
+      ? await signDocumentUrl("certificates", hazardObjectPath, 3600)
+      : null;
+    const docUrl = signedDocUrl || hazard.pdf_url;
+
+    const linkLine = tenantHazardUrl ? `\n\n📄 View Document:\n${tenantHazardUrl}` : "";
+    const message = `Hi ${firstName}, please find attached your Gas Installation Notification of Hazard/Non-Conformance from ${engineerName}.${linkLine}\n\n${messageFooter}`;
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
       method: "POST",
       headers: { ...headers, "Prefer": "return=representation" },
       body: JSON.stringify({
+        organisation_id: orgId,
         customer_id: hazard.customer_id,
         message_type: "hazard_notification",
         channel: "whatsapp",
@@ -141,7 +185,7 @@ serve(async (req) => {
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
-    formData.append("doc_url", hazard.pdf_url);
+    formData.append("doc_url", docUrl);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",

@@ -1,318 +1,951 @@
 import { useEffect, useState, useRef } from "react";
+import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
+import PageSeo from "@/components/seo/PageSeo";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLandingPath } from "@/lib/resolveLandingPath";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Loader2,
+} from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import {
+  LOCKOUT_MAX_ATTEMPTS,
+  GENERIC_AUTH_ERROR as LOCKOUT_GENERIC_ERROR,
+  BLOCKED_AUTH_ERROR as LOCKOUT_BLOCKED_ERROR,
+  attemptsRemainingMessage,
+  lockoutModalCopy,
+  lockedUntilMessage,
+  lockedUntilModalCopy,
+} from "@/lib/authLockout";
+
+/** Only same-origin relative paths are honoured as a post-login redirect. */
+const safeNextPath = (
+  raw: string | null
+): string | null => {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) {
+    return null;
+  }
+  return raw;
+};
 
 const Auth = () => {
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] =
+    useState(false);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+
   const [loading, setLoading] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
+  const [resetSent, setResetSent] =
+    useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
-  const passwordRef = useRef<HTMLInputElement>(null);
 
-  
-  const [errorModalOpen, setErrorModalOpen] = useState(false);
-  const [errorTitle, setErrorTitle] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const passwordRef =
+    useRef<HTMLInputElement>(null);
 
-  const GENERIC_AUTH_ERROR = "Incorrect email or password. Please try again.";
-  const BLOCKED_AUTH_ERROR = "Your account has been blocked. Please contact your administrator.";
+  const [errorModalOpen, setErrorModalOpen] =
+    useState(false);
+  const [errorTitle, setErrorTitle] =
+    useState("");
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [isBlocked, setIsBlocked] =
+    useState(false);
+
+  const [formError, setFormError] =
+    useState<string | null>(null);
+
+  const [failedAttempts, setFailedAttempts] =
+    useState(0);
+
+  const GENERIC_AUTH_ERROR =
+    LOCKOUT_GENERIC_ERROR;
+
+  const BLOCKED_AUTH_ERROR =
+    LOCKOUT_BLOCKED_ERROR;
+
+  const [
+    showUnblockedNotice,
+    setShowUnblockedNotice,
+  ] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    // Clear any legacy cached "blocked" state so an unblocked user is never
+    // stuck behind a stale UI lock after their admin unblocks them.
+    try {
+      [
+        "auth_blocked",
+        "blocked_email",
+        "is_blocked",
+      ].forEach((k) =>
+        localStorage.removeItem(k)
+      );
+
+      for (
+        let i = localStorage.length - 1;
+        i >= 0;
+        i--
+      ) {
+        const key = localStorage.key(i);
+
+        if (
+          key &&
+          key.startsWith("auth_blocked_")
+        ) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
     const hash = window.location.hash;
-    const isRecovery = params.get("type") === "recovery" || hash.includes("type=recovery");
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        navigate("/reset-password", { replace: true });
-        return;
-      }
-      if (isRecovery) return;
-      if (session?.user) {
-        navigate("/dashboard", { replace: true });
-      }
-    });
+    const isRecovery =
+      params.get("type") === "recovery" ||
+      hash.includes("type=recovery");
 
-    if (hash.includes("type=recovery") && hash.includes("access_token")) {
-      navigate("/reset-password" + hash, { replace: true });
-      return () => subscription.unsubscribe();
+    const nextPath = safeNextPath(
+      params.get("next")
+    );
+
+    const {
+      data: { subscription },
+    } =
+      supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if (event === "PASSWORD_RECOVERY") {
+            navigate(
+              "/reset-password",
+              { replace: true }
+            );
+            return;
+          }
+
+          if (isRecovery) return;
+
+          if (session?.user) {
+            navigate(
+              nextPath ?? "/dashboard",
+              { replace: true }
+            );
+          }
+        }
+      );
+
+    if (
+      hash.includes("type=recovery") &&
+      hash.includes("access_token")
+    ) {
+      navigate(
+        "/reset-password" + hash,
+        { replace: true }
+      );
+
+      return () =>
+        subscription.unsubscribe();
     }
 
     if (!isRecovery) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          navigate("/dashboard", { replace: true });
-        }
-      });
+      supabase.auth
+        .getSession()
+        .then(
+          ({
+            data: { session },
+          }) => {
+            if (session?.user) {
+              navigate(
+                nextPath ?? "/dashboard",
+                { replace: true }
+              );
+            }
+          }
+        );
     }
 
-    return () => subscription.unsubscribe();
+    return () =>
+      subscription.unsubscribe();
   }, [navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const prevBlockedKey = (
+    addr: string
+  ) =>
+    `bj_prev_blocked:${addr
+      .trim()
+      .toLowerCase()}`;
+
+  const handleSubmit = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault();
-    if (isBlocked) return;
+
+    // Never hard-disable submit from cached state — the server is source of truth.
     setLoading(true);
     setFormError(null);
+    setShowUnblockedNotice(false);
 
     try {
-      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      supabase.functions.invoke("track-failed-login", { body: { email: email.trim(), reset: true } }).catch(() => {});
+      // Server-truth lockout check (auth.users.banned_until)
+      // The client counter below is only for "X attempts remaining" copy;
+      // the real lock state comes from the backend.
+      try {
+        const lockCheck =
+          (await Promise.race([
+            supabase.functions.invoke(
+              "check-lockout-status",
+              {
+                body: {
+                  email:
+                    email.trim(),
+                },
+              }
+            ),
+            new Promise(
+              (resolve) =>
+                setTimeout(
+                  () =>
+                    resolve({
+                      data: null,
+                    }),
+                  6000
+                )
+            ),
+          ])) as {
+            data?: {
+              locked?: boolean;
+              locked_until?:
+                | string
+                | null;
+            } | null;
+          };
 
-      let redirectPath = "/dashboard";
-      const userId = signInData?.user?.id;
-      if (userId) {
-        // Always read the role fresh from the engineers table — never trust
-        // cached JWT claims, since role updates in the DB don't refresh the JWT.
-        const { data: engineerRow } = await supabase
-          .from("engineers")
-          .select("role, can_access_office")
-          .eq("auth_user_id", userId)
-          .maybeSingle();
-        const role = (engineerRow as any)?.role;
-        const canOffice = !!(engineerRow as any)?.can_access_office;
-        const elevated = ["owner", "manager", "admin", "office"].includes(role);
-        // Only true engineers without office access go to the engineer app.
-        if (role === "engineer" && !canOffice && !elevated) {
-          redirectPath = "/engineer/today";
+        const lockedUntil =
+          lockCheck?.data?.locked
+            ? lockCheck.data
+                .locked_until
+            : null;
+
+        if (lockedUntil) {
+          setFormError(
+            lockedUntilMessage(
+              lockedUntil
+            )
+          );
+
+          const modal =
+            lockedUntilModalCopy(
+              lockedUntil
+            );
+
+          setErrorTitle(
+            modal.title
+          );
+          setErrorMessage(
+            modal.message
+          );
+          setErrorModalOpen(true);
+
+          try {
+            localStorage.setItem(
+              prevBlockedKey(email),
+              "1"
+            );
+          } catch {
+            // Ignore storage errors.
+          }
+
+          setLoading(false);
+          return;
         }
+      } catch {
+        // Fail open — never block a legitimate sign-in.
       }
-      navigate(redirectPath);
+
+      const authPromise =
+        supabase.auth.signInWithPassword(
+          {
+            email: email.trim(),
+            password,
+          }
+        );
+
+      const timeoutPromise =
+        new Promise(
+          (_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "REQUEST_TIMEOUT"
+                  )
+                ),
+              15000
+            )
+        );
+
+      const {
+        data: signInData,
+        error,
+      } =
+        (await Promise.race([
+          authPromise,
+          timeoutPromise,
+        ])) as any;
+
+      if (error) {
+        throw error;
+      }
+
+      setFailedAttempts(0);
+      setIsBlocked(false);
+
+      try {
+        localStorage.removeItem(
+          prevBlockedKey(email)
+        );
+      } catch {
+        // Ignore storage errors.
+      }
+
+      // Reset server-side failed-login tracking.
+      supabase.functions
+        .invoke("track-failed-login", {
+          body: {
+            email: email.trim(),
+            reset: true,
+          },
+        })
+        .catch(() => {});
+
+      const requestedNext =
+        safeNextPath(
+          new URLSearchParams(
+            window.location.search
+          ).get("next")
+        );
+
+      let redirectPath =
+        "/dashboard";
+
+      const userId =
+        signInData?.user?.id;
+
+      if (userId) {
+        redirectPath =
+          await resolveLandingPath(
+            userId
+          );
+      }
+
+      navigate(
+        requestedNext ??
+          redirectPath
+      );
     } catch (error: any) {
-      const msg = (error?.message || "").toLowerCase();
-      const code = (error?.code || "").toLowerCase();
-      const isBanned = code === "user_banned" || msg.includes("banned");
+      const isNetworkError =
+        error?.message ===
+          "REQUEST_TIMEOUT" ||
+        (error?.message || "")
+          .toLowerCase()
+          .includes(
+            "failed to fetch"
+          ) ||
+        (error?.message || "")
+          .toLowerCase()
+          .includes("network") ||
+        navigator.onLine === false;
+
+      if (isNetworkError) {
+        setFormError(
+          "No internet connection. Please check your signal and try again."
+        );
+        return;
+      }
+
+      const msg =
+        (
+          error?.message ||
+          ""
+        ).toLowerCase();
+
+      const code =
+        (
+          error?.code ||
+          ""
+        ).toLowerCase();
+
+      const isBanned =
+        code === "user_banned" ||
+        msg.includes("banned");
 
       if (isBanned) {
-        setFormError(BLOCKED_AUTH_ERROR);
-        setIsBlocked(true);
+        setFormError(
+          BLOCKED_AUTH_ERROR
+        );
+
+        try {
+          localStorage.setItem(
+            prevBlockedKey(email),
+            "1"
+          );
+        } catch {
+          // Ignore storage errors.
+        }
       } else {
-        setFormError(GENERIC_AUTH_ERROR);
+        setFormError(
+          GENERIC_AUTH_ERROR
+        );
       }
 
       if (msg.includes("invalid")) {
-        try {
-          const { data } = await supabase.functions.invoke("track-failed-login", {
-            body: { email: email.trim() },
-          });
-          const attemptNum = data?.attempts || 0;
+        const newAttempts =
+          failedAttempts + 1;
 
-          // Fire-and-forget failed-login notification email (do not block UI)
+        setFailedAttempts(
+          newAttempts
+        );
+
+        // Inline attempts-remaining messaging.
+        setFormError(
+          attemptsRemainingMessage(
+            newAttempts
+          )
+        );
+
+        const modal =
+          lockoutModalCopy(
+            newAttempts
+          );
+
+        if (modal) {
+          setErrorTitle(
+            modal.title
+          );
+          setErrorMessage(
+            modal.message
+          );
+          setErrorModalOpen(
+            true
+          );
+        }
+
+        if (
+          newAttempts >=
+          LOCKOUT_MAX_ATTEMPTS
+        ) {
+          try {
+            localStorage.setItem(
+              prevBlockedKey(email),
+              "1"
+            );
+          } catch {
+            // Ignore storage errors.
+          }
+
+          supabase.functions
+            .invoke(
+              "lock-failed-login",
+              {
+                body: {
+                  email:
+                    email.trim(),
+                },
+              }
+            )
+            .catch(() => {});
+        }
+
+        // Track failed login server-side and send
+        // notification email without blocking the UI.
+        try {
+          const {
+            data,
+          } =
+            await supabase.functions.invoke(
+              "track-failed-login",
+              {
+                body: {
+                  email:
+                    email.trim(),
+                },
+              }
+            );
+
+          const attemptNum =
+            data?.attempts ||
+            newAttempts;
+
           (async () => {
-            let companyName = "";
+            let companyName =
+              "";
+
             try {
-              const { data: settingsRow } = await supabase
-                .from("settings")
-                .select("business_name")
-                .maybeSingle();
-              companyName = (settingsRow as any)?.business_name || "";
-            } catch (_e) { /* ignore */ }
-            supabase.functions.invoke("notify-failed-login", {
-              body: {
-                email: email.trim(),
-                attempt: attemptNum,
-                timestamp: new Date().toISOString(),
-                companyName,
-              },
-            }).catch(() => {});
+              const {
+                data:
+                  settingsRow,
+              } =
+                await supabase
+                  .from("settings")
+                  .select(
+                    "business_name"
+                  )
+                  .maybeSingle();
+
+              companyName =
+                (
+                  settingsRow as any
+                )?.business_name ||
+                "";
+            } catch {
+              // Ignore settings errors.
+            }
+
+            supabase.functions
+              .invoke(
+                "notify-failed-login",
+                {
+                  body: {
+                    email:
+                      email.trim(),
+                    attempt:
+                      attemptNum,
+                    timestamp:
+                      new Date().toISOString(),
+                    companyName,
+                  },
+                }
+              )
+              .catch(() => {});
           })();
 
           if (data?.locked) {
             setIsBlocked(true);
-            setFormError("Your account has been blocked due to too many failed attempts. Please contact your administrator.");
-            setErrorTitle("Account Blocked");
-            setErrorMessage("Your account has been blocked due to too many failed attempts. Please contact your administrator.");
-            setErrorModalOpen(true);
+
+            setFormError(
+              "Your account has been blocked due to too many failed attempts. Please contact your administrator."
+            );
+
+            setErrorTitle(
+              "Account Blocked"
+            );
+
+            setErrorMessage(
+              "Your account has been blocked due to too many failed attempts. Please contact your administrator."
+            );
+
+            setErrorModalOpen(
+              true
+            );
           } else {
-            const remaining = 5 - attemptNum;
-            setFormError(`Invalid email or password. ${remaining} attempt(s) remaining before lockout.`);
+            const remaining =
+              Math.max(
+                0,
+                LOCKOUT_MAX_ATTEMPTS -
+                  attemptNum
+              );
+
+            setFormError(
+              `Invalid email or password. ${remaining} attempt(s) remaining before lockout.`
+            );
           }
-        } catch (_e) {
-          setFormError(GENERIC_AUTH_ERROR);
+        } catch {
+          setFormError(
+            GENERIC_AUTH_ERROR
+          );
         }
       }
-
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.functions.invoke("send-reset-email", {
-        body: { email: email.trim() },
-      });
-      if (error) throw error;
-      setResetSent(true);
-      logAudit({
-        action_type: "password_reset_requested",
-        entity_type: "user",
-        entity_id: email.trim(),
-        detail: `Password reset requested by ${email.trim()}`,
-        metadata: { target_email: email.trim(), triggered_by: "self" },
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleForgotPassword =
+    async (
+      e: React.FormEvent
+    ) => {
+      e.preventDefault();
+
+      if (!email.trim()) return;
+
+      setLoading(true);
+
+      try {
+        const { error } =
+          await supabase.functions.invoke(
+            "send-reset-email",
+            {
+              body: {
+                email:
+                  email.trim(),
+              },
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        setResetSent(true);
+
+        logAudit({
+          action_type:
+            "password_reset_requested",
+          entity_type: "user",
+          entity_id:
+            email.trim(),
+          detail:
+            `Password reset requested by ${email.trim()}`,
+          metadata: {
+            target_email:
+              email.trim(),
+            triggered_by:
+              "self",
+          },
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description:
+            error.message,
+          variant:
+            "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const closeErrorModal = () => {
     setErrorModalOpen(false);
+
     if (!isBlocked) {
-      setTimeout(() => passwordRef.current?.focus(), 100);
+      setTimeout(
+        () =>
+          passwordRef.current?.focus(),
+        100
+      );
     }
   };
 
   if (isForgotPassword) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <PageSeo
+          title="Reset your password — BookedJobs"
+          description="Reset the password for your BookedJobs account."
+          path="/auth"
+          noindex
+        />
+
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-10 mx-auto mb-2" />
-            <CardTitle className="text-lg">Reset Your Password</CardTitle>
+            <img
+              src={bookedJobsLogo}
+              alt="BookedJobs"
+              className="h-10 mx-auto mb-2"
+            />
+
+            <h1 className="sr-only">
+              Reset your BookedJobs password
+            </h1>
+
+            <CardTitle className="text-lg">
+              Reset Your Password
+            </CardTitle>
+
             <CardDescription>
               {resetSent
                 ? "Check your email — we've sent you a reset link"
                 : "Enter your email and we'll send you a reset link"}
             </CardDescription>
           </CardHeader>
+
           <CardContent>
             {resetSent ? (
               <div className="text-center space-y-4">
-                <div className="text-4xl">📧</div>
+                <div className="text-4xl">
+                  📧
+                </div>
+
                 <p className="text-sm text-muted-foreground">
-                  If an account exists for <strong>{email}</strong>, you'll receive a password reset link shortly.
+                  If an account exists
+                  for{" "}
+                  <strong>
+                    {email}
+                  </strong>
+                  , you'll receive a
+                  password reset link
+                  shortly.
                 </p>
+
                 <Button
                   variant="outline"
                   className="gap-2"
                   onClick={() => {
-                    setIsForgotPassword(false);
-                    setResetSent(false);
+                    setIsForgotPassword(
+                      false
+                    );
+                    setResetSent(
+                      false
+                    );
                     setEmail("");
                   }}
                 >
-                  <ArrowLeft className="w-4 h-4" /> Back to Sign In
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Sign In
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleForgotPassword} className="space-y-4">
+              <form
+                onSubmit={
+                  handleForgotPassword
+                }
+                className="space-y-4"
+              >
                 <div className="space-y-2">
-                  <Label htmlFor="reset-email">Email</Label>
+                  <Label htmlFor="reset-email">
+                    Email
+                  </Label>
+
                   <Input
                     id="reset-email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) =>
+                      setEmail(
+                        e.target.value
+                      )
+                    }
                     placeholder="you@example.com"
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Sending…" : "Send Reset Link"}
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Sending…"
+                    : "Send Reset Link"}
                 </Button>
+
                 <div className="text-center">
                   <button
                     type="button"
-                    onClick={() => { setIsForgotPassword(false); setResetSent(false); }}
+                    onClick={() => {
+                      setIsForgotPassword(
+                        false
+                      );
+                      setResetSent(
+                        false
+                      );
+                    }}
                     className="text-sm text-primary hover:underline inline-flex items-center gap-1"
                   >
-                    <ArrowLeft className="w-3 h-3" /> Back to Sign In
+                    <ArrowLeft className="w-3 h-3" />
+                    Back to Sign In
                   </button>
                 </div>
               </form>
             )}
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
+      <PageSeo
+        title="Sign in — BookedJobs"
+        description="Sign in to your BookedJobs account to manage bookings, customers, service calls and scheduling."
+        path="/auth"
+        noindex
+      />
+
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-10 mx-auto mb-2" />
-          <CardDescription>Sign in to your account</CardDescription>
+          <img
+            src={bookedJobsLogo}
+            alt="BookedJobs"
+            className="h-10 mx-auto mb-2"
+          />
+
+          <h1 className="sr-only">
+            Sign in to your BookedJobs account
+          </h1>
+
+          <CardDescription>
+            Sign in to your account
+          </CardDescription>
         </CardHeader>
+
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">
+                Email
+              </Label>
+
               <Input
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
+                onChange={(e) => {
+                  const v =
+                    e.target.value;
+
+                  setEmail(v);
+                  setFormError(null);
+
+                  try {
+                    const wasBlocked =
+                      !!localStorage.getItem(
+                        prevBlockedKey(v)
+                      );
+
+                    setShowUnblockedNotice(
+                      wasBlocked &&
+                        v.trim()
+                          .length > 0
+                    );
+                  } catch {
+                    // Ignore storage errors.
+                  }
+                }}
                 placeholder="you@example.com"
                 required
               />
+
+              {showUnblockedNotice &&
+                !formError && (
+                  <p className="text-sm text-green-600">
+                    Your account has been
+                    unblocked. You can now
+                    sign in.
+                  </p>
+                )}
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">
+                Password
+              </Label>
+
               <div className="relative">
                 <Input
                   ref={passwordRef}
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setFormError(null); }}
+                  onChange={(e) => {
+                    setPassword(
+                      e.target.value
+                    );
+                    setFormError(null);
+                  }}
                   placeholder="••••••••"
                   required
                   minLength={6}
                   className="pr-10"
-                  disabled={isBlocked}
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() =>
+                    setShowPassword(
+                      !showPassword
+                    )
+                  }
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
+
               <button
                 type="button"
-                onClick={() => setIsForgotPassword(true)}
-                className="text-xs text-primary hover:underline"
+                onClick={() =>
+                  setIsForgotPassword(
+                    true
+                  )
+                }
+                className="text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
               >
                 Forgot your password?
               </button>
             </div>
-            <Button type="submit" className="w-full" disabled={loading || isBlocked}>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Signing in…
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Signing in…
                 </span>
-              ) : "Sign In"}
+              ) : (
+                "Sign In"
+              )}
             </Button>
+
             <div className="min-h-[1.5rem] mt-2">
               {formError && (
-                <p role="alert" className="text-sm text-destructive text-center">
+                <p
+                  role="alert"
+                  className="text-sm text-destructive text-center"
+                >
                   {formError}
                 </p>
               )}
@@ -321,18 +954,58 @@ const Auth = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={errorModalOpen} onOpenChange={(v) => { if (!v) closeErrorModal(); }}>
+      <Dialog
+        open={errorModalOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            closeErrorModal();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[380px]">
           <DialogHeader>
-            <DialogTitle>{errorTitle}</DialogTitle>
+            <DialogTitle>
+              {errorTitle}
+            </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{errorMessage}</p>
-          <Button className="w-full mt-2" onClick={closeErrorModal}>
-            {isBlocked ? "Close" : "Try Again"}
-          </Button>
+
+          <p className="text-sm text-muted-foreground">
+            {errorMessage}
+          </p>
+
+          <div className="flex flex-col gap-2 mt-2">
+            <Button
+              className="w-full"
+              onClick={
+                closeErrorModal
+              }
+            >
+              {failedAttempts >=
+              LOCKOUT_MAX_ATTEMPTS
+                ? "Close"
+                : "Try Again"}
+            </Button>
+
+            {failedAttempts >= 4 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setErrorModalOpen(
+                    false
+                  );
+                  setIsForgotPassword(
+                    true
+                  );
+                }}
+              >
+                Reset password
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 };
 

@@ -1,0 +1,4 @@
+update public.customers set warranty_expiry_date = '2031-03-14', gprn = coalesce(gprn, '10047382910') where id = 'ab8c6f32-f0cb-4cc9-aef3-0103e445fed8';
+update public.service_calls set customer_facing_notes = 'Replaced ignition lead and re-pressurised system to 1.3 bar. Boiler running well - no further action needed before next service.' where id = '3c4aa8ef-863a-428d-8584-021ff02791bd';
+update public.customers set warranty_expiry_date = '2024-01-02', gprn = coalesce(gprn, '10098213374') where id = '1c84548d-b4a8-45b9-907c-75eea8cd85eb';
+update public.service_calls set customer_facing_notes = 'Serviced boiler and cleaned condensate trap. Flue readings within range.' where id = 'e3de3e3e-77ab-4edf-b147-b0c47733a8d9';

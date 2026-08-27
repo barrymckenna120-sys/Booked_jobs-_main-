@@ -8,6 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRetryQueue } from "@/hooks/useRetryQueue";
+import { backfillCustomerGprn } from "@/lib/backfillCustomerGprn";
+
 import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw, CheckCircle2, MessageSquare, AlertTriangle } from "lucide-react";
 
 const STEPS = ["Details", "Appliance", "Readings", "Customer", "Engineer"];
@@ -112,6 +115,7 @@ const SignatureCanvas = ({
 // ─── Main Flow ──────────────────────────────────────────────────────
 const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engineerRgi, engineerPhone, onClose }) => {
   const { toast } = useToast();
+  const { addToQueue } = useRetryQueue();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [certNumber, setCertNumber] = useState<string | null>(null);
@@ -120,7 +124,12 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 
   // Step 1 — Pre-filled details (read-only) + Premises & Supply
-  const [gprn, setGprn] = useState("");
+  const [gprn, setGprn] = useState(customer?.gprn || "");
+  // Defensive: if customer loads after first render, adopt its GPRN — only while
+  // the field is still empty, so it can never clobber a value the engineer typed.
+  useEffect(() => {
+    if (!gprn && customer?.gprn) setGprn(customer.gprn);
+  }, [customer?.gprn]);
   const [workCarriedOut, setWorkCarriedOut] = useState("");
   const [workCarriedOutOther, setWorkCarriedOutOther] = useState("");
   const [gasType, setGasType] = useState("Nat Gas");
@@ -207,12 +216,17 @@ const Cert2Flow: React.FC<Cert2FlowProps> = ({ job, customer, engineerName, engi
 
     setSaving(false);
     if (error) {
-      toast({ title: "Error saving certificate", description: error.message, variant: "destructive" });
+      console.error("Cert2 insert failed, queuing for retry:", error.message);
+      addToQueue({ table: "certificates", operation: "insert", payload: certData });
+      toast({ title: "No connection", description: "Certificate saved and will sync automatically when back online", variant: "destructive" });
     } else {
       setCertNumber(cn);
       const newCertId = (insertedRow as any)?.id;
       setCertId(newCertId);
       setStep(5);
+
+      backfillCustomerGprn(customer?.id, gprn);
+
 
       if (newCertId) {
         supabase.functions.invoke("generate-cert2-pdf", {

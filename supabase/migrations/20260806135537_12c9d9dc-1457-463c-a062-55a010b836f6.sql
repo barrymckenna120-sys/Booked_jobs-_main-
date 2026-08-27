@@ -1,0 +1,1 @@
+DELETE FROM public.booking_links WHERE full_url = 'https://tally.so/r/probe-check';

@@ -1,10 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 // ── Brand defaults & helpers ────────────────────────────────────────────────
@@ -551,19 +553,21 @@ Deno.serve(async (req) => {
     );
     doc.text(ctaLines, M + CW / 2, y + 22, { align: "center" });
 
-    // Accept URL — tenant-specific slug
-    const quoteNum = quote.quote_number || `Q-${quote.id.substring(0, 4).toUpperCase()}`;
-    const { data: orgRow } = await sb
-      .from("organisations")
-      .select("slug")
-      .eq("id", (quote as any).organisation_id)
-      .maybeSingle();
-    const orgSlug = (orgRow as any)?.slug || "kngasservices";
-    const acceptUrl = `https://${orgSlug}.bookedjobs.ie/quote/${quoteNum}`;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...headerTextRgb);
-    doc.text(acceptUrl, M + CW / 2, y + 38, { align: "center" });
+    // Accept URL — tenant public domain + access_token (fail-closed: omit link if either missing)
+    const acceptUrl =
+      (quote as any).access_token && (quote as any).organisation_id
+        ? await getTenantPublicUrl(
+            Deno.env.get("SUPABASE_URL")!,
+            (quote as any).organisation_id,
+            `/quote/${(quote as any).access_token}`,
+          )
+        : null;
+    if (acceptUrl) {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...headerTextRgb);
+      doc.text(acceptUrl, M + CW / 2, y + 38, { align: "center" });
+    }
 
     y += 60;
 
@@ -586,8 +590,8 @@ Deno.serve(async (req) => {
       "",
       `To accept this quote, reply: YES ${qNum}`,
       "",
-      `Or view and approve online:`,
-      acceptUrl,
+      acceptUrl ? `Or view and approve online:` : "",
+      acceptUrl || "",
     ].filter((l) => l !== undefined && l !== "").join("\n");
 
     const waLines = doc.splitTextToSize(waMsg, CW - 16);
@@ -616,8 +620,13 @@ Deno.serve(async (req) => {
 
     // ── Output & Upload ─────────────────────────────────
     const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
+    if (!quote.organisation_id) {
+      return new Response(JSON.stringify({ error: "Quote missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const fileName = `quote-${qNum.replace(/\s/g, "")}.pdf`;
-    const storagePath = `${quote.user_id}/${fileName}`;
+    const storagePath = `${quote.organisation_id}/${fileName}`;
 
     const { error: uploadErr } = await sb.storage
       .from("quote-pdfs")
@@ -630,12 +639,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: urlData } = sb.storage.from("quote-pdfs").getPublicUrl(storagePath);
-    const publicUrl = urlData.publicUrl;
+    // Store the raw object path — bucket flips private in Stage 2 and
+    // signed URLs are minted on demand by resolve-document-link.
+    await sb.from("quotes").update({ pdf_url: storagePath }).eq("id", quote_id);
 
-    await sb.from("quotes").update({ pdf_url: publicUrl }).eq("id", quote_id);
-
-    return new Response(JSON.stringify({ success: true, pdf_url: publicUrl }), {
+    return new Response(JSON.stringify({ success: true, pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

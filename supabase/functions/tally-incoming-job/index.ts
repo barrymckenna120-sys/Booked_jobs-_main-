@@ -1,14 +1,21 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { matchCustomer } from "../_shared/matchCustomer.ts";
+import { normaliseMediaUrls } from "./mediaUrls.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 const MAX_NAME_LEN = 200;
 const MAX_ADDRESS_LEN = 500;
 const MAX_TEXT_LEN = 1000;
 const MAX_SHORT_LEN = 100;
+
+const CLOUDINARY_CLOUD_NAME = Deno.env.get("CLOUDINARY_CLOUD_NAME") ?? "ddx2gnklt";
+const CLOUDINARY_TALLY_PRESET = Deno.env.get("CLOUDINARY_TALLY_UPLOAD_PRESET");
 
 const sanitize = (val: unknown, maxLen: number): string | null => {
   if (!val || typeof val !== "string") return null;
@@ -18,6 +25,10 @@ const sanitize = (val: unknown, maxLen: number): string | null => {
 const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const isValidPhone = (phone: string): boolean => /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ""));
+
+// Tolerant normalisation of `photo_video_upload` into string[] (see mediaUrls.ts)
+const collectMediaUrls = (input: unknown): string[] => normaliseMediaUrls(input);
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -31,15 +42,61 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Shared-secret auth: require x-webhook-secret matching MAKE_WEBHOOK_SECRET.
+  const providedSecret = req.headers.get("x-webhook-secret");
+  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   try {
     // Sanitize control characters that Make/Tally may inject into string values
     const rawText = await req.text();
-    const cleanText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) =>
+    let cleanText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) =>
       ch === "\n" || ch === "\r" || ch === "\t" ? " " : "",
     );
-    const body = JSON.parse(cleanText);
+
+    // Repair empty values produced by unmapped Make tokens, e.g.
+    // `"photo_video_upload": ,` or `"photo_video_upload": }` → null.
+    cleanText = cleanText
+      // `"key": ,` / `"key": }` → `"key": null`
+      .replace(/"\s*:\s*(?=[,}\]])/g, '": null')
+      // stray double commas and trailing commas left by empty tokens
+      .replace(/,\s*(?=,)/g, "")
+      .replace(/,\s*(?=[}\]])/g, "");
+
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(cleanText);
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      console.error(
+        "[tally-incoming-job] Malformed JSON body:",
+        msg,
+        "| snippet:",
+        cleanText.slice(0, 1000),
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Malformed JSON body",
+          detail: msg,
+          snippet: cleanText.slice(0, 500),
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    console.log("[tally-incoming-job] RAW BODY:", JSON.stringify(body));
+
 
     // Extract and sanitize fields
     const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
@@ -99,11 +156,13 @@ Deno.serve(async (req) => {
     }
 
     // Normalise phone to E.164 (+353XXXXXXXXX)
-    const normalisedPhone = mobileNumber.startsWith("+")
-      ? mobileNumber
-      : mobileNumber.startsWith("353")
-      ? "+" + mobileNumber
-      : "+353" + mobileNumber.replace(/^0/, "");
+    const normalisedPhone = mobileNumber
+      ? mobileNumber.startsWith("+")
+        ? mobileNumber
+        : mobileNumber.startsWith("353")
+        ? "+" + mobileNumber
+        : "+353" + mobileNumber.replace(/^0/, "")
+      : "";
 
     // Resolve organisation dynamically from the Tally payload.
     // Accept either an explicit organisation_id (UUID) or an org slug field.
@@ -165,21 +224,82 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Idempotency: if this Tally submission was already processed, return the
+    // existing job rather than creating a duplicate. Falls back through the
+    // known field names Tally/Make send.
+    const submissionId = sanitize(
+      body.tally_submission_id ?? body.eventId ?? body.id ?? null,
+      MAX_SHORT_LEN,
+    );
+
+    const receivedAt = new Date().toISOString();
+
+    // Audit trail: every submission records its id, arrival time, and outcome.
+    const logSubmission = async (
+      outcome: "created" | "duplicate" | "failed",
+      extra: Record<string, unknown> = {},
+    ) => {
+      try {
+        await supabase.from("debug_logs").insert({
+          organisation_id: orgData.id,
+          event: "tally_submission",
+          payload: {
+            tally_submission_id: submissionId,
+            received_at: receivedAt,
+            outcome,
+            created_job: outcome === "created",
+            rejected_as_duplicate: outcome === "duplicate",
+            ...extra,
+          },
+        });
+      } catch (logErr) {
+        console.error("[tally-incoming-job] audit log failed", logErr);
+      }
+    };
+
+    if (submissionId) {
+      const { data: existingJob } = await supabase
+        .from("service_calls")
+        .select("id, customer_id, job_reference")
+        .eq("tally_submission_id", submissionId)
+        .eq("organisation_id", orgData.id)
+        .maybeSingle();
+      if (existingJob) {
+        console.log("[tally-incoming-job] duplicate submission:", submissionId);
+        await logSubmission("duplicate", {
+          job_id: existingJob.id,
+          job_reference: (existingJob as { job_reference?: string }).job_reference ?? null,
+        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            id: existingJob.id,
+            customer_id: existingJob.customer_id,
+            duplicate: true,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
+
+
     // Upsert customer (match by phone)
     let customerId: string;
 
     console.log("[tally-incoming-job] orgData.id:", orgData.id, "userId:", userId);
 
-    const { data: existing } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("phone", normalisedPhone)
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
+    const { matched: customerMatched, customerId: matchedCustomerId } = await matchCustomer(
+      supabase,
+      orgData.id,
+      normalisedPhone,
+      email,
+    );
 
-    if (existing) {
-      customerId = existing.id;
+    if (customerMatched && matchedCustomerId) {
+      customerId = matchedCustomerId;
       await supabase
         .from("customers")
         .update({
@@ -187,8 +307,8 @@ Deno.serve(async (req) => {
           organisation_id: orgData.id,
           name: customerName,
           email,
-          address: fullAddress || undefined,
-          eircode: eircode || undefined,
+          address: fullAddress,
+          eircode: eircode,
           area_code: areaCode,
           boiler_brand: boilerBrand,
           boiler_model: boilerModel,
@@ -205,8 +325,8 @@ Deno.serve(async (req) => {
           name: customerName,
           phone: normalisedPhone,
           email,
-          address: fullAddress || "TBC",
-          eircode: eircode || "TBC",
+          address: fullAddress,
+          eircode: eircode,
           area_code: areaCode,
           boiler_brand: boilerBrand,
           boiler_model: boilerModel,
@@ -248,6 +368,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         organisation_id: orgData?.id,
         customer_id: customerId,
+        customer_status_at_booking: customerMatched ? "existing" : "new",
         job_type: "Boiler Service",
         status: "Pending",
         source: "Tally Form",
@@ -266,17 +387,57 @@ Deno.serve(async (req) => {
         owner_or_tenant: ownerOrTenant,
         access_notes: accessNotes,
         notes: extraDetails,
+        tally_submission_id: submissionId,
       })
-      .select("id")
+      .select("id, job_reference")
       .single();
 
     if (jobErr || !job) {
+      // If two requests raced past the pre-check, the unique partial index on
+      // tally_submission_id will reject the second one (Postgres 23505).
+      // Re-query and return the existing row so the caller sees success.
+      if (submissionId && (jobErr as { code?: string } | null)?.code === "23505") {
+        const { data: raceRow } = await supabase
+          .from("service_calls")
+          .select("id, customer_id, job_reference")
+          .eq("tally_submission_id", submissionId)
+          .eq("organisation_id", orgData.id)
+          .maybeSingle();
+        if (raceRow) {
+          await logSubmission("duplicate", {
+            job_id: raceRow.id,
+            job_reference: (raceRow as { job_reference?: string }).job_reference ?? null,
+            race: true,
+          });
+          return new Response(
+            JSON.stringify({
+              success: true,
+              id: raceRow.id,
+              customer_id: raceRow.customer_id,
+              duplicate: true,
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
       console.error("Job creation failed:", jobErr);
+      await logSubmission("failed", { error: (jobErr as { message?: string } | null)?.message ?? null });
       return new Response(JSON.stringify({ success: false, error: "Unable to process submission." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    await logSubmission("created", {
+      job_id: job.id,
+      job_reference: (job as { job_reference?: string }).job_reference ?? null,
+      customer_id: customerId,
+      customer_status_at_booking: customerMatched ? "existing" : "new",
+    });
+
 
     // Notify office of new incoming job
     try {
@@ -304,51 +465,231 @@ Deno.serve(async (req) => {
     }
 
     // Handle photo/video uploads if provided as URLs
+    const media: {
+      attempted: number;
+      uploaded: number;
+      skipped: { url: string | null; reason: string; content_type?: string; status?: number }[];
+    } = { attempted: 0, uploaded: 0, skipped: [] };
+
+    const logMediaFailure = async (reason: string, detail: Record<string, unknown>) => {
+      console.error("[tally-incoming-job] media skipped:", reason, detail);
+      try {
+        await supabase.from("edge_function_logs").insert({
+          function_name: "tally-incoming-job",
+          error_message: `media skipped: ${reason}`,
+          payload: { job_id: job.id, organisation_id: orgData.id, ...detail },
+        });
+      } catch (_e) {
+        /* logging best-effort */
+      }
+    };
+
+    const EXT_MIME: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      heic: "image/heic",
+      heif: "image/heif",
+      webp: "image/webp",
+      gif: "image/gif",
+      mp4: "video/mp4",
+      mov: "video/quicktime",
+      m4v: "video/mp4",
+      "3gp": "video/3gpp",
+      webm: "video/webm",
+      avi: "video/x-msvideo",
+      pdf: "application/pdf",
+    };
+
+    const extensionOf = (url: string): string | null => {
+      try {
+        const path = new URL(url).pathname;
+        const m = path.match(/\.([a-z0-9]{2,4})$/i);
+        return m ? m[1].toLowerCase() : null;
+      } catch {
+        const m = url.split("?")[0].match(/\.([a-z0-9]{2,4})$/i);
+        return m ? m[1].toLowerCase() : null;
+      }
+    };
+
     if (photoVideoUpload) {
-      const urls = Array.isArray(photoVideoUpload) ? photoVideoUpload : [photoVideoUpload];
-      let fileCount = 0;
-      for (const fileEntry of urls) {
-        if (fileCount >= 10) break;
+      const urls = collectMediaUrls(photoVideoUpload);
+      console.log(
+        "[tally-incoming-job] photo_video_upload raw:",
+        JSON.stringify(photoVideoUpload),
+        "| parsed urls:",
+        JSON.stringify(urls),
+      );
+      if (urls.length === 0) {
+        media.skipped.push({ url: null, reason: "no_url_in_entry" });
+        await logMediaFailure("no_url_in_entry", { entry: photoVideoUpload });
+      }
+      for (const fileUrl of urls) {
+        if (media.uploaded >= 10) break;
+        const fileEntry = fileUrl;
+        media.attempted++;
         try {
-          const fileUrl = typeof fileEntry === "string" ? fileEntry : fileEntry?.url;
-          if (!fileUrl || typeof fileUrl !== "string") continue;
+          if (!fileUrl || typeof fileUrl !== "string") {
+            media.skipped.push({ url: null, reason: "no_url_in_entry" });
+            await logMediaFailure("no_url_in_entry", { entry: fileEntry });
+            continue;
+          }
+          if (!CLOUDINARY_TALLY_PRESET) {
+            media.skipped.push({ url: fileUrl, reason: "missing_cloudinary_preset" });
+            await logMediaFailure("missing_cloudinary_preset", { url: fileUrl });
+            continue;
+          }
 
           const fileResponse = await fetch(fileUrl);
+          const rawContentType = fileResponse.headers.get("content-type");
+          console.log(
+            "[tally-incoming-job] fetched file:",
+            fileUrl,
+            "status:", fileResponse.status,
+            "content-type:", rawContentType,
+            "content-length:", fileResponse.headers.get("content-length"),
+          );
+
+          if (!fileResponse.ok) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "fetch_failed",
+              status: fileResponse.status,
+              content_type: rawContentType ?? undefined,
+            });
+            await logMediaFailure("fetch_failed", {
+              url: fileUrl,
+              status: fileResponse.status,
+              status_text: fileResponse.statusText,
+              content_type: rawContentType,
+            });
+            continue;
+          }
+
+          const contentLength = Number(fileResponse.headers.get("content-length") ?? 0);
+          const MAX_BYTES = 25 * 1024 * 1024;
+          if (contentLength > MAX_BYTES) {
+            media.skipped.push({ url: fileUrl, reason: "file_too_large" });
+            await logMediaFailure("file_too_large", { url: fileUrl, bytes: contentLength });
+            continue;
+          }
+
           const fileBuffer = await fileResponse.arrayBuffer();
-          const rawName =
-            typeof fileEntry === "object" && fileEntry?.name
-              ? (sanitize(fileEntry.name, MAX_SHORT_LEN) ?? `upload-${Date.now()}`)
-              : `upload-${Date.now()}`;
-          const fileName = rawName.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const storagePath = `customers/${customerId}/${job.id}/${fileName}`;
-          const isVideo = /\.(mp4|mov|avi|webm)$/i.test(fileName);
+          if (fileBuffer.byteLength > MAX_BYTES) {
+            media.skipped.push({ url: fileUrl, reason: "file_too_large" });
+            await logMediaFailure("file_too_large", { url: fileUrl, bytes: fileBuffer.byteLength });
+            continue;
+          }
 
-          await supabase.storage.from("job-media").upload(storagePath, fileBuffer, {
-            contentType: fileResponse.headers.get("content-type") ?? "image/jpeg",
-            upsert: true,
-          });
+          // Resolve a usable mime type: trust image/* and video/* (and pdf) from the
+          // server; otherwise fall back to the file extension.
+          const ext = extensionOf(fileUrl);
+          const base = (rawContentType ?? "").split(";")[0].trim().toLowerCase();
+          let contentType: string | null = null;
+          if (base.startsWith("image/") || base.startsWith("video/") || base === "application/pdf") {
+            contentType = base;
+          } else if (ext && EXT_MIME[ext]) {
+            contentType = EXT_MIME[ext];
+          }
 
-          await supabase.from("job_media").insert({
+          if (!contentType) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "unsupported_type",
+              content_type: rawContentType ?? undefined,
+            });
+            await logMediaFailure("unsupported_type", {
+              url: fileUrl,
+              content_type: rawContentType,
+              extension: ext,
+            });
+            continue;
+          }
+
+          const cloudinaryForm = new FormData();
+          cloudinaryForm.append("file", new Blob([fileBuffer], { type: contentType }));
+          cloudinaryForm.append("upload_preset", CLOUDINARY_TALLY_PRESET);
+          cloudinaryForm.append("folder", `tally-uploads/${orgData.id}/${job.id}`);
+          cloudinaryForm.append("tags", `org:${orgData.id},job:${job.id},source:tally`);
+
+          const cloudinaryRes = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+            { method: "POST", body: cloudinaryForm },
+          );
+          const cloudinaryText = await cloudinaryRes.text();
+          let cloudinaryData: any = null;
+          try {
+            cloudinaryData = JSON.parse(cloudinaryText);
+          } catch (_e) {
+            cloudinaryData = null;
+          }
+
+          if (!cloudinaryRes.ok || !cloudinaryData?.secure_url) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "cloudinary_upload_failed",
+              status: cloudinaryRes.status,
+              content_type: contentType,
+            });
+            await logMediaFailure("cloudinary_upload_failed", {
+              url: fileUrl,
+              status: cloudinaryRes.status,
+              content_type: contentType,
+              response: cloudinaryText.slice(0, 1000),
+            });
+            continue;
+          }
+
+          const { error: mediaErr } = await supabase.from("job_media").insert({
             job_id: job.id,
             customer_id: customerId,
             user_id: userId,
-            file_name: fileName,
-            file_type: isVideo ? "video" : "image",
-            storage_path: storagePath,
-            public_url: null,
+            organisation_id: orgData.id,
+            file_name: cloudinaryData.public_id,
+            file_type: cloudinaryData.resource_type === "video" ? "video" : "image",
+            storage_path: cloudinaryData.public_id,
+            storage_bucket: "cloudinary",
+            public_url: cloudinaryData.secure_url,
             uploaded_by: "customer",
           });
-          fileCount++;
+
+          if (mediaErr) {
+            media.skipped.push({
+              url: fileUrl,
+              reason: "job_media_insert_failed",
+              content_type: contentType,
+            });
+            await logMediaFailure("job_media_insert_failed", {
+              url: fileUrl,
+              error: mediaErr.message,
+              code: (mediaErr as { code?: string }).code ?? null,
+            });
+            continue;
+          }
+
+          media.uploaded++;
         } catch (fileErr) {
-          console.error("File upload error:", fileErr);
+          media.skipped.push({
+            url: fileUrl,
+            reason: "exception",
+          });
+          await logMediaFailure("exception", {
+            url: fileUrl,
+            error: fileErr instanceof Error ? fileErr.message : String(fileErr),
+          });
         }
       }
     }
-    // v2 - force redeploy
-    return new Response(JSON.stringify({ success: true, id: job.id, customer_id: customerId }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+
+    console.log("[tally-incoming-job] media summary:", JSON.stringify(media));
+
+    return new Response(
+      JSON.stringify({ success: true, id: job.id, customer_id: customerId, media }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
     console.error("tally-incoming-job error:", err);
     try {

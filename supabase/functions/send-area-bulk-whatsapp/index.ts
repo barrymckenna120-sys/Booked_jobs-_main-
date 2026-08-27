@@ -1,8 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 serve(async (req) => {
@@ -29,20 +32,44 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Per-org cache for whatsapp api_key
-    const apiKeyCache = new Map<string, string | null>();
-    const getApiKey = async (orgId: string): Promise<string | null> => {
-      if (apiKeyCache.has(orgId)) return apiKeyCache.get(orgId) ?? null;
-      const r = await fetch(
+    // Per-org cache for whatsapp api key (shared resolver: api_key_secret or literal api_key)
+    const apiKeyCache = new Map<string, { apiKey: string | null; resolution: string }>();
+    const getApiKey = async (orgId: string): Promise<{ apiKey: string | null; resolution: string }> => {
+      const cached = apiKeyCache.get(orgId);
+      if (cached) return cached;
+      const res = await fetchWhatsappApiKey(supabaseUrl!, supabaseKey!, orgId);
+      const entry = { apiKey: res.apiKey, resolution: res.resolution };
+      apiKeyCache.set(orgId, entry);
+      return entry;
+    };
+
+
+
+    // Per-org cache for tenant branding (company name/phone). Hoisted out of the
+    // recipient loop: a bulk run for one org fetched identical config once per
+    // recipient before. No cross-tenant fallback (BJ-B2b).
+    const brandingCache = new Map<string, { companyName: string; companyPhone: string }>();
+    const getBranding = async (orgId: string) => {
+      const cached = brandingCache.get(orgId);
+      if (cached) return cached;
+      const tiRes = await fetch(
         `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
         { headers: dbHeaders }
       );
-      const rows = await r.json();
-      const cfg = Array.isArray(rows) ? rows[0]?.config : null;
-      const key = cfg?.api_key ?? null;
-      apiKeyCache.set(orgId, key);
-      return key;
+      const tiRows = await tiRes.json();
+      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
+      const entry = {
+        companyName: String(cfg?.company_name ?? "").trim(),
+        companyPhone: String(cfg?.company_phone ?? "").trim(),
+      };
+      brandingCache.set(orgId, entry);
+      return entry;
     };
+
+    // Orgs already logged as skipped this run — keeps it one log row per org.
+    const loggedSkipOrgs = new Set<string>();
+
+
 
     let sent = 0;
     let skipped = 0;
@@ -87,13 +114,16 @@ serve(async (req) => {
         continue;
       }
 
-      const apiKey = await getApiKey(orgId);
+      const { apiKey, resolution } = await getApiKey(orgId);
       if (!apiKey) {
-        console.warn(`Skipping customer ${customer_id}: no whatsapp api_key for org ${orgId}`);
+        console.warn(
+          `Skipping customer ${customer_id}: no whatsapp api key for org ${orgId} (${resolution})`,
+        );
         skipped++;
         byArea[areaKey].skipped++;
         continue;
       }
+
 
       // Format phone number
       let cleanNumber = customer_phone.replace(/[\s\-()]/g, "").replace(/^\+/, "");
@@ -107,16 +137,35 @@ serve(async (req) => {
           })
         : "soon";
 
-      let companyName = "K & N Gas Services";
-      let companyPhone = "087 3686252";
-      const tiRes = await fetch(
-        `${supabaseUrl}/rest/v1/tenant_integrations?organisation_id=eq.${orgId}&integration_type=eq.360messenger&select=config&limit=1`,
-        { headers: dbHeaders }
-      );
-      const tiRows = await tiRes.json();
-      const cfg = Array.isArray(tiRows) ? tiRows[0]?.config : null;
-      if (cfg?.company_name) companyName = cfg.company_name;
-      if (cfg?.company_phone) companyPhone = cfg.company_phone;
+      // Tenant branding — this org's own 360messenger config only, no shared
+      // fallback (BJ-B2b). Cached per org so a bulk run fetches identical
+      // config once instead of once per recipient.
+      const { companyName, companyPhone } = await getBranding(orgId);
+      const missingConfig = !companyName
+        ? "company_name_not_configured"
+        : !companyPhone
+          ? "company_phone_not_configured"
+          : null;
+
+      if (missingConfig) {
+        // One log row per org per run, not one per skipped recipient.
+        if (!loggedSkipOrgs.has(orgId)) {
+          loggedSkipOrgs.add(orgId);
+          await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+            method: "POST",
+            headers: dbHeaders,
+            body: JSON.stringify({
+              function_name: "send-area-bulk-whatsapp",
+              error_message: `Skipped: ${missingConfig} for organisation`,
+              payload: { organisation_id: orgId, reason: missingConfig },
+            }),
+          });
+        }
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
 
       const message = `Hi ${firstName},
 
@@ -161,6 +210,7 @@ ${companyName}`;
           method: "POST",
           headers: { ...dbHeaders, "Prefer": "return=representation" },
           body: JSON.stringify({
+            organisation_id: orgId,
             customer_id,
             message_type: "renewal",
             channel: "whatsapp",

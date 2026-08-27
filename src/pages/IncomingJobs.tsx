@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import IncomingJobCard from "@/components/incoming/IncomingJobCard";
 import JobReviewPanel from "@/components/incoming/JobReviewPanel";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import type { CustomerStatusAtBooking } from "@/types/service-calls";
 
 type IncomingJob = {
   id: string;
@@ -31,6 +32,9 @@ type IncomingJob = {
   area_code: string | null;
   owner_or_tenant: string | null;
   access_notes: string | null;
+  /** Set at job creation: 'new' when the customer did not previously exist. */
+  customer_status_at_booking?: CustomerStatusAtBooking | null;
+
   customers: {
     id: string;
     name: string;
@@ -80,7 +84,7 @@ const IncomingJobs = () => {
     setLoading(true);
     let query = supabase
       .from("service_calls")
-      .select("*, customers(id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model)")
+      .select("*, customers(id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location)")
       .eq("source", "Tally Form")
       .order("created_at", { ascending: false });
 

@@ -1,11 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase } from "lucide-react";
+import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase, Package, AlertTriangle, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
+import EngineerCompactJobRow from "@/components/engineer/EngineerCompactJobRow";
+
 import EngineerOutstandingBalances from "@/components/engineer/EngineerOutstandingBalances";
 import { getNextJobId, type EngineerJobsState } from "@/hooks/useEngineerJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 import type { LucideIcon } from "lucide-react";
 
 const SectionDivider = ({ label }: { label: string }) => (
@@ -26,16 +29,80 @@ const EngineerToday = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { canAccessOffice } = useUserRole(user);
-  const { todayActive, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
+  const { todayActive, todayPaidNeedsCompletion, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
   const todayKey = new Date().toISOString().split("T")[0];
   const completedTodayCount = completedJobs.filter((job: any) =>
     job.scheduled_date === todayKey || job.completed_at?.slice(0, 10) === todayKey
   ).length;
 
   const nextJobId = getNextJobId(todayActive);
-  const sortedActive = nextJobId
+  const sortedActive = (nextJobId
     ? [todayActive.find((j: any) => j.id === nextJobId), ...todayActive.filter((j: any) => j.id !== nextJobId)]
-    : todayActive;
+    : todayActive
+  ).filter(Boolean);
+
+  // Look-ahead view state — purely local, never written anywhere.
+  const [viewedJobRef, setViewedJobRef] = useState<string | null>(null);
+  const viewedJob = viewedJobRef ? todayActive.find((j: any) => j.id === viewedJobRef) : undefined;
+  // If the previewed job leaves the active list (realtime payment/completion),
+  // drop back to the actual current job rather than showing a stale card.
+  useEffect(() => {
+    if (viewedJobRef && !viewedJob) setViewedJobRef(null);
+  }, [viewedJobRef, viewedJob]);
+
+  const isViewingAhead = !!viewedJob;
+  const displayedJob = viewedJob || sortedActive[0];
+  // Walk the same order the engineer sees (next job first, then rest of day),
+  // not raw time order — otherwise the button disappears whenever the next job
+  // is not the earliest slot of the day.
+  const displayedIndex = displayedJob ? sortedActive.findIndex((j: any) => j.id === displayedJob.id) : -1;
+  const nextViewJob = displayedIndex >= 0 ? sortedActive[displayedIndex + 1] : undefined;
+
+
+
+  const [openPartsCount, setOpenPartsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const { data: engRow } = await supabase
+          .from("engineers")
+          .select("id")
+          .eq("auth_user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        const filters = [
+          `engineer_id.eq.${user.id}`,
+          `assigned_engineer_id.eq.${user.id}`,
+        ];
+        const engineerRowId = (engRow as any)?.id;
+        if (engineerRowId) filters.push(`assigned_to.eq.${engineerRowId}`);
+
+        const { count, error } = await supabase
+          .from("parts_requests" as any)
+          .select("id", { count: "exact", head: true })
+          .or(filters.join(","))
+          .eq("status", "Open");
+
+        if (cancelled) return;
+        if (error) {
+          setOpenPartsCount(0);
+          return;
+        }
+        setOpenPartsCount(count ?? 0);
+      } catch {
+        if (!cancelled) setOpenPartsCount(0);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   return (
     <>
@@ -67,7 +134,7 @@ const EngineerToday = () => {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
-          {todayActive.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
+          {todayActive.length === 0 && todayPaidNeedsCompletion.length === 0 && completedTodayCount === 0 && todayCancelled.length === 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">No jobs scheduled today</div>
@@ -78,7 +145,7 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {todayActive.length === 0 && completedTodayCount > 0 && (
+          {todayActive.length === 0 && todayPaidNeedsCompletion.length === 0 && completedTodayCount > 0 && (
             <div className="text-center py-16 bg-card rounded-2xl border border-border/60">
               <PartyPopper className="w-12 h-12 mx-auto mb-3 text-success" />
               <div className="text-lg font-extrabold text-foreground mb-1.5">All jobs completed for today.</div>
@@ -86,9 +153,40 @@ const EngineerToday = () => {
             </div>
           )}
 
-          {sortedActive.map((job: any) => (
-            <EngineerJobCard key={job.id} job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} isNextJob={job.id === nextJobId} />
-          ))}
+          {displayedJob && (
+            <EngineerJobCard
+              key={displayedJob.id}
+              job={displayedJob}
+              customer={customers[displayedJob.customer_id] || {}}
+              onUpdate={updateJob}
+              isNextJob={displayedJob.id === nextJobId}
+              isViewingAhead={isViewingAhead}
+              onAdvanceView={nextViewJob ? () => setViewedJobRef(nextViewJob.id) : undefined}
+              onBackView={() => setViewedJobRef(null)}
+            />
+          )}
+
+          {sortedActive.length > 1 && (
+            <>
+              <SectionDivider label="REST OF DAY" />
+              {sortedActive.filter((job: any) => job.id !== displayedJob?.id).map((job: any) => (
+                <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
+              ))}
+            </>
+          )}
+
+          {todayPaidNeedsCompletion.length > 0 && (
+            <>
+              <SectionDivider label="PAID — NEEDS COMPLETION" />
+              <p className="text-[11px] text-muted-foreground/70 text-center -mt-1 mb-1">
+                Payment taken. Still fill in the Complete form to close the job.
+              </p>
+              {todayPaidNeedsCompletion.map((job: any) => (
+                <EngineerCompactJobRow key={job.id} job={job} customer={customers[job.customer_id] || {}} />
+              ))}
+            </>
+          )}
+
 
           {todayCancelled.length > 0 && (
             <>
@@ -100,11 +198,12 @@ const EngineerToday = () => {
                     fadingJobIds.has(job.id) ? "opacity-0 scale-95 max-h-0 overflow-hidden" : "opacity-100 scale-100"
                   }`}
                 >
-                  <EngineerJobCard job={job} customer={customers[job.customer_id] || {}} onUpdate={updateJob} />
+                  <EngineerCompactJobRow job={job} customer={customers[job.customer_id] || {}} />
                 </div>
               ))}
             </>
           )}
+
         </>
       )}
 
@@ -125,6 +224,30 @@ const EngineerToday = () => {
 
       {/* Outstanding Balances — slim banner */}
       <EngineerOutstandingBalances />
+
+      {openPartsCount !== null && openPartsCount > 0 && (
+        <div className="bg-card rounded-xl border border-border/60 shadow-sm overflow-hidden">
+          <div className="bg-warning/10 px-5 py-3 border-b border-warning/20">
+            <h3 className="text-sm font-bold text-warning flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Needs Attention
+            </h3>
+          </div>
+          <button
+            onClick={() => navigate("/engineer/parts")}
+            className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-secondary/50 transition-colors text-left group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+              <Package className="w-4 h-4 text-warning" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl font-bold font-mono text-foreground leading-none">{openPartsCount}</p>
+              <p className="text-xs font-medium text-muted-foreground mt-1">Parts Awaiting</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+          </button>
+        </div>
+      )}
 
       {canAccessOffice && (
         <button

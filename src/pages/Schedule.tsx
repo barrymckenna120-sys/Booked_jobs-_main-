@@ -16,6 +16,7 @@ import AssignJobModal from "@/components/schedule/AssignJobModal";
 import JobSlotDrawer from "@/components/schedule/JobSlotDrawer";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 
 const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
@@ -86,6 +87,8 @@ export type ScheduleJob = {
   customer_email: string | null;
   customer_eircode: string | null;
   customer_area_code: string | null;
+  customer_gprn: string | null;
+  customer_boiler_location: string | null;
   customer_access_notes: string | null;
   job_type: string;
   status: string;
@@ -95,6 +98,10 @@ export type ScheduleJob = {
   assigned_engineer_id: string | null;
   revenue: number | null;
   deposit_paid: boolean;
+  deposit_required?: boolean | null;
+  deposit_amount?: number | null;
+  balance_due?: number | null;
+  payment_status?: string | null;
   notes: string | null;
   boiler_brand: string | null;
   boiler_model: string | null;
@@ -108,6 +115,11 @@ export type ScheduleJob = {
   extra_details?: string | null;
   created_at: string;
   job_reference?: string | null;
+  media_count?: number;
+  confirmed?: boolean | null;
+  confirmed_at?: string | null;
+  source?: string | null;
+  customer_status_at_booking?: string | null;
 };
 
 const Schedule = () => {
@@ -132,7 +144,7 @@ const Schedule = () => {
   const { data: engineers = [] } = useQuery({
     queryKey: ["engineers", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("engineers").select("id, name").order("name");
+      const { data } = await supabase.from("engineers").select("id, name").eq("status", "active").order("name");
       return data || [];
     },
     enabled: !!user && ready,
@@ -167,11 +179,26 @@ const Schedule = () => {
       // Get scheduled jobs for the week + unallocated jobs
       const { data: scheduledJobs } = await supabase
         .from("service_calls")
-        .select("*, customers(name, address, phone, email, eircode, area_code, access_notes, boiler_make_model)")
+        .select("*, customers(name, address, phone, email, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null`)
         .not("status", "in", "(Completed,Cancelled,archived)");
 
-      return (scheduledJobs || []).map((j: any) => ({
+      const rows = scheduledJobs || [];
+
+      // Media counts for the visible jobs (single query, keeps card render cheap)
+      const mediaCounts: Record<string, number> = {};
+      const jobIds = rows.map((j: any) => j.id);
+      if (jobIds.length > 0) {
+        const { data: mediaRows } = await supabase
+          .from("job_media")
+          .select("job_id")
+          .in("job_id", jobIds);
+        (mediaRows || []).forEach((m: any) => {
+          if (m.job_id) mediaCounts[m.job_id] = (mediaCounts[m.job_id] || 0) + 1;
+        });
+      }
+
+      return rows.map((j: any) => ({
         id: j.id,
         customer_id: j.customer_id,
         customer_name: j.customers?.name || "Unknown",
@@ -180,6 +207,8 @@ const Schedule = () => {
         customer_email: j.customers?.email || j.email || null,
         customer_eircode: j.customers?.eircode || null,
         customer_area_code: j.customers?.area_code || j.area_code || null,
+        customer_gprn: j.customers?.gprn || null,
+        customer_boiler_location: j.customers?.boiler_location || null,
         customer_access_notes: j.customers?.access_notes || null,
         job_type: j.job_type,
         status: j.status,
@@ -189,6 +218,10 @@ const Schedule = () => {
         assigned_engineer_id: j.assigned_engineer_id,
         revenue: j.revenue,
         deposit_paid: j.deposit_paid,
+        deposit_required: j.deposit_required ?? null,
+        deposit_amount: j.deposit_amount ?? null,
+        balance_due: j.balance_due ?? null,
+        payment_status: j.payment_status ?? null,
         notes: j.notes,
         boiler_brand: j.boiler_brand || null,
         boiler_model: j.customers?.boiler_make_model || null,
@@ -202,6 +235,11 @@ const Schedule = () => {
         extra_details: j.extra_details || null,
         created_at: j.created_at,
         job_reference: j.job_reference || null,
+        media_count: mediaCounts[j.id] || 0,
+        confirmed: j.confirmed ?? false,
+        confirmed_at: j.confirmed_at || null,
+        source: j.source || null,
+        customer_status_at_booking: j.customer_status_at_booking ?? null,
       })) as ScheduleJob[];
     },
     enabled: !!user && ready,
@@ -326,13 +364,21 @@ const Schedule = () => {
     } else {
       logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
 
-      supabase.functions.invoke('send-booking-confirmation', {
-        body: { service_call_id: jobId }
-      }).catch(err => console.error('send-booking-confirmation failed:', err));
+      // Single WhatsApp confirmation (send-booking-confirmation handles both new + reschedule).
+      // Failures here must never break scheduling — surface as a soft warning only.
+      supabase.functions
+        .invoke('send-booking-confirmation', { body: { service_call_id: jobId } })
+        .then(({ error: waErr }) => {
+          if (waErr) {
+            console.error('send-booking-confirmation failed:', waErr);
+            toast({
+              title: "Job scheduled — WhatsApp not sent",
+              description: "The confirmation message could not be delivered. Check the WhatsApp connection in Settings.",
+            });
+          }
+        })
+        .catch((err) => console.error('send-booking-confirmation failed:', err));
 
-      supabase.functions.invoke('send-schedule-confirmation', {
-        body: { service_call_id: jobId }
-      }).catch(err => console.error('send-schedule-confirmation failed:', err));
 
       // ---- Push notifications: reassign / reschedule ----
       try {
@@ -438,13 +484,9 @@ const Schedule = () => {
   const handleCancel = async (reason: string, note: string) => {
     const jobId = cancelModal.job?.id;
     if (!jobId) return;
-    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({
-      status: "Cancelled",
-      cancellation_reason: reason,
-      cancellation_note: note || null,
-      cancelled_at: new Date().toISOString(),
-      cancelled_by: user?.id || null,
-    } as any)).eq("id", jobId);
+    const { error } = await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(
+      buildManualCancelPatch(reason, note, user?.id) as any,
+    )).eq("id", jobId);
     if (!error) {
       logAudit({ action_type: "job_cancelled", entity_type: "service_call", entity_id: jobId, detail: `Cancelled: ${reason}`, metadata: { reason, note } });
       supabase.functions.invoke('send-cancellation-notice', {

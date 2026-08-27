@@ -1,46 +1,37 @@
-# Fix silent login failures on the sign-in page
+# Warranty send: confirm the no-fallback guard, then prove it live
 
-The login page (`src/pages/Auth.tsx`) is shared by office staff and engineers. Today, only errors whose message contains "invalid" trigger a visible modal — every other auth failure (user not found, email not confirmed, network error, etc.) falls through to a toast that engineers report as "silent". We'll add a clear inline error directly under the Sign In button, plus a spinner and clear-on-typing behaviour, without altering routing, lockout, or auth logic.
+## What I found before planning
 
-## Changes — `src/pages/Auth.tsx`
+The code change you asked for is **already in place**. `send-warranty-whatsapp` has no hardcoded Tally URL:
 
-1. **Add a single inline error state** (`formError: string | null`) used for all sign-in failures.
+- The only occurrence of `RGJDy4` anywhere in the repo is in a unit test fixture (`_shared/rebookLink.test.ts`) — not in any send path.
+- The function resolves the form URL per organisation from `tenant_integrations` (`integration_type = 'tally'`), with a comment stating "No cross-tenant fallback".
+- When the URL is missing it calls `logSkip(...)`, which writes an `edge_function_logs` row (`SKIPPED: missing_renewal_form_url — ...` with `organisation_id` in the payload) plus a `message_log` row, and returns `{ success: true, skipped: true, reason: "missing_renewal_form_url", organisation_id }` at HTTP 200. No message is sent.
 
-2. **Catch block in `handleSubmit`**: keep the existing 3-strike lockout behaviour (failed-attempt counter + modal + `lock-failed-login` invocation on attempt 3 — preserved exactly), but ALSO set `formError` to the generic message:
+So there is nothing to remove. What is genuinely outstanding is your deploy + live proof, and there are two blockers.
 
-   > "Incorrect email or password. Please try again."
+## Blocker 1 — Cavan Gas has no customers
 
-   This message is used for every auth failure — invalid credentials, user not found, email not confirmed, network/unknown — so we never disclose which case it is. The existing toast fallback for non-"invalid" errors is removed in favour of the inline message (toast still used for the forgot-password flow).
+`send-warranty-whatsapp` looks the organisation up **from the customer**, not from a request field. Cavan Gas (`62d6c1c3-…`) currently has **0 customer rows**, so a test call against it would fail earlier with `400 Customer missing organisation_id` and never reach the skip branch. That would prove nothing.
 
-3. **Inline error rendering**: directly below the Sign In button, render
+To get a real response from the skip path, the test needs one `ZZ SCRATCH` customer in Cavan Gas with a scratch phone number. That is a database write, so it is its own review-gated step below.
 
-   ```tsx
-   {formError && (
-     <p role="alert" className="text-sm text-destructive text-center mt-2">
-       {formError}
-     </p>
-   )}
-   ```
+## Blocker 2 — the guard reads `new_booking_url`, not `renewal_form_url`
 
-   Uses the existing `text-destructive` token for the red style.
+Your prompt names `renewal_form_url`. The guard actually keys on `config.new_booking_url`. For Cavan Gas both are empty strings, so the skip fires either way and the live test will pass — but the field the warranty template should use needs confirming before I call this done. K&N has both set to different URLs (`book.` vs `rebook.`), so the choice is not cosmetic. I will not change the field in this step; I will report which one the message body actually needs and let you decide.
 
-4. **Loading spinner on submit button**: while `loading` is true, disable the button (already disabled) and show a `Loader2` icon from `lucide-react` spinning next to "Signing in…":
+## Steps
 
-   ```tsx
-   {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>) : "Sign In"}
-   ```
+1. **DB write (isolated, review-gated):** insert a single `ZZ SCRATCH` customer into Cavan Gas with a reserved scratch phone number, boiler brand/model set, `opted_out = false`. No other rows touched.
+2. **Deploy** `send-warranty-whatsapp` unchanged, to confirm the deployed version matches the repo (the guard may predate the last deploy).
+3. **Live HTTP test:** POST to the deployed function with the scratch customer's id and `message_type: "warranty_day14"`. Show the actual JSON response verbatim.
+4. **Show the log row:** query `edge_function_logs` for the row that call created and paste it.
+5. **Report** the `new_booking_url` vs `renewal_form_url` question with a recommendation.
 
-5. **Clear error on typing**: in the email and password `onChange` handlers, call `setFormError(null)` alongside the existing `setEmail` / `setPassword`. Per project memory, `onChange` must pass the raw event value directly — we keep that pattern.
+## Not touched
 
-## What stays the same
+`warranty-auto-send`, any pg_cron schedule, message content, phone normalisation, `warranty_reminder_log` writes, and `message_type` handling all stay exactly as they are.
 
-- Route, redirect targets, and `navigate("/dashboard")` on success.
-- 3-strike lockout sequence and `lock-failed-login` edge function call.
-- Existing error modal (kept — it carries the lockout copy on attempts 2 and 3).
-- Forgot-password flow, password recovery handling, and all `useEffect` auth listeners.
-- No changes to `useAuth`, engineer linking, FCM token capture, or any other file.
+## Risk
 
-## Out of scope
-
-- No new route or separate engineer login page.
-- No changes to Supabase, RLS, edge functions, or styling tokens beyond `text-destructive` and `Loader2`.
+Low. The scratch customer has no real phone number and the expected outcome is a skip, so no outbound WhatsApp is possible on this path. If the response comes back as a send rather than a skip, I stop and report instead of continuing.

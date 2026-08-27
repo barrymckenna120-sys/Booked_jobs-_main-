@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Package, CalendarClock } from "lucide-react";
+import { Package, CalendarClock, PackageCheck } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, RefreshCw, XCircle, User, Loader2, AlertTriangle, Play, Ban, Wrench, UserCog, Banknote, CreditCard, FileText, Award, ExternalLink } from "lucide-react";
@@ -25,8 +25,14 @@ import PartsNeededSheet from "@/components/engineer/PartsNeededSheet";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
+import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
+
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import { insertPartsRequest } from "@/lib/partsRequests";
+
 
 type ServiceCall = {
   id: string;
@@ -72,8 +78,10 @@ type Customer = {
   address: string;
   eircode: string;
   area_code: string | null;
+  gprn: string | null;
   access_notes: string | null;
   boiler_make_model: string | null;
+  boiler_location: string | null;
 };
 
 const jobTypeBadge = (type: string) => {
@@ -109,177 +117,261 @@ const statusBadge = (status: string) => {
   );
 };
 
-const usePartsNeededMeta = (jobId: string, customerId: string) => {
-  return useQuery({
-    queryKey: ["parts-needed-meta", jobId],
+import {
+  PART_PRIORITY_CONFIG,
+  PART_STATUS_CONFIG,
+  canEditPartsOfficeFields,
+  priorityRank,
+  updatePartStatus,
+  type PartStatus,
+} from "@/lib/partsRequests";
+import PartStatusIcon from "@/components/parts/PartStatusIcon";
+import PartStatusTrail from "@/components/parts/PartStatusTrail";
+import PartTrackingDetails from "@/components/parts/PartTrackingDetails";
+import PartTrackingEditSheet from "@/components/parts/PartTrackingEditSheet";
+import PartCommentsThread from "@/components/parts/PartCommentsThread";
+import { useUserRole } from "@/hooks/useUserRole";
+import { SlidersHorizontal } from "lucide-react";
+import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
+
+
+
+const useJobParts = (jobId: string) =>
+  useQuery({
+    queryKey: ["job-parts", jobId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("customer_call_notes")
-        .select("created_at, created_by_name")
-        .eq("customer_id", customerId)
-        .like("note", "Parts Needed%")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data;
+        .from("parts_requests" as any)
+        .select("*")
+        .eq("service_call_id", jobId)
+        .order("created_at", { ascending: true });
+      const rows = ((data as any[]) || []).slice();
+      rows.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
+      return rows;
     },
+    enabled: !!jobId,
   });
+
+const fmtPartsLoggedAt = (iso: string) => {
+  const dt = new Date(iso);
+  const day = dt.getDate();
+  const mon = dt.toLocaleDateString("en-IE", { month: "short" });
+  const year = dt.getFullYear();
+  const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${day} ${mon} ${year}, ${time}`;
 };
 
-const formatPartsTimestamp = (iso: string, author?: string | null) => {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const time = d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: false });
-  return `Logged by ${author || "Engineer"} · ${date}, ${time}`;
-};
-
-const PartsNeededSection = ({ job, customerId, notes, onStatusChange, onPartsArrived }: { job: any; customerId: string; notes: string | null; onStatusChange: () => void; onPartsArrived?: () => void }) => {
-  const { data: meta } = usePartsNeededMeta(job.id, customerId);
-  const { user } = useAuth("");
+const PartsNeededSection = ({ job, onStatusChange, onPartsArrived }: { job: any; onStatusChange: () => void; onPartsArrived?: (readyPartIds: string[]) => void }) => {
+  const { data: parts = [], refetch } = useJobParts(job.id);
   const { toast } = useToast();
-  const [marking, setMarking] = useState(false);
-  const [orderedMeta, setOrderedMeta] = useState<{ name: string; time: string } | null>(null);
+  const { user } = useAuth();
+  const { role, engineerName } = useUserRole(user);
+  const canEditTracking = canEditPartsOfficeFields(role);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingPart, setEditingPart] = useState<any>(null);
+
+
+  // BJ-0069 — the section is permanent: active work up top, cancelled parts kept
+  // below with their timestamps so the job's parts record survives.
+  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  const history = parts.filter((p: any) => p.status === "Cancelled");
   const isOrdered = job.status === "parts_ordered";
-  const accentBorder = isOrdered ? "border-blue-500" : "border-amber-500";
-  const accentBg = isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
-  const accentIcon = isOrdered ? "text-blue-500" : "text-amber-500";
-  const accentTitle = isOrdered ? "text-blue-800" : "text-amber-800";
+  const isArrived = job.status === "parts_arrived";
+  const noActive = active.length === 0;
+  const accentBorder = noActive ? "border-border" : isArrived ? "border-[#7C3AED]" : isOrdered ? "border-blue-500" : "border-amber-500";
+  const accentBg = noActive ? "" : isArrived ? "bg-[#FAF5FF]" : isOrdered ? "bg-blue-50" : "bg-[#FFFBEB]";
+  const accentTitle = noActive ? "" : isArrived ? "text-[#6D28D9]" : isOrdered ? "text-blue-800" : "text-amber-800";
+  const title = noActive ? "Parts" : isArrived ? "Parts Ready to Fit" : isOrdered ? "Parts Ordered" : "Parts Needed";
 
-  // Fetch ordered-by metadata
-  useEffect(() => {
-    if (!isOrdered) return;
-    supabase
-      .from("customer_call_notes")
-      .select("created_at, created_by_name")
-      .eq("customer_id", customerId)
-      .like("note", "Parts ordered by%")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.created_at) {
-          setOrderedMeta({ name: data.created_by_name || "Office", time: formatPartsTimestamp(data.created_at, data.created_by_name).replace("Logged by", "Parts ordered by") });
-        }
-      });
-  }, [isOrdered, customerId]);
-
-  const handleMarkOrdered = async () => {
-    setMarking(true);
-    try {
-      // Get office user display name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", user?.id)
-        .maybeSingle();
-      const officeName = profile?.display_name || "Office";
-
-      await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload({ status: "parts_ordered" } as any))
-        .eq("id", job.id);
-
-      // Log a note
-      await supabase.from("customer_call_notes").insert({
-        customer_id: customerId,
-        user_id: user?.id,
-        note: `Parts ordered by ${officeName}`,
-        created_by_name: officeName,
-        service_call_id: job.id,
-      } as any);
-
-      toast({ title: "Marked as ordered ✓" });
-      onStatusChange();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setMarking(false);
+  const advance = async (part: any, status: PartStatus) => {
+    setBusyId(part.id);
+    const { error } = await updatePartStatus(part.id, status);
+    setBusyId(null);
+    if (error) {
+      toast({ title: "Couldn't update part", description: error.message, variant: "destructive" });
+      return;
     }
+    toast({ title: status === "Cancelled" ? "Part cancelled" : `Marked ${status}` });
+    await refetch();
+    onStatusChange();
   };
 
-  const partText = notes?.startsWith("Parts Needed") ? notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "") : null;
-
-  const priorityConfig: Record<string, { emoji: string; label: string; bg: string; text: string }> = {
-    urgent: { emoji: "🔴", label: "Urgent", bg: "bg-[#FEE2E2]", text: "text-[#DC2626]" },
-    normal: { emoji: "🟡", label: "Normal", bg: "bg-[#FEF3C7]", text: "text-[#D97706]" },
-    low:    { emoji: "🟢", label: "Low",    bg: "bg-[#DCFCE7]", text: "text-[#16A34A]" },
-  };
-  const pCfg = job.parts_priority ? priorityConfig[job.parts_priority] : null;
-
-  const fmtPartsLoggedAt = (iso: string) => {
-    const dt = new Date(iso);
-    const day = dt.getDate();
-    const mon = dt.toLocaleDateString("en-IE", { month: "short" });
-    const year = dt.getFullYear();
-    const time = dt.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false });
-    return `${day} ${mon} ${year}, ${time}`;
-  };
+  if (parts.length === 0) return null;
 
   return (
     <Card className={`border-l-4 ${accentBorder} ${accentBg}`}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
-            {isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
-            {isOrdered ? "Parts Ordered" : "Parts Needed"}
-          </CardTitle>
-          {pCfg && (
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
-              {pCfg.emoji} {pCfg.label}
-            </span>
-          )}
-        </div>
+        <CardTitle className={`text-base flex items-center gap-2 ${accentTitle}`}>
+          {noActive ? <Package className="w-4 h-4 text-muted-foreground" /> : isOrdered ? <Package className="w-4 h-4 text-blue-500" /> : <Wrench className="w-4 h-4 text-amber-500" />}
+          {title}
+          <span className="text-xs font-semibold text-muted-foreground">({noActive ? parts.length : active.length})</span>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {partText && <p className="text-sm font-semibold text-foreground">{partText}</p>}
-        {job.parts_logged_at && (
-          <p className="text-xs text-muted-foreground">
-            Logged by {job.assigned_engineer || "Engineer"} · {fmtPartsLoggedAt(job.parts_logged_at)}
-          </p>
-        )}
-        {!job.parts_logged_at && meta?.created_at && (
-          <p className="text-xs text-muted-foreground">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
-        )}
-        {isOrdered && orderedMeta && (
-          <p className="text-xs text-blue-600 font-medium">{orderedMeta.time}</p>
-        )}
-        {!isOrdered ? (
+      <CardContent className="space-y-3">
+        {active.map((part: any) => {
+          const pCfg = PART_PRIORITY_CONFIG[part.priority];
+          const sCfg = PART_STATUS_CONFIG[part.status] || PART_STATUS_CONFIG.Open;
+          return (
+            <div key={part.id} className="rounded-lg bg-background/70 border p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">
+                  {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                </p>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                    <PartStatusIcon status={part.status} className="w-3 h-3" strokeWidth={2.5} />
+                    {sCfg.label}
+                  </span>
+
+                  {pCfg && (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${pCfg.bg} ${pCfg.text}`}>
+                      {pCfg.emoji} {pCfg.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Logged by {part.logged_by_name || job.assigned_engineer || "Engineer"} · {fmtPartsLoggedAt(part.created_at)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {part.status === "Open" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-500 text-amber-600 hover:bg-amber-50 gap-1.5"
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Ordered")}
+                  >
+                    <Package className="w-4 h-4" /> Mark as Ordered
+                  </Button>
+                )}
+                {part.status === "Ordered" && (
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-white font-bold"
+                    style={{ backgroundColor: "#22C55E" }}
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Ready to Fit")}
+                  >
+                    <PackageCheck className="w-4 h-4" /> Part Arrived
+                  </Button>
+                )}
+                {part.status !== "Ready to Fit" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    disabled={busyId === part.id}
+                    onClick={() => advance(part, "Cancelled")}
+                  >
+                    Cancel
+                  </Button>
+                )}
+                {canEditTracking && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground gap-1.5"
+                    onClick={() => setEditingPart(part)}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" strokeWidth={2.5} /> Cost / ETA
+                  </Button>
+                )}
+              </div>
+              <PartStatusTrail row={part} className="pt-2 border-t border-border/60" />
+              {/* BJ-0071 / BJ-0072 — cost, ETA, customer-told and quote reference. */}
+              <PartTrackingDetails row={part} />
+              <PartCommentsThread
+                partsRequestId={part.id}
+                organisationId={part.organisation_id || job.organisation_id}
+                authorName={engineerName || user?.email || null}
+                authorRole={role}
+                className="pt-2 border-t border-border/60"
+              />
+            </div>
+
+          );
+        })}
+
+        {active.some((p: any) => p.status === "Ready to Fit") && (
           <Button
-            variant="outline"
-            className="mt-2 border-amber-500 text-amber-600 hover:bg-amber-50 gap-2"
-            onClick={handleMarkOrdered}
-            disabled={marking}
+            className="gap-2 text-white font-bold w-full sm:w-auto"
+            style={{ backgroundColor: "#22C55E" }}
+            onClick={() =>
+              onPartsArrived?.(
+                active.filter((p: any) => p.status === "Ready to Fit").map((p: any) => p.id),
+              )
+            }
           >
-            <Package className="w-4 h-4" /> {marking ? "Updating…" : "Mark as Ordered"}
+            <CalendarClock className="w-4 h-4" /> Tell customer parts arrived
           </Button>
-        ) : (
-          <div className="flex gap-2 mt-2">
-            <Button variant="outline" className="gap-2" disabled>
-              <Package className="w-4 h-4" /> Parts Ordered ✓
-            </Button>
-            <Button
-              className="gap-2 text-white font-bold"
-              style={{ backgroundColor: "#22C55E" }}
-              onClick={() => onPartsArrived?.()}
-            >
-              <CalendarClock className="w-4 h-4" /> Parts Arrived
-            </Button>
+        )}
+
+        {history.length > 0 && (
+          <div className="pt-1 space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              History ({history.length})
+            </p>
+            {history.map((part: any) => {
+              const sCfg = PART_STATUS_CONFIG[part.status] || PART_STATUS_CONFIG.Cancelled;
+              return (
+                <div key={part.id} className="rounded-lg bg-background/70 border border-border/60 p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm font-medium ${part.status === "Cancelled" ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                      {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+                    </p>
+                    <span className={`inline-flex items-center gap-1 shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${sCfg.bg} ${sCfg.text}`}>
+                      <PartStatusIcon status={part.status} className="w-3 h-3" strokeWidth={2.5} />
+                      {sCfg.label}
+                    </span>
+                  </div>
+                  <PartStatusTrail row={part} />
+                  <PartTrackingDetails row={part} />
+                  <PartCommentsThread
+                    partsRequestId={part.id}
+                    organisationId={part.organisation_id || job.organisation_id}
+                    authorName={engineerName || user?.email || null}
+                    authorRole={role}
+                    className="pt-2 border-t border-border/60"
+                  />
+                </div>
+              );
+            })}
           </div>
+        )}
+
+        {editingPart && (
+          <PartTrackingEditSheet
+            open={!!editingPart}
+            onClose={() => setEditingPart(null)}
+            part={editingPart}
+            onSaved={() => refetch()}
+          />
         )}
       </CardContent>
     </Card>
+
   );
 };
 
-const PartsNeededNoteBlock = ({ jobId, customerId, notes }: { jobId: string; customerId: string; notes: string }) => {
-  const { data: meta } = usePartsNeededMeta(jobId, customerId);
+const PartsNeededNoteBlock = ({ jobId }: { jobId: string }) => {
+  const { data: parts = [] } = useJobParts(jobId);
+  const active = parts.filter((p: any) => p.status !== "Cancelled");
+  if (active.length === 0) return null;
   return (
     <div>
       <span className="text-sm font-bold text-amber-600">Parts Needed</span>
-      <p className="text-sm font-semibold mt-0.5">{notes.replace(/^Parts Needed(?:\s*\[\w+\])?:\s*/, "")}</p>
-      {meta?.created_at && (
-        <p className="text-xs text-muted-foreground mt-1">{formatPartsTimestamp(meta.created_at, meta.created_by_name)}</p>
-      )}
+      {active.map((part: any) => (
+        <div key={part.id} className="mt-0.5">
+          <p className="text-sm font-semibold">
+            {part.quantity > 1 ? `${part.quantity} × ` : ""}{part.description}
+            <span className="text-xs font-normal text-muted-foreground"> · {part.status}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Logged by {part.logged_by_name || "Engineer"} · {fmtPartsLoggedAt(part.created_at)}
+          </p>
+        </div>
+      ))}
     </div>
   );
 };
@@ -298,6 +390,9 @@ const JobDetail = () => {
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partsNeededOpen, setPartsNeededOpen] = useState(false);
   const [partsArrivedOpen, setPartsArrivedOpen] = useState(false);
+  // BJ-0071 — parts the "parts arrived" WhatsApp covers, so the send stamps
+  // customer_notified_* on each one.
+  const [arrivedPartIds, setArrivedPartIds] = useState<string[]>([]);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [engineerNotes, setEngineerNotes] = useState("");
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -368,7 +463,7 @@ const JobDetail = () => {
 
     const { data: custData } = await supabase
       .from("customers")
-      .select("id, name, phone, email, address, eircode, area_code, access_notes, boiler_make_model")
+      .select("id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location")
       .eq("id", jobData.customer_id)
       .maybeSingle();
 
@@ -421,13 +516,9 @@ const JobDetail = () => {
     if (!job) return;
     const { error } = await supabase
       .from("service_calls")
-      .update(sanitizeServiceCallUpdatePayload({
-        status: "Cancelled",
-        cancellation_reason: reason,
-        cancellation_note: note || null,
-        cancelled_at: new Date().toISOString(),
-        cancelled_by: user?.id || null,
-      } as any))
+      .update(sanitizeServiceCallUpdatePayload(
+        buildManualCancelPatch(reason, note, user?.id) as any,
+      ))
       .eq("id", job.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -437,7 +528,6 @@ const JobDetail = () => {
         body: {
           service_call_id: job.id,
           cancellation_reason: reason,
-          organisation_id: (job as any).organisation_id,
         },
       }).catch((err) => console.error('cancel-job-notify failed:', err));
       supabase.functions.invoke('send-cancellation-notice', {
@@ -501,10 +591,10 @@ const JobDetail = () => {
         </div>
       )}
 
-      {/* Parts Needed / Ordered Section */}
-      {(job.status === "parts_needed" || job.status === "parts_ordered") && (
-        <PartsNeededSection job={job} customerId={job.customer_id} notes={job.notes} onStatusChange={fetchJob} onPartsArrived={() => setPartsArrivedOpen(true)} />
-      )}
+      {/* Parts section — permanent (BJ-0069): renders whenever the job has any
+          parts request, regardless of job status. Self-hides when there are none. */}
+      <PartsNeededSection job={job} onStatusChange={fetchJob} onPartsArrived={(ids) => { setArrivedPartIds(ids); setPartsArrivedOpen(true); }} />
+
 
       {/* Header */}
       <div className="flex items-start gap-3">
@@ -521,6 +611,8 @@ const JobDetail = () => {
           <div className="flex flex-wrap items-center gap-2 mt-1">
             {jobTypeBadge(job.job_type)}
             {statusBadge(job.status)}
+            <JobConfirmedBadge confirmed={(job as any).confirmed} confirmedAt={(job as any).confirmed_at} status={(job as any).status} />
+            <NewCustomerBadge status={(job as any).customer_status_at_booking} />
             {job.status === "Completed" && job.payment_method && (
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-success/10 text-success">
                 ✅ Paid
@@ -564,6 +656,7 @@ const JobDetail = () => {
             <div><span className="text-muted-foreground">Area Code:</span> <span className="font-semibold">{customer.area_code || "—"}</span></div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Address:</span> <span className="font-semibold">{customer.address}</span></div>
             <div><span className="text-muted-foreground">Eircode:</span> <span className="font-semibold">{customer.eircode}</span></div>
+            <div><span className="text-muted-foreground">GPRN:</span> <span className="font-semibold">{customer.gprn || "—"}</span></div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Engineer:</span>
               {!["Completed", "Cancelled"].includes(job.status) ? (
@@ -597,6 +690,9 @@ const JobDetail = () => {
             {customer.boiler_make_model && (
               <div><span className="text-muted-foreground">Boiler Model:</span> <span className="font-semibold">{customer.boiler_make_model}</span></div>
             )}
+            {customer.boiler_location?.trim() && (
+              <div><span className="text-muted-foreground">Boiler Location:</span> <span className="font-semibold">{customer.boiler_location}</span></div>
+            )}
             {(job as any).job_issue && (
               <div className="sm:col-span-2"><span className="text-muted-foreground">Job Issue:</span> <span className="font-semibold">{(job as any).job_issue}</span></div>
             )}
@@ -609,7 +705,7 @@ const JobDetail = () => {
             {job.notes && (
               <div className="sm:col-span-2">
                 {job.notes.startsWith("Parts Needed") ? (
-                  <PartsNeededNoteBlock jobId={job.id} customerId={job.customer_id} notes={job.notes} />
+                  <PartsNeededNoteBlock jobId={job.id} />
                 ) : (
                   <><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">{job.notes}</span></>
                 )}
@@ -673,6 +769,16 @@ const JobDetail = () => {
           <InlineOfficeReply jobId={job.id} engineerAuthUserId={assignedEngineerAuth} />
         </CardContent>
       </Card>
+
+      {job.customer_id && (
+        <WhatsAppHistory
+          customerId={job.customer_id}
+          highlightJobId={job.id}
+          hideSendButton
+          title="Customer Messages"
+        />
+      )}
+
 
       {/* Take Payment — completed but unpaid */}
       {job.status === "Completed" && !job.payment_method && (
@@ -965,15 +1071,61 @@ const JobDetail = () => {
         open={partsNeededOpen}
         onClose={() => setPartsNeededOpen(false)}
         loading={actionLoading}
-        onConfirm={async (notes) => {
+        onConfirm={async (part) => {
           setActionLoading(true);
-          await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({ status: "parts_needed", notes: notes ? `Parts Needed: ${notes}` : "Parts Needed" } as any)).eq("id", job.id);
-          logAudit({ action_type: "job_parts_needed", entity_type: "service_call", entity_id: job.id, detail: "Parts needed", metadata: { notes } });
-          toast({ title: "Job marked as Parts Needed" });
+          // Office-logged parts go straight into parts_requests. The DB trigger
+          // (recompute_job_parts_status) moves the job to parts_needed — we must
+          // never write the part into service_calls.notes.
+          const assignedEngineerId = (job as any).assigned_engineer_id ?? null;
+          let engineerUserId: string | null = null;
+          if (assignedEngineerId) {
+            const { data: eng } = await supabase
+              .from("engineers")
+              .select("user_id")
+              .eq("id", assignedEngineerId)
+              .maybeSingle();
+            engineerUserId = (eng as any)?.user_id ?? null;
+          }
+          let officeName: string | null = null;
+          if (user?.id) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            officeName = (prof as any)?.display_name ?? null;
+          }
+          const { error } = await insertPartsRequest({
+            part,
+            organisationId: (job as any).organisation_id,
+            serviceCallId: job.id,
+            customerId: job.customer_id,
+            loggedBy: user?.id ?? null,
+            loggedByName: officeName || "Office",
+            assignedTo: assignedEngineerId,
+            engineerId: engineerUserId,
+          });
           setActionLoading(false);
+          if (error) {
+            toast({ title: "Couldn't save part", description: error.message, variant: "destructive" });
+            return;
+          }
+          await supabase
+            .from("service_calls")
+            .update({ parts_priority: part.priority, parts_logged_at: new Date().toISOString() } as any)
+            .eq("id", job.id);
+          logAudit({
+            action_type: "job_parts_needed",
+            entity_type: "service_call",
+            entity_id: job.id,
+            detail: `Part logged: ${part.description}`,
+            metadata: { description: part.description, priority: part.priority, quantity: part.quantity ?? 1 },
+          });
+          toast({ title: "Part logged", description: "Added to the parts list" });
           setPartsNeededOpen(false);
           fetchJob();
         }}
+
       />
       {/* Take Payment Modal */}
       {paymentOpen && customer && (
@@ -1002,6 +1154,7 @@ const JobDetail = () => {
           customerName={customer.name}
           customerPhone={customer.phone}
           followUpDetail={(job as any).follow_up_detail}
+          partsRequestIds={arrivedPartIds}
           onSent={fetchJob}
         />
       )}

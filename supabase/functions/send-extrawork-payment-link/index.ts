@@ -1,104 +1,265 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  getWhatsAppConfig,
+  normalisePhone,
+  logWhatsAppFailure,
+} from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods":
+    "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: corsHeaders,
+    });
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const messengerKey = Deno.env.get("THREESIXTY_API_KEY");
+    const supabaseUrl =
+      Deno.env.get(
+        "SUPABASE_URL"
+      )!;
 
-    if (!messengerKey) throw new Error("THREESIXTY_API_KEY is not configured");
+    const supabaseKey =
+      Deno.env.get(
+        "SUPABASE_SERVICE_ROLE_KEY"
+      )!;
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(
+      supabaseUrl,
+      supabaseKey
+    );
+
     const body = await req.json();
-    const { quote_id, service_call_id, customer_id, total_amount, line_items } = body;
 
-    if (!quote_id || !service_call_id || !customer_id) {
-      return new Response(JSON.stringify({ error: "quote_id, service_call_id, and customer_id are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const {
+      quote_id,
+      service_call_id,
+      customer_id,
+      total_amount,
+      line_items,
+    } = body;
+
+    if (
+      !quote_id ||
+      !service_call_id ||
+      !customer_id
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "quote_id, service_call_id, and customer_id are required",
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
     }
 
     // Fetch customer
-    const { data: customer, error: custErr } = await supabase
+    const {
+      data: customer,
+      error: custErr,
+    } = await supabase
       .from("customers")
-      .select("name, phone, opted_out")
+      .select(
+        "name, phone, opted_out"
+      )
       .eq("id", customer_id)
       .single();
 
     if (custErr || !customer) {
-      return new Response(JSON.stringify({ error: "Customer not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error:
+            "Customer not found",
+        }),
+        {
+          status: 404,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
     }
 
     if (customer.opted_out) {
-      return new Response(JSON.stringify({ success: false, error: "Customer has opted out of messages" }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "Customer has opted out of messages",
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
     }
 
     if (!customer.phone) {
-      return new Response(JSON.stringify({ error: "Customer has no phone number" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Get payment link: prefer job.payment_link, then tenant_integrations stripe config
-    const { data: job } = await supabase
-      .from("service_calls")
-      .select("payment_link, user_id, organisation_id")
-      .eq("id", service_call_id)
-      .single();
-
-    const userId = job?.user_id;
-    const orgId = job?.organisation_id;
-
-    const { data: stripeIntegration } = orgId ? await supabase
-      .from("tenant_integrations")
-      .select("config")
-      .eq("organisation_id", orgId)
-      .eq("integration_type", "stripe")
-      .maybeSingle() : { data: null };
-
-    const paymentLink =
-      job?.payment_link ||
-      (stripeIntegration?.config as any)?.payment_link ||
-      null;
-    if (!paymentLink) {
-      console.warn(
-        `[send-extrawork-payment-link] No Stripe payment_link configured for organisation ${orgId}`,
-      );
       return new Response(
-        JSON.stringify({ error: "Stripe payment link not configured for this organisation" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({
+          error:
+            "Customer has no phone number",
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
       );
     }
 
+    // Payment link comes from the job only.
+    // BJ-B2a: no hardcoded or cross-tenant fallback.
+    // A tenant without its own payment link is skipped and logged.
+    const { data: job } =
+      await supabase
+        .from("service_calls")
+        .select(
+          "payment_link, user_id, organisation_id"
+        )
+        .eq(
+          "id",
+          service_call_id
+        )
+        .single();
 
-    const { data: messengerConfig } = orgId ? await supabase
-      .from("tenant_integrations")
-      .select("config")
-      .eq("organisation_id", orgId)
-      .eq("integration_type", "360messenger")
-      .maybeSingle() : { data: null };
-    const companyName = (messengerConfig?.config as any)?.company_name ?? "K & N Gas Services";
-    const companyPhone = (messengerConfig?.config as any)?.company_phone ?? "087 3686252";
+    const paymentLink = String(
+      job?.payment_link ?? ""
+    ).trim();
+
+    const userId =
+      job?.user_id;
+
+    const orgId =
+      job?.organisation_id;
+
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Job missing organisation_id",
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+    }
+
+    // Tenant business details — single source of truth.
+    const {
+      data: orgSettings,
+    } = await supabase
+      .from("settings")
+      .select(
+        "business_name, business_phone"
+      )
+      .eq(
+        "organisation_id",
+        orgId
+      )
+      .maybeSingle();
+
+    const companyName = String(
+      orgSettings?.business_name ??
+        ""
+    ).trim();
+
+    const companyPhone = String(
+      orgSettings?.business_phone ??
+        ""
+    ).trim();
+
+    // Skip-and-log guards (BJ-B2a) — run before the message is built,
+    // before the message_log insert, and before the quote status flips to Sent.
+    const missingConfig =
+      !paymentLink
+        ? "payment_link_not_configured"
+        : !companyName
+          ? "business_name_not_configured"
+          : !companyPhone
+            ? "business_phone_not_configured"
+            : null;
+
+    if (missingConfig) {
+      await supabase
+        .from(
+          "edge_function_logs"
+        )
+        .insert({
+          function_name:
+            "send-extrawork-payment-link",
+          error_message: `Skipped: ${missingConfig} for organisation`,
+          payload: {
+            organisation_id:
+              orgId,
+            quote_id,
+            service_call_id,
+            reason:
+              missingConfig,
+          },
+        });
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          skipped: true,
+          reason:
+            missingConfig,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+    }
 
     // Build line items summary
-    const itemsSummary = (line_items || [])
-      .map((li: any) => `• ${li.description} (x${li.quantity}) — €${Number(li.line_total).toFixed(2)}`)
-      .join("\n");
+    const itemsSummary =
+      (line_items || [])
+        .map(
+          (li: any) =>
+            `• ${li.description} (x${li.quantity}) — €${Number(
+              li.line_total
+            ).toFixed(2)}`
+        )
+        .join("\n");
 
-    const amount = Number(total_amount).toFixed(2);
+    const amount = Number(
+      total_amount
+    ).toFixed(2);
 
     const message = `Hi ${customer.name},
 
@@ -115,88 +276,338 @@ If you have any questions please call us on ${companyPhone}.
 
 ${companyName} ☎ ${companyPhone}`;
 
-    // Send via 360Messenger
-    const cleanNumber = customer.phone.replace(/^\+/, "");
-    const formData = new FormData();
-    formData.append("phonenumber", cleanNumber);
-    formData.append("text", message);
+    // Resolve tenant-scoped WhatsApp API key.
+    let messengerKey: string;
+    let cleanNumber: string;
 
-    // Log to message_log
-    const { data: logRows } = await supabase.from("message_log").insert({
-      channel: "whatsapp",
-      message_type: "extra_work_payment",
-      customer_id,
-      related_id: service_call_id,
-      related_type: "service_call",
-      content: message,
-      sent_by: "system",
-      status: "pending",
-      direction: "outbound",
-    }).select("id");
+    try {
+      const wa =
+        await getWhatsAppConfig(
+          supabase,
+          orgId
+        );
 
-    const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
+      messengerKey =
+        wa.apiKey;
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${messengerKey}` },
-      body: formData,
-    });
+      cleanNumber =
+        normalisePhone(
+          customer.phone
+        );
+    } catch (waErr) {
+      const msg =
+        (
+          waErr as Error
+        ).message;
 
-    const resultText = await response.text();
-    let result: any;
-    try { result = JSON.parse(resultText); } catch (_e) { result = { success: false }; }
+      console.error(
+        "send-extrawork-payment-link: pre-send failure:",
+        msg
+      );
+
+      await logWhatsAppFailure(
+        supabase,
+        {
+          organisation_id:
+            orgId,
+          customer_id,
+          message_type:
+            "extra_work_payment",
+          content:
+            message,
+          related_id:
+            service_call_id,
+          related_type:
+            "service_call",
+          sent_by:
+            "system",
+          error_message:
+            msg,
+        }
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          reason: msg,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "phonenumber",
+      cleanNumber
+    );
+
+    formData.append(
+      "text",
+      message
+    );
+
+    // Log to message_log before sending
+    const {
+      data: logRows,
+    } = await supabase
+      .from("message_log")
+      .insert({
+        organisation_id:
+          orgId,
+        channel: "whatsapp",
+        message_type:
+          "extra_work_payment",
+        customer_id,
+        related_id:
+          service_call_id,
+        related_type:
+          "service_call",
+        content:
+          message,
+        sent_by:
+          "system",
+        status:
+          "pending",
+        direction:
+          "outbound",
+      })
+      .select("id");
+
+    const logId =
+      Array.isArray(logRows)
+        ? logRows[0]?.id
+        : null;
+
+    let sendResult: {
+      success: boolean;
+      error?: string;
+      status?: number;
+    } = {
+      success: false,
+    };
+
+    try {
+      const response =
+        await fetch(
+          "https://api.360messenger.com/v2/sendMessage",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${messengerKey}`,
+            },
+            body: formData,
+          }
+        );
+
+      const resultText =
+        await response.text();
+
+      let result: any;
+
+      try {
+        result =
+          JSON.parse(
+            resultText
+          );
+      } catch (_e) {
+        result = {
+          success: false,
+        };
+      }
+
+      sendResult = {
+        success:
+          !!result.success,
+        error: result.success
+          ? undefined
+          : `360Messenger HTTP ${response.status}: ${resultText.substring(
+              0,
+              300
+            )}`,
+        status:
+          response.status,
+      };
+    } catch (waErr) {
+      const msg =
+        (
+          waErr as Error
+        ).message;
+
+      console.error(
+        "send-extrawork-payment-link: send fetch failed:",
+        msg
+      );
+
+      sendResult = {
+        success: false,
+        error: msg,
+      };
+    }
 
     // Update message log
     if (logId) {
-      const updateBody = result.success
-        ? { status: "sent", sent_at: new Date().toISOString() }
-        : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
-      await supabase.from("message_log").update(updateBody).eq("id", logId);
+      const updateBody =
+        sendResult.success
+          ? {
+              status: "sent",
+              sent_at:
+                new Date().toISOString(),
+            }
+          : {
+              status: "failed",
+              error_message:
+                sendResult.error ||
+                "unknown",
+            };
+
+      await supabase
+        .from("message_log")
+        .update(updateBody)
+        .eq("id", logId);
     }
 
-    if (!result.success) {
-      await supabase.from("edge_function_logs").insert({
-        function_name: "send-extrawork-payment-link",
-        error_message: `360Messenger API failed. HTTP ${response.status}`,
-        payload: { sent_to: cleanNumber, quote_id, service_call_id },
-      });
+    if (!sendResult.success) {
+      await supabase
+        .from(
+          "edge_function_logs"
+        )
+        .insert({
+          function_name:
+            "send-extrawork-payment-link",
+          error_message:
+            `360Messenger send failed: ${sendResult.error}`,
+          payload: {
+            sent_to:
+              cleanNumber,
+            quote_id,
+            service_call_id,
+          },
+        });
 
-      return new Response(JSON.stringify({ success: false, error: "WhatsApp send failed" }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          reason:
+            sendResult.error,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
     }
 
     // Update quote status to Sent
-    await supabase.from("quotes").update({ status: "Sent", sent_at: new Date().toISOString() } as any).eq("id", quote_id);
+    await supabase
+      .from("quotes")
+      .update({
+        status: "Sent",
+        sent_at:
+          new Date().toISOString(),
+      } as any)
+      .eq(
+        "id",
+        quote_id
+      );
 
     // Log customer activity
     try {
-      const { data: jobForOrg } = await supabase.from("service_calls").select("organisation_id").eq("id", service_call_id).single();
-      const orgId = jobForOrg?.organisation_id || null;
-      if (!orgId) {
-        console.error(`send-extrawork-payment-link: skipping customer_activity insert — job ${service_call_id} missing organisation_id`);
-      } else {
-        await supabase.from("customer_activity").insert({
-          organisation_id: orgId,
-          customer_id,
-          service_call_id,
-          event_type: "whatsapp_sent",
-          event_label: "WhatsApp sent — Extra Work Payment",
-        });
-      }
-    } catch { /* non-critical */ }
+      const {
+        data: jobForOrg,
+      } = await supabase
+        .from("service_calls")
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "id",
+          service_call_id
+        )
+        .single();
 
-    return new Response(JSON.stringify({
-      success: true,
-      customer_name: customer.name,
-      payment_link: paymentLink,
-    }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      const activityOrgId =
+        jobForOrg
+          ?.organisation_id ||
+        null;
+
+      if (!activityOrgId) {
+        console.error(
+          `send-extrawork-payment-link: skipping customer_activity insert — job ${service_call_id} missing organisation_id`
+        );
+      } else {
+        await supabase
+          .from(
+            "customer_activity"
+          )
+          .insert({
+            organisation_id:
+              activityOrgId,
+            customer_id,
+            service_call_id,
+            event_type:
+              "whatsapp_sent",
+            event_label:
+              "WhatsApp sent — Extra Work Payment",
+          });
+      }
+    } catch {
+      // Non-critical.
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        whatsapp_sent: true,
+        customer_name:
+          customer.name,
+        payment_link:
+          paymentLink,
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type":
+            "application/json",
+        },
+      }
+    );
   } catch (err) {
-    console.error("send-extrawork-payment-link error:", err);
-    return new Response(JSON.stringify({ error: err.message || "Internal server error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error(
+      "send-extrawork-payment-link error:",
+      err
+    );
+
+    return new Response(
+      JSON.stringify({
+        error:
+          err instanceof Error
+            ? err.message
+            : "Internal server error",
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type":
+            "application/json",
+        },
+      }
+    );
   }
 });

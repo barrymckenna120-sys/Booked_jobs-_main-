@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { format, isToday } from "date-fns";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
+import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
+import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
+import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 
 type Props = {
   weekDays: Date[];
@@ -25,6 +28,18 @@ const jobTypeBadge = (type: string) => {
     default:
       return <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5 py-0">{type || "Service"}</Badge>;
   }
+};
+
+const mediaBadge = (count?: number) => {
+  if (!count || count < 1) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground bg-muted rounded-full px-1.5 py-0 shrink-0"
+      title={`${count} photo${count === 1 ? "" : "s"} / video${count === 1 ? "" : "s"}`}
+    >
+      <Camera className="w-2.5 h-2.5" /> {count}
+    </span>
+  );
 };
 
 // Normalize time_block using the block map from parent
@@ -145,6 +160,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                                   <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
+                                  <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} status={(job as any).status} size="sm" />
                                   {["En Route", "On Site", "In Progress"].includes(job.status) && (
                                     <span className="text-[9px] font-bold text-warning bg-warning/10 rounded-full px-1.5 py-0.5">
                                       {job.status === "En Route" ? "🚗" : job.status === "On Site" ? "📍" : "⚙️"} {job.status}
@@ -179,6 +195,8 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                               </div>
                               <div className="flex items-center gap-1 mt-1">
                                 {jobTypeBadge(job.job_type)}
+                                {mediaBadge(job.media_count)}
+                                <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
                               {selectedEngineer === "all" && job.assigned_engineer && (
@@ -236,7 +254,10 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             <span className="text-[10px] font-mono text-muted-foreground">{job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`}</span>
                           </div>
                           <div className="flex items-center gap-1">
+                            <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} status={(job as any).status} size="sm" />
                             {jobTypeBadge(job.job_type)}
+                            {mediaBadge(job.media_count)}
+                            <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
                           </div>
                         </div>

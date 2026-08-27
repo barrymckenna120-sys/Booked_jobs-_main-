@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,10 @@ import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileT
 import { format } from "date-fns";
 import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
+
+type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
+type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
+type QuoteWithCustomer = QuoteRow & { customers: CustomerRow };
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "bg-muted text-muted-foreground",
@@ -69,23 +74,63 @@ const QuoteDetail = () => {
     enabled: !!id,
   });
 
-  const markAccepted = async () => {
+  // The deposit lives on the job created from this quote, not on the quote row.
+  const convertedJobId = (quote as any)?.converted_job_id as string | null | undefined;
+  const { data: convertedJob } = useQuery({
+    queryKey: ["quote-converted-job", convertedJobId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_calls")
+        .select("id, deposit_amount, deposit_paid, payment_status, paid_at")
+        .eq("id", convertedJobId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!convertedJobId,
+  });
+
+  const depositPaidAt = convertedJob?.deposit_paid ? convertedJob.paid_at : null;
+  const depositAmount = Number(convertedJob?.deposit_amount ?? 0);
+
+  const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
     try {
-      const { error } = await supabase.rpc("respond_to_quote", { p_quote_id: id, p_accepted: true });
+      if (accepted) {
+        // Route staff acceptance through the same edge function as the public
+        // approval page so the deposit payment link + WhatsApp are sent here too.
+        // (accept-quote calls respond_to_quote internally and sends the office alert.)
+        const { data, error } = await supabase.functions.invoke("accept-quote", {
+          body: { quote_id: id, access_token: quote?.access_token },
+        });
+        if (error || (data && data.success === false)) {
+          toast({
+            title: "Error",
+            description: (data && data.error) || error?.message || "Failed to accept quote",
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({ title: "Quote accepted — job created ✅" });
+        queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
+        return;
+      }
+
+      const { error } = await supabase.rpc("respond_to_quote", {
+        p_quote_id: id,
+        p_accepted: false,
+        p_access_token: quote?.access_token,
+      });
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Quote accepted — job created ✅" });
+      toast({ title: "Quote rejected" });
       queryClient.invalidateQueries({ queryKey: ["quote-detail", id] });
-
-      // Send WhatsApp office alert (best-effort)
-      supabase.functions.invoke("quote-accepted-alert", { body: { quote_id: id } }).catch(() => {});
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
+
 
 
 
@@ -135,7 +180,7 @@ const QuoteDetail = () => {
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   if (!quote) return <div className="text-center py-20 text-muted-foreground">Quote not found</div>;
 
-  const q: any = quote;
+  const q = quote as QuoteWithCustomer;
   const customer: any = q.customers;
 
   // Use quote_line_items table rows if available, otherwise fall back to JSONB line_items column
@@ -291,10 +336,21 @@ const QuoteDetail = () => {
               { label: "Sent", date: q.sent_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.sent_at },
               { label: "Viewed", date: q.viewed_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.viewed_at },
               { label: "Accepted", date: q.accepted_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.accepted_at },
+              {
+                label: depositAmount > 0 ? `Deposit Paid · €${depositAmount.toFixed(2)}` : "Deposit Paid",
+                date: depositPaidAt,
+                fmt: "dd MMMM yyyy HH:mm",
+                active: !!depositPaidAt,
+                // Stays on the timeline before payment, greyed out like any
+                // other step that has not been reached yet.
+                pending: !depositPaidAt,
+              },
               { label: "Expires", date: q.expiry_date, fmt: "dd MMMM yyyy", active: !!q.expiry_date },
             ]
-              .filter((step) => step.active)
-              .map((step, i, arr) => (
+              .filter((step) => step.active || (step as { pending?: boolean }).pending)
+              .map((step, i, arr) => {
+                const pending = !step.active;
+                return (
                 <div key={step.label} className="relative pb-5 last:pb-0">
                   {/* Connecting line */}
                   {i < arr.length - 1 && (
@@ -303,19 +359,23 @@ const QuoteDetail = () => {
                   {/* Dot */}
                   <span
                     className={`absolute left-[-20px] top-[5px] w-[9px] h-[9px] rounded-full border-2 ${
-                      i === arr.length - 1 && step.label !== "Expires"
-                        ? "border-primary bg-primary"
-                        : step.label === "Expires"
+                      pending || step.label === "Expires"
                         ? "border-muted-foreground bg-muted"
                         : "border-primary bg-primary"
                     }`}
                   />
                   <p className="text-sm leading-tight">
-                    <span className="font-semibold text-foreground">{step.label}</span>
-                    <span className="text-muted-foreground ml-2">{format(new Date(step.date!), step.fmt)}</span>
+                    <span className={`font-semibold ${pending ? "text-muted-foreground" : "text-foreground"}`}>
+                      {step.label}
+                    </span>
+                    <span className="text-muted-foreground ml-2">
+                      {step.date ? format(new Date(step.date), step.fmt) : "—"}
+                    </span>
                   </p>
                 </div>
-              ))}
+                );
+              })}
+
           </div>
         </CardContent>
       </Card>
@@ -403,7 +463,7 @@ const QuoteDetail = () => {
           Resend WhatsApp
         </Button>
         {!["Accepted", "accepted", "converted", "Paid"].includes(q.status) && (
-          <Button onClick={markAccepted}>
+          <Button onClick={() => respondToQuote(true)}>
             <CheckCircle2 className="w-4 h-4 mr-1" /> Mark Accepted
           </Button>
         )}

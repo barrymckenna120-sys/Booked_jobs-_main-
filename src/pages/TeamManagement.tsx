@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invokeFunction";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,7 @@ import {
   Wrench,
   Ban,
   Trash2,
+  UserX,
   UserCheck,
   Mail,
   Link,
@@ -207,8 +209,15 @@ const TeamManagement = () => {
   }, [user, orgId, ready]);
 
   const fetchAuthUsers = useCallback(async () => {
-    const { data, error } = await supabase.functions.invoke("list-users");
+    // Skip entirely when there's no live session — an expired/absent token
+    // makes the edge function return 401 and surfaces a spurious error toast.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) return;
+
+    const { data, error } = await invokeFunction("list-users");
     if (error) {
+      const status = (error as any)?.context?.response?.status;
+      if (status === 401) return; // session went stale mid-flight — ignore
       console.error("[TeamManagement] list-users error:", error);
       toast({
         title: "Couldn't load auth status",
@@ -233,15 +242,20 @@ const TeamManagement = () => {
       setLockedEmails(new Set());
       return;
     }
+
     const { data, error } = await supabase.functions.invoke("unblock-user", {
       body: { emails: cleaned },
     });
+
     if (error) {
       console.error("[TeamManagement] fetchLoginLockouts error:", error);
       return;
     }
+
     const locked = ((data as any)?.locked_emails ?? []) as string[];
-    setLockedEmails(new Set(locked.map((e) => e.toLowerCase())));
+    setLockedEmails(
+      new Set(locked.map((e) => e.toLowerCase()))
+    );
   }, []);
 
   useEffect(() => {
@@ -368,26 +382,33 @@ const TeamManagement = () => {
 
   const handleUnblock = async (id: string) => {
     const member = members.find((m) => m.id === id);
+    const wasDeactivated = member?.status === "deactivated";
     const emailLc = member?.email?.trim().toLowerCase() || undefined;
 
-    // Clear auth ban and/or login_attempts lockout via edge function
+    // Clear auth ban, login_attempts lockout, and engineer status server-side.
+    // engineers.status writes are restricted by RLS, so this uses the edge
+    // function to perform the service-role update safely.
     if (member?.auth_user_id || emailLc) {
       const { error } = await supabase.functions.invoke("unblock-user", {
         body: {
           userId: member?.auth_user_id ?? undefined,
+          engineerId: id,
           email: emailLc,
         },
       });
+
       if (error) {
         console.error("[TeamManagement] unblock-user error:", error);
-        toast({ title: "Failed to clear lockout", variant: "destructive" });
+        toast({
+          title: wasDeactivated
+            ? "Failed to reactivate user"
+            : "Failed to unblock user",
+          variant: "destructive",
+        });
+        return;
       }
     }
 
-    await supabase
-      .from("engineers")
-      .update({ status: "active", blocked_reason: null, is_available: true } as any)
-      .eq("id", id);
     setMembers((prev) =>
       prev.map((m) => (m.id === id ? { ...m, status: "active", blocked_reason: null, is_available: true } : m))
     );
@@ -398,80 +419,83 @@ const TeamManagement = () => {
         return next;
       });
     }
-    toast({ title: `${member?.name} has been unblocked` });
+
+    toast({
+      title: wasDeactivated
+        ? `${member?.name} has been reactivated`
+        : `${member?.name} has been unblocked`,
+    });
     logAudit({
-      action_type: "user_unblocked",
+      action_type: wasDeactivated ? "user_reactivated" : "user_unblocked",
       entity_type: "user",
       entity_id: id,
-      detail: `Unblocked: ${member?.name}`,
+      detail: `${wasDeactivated ? "Reactivated" : "Unblocked"}: ${member?.name}`,
     });
     // Refresh auth users list
     fetchAuthUsers();
   };
 
 
-  const handleDelete = async () => {
+  const handleDeactivate = async () => {
     if (!deleteTarget) return;
 
-    const { data: activeJobs, error: activeJobsError } = await supabase
-      .from("service_calls")
-      .select("id, status")
-      .eq("assigned_engineer_id", deleteTarget.id)
-      .not("status", "in", "(completed,cancelled)");
+    // Soft-delete via edge function: bans auth login, marks profile inactive,
+    // and sets engineers.status='deactivated'. Reversible via Reactivate.
+    const { data, error } = await supabase.functions.invoke("deactivate-user", {
+      body: { engineerId: deleteTarget.id },
+    });
 
-    if (activeJobsError) {
-      console.error("Active jobs check error:", activeJobsError);
-      toast({
-        title: "Failed to remove user",
-        description: activeJobsError.message,
-        variant: "destructive",
-      });
+    // supabase-js treats non-2xx as an error; parse the response body for the error code.
+    let payload: any = data;
+    if (error && (error as any).context?.response) {
+      try {
+        payload = await (error as any).context.response.clone().json();
+      } catch {
+        payload = null;
+      }
+    }
+
+    if (error || payload?.error) {
+      const errCode = payload?.error;
+      if (errCode === "active_jobs") {
+        const count = payload.count ?? 0;
+        toast({
+          title: `Cannot deactivate ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
+          variant: "destructive",
+        });
+      } else if (errCode === "Cross-tenant action not permitted") {
+        toast({
+          title: "Unable to complete this action",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Failed to deactivate user",
+          variant: "destructive",
+        });
+      }
       setDeleteTarget(null);
       return;
     }
 
-    if (activeJobs && activeJobs.length > 0) {
-      const count = activeJobs.length;
-      toast({
-        title: `Cannot remove ${deleteTarget.name} — they have ${count} active job${count === 1 ? "" : "s"} assigned. Reassign or complete these jobs first.`,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-      return;
-    }
 
-    const { error } = await supabase
-      .from("engineers")
-      .delete()
-      .eq("id", deleteTarget.id);
-
-    if (error) {
-      console.error("Delete error:", error);
-      toast({
-        title: "Failed to remove user",
-        description: error.message,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-      return;
-    }
-
-    if (deleteTarget.auth_user_id) {
-      await supabase
-        .from("profiles")
-        .delete()
-        .eq("user_id", deleteTarget.auth_user_id);
-    }
-
-    setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
-    toast({ title: `${deleteTarget.name} has been removed` });
+    setMembers((prev) =>
+      prev.map((m) =>
+        m.id === deleteTarget.id
+          ? { ...m, status: "deactivated", is_available: false, blocked_reason: "Deactivated" }
+          : m,
+      ),
+    );
+    toast({ title: `${deleteTarget.name} deactivated` });
     logAudit({
-      action_type: "user_removed",
+      action_type: "user_deactivated",
       entity_type: "user",
       entity_id: deleteTarget.id,
-      detail: `Removed: ${deleteTarget.name}`,
+      detail: `Deactivated: ${deleteTarget.name}`,
+      metadata: { auth_user_id: deleteTarget.auth_user_id },
     });
     setDeleteTarget(null);
+    fetchAuthUsers();
   };
 
   const handleSendInvite = async (member: TeamMember) => {
@@ -769,15 +793,31 @@ const TeamManagement = () => {
                   </div>
 
                   {/* Role badge */}
-                  <Badge
-                    variant="outline"
-                    className={`shrink-0 gap-1 ${isBlocked ? "bg-destructive/10 text-destructive border-destructive/20" : ROLE_COLORS[member.role] || ""}`}
-                  >
-                    {isBlocked ? <Ban className="w-3 h-3" /> : role.icon}
-                    {isBlocked ? "Blocked" : role.label}
-                  </Badge>
+                  {(() => {
+                    const isDeactivated = member.status === "deactivated";
+                    const isHardBlocked = isBlocked && !isDeactivated;
+                    const pillLabel = isDeactivated ? "Deactivated" : isHardBlocked ? "Blocked" : role.label;
+                    const pillClass = isDeactivated
+                      ? "bg-muted text-muted-foreground border-border"
+                      : isHardBlocked
+                      ? "bg-destructive/10 text-destructive border-destructive/20"
+                      : ROLE_COLORS[member.role] || "";
+                    const pillIcon = isDeactivated ? (
+                      <UserX className="w-3 h-3" />
+                    ) : isHardBlocked ? (
+                      <Ban className="w-3 h-3" />
+                    ) : (
+                      role.icon
+                    );
+                    return (
+                      <Badge variant="outline" className={`shrink-0 gap-1 ${pillClass}`}>
+                        {pillIcon}
+                        {pillLabel}
+                      </Badge>
+                    );
+                  })()}
 
-                  {/* Inline Unblock button */}
+                  {/* Inline Reactivate / Unblock button */}
                   {isBlocked && (
                     <Button
                       size="sm"
@@ -786,7 +826,7 @@ const TeamManagement = () => {
                       onClick={() => handleUnblock(member.id)}
                     >
                       <UserCheck className="w-3.5 h-3.5" />
-                      Unblock
+                      {member.status === "deactivated" ? "Reactivate" : "Unblock"}
                     </Button>
                   )}
 
@@ -845,7 +885,7 @@ const TeamManagement = () => {
                       {isBlocked ? (
                         <DropdownMenuItem onClick={() => handleUnblock(member.id)}>
                           <UserCheck className="w-4 h-4 mr-2 text-green-600" />
-                          Unblock
+                          {member.status === "deactivated" ? "Reactivate" : "Unblock"}
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
@@ -856,13 +896,15 @@ const TeamManagement = () => {
                           Block User
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setDeleteTarget(member)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Remove
-                      </DropdownMenuItem>
+                      {member.status !== "deactivated" && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(member)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Deactivate
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -1013,18 +1055,18 @@ const TeamManagement = () => {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate {deleteTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes them from the team. Their job history will be kept but they will lose all access. This cannot be undone.
+              Their access will be revoked and they can be reactivated later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={handleDeactivate}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Yes, Remove
+              Deactivate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

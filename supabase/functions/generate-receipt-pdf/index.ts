@@ -1,9 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function esc(str: string | null | undefined): string {
@@ -16,11 +18,6 @@ const formatDate = (d: string | null) => {
   return new Date(d).toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const addMonths = (d: string, months: number) => {
-  const date = new Date(d + "T00:00:00");
-  date.setMonth(date.getMonth() + months);
-  return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
-};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -32,7 +29,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { job_id } = await req.json();
+    const { job_id, payment_amount } = await req.json();
     if (!job_id) {
       return new Response(JSON.stringify({ error: "job_id is required" }), {
         status: 400,
@@ -43,7 +40,7 @@ Deno.serve(async (req) => {
     // Fetch job
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
-      .select("id, job_reference, job_type, scheduled_date, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, assigned_engineer, deposit_amount, receipt_pdf_url")
+      .select("id, job_reference, job_type, scheduled_date, completed_at, payment_method, revenue, receipt_number, customer_id, user_id, organisation_id, assigned_engineer, deposit_amount, receipt_pdf_url, customer_facing_notes")
       .eq("id", job_id)
       .single();
 
@@ -54,8 +51,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If PDF already exists, return it
-    if (job.receipt_pdf_url) {
+    // If PDF already exists, return it unless the caller provides the exact
+    // payment amount for a newly-recorded charge. In that case regenerate so a
+    // deposit/balance receipt cannot reuse an older full-total PDF.
+    if (job.receipt_pdf_url && payment_amount === undefined) {
       return new Response(JSON.stringify({ pdf_url: job.receipt_pdf_url }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -64,14 +63,14 @@ Deno.serve(async (req) => {
     // Fetch customer
     const { data: customer } = await supabase
       .from("customers")
-      .select("name, address, eircode, phone")
+      .select("name, address, eircode, phone, boiler_brand, boiler_model, warranty_expiry_date, next_service_due, gprn")
       .eq("id", job.customer_id)
       .single();
 
     // Fetch settings (scoped to organisation)
     const { data: settings } = await supabase
       .from("settings")
-      .select("business_name, business_phone, business_address, rgi_number, message_footer")
+      .select("business_name, business_phone, business_address, rgi_number, message_footer, receipt_show_boiler_details")
       .eq("organisation_id", job.organisation_id)
       .maybeSingle();
 
@@ -82,9 +81,25 @@ Deno.serve(async (req) => {
     const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
     const receiptNum = job.receipt_number || "—";
     const serviceDate = job.scheduled_date || new Date().toISOString().split("T")[0];
-    const amount = job.revenue ? `€${Number(job.revenue).toFixed(2)}` : "€0.00";
+    const { data: latestPayment } = await supabase
+      .from("job_payments")
+      .select("amount")
+      .eq("service_call_id", job_id)
+      .gt("amount", 0)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const amount = formatReceiptAmount(
+      resolveReceiptAmount({
+        paymentAmount: payment_amount,
+        ledgerAmount: latestPayment?.amount,
+        revenue: job.revenue,
+      }),
+    );
     const paymentMethod = job.payment_method === "card" ? "Card" : job.payment_method === "cash" ? "Cash" : "Invoice";
-    const nextDue = addMonths(serviceDate, 12);
+    
     const customerName = customer?.name || "Customer";
     const customerAddress = `${customer?.address || ""} ${customer?.eircode || ""}`.trim();
     const engineerName = job.assigned_engineer || "—";
@@ -182,13 +197,78 @@ Deno.serve(async (req) => {
     addText(amount, pageW - margin - 6, y + 9, { size: 14, bold: true, color: [74, 134, 232], align: "right" });
     y += 22;
 
+    // Section: Boiler Details + Notes (hidden entirely when both are empty)
+    const makeModel = [customer?.boiler_brand, customer?.boiler_model].filter(Boolean).join(" ").trim();
+    const warrantyText = (() => {
+      const raw = customer?.warranty_expiry_date;
+      if (!raw) return null;
+      const expiry = new Date(String(raw).includes("T") ? String(raw) : `${raw}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return expiry >= today ? `Under Warranty (until ${formatDate(String(raw))})` : "Warranty Expired";
+    })();
+    const boilerRows: [string, string][] = [];
+    if (makeModel) boilerRows.push(["Make & Model", makeModel]);
+    if (warrantyText) boilerRows.push(["Warranty", warrantyText]);
+    if (customer?.next_service_due) boilerRows.push(["Next Service Due", formatDate(String(customer.next_service_due))]);
+    if (customer?.gprn) boilerRows.push(["GPRN", String(customer.gprn)]);
+    const notesText = (job.customer_facing_notes || "").trim();
+    // Per-tenant toggle; missing/undefined is treated as enabled.
+    const boilerDetailsEnabled = settings?.receipt_show_boiler_details !== false;
+
+    if (boilerDetailsEnabled && (boilerRows.length > 0 || notesText)) {
+      const colGap = 8;
+      const colW = (contentW - colGap) / 2;
+      const singleCol = boilerRows.length === 0 || !notesText;
+      const leftX = margin;
+      const rightX = boilerRows.length === 0 ? margin : margin + colW + colGap;
+      const rightW = singleCol ? contentW : colW;
+
+      let leftHeight = 0;
+      if (boilerRows.length > 0) {
+        let ly = y;
+        addText("BOILER DETAILS", leftX, ly, { size: 8, bold: true, color: [107, 114, 128] });
+        ly += 6;
+        for (const [label, value] of boilerRows) {
+          addText(label, leftX, ly, { size: 8, color: [107, 114, 128] });
+          ly += 4;
+          const lines = doc.splitTextToSize(value, singleCol ? contentW : colW) as string[];
+          for (const line of lines) {
+            addText(line, leftX, ly, { size: 9, bold: true });
+            ly += 4.5;
+          }
+          ly += 1.5;
+        }
+        leftHeight = ly - y;
+      }
+
+      let rightHeight = 0;
+      if (notesText) {
+        let ry = y;
+        addText("NOTES", rightX, ry, { size: 8, bold: true, color: [107, 114, 128] });
+        ry += 4;
+        const noteLines = doc.splitTextToSize(notesText, rightW - 8) as string[];
+        const boxH = noteLines.length * 4.5 + 6;
+        doc.setFillColor(245, 247, 250);
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(rightX, ry, rightW, boxH, 3, 3, "FD");
+        let ty = ry + 5.5;
+        for (const line of noteLines) {
+          addText(line, rightX + 4, ty, { size: 9, color: [55, 65, 81] });
+          ty += 4.5;
+        }
+        rightHeight = ry + boxH - y;
+      }
+
+      y += Math.max(leftHeight, rightHeight) + 6;
+    }
+
     drawLine(y);
     y += 8;
 
     // Footer
     addText(`Thank you for choosing ${businessName}.`, margin, y, { size: 9, color: [107, 114, 128] });
-    y += 5;
-    addText(`Next annual boiler service due: ${nextDue}`, margin, y, { size: 9, color: [107, 114, 128] });
     if (rgiNumber) {
       y += 5;
       addText(`RGI Reg: ${rgiNumber}`, margin, y, { size: 9, color: [107, 114, 128] });
@@ -198,11 +278,21 @@ Deno.serve(async (req) => {
     const pdfOutput = doc.output("arraybuffer");
     const pdfBytes = new Uint8Array(pdfOutput);
 
-    // Upload to certificates bucket
-    const fileName = `receipt-${receiptNum || job.id.slice(0, 8)}.pdf`;
+    // Upload to certificates bucket under <organisation_id>/<filename>
+    if (!job.organisation_id) {
+      return new Response(JSON.stringify({ error: "Service call missing organisation_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Storage keys only allow a safe ASCII subset — receiptNum can be a
+    // placeholder like "—" when no receipt number exists yet, which produces
+    // an InvalidKey 400 on upload. Sanitize, then fall back to the job id.
+    const safeRef = String(receiptNum || "").replace(/[^A-Za-z0-9._-]/g, "");
+    const fileName = `receipt-${safeRef || job.id.slice(0, 8)}.pdf`;
+    const storagePath = `${job.organisation_id}/${fileName}`;
     const { error: uploadError } = await supabase.storage
       .from("certificates")
-      .upload(fileName, pdfBytes, {
+      .upload(storagePath, pdfBytes, {
         contentType: "application/pdf",
         upsert: true,
       });
@@ -215,20 +305,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get permanent public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("certificates")
-      .getPublicUrl(fileName);
-
-    const pdfUrl = publicUrlData.publicUrl;
-
-    // Save URL to service_calls
+    // Save the raw storage object path (Stage 2 flips bucket private —
+    // signed URLs are minted on demand by resolve-document-link).
     await supabase
       .from("service_calls")
-      .update({ receipt_pdf_url: pdfUrl })
+      .update({ receipt_pdf_url: storagePath })
       .eq("id", job_id);
 
-    return new Response(JSON.stringify({ pdf_url: pdfUrl }), {
+    return new Response(JSON.stringify({ pdf_url: storagePath }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

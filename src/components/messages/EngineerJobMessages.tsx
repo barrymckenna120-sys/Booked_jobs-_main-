@@ -58,21 +58,8 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
       } as any);
       if (error) throw error;
 
-      // Notify office
-      if (officeUserId) {
-        const fullName = (jobInfo as any)?.customers?.name || "Customer";
-        const invoiceNumber = (jobInfo as any)?.job_reference || "";
-        await supabase.from("notifications").insert({
-          organisation_id: orgId,
-          recipient_user_id: officeUserId,
-          notification_type: "message",
-          title: `${engineerName} – ${fullName} (${invoiceNumber})`,
-          body: message.trim(),
-          job_id: jobId,
-          role: "office",
-          metadata: { customer_name: fullName, job_reference: invoiceNumber },
-        } as any);
-      }
+      // Notifications are fanned out by the notify_on_job_message DB trigger.
+
 
       setMessage("");
       setIsPreset(false);

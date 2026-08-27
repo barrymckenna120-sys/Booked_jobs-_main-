@@ -7,9 +7,10 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Video, AlertTriangle } from "lucide-react";
+import { CheckCheck, X, Wrench, XCircle, ArrowRightLeft, Ban, CheckCircle2, Banknote, Video, AlertTriangle, Lock, PackageCheck } from "lucide-react";
 import type { AppNotification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
+import { resolveNotificationTarget } from "@/lib/notificationTarget";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   new_job:       { icon: Wrench,         color: "text-success",     label: "New Job" },
@@ -18,10 +19,14 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; label
   no_show:       { icon: Ban,            color: "text-destructive", label: "No Show" },
   completed:     { icon: CheckCircle2,   color: "text-success",     label: "Completed" },
   parts_needed:      { icon: Wrench,         color: "text-amber-500",   label: "Parts Needed" },
+  parts_cancelled:   { icon: XCircle,        color: "text-destructive", label: "Part Cancelled" },
+  parts_update:      { icon: PackageCheck,   color: "text-amber-500",   label: "Part Update" },
   payment_collected:     { icon: Banknote,       color: "text-emerald-500", label: "Payment" },
+  payment_failed:        { icon: XCircle,        color: "text-destructive", label: "Payment Failed" },
   new_video_uploaded:    { icon: Video,          color: "text-primary",     label: "New Video" },
   quote_accepted:        { icon: CheckCircle2,   color: "text-success",     label: "Quote Accepted" },
   follow_up:             { icon: AlertTriangle,  color: "text-amber-500",   label: "Follow-up" },
+  user_locked_out:       { icon: Lock,           color: "text-destructive", label: "User Locked Out" },
 };
 
 type FilterTab = "all" | "unread" | "engineer" | "office";
@@ -33,6 +38,8 @@ interface Props {
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onDismiss: (id: string) => void;
+  /** Hides tabs that can never match on this surface (Office bell excludes engineer rows). */
+  surface?: "engineer" | "office";
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -49,16 +56,21 @@ const NotificationDrawer = ({
   onMarkRead,
   onMarkAllRead,
   onDismiss,
+  surface,
 }: Props) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const tabs = TABS.filter((t) => {
+    if (surface === "office") return t.key !== "engineer";
+    if (surface === "engineer") return t.key !== "office";
+    return true;
+  });
 
   const handleNotificationClick = (n: AppNotification) => {
     if (!n.is_read) onMarkRead(n.id);
     onOpenChange(false);
-    if (n.job_id) {
-      navigate(`/jobs/${n.job_id}`);
-    }
+    const target = resolveNotificationTarget(n, "/jobs");
+    if (target) navigate(target);
   };
 
   const filtered = notifications.filter((n) => {
@@ -82,7 +94,7 @@ const NotificationDrawer = ({
 
         {/* Filter Tabs */}
         <div className="flex gap-1 px-4 pb-3">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}

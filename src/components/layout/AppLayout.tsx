@@ -5,9 +5,9 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2, ScrollText, Hammer,
+  CalendarCheck, Layers, Shield, BarChart2, Hammer,
 } from "lucide-react";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
@@ -29,8 +29,10 @@ import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 
 /* ──────────────────────────────────────────────
-   DESKTOP sidebar nav — 9 items
+   DESKTOP sidebar nav — 11 items
    Settings is a gear icon in the header
+   Message Log is deprecated: messaging lives in
+   Chat Inbox + the Dashboard feed
    ────────────────────────────────────────────── */
 const DESKTOP_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -41,14 +43,15 @@ const DESKTOP_NAV = [
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: PoundSterling, path: "/finance" },
   { label: "Insights", icon: BarChart2, path: "/insights" },
-  { label: "Message Log", icon: ScrollText, path: "/message-log" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },
 ];
 
 /* ──────────────────────────────────────────────
-   MOBILE bottom nav — 10 tabs, horizontally scrollable
+   MOBILE bottom nav — fixed to exactly 5 tabs,
+   no horizontal scroll. Deliberate: high-contrast
+   icons sized for outdoor readability.
    ────────────────────────────────────────────── */
 const MOBILE_NAV = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -57,8 +60,6 @@ const MOBILE_NAV = [
   { label: "Pipeline", icon: Layers, path: "/pipeline" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
 ];
-
-const MOBILE_NAV_SCROLL_STORAGE_KEY = "mobile-nav-scroll-left";
 
 const AppLayoutInner = () => {
   const { user, signOut } = useAuth();
@@ -76,49 +77,30 @@ const AppLayoutInner = () => {
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
-  } = useNotifications();
+  } = useNotifications("office");
   const unreadMessages = useUnreadMessages();
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],
     queryFn: async () => {
       const { count } = await supabase
-        .from("service_calls")
+        .from("parts_requests" as any)
         .select("id", { count: "exact", head: true })
-        .in("status", ["parts_needed", "parts_ordered"]);
+        .in("status", ["Open", "Ordered", "Ready to Fit"]);
       return count || 0;
     },
     refetchInterval: 30000,
   });
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
-  const mobileNavRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { unlockAudio(); }, []);
 
   useEffect(() => {
-    const nav = mobileNavRef.current;
-    if (!nav) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      // Always start at 0 (Dashboard visible) — don't restore stale scroll positions
-      nav.scrollLeft = 0;
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    const nav = mobileNavRef.current;
-    if (!nav) return;
-
-    const persistScroll = () => {
-      window.sessionStorage.setItem(MOBILE_NAV_SCROLL_STORAGE_KEY, String(nav.scrollLeft));
+    unlockAudio();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        unlockAudio();
+      }
     };
-
-    nav.addEventListener("scroll", persistScroll, { passive: true });
-
-    return () => {
-      nav.removeEventListener("scroll", persistScroll);
-    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   if (!roleLoading && isEngineer && !canAccessOffice) {
@@ -304,6 +286,7 @@ const AppLayoutInner = () => {
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
       <NotificationDrawer
+        surface="office"
         open={notifOpen}
         onOpenChange={setNotifOpen}
         notifications={notifications}
@@ -322,7 +305,7 @@ const AppLayoutInner = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
-      <MessageAlertBanner />
+      <MessageAlertBanner jobPathPrefix="/jobs" />
       {user && (
         <OnboardingTour
           open={showTour}

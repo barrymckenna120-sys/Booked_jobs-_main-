@@ -1,9 +1,20 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { evaluateOptOut } from "../_shared/optOut.ts";
+import { last9Digits, toE164Digits } from "../_shared/phone.ts";
+import {
+  cooldownWindowStart,
+  isDuplicateRenewalSend,
+} from "../_shared/renewalSendGuard.ts";
+
+
+
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -19,6 +30,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log("Request received:", JSON.stringify(body));
     const { customer_id, phone, first_name, renewal_date } = body;
+    const force = body?.force === true;
+
 
     if (!customer_id || !phone || !first_name || !renewal_date) {
       console.log("Missing required fields:", { customer_id, phone, first_name, renewal_date });
@@ -28,13 +41,97 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Resolve organisation + branding
+    // Resolve organisation + branding (and enforce the opt-out guard)
     const { data: custOrg } = await supabase
       .from("customers")
-      .select("organisation_id")
+      .select("organisation_id, opted_out, phone")
       .eq("id", customer_id)
       .maybeSingle();
+
+    // Renewal reminders are marketing-style outreach — never message an
+    // opted-out customer, even if a caller passes a phone number directly.
+    const optOut = evaluateOptOut(custOrg as any);
+    if (optOut.skip && optOut.reason === "customer_opted_out") {
+      console.log("Skipping renewal reminder — customer opted out:", customer_id);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "customer_opted_out" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const orgId = custOrg?.organisation_id;
+
+    // Normalise the recipient number up front — the duplicate guard keys off
+    // the phone, not just the customer row. An unusable number is a 400, not a
+    // 500, and must never reach the messaging API.
+    let cleanPhone: string;
+    try {
+      cleanPhone = toE164Digits(phone);
+    } catch (_e) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Unrecognised phone format: ${phone}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const phoneTail = last9Digits(phone);
+    console.log("Phone formatted:", cleanPhone, "(original:", phone, ")");
+
+
+    // Duplicate guard (authoritative, server-side). Two separate bugs feed it:
+    //   1. A double-tapped button / retried request re-sending to the SAME
+    //      customer row (observed: 3 identical messages in 1.3s).
+    //   2. Several customer rows sharing ONE phone number (observed: 7 rows on
+    //      +353872354257), so a bulk run messaged the same person repeatedly —
+    //      a per-customer_id check alone would miss this entirely.
+    // So we dedup across every customer in this org sharing the number.
+    let dedupCustomerIds = [customer_id];
+    if (orgId && phoneTail.length >= 7) {
+      const { data: siblings } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("organisation_id", orgId)
+        .ilike("phone", `%${phoneTail}`);
+      const ids = (siblings ?? []).map((s: any) => s.id).filter(Boolean);
+      if (ids.length) dedupCustomerIds = Array.from(new Set([customer_id, ...ids]));
+    }
+    console.log("Dedup scope — customer rows sharing this number:", dedupCustomerIds.length);
+
+    // The "pending" log row is written before the outbound API call, so a
+    // near-simultaneous second invocation sees it here and is suppressed.
+    const { data: recentReminders, error: recentErr } = await supabase
+      .from("message_log")
+      .select("sent_at, status")
+      .in("customer_id", dedupCustomerIds)
+      .eq("message_type", "renewal_reminder")
+      .gte("sent_at", cooldownWindowStart())
+      .order("sent_at", { ascending: false })
+      .limit(20);
+
+    if (recentErr) {
+      // Fail closed: if we cannot prove this is not a duplicate, do not send.
+      console.log("Duplicate-guard lookup failed:", recentErr.message);
+      return new Response(
+        JSON.stringify({ success: false, error: `Duplicate guard lookup failed: ${recentErr.message}` }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const dupe = isDuplicateRenewalSend(recentReminders as any, new Date(), { force });
+    if (dupe.duplicate) {
+      console.log("Skipping renewal reminder — already sent:", customer_id, "last:", dupe.lastSentAt);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: dupe.reason,
+          last_sent_at: dupe.lastSentAt,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+
+
 
     const { data: settingsRow } = orgId ? await supabase
       .from("settings")
@@ -71,19 +168,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build message
-    const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\nReply here to book your service or call us on ${companyPhone}.\n\nReply STOP to unsubscribe.\n${companyName}`;
-    console.log("Message built for:", first_name);
+    // cleanPhone is already normalised above (before the duplicate guard).
 
 
-    // Format phone — strip +, ensure 353 prefix
-    let cleanPhone = phone.replace(/[^0-9]/g, "");
-    if (cleanPhone.startsWith("0")) {
-      cleanPhone = "353" + cleanPhone.slice(1);
-    } else if (!cleanPhone.startsWith("353")) {
-      cleanPhone = "353" + cleanPhone;
-    }
-    console.log("Phone formatted:", cleanPhone, "(original:", phone, ")");
+
+    // Resolve per-tenant Tally rebooking URL. Only include link if a real URL is
+    // configured for this organisation — never fall back to another tenant's URL.
+    const { data: tallyIntegration } = orgId ? await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "tally")
+      .maybeSingle() : { data: null };
+    const renewalFormUrl = (tallyIntegration?.config as any)?.renewal_form_url;
+    const hasRebookLink = typeof renewalFormUrl === "string" && renewalFormUrl.trim().length > 0;
+
+    // Build message — link variant if configured, otherwise fall back to reply/call wording
+    const bookLine = hasRebookLink
+      ? `Book online: ${renewalFormUrl}?customer_phone=${encodeURIComponent(cleanPhone)}\n\nOr reply here or call us on ${companyPhone}.`
+      : `Reply here to book your service or call us on ${companyPhone}.`;
+    const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\n${bookLine}\n\nReply STOP to unsubscribe.\n${companyName}`;
+    console.log("Message built for:", first_name, "with rebook link:", hasRebookLink);
 
     // Log pending message
     console.log("Inserting pending message_log entry...");
@@ -95,10 +200,12 @@ Deno.serve(async (req) => {
         message_type: "renewal_reminder",
         channel: "whatsapp",
         direction: "outbound",
+        recipient_phone: cleanPhone,
         content: message,
         status: "pending",
         related_type: "renewal",
         sent_by: "system",
+
         sent_at: new Date().toISOString(),
       })
       .select("id")

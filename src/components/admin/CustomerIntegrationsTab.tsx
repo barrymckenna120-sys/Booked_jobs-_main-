@@ -18,14 +18,14 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 type Org = { id: string; name: string; slug: string };
 
 // Field defs: [integration_type, key, label, isSecret?]
-type Field = { type: string; key: string; label: string; secret?: boolean; placeholder?: string };
+type Field = { type: string; key: string; label: string; secret?: boolean; placeholder?: string; help?: string };
 
 const SECTIONS: { title: string; fields: Field[] }[] = [
   {
     title: "Booking & Rebooking",
     fields: [
-      { type: "tally_new_booking", key: "form_url", label: "New Booking Form URL", placeholder: "https://tally.so/r/..." },
-      { type: "tally_rebook", key: "form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." },
+      { type: "tally", key: "new_booking_url", label: "New Booking Form URL", placeholder: "https://tally.so/r/..." },
+      { type: "tally", key: "renewal_form_url", label: "Rebooking Form URL", placeholder: "https://tally.so/r/..." },
     ],
   },
   {
@@ -35,9 +35,17 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
     ],
   },
   {
+    title: "SumUp (Deposits & Payments)",
+    fields: [
+      { type: "sumup", key: "merchant_code", label: "SumUp Merchant Code", placeholder: "MBBMEYG7", help: "From this tenant's own SumUp account. Required — there is deliberately no shared fallback, so a blank value means SumUp checkouts fail for this tenant rather than routing into another tenant's account." },
+      { type: "sumup", key: "api_key_secret", label: "SumUp API Key Secret Name", secret: true, placeholder: "SUMUP_API_KEY_ACME_TEST", help: "Name of the backend secret holding this tenant's raw SumUp API key (not the key value itself). The secret must be added separately in Backend → Secrets." },
+      { type: "sumup", key: "environment", label: "SumUp Environment", placeholder: "test or live", help: "Which SumUp account the saved merchant code and secret belong to. Sandbox and live accounts have different merchant codes, so keep a separate secret for each and switch both together." },
+    ],
+  },
+  {
     title: "WhatsApp / 360Messenger",
     fields: [
-      { type: "whatsapp", key: "api_key", label: "360dialog API Key", secret: true },
+      { type: "360messenger", key: "api_key_secret", label: "360Messenger Secret Name", secret: true, placeholder: "THREESIXTY_API_KEY_DUBLIN_GAS", help: "Name of the Supabase secret that holds the raw 360Messenger API key for this tenant (not the key value itself). The secret must be added separately in Backend → Secrets." },
       { type: "whatsapp", key: "phone_number_id", label: "WhatsApp Phone Number ID" },
       { type: "whatsapp", key: "waba_id", label: "WABA ID" },
     ],
@@ -61,7 +69,14 @@ const SECTIONS: { title: string; fields: Field[] }[] = [
 
 const fieldId = (f: Field) => `${f.type}::${f.key}`;
 
-export default function CustomerIntegrationsTab() {
+interface CustomerIntegrationsTabProps {
+  /** Cross-link into the Messaging catalogue tab for the selected tenant. */
+  onViewMessaging?: (orgId: string) => void;
+}
+
+export default function CustomerIntegrationsTab({
+  onViewMessaging,
+}: CustomerIntegrationsTabProps = {}) {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [orgId, setOrgId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -133,10 +148,13 @@ export default function CustomerIntegrationsTab() {
 
       const rows = Object.entries(byType).map(([integration_type, patch]) => {
         const prev = (existing as any[])?.find((r) => r.integration_type === integration_type)?.config ?? {};
+        const cleaned = Object.fromEntries(
+          Object.entries(patch).filter(([, v]) => v !== "" && v != null)
+        );
         return {
           organisation_id: orgId,
           integration_type,
-          config: { ...prev, ...patch },
+          config: { ...prev, ...cleaned },
         };
       });
 
@@ -158,8 +176,18 @@ export default function CustomerIntegrationsTab() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
         <CardTitle>Customer Integrations</CardTitle>
+        {orgId && onViewMessaging && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onViewMessaging(orgId)}
+          >
+            View message status
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-1.5">
@@ -219,6 +247,9 @@ export default function CustomerIntegrationsTab() {
                             </Button>
                           )}
                         </div>
+                        {f.help && (
+                          <p className="text-xs text-muted-foreground">{f.help}</p>
+                        )}
                       </div>
                     );
                   })}

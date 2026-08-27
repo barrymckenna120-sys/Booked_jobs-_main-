@@ -1,8 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 serve(async (req) => {
@@ -29,7 +32,7 @@ serve(async (req) => {
 
     // Fetch certificate (incl. organisation_id)
     const certRes = await fetch(
-      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes,organisation_id`,
+      `${supabaseUrl}/rest/v1/certificates?id=eq.${certificate_id}&select=id,cert_number,pdf_url,customer_id,job_id,notes,organisation_id,access_token`,
       { headers }
     );
     const certs = await certRes.json();
@@ -128,8 +131,9 @@ serve(async (req) => {
 
     console.log("[send-certificate-whatsapp] cert_type_raw:", certTypeRaw, "cert_number:", cert.cert_number, "label:", certTypeLabel);
 
-    // Fetch settings: message_footer + template_certificate
-    let messageFooter = "K&N Gas Services";
+    // Fetch settings: message_footer + template_certificate. No shared footer
+    // fallback: a blank footer skips-and-logs (BJ-B2c).
+    let messageFooter = "";
     const defaultTemplate = `Hi {{customer_name}}, please find your ${certTypeLabel} {{certificate_number}}.\n\nThis certificate confirms all work has been completed in accordance with Irish gas safety standards.\n\nPlease keep this for your records.\n\nThank you for choosing us. 🔧\n\n📄 View Certificate:\n{{certificate_url}}`;
     let messageTemplate = defaultTemplate;
 
@@ -144,31 +148,59 @@ serve(async (req) => {
         if (settings[0].template_certificate) messageTemplate = settings[0].template_certificate;
       }
     }
+    messageFooter = String(messageFooter).trim();
+
+    if (!messageFooter) {
+      await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          function_name: "send-certificate-whatsapp",
+          error_message: "Skipped: message_footer_not_configured for organisation",
+          payload: {
+            organisation_id: orgId,
+            cert_number: cert.cert_number,
+            reason: "message_footer_not_configured",
+          },
+        }),
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          whatsapp_sent: false,
+          skipped: true,
+          reason: "message_footer_not_configured",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+
 
     const firstName = customer.name.split(" ")[0];
 
-    // Fetch organisation slug for tenant-specific URL
-    let orgSlug = "kngasservices";
-    {
-      const orgRes = await fetch(
-        `${supabaseUrl}/rest/v1/organisations?id=eq.${orgId}&select=slug&limit=1`,
-        { headers }
-      );
-      const orgRows = await orgRes.json();
-      if (Array.isArray(orgRows) && orgRows[0]?.slug) orgSlug = orgRows[0].slug;
+    // Resolve tenant public URL for the certificate using the unguessable
+    // access_token; null when the org has no public_domain configured — we
+    // still send the message, just without the "View Certificate" link.
+    const tenantCertUrl = cert.access_token
+      ? await getTenantPublicUrl(supabaseUrl, orgId, `/certificates/${cert.access_token}`)
+      : null;
+    if (cert.access_token && !tenantCertUrl) {
+      console.warn(`[send-certificate-whatsapp] organisation ${orgId} has no public_domain; omitting certificate link`);
     }
-
-    const cleanCertUrl = cert.cert_number
-      ? `https://${orgSlug}.bookedjobs.ie/certificates/${encodeURIComponent(cert.cert_number)}`
-      : cert.pdf_url;
-    let message = messageTemplate
+    // If no tenant URL, strip the whole line containing {{certificate_url}}
+    // from the template so the message doesn't render an empty "View Certificate:" line.
+    let effectiveTemplate = messageTemplate;
+    if (!tenantCertUrl) {
+      effectiveTemplate = effectiveTemplate.replace(/\n?[^\n]*\{\{certificate_url\}\}[^\n]*/g, "");
+    }
+    let message = effectiveTemplate
       .replace(/\{\{customer_name\}\}/g, firstName)
       .replace(/\{\{certificate_number\}\}/g, cert.cert_number || "")
       .replace(/\{\{certificate_type\}\}/g, certTypeLabel)
       .replace(/Gas Service Certificate/gi, certTypeLabel)
       .replace(/Gas Safety Certificate/gi, certTypeLabel)
       .replace(/Boiler Service Certificate/gi, certTypeLabel)
-      .replace(/\{\{certificate_url\}\}/g, cleanCertUrl);
+      .replace(/\{\{certificate_url\}\}/g, tenantCertUrl || "");
 
     // Append dynamic footer
     message += `\n\n${messageFooter}`;
@@ -207,12 +239,19 @@ serve(async (req) => {
       });
     }
 
-    // Send via 360Messenger
+    // Send via 360Messenger. Mint a short-lived signed URL for the PDF
+    // attachment so we work whether the bucket is public or private.
+    const certObjectPath = extractStoragePath("certificates", cert.pdf_url);
+    const signedDocUrl = certObjectPath
+      ? await signDocumentUrl("certificates", certObjectPath, 3600)
+      : null;
+    const docUrl = signedDocUrl || cert.pdf_url;
+
     const cleanNumber = customer.phone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
-    formData.append("doc_url", cert.pdf_url);
+    formData.append("doc_url", docUrl);
 
     const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
       method: "POST",
@@ -271,7 +310,7 @@ serve(async (req) => {
 
       if (userId) {
         const usersRes = await fetch(
-          `${supabaseUrl}/rest/v1/engineers?user_id=eq.${userId}&role=in.(admin,office)&auth_user_id=not.is.null&select=auth_user_id`,
+          `${supabaseUrl}/rest/v1/engineers?organisation_id=eq.${orgId}&role=in.(admin,office,owner)&status=eq.active&auth_user_id=not.is.null&select=auth_user_id`,
           { headers }
         );
         const adminUsers = await usersRes.json();
@@ -287,6 +326,7 @@ serve(async (req) => {
             method: "POST",
             headers,
             body: JSON.stringify({
+              organisation_id: orgId,
               recipient_user_id: recipientId,
               notification_type: "message",
               title: "⚠️ Certificate WhatsApp Failed",
