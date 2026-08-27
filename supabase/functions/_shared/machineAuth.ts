@@ -10,11 +10,50 @@
 // Everything else must be rejected with HTTP 401 by the caller.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { orgForSecret, type TenantIntegrationRow } from "./tenantSecret.ts";
 
 export function bearerToken(req: Request): string {
   const auth = req.headers.get("authorization") ?? "";
   return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 }
+
+/** The raw machine secret header value, if any. */
+export function providedSecret(req: Request): string {
+  return (
+    req.headers.get("x-webhook-secret") ??
+    req.headers.get("x-make-secret") ??
+    ""
+  ).trim();
+}
+
+/**
+ * The organisation a presented per-tenant webhook secret belongs to.
+ *
+ * This is the credential Make.com scenarios should use: it authenticates the
+ * caller AND names the tenant, so no body-supplied organisation_id can widen
+ * scope. Returns null when the secret is absent, unknown, or ambiguous.
+ */
+export async function tenantSecretOrg(req: Request): Promise<string | null> {
+  const provided = providedSecret(req);
+  if (!provided) return null;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceKey) return null;
+
+  try {
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data } = await supabase
+      .from("tenant_integrations")
+      .select("organisation_id, config");
+    return orgForSecret((data ?? []) as TenantIntegrationRow[], provided);
+  } catch (_e) {
+    return null;
+  }
+}
+
 
 /** Header shared-secret check only — synchronous, no network. */
 export function hasSharedSecret(req: Request): boolean {
