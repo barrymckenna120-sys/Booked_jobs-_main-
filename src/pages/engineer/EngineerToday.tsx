@@ -36,9 +36,10 @@ const EngineerToday = () => {
   ).length;
 
   const nextJobId = getNextJobId(todayActive);
-  const sortedActive = nextJobId
+  const sortedActive = (nextJobId
     ? [todayActive.find((j: any) => j.id === nextJobId), ...todayActive.filter((j: any) => j.id !== nextJobId)]
-    : todayActive;
+    : todayActive
+  ).filter(Boolean);
 
   // Look-ahead view state — purely local, never written anywhere.
   const [viewedJobRef, setViewedJobRef] = useState<string | null>(null);
@@ -51,8 +52,12 @@ const EngineerToday = () => {
 
   const isViewingAhead = !!viewedJob;
   const displayedJob = viewedJob || sortedActive[0];
-  const displayedIndex = displayedJob ? todayActive.findIndex((j: any) => j.id === displayedJob.id) : -1;
-  const nextViewJob = displayedIndex >= 0 ? todayActive[displayedIndex + 1] : undefined;
+  // Walk the same order the engineer sees (next job first, then rest of day),
+  // not raw time order — otherwise the button disappears whenever the next job
+  // is not the earliest slot of the day.
+  const displayedIndex = displayedJob ? sortedActive.findIndex((j: any) => j.id === displayedJob.id) : -1;
+  const nextViewJob = displayedIndex >= 0 ? sortedActive[displayedIndex + 1] : undefined;
+
 
 
   const [openPartsCount, setOpenPartsCount] = useState<number | null>(null);
