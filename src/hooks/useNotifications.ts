@@ -61,6 +61,7 @@ const HIGH_PRIORITY_TYPES = new Set([
   "reassigned",
   "no_show",
   "new_video_uploaded",
+  "parts_requested",
 ]);
 
 // Vibration for high-priority notifications (double pulse)
