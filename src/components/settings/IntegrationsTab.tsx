@@ -155,8 +155,9 @@ const IntegrationsTab = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Renewal Booking URL</Label>
+            <Label className="text-xs font-semibold">Renewal/Warranty Form URL</Label>
             <Input value={renewalUrl} onChange={(e) => setRenewalUrl(e.target.value)} placeholder="https://..." />
+            <p className="text-xs text-muted-foreground">Used for both rebooking reminders and warranty reminders. If this is blank, warranty sends skip rather than falling back to another URL.</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">New Booking URL</Label>
