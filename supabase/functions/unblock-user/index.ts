@@ -239,23 +239,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (
-      !bypassOrgCheck &&
-      (
-        !callerOrgId ||
-        !targetOrgId ||
-        callerOrgId !==
-          targetOrgId
-      )
-    ) {
-      return json(
-        {
-          error:
-            "Cross-tenant action not permitted",
-        },
-        403
-      );
-    }
+    // targetOrgId is always derived server-side above (engineer row / profile /
+    // auth email lookup) — a body-supplied organisation cannot widen scope.
+    const blocked = crossTenantDenied(
+      caller,
+      targetOrgId,
+      corsHeaders,
+      "unblock-user",
+    );
+    if (blocked) return blocked;
+
 
     const performed: string[] =
       [];
