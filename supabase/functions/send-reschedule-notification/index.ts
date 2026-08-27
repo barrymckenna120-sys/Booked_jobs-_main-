@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,20 +76,14 @@ serve(async (req) => {
 
 
 
-    // Fetch customer
-    const custRes = await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${job.customer_id}&select=name,phone`, {
-      headers: dbHeaders,
+    // Consent gate (opted_out authoritative, DB-stored recipient only).
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-reschedule-notification",
+      orgId: access.orgId,
+      customerId: job.customer_id,
     });
-    const custRows = await custRes.json();
-    const customer = Array.isArray(custRows) ? custRows[0] : null;
-    if (!customer || !customer.phone) {
-      console.log("Customer not found or missing phone");
-      return new Response(JSON.stringify({ success: false, error: "Customer not found or missing phone" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-    console.log("Customer:", { name: customer.name, phone: customer.phone });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const customer = { name: consent.name ?? "", phone: consent.phone };
 
     // Tenant footer (BJ-B3b). This org's own settings only — no shared fallback.
     const settingsRes = await fetch(

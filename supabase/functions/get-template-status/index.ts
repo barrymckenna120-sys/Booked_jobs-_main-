@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,10 +19,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { organisation_id } = await req.json().catch(() => ({}));
-    if (!organisation_id || typeof organisation_id !== "string") {
-      return json({ error: "organisation_id is required" }, 400);
-    }
+    const { organisation_id: claimedOrgId } = await req.json().catch(() => ({}));
+
+    // Caller is bound to one tenant server-side.
+    const access = await requireBoundOrg(req, {
+      fnName: "get-template-status",
+      cors: corsHeaders,
+      requestedOrgId: typeof claimedOrgId === "string" ? claimedOrgId : null,
+    });
+    if (isDenied(access)) return access.error;
+    const organisation_id = access.orgId;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,

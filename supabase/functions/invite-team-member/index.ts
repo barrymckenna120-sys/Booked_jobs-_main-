@@ -76,19 +76,29 @@ Deno.serve(async (req) => {
     );
 
     // Resolve tenant domain from tenant_integrations (whatsapp.config.domain).
-    // Derive organisation_id from request body, falling back to caller's profile.
-    let resolvedOrgId: string | null = organisation_id || null;
-    if (!resolvedOrgId) {
-      const { data: callerProfileOrg } = await supabaseAdmin
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", caller.id)
-        .maybeSingle();
-      resolvedOrgId = (callerProfileOrg as any)?.organisation_id || null;
+    // Tenant ownership: the organisation ALWAYS comes from the caller's own
+    // profile. A body-supplied organisation_id is ignored unless the caller is a
+    // superadmin, so an admin of tenant A can never invite into tenant B.
+    const { data: callerProfileOrg } = await supabaseAdmin
+      .from("profiles")
+      .select("organisation_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    const callerOrgId = (callerProfileOrg as any)?.organisation_id || null;
+    const isSuperadmin = rpcRole === "superadmin" || profileRole === "superadmin";
+
+    if (organisation_id && callerOrgId && organisation_id !== callerOrgId && !isSuperadmin) {
+      console.warn(
+        `invite-team-member: ignoring cross-tenant organisation_id ${organisation_id} from caller ${caller.id}`,
+      );
     }
 
+    const resolvedOrgId: string | null = isSuperadmin
+      ? (organisation_id || callerOrgId)
+      : callerOrgId;
+
     if (!resolvedOrgId) {
-      console.warn("invite-team-member: could not resolve organisation_id for tenant domain lookup");
+      console.warn("invite-team-member: could not resolve organisation_id for caller");
       return new Response(JSON.stringify({ error: "organisation_id not resolvable for this caller" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -194,7 +204,7 @@ Deno.serve(async (req) => {
         email,
         password: randomPassword,
         email_confirm: true,
-        user_metadata: { display_name: name, role, organisation_id },
+        user_metadata: { display_name: name, role, organisation_id: resolvedOrgId },
       });
 
       if (createError) {
@@ -283,11 +293,25 @@ Deno.serve(async (req) => {
       console.error("Failed to clear old auth link:", clearError);
     }
 
-    // Link the auth user to the engineer record
-    const { error: updateError } = await supabaseAdmin
+    // Link the auth user to the engineer record — scoped to the caller's tenant
+    // so an engineer row in another organisation can never be claimed.
+    const { data: linkedEngineer, error: updateError } = await supabaseAdmin
       .from("engineers")
       .update({ auth_user_id: authUserId, user_id: authUserId, email: email })
-      .eq("id", engineer_id);
+      .eq("id", engineer_id)
+      .eq("organisation_id", resolvedOrgId)
+      .select("id")
+      .maybeSingle();
+
+    if (!updateError && !linkedEngineer) {
+      console.warn(
+        `invite-team-member: engineer ${engineer_id} is not in org ${resolvedOrgId} — refusing to link`,
+      );
+      return new Response(JSON.stringify({ error: "Engineer not found for this organisation." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (updateError) {
       console.error("Engineer update failed:", updateError);

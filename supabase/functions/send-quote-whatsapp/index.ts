@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 
 serve(async (req) => {
@@ -20,7 +25,6 @@ serve(async (req) => {
     const {
       quote_id,
       customer_name,
-      mobile_number,
       job_description,
       quote_amount,
       parts_cost,
@@ -34,10 +38,17 @@ serve(async (req) => {
       sent_by_user_id,
     } = await req.json();
 
+    // IDOR guard: prove the caller belongs to the quote's organisation before
+    // acting with that tenant's WhatsApp credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-quote-whatsapp",
+      cors: corsHeaders,
+      resource: { table: "quotes", id: quote_id },
+    });
+    if (isDenied(access)) return access.error;
+
     if (
       !quote_id ||
-      !customer_name ||
-      !mobile_number ||
       quote_amount == null
     ) {
       return new Response(
@@ -122,6 +133,17 @@ serve(async (req) => {
         }
       );
     }
+
+    // Consent gate: opted_out is authoritative and the recipient number is the
+    // DB-stored one — a body-supplied mobile_number can never be messaged.
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-quote-whatsapp",
+      orgId: access.orgId,
+      customerId: resolvedCustomerId,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const recipientNumber = consent.phone;
+    const recipientName = consent.name || customer_name || "there";
 
     // Tenant public URLs are resolved through
     // getTenantPublicUrl().
@@ -281,7 +303,7 @@ serve(async (req) => {
     }
 
     const firstName =
-      customer_name.split(" ")[0];
+      String(recipientName).split(" ")[0];
 
     const refNumber =
       quote_number ||
@@ -442,7 +464,7 @@ YES ${refNumber}`;
         : null;
 
     const cleanNumber =
-      mobile_number.replace(
+      recipientNumber.replace(
         /^\+/,
         ""
       );
@@ -591,7 +613,7 @@ YES ${refNumber}`;
               api_response:
                 result,
               sent_to:
-                mobile_number,
+                recipientNumber,
               quote_id,
             },
           }),
@@ -657,7 +679,7 @@ YES ${refNumber}`;
               title:
                 "⚠️ WhatsApp Send Failed",
               body:
-                `Failed to send WhatsApp to ${customer_name} (${mobile_number}). Please contact them manually. Error: ${errorDetail.substring(
+                `Failed to send WhatsApp to ${recipientName} (${recipientNumber}). Please contact them manually. Error: ${errorDetail.substring(
                   0,
                   200
                 )}`,
@@ -665,9 +687,9 @@ YES ${refNumber}`;
                 "office",
               metadata: {
                 quote_id,
-                customer_name,
+                customer_name: recipientName,
                 phone:
-                  mobile_number,
+                  recipientNumber,
                 error:
                   errorDetail.substring(
                     0,

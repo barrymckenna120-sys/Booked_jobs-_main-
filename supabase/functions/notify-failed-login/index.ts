@@ -1,7 +1,43 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { AUTH_EVENT_HEADER, verifyAuthEventToken } from "../_shared/authEvent.ts";
+/**
+ * Trusted-caller gate: this function is no longer browser-callable. It accepts
+ * only a service-role caller carrying a valid, short-lived auth-event token
+ * minted by `track-failed-login` for this same email. Fails closed.
+ */
+async function requireAuthEvent(
+  req: Request,
+  purpose: string,
+  email: string,
+  cors: Record<string, string>,
+): Promise<Response | null> {
+  const serviceKey = String(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  if (!serviceKey || token !== serviceKey) {
+    console.warn(`notify-failed-login: rejected caller without service-role credentials`);
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+  const verified = await verifyAuthEventToken(req.headers.get(AUTH_EVENT_HEADER), {
+    purpose,
+    email,
+  });
+  if (!verified.ok) {
+    console.warn(`notify-failed-login: rejected auth event (${verified.reason})`);
+    return new Response(JSON.stringify({ error: "Forbidden", reason: verified.reason }), {
+      status: 403,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "null",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-org-id",
@@ -21,6 +57,9 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const denied = await requireAuthEvent(req, "failed_login_notify", email, corsHeaders);
+    if (denied) return denied;
 
     let resolvedCompany = (companyName && String(companyName).trim()) || "";
 

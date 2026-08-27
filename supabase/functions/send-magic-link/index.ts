@@ -1,7 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDenied, requireCallerOrg } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "null",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -90,6 +91,36 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Authorised workflow only: an admin/office user of a tenant, sending a
+    // login link to a member of THEIR OWN tenant. Previously anyone could
+    // trigger a magic link for any email address.
+    const access = await requireCallerOrg(req, {
+      fnName: "send-magic-link",
+      cors: corsHeaders,
+      roles: ["admin", "office", "superadmin"],
+    });
+    if (isDenied(access)) return access.error;
+
+    const { data: targetEngineer } = await admin
+      .from("engineers")
+      .select("id, organisation_id")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+
+    const targetOrgId =
+      (targetEngineer as { organisation_id?: string } | null)?.organisation_id ?? null;
+
+    if (!targetOrgId) {
+      console.warn("send-magic-link: no team member found for the requested email");
+      return json({ error: "No team member found for that email" }, 404);
+    }
+    if (access.role !== "superadmin" && targetOrgId !== access.orgId) {
+      console.warn(
+        `send-magic-link: caller org ${access.orgId} attempted a link for org ${targetOrgId}`,
+      );
+      return json({ error: "Forbidden" }, 403);
+    }
 
     const { data, error } = await admin.auth.admin.generateLink({
       type: "magiclink",

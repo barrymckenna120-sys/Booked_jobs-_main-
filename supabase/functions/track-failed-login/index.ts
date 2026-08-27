@@ -1,4 +1,40 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { AUTH_EVENT_HEADER, mintAuthEventToken } from "../_shared/authEvent.ts";
+
+/**
+ * Single trusted entry point for failed-login events.
+ *
+ * The browser calls ONLY this function. It counts attempts server-side and,
+ * when a downstream action is warranted, mints a short-lived signed auth-event
+ * token and invokes `lock-failed-login` / `notify-failed-login` itself. Those
+ * two functions no longer accept anonymous browser calls, so an attacker can no
+ * longer lock arbitrary accounts or spam alert emails.
+ */
+async function callAuthEventFunction(
+  fn: string,
+  body: Record<string, unknown>,
+  token: string | null,
+): Promise<void> {
+  if (!token) {
+    console.warn(`track-failed-login: skipping ${fn} — no auth-event token could be minted`);
+    return;
+  }
+  try {
+    const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/${fn}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        [AUTH_EVENT_HEADER]: token,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) console.error(`track-failed-login: ${fn} responded ${res.status}`);
+    await res.text().catch(() => "");
+  } catch (e) {
+    console.error(`track-failed-login: ${fn} invocation failed`, e);
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,6 +102,15 @@ Deno.serve(async (req) => {
     }
 
     if (newAttempts < 5) {
+      await callAuthEventFunction(
+        "notify-failed-login",
+        { email: normalizedEmail, attempt: newAttempts, timestamp: new Date().toISOString() },
+        await mintAuthEventToken({
+          purpose: "failed_login_notify",
+          email: normalizedEmail,
+          attempts: newAttempts,
+        }),
+      );
       return json({ locked: false, attempts: newAttempts });
     }
 
@@ -76,50 +121,21 @@ Deno.serve(async (req) => {
       .update({ locked_at: lockedAt })
       .eq("email", normalizedEmail);
 
-    // Find auth user by email & ban
-    try {
-      const { data: list } = await supabase.auth.admin.listUsers();
-      const user = list?.users?.find(
-        (u) => (u.email ?? "").toLowerCase() === normalizedEmail,
-      );
-      if (user) {
-        await supabase.auth.admin.updateUserById(user.id, {
-          ban_duration: "24h",
-        } as any);
-      } else {
-        console.warn("track-failed-login: no auth user for", normalizedEmail);
-      }
-    } catch (banErr) {
-      console.error("ban error", banErr);
-    }
-
-    // Resend alert
-    try {
-      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-      if (RESEND_API_KEY) {
-        const body = `Account locked: ${normalizedEmail}\nTimestamp (UTC): ${lockedAt}\n\nThe account has been banned for 24 hours automatically after 5 failed login attempts.\n\nLog in to /admin to review or unblock the account.`;
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "noreply@bookedjobs.ie",
-            to: ["barrymckenna120@gmail.com"],
-            subject: `⚠️ BookedJobs — Account Locked: ${normalizedEmail}`,
-            text: body,
-          }),
-        });
-        if (!res.ok) {
-          console.error("resend failed", res.status, await res.text());
-        }
-      } else {
-        console.warn("RESEND_API_KEY missing — skipping alert email");
-      }
-    } catch (mailErr) {
-      console.error("resend error", mailErr);
-    }
+    const lockToken = await mintAuthEventToken({
+      purpose: "failed_login_lock",
+      email: normalizedEmail,
+      attempts: newAttempts,
+    });
+    await callAuthEventFunction("lock-failed-login", { email: normalizedEmail }, lockToken);
+    await callAuthEventFunction(
+      "notify-failed-login",
+      { email: normalizedEmail, attempt: newAttempts, timestamp: lockedAt },
+      await mintAuthEventToken({
+        purpose: "failed_login_notify",
+        email: normalizedEmail,
+        attempts: newAttempts,
+      }),
+    );
 
     return json({ locked: true, attempts: newAttempts });
   } catch (e) {

@@ -1,12 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isPlatformAdminDenied, requirePlatformAdmin } from "../_shared/platformAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-org-id",
 };
-
-const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -19,33 +18,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
-    if (userError || !caller) return json({ error: "Unauthorized" }, 401);
+    const platformAdmin = await requirePlatformAdmin(req, {
+      fnName: "superadmin-unblock-user",
+      cors: corsHeaders,
+    });
+    if (isPlatformAdminDenied(platformAdmin)) return platformAdmin.error;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-
-    // Authorise: superadmin profile role OR platform owner email
-    let authorized = PLATFORM_OWNER_EMAILS.includes(caller.email?.toLowerCase() ?? "");
-    if (!authorized) {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("user_id", caller.id)
-        .maybeSingle();
-      authorized = profile?.role === "superadmin";
-    }
-    if (!authorized) return json({ error: "Insufficient permissions" }, 403);
 
     const body = await req.json();
     const { action, email: rawEmail } = body;
@@ -319,7 +301,7 @@ Deno.serve(async (req) => {
       performed.push("cleared auth ban");
     }
 
-    console.log(`superadmin-unblock-user: ${email} by ${caller.email} — ${performed.join(", ") || "no changes"}`);
+    console.log(`superadmin-unblock-user: ${email} by ${platformAdmin.email} — ${performed.join(", ") || "no changes"}`);
 
     return json({ success: true, performed, email });
   } catch (err) {

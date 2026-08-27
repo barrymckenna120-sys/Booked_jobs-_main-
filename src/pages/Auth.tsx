@@ -473,17 +473,9 @@ const Auth = () => {
             // Ignore storage errors.
           }
 
-          supabase.functions
-            .invoke(
-              "lock-failed-login",
-              {
-                body: {
-                  email:
-                    email.trim(),
-                },
-              }
-            )
-            .catch(() => {});
+          // Locking is performed server-side by track-failed-login
+          // (below), which is the only trusted caller of
+          // lock-failed-login.
         }
 
         // Track failed login server-side and send
@@ -506,48 +498,8 @@ const Auth = () => {
             data?.attempts ||
             newAttempts;
 
-          (async () => {
-            let companyName =
-              "";
-
-            try {
-              const {
-                data:
-                  settingsRow,
-              } =
-                await supabase
-                  .from("settings")
-                  .select(
-                    "business_name"
-                  )
-                  .maybeSingle();
-
-              companyName =
-                (
-                  settingsRow as any
-                )?.business_name ||
-                "";
-            } catch {
-              // Ignore settings errors.
-            }
-
-            supabase.functions
-              .invoke(
-                "notify-failed-login",
-                {
-                  body: {
-                    email:
-                      email.trim(),
-                    attempt:
-                      attemptNum,
-                    timestamp:
-                      new Date().toISOString(),
-                    companyName,
-                  },
-                }
-              )
-              .catch(() => {});
-          })();
+          // The office alert email is sent server-side by
+          // track-failed-login using a signed auth-event token.
 
           if (data?.locked) {
             setIsBlocked(true);

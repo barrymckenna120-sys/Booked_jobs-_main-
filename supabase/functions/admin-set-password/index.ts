@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isPlatformAdminDenied, requirePlatformAdmin } from "../_shared/platformAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,50 +13,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-    const { data: { user: caller }, error: userError } = await supabaseUser.auth.getUser(token);
-    if (userError || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Centralised platform-admin authorization (no per-function email lists).
+    const admin = await requirePlatformAdmin(req, {
+      fnName: "admin-set-password",
+      cors: corsHeaders,
+    });
+    if (isPlatformAdminDenied(admin)) return admin.error;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-
-    // Authorize: superadmin profile OR allowlisted email
-    const callerEmail = caller.email?.toLowerCase() ?? "";
-    const ALLOWED_EMAILS = ["barrymckenna@webliveview.com", "barrymckenna120@gmail.com"];
-    let authorized = ALLOWED_EMAILS.includes(callerEmail);
-    if (!authorized) {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("user_id", caller.id)
-        .maybeSingle();
-      authorized = profile?.role === "superadmin";
-    }
-    if (!authorized) {
-      return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const { userId, newPassword } = await req.json();
     if (!userId || typeof userId !== "string") {

@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,18 +63,15 @@ serve(async (req) => {
       });
     }
 
-    // Fetch customer
-    const custRes = await fetch(
-      `${supabaseUrl}/rest/v1/customers?id=eq.${cert.customer_id}&select=name,phone`,
-      { headers }
-    );
-    const custs = await custRes.json();
-    const customer = Array.isArray(custs) ? custs[0] : null;
-    if (!customer || !customer.phone) {
-      return new Response(JSON.stringify({ success: false, error: "Customer or phone not found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404,
-      });
-    }
+    // Consent gate: loads the customer server-side scoped to the acting org,
+    // honours customers.opted_out, and yields the DB-stored recipient number.
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-certificate-whatsapp",
+      orgId: access.orgId,
+      customerId: cert.customer_id,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const customer = { name: consent.name ?? "", phone: consent.phone };
 
     // Derive organisation_id (required) — prefer certificate, fallback to job
     let orgId: string | null = cert.organisation_id || null;

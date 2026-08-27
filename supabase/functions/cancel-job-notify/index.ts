@@ -1,4 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
@@ -113,24 +117,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    const customer: any = (sc as any).customers;
-    const customerName = customer?.name || "";
-    const customerPhone = customer?.phone || "";
+    // Tenant isolation first: the job must belong to the caller's organisation.
+    if ((sc as any).organisation_id && (sc as any).organisation_id !== callerOrgId) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Consent gate: opted_out customers are never messaged, and the recipient
+    // number comes from the DB row only.
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "cancel-job-notify",
+      orgId: callerOrgId,
+      customerId: (sc as any).customer_id,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+
+    const customerName = consent.name || "";
     const firstName = extractFirstName(customerName);
-    const to = formatPhone360(customerPhone);
+    const to = formatPhone360(consent.phone);
 
     if (!to) {
       return new Response(
         JSON.stringify({ error: "Customer phone missing" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Tenant isolation: the job must belong to the caller's organisation.
-    if ((sc as any).organisation_id && (sc as any).organisation_id !== callerOrgId) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     const orgId = callerOrgId as string;

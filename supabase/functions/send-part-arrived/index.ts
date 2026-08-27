@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +17,9 @@ serve(async (req) => {
   }
 
   try {
-    const { job_id, customer_name, customer_phone, follow_up_detail, message: customMessage } = await req.json();
+    // NOTE: customer_phone is deliberately NOT read from the body — the recipient
+    // is always the DB-stored number resolved by the consent gate below.
+    const { job_id, customer_name, follow_up_detail, message: customMessage } = await req.json();
 
     // IDOR guard: prove the caller belongs to the organisation owning this row
     // before acting with that tenant's credentials.
@@ -24,12 +30,13 @@ serve(async (req) => {
     });
     if (isDenied(access)) return access.error;
 
-    if (!job_id || !customer_name || !customer_phone) {
+    if (!job_id) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields" }),
+        JSON.stringify({ success: false, error: "job_id is required" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
+
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -55,6 +62,19 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
+
+    // Consent gate: opted_out is authoritative, and the recipient number always
+    // comes from the DB row — never from the request body.
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-part-arrived",
+      orgId,
+      customerId: jobRow?.customer_id,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const recipientPhone = consent.phone;
+    const recipientName = consent.name || customer_name || "there";
+
+
 
     // Resolve per-tenant 360Messenger credentials.
     // Accepts either integration row type, and either a declared secret name
@@ -136,7 +156,7 @@ serve(async (req) => {
       } catch { /* best-effort */ }
     }
 
-    const firstName = customer_name.split(" ")[0];
+    const firstName = String(recipientName).split(" ")[0];
     const baseMessage = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.`;
     const message = messageFooter ? `${baseMessage}\n\n${messageFooter}` : baseMessage;
 
@@ -162,7 +182,7 @@ serve(async (req) => {
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const cleanNumber = customer_phone.replace(/^\+/, "");
+    const cleanNumber = recipientPhone.replace(/^\+/, "");
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
@@ -188,7 +208,7 @@ serve(async (req) => {
       body: JSON.stringify({
         function_name: "send-part-arrived",
         error_message: `360Messenger HTTP ${response.status}: ${result.success ? "success" : "failed"}`,
-        payload: { api_response: result, sent_to: customer_phone, job_id, http_status: response.status },
+        payload: { api_response: result, sent_to: recipientPhone, job_id, http_status: response.status },
       }),
     });
 
@@ -220,7 +240,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, customer_name }),
+      JSON.stringify({ success: true, customer_name: recipientName }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
 
@@ -164,49 +165,55 @@ Deno.serve(async (req) => {
         : "+353" + mobileNumber.replace(/^0/, "")
       : "";
 
-    // Resolve organisation dynamically from the Tally payload.
-    // Accept either an explicit organisation_id (UUID) or an org slug field.
+    // Bind this webhook call to exactly one tenant, server-side.
+    // Preferred: a per-tenant integration secret, or the Tally form id in the
+    // payload matched against tenant_integrations(tally). The body-supplied
+    // organisation_id/slug is only a hint and can never widen access.
     const payloadOrgId = sanitize(body.organisation_id, MAX_SHORT_LEN);
     const payloadOrgSlug =
       sanitize(body.org_slug, MAX_SHORT_LEN) ??
       sanitize(body.organisation_slug, MAX_SHORT_LEN);
 
-    let orgData: { id: string; owner_user_id: string | null } | null = null;
-
-    if (payloadOrgId) {
-      const { data } = await supabase
+    let claimedOrgId: string | null = payloadOrgId ?? null;
+    if (!claimedOrgId && payloadOrgSlug) {
+      const { data: bySlug } = await supabase
         .from("organisations")
-        .select("id, owner_user_id")
-        .eq("id", payloadOrgId)
-        .maybeSingle();
-      orgData = data as typeof orgData;
-    } else if (payloadOrgSlug) {
-      const { data } = await supabase
-        .from("organisations")
-        .select("id, owner_user_id")
+        .select("id")
         .eq("slug", payloadOrgSlug)
         .maybeSingle();
-      orgData = data as typeof orgData;
-    } else {
-      console.error("tally-incoming-job: no org identifier in payload");
+      claimedOrgId = (bySlug as { id?: string } | null)?.id ?? null;
+    }
+
+    const bound = await bindMachineOrganisation(req, {
+      fnName: "tally-incoming-job",
+      integrationTypes: ["tally"],
+      identifier: {
+        keys: ["form_id", "new_booking_form_id", "renewal_form_id", "tally_form_id"],
+        value: sanitize(body.formId, MAX_SHORT_LEN) ?? sanitize(body.form_id, MAX_SHORT_LEN) ?? null,
+      },
+      claimedOrgId,
+      cors: corsHeaders,
+    });
+    if (!bound.ok) {
       try {
         await supabase.from("edge_function_logs").insert({
           function_name: "tally-incoming-job",
-          error_message: "tally-incoming-job: no org identifier in payload",
-          payload: body ?? null,
+          error_message: "tally-incoming-job: could not bind submission to a tenant",
+          payload: { claimed_organisation_id: claimedOrgId, form_id: body.formId ?? body.form_id ?? null },
         });
       } catch (_e) {
         /* logging best-effort */
       }
-      // Tally always needs a 200 — acknowledge without processing.
-      return new Response(
-        JSON.stringify({ success: false, error: "No organisation identifier in payload" }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return bound.response;
     }
+
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("id, owner_user_id")
+      .eq("id", bound.orgId)
+      .maybeSingle();
+    const orgData = orgRow as { id: string; owner_user_id: string | null } | null;
+    console.log(`tally-incoming-job: organisation ${bound.orgId} resolved via ${bound.via}`);
 
     if (!orgData) {
       return new Response(JSON.stringify({ success: false, error: "Organisation not found" }), {

@@ -13,6 +13,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolveCaller } from "./machineAuth.ts";
+import { strictMachineBinding } from "./machineOrg.ts";
 
 export type ResourceRef = {
   /** Table holding the resource, e.g. "service_calls", "quotes", "certificates". */
@@ -164,7 +165,7 @@ export async function requireResourceOrgAccess(
  */
 export async function requireCallerOrg(
   req: Request,
-  opts: { fnName: string; cors: Record<string, string> },
+  opts: { fnName: string; cors: Record<string, string>; roles?: string[] },
 ): Promise<OrgAccessResult> {
   const caller = await resolveCaller(req);
   if (!caller) return deny(opts.cors, 401, "Unauthorized", opts.fnName, "no valid credentials");
@@ -173,6 +174,9 @@ export async function requireCallerOrg(
   }
   const { orgId, role } = await getUserOrg(caller.userId);
   if (!orgId) return deny(opts.cors, 403, "Forbidden", opts.fnName, "caller has no organisation");
+  if (opts.roles && !opts.roles.includes(String(role ?? ""))) {
+    return deny(opts.cors, 403, "Forbidden", opts.fnName, `role ${role ?? "none"} is not permitted`);
+  }
   return { orgId, kind: "user", userId: caller.userId, role };
 }
 
@@ -242,6 +246,14 @@ export async function requireBoundOrg(
     if (provided !== tenantSecret) {
       return deny(cors, 403, "Forbidden", fnName, "machine secret is not bound to the requested organisation");
     }
+  } else if (strictMachineBinding()) {
+    return deny(
+      cors,
+      403,
+      "Forbidden",
+      fnName,
+      "strict binding on: tenant has no per-tenant webhook_secret configured",
+    );
   } else if (provided) {
     console.warn(
       `${fnName}: machine caller used a global shared secret for org ${requested} — ` +

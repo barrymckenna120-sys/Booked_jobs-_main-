@@ -1,0 +1,112 @@
+// One implementation of platform-owner / superadmin authorization.
+//
+// Replaces the hardcoded email allowlists that were copy-pasted into
+// admin-set-password, list-tenants, unblock-user, list-users, notify-failed-login
+// and friends. Those drifted apart and could not be rotated.
+//
+// Order of authority:
+//   1. `profiles.role = 'superadmin'` read server-side with the service role.
+//   2. An OPTIONAL platform-owner override loaded from ONE place:
+//      the `PLATFORM_OWNER_EMAILS` env var (comma separated). Emails are
+//      trimmed + lowercased before comparison and are read from the verified
+//      JWT identity, never from the request body.
+//
+// Fails closed: no session, unreadable profile, or missing config => denied.
+
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { bearerToken } from "./machineAuth.ts";
+
+export type PlatformAdmin = {
+  userId: string;
+  email: string | null;
+  role: string | null;
+  orgId: string | null;
+  via: "role" | "platform_owner_env";
+};
+
+export type PlatformAdminResult = { error: Response } | PlatformAdmin;
+
+export function isPlatformAdminDenied(r: PlatformAdminResult): r is { error: Response } {
+  return (r as { error?: Response }).error instanceof Response;
+}
+
+/** Parse the single controlled platform-owner allowlist. Pure/unit-testable. */
+export function parseOwnerAllowlist(raw: string | null | undefined): string[] {
+  return String(raw ?? "")
+    .split(/[,\s;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.includes("@"));
+}
+
+/** Pure decision: is this verified identity a platform admin? */
+export function decidePlatformAdmin(
+  identity: { email?: string | null; role?: string | null },
+  ownerAllowlist: string[],
+): { allowed: boolean; via?: "role" | "platform_owner_env" } {
+  if ((identity.role ?? "") === "superadmin") return { allowed: true, via: "role" };
+  const email = String(identity.email ?? "").trim().toLowerCase();
+  if (email && ownerAllowlist.includes(email)) {
+    return { allowed: true, via: "platform_owner_env" };
+  }
+  return { allowed: false };
+}
+
+function serviceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
+function deny(cors: Record<string, string>, status: number, fnName: string, detail: string) {
+  console.warn(`${fnName}: platform-admin check failed (${status}) — ${detail}`);
+  return {
+    error: new Response(
+      JSON.stringify({ error: status === 401 ? "Unauthorized" : "Forbidden" }),
+      { status, headers: { ...cors, "Content-Type": "application/json" } },
+    ),
+  };
+}
+
+/**
+ * Verify the caller's JWT and require platform-admin authority.
+ * Returns the trusted identity (never anything client-supplied).
+ */
+export async function requirePlatformAdmin(
+  req: Request,
+  opts: { fnName: string; cors: Record<string, string> },
+): Promise<PlatformAdminResult> {
+  const { fnName, cors } = opts;
+  const token = bearerToken(req);
+  if (!token) return deny(cors, 401, fnName, "no bearer token");
+
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!url || !serviceKey) return deny(cors, 403, fnName, "auth config unavailable (fail closed)");
+
+  const supabase = serviceClient();
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  const user = userData?.user;
+  if (userErr || !user?.id) return deny(cors, 401, fnName, "invalid session");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, organisation_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const decision = decidePlatformAdmin(
+    { email: user.email, role: (profile?.role as string | null) ?? null },
+    parseOwnerAllowlist(Deno.env.get("PLATFORM_OWNER_EMAILS")),
+  );
+  if (!decision.allowed) return deny(cors, 403, fnName, "caller is not a platform admin");
+
+  return {
+    userId: user.id,
+    email: user.email ?? null,
+    role: (profile?.role as string | null) ?? null,
+    orgId: (profile?.organisation_id as string | null) ?? null,
+    via: decision.via!,
+  };
+}

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isPlatformAdminDenied, requirePlatformAdmin } from "../_shared/platformAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,11 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-org-id",
 };
-
-const ALLOWED_EMAILS = [
-  "barrymckenna@webliveview.com",
-  "barrymckenna120@gmail.com",
-];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,47 +16,14 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
+    const platformAdmin = await requirePlatformAdmin(req, {
+      fnName: "list-tenants",
+      cors: corsHeaders,
     });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (isPlatformAdminDenied(platformAdmin)) return platformAdmin.error;
 
     const admin = createClient(supabaseUrl, serviceKey);
-
-    const email = (userData.user.email || "").toLowerCase();
-    let isSuperadmin = ALLOWED_EMAILS.includes(email);
-    if (!isSuperadmin) {
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("role")
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-      isSuperadmin = profile?.role === "superadmin";
-    }
-
-    if (!isSuperadmin) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const { data, error } = await admin
       .from("organisations")

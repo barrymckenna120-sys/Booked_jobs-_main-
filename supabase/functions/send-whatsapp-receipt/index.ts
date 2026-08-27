@@ -3,6 +3,10 @@ import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import {
+  consentSkipResponse,
+  requireCustomerMessagingConsent,
+} from "../_shared/messagingConsent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,19 +81,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch customer
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("name, phone")
-      .eq("id", job.customer_id)
-      .single();
-
-    if (!customer?.phone) {
-      return new Response(JSON.stringify({ error: "Customer has no phone number" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Consent gate (opted_out authoritative, DB-stored recipient only).
+    const consent = await requireCustomerMessagingConsent({
+      fnName: "send-whatsapp-receipt",
+      orgId: access.orgId,
+      customerId: job.customer_id,
+    });
+    if (!consent.allowed) return consentSkipResponse(consent.reason, corsHeaders);
+    const customer = { name: consent.name ?? "", phone: consent.phone };
 
     // Fetch business name from settings (scoped to organisation)
     const { data: settings } = await supabase
