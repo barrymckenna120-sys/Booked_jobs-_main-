@@ -27,7 +27,11 @@ export function hasSharedSecret(req: Request): boolean {
   const expectedSecrets = [
     Deno.env.get("WEBHOOK_SHARED_SECRET"),
     Deno.env.get("MAKE_WEBHOOK_SECRET"),
+    // Used by pg_cron: the scheduler cannot present a service-role key, so it
+    // sends this shared secret in x-webhook-secret instead.
+    Deno.env.get("CRON_SHARED_SECRET"),
   ]
+
     .map((s) => (s ?? "").trim())
     .filter(Boolean);
 
