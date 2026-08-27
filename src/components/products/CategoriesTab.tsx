@@ -63,7 +63,7 @@ const CategoriesTab = () => {
 
     if (editing) {
       const built = buildCategoryUpdate(form);
-      if (!built.ok) {
+      if (built.ok === false) {
         toast({ title: "Category name is required", variant: "destructive" });
         setSaving(false);
         return;
@@ -73,7 +73,7 @@ const CategoriesTab = () => {
       toast({ title: "Category updated" });
     } else {
       const built = buildCategoryInsert(form, orgId);
-      if (!built.ok) {
+      if (built.ok === false) {
         toast(
           built.reason === "missing-org"
             ? { title: "Organisation not ready", description: "Please retry in a moment.", variant: "destructive" }
