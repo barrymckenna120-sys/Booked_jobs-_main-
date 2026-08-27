@@ -1,10 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 
 function formatPhoneE164(phone: string | null): string {
   if (!phone) return "";
@@ -20,29 +16,50 @@ function formatDateDDMMYYYY(dateStr: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/**
+ * Upcoming service calls for ONE organisation. Machine callers must name the
+ * organisation (and match a per-tenant webhook secret when configured); users
+ * are scoped to their own organisation.
+ */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const url = new URL(req.url);
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     let daysAhead = 2;
-    if (req.method === "POST") {
-      const body = await req.json().catch(() => ({}));
-      if (typeof body.days_ahead === "number") daysAhead = body.days_ahead;
+    if (typeof (body as { days_ahead?: number }).days_ahead === "number") {
+      daysAhead = (body as { days_ahead: number }).days_ahead;
     }
 
+    const requestedOrgId =
+      (body as { organisation_id?: string }).organisation_id ??
+      url.searchParams.get("organisation_id");
+
+    const access = await requireBoundOrg(req, {
+      fnName: "get-upcoming-service-calls",
+      cors: corsHeaders,
+      requestedOrgId,
+    });
+    if (isDenied(access)) return access.error;
+    const orgId = access.orgId;
+
     // Calculate target date in Europe/Dublin timezone
-    const nowDublin = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "Europe/Dublin" })
-    );
+    const nowDublin = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Dublin" }));
     const target = new Date(nowDublin);
     target.setDate(target.getDate() + daysAhead);
     const targetStr = target.toISOString().split("T")[0];
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     const { data: jobs, error } = await supabase
@@ -59,6 +76,7 @@ Deno.serve(async (req) => {
         customers ( name, phone ),
         engineers:assigned_engineer_id ( name )
       `)
+      .eq("organisation_id", orgId)
       .eq("scheduled_date", targetStr)
       .neq("status", "Cancelled");
 
@@ -74,14 +92,9 @@ Deno.serve(async (req) => {
       organisation_id: job.organisation_id,
     }));
 
-    return new Response(JSON.stringify({ calls }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ calls });
   } catch (err) {
     console.error("get-upcoming-service-calls error:", err);
-    return new Response(
-      JSON.stringify({ calls: [], error: err instanceof Error ? err.message : String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ calls: [], error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
