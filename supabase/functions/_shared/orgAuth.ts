@@ -247,7 +247,18 @@ export async function requireBoundOrg(
 
   if (tenantSecret) {
     if (provided !== tenantSecret) {
-      return deny(cors, 403, "Forbidden", fnName, "machine secret is not bound to the requested organisation");
+      // Transition window: the tenant now HAS its own secret, but live Make.com
+      // scenarios may still present the global shared secret. Until
+      // STRICT_MACHINE_ORG_BINDING=true we accept that and log loudly, so
+      // provisioning per-tenant secrets never breaks a running scenario.
+      if (strictMachineBinding() || !hasSharedSecret(req)) {
+        return deny(cors, 403, "Forbidden", fnName, "machine secret is not bound to the requested organisation");
+      }
+      console.warn(
+        `${fnName}: machine caller used the global shared secret for org ${requested} ` +
+          `which HAS a per-tenant webhook_secret — update the scenario, then set ` +
+          `STRICT_MACHINE_ORG_BINDING=true.`,
+      );
     }
   } else if (strictMachineBinding()) {
     return deny(
@@ -301,9 +312,17 @@ export async function machineBoundToOrg(
   ).trim();
 
   if (tenantSecret) {
-    return provided === tenantSecret
-      ? { ok: true }
-      : { ok: false, detail: `machine secret is not bound to organisation ${orgId}` };
+    if (provided === tenantSecret) return { ok: true };
+    // Transition window — see requireBoundOrg: the global shared secret is still
+    // accepted (and logged) until STRICT_MACHINE_ORG_BINDING=true.
+    if (strictMachineBinding() || !hasSharedSecret(req)) {
+      return { ok: false, detail: `machine secret is not bound to organisation ${orgId}` };
+    }
+    console.warn(
+      `${fnName}: machine caller used the global shared secret for org ${orgId} which HAS ` +
+        `a per-tenant webhook_secret — update the scenario, then enable strict binding.`,
+    );
+    return { ok: true };
   }
 
   if (strictMachineBinding()) {
