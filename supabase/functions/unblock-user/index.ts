@@ -67,6 +67,46 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Tenant admins may only probe lockouts for engineers in their own org.
+      let scopedEmails = emails;
+      if (!caller.platformAdmin) {
+        if (!caller.orgId) {
+          return json(
+            { error: "Cross-tenant action not permitted" },
+            403
+          );
+        }
+        const { data: orgEngineers } =
+          await supabaseAdmin
+            .from("engineers")
+            .select("email")
+            .eq(
+              "organisation_id",
+              caller.orgId
+            );
+        const ownOrgEmails = new Set(
+          (orgEngineers ?? [])
+            .map((e) =>
+              (e.email ?? "")
+                .trim()
+                .toLowerCase()
+            )
+            .filter(Boolean)
+        );
+        scopedEmails = emails.filter((e) =>
+          ownOrgEmails.has(e)
+        );
+        if (
+          scopedEmails.length === 0
+        ) {
+          return json({
+            locked_emails: [],
+            rows: [],
+          });
+        }
+      }
+
+
       const {
         data,
         error,
