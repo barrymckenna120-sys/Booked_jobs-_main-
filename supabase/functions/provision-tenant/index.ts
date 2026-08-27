@@ -125,12 +125,15 @@ Deno.serve(async (req) => {
     country_code,
   } = body ?? {};
 
+  // A new tenant must NEVER inherit the shared/K&N WhatsApp key. When no
+  // per-tenant secret name is supplied we seed the integration without one, so
+  // WhatsApp sends fail closed until the tenant's own secret is configured.
   const resolvedApiKeySecret =
     typeof api_key_secret ===
       "string" &&
     api_key_secret.trim()
       ? api_key_secret.trim()
-      : "THREESIXTY_API_KEY";
+      : null;
 
   const resolvedCountryCode =
     typeof country_code ===

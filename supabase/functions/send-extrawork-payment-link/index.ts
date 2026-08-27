@@ -4,6 +4,8 @@ import {
   normalisePhone,
   logWhatsAppFailure,
 } from "../_shared/whatsapp.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import { getResourceOrg } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +47,27 @@ Deno.serve(async (req) => {
       total_amount,
       line_items,
     } = body;
+
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-extrawork-payment-link",
+      cors: corsHeaders,
+      resource: { table: "quotes", id: quote_id },
+    });
+    if (isDenied(access)) return access.error;
+
+    // The job and customer must belong to the SAME organisation as the quote,
+    // so a valid quote id cannot be used to bill another tenant's customer.
+    const [jobOrgId, customerOrgId] = await Promise.all([
+      getResourceOrg({ table: "service_calls", id: service_call_id }),
+      getResourceOrg({ table: "customers", id: customer_id }),
+    ]);
+    if (jobOrgId !== access.orgId || customerOrgId !== access.orgId) {
+      console.warn("send-extrawork-payment-link: quote/job/customer organisation mismatch");
+      return new Response(JSON.stringify({ error: "not_found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (
       !quote_id ||

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +51,16 @@ Deno.serve(async (req) => {
     const {
       service_call_id,
     } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation that owns this
+    // record before loading it or acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-invoice-whatsapp",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
+
 
     if (!service_call_id) {
       return json(

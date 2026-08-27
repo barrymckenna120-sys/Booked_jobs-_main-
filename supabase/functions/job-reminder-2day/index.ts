@@ -49,9 +49,11 @@ Deno.serve(async (req) => {
     // Resolve per-tenant key: declared secret name wins; never fall back to
     // another tenant's key when a secret name is declared.
     const apiKeySecretName = waCfg.api_key_secret as string | undefined;
+    // Tenant credentials only — no shared THREESIXTY_API_KEY fallback, which
+    // would send this tenant's messages from another tenant's WhatsApp number.
     const apiKey = apiKeySecretName
       ? Deno.env.get(apiKeySecretName)
-      : (waCfg.api_key || Deno.env.get("THREESIXTY_API_KEY"));
+      : (waCfg.api_key as string | undefined);
 
     if (!apiKey) {
       try {

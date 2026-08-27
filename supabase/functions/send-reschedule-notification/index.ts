@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +16,15 @@ serve(async (req) => {
 
   try {
     const { service_call_id } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation owning this row
+    // before acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-reschedule-notification",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
     console.log("send-reschedule-notification received:", { service_call_id });
 
     if (!service_call_id) {

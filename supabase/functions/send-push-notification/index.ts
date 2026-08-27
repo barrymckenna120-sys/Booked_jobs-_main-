@@ -1,12 +1,10 @@
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { getUserOrg } from "../_shared/orgAuth.ts";
+import { resolveCaller } from "../_shared/machineAuth.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -26,11 +24,51 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Look up the engineer's FCM token
+    // --- Authorization -----------------------------------------------------
+    // recipient_user_id is NOT authorization. Authenticate the caller, derive
+    // their organisation server-side, and prove the target belongs to it.
+    const caller = await resolveCaller(req);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const target = await getUserOrg(recipient_user_id);
+    if (!target.orgId) {
+      console.warn("send-push-notification: target user has no organisation");
+      return new Response(JSON.stringify({ error: "not_found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (caller.kind === "user") {
+      const callerOrg = await getUserOrg(caller.userId);
+      if (!callerOrg.orgId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (callerOrg.orgId !== target.orgId && callerOrg.role !== "superadmin") {
+        console.warn(
+          `send-push-notification: cross-tenant push blocked (caller org ${callerOrg.orgId} -> target org ${target.orgId})`,
+        );
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Look up the engineer's FCM token, scoped to the target's organisation.
     const { data: engineer } = await supabase
       .from("engineers")
       .select("fcm_token, name")
       .eq("auth_user_id", recipient_user_id)
+      .eq("organisation_id", target.orgId)
       .maybeSingle();
 
     if (!engineer?.fcm_token) {

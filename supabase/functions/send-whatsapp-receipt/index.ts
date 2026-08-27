@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
 import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // IDOR guard: prove the caller belongs to the organisation that owns this
+    // record before loading it or acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-whatsapp-receipt",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: job_id },
+    });
+    if (isDenied(access)) return access.error;
 
     // Fetch job from service_calls
     const { data: job, error: jobErr } = await supabase

@@ -180,7 +180,8 @@ Deno.serve(async (req) => {
     }).eq("id", service_call_id);
 
 
-    // Per-tenant 360Messenger API key (config.api_key → config.api_key_secret env → THREESIXTY_API_KEY)
+    // Per-tenant 360Messenger API key (config.api_key → config.api_key_secret env).
+    // No shared-key fallback: a tenant without its own credentials must fail.
     const { data: integration } = await supabase
       .from("tenant_integrations")
       .select("config")
@@ -191,8 +192,7 @@ Deno.serve(async (req) => {
     const cfg = (integration?.config ?? {}) as Record<string, any>;
     const apiKey =
       cfg.api_key ||
-      (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null) ||
-      Deno.env.get("THREESIXTY_API_KEY");
+      (cfg.api_key_secret ? Deno.env.get(cfg.api_key_secret) : null);
     if (!apiKey) {
       console.log("send-payment-link 400: no API key", { organisation_id: job.organisation_id });
       return new Response(JSON.stringify({ error: "WhatsApp API key not configured for this organisation" }), {

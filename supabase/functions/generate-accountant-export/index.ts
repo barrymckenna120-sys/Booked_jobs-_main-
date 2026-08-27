@@ -95,36 +95,45 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Read accountant email from settings table
+    // Accountant email comes ONLY from the caller's own organisation. There is
+    // deliberately no cross-tenant "first row with an accountant_email" search
+    // and no global ACCOUNTANT_EMAIL fallback: financial data must never reach
+    // another tenant's accountant.
     let accountantEmail: string | null = null;
 
     {
       const { data: settingsRow } = await supabase
         .from("settings")
         .select("accountant_email")
+        .eq("organisation_id", callerOrgId)
         .eq("user_id", callerUserId)
         .maybeSingle();
       accountantEmail = settingsRow?.accountant_email || null;
     }
 
     if (!accountantEmail) {
-      const { data: settingsRows } = await supabase
+      const { data: orgSettings } = await supabase
         .from("settings")
         .select("accountant_email")
+        .eq("organisation_id", callerOrgId)
         .not("accountant_email", "is", null)
         .limit(1);
-      if (settingsRows?.length) {
-        accountantEmail = settingsRows[0].accountant_email || null;
-      }
-    }
-
-    // Fall back to secret if not configured in settings
-    if (!accountantEmail) {
-      accountantEmail = Deno.env.get("ACCOUNTANT_EMAIL") || null;
+      accountantEmail = orgSettings?.[0]?.accountant_email || null;
     }
 
     if (!accountantEmail) {
-      throw new Error("Accountant email not configured in settings. Go to Settings → Finance & Reporting to add it.");
+      console.error(
+        `generate-accountant-export: accountant_email not configured for organisation ${callerOrgId} — export not sent`,
+      );
+      return new Response(
+        JSON.stringify({
+          error: "accountant_email_not_configured",
+          message:
+            "No accountant email is configured for this organisation. Add it in Settings → Finance & Reporting.",
+          organisation_id: callerOrgId,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Sales ledger is a cash-basis report: it follows the payment, not the job
@@ -243,18 +252,30 @@ Deno.serve(async (req) => {
     // Resolve org branding for email copy (org comes from the caller's JWT)
     const orgId: string = callerOrgId;
 
-    let companyName = "K & N Gas Services";
-    let companyPhone = "087 3686252";
-    if (orgId) {
-      const { data: messengerConfig } = await supabase
-        .from("tenant_integrations")
-        .select("config")
-        .eq("organisation_id", orgId)
-        .eq("integration_type", "360messenger")
-        .maybeSingle();
-      const cfg = (messengerConfig?.config as any) || null;
-      if (cfg?.company_name) companyName = cfg.company_name;
-      if (cfg?.company_phone) companyPhone = cfg.company_phone;
+    // Tenant branding only — no K&N (or any other tenant) fallback values.
+    const { data: messengerConfig } = await supabase
+      .from("tenant_integrations")
+      .select("config")
+      .eq("organisation_id", orgId)
+      .eq("integration_type", "360messenger")
+      .maybeSingle();
+    const cfg = (messengerConfig?.config as any) || null;
+
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    const companyName: string | null = cfg?.company_name || orgRow?.name || null;
+    const companyPhone: string | null = cfg?.company_phone || null;
+
+    if (!companyName) {
+      console.error(`generate-accountant-export: no company name configured for organisation ${orgId}`);
+      return new Response(
+        JSON.stringify({ error: "organisation_branding_not_configured", organisation_id: orgId }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const emailSubject = `${companyName} — Sales Ledger ${label}`;
@@ -267,8 +288,7 @@ The report includes all paid invoices for the period along with totals for your 
 If you have any questions please don't hesitate to get in touch.
 
 Kind regards,
-${companyName}
-${companyPhone}`;
+${companyName}${companyPhone ? `\n${companyPhone}` : ""}`;
 
     const emailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",

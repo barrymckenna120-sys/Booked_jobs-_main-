@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { signDocumentUrl, extractStoragePath } from "../_shared/signDocumentUrl.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,15 @@ serve(async (req) => {
 
   try {
     const { hazard_id } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation owning this row
+    // before acting with that tenant's credentials.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-hazard-whatsapp",
+      cors: corsHeaders,
+      resource: { table: "hazard_notifications", id: hazard_id },
+    });
+    if (isDenied(access)) return access.error;
     if (!hazard_id) {
       return new Response(JSON.stringify({ success: false, error: "Missing hazard_id" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,

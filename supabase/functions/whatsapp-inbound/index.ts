@@ -35,9 +35,9 @@ const supabase = createClient(
  * Internal/machine callers with the Make secret or service-role key are also
  * accepted.
  *
- * Rollout note: while WHATSAPP_INBOUND_SECRET is unset the request is allowed
- * through with a loud warning, so live inbound WhatsApp cannot break before
- * the 360Messenger webhook URL is updated. Setting the secret turns the guard on.
+ * Fail-closed: if WHATSAPP_INBOUND_SECRET is not configured the request is
+ * rejected with 401. A missing required security variable must never disable
+ * the guard.
  */
 function bearerToken(
   req: Request
@@ -115,11 +115,12 @@ function isAuthorisedInbound(
     ).trim();
 
   if (!expected) {
-    console.warn(
-      "whatsapp-inbound: WHATSAPP_INBOUND_SECRET not set — webhook is still open"
+    // Fail CLOSED: a missing required security env var must not disable the guard.
+    console.error(
+      "whatsapp-inbound: WHATSAPP_INBOUND_SECRET is not configured — rejecting request"
     );
 
-    return true;
+    return false;
   }
 
   const provided =
@@ -219,6 +220,25 @@ Deno.serve(
     console.log(
       `Inbound from ${from}: ${messageText}`
     );
+
+    // Replay / duplicate-delivery guard: 360Messenger retries deliver the same
+    // message again. Same sender + same body + same provider timestamp within a
+    // 10 minute window is treated as already processed.
+    {
+      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: already } = await supabase
+        .from("whatsapp_messages")
+        .select("id")
+        .eq("direction", "inbound")
+        .eq("phone_number", from || "")
+        .eq("message_body", messageText)
+        .gte("sent_at", since)
+        .limit(1);
+      if (already?.length) {
+        console.log(`whatsapp-inbound: duplicate delivery ignored for ${from}`);
+        return earlyResponse;
+      }
+    }
 
     // A phone number can sit on several customer records.
     // Fetch them all so we don't accidentally select the wrong job.
