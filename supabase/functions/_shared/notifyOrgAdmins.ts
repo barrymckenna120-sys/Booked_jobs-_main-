@@ -3,9 +3,14 @@
 // Recipients are always resolved server-side from the database, never taken
 // from a request body, so a tampered client payload can't redirect mail.
 
-// Platform owner — mirrors the PLATFORM_OWNER_EMAILS constant used for
-// authorisation in deactivate-user / unblock-user / list-users.
-export const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
+// Platform owner alert recipients come from the same central config used for
+// authorisation (PLATFORM_OWNER_EMAILS env var) — no hardcoded addresses here.
+export const platformOwnerAlertEmails = (): string[] =>
+  (Deno.env.get("PLATFORM_OWNER_EMAILS") ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+
 
 export const escapeHtml = (s: string) =>
   String(s ?? "")
