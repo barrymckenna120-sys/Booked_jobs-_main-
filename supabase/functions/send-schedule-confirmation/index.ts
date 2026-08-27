@@ -78,11 +78,10 @@ Deno.serve(async (req) => {
     const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
     // Never fall back to another tenant's key: if this org declares a secret name,
     // that secret is the only acceptable credential.
+    // Tenant credentials only — no shared/global key fallback.
     const apiKey = apiKeySecretName
       ? Deno.env.get(apiKeySecretName)
-      : (messengerSettings.api_key
-        ?? Deno.env.get("THREESIXTY_API_KEY")
-        ?? Deno.env.get("MESSENGER_API_KEY"));
+      : (messengerSettings.api_key as string | undefined);
     if (!apiKey) return json({ error: "WhatsApp API key not configured for this organisation" }, 400);
 
 

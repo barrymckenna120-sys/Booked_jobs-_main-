@@ -158,9 +158,9 @@ Deno.serve(async (req) => {
       .eq("integration_type", "360messenger")
       .maybeSingle() : { data: null };
     const apiKeySecretName = messengerSettings.api_key_secret as string | undefined;
+    // Tenant credentials only — no shared THREESIXTY_API_KEY fallback.
     const apiKey = (apiKeySecretName ? Deno.env.get(apiKeySecretName) : null)
-      ?? (waConfig?.config as any)?.api_key
-      ?? Deno.env.get("THREESIXTY_API_KEY");
+      ?? (waConfig?.config as any)?.api_key;
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: "WhatsApp API key not configured for this organisation" }),
