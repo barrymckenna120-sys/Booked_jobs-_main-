@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +41,9 @@ const SecurityTab = () => {
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
   const [resetting, setResetting] = useState(false);
+  // Ref guard: React state updates are async, so two clicks landing in the same
+  // tick would both pass an `if (resetting)` check. A ref flips synchronously.
+  const resettingRef = useRef(false);
 
   useEffect(() => {
     if (!orgReady || !orgId) return;
@@ -64,9 +67,24 @@ const SecurityTab = () => {
 
   const handleResetTestData = async () => {
     if (!org) return;
+    if (resettingRef.current) return;
+    if (!org.is_test) {
+      toast({
+        title: "Not a test account",
+        description: "Data deletion is only available on test accounts.",
+        variant: "destructive",
+      });
+      return;
+    }
+    resettingRef.current = true;
     setResetting(true);
     try {
-      const { data, error } = await invokeFunction("reset-org-data", { body: {} });
+      // Send the org shown in the dialog. The backend still ignores this for
+      // non-superadmins and re-checks is_test, so this can only narrow scope.
+      const { data, error } = await invokeFunction("reset-org-data", {
+        body: { organisation_id: org.id },
+      });
+
       let message: string | null = null;
       if (error) {
         const ctx: any = (error as any).context;
@@ -100,6 +118,7 @@ const SecurityTab = () => {
         variant: "destructive",
       });
     } finally {
+      resettingRef.current = false;
       setResetting(false);
     }
   };
