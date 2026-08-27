@@ -67,7 +67,7 @@ const SecurityTab = () => {
 
   const handleResetTestData = async () => {
     if (!org) return;
-    if (resetting) return;
+    if (resettingRef.current) return;
     if (!org.is_test) {
       toast({
         title: "Not a test account",
@@ -76,6 +76,7 @@ const SecurityTab = () => {
       });
       return;
     }
+    resettingRef.current = true;
     setResetting(true);
     try {
       // Send the org shown in the dialog. The backend still ignores this for
