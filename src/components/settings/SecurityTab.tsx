@@ -41,6 +41,9 @@ const SecurityTab = () => {
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
   const [resetting, setResetting] = useState(false);
+  // Ref guard: React state updates are async, so two clicks landing in the same
+  // tick would both pass an `if (resetting)` check. A ref flips synchronously.
+  const resettingRef = useRef(false);
 
   useEffect(() => {
     if (!orgReady || !orgId) return;
