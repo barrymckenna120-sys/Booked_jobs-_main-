@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 
 const corsHeaders = {
@@ -16,6 +17,14 @@ serve(async (req) => {
 
   try {
     const { service_call_id } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation owning this row.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-cancellation-notice",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
     if (!service_call_id) {
       return new Response(JSON.stringify({ error: "service_call_id required" }), {
         status: 400,

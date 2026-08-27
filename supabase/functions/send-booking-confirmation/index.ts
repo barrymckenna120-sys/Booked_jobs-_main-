@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { bookingConfirmationSkip } from "../_shared/bookingConfirmationSkip.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 
 serve(async (req) => {
@@ -30,6 +31,14 @@ serve(async (req) => {
 
   try {
     const { service_call_id } = await req.json();
+
+    // IDOR guard: prove the caller belongs to the organisation owning this row.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "send-booking-confirmation",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
 
     if (!service_call_id) {
       return fail("missing_service_call_id", "Missing service_call_id", 400);
