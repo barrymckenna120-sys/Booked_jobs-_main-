@@ -363,7 +363,7 @@ Deno.serve(async (req) => {
           }
 
           const reason = FAILURE_REASON_LABEL[String(e.status ?? "").toUpperCase()] ?? "Failed";
-          await supabase.from("customer_activity").insert({
+          const { error: insertErr } = await supabase.from("customer_activity").insert({
             organisation_id: e.organisationId,
             customer_id: e.customerId,
             service_call_id: e.serviceCallId,
@@ -372,6 +372,17 @@ Deno.serve(async (req) => {
             event_data: { source: "sumup", checkout_id: checkoutId, status: String(e.status ?? "") },
             created_by: null,
           });
+          // The SELECT dedup above loses a race when SumUp delivers the same
+          // decline twice within milliseconds — both reads see no row. The
+          // partial unique index customer_activity_payment_failed_once is the
+          // authority, so 23505 here IS the correct end state, not a failure.
+          if (insertErr && (insertErr as { code?: string }).code === "23505") {
+            console.log("sumup-payment-webhook: failure activity already logged (unique)", {
+              checkout_id: checkoutId,
+            });
+          } else if (insertErr) {
+            console.error("sumup-payment-webhook: failure activity insert failed", insertErr.message);
+          }
           return;
         }
 
