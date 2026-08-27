@@ -16,7 +16,8 @@ export function bearerToken(req: Request): string {
   return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 }
 
-export function isMachineCaller(req: Request): boolean {
+/** Header shared-secret check only — synchronous, no network. */
+export function hasSharedSecret(req: Request): boolean {
   const provided = (
     req.headers.get("x-webhook-secret") ??
     req.headers.get("x-make-secret") ??
@@ -30,28 +31,63 @@ export function isMachineCaller(req: Request): boolean {
     .map((s) => (s ?? "").trim())
     .filter(Boolean);
 
-  if (provided && expectedSecrets.includes(provided)) return true;
+  return Boolean(provided && expectedSecrets.includes(provided));
+}
 
-  const serviceRoleKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
-  const token = bearerToken(req);
-  return Boolean(serviceRoleKey && token && token === serviceRoleKey);
+/**
+ * True when the caller presents a service-role credential.
+ *
+ * Byte-equality against SUPABASE_SERVICE_ROLE_KEY is the fast path, but it is
+ * not sufficient: pg_cron jobs carry a service-role key issued separately (e.g.
+ * from vault) which is equally valid yet not the same string. So we fall back to
+ * proving the token actually holds service-role privilege by calling an
+ * admin-only endpoint with it. An anon/publishable key or a user JWT fails that.
+ */
+export async function isServiceRoleToken(token: string): Promise<boolean> {
+  if (!token) return false;
+
+  const envKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  if (envKey && token === envKey) return true;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  if (!supabaseUrl) return false;
+
+  try {
+    const probe = createClient(supabaseUrl, token, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await probe.auth.admin.listUsers({ page: 1, perPage: 1 });
+    return !error;
+  } catch (_e) {
+    return false;
+  }
+}
+
+export async function isMachineCaller(req: Request): Promise<boolean> {
+  if (hasSharedSecret(req)) return true;
+  return await isServiceRoleToken(bearerToken(req));
 }
 
 /**
  * Machine callers only (cron / Make.com). Signed-in user JWTs are rejected.
  */
-export function requireMachineCaller(
+export async function requireMachineCaller(
   req: Request,
   corsHeaders: Record<string, string>,
   fnName: string,
-): Response | null {
-  if (isMachineCaller(req)) return null;
-  console.warn(`${fnName}: rejected unauthorised caller (no machine credentials)`);
+): Promise<Response | null> {
+  if (await isMachineCaller(req)) return null;
+  console.warn(
+    `${fnName}: rejected unauthorised caller (no machine credentials; ` +
+      `shared_secret=${hasSharedSecret(req)} bearer_present=${Boolean(bearerToken(req))})`,
+  );
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
     status: 401,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+
 
 /**
  * Machine callers OR a valid signed-in Supabase user JWT. Use for functions the
