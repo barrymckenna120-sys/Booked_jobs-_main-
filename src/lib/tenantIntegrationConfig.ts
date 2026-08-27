@@ -49,3 +49,35 @@ export function buildTenantConfigRows(
     };
   });
 }
+
+export interface ClearableField {
+  type: string;
+  key: string;
+  label: string;
+  secret?: boolean;
+}
+
+/** Credential-ish fields need an explicit confirmation before they can be cleared. */
+export function isCredentialField(f: ClearableField): boolean {
+  return f.secret === true || f.key === "merchant_code";
+}
+
+/**
+ * Labels of credential fields that had a stored value and are now blank,
+ * i.e. the user is explicitly clearing a credential.
+ */
+export function detectClearedCredentials(
+  fields: ClearableField[],
+  initial: Record<string, string>,
+  current: Record<string, string>
+): string[] {
+  return fields
+    .filter((f) => {
+      if (!isCredentialField(f)) return false;
+      const id = `${f.type}::${f.key}`;
+      const before = (initial[id] ?? "").trim();
+      const after = (current[id] ?? "").trim();
+      return before !== "" && after === "";
+    })
+    .map((f) => f.label);
+}
