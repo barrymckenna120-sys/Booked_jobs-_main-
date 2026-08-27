@@ -42,7 +42,6 @@ export interface DepositStageOutcome {
  */
 const BENIGN_SKIPS = new Set([
   "no_deposit_amount",
-  "no_service_call",
   "opted_out",
 ]);
 
