@@ -166,16 +166,16 @@ Deno.serve(async (req) => {
         any
       >;
 
+    // BJ-0090: tenant credentials ONLY. The shared THREESIXTY_API_KEY fallback
+    // is removed — a tenant with no key of its own must fail, never send from
+    // (and bill) another tenant's WhatsApp account.
     const apiKey =
       cfg.api_key ||
       (cfg.api_key_secret
         ? Deno.env.get(
             cfg.api_key_secret
           )
-        : null) ||
-      Deno.env.get(
-        "THREESIXTY_API_KEY"
-      );
+        : null);
 
     if (!apiKey) {
       return json(
