@@ -189,10 +189,8 @@ serve(async (req) => {
             )
           : null
       ) ??
-      config?.api_key ??
-      Deno.env.get(
-        "THREESIXTY_API_KEY"
-      );
+      // Tenant credentials only — no shared THREESIXTY_API_KEY fallback.
+      config?.api_key;
 
     if (!apiKey) {
       return new Response(
