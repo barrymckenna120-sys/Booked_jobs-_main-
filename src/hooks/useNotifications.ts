@@ -24,6 +24,7 @@ export type NotificationType =
   | "no_show"
   | "completed"
   | "parts_needed"
+  | "parts_requested"
   | "parts_cancelled"
   | "parts_update"
   | "payment_collected"

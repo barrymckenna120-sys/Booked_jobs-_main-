@@ -1,7 +1,7 @@
 /**
  * Resolves the in-app route a notification should open when tapped.
  *
- * Parts notifications (`parts_cancelled`, `parts_update`) carry the
+ * Parts notifications (`parts_cancelled`, `parts_update`, `parts_requested`) carry the
  * `parts_request_id` in metadata, so they deep-link to the relevant parts list
  * with that row highlighted instead of dumping the user on the general job page.
  * Everything else keeps the existing job-page behaviour.
@@ -12,7 +12,7 @@ export interface NotificationTargetInput {
   metadata?: Record<string, unknown> | null;
 }
 
-const PARTS_TYPES = new Set(["parts_cancelled", "parts_update"]);
+const PARTS_TYPES = new Set(["parts_cancelled", "parts_update", "parts_requested"]);
 
 export const resolveNotificationTarget = (
   n: NotificationTargetInput,
