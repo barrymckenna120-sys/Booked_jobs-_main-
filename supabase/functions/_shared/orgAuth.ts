@@ -12,7 +12,15 @@
 // Fails closed: if either organisation cannot be established, access is denied.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { bearerToken, hasSharedSecret, isServiceRoleToken, resolveCaller } from "./machineAuth.ts";
+import {
+  bearerToken,
+  hasSharedSecret,
+  isServiceRoleToken,
+  providedSecret,
+  resolveCaller,
+  tenantSecretOrg,
+} from "./machineAuth.ts";
+
 import { strictMachineBinding } from "./machineOrg.ts";
 
 export type ResourceRef = {
