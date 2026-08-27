@@ -1,37 +1,43 @@
-# Warranty send: confirm the no-fallback guard, then prove it live
+# send-warranty-whatsapp: read `renewal_form_url` instead of `new_booking_url`
 
-## What I found before planning
+## The change (single concern)
 
-The code change you asked for is **already in place**. `send-warranty-whatsapp` has no hardcoded Tally URL:
+In `supabase/functions/send-warranty-whatsapp/index.ts`, the Tally lookup currently does:
 
-- The only occurrence of `RGJDy4` anywhere in the repo is in a unit test fixture (`_shared/rebookLink.test.ts`) — not in any send path.
-- The function resolves the form URL per organisation from `tenant_integrations` (`integration_type = 'tally'`), with a comment stating "No cross-tenant fallback".
-- When the URL is missing it calls `logSkip(...)`, which writes an `edge_function_logs` row (`SKIPPED: missing_renewal_form_url — ...` with `organisation_id` in the payload) plus a `message_log` row, and returns `{ success: true, skipped: true, reason: "missing_renewal_form_url", organisation_id }` at HTTP 200. No message is sent.
+```ts
+if (cfg?.new_booking_url) { tallyFormBase = cfg.new_booking_url; }
+```
 
-So there is nothing to remove. What is genuinely outstanding is your deploy + live proof, and there are two blockers.
+It becomes `cfg?.renewal_form_url` — no fallback to `new_booking_url` or anything else. The `logSkip("missing_renewal_form_url", ...)` branch and its 200 `{ success: true, skipped: true, reason: "missing_renewal_form_url", organisation_id }` response stay byte-identical apart from the detail string naming the correct field.
 
-## Blocker 1 — Cavan Gas has no customers
+Nothing else in the function changes: no message-body edits, no phone normalisation, no `warranty_reminder_log` changes, no `message_type` handling.
 
-`send-warranty-whatsapp` looks the organisation up **from the customer**, not from a request field. Cavan Gas (`62d6c1c3-…`) currently has **0 customer rows**, so a test call against it would fail earlier with `400 Customer missing organisation_id` and never reach the skip branch. That would prove nothing.
+Not touched: `create-booking-link`, `renewal-reminder-30`, `renewal-reminder-14`, `send-renewal-reminder`, `missed-call-lookup`, `warranty-auto-send`, pg_cron.
 
-To get a real response from the skip path, the test needs one `ZZ SCRATCH` customer in Cavan Gas with a scratch phone number. That is a database write, so it is its own review-gated step below.
+## Verified config before planning
 
-## Blocker 2 — the guard reads `new_booking_url`, not `renewal_form_url`
+`tenant_integrations` (integration_type = tally):
 
-Your prompt names `renewal_form_url`. The guard actually keys on `config.new_booking_url`. For Cavan Gas both are empty strings, so the skip fires either way and the live test will pass — but the field the warranty template should use needs confirming before I call this done. K&N has both set to different URLs (`book.` vs `rebook.`), so the choice is not cosmetic. I will not change the field in this step; I will report which one the message body actually needs and let you decide.
+- K&N (`8c37827f-…`): `new_booking_url = https://book.kngasservices.ie/`, `renewal_form_url = https://rebook.kngasservices.ie/` — so this change genuinely swaps the link the warranty message carries.
+- Cavan Gas (`62d6c1c3-…`): both fields empty strings — skip path unchanged there.
 
 ## Steps
 
-1. **DB write (isolated, review-gated):** insert a single `ZZ SCRATCH` customer into Cavan Gas with a reserved scratch phone number, boiler brand/model set, `opted_out = false`. No other rows touched.
-2. **Deploy** `send-warranty-whatsapp` unchanged, to confirm the deployed version matches the repo (the guard may predate the last deploy).
-3. **Live HTTP test:** POST to the deployed function with the scratch customer's id and `message_type: "warranty_day14"`. Show the actual JSON response verbatim.
-4. **Show the log row:** query `edge_function_logs` for the row that call created and paste it.
-5. **Report** the `new_booking_url` vs `renewal_form_url` question with a recommendation.
+1. Apply the one-line field change (plus the skip detail string).
+2. Deploy `send-warranty-whatsapp`.
+3. Live test A — Cavan Gas scratch customer `e43c42f0-0b0e-43d0-8e5b-b4c427f4fb42`, `message_type: "warranty_day14"`. Expect the same skip JSON at 200; paste the verbatim response plus the `edge_function_logs` row.
+4. Live test B — K&N, to prove the link resolves to `rebook.kngasservices.ie`.
+5. Report both responses and the exact outbound message body.
 
-## Not touched
+## One decision needed for step 4
 
-`warranty-auto-send`, any pg_cron schedule, message content, phone normalisation, `warranty_reminder_log` writes, and `message_type` handling all stay exactly as they are.
+The only K&N scratch customer is `ZZ Scratch CancelConfirm Test` (`7380540d-…`, phone `+212656802656`). A pass through the K&N path is a **real outbound WhatsApp send** to that number — the function has no dry-run mode. Two options:
+
+- **Send to that scratch number** — genuine end-to-end proof, one test message lands on that handset.
+- **Prove the URL without sending** — deploy, then reconstruct the exact message body from the deployed code and the live K&N config, and show the `edge_function_logs` / `message_log` evidence from a Cavan-style skip only. No outbound message, slightly weaker proof of the send path.
+
+I will not send to a K&N number until you pick.
 
 ## Risk
 
-Low. The scratch customer has no real phone number and the expected outcome is a skip, so no outbound WhatsApp is possible on this path. If the response comes back as a send rather than a skip, I stop and report instead of continuing.
+Low. One field read changes; the failure mode is "skips instead of sending", never "sends the wrong link". If the K&N test returns a send with a `book.` URL rather than `rebook.`, I stop and report.
