@@ -364,6 +364,13 @@ export type Database = {
             foreignKeyName: "cert2_certificates_service_call_id_fkey"
             columns: ["service_call_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "cert2_certificates_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -422,6 +429,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
           },
           {
             foreignKeyName: "certificates_job_id_fkey"
@@ -553,6 +567,13 @@ export type Database = {
             foreignKeyName: "customer_activity_service_call_id_fkey"
             columns: ["service_call_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "customer_activity_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -593,6 +614,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_call_notes_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
           },
           {
             foreignKeyName: "customer_call_notes_service_call_id_fkey"
@@ -1188,6 +1216,13 @@ export type Database = {
             foreignKeyName: "hazard_notifications_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "hazard_notifications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -1361,6 +1396,13 @@ export type Database = {
             foreignKeyName: "invoices_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -1438,6 +1480,13 @@ export type Database = {
             foreignKeyName: "job_media_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "job_media_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -1488,6 +1537,13 @@ export type Database = {
           sender_role?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_messages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
           {
             foreignKeyName: "job_messages_job_id_fkey"
             columns: ["job_id"]
@@ -1577,6 +1633,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "job_payments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_payments_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
           },
           {
             foreignKeyName: "job_payments_service_call_id_fkey"
@@ -1752,6 +1815,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
           {
             foreignKeyName: "notifications_job_id_fkey"
             columns: ["job_id"]
@@ -2143,6 +2213,13 @@ export type Database = {
             foreignKeyName: "parts_requests_service_call_id_fkey"
             columns: ["service_call_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "parts_requests_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -2186,6 +2263,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organisations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_checkout_attempts_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
           },
           {
             foreignKeyName: "payment_checkout_attempts_service_call_id_fkey"
@@ -2524,6 +2608,13 @@ export type Database = {
             foreignKeyName: "quotes_converted_job_id_fkey"
             columns: ["converted_job_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "quotes_converted_job_id_fkey"
+            columns: ["converted_job_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -2533,6 +2624,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
           },
           {
             foreignKeyName: "quotes_job_id_fkey"
@@ -2579,6 +2677,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_call_tags_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
           },
           {
             foreignKeyName: "service_call_tags_service_call_id_fkey"
@@ -3117,6 +3222,13 @@ export type Database = {
             foreignKeyName: "sumup_webhook_events_service_call_id_fkey"
             columns: ["service_call_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "sumup_webhook_events_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -3271,6 +3383,13 @@ export type Database = {
             foreignKeyName: "transactions_service_call_id_fkey"
             columns: ["service_call_id"]
             isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "transactions_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
             referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
@@ -3407,7 +3526,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      payment_reconciliation_exceptions: {
+        Row: {
+          balance_due: number | null
+          job_reference: string | null
+          ledger_total: number | null
+          organisation_id: string | null
+          paid_at: string | null
+          payment_count: number | null
+          payment_method: string | null
+          payment_status: string | null
+          receipt_sent: boolean | null
+          revenue: number | null
+          service_call_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_calls_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       bootstrap_impersonation_hmac: {
