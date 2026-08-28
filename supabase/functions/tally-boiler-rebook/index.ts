@@ -2,13 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normalisePhoneE164 } from "../_shared/phone.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isMachineCaller } from "../_shared/machineAuth.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
 
 // Phone helpers now live in ../_shared/phone.ts so other inbound handlers
 // (Telnyx missed calls, etc.) reuse one implementation.
@@ -33,6 +29,8 @@ async function logInvocation(
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -44,10 +42,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Shared-secret auth: require x-webhook-secret matching MAKE_WEBHOOK_SECRET.
-  const providedSecret = req.headers.get("x-webhook-secret");
-  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
-  if (!expectedSecret || providedSecret !== expectedSecret) {
+  // Webhook authentication via the shared machine-auth gate (per-tenant
+  // integration secret, global shared secret, or service-role key).
+  if (!(await isMachineCaller(req))) {
     return new Response(
       JSON.stringify({ success: false, error: "Unauthorized" }),
       {

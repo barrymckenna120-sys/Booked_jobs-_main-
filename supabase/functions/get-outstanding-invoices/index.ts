@@ -1,64 +1,20 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
 /**
- * Auth guard (audit finding #1) — this function used to be anonymously
- * invokable. Accepts exactly the credentials our real callers already send:
- *  - Make.com / internal machine callers: `x-webhook-secret` or `x-make-secret`
- *    === MAKE_WEBHOOK_SECRET, or `Authorization: Bearer <service role key>`.
- *  - Signed-in app users: a valid Supabase user JWT.
- * The anon/publishable key alone is rejected — that is the hole being closed.
+ * Financial data: only tenant roles that are allowed to see money in the app
+ * may read outstanding invoices. Engineers are excluded by design.
+ * Machine callers (Make.com scenario / cron) are bound to one tenant by
+ * requireBoundOrg and are not role-gated.
  */
-function bearerToken(req: Request): string {
-  const auth = req.headers.get("authorization") ?? "";
-  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-}
-
-function isMachineCaller(req: Request): boolean {
-  const expected = (Deno.env.get("MAKE_WEBHOOK_SECRET") ?? "").trim();
-  const provided = (req.headers.get("x-webhook-secret") ?? req.headers.get("x-make-secret") ?? "").trim();
-  if (expected && provided && provided === expected) return true;
-  const serviceRoleKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
-  const token = bearerToken(req);
-  return Boolean(serviceRoleKey && token && token === serviceRoleKey);
-}
-
-async function authoriseRequest(req: Request): Promise<{ ok: boolean; reason?: string }> {
-  if (isMachineCaller(req)) return { ok: true };
-  const token = bearerToken(req);
-  if (!token) return { ok: false, reason: "missing_credentials" };
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!supabaseUrl || !serviceKey) return { ok: false, reason: "auth_unavailable" };
-  try {
-    const authClient = createClient(supabaseUrl, serviceKey);
-    const { data, error } = await authClient.auth.getUser(token);
-    if (error || !data?.user?.id) return { ok: false, reason: "invalid_token" };
-    return { ok: true };
-  } catch (_e) {
-    return { ok: false, reason: `auth_check_failed: ${(_e as Error).message}` };
-  }
-}
+const FINANCE_ROLES = ["owner", "admin", "manager", "office", "superadmin"];
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  const auth = await authoriseRequest(req);
-  if (!auth.ok) {
-    console.warn(`get-outstanding-invoices: unauthorized call (${auth.reason})`);
-    return new Response(JSON.stringify({ error: "Unauthorized", reason: auth.reason }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   }
 
   try {
@@ -85,6 +41,17 @@ Deno.serve(async (req) => {
     });
     if (isDenied(access)) return access.error;
     organisation_id = access.orgId;
+
+    // Tenant-role authorization for signed-in users (unchanged for machines).
+    if (access.kind === "user" && !FINANCE_ROLES.includes(String(access.role ?? ""))) {
+      console.warn(
+        `get-outstanding-invoices: role ${access.role ?? "none"} is not permitted to read invoices`,
+      );
+      return new Response(JSON.stringify({ error: "Forbidden", reason: "role_not_permitted" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const now = new Date();
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
