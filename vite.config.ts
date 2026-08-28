@@ -26,8 +26,13 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         cacheId: "bookedjobs-v1",
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
+
+        // Activation is controlled explicitly by the update banner
+        // (updateServiceWorker(true)). Forcing skipWaiting/clientsClaim here
+        // would swap code under a user who may have unsaved work open.
+        skipWaiting: false,
+        clientsClaim: false,
+
 
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
