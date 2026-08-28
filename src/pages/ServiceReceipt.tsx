@@ -241,7 +241,27 @@ const ServiceReceipt = () => {
     );
   }
 
-  if (!job || !customer) return null;
+  if (loadError) {
+    return (
+      <DataLoadError
+        title="Couldn't load this receipt"
+        message={loadError}
+        onRetry={loadData}
+        onBack={() => navigate(-1)}
+      />
+    );
+  }
+
+  if (!job || !customer) {
+    return (
+      <DataLoadError
+        title="Receipt unavailable"
+        message="This receipt couldn't be found or you don't have access to it."
+        onRetry={loadData}
+        onBack={() => navigate(-1)}
+      />
+    );
+  }
 
   const data = getReceiptData();
 
