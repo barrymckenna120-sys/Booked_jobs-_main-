@@ -86,7 +86,25 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const TenantDetail = lazy(() => import("./pages/admin/TenantDetail"));
 const ResetAdmin = lazy(() => import("./pages/ResetAdmin"));
 
-const queryClient = new QueryClient();
+// Step 4 — Calm the Network: global fetch behaviour lives here, not scattered
+// across per-query overrides. Screens that genuinely need polling or fresher
+// data keep their own explicit overrides.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 30 * 60_000,
+      retry: shouldRetryQuery,
+      retryDelay: queryRetryDelay,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+    },
+    mutations: {
+      // Never auto-retry a write: payments/completions must not double-fire.
+      retry: 0,
+    },
+  },
+});
 
 const RecoveryRedirectGuard = ({
   children,
