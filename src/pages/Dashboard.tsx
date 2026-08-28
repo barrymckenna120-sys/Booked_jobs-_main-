@@ -55,6 +55,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const secondaryReady = useDeferredMount();
   const [showNewJob, setShowNewJob] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
