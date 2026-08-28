@@ -14,11 +14,19 @@ import { format } from "date-fns";
 import DashboardStatCards from "@/components/dashboard/DashboardStatCards";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import NeedsAttentionCard from "@/components/dashboard/NeedsAttentionCard";
-import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
-import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import FollowUpsPanel from "@/components/dashboard/FollowUpsPanel";
 import PartsPanel from "@/components/dashboard/PartsPanel";
+import { useDeferredMount } from "@/hooks/useDeferredMount";
+
+// Step 4 — Calm the Network: revenue/jobs-update panels are secondary data, so
+// they're code-split and mounted after the core schedule has painted.
+const JobsUpdateSection = lazy(() => import("@/components/dashboard/JobsUpdateSection"));
+const TodaysRevenueCard = lazy(() => import("@/components/dashboard/TodaysRevenueCard"));
+
+const SecondaryPanelSkeleton = () => (
+  <div className="h-40 rounded-lg border border-border bg-card animate-pulse" />
+);
 
 const greeting = () => {
   const h = new Date().getHours();
