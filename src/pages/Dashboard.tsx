@@ -238,11 +238,24 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Row 3: Jobs Update + Revenue */}
+          {/* Row 3: Jobs Update + Revenue — secondary, deferred until idle */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-            <JobsUpdateSection />
-            <TodaysRevenueCard />
+            {secondaryReady ? (
+              <Suspense fallback={<SecondaryPanelSkeleton />}>
+                <JobsUpdateSection />
+              </Suspense>
+            ) : (
+              <SecondaryPanelSkeleton />
+            )}
+            {secondaryReady ? (
+              <Suspense fallback={<SecondaryPanelSkeleton />}>
+                <TodaysRevenueCard />
+              </Suspense>
+            ) : (
+              <SecondaryPanelSkeleton />
+            )}
           </div>
+
 
           {/* Sales Ledger link card */}
           <button
