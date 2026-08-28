@@ -3,6 +3,8 @@ import JobCertsTab from "@/components/engineer/JobCertsTab";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
+import { withRequestTimeout } from "@/lib/queryDefaults";
+import DataLoadError from "@/components/shared/DataLoadError";
 import { formatDateIE } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { useAuth } from "@/hooks/useAuth";
@@ -384,6 +386,7 @@ const JobDetail = () => {
   const [job, setJob] = useState<ServiceCall | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -447,29 +450,46 @@ const JobDetail = () => {
 
   const fetchJob = async () => {
     setLoading(true);
-    const { data: jobData, error } = await supabase
-      .from("service_calls")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    setLoadError(null);
+    try {
+      const { data: jobData, error } = await withRequestTimeout(
+        supabase.from("service_calls").select("*").eq("id", id).maybeSingle()
+      );
 
-    if (error || !jobData) {
-      toast({ title: "Job not found", variant: "destructive" });
-      navigate("/dashboard");
-      return;
+      if (error) throw error;
+
+      if (!jobData) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate("/dashboard");
+        return;
+      }
+
+      setJob(jobData as ServiceCall);
+
+      const { data: custData, error: custError } = await withRequestTimeout(
+        supabase
+          .from("customers")
+          .select("id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location")
+          .eq("id", jobData.customer_id)
+          .maybeSingle()
+      );
+
+      if (custError) throw custError;
+      if (!custData) throw new Error("Customer record for this job could not be loaded.");
+      setCustomer(custData as Customer);
+    } catch (err: any) {
+      console.error("[JobDetail] load failed:", err);
+      setLoadError(
+        err?.message === "Request timed out"
+          ? "This is taking too long — your connection may be weak."
+          : err?.message || "Something went wrong loading this job."
+      );
+    } finally {
+      // Always reached: a loading state must resolve to success, error or empty.
+      setLoading(false);
     }
-
-    setJob(jobData as ServiceCall);
-
-    const { data: custData } = await supabase
-      .from("customers")
-      .select("id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location")
-      .eq("id", jobData.customer_id)
-      .maybeSingle();
-
-    if (custData) setCustomer(custData as Customer);
-    setLoading(false);
   };
+
 
   const handleMarkComplete = async () => {
     if (!job) return;
@@ -575,7 +595,30 @@ const JobDetail = () => {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   }
 
-  if (!job || !customer) return null;
+  // Never a blank screen and never a stuck spinner: failed/timed-out loads and
+  // missing records both land on an explicit, recoverable state.
+  if (loadError) {
+    return (
+      <DataLoadError
+        title="Couldn't load this job"
+        message={loadError}
+        onRetry={fetchJob}
+        onBack={() => navigate("/dashboard")}
+      />
+    );
+  }
+
+  if (!job || !customer) {
+    return (
+      <DataLoadError
+        title="Job unavailable"
+        message="This job couldn't be found or you don't have access to it."
+        onRetry={fetchJob}
+        onBack={() => navigate("/dashboard")}
+      />
+    );
+  }
+
 
   const showQuotePanel = job.job_type === "Repair" || job.job_type === "Emergency";
 

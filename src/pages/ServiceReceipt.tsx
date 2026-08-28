@@ -9,6 +9,8 @@ import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
 import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 import { invokeFunction } from "@/lib/invokeFunction";
+import { withRequestTimeout } from "@/lib/queryDefaults";
+import DataLoadError from "@/components/shared/DataLoadError";
 
 
 const formatDate = (d: string) =>
@@ -44,6 +46,7 @@ const ServiceReceipt = () => {
   const [showHazard, setShowHazard] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
   const [latestPaymentAmount, setLatestPaymentAmount] = useState<number | null>(null);
@@ -64,10 +67,13 @@ const ServiceReceipt = () => {
       });
   }, [user]);
 
-  // Auto-send WhatsApp receipt on page load
+  // Auto-send WhatsApp receipt on page load. Never fires while the screen is in
+  // an error/loading state — a partially loaded receipt must not be sent.
   useEffect(() => {
     if (
       job &&
+      !loading &&
+      !loadError &&
       !job.receipt_sent &&
       job.payment_method !== "invoice" &&
       !whatsappSent &&
@@ -75,50 +81,76 @@ const ServiceReceipt = () => {
     ) {
       handleSendWhatsApp();
     }
-  }, [job]);
+  }, [job, loading, loadError]);
 
   const loadData = async () => {
     setLoading(true);
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user!.id)
-      .maybeSingle();
-    const orgId = profileData?.organisation_id;
+    setLoadError(null);
+    try {
+      const { data: profileData, error: profileError } = await withRequestTimeout(
+        supabase.from("profiles").select("organisation_id").eq("user_id", user!.id).maybeSingle()
+      );
+      if (profileError) throw profileError;
+      const orgId = profileData?.organisation_id;
+      // Tenant parity: both K&N and Dublin Gas resolve branding from their own
+      // org row, so a missing org must fail loudly rather than render an
+      // unbranded receipt.
+      if (!orgId) throw new Error("Your account isn't linked to an organisation.");
 
-    const [jobRes, settingsRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
-    ]);
+      const [jobRes, settingsRes] = await withRequestTimeout(
+        Promise.all([
+          supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
+          supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
+        ])
+      );
 
-    if (!jobRes.data) {
-      toast({ title: "Job not found", variant: "destructive" });
-      navigate(-1);
-      return;
+      if (jobRes.error) throw jobRes.error;
+      if (settingsRes.error) throw settingsRes.error;
+
+      if (!jobRes.data) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate(-1);
+        return;
+      }
+
+      const [custRes, certRes, paymentRes] = await withRequestTimeout(
+        Promise.all([
+          supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
+          supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+          supabase
+            .from("job_payments")
+            .select("amount")
+            .eq("service_call_id", id)
+            .gt("amount", 0)
+            .order("paid_at", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ])
+      );
+
+      if (custRes.error) throw custRes.error;
+      if (!custRes.data) throw new Error("Customer details for this receipt couldn't be loaded.");
+
+      setJob(jobRes.data);
+      setCustomer(custRes.data);
+      setSettings(settingsRes.data);
+      setCertificate(certRes.data || null);
+      setLatestPaymentAmount(paymentRes.data?.amount ?? null);
+      if (jobRes.data.receipt_sent) setWhatsappSent(true);
+    } catch (err: any) {
+      console.error("[ServiceReceipt] load failed:", err);
+      setLoadError(
+        err?.message === "Request timed out"
+          ? "This is taking too long — your connection may be weak."
+          : err?.message || "Something went wrong loading this receipt."
+      );
+    } finally {
+      // Always reached, so the spinner can never persist indefinitely.
+      setLoading(false);
     }
-
-    const [custRes, certRes, paymentRes] = await Promise.all([
-      supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
-      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
-      supabase
-        .from("job_payments")
-        .select("amount")
-        .eq("service_call_id", id)
-        .gt("amount", 0)
-        .order("paid_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    setJob(jobRes.data);
-    setCustomer(custRes.data);
-    setSettings(settingsRes.data);
-    setCertificate(certRes.data || null);
-    setLatestPaymentAmount(paymentRes.data?.amount ?? null);
-    if (jobRes.data.receipt_sent) setWhatsappSent(true);
-    setLoading(false);
   };
+
 
   const getReceiptData = () => {
     const businessName = settings?.business_name || "";
@@ -209,7 +241,27 @@ const ServiceReceipt = () => {
     );
   }
 
-  if (!job || !customer) return null;
+  if (loadError) {
+    return (
+      <DataLoadError
+        title="Couldn't load this receipt"
+        message={loadError}
+        onRetry={loadData}
+        onBack={() => navigate(-1)}
+      />
+    );
+  }
+
+  if (!job || !customer) {
+    return (
+      <DataLoadError
+        title="Receipt unavailable"
+        message="This receipt couldn't be found or you don't have access to it."
+        onRetry={loadData}
+        onBack={() => navigate(-1)}
+      />
+    );
+  }
 
   const data = getReceiptData();
 

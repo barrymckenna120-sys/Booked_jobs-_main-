@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,11 +14,19 @@ import { format } from "date-fns";
 import DashboardStatCards from "@/components/dashboard/DashboardStatCards";
 import TodayTimeline from "@/components/dashboard/TodayTimeline";
 import NeedsAttentionCard from "@/components/dashboard/NeedsAttentionCard";
-import TodaysRevenueCard from "@/components/dashboard/TodaysRevenueCard";
-import JobsUpdateSection from "@/components/dashboard/JobsUpdateSection";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import FollowUpsPanel from "@/components/dashboard/FollowUpsPanel";
 import PartsPanel from "@/components/dashboard/PartsPanel";
+import { useDeferredMount } from "@/hooks/useDeferredMount";
+
+// Step 4 — Calm the Network: revenue/jobs-update panels are secondary data, so
+// they're code-split and mounted after the core schedule has painted.
+const JobsUpdateSection = lazy(() => import("@/components/dashboard/JobsUpdateSection"));
+const TodaysRevenueCard = lazy(() => import("@/components/dashboard/TodaysRevenueCard"));
+
+const SecondaryPanelSkeleton = () => (
+  <div className="h-40 rounded-lg border border-border bg-card animate-pulse" />
+);
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -47,6 +55,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const secondaryReady = useDeferredMount();
   const [showNewJob, setShowNewJob] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
@@ -230,11 +239,24 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Row 3: Jobs Update + Revenue */}
+          {/* Row 3: Jobs Update + Revenue — secondary, deferred until idle */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-            <JobsUpdateSection />
-            <TodaysRevenueCard />
+            {secondaryReady ? (
+              <Suspense fallback={<SecondaryPanelSkeleton />}>
+                <JobsUpdateSection />
+              </Suspense>
+            ) : (
+              <SecondaryPanelSkeleton />
+            )}
+            {secondaryReady ? (
+              <Suspense fallback={<SecondaryPanelSkeleton />}>
+                <TodaysRevenueCard />
+              </Suspense>
+            ) : (
+              <SecondaryPanelSkeleton />
+            )}
           </div>
+
 
           {/* Sales Ledger link card */}
           <button
