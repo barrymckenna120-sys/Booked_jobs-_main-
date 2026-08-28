@@ -1,22 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isPlatformAdminDenied, requirePlatformAdmin } from "../_shared/platformAdmin.ts";
 
 Deno.serve(async (req) => {
+  // CORS: project-standard shared helper (origin-scoped), per request.
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: corsHeaders,
@@ -32,72 +26,26 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL =
     Deno.env.get("SUPABASE_URL")!;
-  const ANON_KEY =
-    Deno.env.get("SUPABASE_ANON_KEY")!;
   const SERVICE_ROLE =
     Deno.env.get(
       "SUPABASE_SERVICE_ROLE_KEY"
     )!;
 
-  // Verify caller is an authenticated superadmin
-  const authHeader =
-    req.headers.get("Authorization") ?? "";
-
-  if (!authHeader.startsWith("Bearer ")) {
-    return json(
-      { error: "unauthorized" },
-      401
-    );
-  }
-
-  const userClient = createClient(
-    SUPABASE_URL,
-    ANON_KEY,
-    {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    }
-  );
-
-  const {
-    data: userData,
-    error: userErr,
-  } = await userClient.auth.getUser();
-
-  if (userErr || !userData?.user) {
-    return json(
-      { error: "unauthorized" },
-      401
-    );
-  }
+  // Authorisation: creating a whole new tenant is a platform-wide operation,
+  // so it goes through the shared platform-admin helper (profiles.role =
+  // 'superadmin', or the single central PLATFORM_OWNER_EMAILS override).
+  // No tenant role — owner/admin/manager/office — may provision tenants, and
+  // no per-function email allowlist exists here.
+  const platformAdmin = await requirePlatformAdmin(req, {
+    fnName: "provision-tenant",
+    cors: corsHeaders,
+  });
+  if (isPlatformAdminDenied(platformAdmin)) return platformAdmin.error;
 
   const supabase = createClient(
     SUPABASE_URL,
     SERVICE_ROLE
   );
-
-  const { data: profile } =
-    await supabase
-      .from("profiles")
-      .select("role")
-      .eq(
-        "user_id",
-        userData.user.id
-      )
-      .maybeSingle();
-
-  if (
-    (profile as any)?.role !==
-    "superadmin"
-  ) {
-    return json(
-      { error: "forbidden" },
-      403
-    );
-  }
 
   let body: any;
 

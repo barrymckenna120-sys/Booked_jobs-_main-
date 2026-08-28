@@ -96,3 +96,15 @@ export async function requirePlatformAdmin(
     via: decision.via!,
   };
 }
+
+/**
+ * Is this (already verified) email address in the single central platform-owner
+ * allowlist? Use ONLY as an additive platform-authority check alongside
+ * `profiles.role = 'superadmin'`; never as a substitute for tenant-role
+ * authorization, and never with an email taken from a request body.
+ */
+export function isPlatformOwnerEmail(email: string | null | undefined): boolean {
+  const normalized = (email ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return parseOwnerAllowlist(Deno.env.get("PLATFORM_OWNER_EMAILS")).includes(normalized);
+}

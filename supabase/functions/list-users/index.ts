@@ -1,32 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isPlatformOwnerEmail } from "../_shared/platformAdmin.ts";
 
-const ALLOWED_ORIGINS = [
-  "https://kngasservices.bookedjobs.ie",
-  "https://dublin-gas.bookedjobs.ie",
-];
-
-function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return false;
-  if (ALLOWED_ORIGINS.includes(origin)) return true;
-  try {
-    const hostname = new URL(origin).hostname;
-    return hostname.endsWith(".lovableproject.com") || hostname.endsWith(".lovable.app");
-  } catch {
-    return false;
-  }
-}
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin");
-  const allowOrigin = isAllowedOrigin(origin) ? origin : "";
-  return {
-    "Access-Control-Allow-Origin": allowOrigin ?? "",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    "Access-Control-Allow-Credentials": "true",
-  };
-}
+// CORS: project-standard shared helper (origin-scoped, tenant-agnostic).
+// Local copies drifted per function; see _shared/cors.ts.
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -158,9 +135,12 @@ Deno.serve(async (req) => {
     const callerRole = (callerProfile as any)?.role ?? null;
     const isSuperadmin = callerRole === "superadmin";
 
-    // Platform owner bypass
-    const PLATFORM_OWNER_EMAILS = ["barrymckenna120@gmail.com"];
-    let isAuthorized = PLATFORM_OWNER_EMAILS.includes(callerEmail) || isSuperadmin;
+    // Platform authority comes from the shared, centrally configured helper —
+    // never a hardcoded email in this function. Tenant roles below are
+    // unchanged: admin/office and the organisation owner keep their existing
+    // access, scoped to their own organisation.
+    const platformOwner = isPlatformOwnerEmail(callerEmail);
+    let isAuthorized = isSuperadmin || platformOwner;
 
     // Check caller has admin/office role OR is the organisation owner
     if (!isAuthorized) {

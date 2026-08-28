@@ -3,34 +3,10 @@
 // token via vault-stored secret; nothing here is trusted client-side.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const ALLOWED_ORIGINS = [
-  "https://kngasservices.bookedjobs.ie",
-  "https://dublin-gas.bookedjobs.ie",
-];
-
-function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return false;
-  if (ALLOWED_ORIGINS.includes(origin)) return true;
-  try {
-    const hostname = new URL(origin).hostname;
-    return hostname.endsWith(".lovableproject.com") || hostname.endsWith(".lovable.app");
-  } catch {
-    return false;
-  }
-}
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin");
-  const allowOrigin = isAllowedOrigin(origin) ? origin : ""; // empty string omits the header
-  return {
-    "Access-Control-Allow-Origin": allowOrigin ?? "",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    "Access-Control-Allow-Credentials": "true",
-  };
-}
+// CORS: project-standard shared helper (origin-scoped, tenant-agnostic).
+// Local copies drifted per function; see _shared/cors.ts.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

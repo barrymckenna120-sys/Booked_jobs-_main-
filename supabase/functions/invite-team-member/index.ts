@@ -1,12 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   console.log("invite-team-member called", req.method);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -87,11 +83,19 @@ Deno.serve(async (req) => {
     const callerOrgId = (callerProfileOrg as any)?.organisation_id || null;
     const isSuperadmin = rpcRole === "superadmin" || profileRole === "superadmin";
 
+    // Explicit rejection (not a silent downgrade): a tenant admin naming another
+    // organisation is an authorisation error, not a body field to discard.
+    // Tenant roles keep full access inside their OWN organisation.
     if (organisation_id && callerOrgId && organisation_id !== callerOrgId && !isSuperadmin) {
       console.warn(
-        `invite-team-member: ignoring cross-tenant organisation_id ${organisation_id} from caller ${caller.id}`,
+        `invite-team-member: cross-tenant organisation_id ${organisation_id} from caller ${caller.id} (org ${callerOrgId})`,
       );
+      return new Response(JSON.stringify({ error: "Forbidden: cross-organisation invite" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
 
     const resolvedOrgId: string | null = isSuperadmin
       ? (organisation_id || callerOrgId)

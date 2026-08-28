@@ -1,20 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isDenied, requireCallerOrg } from "../_shared/orgAuth.ts";
+import { cooldownWindowStart, isDuplicateRenewalSend } from "../_shared/renewalSendGuard.ts";
 
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { area_codes, customers } = await req.json();
+    // Authorisation: office/admin staff of ONE organisation. The caller's org is
+    // derived from their verified session; recipients outside it are skipped
+    // below. Previously this function had no auth gate at all.
+    const access = await requireCallerOrg(req, {
+      fnName: "send-area-bulk-whatsapp",
+      cors: corsHeaders,
+      roles: ["admin", "office", "owner", "owner_manager", "manager", "superadmin"],
+    });
+    if (isDenied(access)) return access.error;
+    const callerOrgId = access.orgId;
+
+    const { area_codes, customers, force } = await req.json();
 
     if (!customers || !Array.isArray(customers) || customers.length === 0) {
       return new Response(
@@ -107,8 +116,41 @@ serve(async (req) => {
       }
 
       const orgId = custRecord?.organisation_id;
+      if (orgId && orgId !== callerOrgId) {
+        console.warn(
+          `Skipping customer ${customer_id}: belongs to organisation ${orgId}, caller org ${callerOrgId}`,
+        );
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
       if (!orgId) {
         console.warn(`Skipping customer ${customer_id}: missing organisation_id`);
+        skipped++;
+        byArea[areaKey].skipped++;
+        continue;
+      }
+
+      // Idempotency (existing project convention: message_log + renewalSendGuard).
+      // A retried request or a double-clicked "Send all" must not produce a
+      // second real WhatsApp message for the same customer.
+      const dedupRes = await fetch(
+        `${supabaseUrl}/rest/v1/message_log?organisation_id=eq.${orgId}` +
+          `&customer_id=eq.${customer_id}&message_type=eq.renewal` +
+          `&sent_at=gte.${encodeURIComponent(cooldownWindowStart())}` +
+          `&select=sent_at,status&order=sent_at.desc&limit=5`,
+        { headers: dbHeaders },
+      );
+      const dedupRows = await dedupRes.json().catch(() => []);
+      const dupe = isDuplicateRenewalSend(
+        Array.isArray(dedupRows) ? dedupRows : [],
+        new Date(),
+        { force: force === true },
+      );
+      if (dupe.duplicate) {
+        console.log(
+          `Skipping customer ${customer_id}: duplicate renewal send (last ${dupe.lastSentAt})`,
+        );
         skipped++;
         byArea[areaKey].skipped++;
         continue;
