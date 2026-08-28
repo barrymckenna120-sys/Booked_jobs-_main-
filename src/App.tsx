@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { WhatsAppConnectionProvider } from "@/hooks/useWhatsAppConnection";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { shouldRetryQuery, queryRetryDelay } from "@/lib/queryDefaults";
 import {
   BrowserRouter,
   Routes,
