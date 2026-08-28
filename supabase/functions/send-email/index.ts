@@ -351,11 +351,10 @@ function appointmentConfirmationHtml(data: { customerName: string; date: string;
 
 // ── Main handler ───────────────────────────────────────────
 
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { assertSameOrganisation } from "../_shared/sameOrg.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { assertSameOrganisation } from "../_shared/sameOrg.ts";
+
 
 Deno.serve(async (req) => {
   // CORS: project-standard shared helper (origin-scoped) instead of wildcard.
