@@ -3,6 +3,8 @@ import { CreditCard, BookOpen, XCircle } from "lucide-react";
 import Finance from "./Finance";
 import SalesLedger from "./SalesLedger";
 import DeclinedPayments from "./DeclinedPayments";
+import PaymentExceptionsPanel from "@/components/finance/PaymentExceptionsPanel";
+
 
 const TABS = [
   { key: "overview", label: "Overview", icon: CreditCard },
