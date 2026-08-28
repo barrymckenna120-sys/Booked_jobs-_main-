@@ -193,6 +193,7 @@ const RouteFallback = () => (
 
 function AppContent() {
   const { loading } = useAuth("");
+  const location = useLocation();
 
   if (loading) {
     return <RouteFallback />;
@@ -200,7 +201,12 @@ function AppContent() {
 
   return (
     <Suspense fallback={<RouteFallback />}>
+      {/* Outer boundary covers the standalone routes that render without a
+          layout (auth, password reset, public receipts/redirects). Routes
+          inside AppLayout / EngineerLayout have their own nested boundary. */}
+      <ErrorBoundary key={location.pathname} name="app-shell" homePath="/">
       <Routes>
+
         <Route path="/" element={<RootRoute />} />
         <Route path="/auth" element={<Auth />} />
         <Route
