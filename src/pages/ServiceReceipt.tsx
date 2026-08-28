@@ -46,6 +46,7 @@ const ServiceReceipt = () => {
   const [showHazard, setShowHazard] = useState(false);
   const [engineerInfo, setEngineerInfo] = useState<{ name: string; rgi_number: string | null }>({ name: "", rgi_number: null });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
   const [latestPaymentAmount, setLatestPaymentAmount] = useState<number | null>(null);
