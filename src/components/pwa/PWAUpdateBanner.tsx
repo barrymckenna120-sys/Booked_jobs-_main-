@@ -41,21 +41,21 @@ const UpdateBanner = () => {
   return (
     <div className="fixed top-0 inset-x-0 z-[100] bg-primary text-primary-foreground shadow-md pt-[env(safe-area-inset-top)]">
       <div className="mx-auto max-w-5xl px-4 py-2 flex items-center justify-between gap-3 text-sm">
-        <button
-          onClick={handleRefresh}
-          className="flex-1 text-left font-medium"
-          aria-label="Refresh to apply update"
-        >
-          Update available — tap to refresh
-        </button>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">New version available</p>
+          <p className="text-primary-foreground/80 text-xs leading-snug">
+            Finish what you're doing first — nothing will change until you tap Update.
+          </p>
+        </div>
 
         <button
           onClick={handleRefresh}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary-foreground/15 hover:bg-primary-foreground/25 px-3 py-1.5 font-medium transition-colors"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary-foreground/15 hover:bg-primary-foreground/25 px-3 py-1.5 font-medium transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
+          Update
         </button>
+
 
         <button
           onClick={handleDismiss}
