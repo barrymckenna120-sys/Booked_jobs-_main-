@@ -413,13 +413,22 @@ function AppContent() {
 
         <Route
           path="/engineer/job/:id"
-          element={<EngineerJobDetail />}
+          element={
+            <ErrorBoundary name="engineer-job-detail" homePath="/engineer/today">
+              <EngineerJobDetail />
+            </ErrorBoundary>
+          }
         />
 
         <Route
           path="/engineer/job/:id/certificates"
-          element={<EngineerCertificates />}
+          element={
+            <ErrorBoundary name="engineer-certificates" homePath="/engineer/today">
+              <EngineerCertificates />
+            </ErrorBoundary>
+          }
         />
+
 
         <Route
           path="/receipt-view/:id"
