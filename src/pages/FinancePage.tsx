@@ -3,6 +3,8 @@ import { CreditCard, BookOpen, XCircle } from "lucide-react";
 import Finance from "./Finance";
 import SalesLedger from "./SalesLedger";
 import DeclinedPayments from "./DeclinedPayments";
+import PaymentExceptionsPanel from "@/components/finance/PaymentExceptionsPanel";
+
 
 const TABS = [
   { key: "overview", label: "Overview", icon: CreditCard },
@@ -41,11 +43,15 @@ const FinancePage = () => {
         })}
       </div>
 
+      {/* Read-only reconciliation report — renders nothing when there is nothing to report */}
+      {activeTab === "overview" && <PaymentExceptionsPanel />}
+
       {/* Content */}
       <div className="-mx-4 sm:-mx-6 -mt-6">
         {activeTab === "overview" && <Finance />}
         {activeTab === "sales-ledger" && <SalesLedger />}
         {activeTab === "declined" && <DeclinedPayments />}
+
 
       </div>
     </div>
