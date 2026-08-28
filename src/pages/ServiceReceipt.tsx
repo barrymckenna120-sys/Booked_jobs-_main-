@@ -79,46 +79,72 @@ const ServiceReceipt = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("user_id", user!.id)
-      .maybeSingle();
-    const orgId = profileData?.organisation_id;
+    setLoadError(null);
+    try {
+      const { data: profileData, error: profileError } = await withRequestTimeout(
+        supabase.from("profiles").select("organisation_id").eq("user_id", user!.id).maybeSingle()
+      );
+      if (profileError) throw profileError;
+      const orgId = profileData?.organisation_id;
+      // Tenant parity: both K&N and Dublin Gas resolve branding from their own
+      // org row, so a missing org must fail loudly rather than render an
+      // unbranded receipt.
+      if (!orgId) throw new Error("Your account isn't linked to an organisation.");
 
-    const [jobRes, settingsRes] = await Promise.all([
-      supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-      supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
-    ]);
+      const [jobRes, settingsRes] = await withRequestTimeout(
+        Promise.all([
+          supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
+          supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
+        ])
+      );
 
-    if (!jobRes.data) {
-      toast({ title: "Job not found", variant: "destructive" });
-      navigate(-1);
-      return;
+      if (jobRes.error) throw jobRes.error;
+      if (settingsRes.error) throw settingsRes.error;
+
+      if (!jobRes.data) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate(-1);
+        return;
+      }
+
+      const [custRes, certRes, paymentRes] = await withRequestTimeout(
+        Promise.all([
+          supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
+          supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
+          supabase
+            .from("job_payments")
+            .select("amount")
+            .eq("service_call_id", id)
+            .gt("amount", 0)
+            .order("paid_at", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ])
+      );
+
+      if (custRes.error) throw custRes.error;
+      if (!custRes.data) throw new Error("Customer details for this receipt couldn't be loaded.");
+
+      setJob(jobRes.data);
+      setCustomer(custRes.data);
+      setSettings(settingsRes.data);
+      setCertificate(certRes.data || null);
+      setLatestPaymentAmount(paymentRes.data?.amount ?? null);
+      if (jobRes.data.receipt_sent) setWhatsappSent(true);
+    } catch (err: any) {
+      console.error("[ServiceReceipt] load failed:", err);
+      setLoadError(
+        err?.message === "Request timed out"
+          ? "This is taking too long — your connection may be weak."
+          : err?.message || "Something went wrong loading this receipt."
+      );
+    } finally {
+      // Always reached, so the spinner can never persist indefinitely.
+      setLoading(false);
     }
-
-    const [custRes, certRes, paymentRes] = await Promise.all([
-      supabase.from("customers").select("*").eq("id", jobRes.data.customer_id).maybeSingle(),
-      supabase.from("certificates").select("id, pdf_url, cert_number").eq("job_id", id).maybeSingle(),
-      supabase
-        .from("job_payments")
-        .select("amount")
-        .eq("service_call_id", id)
-        .gt("amount", 0)
-        .order("paid_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    setJob(jobRes.data);
-    setCustomer(custRes.data);
-    setSettings(settingsRes.data);
-    setCertificate(certRes.data || null);
-    setLatestPaymentAmount(paymentRes.data?.amount ?? null);
-    if (jobRes.data.receipt_sent) setWhatsappSent(true);
-    setLoading(false);
   };
+
 
   const getReceiptData = () => {
     const businessName = settings?.business_name || "";
