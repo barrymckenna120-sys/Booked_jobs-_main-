@@ -87,11 +87,19 @@ Deno.serve(async (req) => {
     const callerOrgId = (callerProfileOrg as any)?.organisation_id || null;
     const isSuperadmin = rpcRole === "superadmin" || profileRole === "superadmin";
 
+    // Explicit rejection (not a silent downgrade): a tenant admin naming another
+    // organisation is an authorisation error, not a body field to discard.
+    // Tenant roles keep full access inside their OWN organisation.
     if (organisation_id && callerOrgId && organisation_id !== callerOrgId && !isSuperadmin) {
       console.warn(
-        `invite-team-member: ignoring cross-tenant organisation_id ${organisation_id} from caller ${caller.id}`,
+        `invite-team-member: cross-tenant organisation_id ${organisation_id} from caller ${caller.id} (org ${callerOrgId})`,
       );
+      return new Response(JSON.stringify({ error: "Forbidden: cross-organisation invite" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
 
     const resolvedOrgId: string | null = isSuperadmin
       ? (organisation_id || callerOrgId)
