@@ -26,8 +26,13 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         cacheId: "bookedjobs-v1",
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
+
+        // Activation is controlled explicitly by the update banner
+        // (updateServiceWorker(true)). Forcing skipWaiting/clientsClaim here
+        // would swap code under a user who may have unsaved work open.
+        skipWaiting: false,
+        clientsClaim: false,
+
 
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
@@ -95,7 +100,31 @@ export default defineConfig(({ mode }) => ({
               networkTimeoutSeconds: 15,
             },
           },
+
+          // Hashed build assets are immutable, so CacheFirst is safe and lets a
+          // tab that hasn't updated yet still resolve an older JS/CSS chunk
+          // after a deploy instead of 404 / ChunkLoadError.
+          {
+            urlPattern: ({ request, url, sameOrigin }: { request: Request; url: URL; sameOrigin: boolean }) =>
+              sameOrigin &&
+              request.method === "GET" &&
+              url.pathname.startsWith("/assets/"),
+
+            handler: "CacheFirst",
+
+            options: {
+              cacheName: "assets",
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
         ],
+
       },
     }),
   ].filter(Boolean),
