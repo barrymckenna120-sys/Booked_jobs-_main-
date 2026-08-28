@@ -67,10 +67,13 @@ const ServiceReceipt = () => {
       });
   }, [user]);
 
-  // Auto-send WhatsApp receipt on page load
+  // Auto-send WhatsApp receipt on page load. Never fires while the screen is in
+  // an error/loading state — a partially loaded receipt must not be sent.
   useEffect(() => {
     if (
       job &&
+      !loading &&
+      !loadError &&
       !job.receipt_sent &&
       job.payment_method !== "invoice" &&
       !whatsappSent &&
@@ -78,7 +81,7 @@ const ServiceReceipt = () => {
     ) {
       handleSendWhatsApp();
     }
-  }, [job]);
+  }, [job, loading, loadError]);
 
   const loadData = async () => {
     setLoading(true);
