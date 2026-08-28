@@ -173,8 +173,11 @@ const EngineerLayout = () => {
 
       {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
       <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
-        <Outlet context={engineerJobs} />
+        <ErrorBoundary key={location.pathname} name="engineer-route" homePath="/engineer/today">
+          <Outlet context={engineerJobs} />
+        </ErrorBoundary>
       </div>
+
       <EnableSoundBanner />
 
 
