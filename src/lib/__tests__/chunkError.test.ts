@@ -1,6 +1,4 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
-
 import {
   isChunkLoadError,
   consumeChunkReloadBudget,
@@ -8,6 +6,21 @@ import {
   maybeReloadForChunkError,
   resetChunkReloadBudget,
 } from "../chunkError";
+
+/** Minimal sessionStorage + window.location.reload stand-ins (node env). */
+function stubBrowser() {
+  const store = new Map<string, string>();
+  const reload = vi.fn();
+
+  vi.stubGlobal("sessionStorage", {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
+  });
+  vi.stubGlobal("window", { location: { reload } });
+
+  return { reload };
+}
 
 describe("isChunkLoadError", () => {
   it("detects ChunkLoadError by name", () => {
@@ -38,6 +51,7 @@ describe("isChunkLoadError", () => {
 
 describe("reload budget", () => {
   beforeEach(() => {
+    stubBrowser();
     resetChunkReloadBudget();
   });
 
@@ -51,16 +65,9 @@ describe("reload budget", () => {
 });
 
 describe("maybeReloadForChunkError", () => {
-  beforeEach(() => {
-    resetChunkReloadBudget();
-  });
-
   it("reloads once for a chunk error and never again", () => {
-    const reload = vi.fn();
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, reload },
-      writable: true,
-    });
+    const { reload } = stubBrowser();
+    resetChunkReloadBudget();
 
     const err = new Error("Failed to fetch dynamically imported module");
     expect(maybeReloadForChunkError(err)).toBe(true);
@@ -71,11 +78,8 @@ describe("maybeReloadForChunkError", () => {
   });
 
   it("never reloads for a non-chunk error", () => {
-    const reload = vi.fn();
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, reload },
-      writable: true,
-    });
+    const { reload } = stubBrowser();
+    resetChunkReloadBudget();
 
     expect(maybeReloadForChunkError(new Error("nope"))).toBe(false);
     expect(reload).not.toHaveBeenCalled();
