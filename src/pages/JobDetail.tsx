@@ -447,29 +447,46 @@ const JobDetail = () => {
 
   const fetchJob = async () => {
     setLoading(true);
-    const { data: jobData, error } = await supabase
-      .from("service_calls")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    setLoadError(null);
+    try {
+      const { data: jobData, error } = await withRequestTimeout(
+        supabase.from("service_calls").select("*").eq("id", id).maybeSingle()
+      );
 
-    if (error || !jobData) {
-      toast({ title: "Job not found", variant: "destructive" });
-      navigate("/dashboard");
-      return;
+      if (error) throw error;
+
+      if (!jobData) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate("/dashboard");
+        return;
+      }
+
+      setJob(jobData as ServiceCall);
+
+      const { data: custData, error: custError } = await withRequestTimeout(
+        supabase
+          .from("customers")
+          .select("id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location")
+          .eq("id", jobData.customer_id)
+          .maybeSingle()
+      );
+
+      if (custError) throw custError;
+      if (!custData) throw new Error("Customer record for this job could not be loaded.");
+      setCustomer(custData as Customer);
+    } catch (err: any) {
+      console.error("[JobDetail] load failed:", err);
+      setLoadError(
+        err?.message === "Request timed out"
+          ? "This is taking too long — your connection may be weak."
+          : err?.message || "Something went wrong loading this job."
+      );
+    } finally {
+      // Always reached: a loading state must resolve to success, error or empty.
+      setLoading(false);
     }
-
-    setJob(jobData as ServiceCall);
-
-    const { data: custData } = await supabase
-      .from("customers")
-      .select("id, name, phone, email, address, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location")
-      .eq("id", jobData.customer_id)
-      .maybeSingle();
-
-    if (custData) setCustomer(custData as Customer);
-    setLoading(false);
   };
+
 
   const handleMarkComplete = async () => {
     if (!job) return;
