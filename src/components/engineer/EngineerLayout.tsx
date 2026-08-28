@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
+
 import { Clock, CalendarDays, CheckCircle2, LogOut, Briefcase, Package } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
