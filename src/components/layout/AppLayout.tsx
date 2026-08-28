@@ -247,9 +247,11 @@ const AppLayoutInner = () => {
 
       {/* ═══════════ MAIN CONTENT ═══════════ */}
       <main className="flex-1 md:ml-[220px] pb-20 md:pb-0">
-        
-        <Outlet />
+        <ErrorBoundary key={location.pathname} name="office-route" homePath="/dashboard">
+          <Outlet />
+        </ErrorBoundary>
       </main>
+
       <EnableSoundBanner />
 
       {/* ═══════════ MOBILE BOTTOM NAV — 5 tabs, fixed ═══════════ */}
