@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
+
 import { Clock, CalendarDays, CheckCircle2, LogOut, Briefcase, Package } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
@@ -171,8 +173,11 @@ const EngineerLayout = () => {
 
       {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
       <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
-        <Outlet context={engineerJobs} />
+        <ErrorBoundary key={location.pathname} name="engineer-route" homePath="/engineer/today">
+          <Outlet context={engineerJobs} />
+        </ErrorBoundary>
       </div>
+
       <EnableSoundBanner />
 
 
