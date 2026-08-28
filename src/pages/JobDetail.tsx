@@ -3,6 +3,7 @@ import JobCertsTab from "@/components/engineer/JobCertsTab";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
+import { withRequestTimeout } from "@/lib/queryDefaults";
 import { formatDateIE } from "@/lib/utils";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { useAuth } from "@/hooks/useAuth";
