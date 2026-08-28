@@ -1,4 +1,6 @@
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
+
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
