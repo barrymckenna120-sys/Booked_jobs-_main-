@@ -1,9 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const MASTER_ORG_ID = "8c37827f-ce2c-4507-a821-a5e807d89856";
 
 Deno.serve(async (req) => {
+  // CORS: project-standard shared helper. The previous wildcard came from the
+  // SDK export, so the effective policy was not visible in-repo.
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

@@ -1,9 +1,3 @@
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
 const APP_URL = "https://plumb-on-call.lovable.app";
 
 const RESEND_FROM_NAME = Deno.env.get("RESEND_FROM_NAME") || "BookedJobs";
@@ -357,9 +351,15 @@ function appointmentConfirmationHtml(data: { customerName: string; date: string;
 
 // ── Main handler ───────────────────────────────────────────
 
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { assertSameOrganisation } from "../_shared/sameOrg.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { assertSameOrganisation } from "../_shared/sameOrg.ts";
 
 Deno.serve(async (req) => {
+  // CORS: project-standard shared helper (origin-scoped) instead of wildcard.
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -394,31 +394,39 @@ Deno.serve(async (req) => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    // Resolve tenant From address via caller's profile → tenant_integrations.whatsapp.config.domain
+    // Caller organisation is always derived server-side from the verified JWT.
+    // It is used both for the tenant From address and for recipient validation.
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const callerUserId = (claimsData.claims as any).sub;
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("organisation_id")
+      .eq("user_id", callerUserId)
+      .maybeSingle();
+    const callerOrgId = ((callerProfile as any)?.organisation_id as string | null) ?? null;
+    if (!callerOrgId) {
+      console.warn("send-email: caller has no organisation");
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Resolve tenant From address via tenant_integrations.whatsapp.config.domain
     let RESEND_FROM_EMAIL: string | null = RESEND_FROM_EMAIL_OVERRIDE;
     if (!RESEND_FROM_EMAIL) {
-      const adminClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
-      const callerUserId = (claimsData.claims as any).sub;
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("organisation_id")
-        .eq("user_id", callerUserId)
+      const { data: waIntegration } = await adminClient
+        .from("tenant_integrations")
+        .select("config")
+        .eq("organisation_id", callerOrgId)
+        .eq("integration_type", "whatsapp")
         .maybeSingle();
-      const orgId = (profile as any)?.organisation_id;
-      if (orgId) {
-        const { data: waIntegration } = await adminClient
-          .from("tenant_integrations")
-          .select("config")
-          .eq("organisation_id", orgId)
-          .eq("integration_type", "whatsapp")
-          .maybeSingle();
-        const tenantDomain = (waIntegration as any)?.config?.domain;
-        if (tenantDomain) {
-          RESEND_FROM_EMAIL = `noreply@notify.${tenantDomain}`;
-        }
+      const tenantDomain = (waIntegration as any)?.config?.domain;
+      if (tenantDomain) {
+        RESEND_FROM_EMAIL = `noreply@notify.${tenantDomain}`;
       }
     }
 
@@ -436,24 +444,29 @@ Deno.serve(async (req) => {
     let subject: string;
     let html: string;
     let to: string;
+    // Which table must own the recipient address for this email type.
+    let recipientSource: "engineers" | "customers";
 
     switch (type) {
       case "welcome": {
         to = data.email;
         subject = `Welcome to BookedJobs — You're in, ${data.name.split(" ")[0]}!`;
         html = welcomeHtml(data);
+        recipientSource = "engineers";
         break;
       }
       case "job_assigned": {
         to = data.engineerEmail;
         subject = `New Job Assigned — ${data.jobRef}`;
         html = jobAssignedHtml(data);
+        recipientSource = "engineers";
         break;
       }
       case "appointment_confirmation": {
         to = data.customerEmail;
         subject = `Your Appointment is Confirmed — ${data.date}`;
         html = appointmentConfirmationHtml(data);
+        recipientSource = "customers";
         break;
       }
       default:
@@ -462,6 +475,44 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }
+
+    // Recipient validation: the address must already exist on a record inside
+    // the caller's own organisation. Previously any authenticated user could
+    // send a branded BookedJobs email to an arbitrary address, and could target
+    // another tenant's staff or customers. Fails closed.
+    const normalizedTo = String(to ?? "").trim().toLowerCase();
+    if (!normalizedTo || !normalizedTo.includes("@")) {
+      return new Response(JSON.stringify({ error: "Valid recipient email is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: recipientRows } = await adminClient
+      .from(recipientSource)
+      .select("id, email, organisation_id")
+      .ilike("email", normalizedTo)
+      .limit(20);
+
+    const match = (recipientRows ?? []).find(
+      (r: any) => String(r.email ?? "").trim().toLowerCase() === normalizedTo,
+    );
+    const sameOrg = match
+      ? assertSameOrganisation(callerOrgId, [
+        { label: `${recipientSource} recipient`, orgId: (match as any).organisation_id },
+      ])
+      : { ok: false as const, detail: `recipient not found in ${recipientSource}` };
+
+    if (!sameOrg.ok) {
+      console.warn(
+        `send-email: refused ${type} to unauthorised recipient — ${sameOrg.detail} (caller org ${callerOrgId})`,
+      );
+      return new Response(JSON.stringify({ error: "Recipient is not in your organisation" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
