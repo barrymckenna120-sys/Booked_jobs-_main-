@@ -520,6 +520,8 @@ function AppContent() {
           element={<NotFound />}
         />
       </Routes>
+      </ErrorBoundary>
+
     </Suspense>
   );
 }
