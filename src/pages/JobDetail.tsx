@@ -594,7 +594,30 @@ const JobDetail = () => {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   }
 
-  if (!job || !customer) return null;
+  // Never a blank screen and never a stuck spinner: failed/timed-out loads and
+  // missing records both land on an explicit, recoverable state.
+  if (loadError) {
+    return (
+      <DataLoadError
+        title="Couldn't load this job"
+        message={loadError}
+        onRetry={fetchJob}
+        onBack={() => navigate("/dashboard")}
+      />
+    );
+  }
+
+  if (!job || !customer) {
+    return (
+      <DataLoadError
+        title="Job unavailable"
+        message="This job couldn't be found or you don't have access to it."
+        onRetry={fetchJob}
+        onBack={() => navigate("/dashboard")}
+      />
+    );
+  }
+
 
   const showQuotePanel = job.job_type === "Repair" || job.job_type === "Emergency";
 
