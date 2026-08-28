@@ -2,13 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isMachineCaller } from "../_shared/machineAuth.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
 
 const MAX_NAME_LEN = 200;
 const MAX_ADDRESS_LEN = 500;
@@ -32,6 +28,9 @@ const collectMediaUrls = (input: unknown): string[] => normaliseMediaUrls(input)
 
 
 Deno.serve(async (req) => {
+  // Origin-scoped shared CORS (webhook callers send no Origin and are unaffected).
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -43,10 +42,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Shared-secret auth: require x-webhook-secret matching MAKE_WEBHOOK_SECRET.
-  const providedSecret = req.headers.get("x-webhook-secret");
-  const expectedSecret = Deno.env.get("MAKE_WEBHOOK_SECRET");
-  if (!expectedSecret || providedSecret !== expectedSecret) {
+  // Webhook authentication via the shared machine-auth gate: a per-tenant
+  // integration secret, the global shared secret, or a service-role key. A
+  // per-tenant secret is preferred because it also names the tenant (below).
+  if (!(await isMachineCaller(req))) {
     return new Response(
       JSON.stringify({ success: false, error: "Unauthorized" }),
       {
