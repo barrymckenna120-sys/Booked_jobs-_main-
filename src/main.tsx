@@ -6,23 +6,42 @@ import App from "./App.tsx";
 import "./index.css";
 import { installOrgHeaderInterceptor } from "./integrations/supabase/orgHeaderInterceptor";
 import { shouldSkipServiceWorker } from "./lib/isPreviewHost";
+import { installGlobalErrorHandlers } from "./lib/globalErrorHandlers";
+import { buildSentryTags, trackServiceWorkerState } from "./lib/sentryContext";
+import ErrorFallback from "./components/shared/ErrorFallback";
 
 installOrgHeaderInterceptor();
+trackServiceWorkerState();
 
 Sentry.init({
   dsn: "https://940563403eba06fc2d04d2b29c84d18b@o4511293795074048.ingest.de.sentry.io/4511293857267792",
   tracesSampleRate: 0.2,
+  integrations: [Sentry.browserTracingIntegration()],
+  beforeSend(event) {
+    event.tags = { ...buildSentryTags(), ...(event.tags ?? {}) };
+    return event;
+  },
 });
+
+installGlobalErrorHandlers();
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>
+    <Sentry.ErrorBoundary
+      fallback={
+        <ErrorFallback
+          homePath="/"
+          description="The app ran into an unexpected problem. Reopening usually clears it."
+        />
+      }
+    >
       <HelmetProvider>
         <App />
       </HelmetProvider>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );
+
 
 // Service worker registration — guarded against Lovable preview iframes/hosts.
 // NOTE: the published app lives on *.lovable.app, which is NOT a preview host.
