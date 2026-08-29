@@ -1,3 +1,4 @@
+import { maybeForceError } from "@/lib/__forceErrorTest";
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase, Package, AlertTriangle, ChevronRight } from "lucide-react";
@@ -25,6 +26,7 @@ const IN_PROGRESS_ICON: Record<string, LucideIcon> = {
 };
 
 const EngineerToday = () => {
+  maybeForceError("engineer-today");
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const navigate = useNavigate();
   const { user } = useAuth();
