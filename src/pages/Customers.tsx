@@ -1,4 +1,3 @@
-import { maybeForceError } from "@/lib/__forceErrorTest";
 import { useState, useEffect, useMemo } from "react";
 import { addDays, isAfter, isBefore, isToday, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -24,7 +23,6 @@ const TAG_FILTERS = [
 ];
 
 const Customers = () => {
-  maybeForceError("office-customers");
   const { user } = useAuth();
   const { orgId, ready } = useOrgId();
   const navigate = useNavigate();
