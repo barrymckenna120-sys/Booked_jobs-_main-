@@ -9,9 +9,9 @@ One thing to settle before starting: two of the three steps cannot be tested aga
 - **Step 3 and Step 4** can be tested in the sandbox against the running app (real login session already available). Full pass/fail achievable.
 - **Step 2 (safe updates) cannot be tested in the sandbox at all.** The service worker is deliberately never registered in dev or preview (`shouldSkipServiceWorker` returns true when not a production build, in an iframe, or on a preview host). No worker means no waiting worker, no banner, nothing to activate. Verifying it needs two real publishes of the live app plus a browser session held open across them.
 
-## Step 2 — safe updates (needs your approval)
+## Step 2 — safe updates (approved: publish live)
 
-Requires publishing the app twice, against the live K&N domain, because that is the only place the worker runs:
+Requires publishing the app twice, against the live K&N domain, because that is the only place the worker runs. Approved to go ahead; scheduled for a quiet window (early morning / observed lull), and no step force-reloads anyone.
 
 1. Publish once (baseline).
 2. Open the published app in a real browser session, sign in, confirm a service worker is active.
@@ -19,11 +19,8 @@ Requires publishing the app twice, against the live K&N domain, because that is 
 4. On the same still-open tab: confirm the update banner appears, the app keeps working on the old version (navigate two screens, type into a form field and confirm the text survives), then tap Update and confirm a clean reload onto the new version.
 5. Confirm old precache buckets do not accumulate across the two deploys.
 
-Two things to confirm with you first:
-- Are you happy for me to publish the live app twice for this test? Live users would see the update banner during the window.
-- Or should I run this against a non-live target instead, and accept that the K&N/Dublin Gas domains stay unverified for now?
+The "trivial visible change" in step 3 is a one-line marker so the two builds are distinguishable; it is removed after the test.
 
-If you'd rather not deploy, Step 2 is reported as "not verified — needs deploy" and Steps 3 and 4 proceed as below.
 
 ## Step 3 — visible failures
 
