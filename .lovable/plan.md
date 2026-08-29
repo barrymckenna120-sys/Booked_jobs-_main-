@@ -24,7 +24,14 @@ No changes to `vite.config.ts`, service-worker config, or `PWAUpdateBanner.tsx`.
 
 ## Gap 2 — Step 4 under a real Dublin Gas login
 
-Step 4 stays open, not passed, until this runs. Nothing to do until credentials exist. Once a DG session is available (either DG email + password provided in chat, or workspace-admin approval for session minting), the run is:
+Step 4 is reported as "passed for K&N, unverified for Dublin Gas" and stays that way until this run happens — no rounding up.
+
+Session sourcing, in order of preference:
+
+1. Look for an existing non-customer DG test/scratch auth user (e.g. the DG engineer test account already used for QA) and attempt to mint a preview session for it. Minting needs the user's approval on the exec call; no real DG customer account is touched, and no password is needed or seen.
+2. If no suitable scratch DG auth user exists, report that and state exactly what is needed (either approval for the specific scratch user's UUID, or a throwaway DG login created for QA) rather than testing against a real account.
+
+Once a DG session is available, the run is:
 
 1. Sign in as the DG user in a fresh browser context.
 2. DG JobDetail on a completed DG job: normal load, then slow 3G (400ms / 50 KBps), then hung Supabase REST requests to confirm the 15s timeout panel with Retry / Go back, then recovery via Retry.
