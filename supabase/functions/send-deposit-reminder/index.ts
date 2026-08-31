@@ -2,6 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
+import { buildSendMessageForm, WHATSAPP_SEND_URL } from "../_shared/whatsappPayload.ts";
+
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
