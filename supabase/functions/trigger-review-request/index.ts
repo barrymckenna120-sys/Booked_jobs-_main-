@@ -155,22 +155,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. Log customer activity
-    const { data: custFull } = await supabase
-      .from("customers")
-      .select("organisation_id")
-      .eq("id", customer_id)
-      .maybeSingle();
-
-    if (custFull?.organisation_id) {
-      await supabase.from("customer_activity").insert({
-        organisation_id: custFull.organisation_id,
-        customer_id,
-        event_type: "whatsapp_sent",
-        event_label: "WhatsApp sent — Review Request",
-        created_by: null,
-      });
-    }
+    // 5. Log customer activity against the org resolved by the auth gate.
+    await supabase.from("customer_activity").insert({
+      organisation_id: orgId,
+      customer_id,
+      event_type: "whatsapp_sent",
+      event_label: "WhatsApp sent — Review Request",
+      created_by: null,
+    });
 
     // 6. Mark review as sent
     await supabase
@@ -179,7 +171,8 @@ Deno.serve(async (req) => {
         review_sent: true,
         review_sent_at: new Date().toISOString(),
       })
-      .eq("id", service_call_id);
+      .eq("id", service_call_id)
+      .eq("organisation_id", orgId);
 
     return new Response(
       JSON.stringify({ success: true, customer_name: customer.name }),
