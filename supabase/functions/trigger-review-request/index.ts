@@ -1,13 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,16 +19,29 @@ Deno.serve(async (req) => {
       );
     }
 
+    // BJ-0089: this function messages a real customer, so the caller must be
+    // authenticated and bound to the job's organisation BEFORE anything is read
+    // or sent — the same standard as the sibling `review-request`. Machine
+    // callers must present credentials bound to that tenant.
+    const access = await requireResourceOrgAccess(req, {
+      fnName: "trigger-review-request",
+      cors: corsHeaders,
+      resource: { table: "service_calls", id: service_call_id },
+    });
+    if (isDenied(access)) return access.error;
+    const orgId = access.orgId;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Check if customer has opted out
+    // 1. Check if customer has opted out — customer must belong to the same org.
     const { data: customer, error: custErr } = await supabase
       .from("customers")
-      .select("name, phone, opted_out")
+      .select("name, phone, opted_out, organisation_id")
       .eq("id", customer_id)
+      .eq("organisation_id", orgId)
       .maybeSingle();
 
     if (custErr || !customer) {
@@ -53,6 +63,7 @@ Deno.serve(async (req) => {
       .from("service_calls")
       .select("id, review_sent, payment_method, organisation_id")
       .eq("id", service_call_id)
+      .eq("organisation_id", orgId)
       .maybeSingle();
 
     if (jobErr || !job) {
@@ -69,13 +80,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const orgId = (job as any).organisation_id;
-    if (!orgId) {
-      return new Response(
-        JSON.stringify({ error: "organisation_id missing on service_call" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     // 3. Get Google review URL from settings (scoped per org)
     const { data: settings } = await supabase
@@ -151,22 +155,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. Log customer activity
-    const { data: custFull } = await supabase
-      .from("customers")
-      .select("organisation_id")
-      .eq("id", customer_id)
-      .maybeSingle();
-
-    if (custFull?.organisation_id) {
-      await supabase.from("customer_activity").insert({
-        organisation_id: custFull.organisation_id,
-        customer_id,
-        event_type: "whatsapp_sent",
-        event_label: "WhatsApp sent — Review Request",
-        created_by: null,
-      });
-    }
+    // 5. Log customer activity against the org resolved by the auth gate.
+    await supabase.from("customer_activity").insert({
+      organisation_id: orgId,
+      customer_id,
+      event_type: "whatsapp_sent",
+      event_label: "WhatsApp sent — Review Request",
+      created_by: null,
+    });
 
     // 6. Mark review as sent
     await supabase
@@ -175,7 +171,8 @@ Deno.serve(async (req) => {
         review_sent: true,
         review_sent_at: new Date().toISOString(),
       })
-      .eq("id", service_call_id);
+      .eq("id", service_call_id)
+      .eq("organisation_id", orgId);
 
     return new Response(
       JSON.stringify({ success: true, customer_name: customer.name }),
