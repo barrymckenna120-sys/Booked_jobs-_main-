@@ -374,6 +374,15 @@ Deno.serve(async (req) => {
         merchant_code: String(profile?.merchant_profile?.merchant_code ?? "").trim().toUpperCase() || null,
         account_name: profile?.merchant_profile?.company_name ?? null,
         currency: profile?.merchant_profile?.default_currency ?? null,
+        // Expanded diagnostic: full /v0.1/me payload with any credential-shaped
+        // field redacted, so a "wrong key" can be told apart from a "right key,
+        // wrong lookup" (e.g. a sandbox profile nested under a parent account).
+        api_host: "api.sumup.com",
+        key_shape: {
+          prefix: probeKey.slice(0, 8),
+          length: probeKey.length,
+        },
+        profile_full: redactSecrets(profile),
       });
     }
 
