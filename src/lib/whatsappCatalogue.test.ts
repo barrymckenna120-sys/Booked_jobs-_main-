@@ -40,13 +40,22 @@ describe("whatsappCatalogue — drift detection", () => {
     const mismatched: string[] = [];
     for (const m of WHATSAPP_CATALOGUE) {
       if (!m.messageType) continue;
-      const src = sourceFor(m.fn) || "";
-      if (!src.includes(`"${m.messageType}"`) && !src.includes(`'${m.messageType}'`)) {
-        mismatched.push(`${m.id}: "${m.messageType}" not found in ${m.fn}/index.ts`);
+      // Some entries write their message_log row from a shared module rather
+      // than the function's own index.ts (e.g. deposit_link -> _shared/depositLink.ts),
+      // so search every source the canonical entry claims.
+      const sources = m.canonical.functions
+        .map((fn) => (fn.startsWith("_shared/") ? SHARED_SOURCES[`/supabase/functions/${fn}`] : sourceFor(fn)))
+        .filter(Boolean) as string[];
+      const found = sources.some(
+        (src) => src.includes(`"${m.messageType}"`) || src.includes(`'${m.messageType}'`),
+      );
+      if (!found) {
+        mismatched.push(`${m.id}: "${m.messageType}" not found in ${m.canonical.functions.join(", ")}`);
       }
     }
     expect(mismatched).toEqual([]);
   });
+
 
   it("only references known config keys, and every template token is a known key", () => {
     const known = new Set(Object.keys(CONFIG_KEYS));
