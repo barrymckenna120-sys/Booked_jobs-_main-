@@ -1041,7 +1041,11 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
       { name: "cleanPhone", source: "customers.phone (DB only), normalised" },
     ],
     config: [
-      { key: "settings.company_name", behaviour: "skip" },
+      // Verified against send-renewal-reminder/index.ts: none of these block the
+      // send. A blank company name/phone still sends (degraded wording) and a
+      // missing Tally URL only swaps the booking line for reply/call wording.
+      { key: "settings.company_name", behaviour: "degrade" },
+      { key: "settings.company_phone", behaviour: "degrade" },
       { key: "tenant_integrations.tally.renewal_form_url", behaviour: "degrade" },
     ],
     skipRules: [
