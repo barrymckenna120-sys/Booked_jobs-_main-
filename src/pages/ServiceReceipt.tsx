@@ -110,11 +110,6 @@ const ServiceReceipt = () => {
       if (settingsRes.error) throw settingsRes.error;
 
 
-      if (!jobRes.data) {
-        toast({ title: "Job not found", variant: "destructive" });
-        navigate(-1);
-        return;
-      }
 
       const [custRes, certRes, paymentRes] = await withRequestTimeout(
         Promise.all([
