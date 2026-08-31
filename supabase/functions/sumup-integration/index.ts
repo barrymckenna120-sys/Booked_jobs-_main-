@@ -30,6 +30,21 @@ const MERCHANT_CODE_RE = /^[A-Z0-9]{4,20}$/;
 type SumUpEnvironment = "test" | "live";
 const ENVIRONMENTS: SumUpEnvironment[] = ["test", "live"];
 
+// Recursively blanks any field whose NAME looks like a credential, so the
+// expanded whoami diagnostic can echo a provider payload without leaking keys.
+const SECRETISH_KEY_RE = /(token|secret|password|api_?key|client_?id|authorization)/i;
+function redactSecrets(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactSecrets);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SECRETISH_KEY_RE.test(k) ? "[REDACTED]" : redactSecrets(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 interface SumUpEnvEntry {
   merchant_code?: string;
   api_key_secret?: string;
@@ -374,6 +389,15 @@ Deno.serve(async (req) => {
         merchant_code: String(profile?.merchant_profile?.merchant_code ?? "").trim().toUpperCase() || null,
         account_name: profile?.merchant_profile?.company_name ?? null,
         currency: profile?.merchant_profile?.default_currency ?? null,
+        // Expanded diagnostic: full /v0.1/me payload with any credential-shaped
+        // field redacted, so a "wrong key" can be told apart from a "right key,
+        // wrong lookup" (e.g. a sandbox profile nested under a parent account).
+        api_host: "api.sumup.com",
+        key_shape: {
+          prefix: probeKey.slice(0, 8),
+          length: probeKey.length,
+        },
+        profile_full: redactSecrets(profile),
       });
     }
 
