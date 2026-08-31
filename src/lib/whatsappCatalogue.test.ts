@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CANONICAL_CATALOGUE,
   CONFIG_KEYS,
   WHATSAPP_CATALOGUE,
   deriveMessageStatus,
@@ -161,5 +162,38 @@ describe("renderPreview", () => {
     const body = renderPreview(def, resolveTenantConfig({}, []));
     expect(body).not.toContain("{{message_footer}}");
     expect(body).toContain("has arrived");
+  });
+});
+
+describe("canonical mirror", () => {
+  const CANONICAL = import.meta.glob("/supabase/functions/_shared/whatsappCatalogue.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>;
+  const MIRROR = import.meta.glob("/src/lib/whatsappCatalogue.generated.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>;
+
+  it("has not drifted from the canonical shared catalogue", () => {
+    const canonical = CANONICAL["/supabase/functions/_shared/whatsappCatalogue.ts"];
+    const mirror = MIRROR["/src/lib/whatsappCatalogue.generated.ts"];
+    expect(canonical).toBeTruthy();
+    expect(mirror).toBeTruthy();
+    // The mirror is a banner + byte copy. Re-run scripts/generate-whatsapp-catalogue.mjs.
+    expect(mirror.endsWith(canonical)).toBe(true);
+    expect(mirror).toContain("AUTO-GENERATED FILE — DO NOT EDIT.");
+  });
+
+  it("derives every canonical entry into the frontend catalogue", () => {
+    expect(WHATSAPP_CATALOGUE.length).toBe(CANONICAL_CATALOGUE.length);
+    for (const def of WHATSAPP_CATALOGUE) {
+      expect(def.name).toBeTruthy();
+      expect(def.purpose).toBeTruthy();
+      expect(def.fn).toBeTruthy();
+      expect(def.template.length).toBeGreaterThan(0);
+    }
   });
 });
