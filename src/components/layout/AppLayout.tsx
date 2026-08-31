@@ -113,8 +113,12 @@ const AppLayoutInner = () => {
   useEffect(() => {
     const check = () => {
       if (document.body.style.pointerEvents !== "none") return;
+      // Be deliberately generous here: anything that could legitimately be
+      // holding the lock (dialog, alert dialog, sheet/drawer, select, dropdown,
+      // popover, tooltip popper, focus guards) must keep it. Only a genuinely
+      // orphaned style is cleared.
       const overlayOpen = document.querySelector(
-        '[data-radix-popper-content-wrapper],[role="dialog"][data-state="open"],[data-state="open"][data-radix-focus-guard]',
+        '[data-radix-popper-content-wrapper],[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-focus-guard],[data-radix-select-viewport],[data-vaul-drawer],[data-state="open"][data-radix-popper-content-wrapper]',
       );
       if (!overlayOpen) document.body.style.removeProperty("pointer-events");
     };
@@ -123,6 +127,7 @@ const AppLayoutInner = () => {
     const interval = window.setInterval(check, 1000);
     return () => { observer.disconnect(); window.clearInterval(interval); };
   }, []);
+
 
 
   if (!roleLoading && isEngineer && !canAccessOffice) {
