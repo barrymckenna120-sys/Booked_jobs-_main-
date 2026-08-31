@@ -499,6 +499,69 @@ inconsistency rather than a deliberate design.
 Both are outside the scope of this catalogue refactor and touch tenant isolation, so they
 need their own review-gated fix rather than being folded into Phase 2/3.
 
+**FIXED (31/08/26), each as its own isolated change.**
+
+`send-upcoming-reminders` now resolves an authorisation *scope* before reading any customer
+row, via the new pure helper `_shared/sweepScope.ts` (`resolveSweepScope`):
+
+| caller | scope |
+|---|---|
+| anonymous | rejected `401` |
+| per-tenant webhook secret | that tenant only; naming another org → `403` |
+| signed-in user | own org only (superadmin may name an org); another org → `403` |
+| service-role key (pg_cron) or global cron shared secret | all orgs — the only route to a full sweep; naming an org narrows it |
+
+The job query is `.eq("organisation_id", …)` whenever the scope is a single org, so a tenant
+caller physically cannot reach another tenant's jobs. `verify_jwt = false` stays in
+`config.toml` (the scheduled path needs it); the gate is in code. 11 unit tests in
+`_shared/sweepScope.test.ts` cover the matrix.
+
+`trigger-review-request` now uses `requireResourceOrgAccess` — the same shared standard as
+the correctly protected sibling — resolving the org from the `service_calls` row itself, and
+the `customer_id`, job re-read, `customer_activity` insert and `review_sent` update are all
+scoped to that org, so a customer from another tenant can never be messaged.
+
+Live verification against the deployed functions:
+
+| check | result |
+|---|---|
+| `send-upcoming-reminders`, no credentials | `401 {"error":"Unauthorized"}` |
+| `trigger-review-request`, no credentials | `401 {"error":"Unauthorized"}` |
+| `trigger-review-request`, DG engineer → K&N job | `403 {"error":"Forbidden"}` |
+| `trigger-review-request`, DG engineer → DG job | `200 {"skipped":true,"reason":"customer_opted_out"}` (gate passes, nothing sent) |
+| `send-upcoming-reminders`, DG engineer naming K&N | `403 {"error":"Forbidden"}` |
+
+Cross-tenant checks used an opted-out Dublin Gas scratch record, so no real customer was
+messaged.
+
+## Corrections to earlier claims (verified 31/08/26)
+
+Recorded so nobody acts on the superseded versions:
+
+- **No hard-coded K&N Tally URL fallback exists.** `send-warranty-whatsapp` and the renewal
+  senders hard-*skip* (and log) when a tenant has no `renewal_form_url` / Tally URL. There is
+  nothing to "fix" here.
+- **No `current_setting('app.supabase_url')` / `app.service_role_key` pattern exists** in any
+  edge function or migration.
+- **No `cron.schedule` definitions exist in migrations.** A direct `cron.job` read shows 6
+  active jobs (`job-reminder-2day-0900-dublin`, `quote-followup-day3`, `quote-followup-day6`,
+  `send-deposit-reminder-daily`, `warranty-auto-send`, `purge-old-read-notifications`), all
+  `active = true`, all passing credentials as literal headers — not the broken
+  `current_setting` pattern.
+- **The "broken warranty cron" claim is not supported.** `warranty-auto-send` is active and
+  `quote_followup_day3`/`day6` have `status = 'success'` rows as recently as 30/08/26. No
+  change made.
+
+## Follow-up defects (separate items — deliberately NOT bundled into the three P1 fixes)
+
+| # | function | defect |
+|---|---|---|
+| F1 | `job-reminder-2day` | can interpolate the literal string `"undefined"` into a customer message when `config.company_name` / `company_phone` is absent (no fallback). |
+| F2 | `send-payment-received` | hard-codes a `"KN-"` job-reference prefix, leaking K&N branding into Dublin Gas messages when `job_reference` is null. Siblings correctly use `settings.cert_prefix`. |
+| F3 | `send-warranty-whatsapp` | says "registered Gas Safe engineer" — a UK scheme. Irish tenants should read RGI. |
+| F4 | branding fields | `settings.business_*` vs `company_*` are read inconsistently, so booking and schedule confirmations can show different names for the same tenant. Resolve in Phase 2's single tenant-scoped resolver. |
+
+
 ## Batch C — bookings, reminders, renewals, parts, inbound
 
 ### Functions that send no WhatsApp themselves
