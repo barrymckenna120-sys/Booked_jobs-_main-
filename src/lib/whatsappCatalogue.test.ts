@@ -109,20 +109,33 @@ describe("resolveTenantConfig", () => {
 });
 
 describe("deriveMessageStatus", () => {
-  const def = WHATSAPP_CATALOGUE.find((m) => m.id === "renewal_reminder")!;
+  const renewal = WHATSAPP_CATALOGUE.find((m) => m.id === "renewal_reminder")!;
+  // reschedule_notification is a genuine skip: send-reschedule-notification
+  // aborts with message_footer_not_configured when the footer is blank.
+  const reschedule = WHATSAPP_CATALOGUE.find((m) => m.id === "reschedule_notification")!;
 
   it("skips when a skip-required key is blank", () => {
-    const r = resolveTenantConfig({ business_name: "Acme" }, []);
-    const s = deriveMessageStatus(def, r);
+    const r = resolveTenantConfig({}, []);
+    const s = deriveMessageStatus(reschedule, r);
     expect(s.status).toBe("skip");
-    expect(s.missingSkip).toContain("renewal_form_url");
+    expect(s.missingSkip).toContain("message_footer");
+  });
+
+  it("degrades rather than skips when the renewal booking link is absent", () => {
+    // Verified against send-renewal-reminder/index.ts: a missing Tally URL only
+    // swaps the booking line for reply/call wording — the message still sends.
+    const r = resolveTenantConfig({ business_name: "Acme", business_phone: "087 000 0000" }, []);
+    const s = deriveMessageStatus(renewal, r);
+    expect(s.status).toBe("degrade");
+    expect(s.missingSkip).toEqual([]);
+    expect(s.missingDegrade).toContain("renewal_form_url");
   });
 
   it("degrades when only degrade-required keys are blank", () => {
     const r = resolveTenantConfig({}, [
       { integration_type: "tally", config: { renewal_form_url: "https://x.example" } },
     ]);
-    const s = deriveMessageStatus(def, r);
+    const s = deriveMessageStatus(renewal, r);
     expect(s.status).toBe("degrade");
     expect(s.missingDegrade).toEqual(expect.arrayContaining(["company_name", "company_phone"]));
   });
@@ -131,16 +144,17 @@ describe("deriveMessageStatus", () => {
     const r = resolveTenantConfig({ business_name: "Acme", business_phone: "087 000 0000" }, [
       { integration_type: "tally", config: { renewal_form_url: "https://x.example" } },
     ]);
-    expect(deriveMessageStatus(def, r).status).toBe("ready");
+    expect(deriveMessageStatus(renewal, r).status).toBe("ready");
   });
 });
 
 describe("renderPreview", () => {
   it("substitutes resolved values and flags unconfigured skip keys", () => {
-    const def = WHATSAPP_CATALOGUE.find((m) => m.id === "quote_sent")!;
+    const def = WHATSAPP_CATALOGUE.find((m) => m.id === "certificate")!;
     expect(renderPreview(def, resolveTenantConfig({ business_name: "Acme" }, []))).toContain("Acme");
     expect(renderPreview(def, resolveTenantConfig({}, []))).toContain("not configured");
   });
+
 
   it("omits the line carrying a degraded token", () => {
     const def = WHATSAPP_CATALOGUE.find((m) => m.id === "part_arrived")!;
