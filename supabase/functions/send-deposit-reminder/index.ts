@@ -102,9 +102,10 @@ Deno.serve(async (req) => {
       const message = `Hi ${customer.name}, this is a reminder that your deposit payment is still outstanding for your booking with ${companyName}.\n\nPlease pay securely here: ${job.payment_link}\n\nIf you have any questions please reply to this message.\n\n${companyName} ☎ ${companyPhone}`;
 
       const cleanNumber = customer.phone.replace(/^\+/, "");
-      const formData = new FormData();
-      formData.append("phone_number", cleanNumber);
-      formData.append("text", message);
+      // Field names come from the shared builder — 360Messenger requires `phonenumber`
+      // (no underscore). See _shared/whatsappPayload.ts.
+      const formData = buildSendMessageForm(cleanNumber, message);
+
 
       // Log to message_log (pending)
       const { data: logRows } = await supabase.from("message_log").insert({
