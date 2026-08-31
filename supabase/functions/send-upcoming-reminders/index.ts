@@ -2,12 +2,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { evaluateOptOut } from "../_shared/optOut.ts";
+import {
+  bearerToken,
+  hasSharedSecret,
+  isServiceRoleToken,
+  resolveCaller,
+  tenantSecretOrg,
+} from "../_shared/machineAuth.ts";
+import { getUserOrg } from "../_shared/orgAuth.ts";
+import { resolveSweepScope } from "../_shared/sweepScope.ts";
 
 
 serve(async (req) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-org-id, x-org-impersonation-token, x-make-secret, x-webhook-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 
@@ -18,6 +27,40 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
+
+  // BJ-0089: this function messages real customers for every tenant, so the
+  // caller must be authorised BEFORE any customer row is read. Only the
+  // internal/system path (service-role key from pg_cron, or the global cron
+  // shared secret) may sweep all organisations; tenants and users are pinned to
+  // their own organisation. See _shared/sweepScope.ts for the full matrix.
+  let requestedOrgId: string | null = null;
+  try {
+    const body = await req.clone().json();
+    if (body && typeof body.organisation_id === "string") requestedOrgId = body.organisation_id;
+  } catch (_e) { /* empty / non-JSON body is fine */ }
+  requestedOrgId = requestedOrgId ?? new URL(req.url).searchParams.get("organisation_id");
+
+  const caller = await resolveCaller(req);
+  const userOrg = caller?.kind === "user" && caller.userId
+    ? await getUserOrg(caller.userId)
+    : { orgId: null, role: null };
+
+  const scope = resolveSweepScope({
+    isServiceRole: await isServiceRoleToken(bearerToken(req)),
+    hasGlobalSecret: hasSharedSecret(req),
+    secretOrg: await tenantSecretOrg(req),
+    userOrg: userOrg.orgId,
+    userRole: userOrg.role,
+    requestedOrgId,
+  });
+
+  if (scope.kind === "deny") {
+    console.warn(`send-upcoming-reminders: access denied (${scope.status}) — ${scope.detail}`);
+    return new Response(JSON.stringify({ error: scope.error }), {
+      status: scope.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const dbHeaders = {
     "Authorization": `Bearer ${supabaseKey}`,
