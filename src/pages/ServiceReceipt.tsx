@@ -87,25 +87,28 @@ const ServiceReceipt = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data: profileData, error: profileError } = await withRequestTimeout(
-        supabase.from("profiles").select("organisation_id").eq("user_id", user!.id).maybeSingle()
+      const jobRes = await withRequestTimeout(
+        supabase.from("service_calls").select("*").eq("id", id).maybeSingle()
       );
-      if (profileError) throw profileError;
-      const orgId = profileData?.organisation_id;
-      // Tenant parity: both K&N and Dublin Gas resolve branding from their own
-      // org row, so a missing org must fail loudly rather than render an
-      // unbranded receipt.
-      if (!orgId) throw new Error("Your account isn't linked to an organisation.");
-
-      const [jobRes, settingsRes] = await withRequestTimeout(
-        Promise.all([
-          supabase.from("service_calls").select("*").eq("id", id).maybeSingle(),
-          supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle(),
-        ])
-      );
-
       if (jobRes.error) throw jobRes.error;
+
+      if (!jobRes.data) {
+        toast({ title: "Job not found", variant: "destructive" });
+        navigate(-1);
+        return;
+      }
+
+      // Branding always follows the job's own organisation, never the viewer's
+      // profile org — otherwise a superadmin viewing another tenant's job would
+      // render the wrong company's name, phone and address on the receipt.
+      const orgId = jobRes.data.organisation_id;
+      if (!orgId) throw new Error("This job isn't linked to an organisation.");
+
+      const settingsRes = await withRequestTimeout(
+        supabase.from("settings").select("*").eq("organisation_id", orgId).maybeSingle()
+      );
       if (settingsRes.error) throw settingsRes.error;
+
 
       if (!jobRes.data) {
         toast({ title: "Job not found", variant: "destructive" });
