@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { format, parseISO } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +43,72 @@ interface BoilerBrandRow {
   model_name: string | null;
   is_default: boolean;
 }
+
+/** Normalise a brand name for matching: "Glow worm" === "Glow-worm" === "glowworm". */
+const brandKey = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Generic field for non-validated values.
+ *
+ * MUST stay at module scope. It was previously declared inside the
+ * CustomerDetail render body, which gave it a new component identity on every
+ * parent re-render — React then unmounted and remounted it, destroying its
+ * internal state (and closing any open date popover) whenever an async child
+ * panel reported its count. That is what made the date pickers and text fields
+ * feel dead.
+ *
+ * Dates use a native <input type="date"> — popover calendars are unreliable in
+ * the iOS PWA (see project convention).
+ */
+const PlainField = memo(({ label, field, type = "text", value, onCommit }: {
+  label: string;
+  field: string;
+  type?: string;
+  value: any;
+  onCommit: (field: string, value: any) => void;
+}) => {
+  const [localValue, setLocalValue] = useState(value ?? "");
+
+  useEffect(() => {
+    setLocalValue(value ?? "");
+  }, [value]);
+
+  if (type === "date") {
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+        <Input
+          id={field}
+          type="date"
+          className="h-10"
+          value={typeof value === "string" ? value.slice(0, 10) : ""}
+          onChange={(e) => onCommit(field, e.target.value || null)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        id={field}
+        type={type}
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={() => {
+          // Don't mark the form dirty when an empty field is simply blurred:
+          // "" and null are the same absence of a value.
+          const next = localValue === "" ? null : localValue;
+          const current = value === "" ? null : value ?? null;
+          if (next !== current) onCommit(field, localValue);
+        }}
+      />
+    </div>
+  );
+});
+PlainField.displayName = "PlainField";
+
 
 // Collapsible accordion section component
 const CollapsibleSection = ({ title, count, children, defaultOpen = false }: { title: string; count?: number; children: React.ReactNode; defaultOpen?: boolean }) => {
@@ -125,8 +191,16 @@ const CustomerDetail = () => {
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelQuery, setModelQuery] = useState("");
   const [sectionCounts, setSectionCounts] = useState<Record<string, number>>({});
-  // Dirty check
-  const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
+  const [locationIsCustom, setLocationIsCustom] = useState(false);
+  const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
+
+  // Dirty check — uses the exact same diff the save payload is built from, so a
+  // field the save would not send can never leave the form looking modified.
+  const isDirty = useMemo(
+    () => Object.keys(buildCustomerUpdatePayload(form, originalForm)).length > 0,
+    [form, originalForm],
+  );
+
 
   // Register navigation guard — blocks sidebar/nav clicks when dirty
   const isDirtyRef = useCallback(() => isDirty, [isDirty]);
@@ -134,6 +208,20 @@ const CustomerDetail = () => {
     const unregister = registerGuard(isDirtyRef);
     return unregister;
   }, [registerGuard, isDirtyRef]);
+
+  // Engineer picker options (RLS scopes these to the customer's own tenant).
+  useEffect(() => {
+    supabase.from("engineers").select("id, name").order("name").then(({ data }) => {
+      if (data) setEngineers(data as { id: string; name: string }[]);
+    });
+  }, []);
+
+  // A stored location that isn't one of the presets must render as free text.
+  useEffect(() => {
+    const loc = originalForm.boiler_location;
+    if (loc && !(BOILER_LOCATIONS as readonly string[]).includes(loc)) setLocationIsCustom(true);
+  }, [originalForm.boiler_location]);
+
 
   useEffect(() => {
     if (user?.id && id) {
@@ -183,10 +271,11 @@ const CustomerDetail = () => {
     setLoading(false);
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = useCallback((field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
-  };
+    setErrors((e) => (e[field] ? { ...e, [field]: "" } : e));
+  }, []);
+
 
   // Legacy records may hold a landline in `phone` (pre-dates the mobile-only rule).
   // Only enforce the strict mobile check when the user has actually edited the field.
@@ -221,45 +310,71 @@ const CustomerDetail = () => {
 
 
   const handleSave = async () => {
-    if (!validateAll()) return;
-    setSaving(true);
-    // Only send fields the user actually changed. Sending the whole fetched row
-    // could overwrite backend-updated values (e.g. opted_out flipped by an
-    // inbound WhatsApp "STOP") with stale local form state.
-    const updates = buildCustomerUpdatePayload(form, originalForm);
-    if (Object.keys(updates).length === 0) {
-      setSaving(false);
-      toast({ title: "No changes to save" });
+    if (!validateAll()) {
+      // Never fail silently — on mobile the invalid field is often off-screen.
+      toast({
+        title: "Please check the highlighted fields",
+        description: "Some details need attention before this can be saved.",
+        variant: "destructive",
+      });
       return;
     }
-    // Clean phone & eircode
-    if (updates.phone) updates.phone = formatPhoneInternational(updates.phone);
-    if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
-    if (updates.area_code) updates.area_code = normalizeAreaCode(updates.area_code);
-    // Ensure required fields are never null
-    if ("eircode" in updates && !updates.eircode) updates.eircode = "";
-    if ("address" in updates && !updates.address) updates.address = "";
-    // TEMP: keep boiler_make_model in sync until downstream consumers
-    // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
-    // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
-    // BoilerBrandsTab, IncomingJobCard, DataTab export,
-    // CertificateFlow.tsx, Cert2Flow.tsx,
-    // supabase/functions/generate-cert2-pdf/index.ts).
-    if ("boiler_brand" in updates || "boiler_model" in updates) {
-      const brand = (form.boiler_brand || "").trim();
-      const model = (form.boiler_model || "").trim();
-      updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
-    }
-    // Clean partial boiler_installation_date (incomplete dropdown selection)
-    if (typeof updates.boiler_installation_date === "string" && updates.boiler_installation_date.startsWith("__partial__")) {
-      updates.boiler_installation_date = null;
-    }
-    const { error } = await supabase.from("customers").update(updates).eq("id", id);
+    if (saving) return; // guard against double taps
+    setSaving(true);
+    try {
+      // Only send fields the user actually changed. Sending the whole fetched row
+      // could overwrite backend-updated values (e.g. opted_out flipped by an
+      // inbound WhatsApp "STOP") with stale local form state.
+      const updates = buildCustomerUpdatePayload(form, originalForm);
+      if (Object.keys(updates).length === 0) {
+        toast({ title: "No changes to save" });
+        return;
+      }
+      // Clean phone & eircode
+      if (updates.phone) updates.phone = formatPhoneInternational(updates.phone);
+      if (updates.eircode) updates.eircode = formatEircode(updates.eircode);
+      if (updates.area_code) updates.area_code = normalizeAreaCode(updates.area_code);
+      // Ensure required fields are never null
+      if ("eircode" in updates && !updates.eircode) updates.eircode = "";
+      if ("address" in updates && !updates.address) updates.address = "";
+      // TEMP: keep boiler_make_model in sync until downstream consumers
+      // migrate to boiler_brand/boiler_model (DayJobsPanel, WarrantyDetail,
+      // WarrantyTracker, JobSlotDrawer, NewJobPanel, EngineerJobDetail,
+      // BoilerBrandsTab, IncomingJobCard, DataTab export,
+      // CertificateFlow.tsx, Cert2Flow.tsx,
+      // supabase/functions/generate-cert2-pdf/index.ts).
+      if ("boiler_brand" in updates || "boiler_model" in updates) {
+        const brand = (form.boiler_brand || "").trim();
+        const model = (form.boiler_model || "").trim();
+        updates.boiler_make_model = [brand, model].filter(Boolean).join(" ") || null;
+      }
+      // Clean partial boiler_installation_date (incomplete dropdown selection)
+      if (typeof updates.boiler_installation_date === "string" && updates.boiler_installation_date.startsWith("__partial__")) {
+        updates.boiler_installation_date = null;
+      }
+      // Read the persisted row back so form + originalForm both hold exactly what
+      // the database stored. Resetting from local `form` left normalised values
+      // (phone, eircode, area code) mismatched and the page looked dirty again
+      // straight after a successful save — that was the stuck "Unsaved Changes".
+      const { data: saved, error } = await supabase
+        .from("customers")
+        .update(updates)
+        .eq("id", id)
+        .select("*")
+        .maybeSingle();
 
-    setSaving(false);
-    if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
+      if (error) {
+        toast({ title: "Save failed", description: error.message, variant: "destructive" });
+        return; // keep the dirty state so nothing is silently lost
+      }
+
+      if (saved) {
+        setForm(saved);
+        setOriginalForm(saved);
+      } else {
+        setOriginalForm({ ...form });
+      }
+
       // Sync boiler details to active service_calls for this customer
       const boilerBrand = (updates.boiler_brand || "").trim();
       const boilerModel = (updates.boiler_model || "").trim();
@@ -280,9 +395,11 @@ const CustomerDetail = () => {
       } else {
         toast({ title: "Customer saved" });
       }
-      setOriginalForm({ ...form });
+    } finally {
+      setSaving(false);
     }
   };
+
 
   const handleDelete = async () => {
     const { error } = await supabase.from("customers").delete().eq("id", id);
@@ -307,59 +424,6 @@ const CustomerDetail = () => {
     try { return new Date(val + "T12:00:00").toLocaleDateString("en-IE"); } catch { return val; }
   };
 
-  // Generic field for non-validated fields
-  const PlainField = ({ label, field, type = "text", value }: { label: string; field: string; type?: string; value: any }) => {
-    const [localValue, setLocalValue] = useState(value ?? "");
-
-    useEffect(() => {
-      setLocalValue(value ?? "");
-    }, [value]);
-
-    if (type === "date") {
-      const dateValue = value ? new Date(value + "T12:00:00") : undefined;
-      const isValidDate = dateValue && !isNaN(dateValue.getTime());
-      return (
-        <div className="space-y-1.5">
-          <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-10",
-                  !isValidDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {isValidDate ? format(dateValue, "dd/MM/yyyy") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={isValidDate ? dateValue : undefined}
-                onSelect={(d) => handleChange(field, d ? format(d, "yyyy-MM-dd") : null)}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-1.5">
-        <Label htmlFor={field} className="text-xs text-muted-foreground">{label}</Label>
-        <Input
-          id={field}
-          type={type}
-          value={localValue}
-          onChange={(e) => setLocalValue(e.target.value)}
-          onBlur={() => handleChange(field, localValue)}
-        />
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -379,8 +443,9 @@ const CustomerDetail = () => {
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span className="hidden sm:inline ml-1">Save</span>
+              <span className="hidden sm:inline ml-1">{saving ? "Saving…" : "Save"}</span>
             </Button>
+
             <Button size="sm" variant="destructive" onClick={() => setShowDeleteModal(true)}>
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -414,8 +479,8 @@ const CustomerDetail = () => {
             <CustomerFormField label="Mobile Number" id="phone" value={form.phone ?? ""} onChange={(v) => handleChange("phone", v)} onBlur={() => blurField("phone")} error={errors.phone} required maxLength={30} placeholder="083 123 4567" />
             <CustomerFormField label="Landline (optional)" id="landline_phone" value={form.landline_phone ?? ""} onChange={(v) => handleChange("landline_phone", v)} onBlur={() => blurField("landline_phone")} error={errors.landline_phone} maxLength={30} placeholder="01 441 2618" />
 
-            <PlainField label="Email" field="email" value={form.email} />
-            <PlainField label="Address" field="address" value={form.address} />
+            <PlainField label="Email" field="email" value={form.email} onCommit={handleChange} />
+            <PlainField label="Address" field="address" value={form.address} onCommit={handleChange} />
             <CustomerFormField label="Eircode" id="eircode" value={form.eircode ?? ""} onChange={(v) => handleChange("eircode", v)} onBlur={() => blurField("eircode")} error={errors.eircode} required maxLength={10} placeholder="D01 X2Y3" />
             <CustomerFormField label="Area Code" id="area_code" value={form.area_code ?? ""} onChange={(v) => handleChange("area_code", v)} onBlur={() => blurField("area_code")} error={errors.area_code} maxLength={10} placeholder="e.g. D14" />
             <CustomerFormField label="GPRN" id="gprn" value={form.gprn ?? ""} onChange={(v) => handleChange("gprn", v)} maxLength={30} placeholder="Gas Point Reference Number" />
@@ -487,7 +552,7 @@ const CustomerDetail = () => {
                 return matches.length > 0 ? (
                   <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {matches.map(b => (
-                      <button key={b} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { handleChange("boiler_brand", b); setBrandQuery(b); setBrandDropdownOpen(false); handleChange("boiler_model", ""); setModelQuery(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{b}</button>
+                      <button key={b} type="button" onMouseDown={e => e.preventDefault()} onPointerDown={() => { handleChange("boiler_brand", b); setBrandQuery(b); setBrandDropdownOpen(false); handleChange("boiler_model", ""); setModelQuery(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{b}</button>
                     ))}
                   </div>
                 ) : null;
@@ -511,7 +576,7 @@ const CustomerDetail = () => {
                   className="pr-9"
                   autoComplete="off"
                 />
-                <button type="button" tabIndex={-1} onMouseDown={e => e.preventDefault()} onClick={() => { if ((form.boiler_brand ?? "").trim()) setModelDropdownOpen(!modelDropdownOpen); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                <button type="button" tabIndex={-1} onMouseDown={e => e.preventDefault()} onPointerDown={() => { if ((form.boiler_brand ?? "").trim()) setModelDropdownOpen(!modelDropdownOpen); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                   <ChevronDown className={`w-4 h-4 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
               </div>
@@ -519,7 +584,7 @@ const CustomerDetail = () => {
                 const brand = (form.boiler_brand ?? "").trim();
                 const q = (modelQuery || "").toLowerCase();
                 const matches = boilerBrands
-                  .filter(b => !b.is_default && b.brand_name === brand && b.model_name && (q === "" || b.model_name.toLowerCase().includes(q)))
+                  .filter(b => !b.is_default && brandKey(b.brand_name) === brandKey(brand) && b.model_name && (q === "" || b.model_name.toLowerCase().includes(q)))
                   .map(b => b.model_name!)
                   .filter((v, i, a) => a.indexOf(v) === i)
                   .sort()
@@ -527,7 +592,7 @@ const CustomerDetail = () => {
                 return matches.length > 0 ? (
                   <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {matches.map(m => (
-                      <button key={m} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { handleChange("boiler_model", m); setModelQuery(m); setModelDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{m}</button>
+                      <button key={m} type="button" onMouseDown={e => e.preventDefault()} onPointerDown={() => { handleChange("boiler_model", m); setModelQuery(m); setModelDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-accent/60 transition-colors">{m}</button>
                     ))}
                   </div>
                 ) : null;
@@ -536,19 +601,45 @@ const CustomerDetail = () => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="boiler_location" className="text-xs text-muted-foreground">Boiler Location</Label>
-              <Input
-                id="boiler_location"
-                list="customer-detail-boiler-location-suggestions"
-                value={form.boiler_location ?? ""}
-                onChange={(e) => handleChange("boiler_location", e.target.value)}
-                placeholder="e.g. Kitchen"
-              />
-              <datalist id="customer-detail-boiler-location-suggestions">
-                {BOILER_LOCATIONS.map((loc) => (
-                  <option key={loc} value={loc} />
-                ))}
-              </datalist>
+              {/* A native datalist never opens on iOS Safari — use a real Select
+                  with an "Other" escape hatch for manual entry. */}
+              {locationIsCustom ? (
+                <div className="flex gap-2">
+                  <Input
+                    id="boiler_location"
+                    value={form.boiler_location ?? ""}
+                    onChange={(e) => handleChange("boiler_location", e.target.value)}
+                    placeholder="e.g. Boiler house"
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => { setLocationIsCustom(false); handleChange("boiler_location", null); }}
+                  >
+                    List
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={form.boiler_location || ""}
+                  onValueChange={(v) => {
+                    if (v === "__other__") { setLocationIsCustom(true); handleChange("boiler_location", ""); return; }
+                    handleChange("boiler_location", v);
+                  }}
+                >
+                  <SelectTrigger id="boiler_location"><SelectValue placeholder="Select location" /></SelectTrigger>
+                  <SelectContent>
+                    {BOILER_LOCATIONS.map((loc) => (
+                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                    ))}
+                    <SelectItem value="__other__">Other (type it in)…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Boiler Type</Label>
               <Select value={form.boiler_type || ""} onValueChange={(v) => handleChange("boiler_type", v)}>
@@ -560,95 +651,43 @@ const CustomerDetail = () => {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Installation Date</Label>
-              {(() => {
-                const currentYear = new Date().getFullYear();
-                const years = Array.from({ length: currentYear - 2000 + 1 }, (_, i) => currentYear - i);
-                const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-                const days = Array.from({ length: 31 }, (_, i) => i + 1);
-
-                // Parse existing YYYY-MM-DD or __partial__:Y:M:D value into individual parts
-                let selYear = "";
-                let selMonth = "";
-                let selDay = "";
-                const rawVal = form.boiler_installation_date || "";
-                if (rawVal.startsWith("__partial__:")) {
-                  const pp = rawVal.split(":");
-                  selYear = pp[1] || "";
-                  selMonth = pp[2] || "";
-                  selDay = pp[3] || "";
-                } else if (rawVal) {
-                  const parts = rawVal.split("-");
-                  if (parts.length === 3) {
-                    selYear = parts[0];
-                    selMonth = String(parseInt(parts[1], 10));
-                    selDay = String(parseInt(parts[2], 10));
-                  }
+              <Label htmlFor="boiler_installation_date" className="text-xs text-muted-foreground">Installation Date</Label>
+              {/* Native date input: the three-dropdown version could not be
+                  completed reliably on mobile and left a "__partial__" value. */}
+              <Input
+                id="boiler_installation_date"
+                type="date"
+                className="h-10"
+                value={
+                  typeof form.boiler_installation_date === "string" && !form.boiler_installation_date.startsWith("__partial__")
+                    ? form.boiler_installation_date.slice(0, 10)
+                    : ""
                 }
-
-                const buildDateFromParts = (y: string, m: string, d: string) => {
-                  if (!y || !m || !d) return null;
-                  const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                  console.log("[CustomerDetail] buildDateFromParts:", dateStr);
-                  return dateStr;
-                };
-
-                return (
-                  <div className="flex gap-2">
-                    <Select value={selDay} onValueChange={(v) => {
-                      const result = buildDateFromParts(selYear, selMonth, v);
-                      if (result) handleChange("boiler_installation_date", result);
-                      else handleChange("boiler_installation_date", `__partial__:${selYear || ""}:${selMonth || ""}:${v}`);
-                    }}>
-                      <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
-                      <SelectContent>
-                        {days.map((d) => (
-                          <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={selMonth} onValueChange={(v) => {
-                      const result = buildDateFromParts(selYear, v, selDay);
-                      if (result) handleChange("boiler_installation_date", result);
-                      else handleChange("boiler_installation_date", `__partial__:${selYear || ""}:${v}:${selDay || ""}`);
-                    }}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Month" /></SelectTrigger>
-                      <SelectContent>
-                        {months.map((m, i) => (
-                          <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={selYear} onValueChange={(v) => {
-                      const result = buildDateFromParts(v, selMonth, selDay);
-                      if (result) handleChange("boiler_installation_date", result);
-                      else handleChange("boiler_installation_date", `__partial__:${v}:${selMonth || ""}:${selDay || ""}`);
-                    }}>
-                      <SelectTrigger className="w-[90px]"><SelectValue placeholder="Year" /></SelectTrigger>
-                      <SelectContent>
-                        {years.map((y) => (
-                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })()}
+                onChange={(e) => handleChange("boiler_installation_date", e.target.value || null)}
+              />
             </div>
+
             {/* Warranty Years */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Warranty Years</Label>
               <Input
+                id="warranty_years"
                 type="number"
+                inputMode="numeric"
                 min={0}
+                max={30}
                 step={1}
                 placeholder="e.g. 5, 7, 10"
                 value={form.warranty_years ?? ""}
                 onChange={(e) => {
                   const v = e.target.value;
-                  handleChange("warranty_years", v === "" ? null : parseInt(v, 10));
+                  if (v === "") { handleChange("warranty_years", null); return; }
+                  const n = parseInt(v, 10);
+                  // Never write NaN — that silently blocks the save.
+                  handleChange("warranty_years", Number.isFinite(n) ? n : null);
                 }}
               />
+
             </div>
             {/* Warranty Expiry — calculated display */}
             {(() => {
@@ -714,14 +753,14 @@ const CustomerDetail = () => {
             <CardTitle className="text-base">Service Information</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <PlainField label="Last Service Date" field="last_service_date" type="date" value={form.last_service_date} />
+            <PlainField label="Last Service Date" field="last_service_date" type="date" value={form.last_service_date} onCommit={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Last Service Engineer</Label>
               <div className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-foreground items-center">
                 {lastService?.engineerName || "—"}
               </div>
             </div>
-            <PlainField label="Next Service Due" field="next_service_due" type="date" value={form.next_service_due} />
+            <PlainField label="Next Service Due" field="next_service_due" type="date" value={form.next_service_due} onCommit={handleChange} />
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Service Status</Label>
               <Select value={form.service_status || "Up to Date"} onValueChange={(v) => handleChange("service_status", v)}>
@@ -757,7 +796,25 @@ const CustomerDetail = () => {
                 </SelectContent>
               </Select>
             </div>
-            <PlainField label="Assigned Engineer" field="assigned_engineer" value={form.assigned_engineer} />
+            <div className="space-y-1.5">
+              <Label htmlFor="assigned_engineer" className="text-xs text-muted-foreground">Assigned Engineer</Label>
+              <Select
+                value={form.assigned_engineer || ""}
+                onValueChange={(v) => handleChange("assigned_engineer", v === "__none__" ? null : v)}
+              >
+                <SelectTrigger id="assigned_engineer"><SelectValue placeholder="Select engineer" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Unassigned</SelectItem>
+                  {engineers.map((e) => (
+                    <SelectItem key={e.id} value={e.name}>{e.name}</SelectItem>
+                  ))}
+                  {form.assigned_engineer && !engineers.some((e) => e.name === form.assigned_engineer) && (
+                    <SelectItem value={form.assigned_engineer}>{form.assigned_engineer}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Customer Since</Label>
               {(() => {
@@ -890,6 +947,18 @@ const CustomerDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Mobile save bar — the header Save is off-screen once the user scrolls
+          down through Boiler/Service Information. */}
+      {isDirty && (
+        <div className="sm:hidden fixed left-0 right-0 bottom-[56px] z-40 border-t border-border bg-card px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
+          <span className="text-xs text-muted-foreground">Unsaved changes</span>
+          <Button size="sm" onClick={handleSave} disabled={saving} className="min-h-[44px] px-6">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      )}
 
       {/* Delete Customer Modal */}
       <DeleteCustomerModal

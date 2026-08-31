@@ -105,6 +105,26 @@ const AppLayoutInner = () => {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
+  /* Watchdog: Radix sets `pointer-events: none` on <body> while a modal/select
+     is open and removes it on close. If such a component unmounts while still
+     open (e.g. a remount during a re-render, or a route change), the style is
+     left behind and the whole page stops responding to clicks/taps. Clear it
+     whenever no Radix overlay is actually mounted. */
+  useEffect(() => {
+    const check = () => {
+      if (document.body.style.pointerEvents !== "none") return;
+      const overlayOpen = document.querySelector(
+        '[data-radix-popper-content-wrapper],[role="dialog"][data-state="open"],[data-state="open"][data-radix-focus-guard]',
+      );
+      if (!overlayOpen) document.body.style.removeProperty("pointer-events");
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["style"], childList: true });
+    const interval = window.setInterval(check, 1000);
+    return () => { observer.disconnect(); window.clearInterval(interval); };
+  }, []);
+
+
   if (!roleLoading && isEngineer && !canAccessOffice) {
     return <Navigate to="/engineer/today" />;
   }
