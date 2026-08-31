@@ -827,3 +827,20 @@ vocabulary.
 - 2 `user_id`-keyed tenant lookups that must become `organisation_id`.
 - 3 P1 items requiring their own isolated fixes: the `phone_number` field-name bug, and the
   two unauthenticated send paths.
+
+## Phase 2 — canonical catalogue and branding resolver (infrastructure only)
+
+Landed: `_shared/whatsappCatalogue.ts` (39 entries, pure builders, byte-equal to current
+production output), `_shared/orgBranding.ts` (organisation-scoped `org_name` / `org_address` /
+`org_phone` / `footer`), the generated frontend mirror, and 55 new tests (43 catalogue,
+12 branding). No Edge Function imports them yet and no customer-facing wording changed.
+
+Full detail, precedence tables and the equality-vs-resolver conflicts are in
+[phase2-migration-map.md](./phase2-migration-map.md). Two corrections this phase makes to the
+findings above:
+
+- **D14 is now owned:** `CATALOGUE_MESSAGE_TYPES` in the canonical catalogue is the
+  `message_log.message_type` vocabulary.
+- **`renewal_reminder` skip/degrade behaviour was mis-recorded.** Read back against the
+  function, a missing Tally URL, company name or company phone all *degrade* — none of them
+  skip the send. The old frontend catalogue claimed `renewal_form_url` was a skip.
