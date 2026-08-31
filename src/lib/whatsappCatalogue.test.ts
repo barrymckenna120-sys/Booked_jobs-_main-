@@ -16,8 +16,16 @@ const FUNCTION_SOURCES = import.meta.glob("/supabase/functions/*/index.ts", {
   eager: true,
 }) as Record<string, string>;
 
+// Shared modules that some entries send/log from.
+const SHARED_SOURCES = import.meta.glob("/supabase/functions/_shared/*.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
 const sourceFor = (fn: string): string | undefined =>
   FUNCTION_SOURCES[`/supabase/functions/${fn}/index.ts`];
+
 
 describe("whatsappCatalogue — drift detection", () => {
   it("has unique ids", () => {
