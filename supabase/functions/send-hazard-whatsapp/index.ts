@@ -8,6 +8,7 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
 
 
 serve(async (req) => {
@@ -164,8 +165,14 @@ serve(async (req) => {
       : null;
     const docUrl = signedDocUrl || hazard.pdf_url;
 
-    const linkLine = tenantHazardUrl ? `\n\n📄 View Document:\n${tenantHazardUrl}` : "";
-    const message = `Hi ${firstName}, please find attached your Gas Installation Notification of Hazard/Non-Conformance from ${engineerName}.${linkLine}\n\n${messageFooter}`;
+    // Phase 3: body from the canonical catalogue. Link line and the footer
+    // skip-and-log gate above are unchanged.
+    const message = buildCatalogueMessage("hazard_notification", {
+      firstName,
+      engineerName,
+      hazardUrl: tenantHazardUrl,
+      messageFooter,
+    });
 
     // Log pending message
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {

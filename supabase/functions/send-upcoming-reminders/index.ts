@@ -11,6 +11,7 @@ import {
 } from "../_shared/machineAuth.ts";
 import { getUserOrg } from "../_shared/orgAuth.ts";
 import { resolveSweepScope } from "../_shared/sweepScope.ts";
+import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
 
 
 serve(async (req) => {
@@ -207,15 +208,17 @@ serve(async (req) => {
       const jobType = job.job_type || "service";
       const engineerName = job.assigned_engineer || "our engineer";
 
-      const message = `Appointment Reminder 📅
-${messageFooter}
-
-Hi ${firstName}, just a reminder that your ${jobType} is booked for ${targetStr} between ${timeSlot}.
-
-Your engineer ${engineerName} will be with you on the day. If you need to reschedule, please give us a call.
-
-Thanks,
-${messageFooter}`;
+      // Phase 3: body comes from the canonical catalogue. Branding inputs are
+      // unchanged (settings.message_footer, resolved above) so output is
+      // byte-identical to the previous inline template.
+      const message = buildCatalogueMessage("appointment_reminder", {
+        messageFooter,
+        firstName,
+        jobType,
+        targetStr,
+        timeSlot,
+        engineerName,
+      });
 
       // Log pending message
       const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {

@@ -5,6 +5,7 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
 
 
 serve(async (req) => {
@@ -154,8 +155,14 @@ serve(async (req) => {
     }
 
     const firstName = String(recipientName).split(" ")[0];
-    const baseMessage = customMessage || `Hi ${firstName}, great news! The part we ordered for your boiler has arrived. 🔧\n\nWe'd like to arrange a time to come back and complete the work.\n\nDetails: ${follow_up_detail || "Follow-up repair"}\n\nPlease reply to this message or call us to book a time that suits you.`;
-    const message = messageFooter ? `${baseMessage}\n\n${messageFooter}` : baseMessage;
+    // Phase 3: body from the canonical catalogue. customMessage override and
+    // footer degrade behaviour are unchanged.
+    const message = buildCatalogueMessage("part_arrived", {
+      firstName,
+      follow_up_detail,
+      customMessage,
+      messageFooter,
+    });
 
 
     // Log to message_log
