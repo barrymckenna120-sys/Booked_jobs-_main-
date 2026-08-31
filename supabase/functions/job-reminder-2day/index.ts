@@ -187,15 +187,18 @@ Deno.serve(async (req) => {
       }
       const cleanNumber = digits;
 
-      const engineerLine = engineerName ? `\nYour engineer will be ${engineerName}.\n` : "";
-
-      const message = `Hi ${firstName},
-
-This is a reminder from ${companyName} that your appointment is confirmed for ${formattedDate} at ${formattedTime}.
-${engineerLine}
-Please reply CONFIRM to confirm your appointment or CANCEL to cancel. Alternatively call us on ${companyPhone}.
-
-${companyName} ☎ ${companyPhone}`;
+      // Phase 3: body comes from the canonical catalogue. Branding inputs stay
+      // on the LEGACY source (tenant_integrations.360messenger config) on
+      // purpose — adopting orgBranding.ts here would change live wording for
+      // tenants whose settings row differs, and F1/F4 are separate fixes.
+      const message = buildCatalogueMessage("job_reminder_2day", {
+        firstName,
+        companyName,
+        companyPhone,
+        formattedDate,
+        formattedTime,
+        engineerName,
+      });
 
 
       try {
