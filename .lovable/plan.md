@@ -1,61 +1,60 @@
-# Communication Delivery Status (all tenants)
+# WhatsApp template audit + canonical catalogue + tenant-scoped Admin page
 
-Goal: failed customer communications become visible in the Office App workflow, resendable in one tap, and emailed to the tenant's office manager — built once and shared by every tenant.
+## What the audit already found (read-only, no changes yet)
 
-This touches quotes, invoices, receipts and reminders, so it is staged: each stage is independently revertible and verified against two tenants (K&N + Dublin Gas) before the next.
+There are **three disconnected WhatsApp systems**:
 
-## 1. Data model (one migration per concern)
+1. **The real send pipeline** — ~30 edge functions, each with its **own hard-coded message body**, all posting free text to `api.360messenger.com/v2/sendMessage` with a per-tenant key from `tenant_integrations` (`_shared/whatsapp.ts`, `_shared/whatsappCredentials.ts`). No shared body module exists.
+2. **A documentation-only catalogue** — `src/lib/whatsappCatalogue.ts` (30 entries, **abridged** wording, explicitly "sends nothing"), rendered read-only by `src/components/admin/MessagingCatalogueTab.tsx`. Imported by zero send paths, so its bodies do not match production.
+3. **A dead user-authored template system** — the `whatsapp_templates` table plus full CRUD at `src/pages/WhatsAppTemplates.tsx`. No send function ever reads this table, and the page is keyed on `user_id`, not `organisation_id`.
 
-Reuse the existing `message_log` table as the **delivery-attempt history** (it already carries organisation_id, channel, status, error_message, related_id/related_type, recipient_phone). Additions:
+There is no `supabase/functions/_shared/whatsappCatalogue.ts` — the catalogue only exists on the frontend, which is why it can never be the source of truth for sends today.
 
-- `message_log`: `delivery_status` (`sent` | `failed` | `opted_out`), `failure_reason` (human-readable), `attempted_at`, `delivered_at`, `recipient` (channel-agnostic), `attempt_no`, `resend_of` (self FK), `alerted_at`.
-- `delivery_status` + `delivery_status_at` + `delivery_failure_reason` columns on `quotes`, `invoices`, `service_calls` (receipts/reminders live on the job) — nullable, so historical rows render as "no status" and never as failed.
-- A trigger keeps the parent record's columns equal to the latest attempt for that `related_id`/`related_type`; history is never overwritten.
-- `organisations`: `delivery_alert_settings` jsonb — `{ enabled, mode: immediate|hourly, types: { quotes, invoices, receipts, reminders } }`, defaulting to enabled+immediate for quotes and invoices.
-- GRANTs + RLS on every new/changed table: read/write scoped to `get_my_org_id()`, so Tenant A can never read or resend Tenant B's rows. Explicit RLS check for delivery status, recipient, failure reason and resend paths.
+Two important corrections to the brief:
 
-## 2. Shared send layer
+- **There are no Meta/WhatsApp Cloud API templates.** 360Messenger sends free-form text, so "Meta template name / language / approval status" does not exist for any of these messages. The Admin page will show a "Free text (360Messenger)" delivery-channel field instead of inventing Meta metadata. (`whatsapp_templates` rows are seed data for a feature that never shipped.)
+- The four ground-truth bodies in the brief are close but not byte-identical to production. Example: the live deposit message uses `☎` (not `☎️`) and `€{amount}` formatted to 2dp; the receipt includes an optional `Receipt:` line the brief omits. The audit records production text as ground truth and flags each difference for your decision rather than silently rewriting customer-facing copy.
 
-One helper module used by every send path (`supabase/functions/_shared/deliveryStatus.ts`):
+## Phase 1 — Complete inventory (read-only)
 
-- `recordAttempt()` — writes the attempt row and derives the human-readable reason from the provider error (raw provider text stored but never surfaced to office users).
-- `checkOptOut()` — respects the Customer Profile service-reminder opt-out and any other preference; returns `opted_out` instead of attempting a send, and is never treated as a failure.
-- Status is written from the actual provider response, never from "the request completed".
+Extract, for all ~30 send functions, the **exact** production body, every variable, and the table+column each variable resolves from (including how `organisation_id` is derived). Deliver as `docs/whatsapp/template-audit.md` plus the summary table you asked for. No code changes in this phase.
 
-Wired into the existing quote / invoice / receipt / reminder send functions — no per-screen logic.
+Known variable-source problems already visible, to be confirmed here:
 
-## 3. Office App UI
+- `_shared/depositLink.ts` reads `company_name`/`company_phone` from `tenant_integrations.360messenger.config` **only** — not from `settings.business_phone`, which is where tenants actually edit their phone. That is the deposit-template phone bug.
+- `accept-quote` resolves the internal office alert through `settings` keyed by **`user_id`**, a different path from the job's `organisation_id` used everywhere else.
+- Several functions read org branding from `settings`, others from `tenant_integrations`, others via `_shared/orgBranding.ts` — three chains for the same three fields.
 
-- Shared `DeliveryStatusBadge` + `ResendButton` pair, styled with the same visual language as the existing payment warning banner.
-- `⚠ Not delivered — SMS failed` beside quote/invoice/job rows and in their detail views, on mobile and desktop.
-- Opted out renders as `Reminder not sent – customer opted out` with no Resend action while the opt-out is on.
-- Resend: single-flight guard (disabled + "Sending…" while in flight), verifies current contact details and opt-out server-side, then updates from the real result. Success clears the warning; failure keeps it with a readable reason. Status survives refresh because it is read from the database.
+## Phase 2 — Canonical catalogue, shared by both sides
 
-## 4. Office manager failure alert
+Create `supabase/functions/_shared/whatsappCatalogue.ts` as the single source of truth: for each message id, the exact body **builder** (a pure function of resolved tenant config + job data) plus metadata (name, category, trigger, function, `message_log.message_type`, variable list, config dependencies).
 
-New edge function `notify-delivery-failure`, entirely separate from the 500-error digest:
+`src/lib/whatsappCatalogue.ts` becomes a thin re-export of that shared definition (mirrored file kept byte-identical by a test), so the Admin page and production sends cannot drift. Bodies move from abridged to exact.
 
-- Triggered when an attempt is written as `failed`; resolves the tenant from the affected record server-side (never a client-supplied org id) and uses that tenant's configured office manager email.
-- Sent via Resend, per project convention.
-- Email body: customer, type, reference, channel, status, time, human-readable reason, plus a secure link back to the record. No unnecessary customer detail.
-- Idempotent on the attempt id (`alerted_at`), so retries, refreshes and duplicate webhook events cannot double-send. A new failed attempt (including a failed manual resend) does produce a new alert.
-- `opted_out` never alerts.
-- Hourly mode batches unalerted failures into one digest per tenant.
+Also add `_shared/orgBranding.ts`-backed unified resolution so `org_name` / `org_address` / `org_phone` have **one** chain, tenant-scoped, fail-closed, no cross-tenant or hard-coded fallback.
 
-## 5. Verification (evidence, not self-report)
+## Phase 3 — Refactor send functions onto the catalogue
 
-Run on K&N and Dublin Gas scratch records only — no real customer numbers or emails:
+One category per step (Quotes → Payments/Deposits → Invoices & receipts → Bookings/reminders → Documents/renewals/inbound), each step independently revertible. Each function keeps its existing skip/degrade, opt-out and logging behaviour; only the body construction and branding resolution move. Byte-for-byte output equality against the current string is asserted by a unit test per message before the function is deployed.
 
-- quote sent → `sent`; forced failure → `failed` + badge; resend success → clears; resend failure → stays failed
-- same for invoice, receipt, service reminder
-- opt-out customer → `opted_out`, no alert, no Resend action
-- double-tap → one send
-- refresh → status unchanged
-- Tenant A session cannot read or resend Tenant B rows (direct query + endpoint attempt)
-- historical rows with no status still render
+Fix the `org_phone` source in the deposit path and any sibling found in Phase 1, in their own isolated steps.
 
-Each stage closes on a SQL read-back or screenshot.
+## Phase 4 — Admin page
 
-## Notes
+Rebuild the Admin WhatsApp Templates surface to render the catalogue dynamically (no hard-coded cards), grouped by category, showing per template: friendly name, catalogue key, delivery channel, exact body with the selected tenant's resolved values, variable list with its resolution source, sending function, `message_log` type, config dependencies with ready/degrade/skip status, and the tenant's 360Messenger sender number.
 
-Nothing is hard-coded per tenant; Dublin Gas gets this through the shared path. No changes to `vite.config.ts`, service-worker config, `PWAUpdateBanner.tsx`, or payment amounts/logic.
+Tenant isolation: all reads filtered by the selected `organisation_id`, superadmin-gated, with no fallback to another tenant. The legacy `user_id`-keyed `whatsapp_templates` CRUD page is retired from navigation (table left untouched).
+
+## Phase 5 — Tests + final report
+
+- Body-equality tests per template (pre/post refactor identical output)
+- Variable-resolution tests, including `org_phone` from the correct tenant source
+- Tenant-isolation tests: tenant A's config never appears for tenant B; missing config skips rather than falling back
+- Catalogue/send-path coverage test: every send function has a catalogue entry and vice versa
+- Final audit report with the Template / Key / Channel / Send location / Status table
+
+## Risk and gating
+
+This touches quotes, deposits, invoices and receipts — money path. Nothing is deployed without the equality tests passing, each phase is its own review-gated step, and verification runs against two tenants (K&N + Dublin Gas or Cavan). No DB writes are part of this work.
+
+Note: Dublin Gas WhatsApp sends are currently failing with 403 from 360Messenger (open issue), so live DG send verification may be blocked; that will be reported honestly rather than rounded up.
