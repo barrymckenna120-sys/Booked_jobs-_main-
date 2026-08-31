@@ -1150,7 +1150,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
     config: [{ key: "tenant_integrations.tally.renewal_form_url", behaviour: "skip" }],
     skipRules: [
       "requireMachineCaller; iterates non-archived orgs and invokes send-warranty-whatsapp per eligible customer.",
-      "Uses Deno.env SUPABASE_URL, not the current_setting() pattern.",
+      "Reads its Supabase URL from the function environment, not the current_setting() pattern.",
     ],
     knownDefects: [],
     build: null,

@@ -140,8 +140,11 @@ Deno.test("builders are pure: same input, same output, no mutation of input", ()
 
 Deno.test("catalogue module performs no IO and reads no globals at import time", async () => {
   const src = await Deno.readTextFile(new URL("whatsappCatalogue.ts", import.meta.url));
-  for (const banned of ["createClient", "Deno.env", "fetch(", "import ", "supabase"]) {
-    assert(!src.includes(banned), `catalogue must not contain "${banned}"`);
+  // Code-shaped patterns only: prose in `notes` / `skipRules` may name a table
+  // or a runtime, but the module must contain no imports and no runtime access.
+  const banned = [/^import\s/m, /\bDeno\.env\b/, /\bfetch\s*\(/, /createClient/, /from\s+["']https?:/];
+  for (const pattern of banned) {
+    assert(!pattern.test(src), `catalogue must not contain ${pattern}`);
   }
 });
 
