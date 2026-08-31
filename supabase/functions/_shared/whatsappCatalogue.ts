@@ -71,6 +71,8 @@ export interface CatalogueEntry {
   /** Stable catalogue key. Never renamed — logs and the Admin UI key off it. */
   key: string;
   name: string;
+  /** One-line description shown in the Admin panel. */
+  purpose: string;
   category: MessageCategory;
   audience: Audience;
   trigger: TriggerKind;
@@ -133,6 +135,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "booking_confirmation",
     name: "Booking confirmation",
+    purpose: "Confirms a newly booked appointment to the customer.",
     category: "Booking & scheduling",
     audience: "customer",
     trigger: "user action",
@@ -170,6 +173,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "schedule_confirmation",
     name: "Schedule confirmation",
+    purpose: "Confirms the scheduled visit window once a job is placed on the calendar.",
     category: "Booking & scheduling",
     audience: "customer",
     trigger: "user action",
@@ -210,6 +214,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "reschedule_notification",
     name: "Reschedule notification",
+    purpose: "Tells the customer their appointment has moved to a new date or time.",
     category: "Booking & scheduling",
     audience: "customer",
     trigger: "user action",
@@ -240,6 +245,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "cancellation",
     name: "Cancellation notice",
+    purpose: "Notifies the customer that their appointment was cancelled.",
     category: "Booking & scheduling",
     audience: "customer",
     trigger: "user action",
@@ -273,6 +279,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "cancel_job_notify",
     name: "Cancellation (customer + internal)",
+    purpose: "Cancellation fan-out: customer notice plus internal alert.",
     category: "Booking & scheduling",
     audience: "customer",
     trigger: "user action",
@@ -303,6 +310,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "appointment_reminder",
     name: "Upcoming appointment reminder",
+    purpose: "Day-before reminder for tomorrow's jobs.",
     category: "Reminders",
     audience: "customer",
     trigger: "cron",
@@ -335,6 +343,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "job_reminder_2day",
     name: "2-day job reminder",
+    purpose: "Reminder sent two days before the appointment.",
     category: "Reminders",
     audience: "customer",
     trigger: "cron",
@@ -380,6 +389,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "quote_sent",
     name: "Quote sent",
+    purpose: "Sends the customer their quote link.",
     category: "Quotes",
     audience: "customer",
     trigger: "user action",
@@ -421,6 +431,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "quote_followup_day3",
     name: "Quote follow-up (day 3)",
+    purpose: "Chases an unanswered quote after 3 days.",
     category: "Quotes",
     audience: "customer",
     trigger: "cron",
@@ -441,6 +452,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "quote_followup_day6",
     name: "Quote follow-up (day 6)",
+    purpose: "Final chase on an unanswered quote.",
     category: "Quotes",
     audience: "customer",
     trigger: "cron",
@@ -465,6 +477,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "quote_accepted_alert",
     name: "Quote accepted alert (internal)",
+    purpose: "Alerts the office that a customer accepted a quote.",
     category: "Quotes",
     audience: "internal",
     trigger: "webhook",
@@ -493,6 +506,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "accept_quote_customer",
     name: "Quote acceptance office alert (accept-quote)",
+    purpose: "Office alert raised by accept-quote when a quote is accepted; the customer half of that flow is the deposit link.",
     category: "Quotes",
     audience: "internal",
     trigger: "webhook",
@@ -522,6 +536,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "deposit_link",
     name: "Deposit payment link",
+    purpose: "Sends a SumUp deposit checkout link for a booked job.",
     category: "Payments",
     audience: "customer",
     trigger: "user action",
@@ -561,6 +576,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "deposit_reminder",
     name: "Deposit reminder",
+    purpose: "Chases an unpaid deposit before the visit.",
     category: "Payments",
     audience: "customer",
     trigger: "cron",
@@ -600,6 +616,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "payment_link",
     name: "Payment link",
+    purpose: "Sends a payment link for the balance on a job.",
     category: "Payments",
     audience: "customer",
     trigger: "user action",
@@ -634,6 +651,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "extra_work_payment",
     name: "Extra work payment link",
+    purpose: "Payment link for additional work agreed on site.",
     category: "Payments",
     audience: "customer",
     trigger: "user action",
@@ -665,6 +683,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "payment_received",
     name: "Payment received",
+    purpose: "Thanks the customer once a payment lands.",
     category: "Payments",
     audience: "customer",
     trigger: "webhook",
@@ -706,6 +725,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "sumup_payment_confirmed",
     name: "SumUp part-payment confirmation",
+    purpose: "Confirmation triggered by the SumUp webhook on a successful part payment.",
     category: "Payments",
     audience: "customer",
     trigger: "webhook",
@@ -752,6 +772,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "invoice_sent",
     name: "Invoice sent",
+    purpose: "Sends the customer their invoice link.",
     category: "Invoices & receipts",
     audience: "customer",
     trigger: "user action",
@@ -788,6 +809,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "invoice_created",
     name: "Invoice created notification",
+    purpose: "Notification issued when an invoice is generated for a job.",
     category: "Invoices & receipts",
     audience: "customer",
     trigger: "user action",
@@ -817,6 +839,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "outstanding_invoice",
     name: "Outstanding invoice reminder",
+    purpose: "Chases unpaid invoices on a schedule.",
     category: "Invoices & receipts",
     audience: "customer",
     trigger: "cron",
@@ -850,6 +873,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "outstanding_reminder_trigger",
     name: "Outstanding reminder (manual run)",
+    purpose: "Office-triggered run of the outstanding invoice chase.",
     category: "Invoices & receipts",
     audience: "customer",
     trigger: "user action",
@@ -876,6 +900,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "receipt",
     name: "Receipt",
+    purpose: "Sends the service receipt after payment.",
     category: "Invoices & receipts",
     audience: "customer",
     trigger: "user action",
@@ -907,6 +932,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "certificate",
     name: "Certificate",
+    purpose: "Sends a gas or service certificate link to the customer.",
     category: "Documents",
     audience: "customer",
     trigger: "user action",
@@ -940,6 +966,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "hazard_notification",
     name: "Hazard notification",
+    purpose: "Sends an At Risk / Immediately Dangerous notice to the customer.",
     category: "Documents",
     audience: "customer",
     trigger: "user action",
@@ -966,6 +993,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "part_arrived",
     name: "Part arrived",
+    purpose: "Tells the customer their ordered part is in and the visit can be booked.",
     category: "Parts",
     audience: "customer",
     trigger: "user action",
@@ -997,6 +1025,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "renewal_reminder",
     name: "Service renewal reminder",
+    purpose: "Prompts the customer to rebook their annual service.",
     category: "Renewals",
     audience: "customer",
     trigger: "user action",
@@ -1033,6 +1062,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "area_bulk_renewal",
     name: "Area bulk outreach",
+    purpose: "Bulk renewal outreach to customers in a chosen area code.",
     category: "Renewals",
     audience: "customer",
     trigger: "user action",
@@ -1062,6 +1092,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "warranty_day14",
     name: "Warranty outreach (day 14)",
+    purpose: "Warranty outreach 14 days after an install, inviting the customer to book the annual service.",
     category: "Renewals",
     audience: "customer",
     trigger: "user action",
@@ -1104,6 +1135,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "warranty_day28",
     name: "Warranty outreach (day 28)",
+    purpose: "Second-stage warranty follow-up 28 days after an install.",
     category: "Renewals",
     audience: "customer",
     trigger: "user action",
@@ -1139,6 +1171,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "warranty_auto",
     name: "Warranty auto-send orchestrator",
+    purpose: "Automated two-stage warranty follow-up after an install.",
     category: "Renewals",
     audience: "customer",
     trigger: "cron",
@@ -1159,6 +1192,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "renewal_reminder_30",
     name: "Renewal reminder feed (30 days)",
+    purpose: "Automated reminder 30 days before the service due date.",
     category: "Renewals",
     audience: "customer",
     trigger: "cron",
@@ -1175,6 +1209,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "renewal_reminder_14",
     name: "Renewal reminder feed (14 days)",
+    purpose: "Automated reminder 14 days before the service due date.",
     category: "Renewals",
     audience: "customer",
     trigger: "cron",
@@ -1191,6 +1226,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "renewal_reminder_7",
     name: "Renewal reminder feed (7 days)",
+    purpose: "Automated reminder 7 days before the service due date.",
     category: "Renewals",
     audience: "customer",
     trigger: "cron",
@@ -1209,6 +1245,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "review_request",
     name: "Review request feed",
+    purpose: "Asks the customer for a Google review after a completed job.",
     category: "Retention",
     audience: "customer",
     trigger: "cron",
@@ -1227,6 +1264,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "review_request_trigger",
     name: "Review request (manual run)",
+    purpose: "Office-triggered review request for a specific job.",
     category: "Retention",
     audience: "customer",
     trigger: "user action",
@@ -1249,6 +1287,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "missed_call_followup",
     name: "Missed call follow-up",
+    purpose: "Auto-replies to a missed call with a booking link.",
     category: "Inbound",
     audience: "customer",
     trigger: "webhook",
@@ -1267,6 +1306,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "opt_out",
     name: "Opt-out confirmation (logged)",
+    purpose: "Confirms a STOP request and flags the customer as opted out.",
     category: "Inbound",
     audience: "customer",
     trigger: "inbound",
@@ -1286,6 +1326,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
   {
     key: "inbound_reply",
     name: "Inbound auto-replies",
+    purpose: "Automatic replies to inbound customer messages (STOP, CONFIRM, CANCEL and unmatched replies).",
     category: "Inbound",
     audience: "customer",
     trigger: "inbound",
