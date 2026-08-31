@@ -1,16 +1,29 @@
 /**
- * Central catalogue of every outbound WhatsApp message type in the system.
+ * Frontend view of the WhatsApp message catalogue.
  *
- * Source of truth for: the human name, purpose, trigger, sending Edge Function,
- * which tenant config fields the message depends on, the `message_log.message_type`
- * value it writes, and what happens when config is missing (skip vs degrade).
+ * The message inventory itself is NOT authored here. It is derived from
+ * `whatsappCatalogue.generated.ts`, a byte mirror of the canonical
+ * `supabase/functions/_shared/whatsappCatalogue.ts` produced by
+ * `scripts/generate-whatsapp-catalogue.mjs`. That removes the old drift risk
+ * where the Admin panel described one wording and the Edge Functions sent
+ * another.
  *
- * The wording structure lives here as an abridged template. Tenant values are NOT
- * stored here — they are resolved live from `settings` + `tenant_integrations`
- * (see `resolveTenantConfig`), so this catalogue never goes stale on config edits.
+ * What still lives here is display-layer only: the admin-facing config-key
+ * labels, live tenant config resolution (`settings` + `tenant_integrations`),
+ * status derivation and preview rendering. Tenant values are never stored in
+ * the catalogue, so it cannot go stale when config is edited.
  *
  * Read-only: nothing in this module writes to the database or sends a message.
  */
+
+import {
+  WHATSAPP_CATALOGUE as CANONICAL_CATALOGUE,
+  type CatalogueEntry,
+  type MessageCategory,
+} from "./whatsappCatalogue.generated";
+
+export { CANONICAL_CATALOGUE };
+export type { CatalogueEntry, MessageCategory };
 
 // ---------------------------------------------------------------------------
 // Config keys
@@ -101,7 +114,7 @@ export const CONFIG_KEYS: Record<ConfigKeyId, ConfigKeyDef> = {
 };
 
 // ---------------------------------------------------------------------------
-// Catalogue entries
+// Catalogue entries — derived from the canonical shared catalogue
 // ---------------------------------------------------------------------------
 
 /** What happens at runtime when a required config field is blank. */
@@ -127,529 +140,95 @@ export interface MessageTypeDef {
   /** True when the message_type is built at runtime (e.g. day-suffixed). */
   dynamicMessageType?: boolean;
   requires: RequiredField[];
-  /** Abridged wording structure. {{config}} and {{data}} tokens. */
+  /** Wording structure with {{config}} tokens, rendered from the real builder. */
   template: string;
+  /** Straight through from the canonical entry, for drill-down in the Admin panel. */
+  canonical: CatalogueEntry;
 }
 
-export const WHATSAPP_CATALOGUE: MessageTypeDef[] = [
-  // --- Booking & scheduling -------------------------------------------------
-  {
-    id: "booking_confirmation",
-    name: "Booking confirmation",
-    purpose: "Confirms a newly booked appointment to the customer.",
-    category: "Booking & scheduling",
-    trigger: "user action",
-    fn: "send-booking-confirmation",
-    messageType: "booking_confirmation",
-    requires: [{ key: "message_footer", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, your appointment is confirmed for {{date}} at {{time}}.\n\n{{message_footer}}",
-  },
-  {
-    id: "schedule_confirmation",
-    name: "Schedule confirmation",
-    purpose: "Confirms the scheduled visit window once a job is placed on the calendar.",
-    category: "Booking & scheduling",
-    trigger: "user action",
-    fn: "send-schedule-confirmation",
-    messageType: "schedule_confirmation",
-    requires: [
-      { key: "company_name", behaviour: "degrade" },
-      { key: "company_phone", behaviour: "degrade" },
-      { key: "message_footer", behaviour: "skip" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} has you booked in for {{date}} at {{time}}. Questions? Call {{company_phone}}.\n\n{{message_footer}}",
-  },
-  {
-    id: "reschedule_notification",
-    name: "Reschedule notification",
-    purpose: "Tells the customer their appointment has moved to a new date or time.",
-    category: "Booking & scheduling",
-    trigger: "user action",
-    fn: "send-reschedule-notification",
-    messageType: "reschedule_notification",
-    requires: [{ key: "message_footer", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, your appointment has been moved to {{date}} at {{time}}.\n\n{{message_footer}}",
-  },
-  {
-    id: "cancellation",
-    name: "Cancellation notice",
-    purpose: "Notifies the customer that their appointment was cancelled.",
-    category: "Booking & scheduling",
-    trigger: "user action",
-    fn: "send-cancellation-notice",
-    messageType: "cancellation",
-    requires: [{ key: "message_footer", behaviour: "degrade" }],
-    template:
-      "Hi {{customer_name}}, your appointment on {{date}} has been cancelled.\n\n{{message_footer}}",
-  },
-  {
-    id: "cancel_job_notify",
-    name: "Cancellation (customer + internal)",
-    purpose: "Cancellation fan-out: customer notice plus internal alert.",
-    category: "Booking & scheduling",
-    trigger: "user action",
-    fn: "cancel-job-notify",
-    messageType: "cancel_job_notify",
-    requires: [{ key: "message_footer", behaviour: "degrade" }],
-    template: "Job {{job_reference}} on {{date}} cancelled — {{reason}}.\n\n{{message_footer}}",
-  },
+/**
+ * Maps a canonical config dependency (`table.column` form) onto the
+ * admin-facing config key the Settings screens actually expose. Anything that
+ * has no admin-editable equivalent — API keys, SumUp credentials — resolves to
+ * null and is therefore not shown as a missing field the user can fix here.
+ */
+function toConfigKey(canonicalKey: string): ConfigKeyId | null {
+  const k = canonicalKey.toLowerCase();
+  if (k.includes("message_footer")) return "message_footer";
+  if (k.includes("renewal_form_url")) return "renewal_form_url";
+  if (k.includes("new_booking_url")) return "new_booking_url";
+  if (k.includes("google_review_url")) return "google_review_url";
+  if (k.includes("cert_prefix")) return "cert_prefix";
+  if (k.includes("payment_link")) return "stripe_payment_link";
+  if (k.includes("api_key")) return "whatsapp_api_key_secret";
+  if (k.includes("sumup")) return "sumup_merchant_code";
+  if (k.includes("phone")) return "company_phone";
+  if (k.includes("name")) return "company_name";
+  return null;
+}
 
-  // --- Reminders ------------------------------------------------------------
-  {
-    id: "appointment_reminder",
-    name: "Upcoming appointment reminder",
-    purpose: "Day-before reminder for tomorrow's jobs.",
-    category: "Reminders",
-    trigger: "cron",
-    fn: "send-upcoming-reminders",
-    messageType: "appointment_reminder",
-    requires: [
-      { key: "message_footer", behaviour: "skip" },
-      { key: "company_name", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, reminder from {{company_name}}: we're calling to you {{date}} at {{time}}.\n\n{{message_footer}}",
-  },
-  {
-    id: "job_reminder_2day",
-    name: "2-day job reminder",
-    purpose: "Reminder sent two days before the appointment.",
-    category: "Reminders",
-    trigger: "cron",
-    fn: "job-reminder-2day",
-    messageType: "job_reminder_2day",
-    requires: [
-      { key: "company_name", behaviour: "degrade" },
-      { key: "company_phone", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} here — you're booked in for {{date}}. Call {{company_phone}} to change.",
-  },
+/**
+ * Maps a canonical template variable onto the config token the preview
+ * substitutes. Variables that are job/customer data keep their own name as a
+ * `{{data}}`-style placeholder, which `renderPreview` leaves untouched.
+ */
+function variableToken(source: string, name: string): string {
+  const key = toConfigKey(source);
+  const looksLikeConfig =
+    /settings\.|tenant_integrations|orgBranding/.test(source) && key !== null;
+  return looksLikeConfig ? `{{${key}}}` : `{{${name}}}`;
+}
 
-  // --- Quotes ---------------------------------------------------------------
-  {
-    id: "quote_sent",
-    name: "Quote sent",
-    purpose: "Sends the customer their quote link.",
-    category: "Quotes",
-    trigger: "user action",
-    fn: "send-quote-whatsapp",
-    messageType: "quote",
-    requires: [{ key: "message_footer", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, here's your quote {{quote_number}}: {{quote_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "quote_followup_day3",
-    name: "Quote follow-up (day 3)",
-    purpose: "Chases an unanswered quote after 3 days.",
-    category: "Quotes",
-    trigger: "cron",
-    fn: "quote-followup-day3",
-    messageType: "quote_followup_day3",
-    requires: [{ key: "message_footer", behaviour: "degrade" }],
-    template:
-      "Hi {{customer_name}}, just checking in on quote {{quote_number}}: {{quote_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "quote_followup_day6",
-    name: "Quote follow-up (day 6)",
-    purpose: "Final chase on an unanswered quote.",
-    category: "Quotes",
-    trigger: "cron",
-    fn: "quote-followup-day6",
-    messageType: "quote_followup_day6",
-    requires: [{ key: "message_footer", behaviour: "degrade" }],
-    template:
-      "Hi {{customer_name}}, last nudge on quote {{quote_number}}: {{quote_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "quote_accepted_alert",
-    name: "Quote accepted alert (internal)",
-    purpose: "Alerts the office that a customer accepted a quote.",
-    category: "Quotes",
-    trigger: "webhook",
-    fn: "quote-accepted-alert",
-    messageType: "quote",
-    requires: [{ key: "message_footer", behaviour: "degrade" }],
-    template:
-      "Quote {{quote_number}} accepted by {{customer_name}} — {{amount}}.\n\n{{message_footer}}",
-  },
-  {
-    id: "accept_quote_customer",
-    name: "Quote acceptance confirmation",
-    purpose: "Confirms acceptance to the customer, including the deposit link when one is required.",
-    category: "Quotes",
-    trigger: "webhook",
-    fn: "accept-quote",
-    messageType: "quote",
-    requires: [
-      { key: "message_footer", behaviour: "skip" },
-      { key: "sumup_merchant_code", behaviour: "degrade" },
-    ],
-    template:
-      "Thanks {{customer_name}} — quote {{quote_number}} accepted. Deposit: {{deposit_link}}\n\n{{message_footer}}",
-  },
+const TRIGGER_FALLBACK: TriggerKind = "user action";
 
-  // --- Payments -------------------------------------------------------------
-  {
-    id: "deposit_link",
-    name: "Deposit payment link",
-    purpose: "Sends a SumUp deposit checkout link for a booked job.",
-    category: "Payments",
-    trigger: "user action",
-    fn: "send-deposit-link",
-    requires: [
-      { key: "message_footer", behaviour: "skip" },
-      { key: "sumup_merchant_code", behaviour: "skip" },
-    ],
-    template:
-      "Hi {{customer_name}}, here's your deposit link for {{job_reference}}: {{checkout_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "deposit_reminder",
-    name: "Deposit reminder",
-    purpose: "Chases an unpaid deposit before the visit.",
-    category: "Payments",
-    trigger: "cron",
-    fn: "send-deposit-reminder",
-    messageType: "deposit_reminder",
-    requires: [
-      { key: "sumup_merchant_code", behaviour: "skip" },
-      { key: "company_name", behaviour: "degrade" },
-      { key: "company_phone", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} — your deposit for {{date}} is still outstanding: {{checkout_url}}. Call {{company_phone}} with any questions.",
-  },
-  {
-    id: "payment_link",
-    name: "Payment link",
-    purpose: "Sends a payment link for the balance on a job.",
-    category: "Payments",
-    trigger: "user action",
-    fn: "send-payment-link",
-    messageType: "payment_link",
-    requires: [
-      { key: "message_footer", behaviour: "skip" },
-      { key: "sumup_merchant_code", behaviour: "skip" },
-    ],
-    template:
-      "Hi {{customer_name}}, you can pay {{amount}} for {{job_reference}} here: {{checkout_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "extra_work_payment",
-    name: "Extra work payment link",
-    purpose: "Payment link for additional work agreed on site.",
-    category: "Payments",
-    trigger: "user action",
-    fn: "send-extrawork-payment-link",
-    messageType: "extra_work_payment",
-    requires: [
-      { key: "sumup_merchant_code", behaviour: "skip" },
-      { key: "message_footer", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, payment link for the extra work ({{amount}}): {{checkout_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "payment_received",
-    name: "Payment received",
-    purpose: "Thanks the customer once a payment lands.",
-    category: "Payments",
-    trigger: "webhook",
-    fn: "send-payment-received",
-    messageType: "payment_received",
-    requires: [{ key: "company_name", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, {{company_name}} has received your payment of {{amount}}. Thank you!",
-  },
-  {
-    id: "sumup_payment_confirmed",
-    name: "SumUp payment confirmation",
-    purpose: "Confirmation triggered by the SumUp webhook on a successful checkout.",
-    category: "Payments",
-    trigger: "webhook",
-    fn: "sumup-payment-webhook",
-    messageType: "sumup_payment_confirmed",
-    requires: [{ key: "sumup_merchant_code", behaviour: "skip" }],
-    template: "Payment of {{amount}} received for {{job_reference}}. Thank you!",
-  },
+/** Reply kind used when previewing the inbound auto-reply family. */
+const PREVIEW_REPLY_KIND = "confirm";
 
-  // --- Invoices & receipts --------------------------------------------------
-  {
-    id: "invoice_sent",
-    name: "Invoice sent",
-    purpose: "Sends the customer their invoice link.",
-    category: "Invoices & receipts",
-    trigger: "user action",
-    fn: "send-invoice-whatsapp",
-    messageType: "invoice_sent",
-    requires: [
-      { key: "cert_prefix", behaviour: "degrade" },
-      { key: "message_footer", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, invoice for {{cert_prefix}}-{{job_number}}: {{invoice_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "invoice_created",
-    name: "Invoice created notification",
-    purpose: "Notification issued when an invoice is generated for a job.",
-    category: "Invoices & receipts",
-    trigger: "user action",
-    fn: "create-job-invoice",
-    messageType: "invoice",
-    requires: [{ key: "message_footer", behaviour: "degrade" }],
-    template: "Invoice {{invoice_number}} for {{amount}}: {{invoice_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "outstanding_invoice",
-    name: "Outstanding invoice reminder",
-    purpose: "Chases unpaid invoices on a schedule.",
-    category: "Invoices & receipts",
-    trigger: "cron",
-    fn: "send-outstanding-invoice-reminders",
-    messageType: "outstanding_invoice",
-    requires: [
-      { key: "company_name", behaviour: "degrade" },
-      { key: "message_footer", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, invoice {{invoice_number}} for {{amount}} is still outstanding: {{invoice_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "outstanding_reminder_trigger",
-    name: "Outstanding reminder (manual run)",
-    purpose: "Office-triggered run of the outstanding invoice chase.",
-    category: "Invoices & receipts",
-    trigger: "user action",
-    fn: "trigger-outstanding-reminder",
-    requires: [
-      { key: "company_name", behaviour: "degrade" },
-      { key: "company_phone", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} — invoice {{invoice_number}} is outstanding. Call {{company_phone}}.",
-  },
-  {
-    id: "receipt",
-    name: "Receipt",
-    purpose: "Sends the service receipt after payment.",
-    category: "Invoices & receipts",
-    trigger: "user action",
-    fn: "send-whatsapp-receipt",
-    messageType: "receipt",
-    requires: [
-      { key: "message_footer", behaviour: "skip" },
-      { key: "cert_prefix", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, receipt for {{cert_prefix}}-{{job_number}}: {{receipt_url}}\n\n{{message_footer}}",
-  },
+function buildTemplate(entry: CatalogueEntry): string {
+  if (!entry.build) {
+    return `(no in-repo body — sent by ${entry.bodyOwner ?? "an external system"})`;
+  }
+  const vars: Record<string, unknown> = {};
+  for (const v of entry.variables) vars[v.name] = variableToken(v.source, v.name);
+  if (entry.key === "inbound_reply") vars.replyKind = PREVIEW_REPLY_KIND;
+  if (entry.key === "part_arrived") vars.customMessage = "";
+  try {
+    return entry.build(vars);
+  } catch {
+    return "(preview unavailable)";
+  }
+}
 
-  // --- Documents ------------------------------------------------------------
-  {
-    id: "certificate",
-    name: "Certificate",
-    purpose: "Sends a gas or service certificate link to the customer.",
-    category: "Documents",
-    trigger: "user action",
-    fn: "send-certificate-whatsapp",
-    messageType: "certificate",
-    requires: [{ key: "message_footer", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, your certificate is ready: {{certificate_url}}\n\n{{message_footer}}",
-  },
-  {
-    id: "hazard_notification",
-    name: "Hazard notification",
-    purpose: "Sends an At Risk / Immediately Dangerous notice to the customer.",
-    category: "Documents",
-    trigger: "user action",
-    fn: "send-hazard-whatsapp",
-    messageType: "hazard_notification",
-    requires: [{ key: "message_footer", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, safety notice for {{address}}: {{hazard_url}}\n\n{{message_footer}}",
-  },
+function toRequiredFields(entry: CatalogueEntry): RequiredField[] {
+  const out: RequiredField[] = [];
+  const seen = new Set<ConfigKeyId>();
+  for (const dep of entry.config) {
+    const key = toConfigKey(dep.key);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ key, behaviour: dep.behaviour });
+  }
+  return out;
+}
 
-  // --- Parts ----------------------------------------------------------------
-  {
-    id: "part_arrived",
-    name: "Part arrived",
-    purpose: "Tells the customer their ordered part is in and the visit can be booked.",
-    category: "Parts",
-    trigger: "user action",
-    fn: "send-part-arrived",
-    messageType: "part_arrived",
-    requires: [
-      { key: "message_footer", behaviour: "degrade" },
-      { key: "company_name", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, good news — the part for {{job_reference}} has arrived. We'll be in touch to book you in.\n\n{{message_footer}}",
-  },
+export function toMessageTypeDef(entry: CatalogueEntry): MessageTypeDef {
+  return {
+    id: entry.key,
+    name: entry.name,
+    purpose: entry.purpose,
+    category: entry.category,
+    trigger: (entry.trigger as TriggerKind) || TRIGGER_FALLBACK,
+    fn: entry.functions.find((f) => !f.startsWith("_shared/")) || entry.functions[0],
+    messageType: entry.messageTypes[0],
+    dynamicMessageType: entry.dynamicMessageType,
+    requires: toRequiredFields(entry),
+    template: buildTemplate(entry),
+    canonical: entry,
+  };
+}
 
-  // --- Renewals -------------------------------------------------------------
-  {
-    id: "renewal_reminder",
-    name: "Service renewal reminder",
-    purpose: "Prompts the customer to rebook their annual service.",
-    category: "Renewals",
-    trigger: "user action",
-    fn: "send-renewal-reminder",
-    messageType: "renewal_reminder",
-    requires: [
-      { key: "renewal_form_url", behaviour: "skip" },
-      { key: "company_name", behaviour: "degrade" },
-      { key: "company_phone", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} — your service is due. Rebook here: {{renewal_form_url}} or call {{company_phone}}.",
-  },
-  {
-    id: "renewal_reminder_30",
-    name: "Renewal reminder (30 days)",
-    purpose: "Automated reminder 30 days before the service due date.",
-    category: "Renewals",
-    trigger: "cron",
-    fn: "renewal-reminder-30",
-    requires: [{ key: "renewal_form_url", behaviour: "skip" }],
-    template: "Hi {{customer_name}}, your service is due in 30 days. Rebook: {{renewal_form_url}}",
-  },
-  {
-    id: "renewal_reminder_14",
-    name: "Renewal reminder (14 days)",
-    purpose: "Automated reminder 14 days before the service due date.",
-    category: "Renewals",
-    trigger: "cron",
-    fn: "renewal-reminder-14",
-    requires: [{ key: "renewal_form_url", behaviour: "skip" }],
-    template: "Hi {{customer_name}}, your service is due in 14 days. Rebook: {{renewal_form_url}}",
-  },
-  {
-    id: "renewal_reminder_7",
-    name: "Renewal reminder (7 days)",
-    purpose: "Automated reminder 7 days before the service due date.",
-    category: "Renewals",
-    trigger: "cron",
-    fn: "renewal-reminder-7",
-    requires: [{ key: "renewal_form_url", behaviour: "skip" }],
-    template: "Hi {{customer_name}}, your service is due next week. Rebook: {{renewal_form_url}}",
-  },
-  {
-    id: "area_bulk_renewal",
-    name: "Area bulk outreach",
-    purpose: "Bulk renewal outreach to customers in a chosen area code.",
-    category: "Renewals",
-    trigger: "user action",
-    fn: "send-area-bulk-whatsapp",
-    messageType: "renewal",
-    requires: [
-      { key: "company_name", behaviour: "degrade" },
-      { key: "company_phone", behaviour: "degrade" },
-      { key: "renewal_form_url", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} are in {{area}} next week. Rebook: {{renewal_form_url}} or call {{company_phone}}.",
-  },
-  {
-    id: "warranty_whatsapp",
-    name: "Warranty outreach",
-    purpose: "Warranty-expiry outreach inviting the customer to rebook.",
-    category: "Renewals",
-    trigger: "user action",
-    fn: "send-warranty-whatsapp",
-    requires: [
-      { key: "renewal_form_url", behaviour: "skip" },
-      { key: "company_name", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} — your boiler warranty is coming up for renewal. Book here: {{renewal_form_url}}",
-  },
-  {
-    id: "warranty_auto",
-    name: "Warranty auto-send (day 14 / 28)",
-    purpose: "Automated two-stage warranty follow-up after an install.",
-    category: "Renewals",
-    trigger: "cron",
-    fn: "warranty-auto-send",
-    messageType: "warranty_day14",
-    dynamicMessageType: true,
-    requires: [
-      { key: "renewal_form_url", behaviour: "skip" },
-      { key: "company_name", behaviour: "degrade" },
-    ],
-    template:
-      "Hi {{customer_name}}, {{company_name}} — checking in on your new boiler. Anything to book? {{renewal_form_url}}",
-  },
-
-  // --- Retention ------------------------------------------------------------
-  {
-    id: "review_request",
-    name: "Review request",
-    purpose: "Asks the customer for a Google review after a completed job.",
-    category: "Retention",
-    trigger: "cron",
-    fn: "review-request",
-    requires: [{ key: "google_review_url", behaviour: "skip" }],
-    template:
-      "Hi {{customer_name}}, thanks for having us out. Would you leave us a review? {{google_review_url}}",
-  },
-  {
-    id: "review_request_trigger",
-    name: "Review request (manual run)",
-    purpose: "Office-triggered review request for a specific job.",
-    category: "Retention",
-    trigger: "user action",
-    fn: "trigger-review-request",
-    requires: [{ key: "google_review_url", behaviour: "skip" }],
-    template: "Hi {{customer_name}}, would you leave us a review? {{google_review_url}}",
-  },
-
-  // --- Inbound --------------------------------------------------------------
-  {
-    id: "missed_call_followup",
-    name: "Missed call follow-up",
-    purpose: "Auto-replies to a missed call with a booking link.",
-    category: "Inbound",
-    trigger: "webhook",
-    fn: "missed-call-lookup",
-    messageType: "missed_call_followup",
-    requires: [
-      { key: "renewal_form_url", behaviour: "skip" },
-      { key: "company_name", behaviour: "degrade" },
-    ],
-    template:
-      "Sorry we missed your call — {{company_name}}. You can book online here: {{renewal_form_url}}",
-  },
-  {
-    id: "opt_out",
-    name: "Opt-out confirmation",
-    purpose: "Confirms a STOP request and flags the customer as opted out.",
-    category: "Inbound",
-    trigger: "inbound",
-    fn: "handle-whatsapp-opt-out",
-    messageType: "opt_out",
-    requires: [],
-    template: "You've been unsubscribed and won't receive further messages.",
-  },
-  {
-    id: "inbound",
-    name: "Inbound message (logged)",
-    purpose: "Logs customer replies against the conversation — no outbound send.",
-    category: "Inbound",
-    trigger: "inbound",
-    fn: "whatsapp-inbound",
-    messageType: "inbound",
-    requires: [],
-    template: "(inbound only — the customer's own words are stored)",
-  },
-];
+export const WHATSAPP_CATALOGUE: MessageTypeDef[] =
+  CANONICAL_CATALOGUE.map(toMessageTypeDef);
 
 // ---------------------------------------------------------------------------
 // Live tenant config resolution
