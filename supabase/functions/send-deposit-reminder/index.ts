@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
 
       const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-      const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
+      const response = await fetch(WHATSAPP_SEND_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${messengerKey}` },
         body: formData,
