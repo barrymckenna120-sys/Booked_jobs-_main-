@@ -468,3 +468,289 @@ unknown-status.
 `send-payment-link.invoice_pdf_url`, `send-extrawork-payment-link.line_items[*]` and
 `.total_amount`, and `send-quote-whatsapp.business_phone` all reach the customer's phone
 without server-side validation.
+
+## P1 SECURITY — two send paths are publicly invocable with no auth gate
+
+Verified directly, not inferred:
+
+**`send-upcoming-reminders`** — `supabase/config.toml` sets `verify_jwt = false`, and the
+function body contains **no** `requireMachineCaller`, `requireBoundOrg`, `x-make-secret`
+check or any other gate (`index.ts:1-40` goes straight from the CORS preflight to a
+service-role client). Anyone who knows the URL can invoke it. It then iterates **every
+organisation**, finds every job scheduled two days out, and sends each customer a WhatsApp.
+Unauthenticated cross-tenant customer messaging plus unbounded 360Messenger spend.
+
+**`trigger-review-request`** — absent from `config.toml` entirely (so it inherits
+`verify_jwt = false`) and has no caller-org check. It accepts arbitrary
+`service_call_id` + `customer_id` from the body and fires the tenant's Make.com review
+webhook. Its sibling `review-request` does gate on `requireBoundOrg`, so this is an
+inconsistency rather than a deliberate design.
+
+Both are outside the scope of this catalogue refactor and touch tenant isolation, so they
+need their own review-gated fix rather than being folded into Phase 2/3.
+
+## Batch C — bookings, reminders, renewals, parts, inbound
+
+### Functions that send no WhatsApp themselves
+| function | what it actually does |
+|---|---|
+| `renewal-reminder-7` / `-14` / `-30` | Return JSON feeds for Make.com to send. `requireBoundOrg`, `opted_out` filtered in-query. `-14`/`-30` build the Tally URL and hard-fail 400 when absent; `-7` returns a bare customer list. |
+| `review-request` | JSON feed of completed jobs >2h old with `review_sent=false`. `requireBoundOrg`; `settings.google_review_url` per org, skip+log if absent. |
+| `trigger-review-request` | Posts to a Make webhook. Logs `customer_activity.event_type = "whatsapp_sent"` despite never calling 360Messenger — mislabelled. See P1 above. |
+| `warranty-auto-send` | Cron orchestrator; `requireMachineCaller`; iterates all non-archived orgs and invokes `send-warranty-whatsapp` per eligible customer. Uses `Deno.env.get("SUPABASE_URL")`, **not** the broken `current_setting('app.supabase_url')` pattern. |
+| `missed-call-lookup` | Make.com support endpoint (`lookup` / `log_followup`). Logs `message_type: "missed_call_followup"`. Takes `organisation_id` from the **body** once the shared secret authorises the request — a trusted caller can name any org. |
+| `handle-whatsapp-opt-out` | Inbound STOP handler; sets `customers.opted_out`, logs `message_type: "opt_out"`. `resolveMachineOrganisation` fails closed and refuses to guess. |
+
+### cancel-job-notify (`cancel_job_notify`)
+```
+Hi {firstName}, your booking with {branding.name} has been cancelled. Reason: {cancellation_reason}.[ To rebook please call us on {branding.phone}.]
+```
+Branding via `getOrgBrandingClient`. Org from `get_my_org_id()` RPC, job org must match
+(`:73`, `:117`) — fail-closed. `requireCustomerMessagingConsent`. Also writes
+`whatsapp_messages.message_type = "template"` keyed on `sc.user_id` (display only).
+
+### job-reminder-2day (`job_reminder_2day`)
+```
+Hi {firstName},
+
+This is a reminder from {companyName} that your appointment is confirmed for {formattedDate} at {formattedTime}.
+[\nYour engineer will be {engineerName}.\n]
+Please reply CONFIRM to confirm your appointment or CANCEL to cancel. Alternatively call us on {companyPhone}.
+
+{companyName} ☎ {companyPhone}
+```
+- `companyName`/`companyPhone` from `tenant_integrations(360messenger).config` with **no
+  fallback** — a missing value interpolates the literal string `"undefined"` into the
+  customer's message. Real defect, not just style.
+- `requireMachineCaller`; org per-row from `service_calls.organisation_id`. Key resolved by
+  a hand-rolled duplicate of `fetchWhatsappApiKey` (`:51-56`).
+
+### send-booking-confirmation (`booking_confirmation`)
+```
+Hi {firstName}, your booking with {companyName || "us"} is confirmed.
+
+📅 Date: {formattedDate}
+⏰ Time: {timeSlot}
+👷 Engineer: {engineerName}
+
+If you need to make any changes please reply to this message.
+[+ "\n\n{messageFooter}"]
+```
+`companyName` = `settings.business_name || "us"` (a second hardcoded name fallback, distinct
+from `orgBranding`'s `"our team"`). Date/time/engineer each default to `"TBC"`.
+`requireResourceOrgAccess`. Opt-out via `bookingConfirmationSkip`, which logs a
+`status:"skipped"` row. Key resolution is **literal-first** (`config.api_key || env[...]`).
+
+### send-schedule-confirmation (`schedule_confirmation`, via `log-message`)
+```
+Hi {firstName}, your booking[ with {companyName}] is confirmed.
+
+📅 Date: {scheduledDate}
+⏰ Time: {timeSlot}
+👷 Engineer: {engineerName}
+
+If you need to make any changes please reply to this message.[
+
+{signoff}]
+```
+`signoff` = `[companyName, companyPhone].filter(Boolean).join(" ☎ ")`. Branding from
+`settings.company_name`/`company_phone` — note this reads `company_*` where
+send-booking-confirmation reads `business_*`, so the two confirmation messages can show
+different names for the same tenant. Near-duplicate of send-booking-confirmation (D7).
+
+### send-reschedule-notification (`reschedule_notification`)
+```
+Hi {firstName}, your appointment has been rescheduled to {newDate} at {timeSlot}. Apologies for any inconvenience — {messageFooter}
+```
+`settings.message_footer` is **hard-required**: blank means the send is skipped with
+`message_footer_not_configured` (`:94-133`). `requireResourceOrgAccess` +
+`requireCustomerMessagingConsent`.
+
+### send-cancellation-notice (`cancellation`)
+```
+Hi {firstName}, your booking with {branding.name} has been cancelled.
+
+Reason: {cancellationReason}
+
+[To rebook please call us on {branding.phone}.
+
+]{branding.footer || branding.name}
+```
+`cancellationReason` = `service_calls.cancellation_reason || "No reason provided"`. Opt-out
+is an ad-hoc inline check rather than the shared consent gate. Overlaps heavily with
+`cancel-job-notify` (D7) — two functions, two literals, same customer event.
+
+### send-part-arrived (`part_arrived`)
+```
+Hi {firstName}, great news! The part we ordered for your boiler has arrived. 🔧
+
+We'd like to arrange a time to come back and complete the work.
+
+Details: {follow_up_detail || "Follow-up repair"}
+
+Please reply to this message or call us to book a time that suits you.
+[+ "\n\n{messageFooter}"]
+```
+Entire body is overridable by an unvalidated `customMessage` body arg (`:157`) — see D9.
+`messageFooter` = `settings.message_footer || business_name || company_name || ""`
+(degrades rather than blocking). Key resolver can fall back to the literal key on the
+*other* integration row (same tenant).
+
+### send-upcoming-reminders (`appointment_reminder`)
+```
+Appointment Reminder 📅
+{messageFooter}
+
+Hi {firstName}, just a reminder that your {jobType} is booked for {targetStr} between {timeSlot}.
+
+Your engineer {engineerName} will be with you on the day. If you need to reschedule, please give us a call.
+
+Thanks,
+{messageFooter}
+```
+`messageFooter` appears **twice** — once as a header line, once as the sign-off. Required:
+a blank footer skips the whole org. `engineerName` = `assigned_engineer || "our engineer"`.
+See P1 above for the missing auth gate.
+
+### send-renewal-reminder (`renewal_reminder`)
+```
+Hi {first_name},
+
+This is {companyName}. Your annual boiler service is due on {renewal_date}.
+
+If your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.
+
+{bookLine}
+
+Reply STOP to unsubscribe.
+{companyName}
+```
+`bookLine` = `Book online: {renewalFormUrl}?customer_phone={cleanPhone}\n\nOr reply here or
+call us on {companyPhone}.` when a Tally URL exists, else `Reply here to book your service
+or call us on {companyPhone}.` `first_name` and `renewal_date` are **request-body args**,
+not re-derived from the DB, even though the recipient phone is DB-only.
+`requireResourceOrgAccess` on `customers`; cross-sibling-phone dedup via
+`isDuplicateRenewalSend`.
+
+### send-area-bulk-whatsapp (`renewal`)
+```
+Hi {firstName},
+
+This is {companyName}. Your annual boiler service is due on {dueDate}.
+
+If your boiler is under manufacturer warranty, maintaining a yearly service is generally a condition of keeping that warranty valid.
+
+Reply here to book your service or call us on {companyPhone}.
+
+Reply STOP to unsubscribe.
+{companyName}
+```
+Almost the same message as `send-renewal-reminder` but with "is generally a condition"
+vs "is a condition", no booking link, and `message_type: "renewal"` vs
+`"renewal_reminder"` — so the two renewal paths are invisible to each other's dedup logic.
+`companyName`/`companyPhone` from `tenant_integrations(360messenger).config`, trimmed, blank
+skips. `requireCallerOrg` restricted to office/admin/owner/manager, plus a per-recipient
+`customers.organisation_id === callerOrgId` check. `dueDate` falls back to `"soon"`. Also
+writes `whatsapp_messages` keyed on `custRecord.user_id`.
+
+### send-warranty-whatsapp (`warranty_day14` / `warranty_day28`)
+Day 14:
+```
+Hi {first_name}, this is {branding.name}.
+
+We are getting in touch to let you know your {boiler_brand} {boiler_model} boiler, installed on {install_date_formatted}, is currently covered under the manufacturer's warranty.
+
+⚠️ Important: To keep your warranty valid, your boiler must be serviced by a registered Gas Safe engineer every year.
+
+Book your annual service here:
+👉 {tallyUrl}[
+
+Or call us on 📞 {branding.phone}]
+
+{footerLine}
+```
+Day 28:
+```
+Hi {first_name}, this is {branding.name}.
+
+We messaged you two weeks ago about your new {boiler_brand} {boiler_model} boiler warranty. We just wanted to follow up — booking your annual service is the best way to keep your warranty valid and your boiler running safely.
+
+Book here:
+👉 {tallyUrl}[
+
+Or call us on 📞 {branding.phone}]
+
+{footerLine}
+```
+- **Copy defect:** "registered Gas Safe engineer" is the UK scheme. Irish tenants must say
+  RGI / Registered Gas Installer.
+- `tallyUrl` from `tenant_integrations(tally).config.renewal_form_url`; **no hardcoded K&N
+  Tally fallback exists** — absence is a hard skip (`:349-373`). The previously suspected
+  leak is not present in the current code.
+- Branding is hard-required and additionally rejects the `"our team"` default (`:437-465`),
+  so an org without `business_name` never receives warranty sends at all.
+- `first_name`, `boiler_brand`, `boiler_model`, `install_date_formatted` are all body args.
+  Machine callers are trusted org-wide with whatever `customer_id`/`phone` they supply;
+  only user callers re-normalise the phone against the DB row.
+
+### whatsapp-inbound (`inbound` + reply types)
+Replies, all via `sendReply()` with `getWhatsAppConfig(actingOrgId)`:
+- opt-out `:747`: `Got it — we've removed you from our reminder list. No further messages will be sent. {branding.footer || branding.name}.`
+- unmatched `:881`: `Thanks — we couldn't match that to an upcoming appointment. Please call us[ on {branding.phone}] and we'll help.`
+- ambiguous `:906`: `Thanks — you have more than one upcoming appointment with us, so we don't want to change the wrong one. Please call us[ on {branding.phone}] and we'll sort it straight away.`
+- confirm `:1006`: `Thanks {jobOwnerName}, your appointment is confirmed. See you then! {branding.footer || branding.name}`
+- cancel `:1065`: `Thanks {jobOwnerName}, your appointment has been cancelled. To rebook please call us[ on {branding.phone}]. {branding.footer || branding.name}`
+
+Org is derived from the customer rows matching the inbound phone, never from a caller;
+CONFIRM/CANCEL require a single unambiguous org via `pickActingOrg` or are dropped as
+`cross_org_ambiguous`. Webhook itself is gated by `WHATSAPP_INBOUND_SECRET` (fail-closed if
+unset) or a machine caller. `whatsapp_messages.user_id` falls back to
+`organisations.owner_user_id` purely to satisfy the NOT NULL column. STOP applies
+`opted_out` to **every** customer row sharing that phone, across orgs. Duplicate inbound
+guard: same sender + body + provider timestamp within 10 minutes.
+
+## Additional cross-cutting defects (Batch C)
+
+### D10 — `settings.business_*` vs `settings.company_*` split
+`send-booking-confirmation` reads `business_name`; `send-schedule-confirmation` and
+`send-renewal-reminder` read `company_name`/`company_phone`; `orgBranding.ts` tries
+`business_*` then `company_*`. A tenant that has filled only one pair gets a correct name in
+some messages and a blank or `"undefined"` in others.
+
+### D11 — Near-duplicate message pairs
+- `send-booking-confirmation` ≈ `send-schedule-confirmation` (same emoji block, different branding fields).
+- `cancel-job-notify` ≈ `send-cancellation-notice`.
+- `send-renewal-reminder` ≈ `send-area-bulk-whatsapp` (one word differs; different `message_type`, so dedup does not span them).
+
+### D12 — `"undefined"` can reach customers
+`job-reminder-2day` interpolates `config.company_name`/`company_phone` with no fallback and
+no guard. Same class of risk in `send-deposit-reminder` (`customer.name`).
+
+### D13 — UK gas terminology in an Irish product
+`send-warranty-whatsapp` day-14 says "registered Gas Safe engineer"; should be RGI.
+
+### D14 — Nine distinct `message_type` values for renewal-ish sends
+`renewal`, `renewal_reminder`, `warranty_day14`, `warranty_day28`, `appointment_reminder`,
+`job_reminder_2day`, `booking_confirmation`, `schedule_confirmation`,
+`reschedule_notification` — with no shared enum. The catalogue in Phase 2 must own this
+vocabulary.
+
+### Corrections to earlier assumptions
+- **No hardcoded K&N Tally URL fallback exists** in `send-warranty-whatsapp` or any Batch C
+  function. Every Tally URL is tenant-configured and absence is a hard skip.
+- **No cron function uses the broken `current_setting('app.supabase_url')` pattern.** No
+  `cron.schedule` definitions for these functions were found in `supabase/migrations` at
+  all, so the actual schedules live in `cron.job` in the DB and need direct inspection
+  before anyone claims the warranty/follow-up crons are broken.
+
+## Phase 1 totals
+
+- 32 WhatsApp send call sites across 30 functions; 0 Meta templates; every body is an
+  inline literal.
+- 3 branding sources, 2 hardcoded name fallbacks (`"our team"`, `"us"`), 0 sources for
+  `org_address`.
+- 4 money formatters, 4 API-key resolution orders, 4 opt-out implementations,
+  2 `message_log.status` vocabularies.
+- 2 `user_id`-keyed tenant lookups that must become `organisation_id`.
+- 3 P1 items requiring their own isolated fixes: the `phone_number` field-name bug, and the
+  two unauthenticated send paths.
