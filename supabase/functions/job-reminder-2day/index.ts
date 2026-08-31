@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { logMessage } from "../_shared/logMessage.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
+import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
