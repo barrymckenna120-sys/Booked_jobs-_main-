@@ -11,6 +11,7 @@ import {
 } from "../_shared/machineAuth.ts";
 import { getUserOrg } from "../_shared/orgAuth.ts";
 import { resolveSweepScope } from "../_shared/sweepScope.ts";
+import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
 
 
 serve(async (req) => {
