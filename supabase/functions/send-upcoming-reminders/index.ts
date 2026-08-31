@@ -123,8 +123,8 @@ serve(async (req) => {
     target.setDate(target.getDate() + 2);
     const targetStr = target.toISOString().split("T")[0];
 
-    // Fetch jobs scheduled for target date
-    const { data: jobs, error } = await supabase
+    // Fetch jobs scheduled for target date, within the authorised scope only.
+    let jobQuery = supabase
       .from("service_calls")
       .select(`
         id,
@@ -139,6 +139,12 @@ serve(async (req) => {
       `)
       .eq("scheduled_date", targetStr)
       .not("status", "in", '("Cancelled","Completed","no_show")');
+
+    if (scope.kind === "org") {
+      jobQuery = jobQuery.eq("organisation_id", scope.orgId);
+    }
+
+    const { data: jobs, error } = await jobQuery;
 
     if (error) {
       throw new Error(`DB query failed: ${error.message}`);
