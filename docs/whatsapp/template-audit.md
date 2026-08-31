@@ -269,6 +269,16 @@ Note K&N is otherwise healthy on WhatsApp, so this is not the Dublin Gas 403 out
 two just look alike in the log. Fix is a one-word change plus switching the bespoke
 `.replace(/^\+/, "")` to shared `normalisePhone`.
 
+**FIXED (31/08/26).** `send-deposit-reminder` now builds its form through the new
+`_shared/whatsappPayload.ts` (`buildSendMessageForm` + `WHATSAPP_SEND_URL`), so the field
+name cannot drift again; `_shared/whatsappPayload.test.ts` asserts `phonenumber` is present
+and `phone_number` absent. Message copy and every other behaviour were left untouched, and
+no historical `message_log` row was rewritten. Diagnosis corroborated read-only: over the
+same window K&N sent successfully on 15 other message types (`booking_confirmation` 27/08,
+`receipt` 24/08, `payment_link` 24/08), while `deposit_reminder` alone was 100% failed —
+so the cause is the malformed field, not credentials or tenant health.
+
+
 ## Batch A — payments and deposits
 
 ### accept-quote — office alert (`message_type: quote`, failure-only logging)
