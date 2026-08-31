@@ -5,6 +5,7 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
 
 
 serve(async (req) => {
