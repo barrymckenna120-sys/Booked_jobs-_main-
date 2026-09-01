@@ -34,8 +34,27 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: false,
 
 
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Precache only what's needed to boot the app shell. The previous glob
+        // ("**/*.{js,css,html,ico,png,svg,woff2}") precached 158 files / ~20 MB
+        // uncompressed on every first load and after every deploy — including
+        // ~7 MB of marketing imagery and every lazy route chunk — which on a
+        // weak connection drains for minutes. Route chunks and images are still
+        // cached on demand by the CacheFirst /assets/ rule below.
+        globPatterns: [
+          "index.html",
+          "offline.html",
+          "assets/index-*.{js,css}",
+          "manifest*.json",
+          "*.ico",
+          "icons/*.png",
+        ],
+        globIgnores: [
+          "**/images/**",
+          "**/*.png.br",
+          "landing-page.html",
+        ],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+
 
         navigateFallback: "/index.html",
 

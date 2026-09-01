@@ -6,6 +6,8 @@ import {
   clearImpersonationToken,
   getImpersonationTokenState,
 } from "@/integrations/supabase/orgHeaderInterceptor";
+import { fetchProfile, clearProfileCache } from "@/lib/profileCache";
+
 
 const STORAGE_KEY = "adminViewingOrgId";
 const STORAGE_NAME_KEY = "adminViewingOrgName";
@@ -69,15 +71,12 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
         }
         return;
       }
-      const { data } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const profile = await fetchProfile(userId);
       if (!cancelled) {
-        setIsSuperAdminRole(data?.role === "superadmin");
+        setIsSuperAdminRole(profile?.role === "superadmin");
         setRoleResolved(true);
       }
+
     };
 
     supabase.auth.getUser().then(({ data }) => {
@@ -86,11 +85,17 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
       resolve(data.user?.id);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setEmail(session?.user?.email ?? null);
+      // Sign-in / sign-out must not read a previous user's cached profile.
+      // A token refresh keeps the same user, so leave the cache intact there.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        clearProfileCache();
+      }
       setRoleResolved(false);
       resolve(session?.user?.id);
     });
+
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
