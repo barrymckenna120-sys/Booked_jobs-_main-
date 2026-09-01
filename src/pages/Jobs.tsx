@@ -370,6 +370,10 @@ const Jobs = () => {
   const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
   const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  /** BJ-0090 — Lead + Assistant lines, shared by the table and the mobile card. */
+  const teamLines = (j: Job) => buildJobTeamLines(j.assigned_engineer, assistsMap[j.id]);
+
+
   const renderJobsTable = (rows: Job[], rowBorderClass?: string) => (
     <Table>
       <TableHeader>
@@ -424,7 +428,23 @@ const Jobs = () => {
                   `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
                 ) : "—"}
               </TableCell>
-              <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
+              <TableCell className="hidden md:table-cell">
+                {(() => {
+                  const lines = teamLines(j);
+                  if (lines.length === 0) return "—";
+                  const showRoles = lines.length > 1;
+                  return (
+                    <div className="space-y-0.5">
+                      {lines.map((l) => (
+                        <div key={l.key} className={l.role === "Lead" ? "text-sm" : "text-xs text-muted-foreground"}>
+                          {l.name}
+                          {showRoles && <span className="text-muted-foreground"> — {l.role}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
                   {statusBadge(j.status)}
