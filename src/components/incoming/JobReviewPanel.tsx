@@ -14,6 +14,7 @@ import { Phone, Mail, MapPin, CheckCircle2, XCircle, MessageCircle, Camera, Aler
 import MediaGallery from "@/components/media/MediaGallery";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 import type { CustomerStatusAtBooking } from "@/types/service-calls";
 
 
