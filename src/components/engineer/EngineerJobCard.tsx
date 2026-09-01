@@ -261,6 +261,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         </div>
 
+        {assistingEngineers.length > 0 && (
+          <div className="flex gap-4 mb-3 text-xs">
+            <div>
+              <span className="text-muted-foreground/60 font-semibold">Assisting: </span>
+              <span className="font-bold text-foreground">{assistingEngineers.join(", ")}</span>
+            </div>
+          </div>
+        )}
+
         {/* Boiler model / location from customer record */}
         {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim() || customer?.boiler_location?.trim()) && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs">
