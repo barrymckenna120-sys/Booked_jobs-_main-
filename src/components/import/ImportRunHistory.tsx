@@ -155,7 +155,15 @@ export const ImportRunDetails = ({ details }: { details: ImportRunRowDetail[] })
           <TableRow key={`${d.row_number}-${i}`}>
             <TableCell className="font-mono">{d.row_number}</TableCell>
             <TableCell>
-              <Badge variant={d.outcome === "created" || d.outcome === "updated" ? "secondary" : "destructive"}>
+              <Badge
+                variant={
+                  d.outcome === "created" || d.outcome === "updated" || d.outcome === "merged"
+                    ? "secondary"
+                    : d.outcome === "skipped_existing" || d.outcome === "excluded_duplicate"
+                      ? "outline"
+                      : "destructive"
+                }
+              >
                 {OUTCOME_LABELS[d.outcome] || d.outcome}
               </Badge>
             </TableCell>

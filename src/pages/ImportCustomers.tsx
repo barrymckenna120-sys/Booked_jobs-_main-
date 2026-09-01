@@ -24,8 +24,6 @@ import {
   findInFileDuplicateGroups,
   matchExistingCustomers,
   buildMergePayload,
-  normaliseGprnKey,
-  normalisePhoneKey,
   type ExistingCustomerLite,
   type ExistingMatchResult,
 } from "@/lib/importDuplicates";
@@ -1607,7 +1605,11 @@ const ImportCustomers = () => {
                             </TableCell>
                             <TableCell className="align-top pt-3">
                               <div className="flex flex-col items-start gap-1">
-                                {r.isValid ? (
+                                {excludedRowNums.has(r.rowNum) ? (
+                                  <Badge variant="destructive" title="Excluded as a duplicate in the review above">
+                                    Excluded
+                                  </Badge>
+                                ) : r.isValid ? (
                                   <Badge className="bg-success text-success-foreground">✓ Ready</Badge>
                                 ) : (
                                   <Badge variant="destructive" title={r.errors.join(" · ")}>✕ Error</Badge>
