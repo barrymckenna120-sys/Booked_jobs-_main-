@@ -455,9 +455,11 @@ export type Database = {
       }
       communication_deliveries: {
         Row: {
+          accepted_at: string | null
           attempt_count: number
           channel: string
           comm_type: string
+          confirmation_due_at: string | null
           created_at: string
           customer_id: string | null
           delivered_at: string | null
@@ -469,6 +471,7 @@ export type Database = {
           in_flight_at: string | null
           last_attempt_at: string | null
           organisation_id: string
+          provider_status: string | null
           recipient: string | null
           related_id: string | null
           related_reference: string | null
@@ -477,9 +480,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepted_at?: string | null
           attempt_count?: number
           channel: string
           comm_type: string
+          confirmation_due_at?: string | null
           created_at?: string
           customer_id?: string | null
           delivered_at?: string | null
@@ -491,6 +496,7 @@ export type Database = {
           in_flight_at?: string | null
           last_attempt_at?: string | null
           organisation_id: string
+          provider_status?: string | null
           recipient?: string | null
           related_id?: string | null
           related_reference?: string | null
@@ -499,9 +505,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepted_at?: string | null
           attempt_count?: number
           channel?: string
           comm_type?: string
+          confirmation_due_at?: string | null
           created_at?: string
           customer_id?: string | null
           delivered_at?: string | null
@@ -513,6 +521,7 @@ export type Database = {
           in_flight_at?: string | null
           last_attempt_at?: string | null
           organisation_id?: string
+          provider_status?: string | null
           recipient?: string | null
           related_id?: string | null
           related_reference?: string | null
@@ -524,11 +533,13 @@ export type Database = {
       }
       communication_delivery_attempts: {
         Row: {
+          accepted_at: string | null
           alert_sent_at: string | null
           attempt_number: number
           attempted_at: string
           completed_at: string | null
           created_at: string
+          delivered_at: string | null
           delivery_id: string
           failure_reason_public: string | null
           id: string
@@ -536,16 +547,19 @@ export type Database = {
           outcome: string
           provider_error: string | null
           provider_message_id: string | null
+          provider_status: string | null
           recipient: string | null
           trigger_source: string
           triggered_by: string | null
         }
         Insert: {
+          accepted_at?: string | null
           alert_sent_at?: string | null
           attempt_number: number
           attempted_at?: string
           completed_at?: string | null
           created_at?: string
+          delivered_at?: string | null
           delivery_id: string
           failure_reason_public?: string | null
           id?: string
@@ -553,16 +567,19 @@ export type Database = {
           outcome?: string
           provider_error?: string | null
           provider_message_id?: string | null
+          provider_status?: string | null
           recipient?: string | null
           trigger_source?: string
           triggered_by?: string | null
         }
         Update: {
+          accepted_at?: string | null
           alert_sent_at?: string | null
           attempt_number?: number
           attempted_at?: string
           completed_at?: string | null
           created_at?: string
+          delivered_at?: string | null
           delivery_id?: string
           failure_reason_public?: string | null
           id?: string
@@ -570,6 +587,7 @@ export type Database = {
           outcome?: string
           provider_error?: string | null
           provider_message_id?: string | null
+          provider_status?: string | null
           recipient?: string | null
           trigger_source?: string
           triggered_by?: string | null
