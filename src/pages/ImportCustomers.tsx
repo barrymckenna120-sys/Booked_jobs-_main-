@@ -557,19 +557,24 @@ const ImportCustomers = () => {
   const handleImport = async () => {
     if (!user) return;
     if (missingRequired.length > 0) return;
-    // Partition rather than filter: ambiguous-phone rows are never committed, but
-    // they must still be logged instead of vanishing from the audit trail.
-    // Ready rows are additionally narrowed to the operator's checkbox selection —
+    setConfirmOpen(false);
+    // Partition rather than filter: ambiguous rows and rows excluded as duplicates are
+    // never committed, but they must still be logged instead of vanishing from the audit
+    // trail. Ready rows are additionally narrowed to the operator's checkbox selection —
     // deselected rows are neither written nor logged.
-    const validRows = decoratedRows.filter((r) => r.isValid && selectedSet.has(r.rowNum));
+    const selectedReady = decoratedRows.filter((r) => r.isValid && selectedSet.has(r.rowNum));
+    const excludedRows = selectedReady.filter((r) => excludedRowNums.has(r.rowNum));
+    const validRows = selectedReady.filter((r) => !excludedRowNums.has(r.rowNum));
     const ambiguousRows = decoratedRows.filter((r) => ambiguousRowNums.has(r.rowNum));
-    if (validRows.length === 0 && ambiguousRows.length === 0) return;
+    if (validRows.length === 0 && ambiguousRows.length === 0 && excludedRows.length === 0) return;
 
     setImporting(true);
     setImportProgress(0);
     let imported = 0;
     let updated = 0;
     let skipped = 0;
+    let skippedExisting = 0;
+    let excluded = 0;
     const failedRows: { name: string; reason: string }[] = [];
     // Audit trail for this commit — appended wherever a counter is incremented.
     const rowDetails: ImportRunRowDetail[] = [];
@@ -577,8 +582,10 @@ const ImportCustomers = () => {
     // Logged up front: these rows never enter the commit loop, so no customer
     // write can result from them.
     for (const row of ambiguousRows) {
-      const count = (existingByPhone?.get(String(row.data.phone || "").trim()) || []).length;
-      const reason = `Phone matches ${count} existing customers — resolve the duplicates first`;
+      const count = existingCandidates
+        ? matchExistingCustomers(row.data, existingCandidates).length
+        : 0;
+      const reason = `Matches ${count} existing customers — resolve the duplicates first`;
       skipped++;
       failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
       rowDetails.push({
@@ -588,6 +595,24 @@ const ImportCustomers = () => {
         error_message: reason,
       });
     }
+
+    // Duplicate rows the operator chose to drop. Logged, never written.
+    for (const row of excludedRows) {
+      const group = dupGroups.find((g) => g.rowNums.includes(row.rowNum));
+      const reason = group
+        ? `Excluded as a duplicate of row${group.rowNums.filter((n) => n !== row.rowNum).length === 1 ? "" : "s"} ${group.rowNums
+            .filter((n) => n !== row.rowNum)
+            .join(", ")}`
+        : "Excluded from this import by the operator";
+      excluded++;
+      rowDetails.push({
+        row_number: row.rowNum,
+        outcome: "excluded_duplicate",
+        customer_id: null,
+        error_message: reason,
+      });
+    }
+
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
