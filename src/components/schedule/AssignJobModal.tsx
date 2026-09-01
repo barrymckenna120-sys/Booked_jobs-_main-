@@ -40,10 +40,12 @@ type Props = {
   weekDays: Date[];
   engineers: { id: string; name: string }[];
   unallocatedJobs: ScheduleJob[];
-  onAssign: (jobId: string, date: Date, timeBlock: string, engineerName: string) => void;
+  onAssign: (jobId: string, date: Date, timeBlock: string, engineerName: string, assistEngineerIds: string[]) => void;
 };
 
 type FieldErrors = { job?: boolean; date?: boolean; block?: boolean; engineer?: boolean };
+
+const MAX_ASSISTS = 2;
 
 const AssignJobModal = ({
   open, onOpenChange, job, defaultDate, defaultTimeBlock,
@@ -53,9 +55,12 @@ const AssignJobModal = ({
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedBlock, setSelectedBlock] = useState<string>("");
   const [selectedEngineer, setSelectedEngineer] = useState<string>("");
+  const [assistIds, setAssistIds] = useState<string[]>([]);
+  const [showAssistPicker, setShowAssistPicker] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [touched, setTouched] = useState<FieldErrors>({});
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
+
 
   const { user } = useAuth();
   const { data: settingsBlocks } = useQuery({
