@@ -44,7 +44,7 @@ const DESKTOP_NAV = [
   { label: "Warranty", icon: Shield, path: "/warranty" },
   { label: "Calendar", icon: CalendarDays, path: "/schedule" },
   { label: "Finance", icon: PoundSterling, path: "/finance" },
-  { label: "Insights", icon: BarChart2, path: "/insights" },
+  { label: "Reports", icon: BarChart2, path: "/insights" },
   { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
   { label: "Parts", icon: Wrench, path: "/parts" },
   { label: "Products", icon: Package, path: "/products" },

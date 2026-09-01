@@ -1165,6 +1165,53 @@ export type Database = {
           },
         ]
       }
+      engineer_performance_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          engineer_id: string
+          id: string
+          note: string
+          organisation_id: string
+          period_start: string
+          period_type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          engineer_id: string
+          id?: string
+          note?: string
+          organisation_id?: string
+          period_start: string
+          period_type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          engineer_id?: string
+          id?: string
+          note?: string
+          organisation_id?: string
+          period_start?: string
+          period_type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineer_performance_notes_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engineer_working_days: {
         Row: {
           created_at: string
