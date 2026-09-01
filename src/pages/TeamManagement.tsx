@@ -243,6 +243,11 @@ const TeamManagement = () => {
       return;
     }
 
+    // Ensure a fresh (auto-refreshed) session before calling the admin function,
+    // otherwise an expired access token makes it fail with 401 Unauthorized.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) return;
+
     const { data, error } = await supabase.functions.invoke("unblock-user", {
       body: { emails: cleaned },
     });
