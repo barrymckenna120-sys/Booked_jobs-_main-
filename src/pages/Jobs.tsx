@@ -80,22 +80,34 @@ const Jobs = () => {
     if (user && ready) fetchJobs();
   }, [user, ready]);
 
-  // Realtime: auto-refresh when any service_call changes
+  // Realtime: auto-refresh when any service_call changes.
+  // Debounced: a bulk update (or a burst of engineer status changes) used to
+  // fire one full three-query refetch per event, which on a weak connection
+  // multiplies into hundreds of requests.
   useEffect(() => {
     if (!user || !ready) return;
     const channel = supabase
       .channel("jobs-list-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "service_calls" }, () => {
-        fetchJobs();
+        if (realtimeTimer.current) window.clearTimeout(realtimeTimer.current);
+        realtimeTimer.current = window.setTimeout(() => {
+          realtimeTimer.current = null;
+          fetchJobs();
+        }, REALTIME_DEBOUNCE_MS);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (realtimeTimer.current) window.clearTimeout(realtimeTimer.current);
+      realtimeTimer.current = null;
+      supabase.removeChannel(channel);
+    };
   }, [user, ready]);
 
   useEffect(() => { setPage(0); setCompletedPage(0); }, [statusFilter, typeFilter, search, paymentFilter, refSearch]);
 
   const fetchJobs = async () => {
     setLoading(true);
+    setLoadFailed(false);
     const CACHE_KEY = "bookedjobs_jobs_cache";
     const isAdminViewing = !!localStorage.getItem("adminViewingOrgId");
 
@@ -114,39 +126,61 @@ const Jobs = () => {
     }
 
     try {
-      const { data: jobsData } = await supabase
-        .from("service_calls")
-        .select("*")
-        .order("scheduled_date", { ascending: false });
+      const { data: jobsData } = await withRequestTimeout(
+        supabase
+          .from("service_calls")
+          .select("*")
+          .order("scheduled_date", { ascending: false })
+      );
 
       if (jobsData) {
+        retryCount.current = 0;
         const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
-        const { data: customers } = await supabase
-          .from("customers")
-          .select("id, name, phone, address, eircode")
-          .in("id", customerIds);
+        const { data: customers } = await withRequestTimeout(
+          supabase
+            .from("customers")
+            .select("id, name, phone, address, eircode")
+            .in("id", customerIds)
+        );
         const cMap: Record<string, any> = {};
         (customers || []).forEach(c => { cMap[c.id] = c; });
         setCustomersMap(cMap);
 
-        // Fetch all quotes to build lookup maps
-        const { data: allQuotes } = await supabase
-          .from("quotes")
-          .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
-          .neq("status", "Draft")
-          .order("created_at", { ascending: false });
-
-        if (allQuotes) {
-          // Map for all jobs with has_quote — lookup by converted_job_id, then job_id, then customer_id
-          const jqMap: Record<string, string> = {};
-          const quotesWithJobs = jobsData.filter(j => j.has_quote);
-          for (const job of quotesWithJobs) {
-            const match = allQuotes.find(q => q.converted_job_id === job.id)
-              || allQuotes.find(q => q.job_id === job.id)
-              || allQuotes.find(q => q.customer_id === job.customer_id);
-            if (match) jqMap[job.id] = match.id;
+        // Quote lookup: only for jobs that actually have a quote, and scoped to
+        // those jobs' ids/customers instead of pulling every non-draft quote.
+        const quotedJobs = jobsData.filter(j => j.has_quote);
+        if (quotedJobs.length > 0) {
+          const quotedJobIds = quotedJobs.map(j => j.id);
+          const quotedCustomerIds = [...new Set(quotedJobs.map(j => j.customer_id).filter(Boolean))];
+          const orFilters = [
+            `converted_job_id.in.(${quotedJobIds.join(",")})`,
+            `job_id.in.(${quotedJobIds.join(",")})`,
+          ];
+          if (quotedCustomerIds.length > 0) {
+            orFilters.push(`customer_id.in.(${quotedCustomerIds.join(",")})`);
           }
-          setJobQuotesMap(jqMap);
+          const { data: allQuotes } = await withRequestTimeout(
+            supabase
+              .from("quotes")
+              .select("id, quote_number, converted_job_id, accepted_at, total_amount, customer_id, job_id, status, created_at")
+              .neq("status", "Draft")
+              .or(orFilters.join(","))
+              .order("created_at", { ascending: false })
+          );
+
+          if (allQuotes) {
+            // Lookup by converted_job_id, then job_id, then customer_id
+            const jqMap: Record<string, string> = {};
+            for (const job of quotedJobs) {
+              const match = allQuotes.find(q => q.converted_job_id === job.id)
+                || allQuotes.find(q => q.job_id === job.id)
+                || allQuotes.find(q => q.customer_id === job.customer_id);
+              if (match) jqMap[job.id] = match.id;
+            }
+            setJobQuotesMap(jqMap);
+          }
+        } else {
+          setJobQuotesMap({});
         }
 
         const jobs = jobsData.map(j => ({ ...j, customer_name: cMap[j.customer_id]?.name || "Unknown", customer_address: cMap[j.customer_id]?.address || "", customer_phone: cMap[j.customer_id]?.phone || "" })) as Job[];
@@ -160,11 +194,20 @@ const Jobs = () => {
         } catch (e) {}
       }
     } catch (error) {
-      setTimeout(() => fetchJobs(), 5000);
+      // Capped retry. The old code retried every 5s forever, so a weak
+      // connection turned one failed load into an unbounded request loop.
+      if (retryCount.current < MAX_FETCH_RETRIES) {
+        const attempt = retryCount.current;
+        retryCount.current += 1;
+        window.setTimeout(() => fetchJobs(), queryRetryDelay(attempt));
+      } else {
+        setLoadFailed(true);
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   const toggleSort = (col: typeof sortCol) => {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
