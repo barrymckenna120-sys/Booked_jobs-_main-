@@ -135,8 +135,19 @@ const AppLayoutInner = () => {
 
 
 
-  if (!roleLoading && isEngineer && !canAccessOffice) {
-    return <Navigate to="/engineer/today" />;
+  // Block the whole office shell (and the child <Outlet />) until the
+  // permission check resolves, so restricted pages never paint before the
+  // engineer redirect fires. Single shared gate for every office route.
+  if (authLoading || roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isEngineer && !canAccessOffice) {
+    return <Navigate to="/engineer/today" replace />;
   }
 
   const isActive = (path: string) =>
