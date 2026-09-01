@@ -725,11 +725,23 @@ const Jobs = () => {
         </div>
       )}
 
-      {loading && (
+      {loading && !loadFailed && (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">Loading...</CardContent>
         </Card>
       )}
+
+      {loadFailed && (
+        <Card>
+          <CardContent className="p-8 text-center space-y-3">
+            <p className="text-muted-foreground">Couldn't load jobs — check your connection.</p>
+            <Button variant="outline" onClick={() => { retryCount.current = 0; fetchJobs(); }}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* ── COMPLETED (OLDER) ── */}
       {completedOlderJobs.length > 0 && (
