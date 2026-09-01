@@ -33,6 +33,7 @@ import { isDenied, requireCallerOrg } from "../_shared/orgAuth.ts";
  *    No revenue/cost/GP/count splitting happens here.
  */
 
+const COMPLETED_STATUSES = ["Completed", "completed"];
 const IN_PROGRESS_STATUSES = ["En Route", "On Site", "In Progress"];
 const SKEW_MIN_JOBS = 2;
 const SKEW_SHARE = 0.6;
@@ -70,7 +71,7 @@ function periodBounds(periodType: PeriodType, anchor: Date) {
 /** Job type buckets shown in the mix bar. */
 function bucket(jobType: string | null): "service" | "repair" | "install" | "other" {
   const t = (jobType || "").toLowerCase();
-  if (t.includes("install")) return "install";
+  if (t.includes("install") || t.includes("replacement") || t.includes("upgrade")) return "install";
   if (t.includes("repair") || t.includes("emergency") || t.includes("fault")) return "repair";
   if (t.includes("service") || t.includes("boiler")) return "service";
   return "other";
@@ -135,7 +136,7 @@ Deno.serve(async (req) => {
         .from("service_calls")
         .select("id, assigned_engineer_id, revenue, job_type, completed_at")
         .eq("organisation_id", orgId)
-        .eq("status", "Completed")
+        .in("status", COMPLETED_STATUSES)
         .gte("completed_at", `${start}T00:00:00+00:00`)
         .lte("completed_at", `${end}T23:59:59+00:00`),
       supabase
