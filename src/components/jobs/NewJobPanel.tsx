@@ -1725,6 +1725,21 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         status: (newJob as any)?.status,
       });
 
+      // Assist engineers (BJ-0090) — lead stays on service_calls, assists go to job_engineers
+      const assistIds: string[] = (finalData.schedule?.assistEngineerIds || []).filter(
+        (id: string) => id && id !== finalData.schedule.engineerId
+      );
+      if ((newJob as any)?.id && assistIds.length > 0) {
+        const { error: assistErr } = await supabase.from("job_engineers").insert(
+          assistIds.map((engineerId) => ({
+            job_id: (newJob as any).id,
+            engineer_id: engineerId,
+            organisation_id: (newJob as any).organisation_id || orgId!,
+          })) as any
+        );
+        if (assistErr) console.error("[NewJobPanel] assist insert failed:", assistErr);
+      }
+
 
       // Sync job fields back to existing customer profile
       if (!isNewCustomer) {
