@@ -301,9 +301,12 @@ export function useNotifications(
     [userId, applyRoleScope, surface]
   );
 
+  const lastForegroundRefreshRef = useRef(0);
+
   const fetchNotificationsRef = useRef(
     fetchNotifications
   );
+
 
   useEffect(() => {
     fetchNotificationsRef.current =
