@@ -6,6 +6,8 @@ import {
 } from "../_shared/messagingConsent.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -464,6 +466,29 @@ YES ${refNumber}`;
         ""
       );
 
+    // Delivery tracking (office badge + failure alert + resend history).
+    const trackingClient = createClient(
+      supabaseUrl!,
+      supabaseKey!
+    );
+
+    const deliveryHandle =
+      await beginDelivery(
+        trackingClient,
+        {
+          organisationId: orgId,
+          customerId:
+            resolvedCustomerId,
+          commType: "quote",
+          channel: "whatsapp",
+          relatedType: "quote",
+          relatedId: quote_id,
+          relatedReference:
+            quote_number ?? null,
+          recipient: cleanNumber,
+        }
+      );
+
     const formData =
       new FormData();
 
@@ -505,6 +530,19 @@ YES ${refNumber}`;
         raw: resultText,
       };
     }
+
+    await completeDelivery(
+      trackingClient,
+      {
+        handle: deliveryHandle,
+        channel: "whatsapp",
+        ok: !!result.success,
+        providerError: result.success
+          ? null
+          : `[${response.status}] ${resultText.substring(0, 500)}`,
+        recipient: cleanNumber,
+      }
+    );
 
     // Update message_log status
     if (logId) {

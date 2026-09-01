@@ -28,6 +28,7 @@ import TakePaymentModal from "@/components/payments/TakePaymentModal";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
+import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
 
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
@@ -892,6 +893,8 @@ const JobDetail = () => {
                 <span className="font-semibold">{new Date((job as any).paid_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
               </div>
             )}
+            <DeliveryStatusBadge commType="receipt" relatedId={job.id} />
+            <DeliveryStatusBadge commType="invoice" relatedId={job.id} />
           </CardContent>
         </Card>
       )}

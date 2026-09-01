@@ -8,6 +8,8 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+
 
 
 Deno.serve(async (req) => {
@@ -195,7 +197,20 @@ Deno.serve(async (req) => {
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
+    // Delivery tracking (office badge + failure alert + resend history).
+    const deliveryHandle = await beginDelivery(supabase, {
+      organisationId: job.organisation_id,
+      customerId: job.customer_id,
+      commType: "receipt",
+      channel: "whatsapp",
+      relatedType: "service_call",
+      relatedId: job_id,
+      relatedReference: job.job_reference ?? null,
+      recipient: cleanNumber,
+    });
+
     let sendResult: { success: boolean; error?: string; status?: number } = { success: false };
+
     try {
       const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
         method: "POST",
@@ -224,6 +239,14 @@ Deno.serve(async (req) => {
 
     const sentAt = new Date().toISOString();
 
+    await completeDelivery(supabase, {
+      handle: deliveryHandle,
+      channel: "whatsapp",
+      ok: sendResult.success,
+      providerError: sendResult.success ? null : sendResult.error ?? "unknown",
+      recipient: cleanNumber,
+    });
+
     // Update message_log with outcome
     if (logId) {
       const updateBody = sendResult.success
@@ -231,6 +254,7 @@ Deno.serve(async (req) => {
         : { status: "failed", error_message: sendResult.error || "unknown" };
       await supabase.from("message_log").update(updateBody).eq("id", logId);
     }
+
 
     if (!sendResult.success) {
       await supabase.from("edge_function_logs").insert({
