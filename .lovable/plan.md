@@ -1,57 +1,39 @@
-# BJ-0090c-fix — Verify the narrowed service_calls UPDATE policy
+# BJ-0090c-fix — Remaining Verification Run
 
-## Pre-flight live read result (important)
+Verification only. No application code changes. Two items touch the database temporarily (item 3 flag toggle, item 4 bulk update) and both are reverted or are normal office behaviour on scratch data.
 
-The migration you pasted is **already live** on the database. Read from `pg_policies` just now:
+## Already confirmed before this plan (read-only)
 
-- `service_calls_org_isolation` — **gone** (no longer present).
-- `service_calls_update` — already the narrowed version, with the exact USING/WITH CHECK expression from your prompt (org check + elevated-role allowlist + `can_access_office` EXISTS + `assigned_engineer_id = get_engineer_id(auth.uid())`).
-- `service_calls_select` (org check), `service_calls_insert` (org check in WITH CHECK), `service_calls_delete` (org check) — all still present, all `TO authenticated`, all unchanged.
-- No policy on `service_calls` references `service_calls_org_isolation` by name (policy names aren't referenceable; nothing else depends on it).
-- Table grants: `authenticated` has SELECT/UPDATE, `anon` has none, `service_role` has both (and bypasses RLS).
+- All four `service_calls` policies (SELECT / INSERT / UPDATE / DELETE) currently show `roles = {authenticated}` in `pg_policies`. Item 6 therefore looks already applied; the run will restate this with raw output and locate the migration timestamp.
+- `useRetryQueue` uses `MAX_ATTEMPTS = 3` with two exhaustion branches — item 5 will report actual runtime behaviour, not just the constant.
 
-So re-applying the migration is a no-op. Remaining work is verification only.
+## What will be executed, item by item
 
-## One small correction to propose
+1. **Probe 1 — engineer denied on a colleague's job**
+   REST PATCH as the K&N test engineer (role `engineer`, `can_access_office = false`) against a scratch job assigned to a different engineer. Report full request line and raw response body/status, plus a SQL read-back proving no field changed.
 
-The live `service_calls_update` policy has `roles = {public}` — it is missing `TO authenticated`, unlike the other three policies. Practically harmless (`anon` has no table grants, `service_role` bypasses RLS), but it breaks the pattern. Single-statement fix, one migration:
+2. **Probe 5 — cross-tenant denial**
+   REST PATCH as the Dublin Gas engineer against a K&N scratch job. Report raw request/response and SQL read-back.
 
-```sql
-DROP POLICY IF EXISTS service_calls_update ON public.service_calls;
-CREATE POLICY service_calls_update ON public.service_calls
-FOR UPDATE TO authenticated
-USING (...same expression...) WITH CHECK (...same expression...);
-```
+3. **Probe 4 — `can_access_office` escalation (Cavan Gas only)**
+   Set `can_access_office = true` on a Cavan test engineer row, PATCH a Cavan job not assigned to them as that engineer, expect success with raw output, then revert the flag and post a read-back of the row showing `false`.
 
-Say the word and I include it; otherwise I skip it and only verify.
+4. **Probe 6 — bulk boiler_brand update unaffected**
+   As office/admin, run the same `customer_id`-scoped `boiler_brand` update `CustomerDetail.tsx` issues. Report row count before, the exact request, the response, and row count after.
 
-## Verification: the six probes
+5. **Retry-queue UI check**
+   Drive the real engineer app in the browser as the test engineer and force probe 1's denied update through the UI. Report literally what appears on screen (toast text, silent success, nothing), then inspect `localStorage` retry-queue state: whether the write was queued, the attempts counter across retries, whether `MAX_ATTEMPTS` stops it, and the queue entry's end state.
 
-Each probe run as a real authenticated session (JWT-scoped, not service role), reported individually pass/fail with the exact SQL/HTTP run and the raw result:
+6. **`TO authenticated` deployment confirmation**
+   Report applied yes/no, method, and timestamp from the migration record plus a live `pg_policies` read including the `roles` column. Only if a policy is still `{public}` will a migration be raised for approval.
 
-1. K&N Engineer A (`role = 'engineer'`, `can_access_office = false`) updates a job assigned to a different K&N engineer — expect denied (0 rows / permission error).
-2. Engineer A updates their own assigned job — expect success. Then Take Payment and Extra Work flows end to end through the engineer UI (Playwright, Cavan/scratch job) to confirm no regression.
-3. Office/admin user updates any job in their org regardless of assignee — expect success. Then Schedule assign/move and JobDetail reassign end to end.
-4. Cavan Gas only: set `can_access_office = true` on a test engineer row, update a job not assigned to them — expect success; revert the flag immediately after (revert confirmed by read-back).
-5. Dublin Gas engineer updates a K&N job — expect denied (org check).
-6. Office/admin runs the CustomerDetail bulk `boiler_brand` update against a customer with several jobs — expect all rows updated.
+7. **Origin of the original narrowed policy**
+   Inspect the migration list and any available migration history for a matching statement and timestamp. If the records cannot distinguish "auto-applied when SQL was pasted into chat" from "deliberate separate action", that will be stated explicitly as undeterminable rather than guessed.
 
-All row-writing probes run against scratch/test jobs (Cavan Gas or scratch K&N jobs), never real customer data.
+**Deployment status section** will be reported separately from test results: what changed in the live database, by what method, at what timestamp (expected: nothing, or item 6 only if it turns out unapplied; item 3's flag toggle listed as reverted).
 
-## Additional check: denied write through the real UI path
+**Scratch data**: KN-527 / KN-528 / KN-529 and the CA-001 note stay in place. No cleanup.
 
-Force probe 1's denied update through the engineer UI, not just SQL, and report what actually happens to the failed request. What the code does today (`src/hooks/useRetryQueue.ts`, used by `useEngineerJobs.ts` and `EngineerJobDetail.tsx`):
+## Reporting format
 
-- On error the update is pushed into the localStorage retry queue.
-- `MAX_ATTEMPTS = 3`, so it is **not** an infinite loop; after the third failure the item is dropped with a `console.error`.
-- Any dependent queued row (e.g. the `job_payments` ledger insert) is dropped with it.
-
-I'll confirm this is what actually happens live and report whether the engineer sees anything user-facing, or whether the write disappears silently. No code change to the queue in this task — if the silent drop looks wrong, I flag it as a separate ticket.
-
-## Deployment status reporting
-
-Reported separately from test results: whether a migration was applied in this task at all, by what method, and with a timestamp. Given the pre-flight read, the expected report is "already applied prior to this task; no new migration run" (plus the `TO authenticated` migration if you approve it).
-
-## Out of scope
-
-No other file, table, policy, or refactor. No changes to `useEngineerJobs.ts`, `useRetryQueue.ts`, or any UI.
+Each of the seven items reported individually with pass/fail and raw, unparaphrased output (request line, HTTP status, response body, SQL read-back).
