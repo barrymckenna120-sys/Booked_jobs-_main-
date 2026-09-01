@@ -323,7 +323,7 @@ const Schedule = () => {
     return count >= getSlotMaxJobs(timeBlock);
   };
 
-  const handleAssign = async (jobId: string, date: Date, timeBlock: string, engineerName: string) => {
+  const handleAssign = async (jobId: string, date: Date, timeBlock: string, engineerName: string, assistEngineerIds: string[] = []) => {
     // Check capacity
     if (isSlotFull(date, timeBlock, engineerName)) {
       const max = getSlotMaxJobs(timeBlock);
@@ -363,6 +363,34 @@ const Schedule = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_assigned", entity_type: "service_call", entity_id: jobId, detail: `Assigned to ${engineerName} on ${format(date, "yyyy-MM-dd")} ${timeBlock}` });
+
+      // Assist engineers (BJ-0090) — lead stays on service_calls, assists live in job_engineers
+      try {
+        const desired = Array.from(new Set(assistEngineerIds.filter((id) => id && id !== newEngineerId)));
+        const { data: existingAssists } = await supabase
+          .from("job_engineers")
+          .select("id, engineer_id")
+          .eq("job_id", jobId);
+        const existing = (existingAssists as any[]) || [];
+        const toRemove = existing.filter((r) => !desired.includes(r.engineer_id)).map((r) => r.id);
+        const toAdd = desired.filter((id) => !existing.some((r) => r.engineer_id === id));
+
+        if (toRemove.length > 0) {
+          const { error: delErr } = await supabase.from("job_engineers").delete().in("id", toRemove);
+          if (delErr) console.error("[Schedule] assist delete failed:", delErr);
+        }
+        if (toAdd.length > 0) {
+          const orgId = (prevJob as any)?.organisation_id || null;
+          const { error: insErr } = await supabase.from("job_engineers").insert(
+            toAdd.map((engineerId) => ({ job_id: jobId, engineer_id: engineerId, organisation_id: orgId })) as any
+          );
+          if (insErr) console.error("[Schedule] assist insert failed:", insErr);
+        }
+      } catch (assistErr) {
+        console.error("[Schedule] assist sync failed:", assistErr);
+      }
+
+
 
       // Single WhatsApp confirmation (send-booking-confirmation handles both new + reschedule).
       // Failures here must never break scheduling — surface as a soft warning only.

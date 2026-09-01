@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { validationBorderClass, ValidationMessage } from "@/components/shared/FormValidation";
 import FormLeaveGuard from "@/components/shared/FormLeaveGuard";
 import { useQuery } from "@tanstack/react-query";
@@ -40,10 +40,12 @@ type Props = {
   weekDays: Date[];
   engineers: { id: string; name: string }[];
   unallocatedJobs: ScheduleJob[];
-  onAssign: (jobId: string, date: Date, timeBlock: string, engineerName: string) => void;
+  onAssign: (jobId: string, date: Date, timeBlock: string, engineerName: string, assistEngineerIds: string[]) => void;
 };
 
 type FieldErrors = { job?: boolean; date?: boolean; block?: boolean; engineer?: boolean };
+
+const MAX_ASSISTS = 2;
 
 const AssignJobModal = ({
   open, onOpenChange, job, defaultDate, defaultTimeBlock,
@@ -53,9 +55,12 @@ const AssignJobModal = ({
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedBlock, setSelectedBlock] = useState<string>("");
   const [selectedEngineer, setSelectedEngineer] = useState<string>("");
+  const [assistIds, setAssistIds] = useState<string[]>([]);
+  const [showAssistPicker, setShowAssistPicker] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [touched, setTouched] = useState<FieldErrors>({});
   const [showLeaveGuard, setShowLeaveGuard] = useState(false);
+
 
   const { user } = useAuth();
   const { data: settingsBlocks } = useQuery({
@@ -92,10 +97,41 @@ const AssignJobModal = ({
       setSelectedDate(defaultDate ? format(defaultDate, "yyyy-MM-dd") : "");
       setSelectedBlock(defaultTimeBlock || "");
       setSelectedEngineer(job?.assigned_engineer || engineers[0]?.name || "");
+      setAssistIds([]);
+      setShowAssistPicker(false);
       setErrors({});
       setTouched({});
     }
   }, [open, job, defaultDate, defaultTimeBlock, engineers]);
+
+  // Load existing assist engineers for whichever job is targeted (Assign or Move)
+  useEffect(() => {
+    if (!open || !selectedJobId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("job_engineers")
+        .select("engineer_id")
+        .eq("job_id", selectedJobId);
+      if (!cancelled) setAssistIds(((data as any[]) || []).map((r) => r.engineer_id));
+    })();
+    return () => { cancelled = true; };
+  }, [open, selectedJobId]);
+
+  const leadEngineerId = useMemo(
+    () => engineers.find((e) => e.name === selectedEngineer)?.id || null,
+    [engineers, selectedEngineer]
+  );
+
+  const assistEngineers = useMemo(
+    () => assistIds.map((id) => engineers.find((e) => e.id === id)).filter(Boolean) as { id: string; name: string }[],
+    [assistIds, engineers]
+  );
+
+  const availableAssistEngineers = useMemo(
+    () => engineers.filter((e) => e.id !== leadEngineerId && !assistIds.includes(e.id)),
+    [engineers, leadEngineerId, assistIds]
+  );
 
   const isDirty = !!(selectedJobId || selectedDate || selectedBlock || selectedEngineer);
 
@@ -114,8 +150,15 @@ const AssignJobModal = ({
     setTouched({ job: true, date: true, block: true, engineer: true });
     if (Object.keys(e).length > 0) return;
     const date = weekDays.find((d) => format(d, "yyyy-MM-dd") === selectedDate) || parseISO(selectedDate.substring(0, 10));
-    onAssign(selectedJobId, date, selectedBlock, selectedEngineer);
+    onAssign(
+      selectedJobId,
+      date,
+      selectedBlock,
+      selectedEngineer,
+      assistIds.filter((id) => id && id !== leadEngineerId)
+    );
   };
+
 
   const handleClose = () => {
     if (isDirty) {
@@ -228,7 +271,15 @@ const AssignJobModal = ({
             {/* Engineer */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Engineer</Label>
-              <Select value={selectedEngineer} onValueChange={(v) => { setSelectedEngineer(v); setErrors((e) => ({ ...e, engineer: false })); }}>
+              <Select
+                value={selectedEngineer}
+                onValueChange={(v) => {
+                  setSelectedEngineer(v);
+                  setErrors((e) => ({ ...e, engineer: false }));
+                  const newLeadId = engineers.find((e) => e.name === v)?.id;
+                  if (newLeadId) setAssistIds((prev) => prev.filter((id) => id !== newLeadId));
+                }}
+              >
                 <SelectTrigger className={validationBorderClass(showError("engineer"))}>
                   <SelectValue placeholder="Select engineer" />
                 </SelectTrigger>
@@ -239,7 +290,61 @@ const AssignJobModal = ({
                 </SelectContent>
               </Select>
               <ValidationMessage show={showError("engineer")} />
+
+              {/* Assist engineers */}
+              {assistEngineers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {assistEngineers.map((eng) => (
+                    <span
+                      key={eng.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 pl-2.5 pr-1 py-0.5 text-xs"
+                    >
+                      Assist · {eng.name}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${eng.name} from assists`}
+                        onClick={() => setAssistIds((prev) => prev.filter((id) => id !== eng.id))}
+                        className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {assistIds.length < MAX_ASSISTS && availableAssistEngineers.length > 0 && (
+                showAssistPicker ? (
+                  <Select
+                    value=""
+                    open
+                    onOpenChange={(o) => { if (!o) setShowAssistPicker(false); }}
+                    onValueChange={(v) => {
+                      setAssistIds((prev) => (prev.includes(v) || prev.length >= MAX_ASSISTS ? prev : [...prev, v]));
+                      setShowAssistPicker(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select assist engineer" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {availableAssistEngineers.map((eng) => (
+                        <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAssistPicker(true)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    + Add assist engineer
+                  </button>
+                )
+              )}
             </div>
+
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
