@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
+import { updateServiceCallRow, JOB_WRITE_BLOCKED_MESSAGE } from "@/lib/serviceCallWrite";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -373,7 +374,6 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
       // Zero rows changed: refused write. No retry queue (retrying cannot help),
       // no audit entry, no success toast, no local state change.
       console.error("[updateJob:detail] job update affected 0 rows — not applied:", job.id);
-      setActionLoading(false);
       toast({
         title: "Couldn't update this job",
         description: JOB_WRITE_BLOCKED_MESSAGE,

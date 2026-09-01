@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeServiceCallUpdatePayload, stripCallerRevenue, PaymentAmountError } from "@/lib/serviceCallUpdate";
+import { updateServiceCallRow, JOB_WRITE_BLOCKED_MESSAGE } from "@/lib/serviceCallWrite";
 import { buildBoilerCustomerUpdate } from "@/lib/boilerCustomerDiff";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { buildEngineerPaymentPlan } from "@/lib/engineerPaymentPlan";
