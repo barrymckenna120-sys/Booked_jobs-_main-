@@ -2,6 +2,7 @@ import { Camera, Archive, Clock } from "lucide-react";
 import { IncomingStatusPill, BoilerWorkingPill, TimeBlockLabel } from "./IncomingPills";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 import type { CustomerStatusAtBooking } from "@/types/service-calls";
 
 type IncomingJob = {
@@ -23,6 +24,8 @@ type IncomingJob = {
   confirmed_at?: string | null;
   /** Set at job creation: 'new' when the customer did not previously exist. */
   customer_status_at_booking?: CustomerStatusAtBooking | null;
+  /** BJ-0131a — true when an identical booking was created in the same window. */
+  possible_duplicate?: boolean | null;
 
   customers: {
     id: string;
@@ -95,7 +98,9 @@ const IncomingJobCard = ({ job, mediaCount, onClick, onArchive }: Props) => {
             <span className="truncate max-w-full">{job.customers?.name ?? "Unknown customer"}</span>
             <JobConfirmedBadge confirmed={job.confirmed} confirmedAt={job.confirmed_at} status={(job as any).status} size="sm" />
             <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
+            <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
           </div>
+
 
           <div className="text-xs text-muted-foreground truncate">📍 {job.customers?.address ?? "No address"}</div>
         </div>
