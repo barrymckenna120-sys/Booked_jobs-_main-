@@ -195,7 +195,11 @@ serve(async (req) => {
       `If you need to make any changes please reply to this message.` +
       (messageFooter ? `\n\n${messageFooter}` : "");
 
-    // Log pending message
+    // Send via 360Messenger free-text endpoint (template name retained for reference: ${templateName})
+    const cleanNumber = customer.phone.replace(/^\+/, "");
+
+    // Log pending message — recipient_phone recorded so the office can always
+    // see the number actually used, even if the customer record changes later.
     const logRes = await fetch(`${supabaseUrl}/rest/v1/message_log`, {
       method: "POST",
       headers: { ...dbHeaders, Prefer: "return=representation" },
@@ -207,6 +211,7 @@ serve(async (req) => {
         direction: "outbound",
         content: message,
         status: "pending",
+        recipient_phone: customer.phone,
         related_id: service_call_id,
         related_type: "service_call",
         sent_by: "system",
@@ -216,8 +221,28 @@ serve(async (req) => {
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    // Send via 360Messenger free-text endpoint (template name retained for reference: ${templateName})
-    const cleanNumber = customer.phone.replace(/^\+/, "");
+    // Open the delivery record before the provider call.
+    let deliveryHandle = null;
+    if (!skipTracking) {
+      try {
+        deliveryHandle = await beginDelivery(trackingClient, {
+          organisationId: orgId,
+          customerId: job.customer_id,
+          commType: "booking_confirmation",
+          channel: "whatsapp",
+          relatedType: "service_call",
+          relatedId: service_call_id,
+          relatedReference: job.job_reference ?? null,
+          recipient: customer.phone,
+        });
+      } catch (e) {
+        if (e instanceof DeliveryBusyError) {
+          return fail("send_in_progress", "A confirmation for this job is already being sent", 409);
+        }
+        throw e;
+      }
+    }
+
     const formData = new FormData();
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
@@ -236,21 +261,42 @@ serve(async (req) => {
       result = { success: false, raw: resultText };
     }
 
+    // 360Messenger returns 201 + success:true when it ACCEPTS the request. That
+    // is queue acceptance, not delivery — recorded as `accepted` and only a real
+    // provider callback may promote it to `delivered`.
+    const providerMessageId: string | null = result?.data?.id ?? null;
+    const accepted = !!result?.success;
+
     // Log full API response to edge_function_logs for debugging
     await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
       method: "POST",
       headers: dbHeaders,
       body: JSON.stringify({
         function_name: "send-booking-confirmation",
-        error_message: `360Messenger HTTP ${response.status}: ${result.success ? "success" : "failed"}`,
-        payload: { api_response: result, sent_to: customer.phone, service_call_id, template_name: templateName, http_status: response.status },
+        error_message: `360Messenger HTTP ${response.status}: ${accepted ? "accepted" : "failed"}`,
+        payload: { api_response: result, sent_to: customer.phone, service_call_id, template_name: templateName, http_status: response.status, provider_message_id: providerMessageId },
       }),
     });
 
-    // Update message_log status
+    if (!skipTracking) {
+      await completeDelivery(trackingClient, {
+        handle: deliveryHandle,
+        channel: "whatsapp",
+        ok: accepted,
+        providerError: accepted
+          ? null
+          : `[${response.status}] ${resultText.substring(0, 500)}`,
+        providerMessageId,
+        providerStatus: accepted ? "accepted" : null,
+        recipient: customer.phone,
+      });
+    }
+
+    // Update message_log status. `accepted` — provider took the request; it is
+    // not a delivery confirmation.
     if (logId) {
-      const updateBody = result.success
-        ? { status: "sent" }
+      const updateBody = accepted
+        ? { status: "accepted" }
         : { status: "failed", error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}` };
 
       await fetch(`${supabaseUrl}/rest/v1/message_log?id=eq.${logId}`, {
@@ -260,7 +306,7 @@ serve(async (req) => {
       });
     }
 
-    if (!result.success) {
+    if (!accepted) {
       const errorDetail = `360Messenger HTTP ${response.status}: ${resultText.substring(0, 500)}`;
 
       await fetch(`${supabaseUrl}/rest/v1/edge_function_logs`, {
@@ -276,7 +322,7 @@ serve(async (req) => {
       return fail("whatsapp_send_failed", errorDetail, 500);
     }
 
-    // Log customer activity on success
+    // Log customer activity on acceptance
     try {
       await fetch(`${supabaseUrl}/rest/v1/customer_activity`, {
         method: "POST",
@@ -293,7 +339,14 @@ serve(async (req) => {
       /* non-critical */
     }
 
-    return json({ success: true, sent: true });
+    return json({
+      success: true,
+      sent: true,
+      status: "accepted",
+      provider_message_id: providerMessageId,
+      recipient: customer.phone,
+    });
+
   } catch (error) {
     return fail("unexpected_error", error?.message ?? "Unexpected error", 500);
   }
