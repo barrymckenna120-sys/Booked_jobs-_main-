@@ -6,6 +6,8 @@ import {
   clearImpersonationToken,
   getImpersonationTokenState,
 } from "@/integrations/supabase/orgHeaderInterceptor";
+import { fetchProfile, clearProfileCache } from "@/lib/profileCache";
+
 
 const STORAGE_KEY = "adminViewingOrgId";
 const STORAGE_NAME_KEY = "adminViewingOrgName";
