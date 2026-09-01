@@ -80,8 +80,8 @@ const PublicReceipt = lazy(() => import("./pages/PublicReceipt"));
 const InvoiceRedirect = lazy(() => import("./pages/InvoiceRedirect"));
 const ReceiptRedirect = lazy(() => import("./pages/ReceiptRedirect"));
 const AudioDebug = lazy(() => import("./pages/AudioDebug"));
-const BusinessInsightsDashboard = lazy(
-  () => import("./pages/BusinessInsightsDashboard")
+const Reports = lazy(
+  () => import("./pages/Reports")
 );
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const TenantDetail = lazy(() => import("./pages/admin/TenantDetail"));
@@ -287,7 +287,16 @@ function AppContent() {
             path="/insights"
             element={
               <OfficeRoute>
-                <BusinessInsightsDashboard />
+                <Reports />
+              </OfficeRoute>
+            }
+          />
+
+          <Route
+            path="/reports"
+            element={
+              <OfficeRoute>
+                <Reports />
               </OfficeRoute>
             }
           />
