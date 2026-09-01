@@ -356,28 +356,40 @@ Deno.serve(async (req) => {
   const counts = summariseOutcomes(details);
   details.sort((a, b) => a.row_number - b.row_number);
 
-  // --- Audit: import_runs (per-run + per-row) and audit_log (run + mutations) ---
-  let runId: string | null = null;
-  let auditError: string | null = null;
-  try {
-    const { data: runRow, error } = await supabase
-      .from("import_runs")
-      .insert({
-        organisation_id: orgId,
-        filename: String(body.filename ?? "").trim() || "unknown.xlsx",
-        imported_by: userId,
-        total_rows: committable.length + ambiguous.length + excludedRows.length,
-        created_count: counts.imported,
-        updated_count: counts.updated,
-        error_count: counts.skipped,
-        row_details: details,
-      })
-      .select("id")
-      .maybeSingle();
-    if (error) throw error;
-    runId = (runRow?.id as string) ?? null;
-  } catch (_e) {
-    auditError = (_e as Error)?.message || "import_runs insert failed";
+  // --- Audit: finalise the shell import_runs row, then audit_log ---
+  const finalRun = {
+    total_rows: committable.length + ambiguous.length + excludedRows.length,
+    created_count: counts.imported,
+    updated_count: counts.updated,
+    error_count: counts.skipped,
+    row_details: details,
+  };
+  if (runId) {
+    try {
+      const { error } = await supabase
+        .from("import_runs")
+        .update(finalRun)
+        .eq("id", runId)
+        .eq("organisation_id", orgId);
+      if (error) throw error;
+    } catch (_e) {
+      // Customer writes stand; the shell row stays as evidence of the run.
+      auditError = auditError ?? ((_e as Error)?.message || "import_runs update failed");
+      console.error(`${FN}: import_runs update failed:`, _e);
+    }
+  } else {
+    // The shell could not be created earlier — fall back to a single insert so
+    // the run is still recorded rather than lost entirely.
+    try {
+      const { data: runRow, error } = await supabase
+        .from("import_runs")
+        .insert({ organisation_id: orgId, filename, imported_by: userId, ...finalRun })
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      runId = (runRow?.id as string) ?? null;
+    } catch (_e) {
+      auditError = auditError ?? ((_e as Error)?.message || "import_runs insert failed");
     console.error(`${FN}: import_runs insert failed:`, _e);
   }
 
