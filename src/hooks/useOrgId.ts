@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminViewingOrgId, SUPER_ADMIN_EMAIL } from "@/hooks/useAdminViewAs";
 import { resolveEffectiveOrgId } from "@/lib/resolveEffectiveOrgId";
+import { fetchProfile } from "@/lib/profileCache";
+
 
 /**
  * Resolves the current user's organisation_id from the profiles table.
