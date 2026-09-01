@@ -9,6 +9,7 @@ import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 
 type Props = {
   weekDays: Date[];
