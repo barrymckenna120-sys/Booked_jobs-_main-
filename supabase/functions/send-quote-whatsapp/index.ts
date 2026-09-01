@@ -19,6 +19,8 @@ serve(async (req) => {
   }
 
   try {
+    const reqBody = await req.json();
+
     const {
       quote_id,
       customer_name,
@@ -33,7 +35,12 @@ serve(async (req) => {
       quote_number,
       customer_id,
       sent_by_user_id,
-    } = await req.json();
+    } = reqBody;
+
+    // A resend owns its own attempt record, so this path must not open a second
+    // one for the same delivery.
+    const skipTracking =
+      reqBody?.skip_delivery_tracking === true;
 
     // IDOR guard: prove the caller belongs to the quote's organisation before
     // acting with that tenant's WhatsApp credentials.
