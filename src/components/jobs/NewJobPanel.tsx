@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,10 @@ import {
 } from "@/lib/customerValidation";
 import { buildPaymentPatch } from "@/lib/paymentUpdate";
 import { BOILER_LOCATIONS } from "@/lib/boilerLocations";
+import {
+  findDuplicateJob, duplicateMatchKey, canCheckDuplicate, relativeSubmittedLabel,
+  DUPLICATE_WINDOW_MINUTES, type DuplicateJobMatch,
+} from "@/lib/duplicateJob";
 
 
 
@@ -1086,8 +1090,10 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 };
 
 /* ── STEP 4: Payment ───────────────────────────────────── */
-const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, orgId }: {
+const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, orgId, duplicateBlocked = false }: {
   jobData: any; engineers: any[]; onSubmit: (data: any) => void; onBack: () => void; orgReady?: boolean; orgId?: string | null;
+  /** BJ-0131a — true while an unacknowledged job-level duplicate is showing. */
+  duplicateBlocked?: boolean;
 
 }) => {
   const { user } = useAuth();
@@ -1322,10 +1328,12 @@ const StepPayment = ({ jobData, engineers, onSubmit, onBack, orgReady = true, or
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
         <Button
           className="flex-1 h-12 font-extrabold text-base bg-success hover:bg-success/90 text-success-foreground gap-2"
-          disabled={!orgReady}
+          disabled={!orgReady || duplicateBlocked}
           onClick={handleCreateJob}
         >
-          {orgReady ? (
+          {duplicateBlocked ? (
+            <><AlertTriangle className="w-5 h-5" /> Review duplicate first</>
+          ) : orgReady ? (
             <><CheckCircle2 className="w-5 h-5" /> Create Job</>
           ) : (
             <><Loader2 className="w-5 h-5 animate-spin" /> Checking organisation…</>
@@ -1466,8 +1474,74 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     },
   });
 
-  const handleCustomer = (c: any) => { setJobData((d: any) => ({ ...d, customer: c })); setStep(1); };
-  const handleJob = (j: any) => { setJobData((d: any) => ({ ...d, job: j })); setStep(2); };
+  /* BJ-0131a — job-level duplicate detection. Deliberately separate from the
+     customer-level duplicate state inside StepCustomer (duplicates /
+     dupeAcknowledged / dupeCheckError / checkingDupe), which is untouched. */
+  const [jobDuplicate, setJobDuplicate] = useState<DuplicateJobMatch | null>(null);
+  const [jobDuplicateAcknowledged, setJobDuplicateAcknowledged] = useState(false);
+  const [checkingJobDuplicate, setCheckingJobDuplicate] = useState(false);
+  const [jobDuplicateCheckError, setJobDuplicateCheckError] = useState<string | null>(null);
+  const jobDupeRequestRef = useRef(0);
+  const jobDupeKeyRef = useRef<string>("");
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
+  const resetJobDuplicate = () => {
+    jobDupeRequestRef.current += 1; // invalidates any in-flight lookup
+    jobDupeKeyRef.current = "";
+    setJobDuplicate(null);
+    setJobDuplicateAcknowledged(false);
+    setJobDuplicateCheckError(null);
+    setCheckingJobDuplicate(false);
+  };
+
+  const handleCustomer = (c: any) => {
+    // Customer/address changed — any previous job-level match or acknowledgment
+    // belongs to a different match key and must not be reused.
+    resetJobDuplicate();
+    setJobData((d: any) => ({ ...d, customer: c }));
+    setStep(1);
+  };
+
+  const handleJob = async (j: any) => {
+    setJobData((d: any) => ({ ...d, job: j }));
+    setStep(2);
+
+    const customer = jobData.customer;
+    const input = {
+      organisationId: orgId || "",
+      phone: customer?.phone || "",
+      jobType: j?.jobType || "",
+      address: customer?.address || "",
+      windowMinutes: DUPLICATE_WINDOW_MINUTES,
+    };
+    const key = duplicateMatchKey({ phone: input.phone, jobType: input.jobType, address: input.address });
+
+    // Re-check on every Job Details submit; a new key drops the old acknowledgment.
+    if (key !== jobDupeKeyRef.current) setJobDuplicateAcknowledged(false);
+    jobDupeKeyRef.current = key;
+    setJobDuplicateCheckError(null);
+
+    if (!canCheckDuplicate(input)) { setJobDuplicate(null); return; }
+
+    const requestId = ++jobDupeRequestRef.current;
+    setCheckingJobDuplicate(true);
+    try {
+      const match = await findDuplicateJob(input);
+      // Stale-response guard: a newer request, a changed match key or an
+      // unmounted panel must never be overwritten by this response.
+      if (!mountedRef.current || requestId !== jobDupeRequestRef.current || key !== jobDupeKeyRef.current) return;
+      setJobDuplicate(match);
+      if (!match) setJobDuplicateAcknowledged(false);
+    } catch (err) {
+      if (!mountedRef.current || requestId !== jobDupeRequestRef.current || key !== jobDupeKeyRef.current) return;
+      console.error("[NewJobPanel] job duplicate check failed:", err);
+      setJobDuplicate(null);
+      setJobDuplicateCheckError("Couldn't check for duplicate jobs — created jobs may be duplicates");
+    } finally {
+      if (mountedRef.current && requestId === jobDupeRequestRef.current) setCheckingJobDuplicate(false);
+    }
+  };
   const handleSchedule = (s: any) => { setJobData((d: any) => ({ ...d, schedule: s })); setStep(3); };
 
   const handleClose = () => {
@@ -1492,6 +1566,15 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
     if (!orgId) {
       console.log("[NewJobPanel] submit blocked: orgId null");
       toast({ title: "Organisation not found", description: "Could not resolve your organisation — please refresh and try again.", variant: "destructive" });
+      return;
+    }
+
+    if (jobDuplicate && !jobDuplicateAcknowledged) {
+      toast({
+        title: "Possible duplicate job",
+        description: "Review the existing job, or choose \u201CContinue anyway\u201D to create this one.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -1554,6 +1637,10 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         organisation_id: orgId!,
         customer_id: customerId,
         job_type: finalData.job.jobType,
+        // BJ-0131a — persist the acknowledged job-level duplicate so the Jobs
+        // list can surface it. The matched/original job is never modified.
+        possible_duplicate: !!(jobDuplicate && jobDuplicateAcknowledged),
+        matched_job_id: jobDuplicate && jobDuplicateAcknowledged ? jobDuplicate.id : null,
         boiler_brand: finalData.job.boilerBrand || finalData.job.boilerModel || null,
         boiler_issue: finalData.job.notes || null,
         notes: finalData.job.notes || null,
@@ -1747,6 +1834,58 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
 
         {/* Content */}
         <div className="flex-1 flex flex-col overflow-hidden pt-4">
+          {!done && !saving && step >= 2 && (jobDuplicate || jobDuplicateCheckError || checkingJobDuplicate) && (
+            <div className="px-5 pb-3 shrink-0">
+              {checkingJobDuplicate && !jobDuplicate && (
+                <div className="rounded-xl border border-border p-3 flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Checking for duplicate jobs…
+                </div>
+              )}
+              {jobDuplicate && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-bold text-amber-700">
+                        {jobDuplicateAcknowledged ? "Possible duplicate acknowledged" : "Possible duplicate job"}
+                      </p>
+                      <p className="text-[13px] text-amber-700/90 mt-0.5">
+                        A matching job for {jobDuplicate.customerName || jobData.customer?.name || "this customer"} was submitted{" "}
+                        {relativeSubmittedLabel(jobDuplicate.createdAt)}.
+                      </p>
+                      <p className="text-xs font-mono text-amber-700/80 mt-1">
+                        {(jobDuplicate.jobReference || `KN-${jobDuplicate.id.slice(0, 6).toUpperCase()}`)} · {jobDuplicate.jobType}
+                      </p>
+                      {jobDuplicate.address && (
+                        <p className="text-xs text-amber-700/80">{jobDuplicate.address}</p>
+                      )}
+                      <div className="flex flex-wrap gap-2 mt-2.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="font-bold"
+                          onClick={() => window.open(`/jobs/${jobDuplicate.id}`, "_blank", "noopener,noreferrer")}
+                        >
+                          View existing job
+                        </Button>
+                        {!jobDuplicateAcknowledged && (
+                          <Button size="sm" className="font-bold" onClick={() => setJobDuplicateAcknowledged(true)}>
+                            Continue anyway
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {jobDuplicateCheckError && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-2 text-[13px] font-semibold text-amber-700">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{jobDuplicateCheckError}</span>
+                </div>
+              )}
+            </div>
+          )}
           {saving ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -1760,7 +1899,7 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
           ) : step === 2 ? (
             <StepSchedule prefilledDate={prefilledDate} prefilledBlock={prefilledBlock} prefilledEngineer={prefilledEngineer} onNext={handleSchedule} onBack={() => setStep(1)} />
           ) : (
-            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} orgReady={orgReady} orgId={orgId} />
+            <StepPayment jobData={jobData} engineers={engineers} onSubmit={handleSubmit} onBack={() => setStep(2)} orgReady={orgReady} orgId={orgId} duplicateBlocked={!!jobDuplicate && !jobDuplicateAcknowledged} />
           )}
         </div>
       </SheetContent>

@@ -4,6 +4,7 @@ import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isMachineCaller } from "../_shared/machineAuth.ts";
+import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
 
 
 const MAX_NAME_LEN = 200;
@@ -443,6 +444,25 @@ Deno.serve(async (req) => {
       customer_id: customerId,
       customer_status_at_booking: customerMatched ? "existing" : "new",
     });
+
+    // BJ-0131a — advisory job-level duplicate detection. Runs only after the
+    // service call exists, excludes the row just inserted, and never affects
+    // the submission outcome (all failures are logged inside the helper).
+    await flagDuplicateJob(
+      supabase,
+      job.id,
+      {
+        organisationId: orgData.id,
+        // Duplicate detection only — the customer flow above keeps using
+        // `normalisedPhone` unchanged (see BJ-0131a scope notes).
+        phone: mobileNumber ?? normalisedPhone,
+        jobType: "Boiler Service",
+        address: fullAddress ?? "",
+      },
+      "tally-incoming-job",
+    );
+
+
 
 
     // Notify office of new incoming job

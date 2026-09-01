@@ -2883,6 +2883,7 @@ export type Database = {
           job_reference: string | null
           job_tags: string[]
           job_type: string
+          matched_job_id: string | null
           needs_scheduling: boolean
           notes: string | null
           organisation_id: string
@@ -2898,6 +2899,7 @@ export type Database = {
           payment_method: string | null
           payment_received_whatsapp_sent: boolean
           payment_status: string | null
+          possible_duplicate: boolean
           preferred_time: string | null
           quote_id: string | null
           receipt_number: string | null
@@ -2975,6 +2977,7 @@ export type Database = {
           job_reference?: string | null
           job_tags?: string[]
           job_type?: string
+          matched_job_id?: string | null
           needs_scheduling?: boolean
           notes?: string | null
           organisation_id: string
@@ -2990,6 +2993,7 @@ export type Database = {
           payment_method?: string | null
           payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
+          possible_duplicate?: boolean
           preferred_time?: string | null
           quote_id?: string | null
           receipt_number?: string | null
@@ -3067,6 +3071,7 @@ export type Database = {
           job_reference?: string | null
           job_tags?: string[]
           job_type?: string
+          matched_job_id?: string | null
           needs_scheduling?: boolean
           notes?: string | null
           organisation_id?: string
@@ -3082,6 +3087,7 @@ export type Database = {
           payment_method?: string | null
           payment_received_whatsapp_sent?: boolean
           payment_status?: string | null
+          possible_duplicate?: boolean
           preferred_time?: string | null
           quote_id?: string | null
           receipt_number?: string | null
@@ -3122,6 +3128,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_calls_matched_job_id_fkey"
+            columns: ["matched_job_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "service_calls_matched_job_id_fkey"
+            columns: ["matched_job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
             referencedColumns: ["id"]
           },
           {
@@ -3722,6 +3742,24 @@ export type Database = {
         Args: { p_organisation_id?: string }
         Returns: number
       }
+      find_duplicate_job: {
+        Args: {
+          p_address: string
+          p_exclude_service_call_id?: string
+          p_job_type: string
+          p_organisation_id: string
+          p_phone: string
+          p_window_minutes?: number
+        }
+        Returns: {
+          address: string
+          created_at: string
+          customer_name: string
+          id: string
+          job_reference: string
+          job_type: string
+        }[]
+      }
       generate_invoice_number: { Args: never; Returns: string }
       generate_quote_number: { Args: never; Returns: string }
       generate_receipt_number: { Args: { p_user_id: string }; Returns: string }
@@ -3782,6 +3820,7 @@ export type Database = {
         Returns: number
       }
       next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
+      normalise_phone_e164: { Args: { raw: string }; Returns: string }
       purge_old_read_notifications: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }

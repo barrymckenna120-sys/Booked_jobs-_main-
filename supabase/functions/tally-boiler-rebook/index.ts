@@ -4,6 +4,7 @@ import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normalisePhoneE164 } from "../_shared/phone.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isMachineCaller } from "../_shared/machineAuth.ts";
+import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
 
 
 // Phone helpers now live in ../_shared/phone.ts so other inbound handlers
@@ -252,7 +253,33 @@ Deno.serve(async (req) => {
     }
     await supabase.from("customers").update(customerUpdate).eq("id", matchedCustomer.id);
 
+    // BJ-0131a — advisory job-level duplicate detection, post-insert only.
+    // Excludes the row just created; all failures are logged and swallowed so a
+    // customer rebook is never blocked by duplicate detection.
+    try {
+      const { data: dupeCustomer } = await supabase
+        .from("customers")
+        .select("address")
+        .eq("id", matchedCustomer.id)
+        .eq("organisation_id", organisation_id)
+        .maybeSingle();
+      await flagDuplicateJob(
+        supabase,
+        job.id,
+        {
+          organisationId: organisation_id,
+          phone: normalisedPhone,
+          jobType: "Boiler Service",
+          address: (dupeCustomer as { address?: string } | null)?.address ?? "",
+        },
+        "tally-boiler-rebook",
+      );
+    } catch (_e) {
+      console.error("[tally-boiler-rebook] duplicate detection skipped:", (_e as Error)?.message ?? _e);
+    }
+
     await logInvocation(supabase, body, organisation_id, `success:job=${job.id}`);
+
 
     return new Response(
       JSON.stringify({

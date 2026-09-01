@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 import { formatWhatsApp } from "@/lib/whatsappLink";
 import { withRequestTimeout, queryRetryDelay } from "@/lib/queryDefaults";
 
@@ -30,6 +31,8 @@ const MAX_FETCH_RETRIES = 2;
 type Job = {
   id: string;
   customer_id: string;
+  /** BJ-0131a — job-level duplicate flag, drives the amber badge only. */
+  possible_duplicate?: boolean | null;
   job_type: string;
   status: string;
   scheduled_date: string | null;
@@ -379,6 +382,7 @@ const Jobs = () => {
                 <span className="font-semibold">{j.customer_name}</span>
                 <JobConfirmedBadge confirmed={j.confirmed} confirmedAt={j.confirmed_at} status={j.status} size="sm" className="ml-1.5 align-middle" />
                 <NewCustomerBadge status={j.customer_status_at_booking} size="sm" className="ml-1.5 align-middle" />
+                <PossibleDuplicateBadge flagged={j.possible_duplicate} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
                   <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
@@ -485,6 +489,7 @@ const Jobs = () => {
           <div className="flex items-center gap-1.5 min-w-0">
             <p className="font-bold text-foreground truncate">{j.customer_name}</p>
             <NewCustomerBadge status={j.customer_status_at_booking} size="sm" />
+            <PossibleDuplicateBadge flagged={j.possible_duplicate} size="sm" />
           </div>
           {j.customer_address && (
             <p className="text-xs text-muted-foreground truncate">{j.customer_address}</p>
