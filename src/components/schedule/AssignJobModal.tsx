@@ -97,10 +97,41 @@ const AssignJobModal = ({
       setSelectedDate(defaultDate ? format(defaultDate, "yyyy-MM-dd") : "");
       setSelectedBlock(defaultTimeBlock || "");
       setSelectedEngineer(job?.assigned_engineer || engineers[0]?.name || "");
+      setAssistIds([]);
+      setShowAssistPicker(false);
       setErrors({});
       setTouched({});
     }
   }, [open, job, defaultDate, defaultTimeBlock, engineers]);
+
+  // Load existing assist engineers for whichever job is targeted (Assign or Move)
+  useEffect(() => {
+    if (!open || !selectedJobId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("job_engineers")
+        .select("engineer_id")
+        .eq("job_id", selectedJobId);
+      if (!cancelled) setAssistIds(((data as any[]) || []).map((r) => r.engineer_id));
+    })();
+    return () => { cancelled = true; };
+  }, [open, selectedJobId]);
+
+  const leadEngineerId = useMemo(
+    () => engineers.find((e) => e.name === selectedEngineer)?.id || null,
+    [engineers, selectedEngineer]
+  );
+
+  const assistEngineers = useMemo(
+    () => assistIds.map((id) => engineers.find((e) => e.id === id)).filter(Boolean) as { id: string; name: string }[],
+    [assistIds, engineers]
+  );
+
+  const availableAssistEngineers = useMemo(
+    () => engineers.filter((e) => e.id !== leadEngineerId && !assistIds.includes(e.id)),
+    [engineers, leadEngineerId, assistIds]
+  );
 
   const isDirty = !!(selectedJobId || selectedDate || selectedBlock || selectedEngineer);
 
@@ -119,8 +150,15 @@ const AssignJobModal = ({
     setTouched({ job: true, date: true, block: true, engineer: true });
     if (Object.keys(e).length > 0) return;
     const date = weekDays.find((d) => format(d, "yyyy-MM-dd") === selectedDate) || parseISO(selectedDate.substring(0, 10));
-    onAssign(selectedJobId, date, selectedBlock, selectedEngineer);
+    onAssign(
+      selectedJobId,
+      date,
+      selectedBlock,
+      selectedEngineer,
+      assistIds.filter((id) => id && id !== leadEngineerId)
+    );
   };
+
 
   const handleClose = () => {
     if (isDirty) {
