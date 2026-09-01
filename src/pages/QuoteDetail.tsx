@@ -13,6 +13,7 @@ import { ArrowLeft, Edit2, Download, MessageCircle, CheckCircle2, Loader2, FileT
 import { format } from "date-fns";
 import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
+import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
 
 type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
 type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
@@ -454,6 +455,9 @@ const QuoteDetail = () => {
           {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Download className="w-4 h-4 mr-1" />}
           {downloadingPdf ? "Downloading..." : "Download PDF"}
         </Button>
+        <div className="w-full">
+          <DeliveryStatusBadge commType="quote" relatedId={q.id} />
+        </div>
         <Button variant="outline" onClick={sendWhatsApp} disabled={sendingWhatsApp}>
           {sendingWhatsApp ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <MessageCircle className="w-4 h-4 mr-1" />}
           Resend WhatsApp
