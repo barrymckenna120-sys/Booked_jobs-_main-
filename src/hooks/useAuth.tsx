@@ -90,6 +90,23 @@ const isPublicPath = (pathname: string) =>
     (p) => pathname === p || pathname === p.replace(/\/$/, "") || pathname.startsWith(p)
   );
 
+/**
+ * Supabase re-checks/refreshes the session whenever the tab becomes visible,
+ * emitting TOKEN_REFRESHED. Publishing that session unconditionally handed every
+ * one of the ~91 useAuth() consumers a brand-new `user` object for the *same*
+ * user, so any effect keyed on `user` (e.g. the Jobs list fetch + its realtime
+ * subscription) re-ran on every tab return — a full refetch burst per focus,
+ * which the realtime debounce cannot see or suppress.
+ *
+ * Keep the previous object when the identity is unchanged. Sign-in, sign-out and
+ * password-recovery flows all change identity, so they still propagate.
+ */
+export const nextUserState = (prev: User | null, next: User | null): User | null => {
+  if (prev === next) return prev;
+  if (prev && next && prev.id === next.id) return prev;
+  return next;
+};
+
 export const useAuth = (redirectTo = "/auth") => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,25 +114,10 @@ export const useAuth = (redirectTo = "/auth") => {
   const initialCheckDone = useRef(false);
 
   useEffect(() => {
-    /**
-     * Supabase re-checks/refreshes the session whenever the tab becomes visible,
-     * emitting TOKEN_REFRESHED. Calling setUser unconditionally handed every one
-     * of the ~91 useAuth() consumers a brand-new `user` object for the *same*
-     * user, so any effect keyed on `user` (e.g. the Jobs list fetch + its
-     * realtime subscription) re-ran on every tab return — a full refetch burst
-     * per focus, which the realtime debounce cannot see or suppress.
-     *
-     * Only publish a new object when the identity actually changes (different
-     * user id, or the session flips to/from signed-out). Sign-in, sign-out and
-     * password-recovery flows all change identity, so they still propagate.
-     */
     const setUserIfChanged = (next: User | null) => {
-      setUser((prev) => {
-        if (prev === next) return prev;
-        if (prev && next && prev.id === next.id) return prev;
-        return next;
-      });
+      setUser((prev) => nextUserState(prev, next));
     };
+
 
     // Get session first before subscribing to changes
     supabase.auth.getSession().then(({ data: { session } }) => {
