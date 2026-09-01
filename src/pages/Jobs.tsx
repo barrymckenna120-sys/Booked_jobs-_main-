@@ -146,7 +146,7 @@ const Jobs = () => {
 
       if (jobsData) {
         retryCount.current = 0;
-        const customerIds = [...new Set(jobsData.map(j => j.customer_id))];
+        const customerIds = [...new Set(jobsData.map(j => j.customer_id))] as string[];
         const { data: customers } = await withRequestTimeout(
           supabase
             .from("customers")
