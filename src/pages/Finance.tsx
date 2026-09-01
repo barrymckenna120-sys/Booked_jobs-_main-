@@ -402,8 +402,13 @@ const Finance = () => {
 
   const dateRange = useMemo(() => getDateRange(viewMode, anchor), [viewMode, anchor]);
 
+  // Keyed on user?.id rather than the full user object so auth-event churn
+  // (re-emitted sessions, hourly token refresh) doesn't re-run the fetch.
+  const userId = user?.id;
+
   useEffect(() => {
-    if (!user || !orgId) return;
+    if (!userId || !orgId) return;
+
     let cancelled = false;
     const fetchAll = async () => {
       setLoading(true);
