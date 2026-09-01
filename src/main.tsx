@@ -9,9 +9,14 @@ import { shouldSkipServiceWorker } from "./lib/isPreviewHost";
 import { installGlobalErrorHandlers } from "./lib/globalErrorHandlers";
 import { buildSentryTags, trackServiceWorkerState } from "./lib/sentryContext";
 import ErrorFallback from "./components/shared/ErrorFallback";
+// TEMPORARY: dev/preview-only auth probe for the token-refresh verification.
+// Remove this import together with src/lib/devAuthProbe.ts after sign-off.
+import { installDevAuthProbe } from "./lib/devAuthProbe";
 
 installOrgHeaderInterceptor();
 trackServiceWorkerState();
+installDevAuthProbe();
+
 
 Sentry.init({
   dsn: "https://940563403eba06fc2d04d2b29c84d18b@o4511293795074048.ingest.de.sentry.io/4511293857267792",
