@@ -153,18 +153,29 @@ export type CompleteDeliveryInput = {
   ok: boolean;
   providerError?: string | null;
   providerMessageId?: string | null;
+  providerStatus?: string | null;
   recipient?: string | null;
 };
 
 /**
+ * How long we wait for a provider delivery confirmation before the office is
+ * told the delivery is unconfirmed. NOT a failure — see recordUnconfirmed().
+ */
+export const CONFIRMATION_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+/**
  * Record the ACTUAL result of a send attempt.
- * On success a previously failed communication is marked resolved.
+ *
+ * A successful API call means the provider ACCEPTED/queued the request — it is
+ * never proof of delivery, so it is recorded as `accepted`, never `sent` and
+ * never `delivered`. Only a provider callback may promote it to `delivered`
+ * (recordDelivered) or demote it to `failed` (recordProviderFailure).
  */
 export async function completeDelivery(
   supabase: any,
   input: CompleteDeliveryInput,
-): Promise<{ status: "sent" | "failed"; reason: string | null }> {
-  const status = input.ok ? "sent" : "failed";
+): Promise<{ status: "accepted" | "failed"; reason: string | null }> {
+  const status = input.ok ? "accepted" : "failed";
   const reason = input.ok
     ? null
     : humanFailureReason(input.providerError, input.channel);
@@ -173,17 +184,20 @@ export async function completeDelivery(
 
   try {
     const now = new Date().toISOString();
+    const dueAt = new Date(Date.now() + CONFIRMATION_WINDOW_MS).toISOString();
 
     await supabase
       .from("communication_delivery_attempts")
       .update({
         outcome: status,
         completed_at: now,
+        accepted_at: input.ok ? now : null,
         failure_reason_public: reason,
         provider_error: input.providerError
           ? String(input.providerError).slice(0, 2000)
           : null,
         provider_message_id: input.providerMessageId ?? null,
+        provider_status: input.providerStatus ?? null,
         recipient: input.recipient ?? undefined,
       })
       .eq("id", input.handle.attemptId);
@@ -194,7 +208,10 @@ export async function completeDelivery(
         delivery_status: status,
         failure_reason_public: reason,
         last_attempt_at: now,
-        delivered_at: input.ok ? now : undefined,
+        accepted_at: input.ok ? now : undefined,
+        confirmation_due_at: input.ok ? dueAt : null,
+        provider_status: input.providerStatus ?? null,
+        // delivered_at is only ever written by a real provider confirmation.
         resolved_at: input.ok ? now : null,
         in_flight: false,
         in_flight_at: null,
@@ -211,6 +228,112 @@ export async function completeDelivery(
 
   return { status, reason };
 }
+
+/**
+ * Provider confirmed the message reached the customer. Matched by provider
+ * message id, which is unique across all tenants, so a callback can never
+ * touch another tenant's row. Idempotent: a repeat callback changes nothing.
+ */
+export async function recordDelivered(
+  supabase: any,
+  providerMessageId: string,
+  providerStatus?: string | null,
+): Promise<{ matched: boolean; changed: boolean }> {
+  const { data: attempt } = await supabase
+    .from("communication_delivery_attempts")
+    .select("id, delivery_id, organisation_id, delivered_at")
+    .eq("provider_message_id", providerMessageId)
+    .maybeSingle();
+
+  if (!attempt) return { matched: false, changed: false };
+  if (attempt.delivered_at) return { matched: true, changed: false };
+
+  const now = new Date().toISOString();
+
+  await supabase
+    .from("communication_delivery_attempts")
+    .update({
+      outcome: "delivered",
+      delivered_at: now,
+      provider_status: providerStatus ?? null,
+      failure_reason_public: null,
+    })
+    .eq("id", attempt.id);
+
+  await supabase
+    .from("communication_deliveries")
+    .update({
+      delivery_status: "delivered",
+      delivered_at: now,
+      failure_reason_public: null,
+      provider_status: providerStatus ?? null,
+      confirmation_due_at: null,
+      resolved_at: now,
+      in_flight: false,
+      in_flight_at: null,
+    })
+    .eq("id", attempt.delivery_id)
+    .eq("organisation_id", attempt.organisation_id);
+
+  return { matched: true, changed: true };
+}
+
+/**
+ * Provider explicitly reported the message failed. This is the only path that
+ * may write `failed` after acceptance. Idempotent per attempt.
+ */
+export async function recordProviderFailure(
+  supabase: any,
+  providerMessageId: string,
+  providerError: string,
+  channel = "whatsapp",
+  providerStatus?: string | null,
+): Promise<{ matched: boolean; changed: boolean }> {
+  const { data: attempt } = await supabase
+    .from("communication_delivery_attempts")
+    .select("id, delivery_id, organisation_id, outcome, delivered_at")
+    .eq("provider_message_id", providerMessageId)
+    .maybeSingle();
+
+  if (!attempt) return { matched: false, changed: false };
+  // Never contradict a confirmed delivery, and never re-alert on the same attempt.
+  if (attempt.delivered_at || attempt.outcome === "failed") {
+    return { matched: true, changed: false };
+  }
+
+  const now = new Date().toISOString();
+  const reason = humanFailureReason(providerError, channel);
+
+  await supabase
+    .from("communication_delivery_attempts")
+    .update({
+      outcome: "failed",
+      completed_at: now,
+      failure_reason_public: reason,
+      provider_error: String(providerError).slice(0, 2000),
+      provider_status: providerStatus ?? null,
+    })
+    .eq("id", attempt.id);
+
+  await supabase
+    .from("communication_deliveries")
+    .update({
+      delivery_status: "failed",
+      failure_reason_public: reason,
+      provider_status: providerStatus ?? null,
+      confirmation_due_at: null,
+      resolved_at: null,
+      in_flight: false,
+      in_flight_at: null,
+    })
+    .eq("id", attempt.delivery_id)
+    .eq("organisation_id", attempt.organisation_id);
+
+  await queueFailureAlert(supabase, attempt.id);
+
+  return { matched: true, changed: true };
+}
+
 
 /** Intentional suppression: not a failure, never alerts. */
 export async function markOptedOut(
