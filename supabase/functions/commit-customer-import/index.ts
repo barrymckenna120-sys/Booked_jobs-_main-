@@ -18,8 +18,15 @@
  * failed), and a run where 900 of 1000 rows succeed must keep those 900 and
  * report the 100 honestly — a transaction would discard them. Each row is one
  * self-contained statement, so a mid-run failure cannot leave a half-written
- * customer. `import_runs` is inserted once afterwards from the outcomes actually
- * observed, which is what keeps the audit consistent with the customer table.
+ * customer.
+ *
+ * Audit ordering (BJ-0131 hardening): an `import_runs` shell row is inserted
+ * BEFORE any customer write and updated with the observed outcomes afterwards.
+ * If the function dies midway, or the final update fails, the shell row remains
+ * as evidence that the import happened. An incomplete run is recognisable from
+ * the existing schema alone — `row_details` is still `[]` and the counts are
+ * still 0 while `total_rows` is non-zero — so no status column was added and no
+ * unprocessed row is ever recorded as successful.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders, handlePreflight, jsonResponse } from "../_shared/cors.ts";
