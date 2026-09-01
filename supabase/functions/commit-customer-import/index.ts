@@ -146,6 +146,36 @@ Deno.serve(async (req) => {
 
   const supabase = serviceClient();
 
+  const filename = String(body.filename ?? "").trim() || "unknown.xlsx";
+
+  // --- Audit shell: recorded BEFORE any customer write ---
+  // Counts stay 0 and row_details stays [] until the run finishes, so a run that
+  // dies partway through is attributable to this org/actor/file without ever
+  // claiming an outcome for a row that was not processed.
+  let runId: string | null = null;
+  let auditError: string | null = null;
+  try {
+    const { data: shell, error } = await supabase
+      .from("import_runs")
+      .insert({
+        organisation_id: orgId,
+        filename,
+        imported_by: userId,
+        total_rows: rows.length,
+        created_count: 0,
+        updated_count: 0,
+        error_count: 0,
+        row_details: [],
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    runId = (shell?.id as string) ?? null;
+  } catch (_e) {
+    auditError = (_e as Error)?.message || "import_runs shell insert failed";
+    console.error(`${FN}: import_runs shell insert failed:`, _e);
+  }
+
   // --- Re-run matching against current state, inside this organisation only ---
   const keys = { phone: new Set<string>(), gprn: new Set<string>(), eircode: new Set<string>() };
   for (const r of rows) {
