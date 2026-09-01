@@ -112,6 +112,44 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
     );
   };
 
+  // BJ-0090 — one batched assists lookup for the jobs currently on the grid.
+  const jobIds = useMemo(
+    () => Array.from(new Set(jobs.map((j) => j.id))).sort(),
+    [jobs]
+  );
+
+  const { data: assistsByJob = {} } = useQuery({
+    queryKey: ["schedule-job-assists", jobIds],
+    enabled: jobIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("job_engineers")
+        .select("job_id, engineer_id, engineers(name)")
+        .in("job_id", jobIds);
+      return groupJobAssists(data as any);
+    },
+  });
+
+  /** Shared team display for both the desktop grid card and the mobile card. */
+  const renderTeam = (job: ScheduleJob) => {
+    const lines = buildJobTeamLines(job.assigned_engineer, assistsByJob[job.id]);
+    if (lines.length === 0) return null;
+    const showRoles = lines.length > 1;
+    return (
+      <div className="text-[10px] text-muted-foreground mt-0.5">
+        {lines.map((l) => (
+          <div key={l.key} className={l.role === "Lead" ? "" : "text-muted-foreground/80"}>
+            {l.name}
+            {showRoles && <span> — {l.role}</span>}
+          </div>
+        ))}
+        <div>{renderMessageBtn(job)}</div>
+      </div>
+    );
+  };
+
+
+
   return (
     <>
       {/* Desktop Grid */}
