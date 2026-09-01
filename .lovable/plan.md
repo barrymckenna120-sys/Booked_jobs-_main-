@@ -32,8 +32,11 @@ Yes — I can drive the real app in a browser here with a genuine, non-impersona
 
 ## Plan
 
-### Step 1 — Fix the Cavan test account (needs your decision)
-Create a separate Cavan Gas login on its own email address, and correct the "Noor" row that currently holds your superadmin email so the auto-link can never attach your superadmin account to Cavan. I'll propose the exact change for approval before touching data.
+### Step 1 — Fix the Cavan test account
+Point the existing Cavan "Noor" team-member row at the alias address `abdenneur1+cavantest@gmail.com` instead of your superadmin email, so the app's auto-link can never attach your superadmin login to Cavan Gas. Then create a genuine, separate login for that alias on the Cavan Gas tenant with a real password, an engineer-level role, and a Cavan-scoped profile — checked afterwards to confirm its organisation and role are Cavan and not K&N.
+
+This is a data change, so it goes in as its own reviewable step before anything else runs.
+
 
 ### Step 2 — Dev-only refresh helper
 Add a small helper, active only in dev/preview, that triggers a real token refresh on demand. No production exposure, no effect on any session other than the one in the browser running it.
