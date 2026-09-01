@@ -390,7 +390,8 @@ Deno.serve(async (req) => {
       runId = (runRow?.id as string) ?? null;
     } catch (_e) {
       auditError = auditError ?? ((_e as Error)?.message || "import_runs insert failed");
-    console.error(`${FN}: import_runs insert failed:`, _e);
+      console.error(`${FN}: import_runs insert failed:`, _e);
+    }
   }
 
   if (runId) {
