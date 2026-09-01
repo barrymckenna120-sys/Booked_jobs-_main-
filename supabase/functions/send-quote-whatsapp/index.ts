@@ -759,9 +759,15 @@ YES ${refNumber}`;
     return new Response(
       JSON.stringify({
         success:
-          result.success,
+          accepted,
+        status: accepted
+          ? "accepted"
+          : "failed",
+        provider_message_id:
+          providerMessageId,
+        recipient: cleanNumber,
         error_detail:
-          result.success
+          accepted
             ? undefined
             : `360Messenger HTTP ${response.status}: ${resultText.substring(
                 0,
