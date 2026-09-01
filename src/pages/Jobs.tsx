@@ -19,6 +19,8 @@ import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 import { formatWhatsApp } from "@/lib/whatsappLink";
 import { withRequestTimeout, queryRetryDelay } from "@/lib/queryDefaults";
+import { useQuery } from "@tanstack/react-query";
+import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
 
 
 const PAGE_SIZE = 15;
@@ -87,6 +89,24 @@ const Jobs = () => {
   const [loadFailed, setLoadFailed] = useState(false);
   const realtimeTimer = useRef<number | null>(null);
   const retryCount = useRef(0);
+
+  // BJ-0090: assist engineers for the loaded jobs — one batched request for the
+  // whole list (never one per card), so cards can show Lead + Assistants.
+  const jobIds = jobs.map((j) => j.id).sort();
+  const { data: assistsMap = {} } = useQuery({
+    queryKey: ["jobs-list-assists", jobIds],
+    enabled: !!user && ready && jobIds.length > 0,
+    staleTime: 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await withRequestTimeout(
+        supabase.from("job_engineers").select("job_id, engineer_id, engineers(name)").in("job_id", jobIds)
+      );
+      if (error) throw error;
+      return groupJobAssists(data as any);
+    },
+  });
+
 
 
 
