@@ -1,7 +1,14 @@
 /** Per-row audit entry stored in import_runs.row_details. */
 export type ImportRunRowDetail = {
   row_number: number;
-  outcome: "created" | "updated" | "skipped_ambiguous" | "failed";
+  outcome:
+    | "created"
+    | "updated"
+    | "merged"
+    | "skipped_ambiguous"
+    | "skipped_existing"
+    | "excluded_duplicate"
+    | "failed";
   customer_id: string | null;
   error_message: string | null;
 };
@@ -23,7 +30,10 @@ export type ImportRun = {
 export const OUTCOME_LABELS: Record<ImportRunRowDetail["outcome"], string> = {
   created: "Created",
   updated: "Updated",
+  merged: "Merged into existing",
   skipped_ambiguous: "Skipped — ambiguous phone",
+  skipped_existing: "Skipped — already exists",
+  excluded_duplicate: "Excluded — duplicate in file",
   failed: "Failed",
 };
 
