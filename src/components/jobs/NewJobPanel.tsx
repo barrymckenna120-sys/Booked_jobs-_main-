@@ -804,6 +804,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const [date, setDate] = useState(prefilledDate || todayISO);
   const [block, setBlock] = useState(prefilledBlock || "9–11");
   const [engineer, setEngineer] = useState(prefilledEngineer || "");
+  const [assists, setAssists] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ date?: boolean; block?: boolean; engineer?: boolean }>({});
   const [holidayBlock, setHolidayBlock] = useState<{ engineerName: string } | null>(null);
 
@@ -932,8 +933,31 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     if (!engineer) e.engineer = true;
     setErrors(e);
     if (Object.keys(e).length > 0 || isOnLeave || isSlotFull || (date && date < todayISO)) return;
-    onNext({ date, timeBlock: block, engineerId: engineer });
+    onNext({ date, timeBlock: block, engineerId: engineer, assistEngineerIds: assists });
   };
+
+  const toggleEngineer = (id: string) => {
+    setErrors((prev) => ({ ...prev, engineer: false }));
+    if (engineer === id) {
+      // Deselect lead → promote first assist, or clear
+      setEngineer(assists[0] || "");
+      setAssists((a) => a.slice(1));
+      return;
+    }
+    if (assists.includes(id)) {
+      setAssists((a) => a.filter((x) => x !== id));
+      return;
+    }
+    if (!engineer) { setEngineer(id); return; }
+    if (assists.length < 2) setAssists((a) => [...a, id]);
+  };
+
+  const makeLead = (id: string) => {
+    const currentLead = engineer;
+    setAssists((a) => a.map((x) => (x === id ? currentLead : x)).filter(Boolean));
+    setEngineer(id);
+  };
+
 
   const loadColor = (n: number) => n >= 2 ? "text-destructive" : n >= 1 ? "text-warning" : "text-success";
   const loadBg = (n: number) => n >= 2 ? "bg-destructive/10 border-destructive/30" : n >= 1 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/30";
@@ -1027,17 +1051,24 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
           <div className={`space-y-2 mt-1.5 rounded-xl ${errors.engineer ? "ring-2 ring-[#F59E0B] p-1" : ""}`}>
             {engineers.map((eng: any) => {
               const load = (slotCounts as any)[eng.id] || 0;
-              const isSelected = engineer === eng.id;
+              const isLead = engineer === eng.id;
+              const isAssist = assists.includes(eng.id);
+              const isSelected = isLead || isAssist;
               const isFull = load >= 3;
               const onLeave = engineersOnLeaveSet.has(eng.id);
+              const capReached = !isSelected && !!engineer && assists.length >= 2;
+              const disabled = isFull || onLeave || capReached;
               return (
-                <button
+                <div
                   key={eng.id}
-                  onClick={() => { if (!isFull && !onLeave) { setEngineer(eng.id); setErrors((prev) => ({ ...prev, engineer: false })); } }}
+                  role="button"
+                  tabIndex={disabled ? -1 : 0}
+                  aria-pressed={isSelected}
+                  onClick={() => { if (!disabled) toggleEngineer(eng.id); }}
+                  onKeyDown={(ev) => { if (!disabled && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggleEngineer(eng.id); } }}
                   className={`w-full p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all ${
-                    isSelected ? "border-primary bg-primary/5" : (isFull || onLeave) ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-primary/30 cursor-pointer"
+                    isSelected ? "border-primary bg-primary/5" : disabled ? "border-border opacity-50 cursor-not-allowed" : "border-border hover:border-primary/30 cursor-pointer"
                   }`}
-                  disabled={isFull || onLeave}
                 >
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ${
                     isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
@@ -1057,16 +1088,32 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
                       {onLeave ? "Unavailable on this date" : `${load} job${load !== 1 ? "s" : ""} in this slot`}
                     </div>
                   </div>
-                  {!onLeave && (
+                  {isLead ? (
+                    <div className="rounded-full px-2.5 py-0.5 text-[11px] font-bold border border-primary/30 bg-primary/10 text-primary">
+                      👑 Lead
+                    </div>
+                  ) : isAssist ? (
+                    <button
+                      type="button"
+                      onClick={(ev) => { ev.stopPropagation(); makeLead(eng.id); }}
+                      className="rounded-full px-2.5 py-0.5 text-[11px] font-bold border border-primary/30 bg-secondary text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      Assist · Make Lead
+                    </button>
+                  ) : !onLeave ? (
                     <div className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${loadBg(load)} ${loadColor(load)}`}>
                       {loadLabel(load)}
                     </div>
-                  )}
-                </button>
+                  ) : null}
+                </div>
               );
             })}
           </div>
+          <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+            Tap to assign. First engineer picked is Lead — owns completion and payment. Up to 2 more can be added to assist.
+          </p>
           <ValidationMessage show={!!errors.engineer} />
+
 
           {isOnLeave && (
             <div className="mt-2 bg-warning/10 border border-warning/30 rounded-xl p-3 flex items-center gap-2.5">
@@ -1081,7 +1128,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave || isSlotFull || availableTimeBlocks.length === 0} onClick={handleNext}>
+        <Button className="flex-1 h-12 font-extrabold text-base" disabled={!engineer || isOnLeave || isSlotFull || availableTimeBlocks.length === 0} onClick={handleNext}>
           Set payment →
         </Button>
       </div>
@@ -1677,6 +1724,21 @@ const NewJobPanel = ({ onClose, prefilledCustomer, prefilledDate, prefilledBlock
         organisation_id: (newJob as any)?.organisation_id,
         status: (newJob as any)?.status,
       });
+
+      // Assist engineers (BJ-0090) — lead stays on service_calls, assists go to job_engineers
+      const assistIds: string[] = (finalData.schedule?.assistEngineerIds || []).filter(
+        (id: string) => id && id !== finalData.schedule.engineerId
+      );
+      if ((newJob as any)?.id && assistIds.length > 0) {
+        const { error: assistErr } = await supabase.from("job_engineers").insert(
+          assistIds.map((engineerId) => ({
+            job_id: (newJob as any).id,
+            engineer_id: engineerId,
+            organisation_id: (newJob as any).organisation_id || orgId!,
+          })) as any
+        );
+        if (assistErr) console.error("[NewJobPanel] assist insert failed:", assistErr);
+      }
 
 
       // Sync job fields back to existing customer profile
